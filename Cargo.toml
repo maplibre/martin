@@ -1,0 +1,8 @@
+[package]
+name = "falcon"
+version = "0.1.0"
+authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
+
+[dependencies]
+iron = "0.5.1"
+router = "0.5.1"
