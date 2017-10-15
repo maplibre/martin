@@ -1,5 +1,7 @@
 # Falcon
 
+[![Build Status](https://travis-ci.org/stepankuzmin/falcon.svg?branch=master)](https://travis-ci.org/stepankuzmin/falcon)
+
 PostgreSQL RESTful API.
 
 **Warning: this is experimental**
