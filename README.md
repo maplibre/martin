@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/stepankuzmin/falcon.svg?branch=master)](https://travis-ci.org/stepankuzmin/falcon)
 
-PostgreSQL RESTful API
+PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server.
 
 **Warning: this is experimental**
 
