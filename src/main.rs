@@ -1,7 +1,6 @@
 extern crate url;
 extern crate iron;
 extern crate regex;
-extern crate iron_cors;
 extern crate persistent;
 
 extern crate r2d2;
@@ -11,10 +10,9 @@ use std::env;
 use url::Url;
 use regex::Regex;
 use iron::prelude::*;
-use iron::mime;
-use iron::status;
 use iron::typemap::Key;
-use iron_cors::CorsMiddleware;
+use iron::headers::AccessControlAllowOrigin;
+use iron::{mime, status, AfterMiddleware};
 use persistent::Read;
 
 use r2d2::{Pool, PooledConnection};
@@ -22,6 +20,14 @@ use r2d2_postgres::{TlsMode, PostgresConnectionManager};
 
 pub type PostgresPool = Pool<PostgresConnectionManager>;
 pub type PostgresPooledConnection = PooledConnection<PostgresConnectionManager>;
+
+struct CORS;
+impl AfterMiddleware for CORS {
+    fn after(&self, _req: &mut Request, mut resp: Response) -> IronResult<Response> {
+        resp.headers.set(AccessControlAllowOrigin::Any);
+        Ok(resp)
+    }
+}
 
 pub struct DB;
 impl Key for DB { type Value = PostgresPool; }
@@ -79,14 +85,12 @@ fn main() {
     println!("connecting to postgres: {}", conn_string);
     let pool = setup_connection_pool(&conn_string, 10);
 
-    let mut middleware = Chain::new(handler);
-    middleware.link(Read::<DB>::both(pool));
-
-    let cors_middleware = CorsMiddleware::with_allow_any(false);
-    middleware.link_around(cors_middleware);
+    let mut chain = Chain::new(handler);
+    chain.link(Read::<DB>::both(pool));
+    chain.link_after(CORS);
 
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
     println!("server has been started on {}.", bind_addr);
-    Iron::new(middleware).http(bind_addr.as_str()).unwrap();
+    Iron::new(chain).http(bind_addr.as_str()).unwrap();
 }

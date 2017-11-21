@@ -10,9 +10,8 @@ path = "src/main.rs"
 [dependencies]
 url = "1.6.0"
 regex = "0.2.2"
-iron = "0.5.1"
-iron-cors = "0.5.1"
-persistent = "0.3.0"
+iron = "0.6.0"
+persistent = "0.4.0"
 r2d2 = "0.7.4"
 r2d2_postgres = "0.13.0"
 postgres = { version = "0.15.1", features = ["with-time", "with-uuid"] }
