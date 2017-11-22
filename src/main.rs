@@ -8,20 +8,12 @@ extern crate r2d2_postgres;
 use std::env;
 use url::Url;
 use regex::Regex;
-use iron::prelude::*;
-use iron::headers::AccessControlAllowOrigin;
-use iron::{mime, status, AfterMiddleware};
+use iron::{mime, status};
+use iron::prelude::{Iron, Chain, Plugin, Request, Response, IronResult};
 use persistent::Read;
 
 mod db;
-
-struct CORS;
-impl AfterMiddleware for CORS {
-    fn after(&self, _req: &mut Request, mut resp: Response) -> IronResult<Response> {
-        resp.headers.set(AccessControlAllowOrigin::Any);
-        Ok(resp)
-    }
-}
+mod cors;
 
 fn handler(req: &mut Request) -> IronResult<Response> {
     let url: Url = req.url.clone().into();
@@ -78,10 +70,10 @@ fn main() {
         }
     };
 
-    chain.link_after(CORS);
+    chain.link_after(cors::CORS);
 
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
-    println!("server has been started on {}.", bind_addr);
+    println!("Server has been started on {}.", bind_addr);
     Iron::new(chain).http(bind_addr.as_str()).unwrap();
 }
