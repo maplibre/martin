@@ -9,7 +9,7 @@ use std::env;
 use url::Url;
 use regex::Regex;
 use iron::{mime, status};
-use iron::prelude::{Iron, Chain, Plugin, Request, Response, IronResult};
+use iron::prelude::{Iron, Chain, Request, Response, IronResult};
 use persistent::Read;
 
 mod db;
@@ -23,8 +23,13 @@ fn handler(req: &mut Request) -> IronResult<Response> {
         Some(caps) => {
             println!("{} {} {}", req.method, req.version, req.url);
 
-            let pool = req.get::<Read<db::DB>>().unwrap();
-            let conn = pool.get().unwrap();
+            let conn = match db::get_connection(req) {
+                Ok(conn) => conn,
+                Err(error) => {
+                    eprintln!("Couldn't get a connection to postgres: {}", error);
+                    return Ok(Response::with((status::InternalServerError)));
+                }
+            };
 
             let query = format!(
                 "SELECT ST_AsMVT(q, '{1}', 4096, 'geom') FROM ( \
