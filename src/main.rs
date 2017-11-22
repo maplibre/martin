@@ -4,6 +4,7 @@ extern crate regex;
 extern crate persistent;
 extern crate r2d2;
 extern crate r2d2_postgres;
+#[macro_use] extern crate lazy_static;
 
 use std::env;
 use url::Url;
@@ -17,9 +18,12 @@ mod cors;
 
 fn handler(req: &mut Request) -> IronResult<Response> {
     let url: Url = req.url.clone().into();
-    let tile_re = r"^/(?P<schema>\w*)/(?P<table>\w*)/(?P<z>\d*)/(?P<x>\d*)/(?P<y>\d*).(?P<format>\w*)$";
-    let re = Regex::new(tile_re).unwrap();
-    match re.captures(&url.path()) {
+
+    lazy_static! {
+        static ref TILE_REGEX: Regex = Regex::new(r"^/(?P<schema>\w*)/(?P<table>\w*)/(?P<z>\d*)/(?P<x>\d*)/(?P<y>\d*).(?P<format>\w*)$").unwrap();
+    }
+
+    match TILE_REGEX.captures(&url.path()) {
         Some(caps) => {
             println!("{} {} {}", req.method, req.version, req.url);
 
