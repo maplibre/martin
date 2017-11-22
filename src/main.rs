@@ -2,7 +2,6 @@ extern crate url;
 extern crate iron;
 extern crate regex;
 extern crate persistent;
-
 extern crate r2d2;
 extern crate r2d2_postgres;
 
@@ -10,16 +9,11 @@ use std::env;
 use url::Url;
 use regex::Regex;
 use iron::prelude::*;
-use iron::typemap::Key;
 use iron::headers::AccessControlAllowOrigin;
 use iron::{mime, status, AfterMiddleware};
 use persistent::Read;
 
-use r2d2::{Pool, PooledConnection};
-use r2d2_postgres::{TlsMode, PostgresConnectionManager};
-
-pub type PostgresPool = Pool<PostgresConnectionManager>;
-pub type PostgresPooledConnection = PooledConnection<PostgresConnectionManager>;
+mod db;
 
 struct CORS;
 impl AfterMiddleware for CORS {
@@ -27,15 +21,6 @@ impl AfterMiddleware for CORS {
         resp.headers.set(AccessControlAllowOrigin::Any);
         Ok(resp)
     }
-}
-
-pub struct DB;
-impl Key for DB { type Value = PostgresPool; }
-
-fn setup_connection_pool(cn_str: &str, pool_size: u32) -> PostgresPool {
-    let config = r2d2::Config::builder().pool_size(pool_size).build();
-    let manager = PostgresConnectionManager::new(cn_str, TlsMode::None).unwrap();
-    r2d2::Pool::new(config, manager).unwrap()
 }
 
 fn handler(req: &mut Request) -> IronResult<Response> {
@@ -46,7 +31,7 @@ fn handler(req: &mut Request) -> IronResult<Response> {
         Some(caps) => {
             println!("{} {} {}", req.method, req.version, req.url);
 
-            let pool = req.get::<Read<DB>>().unwrap();
+            let pool = req.get::<Read<db::DB>>().unwrap();
             let conn = pool.get().unwrap();
 
             let query = format!(
@@ -82,11 +67,17 @@ fn main() {
     let conn_string: String = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
 
-    println!("connecting to postgres: {}", conn_string);
-    let pool = setup_connection_pool(&conn_string, 10);
-
     let mut chain = Chain::new(handler);
-    chain.link(Read::<DB>::both(pool));
+
+    println!("Connecting to postgres: {}", conn_string);
+    match db::setup_connection_pool(&conn_string, 10) {
+        Ok(pool) => chain.link(Read::<db::DB>::both(pool)),
+        Err(error) => {
+            eprintln!("Error connectiong to postgres: {}", error);
+            std::process::exit(-1);
+        }
+    };
+
     chain.link_after(CORS);
 
     let port = 3000;
