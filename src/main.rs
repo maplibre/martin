@@ -35,29 +35,18 @@ fn handler(req: &mut Request) -> IronResult<Response> {
                 }
             };
 
-            let query = format!(
-                "SELECT ST_AsMVT(q, '{1}', 4096, 'geom') FROM ( \
-                    SELECT ST_AsMVTGeom(                        \
-                        geom,                                   \
-                        TileBBox({2}, {3}, {4}, 4326),          \
-                        4096,                                   \
-                        256,                                    \
-                        true                                    \
-                    ) AS geom FROM {0}.{1}                      \
-                ) AS q;",
-                &caps["schema"], &caps["table"], &caps["z"], &caps["x"], &caps["y"]
-            );
+            let tile = match db::get_tile(conn, &caps["schema"], &caps["table"], &caps["z"], &caps["x"], &caps["y"]) {
+                Ok(tile) => tile,
+                Err(error) => {
+                    eprintln!("Couldn't get a tile: {}", error);
+                    return Ok(Response::with((status::InternalServerError)));
+                }
+            };
 
-            match conn.query(&query, &[]) {
-                Ok(rows) => {
-                    let content_type = "application/x-protobuf".parse::<mime::Mime>().unwrap();
-                    let tile: Vec<u8> = rows.get(0).get("st_asmvt");
-                    match tile.len() {
-                        0 => Ok(Response::with((content_type, status::NoContent))),
-                        _ => Ok(Response::with((content_type, status::Ok, tile)))
-                    }
-                },
-                Err(e) => Ok(Response::with((status::InternalServerError, e.to_string())))
+            let content_type = "application/x-protobuf".parse::<mime::Mime>().unwrap();
+            match tile.len() {
+                0 => Ok(Response::with((content_type, status::NoContent))),
+                _ => Ok(Response::with((content_type, status::Ok, tile)))
             }
         },
         None => Ok(Response::with((status::NotFound)))

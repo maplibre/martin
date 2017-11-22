@@ -23,3 +23,22 @@ pub fn get_connection(req: &mut Request) -> Result<PostgresPooledConnection, Box
     let conn = try!(pool.get());
     Ok(conn)
 }
+
+pub fn get_tile(conn: PostgresPooledConnection, schema: &str, table: &str, z: &str, x: &str, y: &str) -> Result<Vec<u8>, Box<Error>> {
+    let query = format!(
+        "SELECT ST_AsMVT(q, '{1}', 4096, 'geom') FROM ( \
+            SELECT ST_AsMVTGeom(                        \
+                geom,                                   \
+                TileBBox({2}, {3}, {4}, 4326),          \
+                4096,                                   \
+                256,                                    \
+                true                                    \
+            ) AS geom FROM {0}.{1}                      \
+        ) AS q;",
+        schema, table, z, x, y
+    );
+
+    let rows = try!(conn.query(&query, &[]));
+    let tile = rows.get(0).get("st_asmvt");
+    Ok(tile)
+}
