@@ -1,4 +1,6 @@
 use std::error::Error;
+use std::collections::HashMap;
+
 use iron::typemap::Key;
 use iron::prelude::{Plugin, Request};
 use persistent::Read;
@@ -41,4 +43,45 @@ pub fn get_tile(conn: PostgresPooledConnection, schema: &str, table: &str, z: &s
     let rows = try!(conn.query(&query, &[]));
     let tile = rows.get(0).get("st_asmvt");
     Ok(tile)
+}
+
+#[derive(Debug)]
+pub struct Tileset {
+    pub schema: String,
+    pub table: String,
+    pub geometry_column: String,
+    pub srid: i32,
+    pub _type: String
+}
+
+pub struct Tilesets;
+impl Key for Tilesets { type Value = HashMap<String, Tileset>; }
+
+pub fn get_tilesets(conn: PostgresPooledConnection) -> Result<HashMap<String, Tileset>, Box<Error>> {
+    let query = "
+        select
+            f_table_schema, f_table_name, f_geometry_column, srid, type
+        from geometry_columns
+    ";
+
+    let mut tilesets = HashMap::new();
+    let rows = try!(conn.query(&query, &[]));
+
+    for row in &rows {
+        let schema = row.get("f_table_schema");
+        let table = row.get("f_table_name");
+        let id = format!("{}.{}", schema, table);
+
+        let tileset = Tileset {
+            schema: schema,
+            table: table,
+            geometry_column: row.get("f_geometry_column"),
+            srid: row.get("srid"),
+            _type: row.get("type")
+        };
+
+        tilesets.insert(id, tileset);
+    }
+
+    Ok(tilesets)
 }

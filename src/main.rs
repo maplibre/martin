@@ -22,7 +22,13 @@ fn main() {
 
     println!("Connecting to postgres: {}", conn_string);
     match db::setup_connection_pool(&conn_string, 10) {
-        Ok(pool) => chain.link(Read::<db::DB>::both(pool)),
+        Ok(pool) => {
+            let conn = pool.get().unwrap();
+            let tilesets = db::get_tilesets(conn).unwrap();
+            chain.link(Read::<db::Tilesets>::both(tilesets));
+
+            chain.link(Read::<db::DB>::both(pool));
+        },
         Err(error) => {
             eprintln!("Error connectiong to postgres: {}", error);
             std::process::exit(-1);
