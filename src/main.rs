@@ -1,24 +1,31 @@
-extern crate url;
 extern crate iron;
 extern crate regex;
 extern crate persistent;
+extern crate rererouter;
 extern crate r2d2;
 extern crate r2d2_postgres;
-#[macro_use] extern crate lazy_static;
+// #[macro_use] extern crate lazy_static;
 
 use std::env;
 use persistent::Read;
+use rererouter::RouterBuilder;
 use iron::prelude::{Iron, Chain};
 
 mod db;
 mod cors;
-mod router;
+mod routes;
 
 fn main() {
     let conn_string: String = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
 
-    let mut chain = Chain::new(router::handler);
+    let mut router_builder = RouterBuilder::new();
+    router_builder.get(r"/index.json", routes::index);
+    router_builder.get(r"/(?P<tileset>[\w|\.]*)\.json", routes::tileset);
+    router_builder.get(r"/(?P<tileset>[\w|\.]*)/(?P<z>\d*)/(?P<x>\d*)/(?P<y>\d*).pbf", routes::tile);
+    let router = router_builder.finalize();
+
+    let mut chain = Chain::new(router);
 
     println!("Connecting to postgres: {}", conn_string);
     match db::setup_connection_pool(&conn_string, 10) {
