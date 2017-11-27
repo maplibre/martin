@@ -29,7 +29,11 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
         }
     };
 
-    let tile = match db::get_tile(conn, &tileset.schema, &tileset.table, &caps["z"], &caps["x"], &caps["y"]) {
+    let z: &i32 = &caps["z"].parse().unwrap();
+    let x: &i32 = &caps["x"].parse().unwrap();
+    let y: &i32 = &caps["y"].parse().unwrap();
+
+    let tile = match db::get_tile(conn, &tileset, z, x, y) {
         Ok(tile) => tile,
         Err(error) => {
             eprintln!("Couldn't get a tile: {}", error);
