@@ -2,8 +2,10 @@ use regex::Captures;
 use iron::prelude::{Plugin};
 use iron::{status, mime, Request, Response, IronResult};
 use persistent::Read;
+use serde_json;
 
 use super::db;
+use tilejson::TileJSONBuilder;
 
 pub fn index(_req: &mut Request, _caps: Captures) -> IronResult<Response> {
   println!("index.json");
@@ -11,7 +13,14 @@ pub fn index(_req: &mut Request, _caps: Captures) -> IronResult<Response> {
 }
 
 pub fn tileset(_req: &mut Request, _caps: Captures) -> IronResult<Response> {
-    Ok(Response::with((status::Ok, "{}")))
+    let mut tilejson_builder = TileJSONBuilder::new();
+
+    tilejson_builder.name("some tileset!!11");
+
+    let tilejson = tilejson_builder.finalize();
+    let serialized_tilejson = serde_json::to_string(&tilejson).unwrap();
+
+    Ok(Response::with((status::Ok, serialized_tilejson)))
 }
 
 pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {

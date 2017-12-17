@@ -6,6 +6,14 @@ extern crate r2d2;
 extern crate r2d2_postgres;
 // #[macro_use] extern crate lazy_static;
 
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde;
+extern crate serde_json;
+
+extern crate tilejson;
+
 use std::env;
 use persistent::Read;
 use rererouter::RouterBuilder;

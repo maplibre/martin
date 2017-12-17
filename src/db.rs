@@ -32,7 +32,7 @@ pub fn get_tile(conn: PostgresConnection, tileset: &Tileset, z: &i32, x: &i32, y
     Ok(tile)
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Debug)]
 pub struct Tileset {
     schema: String,
     table: String,
@@ -56,7 +56,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
     ";
 
     let default_extent = 4096;
-    let default_buffer = 256;
+    let default_buffer = 0; // 256
     let default_clip_geom = true;
 
     let mut tilesets = HashMap::new();
