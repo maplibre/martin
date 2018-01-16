@@ -1,10 +1,10 @@
 [package]
-name = "falcon"
+name = "martin"
 version = "0.1.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 
 [[bin]]
-name = "falcon"
+name = "martin"
 path = "src/main.rs"
 
 [dependencies]
