@@ -9,12 +9,10 @@ services:
   - postgresql
 
 addons:
-  postgresql: 10
+  postgresql: 9.6
   apt:
-    sources:
-     - ubuntu-toolchain-r-test
     packages:
-     - postgresql-10-postgis-2.4
+      - postgresql-9.6-postgis-2.4
 
 env:
   - DATABASE_URL=postgres://postgres@localhost/test
