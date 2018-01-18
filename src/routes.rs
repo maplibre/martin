@@ -5,26 +5,34 @@ use persistent::Read;
 use serde_json;
 
 use super::db;
+use super::tileset;
 use tilejson::TileJSONBuilder;
 
 pub fn index(_req: &mut Request, _caps: Captures) -> IronResult<Response> {
-  println!("index.json");
+    // let tilesets = req.get::<Read<db::Tilesets>>().unwrap();
+    // let serialized_tilesets = serde_json::to_string(&tilesets).unwrap();
+    // Ok(Response::with((status::Ok, serialized_tilesets)))
+
     Ok(Response::with((status::Ok, "{}")))
 }
 
-pub fn tileset(_req: &mut Request, _caps: Captures) -> IronResult<Response> {
+pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
+    let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
+    let tileset = match tilesets.get(&caps["tileset"]) {
+        Some(tileset) => tileset,
+        None => return Ok(Response::with((status::NotFound)))
+    };
+
     let mut tilejson_builder = TileJSONBuilder::new();
-
-    tilejson_builder.name("some tileset!!11");
-
+    tilejson_builder.name(&tileset.table);
     let tilejson = tilejson_builder.finalize();
+    
     let serialized_tilejson = serde_json::to_string(&tilejson).unwrap();
-
     Ok(Response::with((status::Ok, serialized_tilejson)))
 }
 
 pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
-    let tilesets = req.get::<Read<db::Tilesets>>().unwrap();
+    let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
     let tileset = match tilesets.get(&caps["tileset"]) {
         Some(tileset) => tileset,
         None => return Ok(Response::with((status::NotFound)))
@@ -42,7 +50,7 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let x: &i32 = &caps["x"].parse().unwrap();
     let y: &i32 = &caps["y"].parse().unwrap();
 
-    let tile = match db::get_tile(conn, &tileset, z, x, y) {
+    let tile = match tileset::get_tile(conn, &tileset, z, x, y) {
         Ok(tile) => tile,
         Err(error) => {
             eprintln!("Couldn't get a tile: {}", error);

@@ -1,6 +1,21 @@
 language: rust
 cache: cargo
 
+branches:
+  except:
+    - /^v[0-9]/
+
+services:
+  - postgresql
+
+env:
+  - DATABASE_URL=postgres://postgres@localhost/test
+
+before_script:
+  - psql -U postgres -c 'create database test'
+  - psql -U postgres -d test -c 'create extension postgis'
+  - psql -U postgres -d test -f fixtures/tilebbox.sql
+  - psql -U postgres -d test -f fixtures/points.sql
+
 script:
-  - cargo build --verbose --all
   - cargo test --verbose --all
