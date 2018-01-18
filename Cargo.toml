@@ -8,9 +8,12 @@ name = "martin"
 path = "src/main.rs"
 
 [dependencies]
-regex = "0.2.2"
+log = "0.4.1"
 iron = "0.6.0"
+regex = "0.2.2"
+logger = "0.4.0"
 iron-test = "0.6.0"
+env_logger = "0.5.1"
 rererouter = "0.1.1"
 persistent = "0.4.0"
 lazy_static = "0.2.11"
