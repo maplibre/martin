@@ -8,6 +8,15 @@ branches:
 services:
   - postgresql
 
+addons:
+  postgresql: 9.6
+  apt:
+    sources:
+     - ubuntu-toolchain-r-test
+    packages:
+     - libstdc++6
+     - postgresql-9.6-postgis-2.4
+
 env:
   - DATABASE_URL=postgres://postgres@localhost/test
 
