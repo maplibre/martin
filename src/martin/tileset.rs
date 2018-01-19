@@ -85,7 +85,9 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
     Ok(tilesets)
 }
 
-pub fn get_tile(conn: PostgresConnection, tileset: &Tileset, z: &i32, x: &i32, y: &i32) -> Result<Vec<u8>, Box<Error>> {    
+pub fn get_tile(conn: PostgresConnection, tileset: &Tileset, z: &i32, x: &i32, y: &i32) -> Result<Vec<u8>, Box<Error>> {
+    debug!("get_tile({}, {}, {})", z, x, y);
+
     let rows = try!(conn.query(&tileset.query, &[&z, &x, &y]));
     let tile = rows.get(0).get("st_asmvt");
     Ok(tile)
