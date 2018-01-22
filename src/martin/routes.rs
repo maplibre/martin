@@ -1,8 +1,10 @@
-use regex::Captures;
-use iron::prelude::{Plugin};
 use iron::{status, mime, Request, Response, IronResult};
+use iron::prelude::{Plugin};
+use mapbox_expressions_to_sql;
 use persistent::Read;
+use regex::Captures;
 use serde_json;
+use urlencoded::UrlEncodedQuery;
 
 use super::db;
 use super::tileset;
@@ -31,6 +33,12 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
     Ok(Response::with((status::Ok, serialized_tilejson)))
 }
 
+fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {
+    req.get_ref::<UrlEncodedQuery>().ok()
+        .and_then(|query| query.get("filter"))
+        .and_then(|filter| filter.last())
+}
+
 pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
     let tileset = match tilesets.get(&caps["tileset"]) {
@@ -41,7 +49,7 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let conn = match db::get_connection(req) {
         Ok(conn) => conn,
         Err(error) => {
-            eprintln!("Couldn't get a connection to postgres: {}", error);
+            error!("Couldn't get a connection to postgres: {}", error);
             return Ok(Response::with((status::InternalServerError)));
         }
     };
@@ -50,10 +58,24 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let x: &i32 = &caps["x"].parse().unwrap();
     let y: &i32 = &caps["y"].parse().unwrap();
 
-    let tile = match tileset::get_tile(conn, &tileset, z, x, y) {
+    let filter = get_filter(req).cloned();
+    let condition = match filter {
+        Some(filter) => {
+            match mapbox_expressions_to_sql::parse(&filter) {
+                Ok(condition) => Some(format!("WHERE {}", condition)),
+                Err(error) => {
+                    error!("Couldn't parse expression: {:?}", error);
+                    return Ok(Response::with((status::InternalServerError)));
+                }
+            }
+        },
+        None => None
+    };
+
+    let tile = match tileset::get_tile(conn, &tileset, z, x, y, condition) {
         Ok(tile) => tile,
         Err(error) => {
-            eprintln!("Couldn't get a tile: {}", error);
+            error!("Couldn't get a tile: {}", error);
             return Ok(Response::with((status::InternalServerError)));
         }
     };
