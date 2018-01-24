@@ -1,4 +1,5 @@
 use iron::{status, mime, Request, Response, IronResult};
+use iron::headers::{Headers, parsing};
 use iron::prelude::{Plugin};
 use mapbox_expressions_to_sql;
 use persistent::Read;
@@ -10,12 +11,20 @@ use super::db;
 use super::tileset;
 use tilejson::TileJSONBuilder;
 
+fn get_header(headers: &Headers, name: &str, default: &str) -> String {
+    headers
+        .get_raw(name)
+        .and_then(|h| parsing::from_one_raw_str(h).ok())
+        .unwrap_or(default.to_string())
+}
+
 pub fn index(_req: &mut Request, _caps: Captures) -> IronResult<Response> {
-    // let tilesets = req.get::<Read<db::Tilesets>>().unwrap();
+    // let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
     // let serialized_tilesets = serde_json::to_string(&tilesets).unwrap();
     // Ok(Response::with((status::Ok, serialized_tilesets)))
 
-    Ok(Response::with((status::Ok, "{}")))
+    let content_type = "application/json".parse::<mime::Mime>().unwrap();
+    Ok(Response::with((content_type, status::Ok, "{}")))
 }
 
 pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
@@ -24,13 +33,31 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
         Some(tileset) => tileset,
         None => return Ok(Response::with((status::NotFound)))
     };
+    
+    let protocol = get_header(&req.headers, "x-forwarded-proto", req.url.scheme());
+    let host = get_header(&req.headers, "x-forwarded-host", &req.url.host().to_string());
+    let port = req.url.port();
+
+    let path = req.url.path();
+    let uri = if path.len() > 1 {
+        path.split_last().map(|(_, elements)| elements.join("/")).unwrap()
+    } else {
+        caps["tileset"].to_string()
+    };
+
+    let original_url = get_header(&req.headers, "x-rewrite-url", &uri);
+    let tiles_url = format!("{}://{}:{}/{}/{{z}}/{{x}}/{{y}}.pbf", protocol, host, port, original_url);
 
     let mut tilejson_builder = TileJSONBuilder::new();
+    tilejson_builder.scheme("tms");
     tilejson_builder.name(&tileset.table);
-    let tilejson = tilejson_builder.finalize();
+    tilejson_builder.tiles(vec![&tiles_url]);
     
+    let tilejson = tilejson_builder.finalize();
     let serialized_tilejson = serde_json::to_string(&tilejson).unwrap();
-    Ok(Response::with((status::Ok, serialized_tilejson)))
+
+    let content_type = "application/json".parse::<mime::Mime>().unwrap();
+    Ok(Response::with((content_type, status::Ok, serialized_tilejson)))
 }
 
 fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {

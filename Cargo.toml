@@ -20,7 +20,7 @@ log = "0.4.1"
 logger = "0.4.0"
 mapbox_expressions_to_sql = { git = "https://github.com/stepankuzmin/rust-mapbox-expressions-to-sql" }
 persistent = "0.4.0"
-postgres = { version = "0.15.1", features = ["with-time", "with-uuid"] }
+postgres = { version = "0.15", features = ["with-time", "with-uuid", "with-serde_json"] }
 r2d2 = "0.7.4"
 r2d2_postgres = "0.13.0"
 regex = "0.2.2"
