@@ -3,7 +3,7 @@ use iron::headers::{Headers, parsing};
 use iron::prelude::{Plugin};
 use mapbox_expressions_to_sql;
 use persistent::Read;
-use regex::Captures;
+use regex::{Regex, Captures};
 use serde_json;
 use urlencoded::UrlEncodedQuery;
 
@@ -44,15 +44,14 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
         format!("{}:{}", host, port)
     };
 
-    let path = req.url.path();
-    let uri = if path.len() > 1 {
-        path.split_last().map(|(_, elements)| elements.join("/")).unwrap()
-    } else {
-        caps["tileset"].to_string()
+    let original_url = get_header(&req.headers, "x-rewrite-url", &req.url.path().join("/"));
+    let re = Regex::new(r"\A(.*)\.json\z").unwrap();
+    let uri = match re.captures(&original_url) {
+        Some(caps) => caps[1].to_string(),
+        None => return Ok(Response::with((status::InternalServerError)))
     };
 
-    let original_url = get_header(&req.headers, "x-rewrite-url", &uri);
-    let tiles_url = format!("{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf", protocol, host_and_port, original_url);
+    let tiles_url = format!("{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf", protocol, host_and_port, uri);
 
     let mut tilejson_builder = TileJSONBuilder::new();
     tilejson_builder.scheme("tms");
