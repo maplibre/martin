@@ -33,10 +33,16 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
         Some(tileset) => tileset,
         None => return Ok(Response::with((status::NotFound)))
     };
-    
+
     let protocol = get_header(&req.headers, "x-forwarded-proto", req.url.scheme());
+
     let host = get_header(&req.headers, "x-forwarded-host", &req.url.host().to_string());
     let port = req.url.port();
+    let host_and_port = if port == 80 || port == 443 {
+        host
+    } else {
+        format!("{}:{}", host, port)
+    };
 
     let path = req.url.path();
     let uri = if path.len() > 1 {
@@ -46,13 +52,13 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
     };
 
     let original_url = get_header(&req.headers, "x-rewrite-url", &uri);
-    let tiles_url = format!("{}://{}:{}/{}/{{z}}/{{x}}/{{y}}.pbf", protocol, host, port, original_url);
+    let tiles_url = format!("{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf", protocol, host_and_port, original_url);
 
     let mut tilejson_builder = TileJSONBuilder::new();
     tilejson_builder.scheme("tms");
     tilejson_builder.name(&tileset.table);
     tilejson_builder.tiles(vec![&tiles_url]);
-    
+
     let tilejson = tilejson_builder.finalize();
     let serialized_tilejson = serde_json::to_string(&tilejson).unwrap();
 
