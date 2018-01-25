@@ -31,7 +31,7 @@ impl Tileset {
         };
 
         let query = format!(
-            "SELECT ST_AsMVT(tile, '{1}', {4}, 'geom') FROM (\
+            "SELECT ST_AsMVT(tile, '{0}.{1}', {4}, 'geom') FROM (\
                 SELECT \
                     ST_AsMVTGeom({2}, TileBBox($1, $2, $3, 3857), {4}, {5}, {6}) AS geom, {3} \
                 FROM {0}.{1} {7}\
