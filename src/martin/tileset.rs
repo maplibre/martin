@@ -7,6 +7,7 @@ use super::db::PostgresConnection;
 
 #[derive(Serialize, Debug)]
 pub struct Tileset {
+    pub id: String,
     schema: String,
     pub table: String,
     geometry_column: String,
@@ -92,6 +93,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
         let srid: i32 = row.get("srid");
 
         let tileset = Tileset {
+            id: id.to_string(),
             schema: schema,
             table: table,
             geometry_column: geometry_column,

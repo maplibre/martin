@@ -55,7 +55,7 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
 
     let mut tilejson_builder = TileJSONBuilder::new();
     tilejson_builder.scheme("tms");
-    tilejson_builder.name(&tileset.table);
+    tilejson_builder.name(&tileset.id);
     tilejson_builder.tiles(vec![&tiles_url]);
 
     let tilejson = tilejson_builder.finalize();
