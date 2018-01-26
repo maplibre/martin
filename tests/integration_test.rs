@@ -11,7 +11,7 @@ fn test_index() {
     let conn_string: String = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
 
-    let chain = martin_lib::chain(conn_string);
+    let chain = martin_lib::chain(conn_string, 0);
 
     let headers = Headers::new();
     let response = request::get("http://localhost:3000/index.json", headers, &chain).unwrap();
