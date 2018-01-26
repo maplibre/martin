@@ -306,6 +306,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "mapbox_expressions_to_sql"
 version = "0.1.0"
 source = "git+https://github.com/stepankuzmin/rust-mapbox-expressions-to-sql#b59d485b52884b6a523e81154868d48372539ea1"
@@ -324,6 +329,7 @@ dependencies = [
  "lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "logger 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lru 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "mapbox_expressions_to_sql 0.1.0 (git+https://github.com/stepankuzmin/rust-mapbox-expressions-to-sql)",
  "persistent 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "postgres 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -933,6 +939,7 @@ dependencies = [
 "checksum log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
 "checksum log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "89f010e843f2b1a31dbd316b3b8d443758bc634bed37aabade59c686d644e0a2"
 "checksum logger 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6c9172cb4c2f6c52117e25570983edcbb322f130b1031ae5d5d6b1abe7eeb493"
+"checksum lru 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "f1422de50f19f1e08676a563ba667974c0fe487a5c02eea23890983997c0184a"
 "checksum mapbox_expressions_to_sql 0.1.0 (git+https://github.com/stepankuzmin/rust-mapbox-expressions-to-sql)" = "<none>"
 "checksum matches 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "100aabe6b8ff4e4a7e32c1c13523379802df0772b82466207ac25b013f193376"
 "checksum md5 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "b6d9aab58e540f50b59d5cfa7f0da4c3d437476890e1e0b6206e230dce55a23c"

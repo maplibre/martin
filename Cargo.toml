@@ -18,6 +18,7 @@ iron-test = "0.6.0"
 lazy_static = "0.2.11"
 log = "0.4.1"
 logger = "0.4.0"
+lru = "0.1.7"
 mapbox_expressions_to_sql = { git = "https://github.com/stepankuzmin/rust-mapbox-expressions-to-sql" }
 persistent = "0.4.0"
 postgres = { version = "0.15", features = ["with-time", "with-uuid", "with-serde_json"] }

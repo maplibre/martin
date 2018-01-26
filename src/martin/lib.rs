@@ -1,6 +1,7 @@
 extern crate iron_test;
 extern crate iron;
 extern crate logger;
+extern crate lru;
 extern crate mapbox_expressions_to_sql;
 extern crate persistent;
 extern crate r2d2_postgres;
@@ -16,15 +17,17 @@ extern crate urlencoded;
 
 use iron::prelude::Chain;
 use logger::Logger;
-use persistent::Read;
+use lru::LruCache;
+use persistent::{Read, State};
 use rererouter::RouterBuilder;
 
+mod cache;
 mod cors;
 mod db;
 mod routes;
 mod tileset;
 
-pub fn chain(conn_string: String) -> iron::Chain {
+pub fn chain(conn_string: String, cache_size: usize) -> iron::Chain {
     let mut router_builder = RouterBuilder::new();
     router_builder.get(r"/index.json", routes::index);
     router_builder.get(r"/(?P<tileset>[\w|\.]*)\.json", routes::tileset);
@@ -32,7 +35,7 @@ pub fn chain(conn_string: String) -> iron::Chain {
     let router = router_builder.finalize();
 
     let mut chain = Chain::new(router);
-    
+
     let (logger_before, logger_after) = Logger::new(None);
     chain.link_before(logger_before);
 
@@ -50,6 +53,9 @@ pub fn chain(conn_string: String) -> iron::Chain {
             std::process::exit(-1);
         }
     };
+
+    let tile_cache = LruCache::new(cache_size);
+    chain.link(State::<cache::TileCache>::both(tile_cache));
 
     chain.link_after(cors::Middleware);
     chain.link_after(logger_after);

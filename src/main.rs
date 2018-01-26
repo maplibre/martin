@@ -12,7 +12,11 @@ fn main() {
     let conn_string: String = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
 
-    let chain = martin_lib::chain(conn_string);
+    let cache_size = env::var("CACHE_SIZE").ok()
+        .and_then(|cache_size| cache_size.parse::<usize>().ok())
+        .unwrap_or(16384);
+
+    let chain = martin_lib::chain(conn_string, cache_size);
 
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);

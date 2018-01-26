@@ -1,13 +1,15 @@
 use iron::{status, mime, Request, Response, IronResult};
 use iron::headers::{Headers, parsing};
 use iron::prelude::{Plugin};
+use iron::url::Url;
 use mapbox_expressions_to_sql;
-use persistent::Read;
+use persistent::{Read, State};
 use regex::{Regex, Captures};
 use serde_json;
 use urlencoded::UrlEncodedQuery;
 
 use super::db;
+use super::cache;
 use super::tileset;
 use tilejson::TileJSONBuilder;
 
@@ -72,6 +74,22 @@ fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {
 }
 
 pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
+    let url: Url = req.url.clone().into();
+    let lock = req.get::<State<cache::TileCache>>().unwrap();
+    let cached_tile = lock.write().ok().and_then(|mut guard|
+        guard.get(&url).cloned()
+    );
+
+    let content_type = "application/x-protobuf".parse::<mime::Mime>().unwrap();
+    if let Some(tile) = cached_tile {
+        debug!("{} hit", url);
+        return match tile.len() {
+            0 => Ok(Response::with((content_type, status::NoContent))),
+            _ => Ok(Response::with((content_type, status::Ok, tile)))
+        }
+    };
+
+    debug!("{} miss", url);
     let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
     let tileset = match tilesets.get(&caps["tileset"]) {
         Some(tileset) => tileset,
@@ -112,7 +130,9 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
         }
     };
 
-    let content_type = "application/x-protobuf".parse::<mime::Mime>().unwrap();
+    let mut guard = lock.write().unwrap();
+    guard.put(req.url.clone().into(), tile.clone());
+
     match tile.len() {
         0 => Ok(Response::with((content_type, status::NoContent))),
         _ => Ok(Response::with((content_type, status::Ok, tile)))
