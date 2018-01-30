@@ -104,9 +104,9 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
         }
     };
 
-    let z: &i32 = &caps["z"].parse().unwrap();
-    let x: &i32 = &caps["x"].parse().unwrap();
-    let y: &i32 = &caps["y"].parse().unwrap();
+    let z: &u32 = &caps["z"].parse().unwrap();
+    let x: &u32 = &caps["x"].parse().unwrap();
+    let y: &u32 = &caps["y"].parse().unwrap();
 
     let filter = get_filter(req).cloned();
     let condition = match filter {

@@ -5,44 +5,61 @@ use std::error::Error;
 
 use super::db::PostgresConnection;
 
+// https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
+fn tilebbox(z: u32, x: u32, y: u32) -> String {
+    let max = 20037508.34;
+    let res = (max * 2.0) / (2_i32.pow(z) as f64);
+
+    let xmin = -max + (x as f64 * res);
+    let ymin = max - (y as f64 * res);
+    let xmax = -max + (x as f64 * res) + res;
+    let ymax = max - (y as f64 * res) - res;
+
+    format!("ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)", xmin, ymin, xmax, ymax)
+}
+
+fn transform(geometry: String, srid: u32) -> String {
+    if srid == 3857 {
+        geometry
+    } else {
+        format!("ST_Transform({0}, 3857)", geometry)
+    }
+}
+
 #[derive(Serialize, Debug)]
 pub struct Tileset {
     pub id: String,
     schema: String,
     pub table: String,
     geometry_column: String,
-    srid: i32,
-    extent: i32,
-    buffer: i32,
+    srid: u32,
+    extent: u32,
+    buffer: u32,
     clip_geom: bool,
     geometry_type: String,
     properties: HashMap<String, String>
 }
 
 impl Tileset {
-    pub fn get_query(&self, condition: Option<String>) -> String {
+    pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
         let keys: Vec<String> = self.properties.keys().map(|key| key.to_string()).collect();
         let columns = keys.join(",");
-
-        let transformed_geometry = if self.srid == 3857 {
-            self.geometry_column.clone()
-        } else {
-            format!("ST_Transform({0}, 3857)", self.geometry_column)
-        };
 
         let query = format!(
             "SELECT ST_AsMVT(tile, '{0}.{1}', {4}, 'geom') FROM (\
                 SELECT \
-                    ST_AsMVTGeom({2}, TileBBox($1, $2, $3, 3857), {4}, {5}, {6}) AS geom, {3} \
-                FROM {0}.{1} {7}\
+                    ST_AsMVTGeom({2}, {3}, {4}, {5}, {6}) AS geom, \
+                    {7} \
+                FROM {0}.{1} {8}\
             ) AS tile;",
             self.schema,
             self.table,
-            transformed_geometry,
-            columns,
+            transform(self.geometry_column.clone(), self.srid),
+            tilebbox(z, x, y),
             self.extent,
             self.buffer,
             self.clip_geom,
+            columns,
             condition.unwrap_or("".to_string())
         );
 
@@ -97,7 +114,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
             schema: schema,
             table: table,
             geometry_column: geometry_column,
-            srid: srid,
+            srid: srid as u32,
             extent: default_extent,
             buffer: default_buffer,
             clip_geom: default_clip_geom,
@@ -111,8 +128,10 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
     Ok(tilesets)
 }
 
-pub fn get_tile<'a>(conn: PostgresConnection, tileset: &Tileset, z: &i32, x: &i32, y: &i32, condition: Option<String>) -> Result<Vec<u8>, Box<Error>> {
-    let rows = try!(conn.query(&tileset.get_query(condition), &[&z, &x, &y]));
+pub fn get_tile<'a>(conn: PostgresConnection, tileset: &Tileset, z: &u32, x: &u32, y: &u32, condition: Option<String>) -> Result<Vec<u8>, Box<Error>> {
+    let query = tileset.get_query(z.clone(), x.clone(), y.clone(), condition);
+
+    let rows = try!(conn.query(&query, &[]));
     let tile = rows.get(0).get("st_asmvt");
     Ok(tile)
 }
