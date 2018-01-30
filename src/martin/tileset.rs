@@ -26,6 +26,15 @@ fn transform(geometry: String, srid: u32) -> String {
     }
 }
 
+fn query_properties(properties: HashMap<String, String>) -> String {
+    let keys: Vec<String> = properties
+        .keys()
+        .map(|key| format!("'{0}', {0}", key))
+        .collect();
+
+    format!("jsonb_strip_nulls(jsonb_build_object({0}))", keys.join(","))
+}
+
 #[derive(Serialize, Debug)]
 pub struct Tileset {
     pub id: String,
@@ -42,14 +51,11 @@ pub struct Tileset {
 
 impl Tileset {
     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
-        let keys: Vec<String> = self.properties.keys().map(|key| key.to_string()).collect();
-        let columns = keys.join(",");
-
         let query = format!(
             "SELECT ST_AsMVT(tile, '{0}.{1}', {4}, 'geom') FROM (\
                 SELECT \
                     ST_AsMVTGeom({2}, {3}, {4}, {5}, {6}) AS geom, \
-                    {7} \
+                    {7} as properties \
                 FROM {0}.{1} {8}\
             ) AS tile;",
             self.schema,
@@ -59,9 +65,11 @@ impl Tileset {
             self.extent,
             self.buffer,
             self.clip_geom,
-            columns,
+            query_properties(self.properties.clone()),
             condition.unwrap_or("".to_string())
         );
+
+        // debug!("\n\n{}\n\n", query);
 
         query
     }
