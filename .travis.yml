@@ -1,31 +1,37 @@
 language: rust
 cache: cargo
-
 dist: trusty
 sudo: required
 
 branches:
   except:
-    - /^v[0-9]/
+  - "/^v[0-9]/"
 
 services:
-  - postgresql
+- postgresql
 
 addons:
   postgresql: 9.6
-  # apt:
-  #   packages:
-  #     - postgresql-9.6-postgis-2.4
 
 env:
-  - DATABASE_URL=postgres://postgres@localhost/test
+- DATABASE_URL=postgres://postgres@localhost/test
 
 before_script:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y postgresql-9.6-postgis-2.4
-  - psql -U postgres -c 'create database test'
-  - psql -U postgres -d test -c 'create extension postgis'
-  - psql -U postgres -d test -f tests/fixtures/points.sql
+- sudo apt-get -qq update
+- sudo apt-get install -y postgresql-9.6-postgis-2.4
+- psql -U postgres -c 'create database test'
+- psql -U postgres -d test -c 'create extension postgis'
+- psql -U postgres -d test -f tests/fixtures/points.sql
 
 script:
-  - cargo test --verbose --all
+- cargo test --verbose --all
+
+deploy:
+  provider: releases
+  api_key:
+    secure: KOldUnbv8YIUXDb+AG6m0bMvp7lY29+Eb2X57Qgg4oF7swAo5TsVqf6W/9+7v2DDqy/msJHEu41l6xM16gaK10gM1mpSMYP6F2p859U01ro/LT0JaIsgRcf7hXD4JVNEYq6lGykgAgAG6C9Xc7gSpYeLmoRTAudal1Wb6A1kgDhYketTFY/jo415yahGGh3A9oaccei1cApipjvODmPaiEfgnwPA/wsqaVIcXJnKb1eTS8y6X7y4Urk9CTXawoh6AnugqtHynhpadDw7DiMUkvTvMHXcNYl60VekFZp3+ab7OPvd5TKPQOA1kLPaBojBNx7Cx6FcenZiK8PtzP3ZWlWooQ2sO7Otf9sSLtOEfMV53diKysR1nsbNsv/9lIrxWNkAHO/rRWaDDUB6KGrE/81OPloQV9hrmWzXzdPTXLQMd9l2oodhjmy3muQH3zI+gSJxcBOaVI4eF+uI4Bhdn7VBvbdcTCBxESVz71pqeAotXdS0Cn32eHGVcCWOVbfgWVrFvlJf0XKD6oSMHIS2qrtjh2SQdN9H29+EiHSumrhpReHicc4guvBxp4eYIpIJ6/wL+t9+Ad4rLJtAJri3DBmGKeizBDfObdIe3+ie1/qOu3Ky8ntF8gBF5TEsVz0yOZ7FUWApoyDZQKNnY/DMJ7d4ra6yYM6zclUDDYOIvCk=
+  file_glob: true
+  file: "martin-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.*"
+  skip_cleanup: true
+  on:
+    tags: true

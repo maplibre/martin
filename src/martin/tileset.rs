@@ -18,7 +18,7 @@ fn tilebbox(z: u32, x: u32, y: u32) -> String {
     format!("ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)", xmin, ymin, xmax, ymax)
 }
 
-fn transform_to_3857(geom: String, srid: u32) -> String {
+fn transform_to_mercator(geom: String, srid: u32) -> String {
     if srid == 3857 {
         geom
     } else {
@@ -51,33 +51,34 @@ pub struct Tileset {
 
 impl Tileset {
     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
-        let bounds_3857 = tilebbox(z, x, y);
+        let mercator_bounds = tilebbox(z, x, y);
 
-        let bounds = if self.srid == 3857 {
-            bounds_3857.clone()
+        let original_bounds = if self.srid == 3857 {
+            mercator_bounds.clone()
         } else {
-            format!("ST_Transform({0}, {1})", bounds_3857, self.srid)
+            format!("ST_Transform({0}, {1})", mercator_bounds, self.srid)
         };
 
         let query = format!(
-            "SELECT ST_AsMVT(tile, '{id}', {extent}, 'geom') FROM (\
+            "WITH bounds AS (SELECT {mercator_bounds} as mercator, {original_bounds} as original) \
+            SELECT ST_AsMVT(tile, '{id}', {extent}, 'geom') FROM (\
                 SELECT \
                     ST_AsMVTGeom(\
-                        {geometry_column_3857},\
-                        {bounds_3857},\
+                        {geometry_column_mercator},\
+                        bounds.mercator,\
                         {extent},\
                         {buffer},\
                         {clip_geom}\
                     ) AS geom,\
                     {properties} as properties \
-                FROM {id} \
-                WHERE {geometry_column} && {bounds} {condition}\
+                FROM {id}, bounds \
+                WHERE {geometry_column} && bounds.original {condition}\
             ) AS tile WHERE geom IS NOT NULL",
             id=self.id,
             geometry_column=self.geometry_column,
-            geometry_column_3857=transform_to_3857(self.geometry_column.clone(), self.srid),
-            bounds=bounds,
-            bounds_3857=bounds_3857,
+            geometry_column_mercator=transform_to_mercator(self.geometry_column.clone(), self.srid),
+            original_bounds=original_bounds,
+            mercator_bounds=mercator_bounds,
             extent=self.extent,
             buffer=self.buffer,
             clip_geom=self.clip_geom,
