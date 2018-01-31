@@ -122,8 +122,9 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
         None => None
     };
 
-    let tile = match tileset::get_tile(conn, &tileset, z, x, y, condition) {
-        Ok(tile) => tile,
+    let query = tileset.get_query(z.clone(), x.clone(), y.clone(), condition);
+    let tile: Vec<u8> = match conn.query(&query, &[]) {
+        Ok(rows) => rows.get(0).get("st_asmvt"),
         Err(error) => {
             error!("Couldn't get a tile: {}", error);
             return Ok(Response::with((status::InternalServerError)));

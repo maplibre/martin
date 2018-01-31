@@ -69,7 +69,7 @@ impl Tileset {
             condition.unwrap_or("".to_string())
         );
 
-        // debug!("\n\n{}\n\n", query);
+        debug!("\n\n{}\n\n", query);
 
         query
     }
@@ -134,12 +134,4 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
     }
 
     Ok(tilesets)
-}
-
-pub fn get_tile<'a>(conn: PostgresConnection, tileset: &Tileset, z: &u32, x: &u32, y: &u32, condition: Option<String>) -> Result<Vec<u8>, Box<Error>> {
-    let query = tileset.get_query(z.clone(), x.clone(), y.clone(), condition);
-
-    let rows = try!(conn.query(&query, &[]));
-    let tile = rows.get(0).get("st_asmvt");
-    Ok(tile)
 }
