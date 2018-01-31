@@ -18,11 +18,11 @@ fn tilebbox(z: u32, x: u32, y: u32) -> String {
     format!("ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)", xmin, ymin, xmax, ymax)
 }
 
-fn transform(geometry: String, srid: u32) -> String {
+fn transform_to_3857(geom: String, srid: u32) -> String {
     if srid == 3857 {
-        geometry
+        geom
     } else {
-        format!("ST_Transform({0}, 3857)", geometry)
+        format!("ST_Transform({0}, 3857)", geom)
     }
 }
 
@@ -39,7 +39,7 @@ fn query_properties(properties: HashMap<String, String>) -> String {
 pub struct Tileset {
     pub id: String,
     schema: String,
-    pub table: String,
+    table: String,
     geometry_column: String,
     srid: u32,
     extent: u32,
@@ -51,26 +51,41 @@ pub struct Tileset {
 
 impl Tileset {
     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
+        let bounds_3857 = tilebbox(z, x, y);
+
+        let bounds = if self.srid == 3857 {
+            bounds_3857.clone()
+        } else {
+            format!("ST_Transform({0}, {1})", bounds_3857, self.srid)
+        };
+
         let query = format!(
-            "SELECT ST_AsMVT(tile, '{0}.{1}', {4}, 'geom') FROM (\
+            "SELECT ST_AsMVT(tile, '{id}', {extent}, 'geom') FROM (\
                 SELECT \
-                    ST_AsMVTGeom({2}, {3}, {4}, {5}, {6}) AS geom, \
-                    {7} as properties \
-                FROM {0}.{1} {8}\
-            ) AS tile;",
-            self.schema,
-            self.table,
-            transform(self.geometry_column.clone(), self.srid),
-            tilebbox(z, x, y),
-            self.extent,
-            self.buffer,
-            self.clip_geom,
-            query_properties(self.properties.clone()),
-            condition.unwrap_or("".to_string())
+                    ST_AsMVTGeom(\
+                        {geometry_column_3857},\
+                        {bounds_3857},\
+                        {extent},\
+                        {buffer},\
+                        {clip_geom}\
+                    ) AS geom,\
+                    {properties} as properties \
+                FROM {id} \
+                WHERE {geometry_column} && {bounds} {condition}\
+            ) AS tile WHERE geom IS NOT NULL",
+            id=self.id,
+            geometry_column=self.geometry_column,
+            geometry_column_3857=transform_to_3857(self.geometry_column.clone(), self.srid),
+            bounds=bounds,
+            bounds_3857=bounds_3857,
+            extent=self.extent,
+            buffer=self.buffer,
+            clip_geom=self.clip_geom,
+            properties=query_properties(self.properties.clone()),
+            condition=condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
         );
 
         debug!("\n\n{}\n\n", query);
-
         query
     }
 }

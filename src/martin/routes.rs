@@ -112,7 +112,7 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let condition = match filter {
         Some(filter) => {
             match mapbox_expressions_to_sql::parse(&filter) {
-                Ok(condition) => Some(format!("WHERE {}", condition)),
+                Ok(condition) => Some(condition),
                 Err(error) => {
                     error!("Couldn't parse expression: {:?}", error);
                     return Ok(Response::with((status::InternalServerError)));
