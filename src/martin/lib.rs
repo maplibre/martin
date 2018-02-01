@@ -45,7 +45,6 @@ pub fn chain(conn_string: String, cache_size: usize) -> iron::Chain {
             let conn = pool.get().unwrap();
             let tilesets = tileset::get_tilesets(conn).unwrap();
             chain.link(Read::<tileset::Tilesets>::both(tilesets));
-
             chain.link(Read::<db::DB>::both(pool));
         },
         Err(error) => {
