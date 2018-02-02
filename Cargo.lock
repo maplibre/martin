@@ -351,7 +351,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "md5"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -519,7 +519,7 @@ dependencies = [
  "fallible-iterator 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "generic-array 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "hmac 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "md5 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "md5 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "memchr 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -942,7 +942,7 @@ dependencies = [
 "checksum lru 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "f1422de50f19f1e08676a563ba667974c0fe487a5c02eea23890983997c0184a"
 "checksum mapbox_expressions_to_sql 0.1.0 (git+https://github.com/stepankuzmin/rust-mapbox-expressions-to-sql)" = "<none>"
 "checksum matches 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "100aabe6b8ff4e4a7e32c1c13523379802df0772b82466207ac25b013f193376"
-"checksum md5 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "b6d9aab58e540f50b59d5cfa7f0da4c3d437476890e1e0b6206e230dce55a23c"
+"checksum md5 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "daa1004633f76cdcd5a9d83ffcfe615e30ca7a2a638fcc8b8039a2dac21289d7"
 "checksum memchr 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "148fab2e51b4f1cfc66da2a7c32981d1d3c083a803978268bb11fe4b86925e7a"
 "checksum memchr 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "796fba70e76612589ed2ce7f45282f5af869e0fdd7cc6199fa1aa1f1d591ba9d"
 "checksum mime 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ba626b8a6de5da682e1caa06bdb42a335aee5a84db8e5046a3e8ab17ba0a3ae0"

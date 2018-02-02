@@ -2,6 +2,7 @@ use iron::typemap::Key;
 use serde_json;
 use std::collections::HashMap;
 use std::error::Error;
+use std::borrow::Cow;
 
 use super::db::PostgresConnection;
 
@@ -16,23 +17,6 @@ fn tilebbox(z: u32, x: u32, y: u32) -> String {
     let ymax = max - (y as f64 * res) - res;
 
     format!("ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)", xmin, ymin, xmax, ymax)
-}
-
-fn transform_to_mercator(geom: String, srid: u32) -> String {
-    if srid == 3857 {
-        geom
-    } else {
-        format!("ST_Transform({0}, 3857)", geom)
-    }
-}
-
-fn query_properties(properties: HashMap<String, String>) -> String {
-    let keys: Vec<String> = properties
-        .keys()
-        .map(|key| format!("'{0}', {0}", key))
-        .collect();
-
-    format!("jsonb_strip_nulls(jsonb_build_object({0}))", keys.join(","))
 }
 
 #[derive(Serialize, Debug)]
@@ -50,6 +34,23 @@ pub struct Tileset {
 }
 
 impl Tileset {
+    fn geometry_column_mercator(&self) -> Cow<str> {
+        if self.srid == 3857 {
+            self.geometry_column.as_str().into()
+        } else {
+            format!("ST_Transform({0}, 3857)", self.geometry_column).into()
+        }
+    }
+
+    fn properties_query(&self) -> String {
+        let keys: Vec<String> = self.properties
+            .keys()
+            .map(|key| format!("'{0}', \"{0}\"", key))
+            .collect();
+
+        format!("jsonb_strip_nulls(jsonb_build_object({0}))", keys.join(","))
+    }
+
     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
         let mercator_bounds = tilebbox(z, x, y);
 
@@ -76,13 +77,13 @@ impl Tileset {
             ) AS tile WHERE geom IS NOT NULL",
             id=self.id,
             geometry_column=self.geometry_column,
-            geometry_column_mercator=transform_to_mercator(self.geometry_column.clone(), self.srid),
+            geometry_column_mercator=self.geometry_column_mercator(),
             original_bounds=original_bounds,
             mercator_bounds=mercator_bounds,
             extent=self.extent,
             buffer=self.buffer,
             clip_geom=self.clip_geom,
-            properties=query_properties(self.properties.clone()),
+            properties=self.properties_query(),
             condition=condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
         );
 
