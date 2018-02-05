@@ -118,7 +118,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
             FROM pg_attribute attr
                 JOIN pg_catalog.pg_class AS class ON class.oid = attr.attrelid
                 JOIN pg_catalog.pg_namespace AS ns ON ns.oid = class.relnamespace
-                JOIN pg_catalog.pg_type AS tp ON tp.typelem = attr.atttypid
+                JOIN pg_catalog.pg_type AS tp ON tp.oid = attr.atttypid
             WHERE NOT attr.attisdropped AND attr.attnum > 0)
         SELECT
             f_table_schema, f_table_name, f_geometry_column, srid, type,
