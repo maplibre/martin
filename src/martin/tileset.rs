@@ -48,7 +48,7 @@ impl Tileset {
             .map(|key| format!("'{0}', \"{0}\"", key))
             .collect();
 
-        format!("jsonb_strip_nulls(jsonb_build_object({0}))", keys.join(","))
+        format!("json_strip_nulls(json_build_object({0}))", keys.join(","))
     }
 
     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
