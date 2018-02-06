@@ -45,10 +45,10 @@ impl Tileset {
     fn properties_query(&self) -> String {
         let keys: Vec<String> = self.properties
             .keys()
-            .map(|key| format!("'{0}', \"{0}\"", key))
+            .map(|key| format!("\"{0}\"", key))
             .collect();
 
-        format!("json_strip_nulls(json_build_object({0}))", keys.join(","))
+        keys.join(",")
     }
 
     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
@@ -71,7 +71,7 @@ impl Tileset {
                         {buffer},\
                         {clip_geom}\
                     ) AS geom,\
-                    {properties} as properties \
+                    {properties} \
                 FROM {id}, bounds \
                 WHERE {geometry_column} && bounds.original {condition}\
             ) AS tile WHERE geom IS NOT NULL",
