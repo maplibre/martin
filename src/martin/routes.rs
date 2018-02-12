@@ -1,11 +1,12 @@
-use iron::{status, mime, Request, Response, IronResult};
-use iron::headers::{Headers, parsing};
-use iron::prelude::{Plugin};
+use iron::{mime, status, IronResult, Request, Response};
+use iron::headers::{parsing, Headers};
+use iron::prelude::Plugin;
 use iron::url::Url;
 use mapbox_expressions_to_sql;
 use persistent::{Read, State};
-use regex::{Regex, Captures};
+use regex::{Captures, Regex};
 use serde_json;
+use std::ops::Deref;
 use urlencoded::UrlEncodedQuery;
 
 use super::db;
@@ -20,25 +21,33 @@ fn get_header(headers: &Headers, name: &str, default: &str) -> String {
         .unwrap_or(default.to_string())
 }
 
-pub fn index(_req: &mut Request, _caps: Captures) -> IronResult<Response> {
-    // let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
-    // let serialized_tilesets = serde_json::to_string(&tilesets).unwrap();
-    // Ok(Response::with((status::Ok, serialized_tilesets)))
+pub fn index(req: &mut Request, _caps: Captures) -> IronResult<Response> {
+    let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
+    let serialized_tilesets = serde_json::to_string(&tilesets.deref()).unwrap();
 
     let content_type = "application/json".parse::<mime::Mime>().unwrap();
-    Ok(Response::with((content_type, status::Ok, "{}")))
+
+    Ok(Response::with((
+        content_type,
+        status::Ok,
+        serialized_tilesets,
+    )))
 }
 
 pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
     let tileset = match tilesets.get(&caps["tileset"]) {
         Some(tileset) => tileset,
-        None => return Ok(Response::with((status::NotFound)))
+        None => return Ok(Response::with((status::NotFound))),
     };
 
     let protocol = get_header(&req.headers, "x-forwarded-proto", req.url.scheme());
 
-    let host = get_header(&req.headers, "x-forwarded-host", &req.url.host().to_string());
+    let host = get_header(
+        &req.headers,
+        "x-forwarded-host",
+        &req.url.host().to_string(),
+    );
     let port = req.url.port();
     let host_and_port = if port == 80 || port == 443 {
         host
@@ -50,10 +59,13 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let re = Regex::new(r"\A(.*)\.json\z").unwrap();
     let uri = match re.captures(&original_url) {
         Some(caps) => caps[1].to_string(),
-        None => return Ok(Response::with((status::InternalServerError)))
+        None => return Ok(Response::with((status::InternalServerError))),
     };
 
-    let tiles_url = format!("{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf", protocol, host_and_port, uri);
+    let tiles_url = format!(
+        "{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf",
+        protocol, host_and_port, uri
+    );
 
     let mut tilejson_builder = TileJSONBuilder::new();
     tilejson_builder.scheme("tms");
@@ -64,11 +76,16 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let serialized_tilejson = serde_json::to_string(&tilejson).unwrap();
 
     let content_type = "application/json".parse::<mime::Mime>().unwrap();
-    Ok(Response::with((content_type, status::Ok, serialized_tilejson)))
+    Ok(Response::with((
+        content_type,
+        status::Ok,
+        serialized_tilejson,
+    )))
 }
 
 fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {
-    req.get_ref::<UrlEncodedQuery>().ok()
+    req.get_ref::<UrlEncodedQuery>()
+        .ok()
         .and_then(|query| query.get("filter"))
         .and_then(|filter| filter.last())
 }
@@ -76,29 +93,36 @@ fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {
 pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let url: Url = req.url.clone().into();
     let lock = req.get::<State<cache::TileCache>>().unwrap();
-    let cached_tile = lock.write().ok().and_then(|mut guard|
-        guard.get(&url).cloned()
-    );
+    let cached_tile = lock.write()
+        .ok()
+        .and_then(|mut guard| guard.get(&url).cloned());
 
     let content_type = "application/x-protobuf".parse::<mime::Mime>().unwrap();
     if let Some(tile) = cached_tile {
         debug!("{} hit", url);
         return match tile.len() {
-            0 => Ok(Response::with((content_type, status::NoContent))),
-            _ => Ok(Response::with((content_type, status::Ok, tile)))
-        }
+            0 => {
+                debug!("{} 204", url);
+                Ok(Response::with((content_type, status::NoContent)))
+            }
+            _ => {
+                debug!("{} 200", url);
+                Ok(Response::with((content_type, status::Ok, tile)))
+            }
+        };
     };
 
     debug!("{} miss", url);
     let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
     let tileset = match tilesets.get(&caps["tileset"]) {
         Some(tileset) => tileset,
-        None => return Ok(Response::with((status::NotFound)))
+        None => return Ok(Response::with((status::NotFound))),
     };
 
     let conn = match db::get_connection(req) {
         Ok(conn) => conn,
         Err(error) => {
+            debug!("{} 500", url);
             error!("Couldn't get a connection to postgres: {}", error);
             return Ok(Response::with((status::InternalServerError)));
         }
@@ -110,22 +134,22 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
 
     let filter = get_filter(req).cloned();
     let condition = match filter {
-        Some(filter) => {
-            match mapbox_expressions_to_sql::parse(&filter) {
-                Ok(condition) => Some(condition),
-                Err(error) => {
-                    error!("Couldn't parse expression: {:?}", error);
-                    return Ok(Response::with((status::InternalServerError)));
-                }
+        Some(filter) => match mapbox_expressions_to_sql::parse(&filter) {
+            Ok(condition) => Some(condition),
+            Err(error) => {
+                debug!("{} 500", url);
+                error!("Couldn't parse expression: {:?}", error);
+                return Ok(Response::with((status::InternalServerError)));
             }
         },
-        None => None
+        None => None,
     };
 
     let query = tileset.get_query(z.clone(), x.clone(), y.clone(), condition);
     let tile: Vec<u8> = match conn.query(&query, &[]) {
         Ok(rows) => rows.get(0).get("st_asmvt"),
         Err(error) => {
+            debug!("{} 500", url);
             error!("Couldn't get a tile: {}", error);
             return Ok(Response::with((status::InternalServerError)));
         }
@@ -135,7 +159,13 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     guard.put(req.url.clone().into(), tile.clone());
 
     match tile.len() {
-        0 => Ok(Response::with((content_type, status::NoContent))),
-        _ => Ok(Response::with((content_type, status::Ok, tile)))
+        0 => {
+            debug!("{} 204", url);
+            Ok(Response::with((content_type, status::NoContent)))
+        }
+        _ => {
+            debug!("{} 200", url);
+            Ok(Response::with((content_type, status::Ok, tile)))
+        }
     }
 }

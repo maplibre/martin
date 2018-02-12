@@ -16,7 +16,10 @@ fn tilebbox(z: u32, x: u32, y: u32) -> String {
     let xmax = -max + (x as f64 * res) + res;
     let ymax = max - (y as f64 * res) - res;
 
-    format!("ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)", xmin, ymin, xmax, ymax)
+    format!(
+        "ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)",
+        xmin, ymin, xmax, ymax
+    )
 }
 
 #[derive(Serialize, Debug)]
@@ -30,7 +33,7 @@ pub struct Tileset {
     buffer: u32,
     clip_geom: bool,
     geometry_type: String,
-    properties: HashMap<String, String>
+    properties: HashMap<String, String>,
 }
 
 impl Tileset {
@@ -62,38 +65,39 @@ impl Tileset {
 
         let query = format!(
             "WITH bounds AS (SELECT {mercator_bounds} as mercator, {original_bounds} as original) \
-            SELECT ST_AsMVT(tile, '{id}', {extent}, 'geom') FROM (\
-                SELECT \
-                    ST_AsMVTGeom(\
-                        {geometry_column_mercator},\
-                        bounds.mercator,\
-                        {extent},\
-                        {buffer},\
-                        {clip_geom}\
-                    ) AS geom,\
-                    {properties} \
-                FROM {id}, bounds \
-                WHERE {geometry_column} && bounds.original {condition}\
-            ) AS tile WHERE geom IS NOT NULL",
-            id=self.id,
-            geometry_column=self.geometry_column,
-            geometry_column_mercator=self.geometry_column_mercator(),
-            original_bounds=original_bounds,
-            mercator_bounds=mercator_bounds,
-            extent=self.extent,
-            buffer=self.buffer,
-            clip_geom=self.clip_geom,
-            properties=self.properties_query(),
-            condition=condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
+             SELECT ST_AsMVT(tile, '{id}', {extent}, 'geom') FROM (\
+             SELECT \
+             ST_AsMVTGeom(\
+             {geometry_column_mercator},\
+             bounds.mercator,\
+             {extent},\
+             {buffer},\
+             {clip_geom}\
+             ) AS geom,\
+             {properties} \
+             FROM {id}, bounds \
+             WHERE {geometry_column} && bounds.original {condition}\
+             ) AS tile WHERE geom IS NOT NULL",
+            id = self.id,
+            geometry_column = self.geometry_column,
+            geometry_column_mercator = self.geometry_column_mercator(),
+            original_bounds = original_bounds,
+            mercator_bounds = mercator_bounds,
+            extent = self.extent,
+            buffer = self.buffer,
+            clip_geom = self.clip_geom,
+            properties = self.properties_query(),
+            condition = condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
         );
 
-        debug!("\n\n{}\n\n", query);
         query
     }
 }
 
 pub struct Tilesets;
-impl Key for Tilesets { type Value = HashMap<String, Tileset>; }
+impl Key for Tilesets {
+    type Value = HashMap<String, Tileset>;
+}
 
 fn value_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
     let mut hashmap = HashMap::new();
@@ -102,7 +106,7 @@ fn value_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
     for (key, value) in object {
         let string_value = value.as_str().unwrap();
         hashmap.insert(key.to_string(), string_value.to_string());
-    };
+    }
 
     hashmap
 }
@@ -145,6 +149,10 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
         let geometry_column: String = row.get("f_geometry_column");
         let srid: i32 = row.get("srid");
 
+        if srid == 0 {
+            warn!("{} has SRID 0", id);
+        }
+
         let tileset = Tileset {
             id: id.to_string(),
             schema: schema,
@@ -155,7 +163,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
             buffer: default_buffer,
             clip_geom: default_clip_geom,
             geometry_type: row.get("type"),
-            properties: value_to_hashmap(row.get("properties"))
+            properties: value_to_hashmap(row.get("properties")),
         };
 
         tilesets.insert(id, tileset);

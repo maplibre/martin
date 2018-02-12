@@ -4,13 +4,15 @@ use iron::typemap::Key;
 use iron::prelude::{Plugin, Request};
 use persistent::Read;
 use r2d2::{Config, Pool, PooledConnection};
-use r2d2_postgres::{TlsMode, PostgresConnectionManager};
+use r2d2_postgres::{PostgresConnectionManager, TlsMode};
 
 pub type PostgresPool = Pool<PostgresConnectionManager>;
 pub type PostgresConnection = PooledConnection<PostgresConnectionManager>;
 
 pub struct DB;
-impl Key for DB { type Value = PostgresPool; }
+impl Key for DB {
+    type Value = PostgresPool;
+}
 
 pub fn setup_connection_pool(cn_str: &str, pool_size: u32) -> Result<PostgresPool, Box<Error>> {
     let config = Config::builder().pool_size(pool_size).build();
