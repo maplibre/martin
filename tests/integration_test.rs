@@ -8,14 +8,12 @@ use iron_test::{request, response};
 
 #[test]
 fn test_index() {
-    let conn_string: String = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
-
-    let chain = martin_lib::chain(conn_string, 0);
+    let conn_string: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let chain = martin_lib::chain(conn_string, 10, 0);
 
     let headers = Headers::new();
     let response = request::get("http://localhost:3000/index.json", headers, &chain).unwrap();
 
     let result_body = response::extract_body_to_bytes(response);
-    assert_eq!(result_body, b"{}");
+    assert!(result_body.len() > 0);
 }
