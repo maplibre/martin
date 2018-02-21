@@ -135,7 +135,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
         GROUP BY f_table_schema, f_table_name, f_geometry_column, srid, type";
 
     let default_extent = 4096;
-    let default_buffer = 0; // 256
+    let default_buffer = 256;
     let default_clip_geom = true;
 
     let mut tilesets = HashMap::new();
