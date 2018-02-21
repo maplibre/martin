@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+// use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -21,63 +21,63 @@ pub struct Source {
 
 pub type Sources = HashMap<String, Source>;
 
-impl Source {
-    fn geometry_column_mercator(&self) -> Cow<str> {
-        if self.srid == 3857 {
-            self.geometry_column.as_str().into()
-        } else {
-            format!("ST_Transform({0}, 3857)", self.geometry_column).into()
-        }
-    }
+// impl Source {
+//     fn geometry_column_mercator(&self) -> Cow<str> {
+//         if self.srid == 3857 {
+//             self.geometry_column.as_str().into()
+//         } else {
+//             format!("ST_Transform({0}, 3857)", self.geometry_column).into()
+//         }
+//     }
 
-    fn properties_query(&self) -> String {
-        let keys: Vec<String> = self.properties
-            .keys()
-            .map(|key| format!("\"{0}\"", key))
-            .collect();
+//     fn properties_query(&self) -> String {
+//         let keys: Vec<String> = self.properties
+//             .keys()
+//             .map(|key| format!("\"{0}\"", key))
+//             .collect();
 
-        keys.join(",")
-    }
+//         keys.join(",")
+//     }
 
-    pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
-        let mercator_bounds = utils::tilebbox(z, x, y);
+//     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
+//         let mercator_bounds = utils::tilebbox(z, x, y);
 
-        let original_bounds: Cow<str> = if self.srid == 3857 {
-            mercator_bounds.as_str().into()
-        } else {
-            format!("ST_Transform({0}, {1})", mercator_bounds, self.srid).into()
-        };
+//         let original_bounds: Cow<str> = if self.srid == 3857 {
+//             mercator_bounds.as_str().into()
+//         } else {
+//             format!("ST_Transform({0}, {1})", mercator_bounds, self.srid).into()
+//         };
 
-        let query = format!(
-            "WITH bounds AS (SELECT {mercator_bounds} as mercator, {original_bounds} as original) \
-             SELECT ST_AsMVT(tile, '{id}', {extent}, 'geom') FROM (\
-             SELECT \
-             ST_AsMVTGeom(\
-             {geometry_column_mercator},\
-             bounds.mercator,\
-             {extent},\
-             {buffer},\
-             {clip_geom}\
-             ) AS geom,\
-             {properties} \
-             FROM {id}, bounds \
-             WHERE {geometry_column} && bounds.original {condition}\
-             ) AS tile WHERE geom IS NOT NULL",
-            id = self.id,
-            geometry_column = self.geometry_column,
-            geometry_column_mercator = self.geometry_column_mercator(),
-            original_bounds = original_bounds,
-            mercator_bounds = mercator_bounds,
-            extent = self.extent,
-            buffer = self.buffer,
-            clip_geom = self.clip_geom,
-            properties = self.properties_query(),
-            condition = condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
-        );
+//         let query = format!(
+//             "WITH bounds AS (SELECT {mercator_bounds} as mercator, {original_bounds} as original) \
+//              SELECT ST_AsMVT(tile, '{id}', {extent}, 'geom') FROM (\
+//              SELECT \
+//              ST_AsMVTGeom(\
+//              {geometry_column_mercator},\
+//              bounds.mercator,\
+//              {extent},\
+//              {buffer},\
+//              {clip_geom}\
+//              ) AS geom,\
+//              {properties} \
+//              FROM {id}, bounds \
+//              WHERE {geometry_column} && bounds.original {condition}\
+//              ) AS tile WHERE geom IS NOT NULL",
+//             id = self.id,
+//             geometry_column = self.geometry_column,
+//             geometry_column_mercator = self.geometry_column_mercator(),
+//             original_bounds = original_bounds,
+//             mercator_bounds = mercator_bounds,
+//             extent = self.extent,
+//             buffer = self.buffer,
+//             clip_geom = self.clip_geom,
+//             properties = self.properties_query(),
+//             condition = condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
+//         );
 
-        query
-    }
-}
+//         query
+//     }
+// }
 
 pub fn get_sources(conn: PostgresConnection) -> Result<HashMap<String, Source>, Box<Error>> {
     let query = "

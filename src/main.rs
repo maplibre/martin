@@ -13,6 +13,7 @@ extern crate serde_json;
 
 use std::env;
 use actix_web::HttpServer;
+use actix::SyncArbiter;
 
 mod db;
 mod utils;
@@ -52,11 +53,12 @@ fn main() {
         }
     };
 
+    let sys = actix::System::new("martin");
+    let db_sync_arbiter = SyncArbiter::start(3, move || db::DbExecutor(pool.clone()));
+
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
-
-    let sys = actix::System::new("martin");
-    let _addr = HttpServer::new(move || martin::new(pool.clone(), sources.clone()))
+    let _addr = HttpServer::new(move || martin::new(db_sync_arbiter.clone(), sources.clone()))
         .bind(bind_addr.clone())
         .expect(&format!("Can't bind to {}", bind_addr))
         .shutdown_timeout(0)

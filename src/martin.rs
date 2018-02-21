@@ -1,13 +1,14 @@
 use futures::future::{result, FutureResult};
+use actix::{Addr, Syn};
 use actix_web::{middleware, Application, Error, HttpRequest, HttpResponse, Method, Result};
 use actix_web::error::ErrorNotFound;
 use actix_web::httpcodes::HTTPOk;
 
-use super::db::PostgresPool;
+use super::db::DbExecutor;
 use super::source::Sources;
 
 pub struct State {
-    pool: PostgresPool,
+    db: Addr<Syn, DbExecutor>,
     sources: Sources,
 }
 
@@ -42,9 +43,9 @@ fn tile(req: HttpRequest<State>) -> FutureResult<HttpResponse, Error> {
     )
 }
 
-pub fn new(pool: PostgresPool, sources: Sources) -> Application<State> {
+pub fn new(db_sync_arbiter: Addr<Syn, DbExecutor>, sources: Sources) -> Application<State> {
     let state = State {
-        pool: pool,
+        db: db_sync_arbiter,
         sources: sources,
     };
 
