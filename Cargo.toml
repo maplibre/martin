@@ -3,31 +3,15 @@ name = "martin"
 version = "0.1.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 
-[lib]
-name = "martin_lib"
-path = "src/martin/lib.rs"
-
-[[bin]]
-name = "martin"
-path = "src/main.rs"
-
 [dependencies]
-env_logger = "0.5.1"
-iron = "0.6.0"
-iron-test = "0.6.0"
-lazy_static = "0.2.11"
+actix = { git = "https://github.com/actix/actix.git", branch = "master" }
+actix-web = { git = "https://github.com/actix/actix-web.git", branch = "master" }
+env_logger = "0.5.3"
+futures = "0.1.18"
 log = "0.4.1"
-logger = "0.4.0"
-lru = "0.1.7"
-mapbox_expressions_to_sql = { git = "https://github.com/stepankuzmin/rust-mapbox-expressions-to-sql" }
-persistent = "0.4.0"
 postgres = { version = "0.15", features = ["with-time", "with-uuid", "with-serde_json"] }
 r2d2 = "0.7.4"
 r2d2_postgres = "0.13.0"
-regex = "0.2.2"
-rererouter = "0.1.1"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-tilejson = "0.1.0"
-urlencoded = "0.6.0"

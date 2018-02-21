@@ -1,11 +1,23 @@
+extern crate actix;
+extern crate actix_web;
 extern crate env_logger;
-extern crate iron;
+extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate martin_lib;
+extern crate r2d2;
+extern crate r2d2_postgres;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
 
 use std::env;
-use iron::prelude::Iron;
+use actix_web::HttpServer;
+
+mod db;
+mod utils;
+mod martin;
+mod source;
 
 fn main() {
     env_logger::init();
@@ -17,18 +29,39 @@ fn main() {
         .and_then(|pool_size| pool_size.parse::<u32>().ok())
         .unwrap_or(20);
 
-    let cache_size = env::var("CACHE_SIZE")
-        .ok()
-        .and_then(|cache_size| cache_size.parse::<u32>().ok())
-        .unwrap_or(16384);
+    info!("Connecting to {} with pool size {}", conn_string, pool_size);
+    let pool = match db::setup_connection_pool(&conn_string, pool_size) {
+        Ok(pool) => {
+            info!("Connected to postgres: {}", conn_string);
+            pool
+        }
+        Err(error) => {
+            error!("Can't connect to postgres: {}", error);
+            std::process::exit(-1);
+        }
+    };
 
-    info!("pool_size {}, cache_size {}!", pool_size, cache_size);
-    let chain = martin_lib::chain(conn_string, pool_size, cache_size);
+    let sources = match pool.get()
+        .map_err(|err| err.into())
+        .and_then(|conn| source::get_sources(conn))
+    {
+        Ok(sources) => sources,
+        Err(error) => {
+            error!("Can't load sources: {}", error);
+            std::process::exit(-1);
+        }
+    };
 
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
-    match Iron::new(chain).http(bind_addr.as_str()) {
-        Ok(_) => info!("Server has been started on {}.", bind_addr),
-        Err(err) => panic!("{:?}", err),
-    };
+
+    let sys = actix::System::new("martin");
+    let _addr = HttpServer::new(move || martin::new(pool.clone(), sources.clone()))
+        .bind(bind_addr.clone())
+        .expect(&format!("Can't bind to {}", bind_addr))
+        .shutdown_timeout(0)
+        .start();
+
+    let _ = sys.run();
+    info!("Server has been started on {}.", bind_addr);
 }

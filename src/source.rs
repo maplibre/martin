@@ -1,29 +1,12 @@
-use iron::typemap::Key;
-use serde_json;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
-use std::borrow::Cow;
 
+use super::utils;
 use super::db::PostgresConnection;
 
-// https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
-fn tilebbox(z: u32, x: u32, y: u32) -> String {
-    let max = 20037508.34;
-    let res = (max * 2.0) / (2_i32.pow(z) as f64);
-
-    let xmin = -max + (x as f64 * res);
-    let ymin = max - (y as f64 * res);
-    let xmax = -max + (x as f64 * res) + res;
-    let ymax = max - (y as f64 * res) - res;
-
-    format!(
-        "ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)",
-        xmin, ymin, xmax, ymax
-    )
-}
-
-#[derive(Serialize, Debug)]
-pub struct Tileset {
+#[derive(Clone, Debug, Serialize)]
+pub struct Source {
     pub id: String,
     schema: String,
     table: String,
@@ -36,7 +19,9 @@ pub struct Tileset {
     properties: HashMap<String, String>,
 }
 
-impl Tileset {
+pub type Sources = HashMap<String, Source>;
+
+impl Source {
     fn geometry_column_mercator(&self) -> Cow<str> {
         if self.srid == 3857 {
             self.geometry_column.as_str().into()
@@ -55,12 +40,12 @@ impl Tileset {
     }
 
     pub fn get_query(&self, z: u32, x: u32, y: u32, condition: Option<String>) -> String {
-        let mercator_bounds = tilebbox(z, x, y);
+        let mercator_bounds = utils::tilebbox(z, x, y);
 
-        let original_bounds = if self.srid == 3857 {
-            mercator_bounds.clone()
+        let original_bounds: Cow<str> = if self.srid == 3857 {
+            mercator_bounds.as_str().into()
         } else {
-            format!("ST_Transform({0}, {1})", mercator_bounds, self.srid)
+            format!("ST_Transform({0}, {1})", mercator_bounds, self.srid).into()
         };
 
         let query = format!(
@@ -94,24 +79,7 @@ impl Tileset {
     }
 }
 
-pub struct Tilesets;
-impl Key for Tilesets {
-    type Value = HashMap<String, Tileset>;
-}
-
-fn value_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
-    let mut hashmap = HashMap::new();
-
-    let object = value.as_object().unwrap();
-    for (key, value) in object {
-        let string_value = value.as_str().unwrap();
-        hashmap.insert(key.to_string(), string_value.to_string());
-    }
-
-    hashmap
-}
-
-pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>, Box<Error>> {
+pub fn get_sources(conn: PostgresConnection) -> Result<HashMap<String, Source>, Box<Error>> {
     let query = "
         WITH columns AS (
             SELECT
@@ -138,7 +106,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
     let default_buffer = 0; // 256
     let default_clip_geom = true;
 
-    let mut tilesets = HashMap::new();
+    let mut sources = HashMap::new();
     let rows = try!(conn.query(&query, &[]));
 
     for row in &rows {
@@ -153,7 +121,7 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
             warn!("{} has SRID 0", id);
         }
 
-        let tileset = Tileset {
+        let source = Source {
             id: id.to_string(),
             schema: schema,
             table: table,
@@ -163,11 +131,11 @@ pub fn get_tilesets(conn: PostgresConnection) -> Result<HashMap<String, Tileset>
             buffer: default_buffer,
             clip_geom: default_clip_geom,
             geometry_type: row.get("type"),
-            properties: value_to_hashmap(row.get("properties")),
+            properties: utils::json_to_hashmap(row.get("properties")),
         };
 
-        tilesets.insert(id, tileset);
+        sources.insert(id, source);
     }
 
-    Ok(tilesets)
+    Ok(sources)
 }
