@@ -1,17 +1,22 @@
 use iron::{mime, status, IronResult, Request, Response};
 use iron::headers::{parsing, Headers};
-use iron::prelude::Plugin;
+use iron::prelude::{Chain, Plugin};
 use iron::url::Url;
+use logger::Logger;
+use lru::LruCache;
 use mapbox_expressions_to_sql;
 use persistent::{Read, State};
 use regex::{Captures, Regex};
+use rererouter::RouterBuilder;
 use serde_json;
+use std::collections::HashMap;
 use std::ops::Deref;
 use urlencoded::UrlEncodedQuery;
 
-use super::db;
-use super::cache;
-use super::tileset;
+use super::cache::TileCache;
+use super::cors;
+use super::db::{get_connection, PostgresPool, DB};
+use super::source::{Source, Sources};
 use tilejson::TileJSONBuilder;
 
 fn get_header(headers: &Headers, name: &str, default: &str) -> String {
@@ -21,24 +26,31 @@ fn get_header(headers: &Headers, name: &str, default: &str) -> String {
         .unwrap_or(default.to_string())
 }
 
+fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {
+    req.get_ref::<UrlEncodedQuery>()
+        .ok()
+        .and_then(|query| query.get("filter"))
+        .and_then(|filter| filter.last())
+}
+
 pub fn index(req: &mut Request, _caps: Captures) -> IronResult<Response> {
-    let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
-    let serialized_tilesets = serde_json::to_string(&tilesets.deref()).unwrap();
+    let sources = req.get::<Read<Sources>>().unwrap();
+    let serialized_sources = serde_json::to_string(&sources.deref()).unwrap();
 
     let content_type = "application/json".parse::<mime::Mime>().unwrap();
 
     Ok(Response::with((
         content_type,
         status::Ok,
-        serialized_tilesets,
+        serialized_sources,
     )))
 }
 
-pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
-    let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
-    let tileset = match tilesets.get(&caps["tileset"]) {
-        Some(tileset) => tileset,
-        None => return Ok(Response::with((status::NotFound))),
+pub fn source(req: &mut Request, caps: Captures) -> IronResult<Response> {
+    let sources = req.get::<Read<Sources>>().unwrap();
+    let source = match sources.get(&caps["source"]) {
+        Some(source) => source,
+        None => return Ok(Response::with(status::NotFound)),
     };
 
     let protocol = get_header(&req.headers, "x-forwarded-proto", req.url.scheme());
@@ -59,7 +71,7 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let re = Regex::new(r"\A(.*)\.json\z").unwrap();
     let uri = match re.captures(&original_url) {
         Some(caps) => caps[1].to_string(),
-        None => return Ok(Response::with((status::InternalServerError))),
+        None => return Ok(Response::with(status::InternalServerError)),
     };
 
     let tiles_url = format!(
@@ -69,7 +81,7 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
 
     let mut tilejson_builder = TileJSONBuilder::new();
     tilejson_builder.scheme("tms");
-    tilejson_builder.name(&tileset.id);
+    tilejson_builder.name(&source.id);
     tilejson_builder.tiles(vec![&tiles_url]);
 
     let tilejson = tilejson_builder.finalize();
@@ -83,16 +95,9 @@ pub fn tileset(req: &mut Request, caps: Captures) -> IronResult<Response> {
     )))
 }
 
-fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {
-    req.get_ref::<UrlEncodedQuery>()
-        .ok()
-        .and_then(|query| query.get("filter"))
-        .and_then(|filter| filter.last())
-}
-
 pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     let url: Url = req.url.clone().into();
-    let lock = req.get::<State<cache::TileCache>>().unwrap();
+    let lock = req.get::<State<TileCache>>().unwrap();
     let cached_tile = lock.write()
         .ok()
         .and_then(|mut guard| guard.get(&url).cloned());
@@ -113,18 +118,18 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
     };
 
     debug!("{} miss", url);
-    let tilesets = req.get::<Read<tileset::Tilesets>>().unwrap();
-    let tileset = match tilesets.get(&caps["tileset"]) {
-        Some(tileset) => tileset,
-        None => return Ok(Response::with((status::NotFound))),
+    let sources = req.get::<Read<Sources>>().unwrap();
+    let source = match sources.get(&caps["source"]) {
+        Some(source) => source,
+        None => return Ok(Response::with(status::NotFound)),
     };
 
-    let conn = match db::get_connection(req) {
+    let conn = match get_connection(req) {
         Ok(conn) => conn,
         Err(error) => {
             debug!("{} 500", url);
             error!("Couldn't get a connection to postgres: {}", error);
-            return Ok(Response::with((status::InternalServerError)));
+            return Ok(Response::with(status::InternalServerError));
         }
     };
 
@@ -139,19 +144,19 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
             Err(error) => {
                 debug!("{} 500", url);
                 error!("Couldn't parse expression: {:?}", error);
-                return Ok(Response::with((status::InternalServerError)));
+                return Ok(Response::with(status::InternalServerError));
             }
         },
         None => None,
     };
 
-    let query = tileset.get_query(z.clone(), x.clone(), y.clone(), condition);
+    let query = source.get_query(z.clone(), x.clone(), y.clone(), condition);
     let tile: Vec<u8> = match conn.query(&query, &[]) {
         Ok(rows) => rows.get(0).get("st_asmvt"),
         Err(error) => {
             debug!("{} 500", url);
             error!("Couldn't get a tile: {}", error);
-            return Ok(Response::with((status::InternalServerError)));
+            return Ok(Response::with(status::InternalServerError));
         }
     };
 
@@ -168,4 +173,36 @@ pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
             Ok(Response::with((content_type, status::Ok, tile)))
         }
     }
+}
+
+pub fn chain(
+    pool: PostgresPool,
+    sources: HashMap<String, Source>,
+    tile_cache: LruCache<Url, Vec<u8>>,
+) -> Chain {
+    let mut router_builder = RouterBuilder::new();
+
+    router_builder.get(r"/index.json", index);
+    router_builder.get(r"/(?P<source>[\w|\.]*)\.json", source);
+
+    router_builder.get(
+        r"/(?P<source>[\w|\.]*)/(?P<z>\d*)/(?P<x>\d*)/(?P<y>\d*).pbf",
+        tile,
+    );
+
+    let router = router_builder.finalize();
+
+    let mut chain = Chain::new(router);
+
+    let (logger_before, logger_after) = Logger::new(None);
+    chain.link_before(logger_before);
+
+    chain.link(Read::<Sources>::both(sources));
+    chain.link(Read::<DB>::both(pool));
+    chain.link(State::<TileCache>::both(tile_cache));
+
+    chain.link_after(cors::Middleware);
+    chain.link_after(logger_after);
+
+    chain
 }

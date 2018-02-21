@@ -3,10 +3,6 @@ name = "martin"
 version = "0.1.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 
-[lib]
-name = "martin_lib"
-path = "src/martin/lib.rs"
-
 [[bin]]
 name = "martin"
 path = "src/main.rs"
