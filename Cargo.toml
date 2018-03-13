@@ -5,8 +5,7 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 
 [dependencies]
 actix = "0.5"
-# actix = { git = "https://github.com/actix/actix.git", branch = "master" }
-actix-web = { git = "https://github.com/actix/actix-web.git", branch = "master" }
+actix-web = "0.4"
 env_logger = "0.5.3"
 futures = "0.1.18"
 log = "0.4.1"
