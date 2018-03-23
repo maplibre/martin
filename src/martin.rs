@@ -59,13 +59,16 @@ fn tile(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Erro
         .ok_or(error::ErrorNotFound("invalid y"))
         .unwrap();
 
+    let condition = None;
+
     req.state()
         .db
         .send(GetTile {
-            source: source.clone(),
             z: z,
             x: x,
             y: y,
+            source: source.clone(),
+            condition: condition,
         })
         .from_err()
         .and_then(|res| match res {
