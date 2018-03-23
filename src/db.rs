@@ -4,6 +4,8 @@ use r2d2::{Config, Pool, PooledConnection};
 use std::error::Error;
 use std::io;
 
+use super::source::Source;
+
 pub type PostgresPool = Pool<PostgresConnectionManager>;
 pub type PostgresConnection = PooledConnection<PostgresConnectionManager>;
 
@@ -23,39 +25,27 @@ impl Actor for DbExecutor {
 
 #[derive(Debug)]
 pub struct GetTile {
+    pub source: Source,
     pub z: u32,
     pub x: u32,
     pub y: u32,
 }
 
 impl Message for GetTile {
-    type Result = Result<String, io::Error>;
+    type Result = Result<Vec<u8>, io::Error>;
 }
 
 impl Handler<GetTile> for DbExecutor {
-    type Result = Result<String, io::Error>;
+    type Result = Result<Vec<u8>, io::Error>;
 
     fn handle(&mut self, msg: GetTile, _: &mut Self::Context) -> Self::Result {
-        debug!("self {:?}\n\n\n", self);
-        debug!("msg {:?}\n\n\n", msg);
+        let conn = self.0.get().unwrap();
+        let query = msg.source.get_query(msg.z, msg.x, msg.y, None);
 
-        // let conn = self.0.get().unwrap();
+        let tile: Vec<u8> = conn.query(&query, &[])
+            .map(|rows| rows.get(0).get("st_asmvt"))
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "db error"))?;
 
-        // let tile: Vec<u8> = match conn.query(&query, &[]) {
-        //     Ok(rows) => rows.get(0).get("st_asmvt"),
-        //     Err(error) => {
-        //         debug!("{} 500", url);
-        //         error!("Couldn't get a tile: {}", error);
-        //         return Ok(Response::with(status::InternalServerError));
-        //     }
-        // };
-
-        // Ok(
-        //     conn.query_row("SELECT name FROM users WHERE id=$1", &[&uuid], |row| {
-        //         row.get(0)
-        //     }).map_err(|_| io::Error::new(io::ErrorKind::Other, "db error"))?,
-        // )
-
-        Ok("result".to_string())
+        Ok(tile)
     }
 }

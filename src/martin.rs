@@ -1,7 +1,5 @@
-use actix_web::{middleware, Application, Error, HttpRequest, HttpResponse, Method, Result};
-use actix_web::error::ErrorNotFound;
-use actix_web::httpcodes::HTTPOk;
-use actix::{Addr, Syn};
+use actix::*;
+use actix_web::*;
 use futures::future::Future;
 
 use super::db::{DbExecutor, GetTile};
@@ -12,73 +10,72 @@ pub struct State {
     sources: Sources,
 }
 
+// TODO: read sources on each request
 fn index(req: HttpRequest<State>) -> Result<HttpResponse> {
     let sources = &req.state().sources;
-    Ok(HTTPOk.build().json(sources)?)
+    Ok(httpcodes::HTTPOk.build().json(sources)?)
 }
 
+// TODO: read source on each request
 fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
     let sources = &req.state().sources;
     let source_id = req.match_info().get("source").unwrap();
 
-    let source = sources
-        .get(source_id)
-        .ok_or(ErrorNotFound(format!("source {} not found", source_id)))?;
+    let source = sources.get(source_id).ok_or(error::ErrorNotFound(format!(
+        "source {} not found",
+        source_id
+    )))?;
 
-    Ok(HTTPOk.build().json(source)?)
+    Ok(httpcodes::HTTPOk.build().json(source)?)
 }
 
-// fn tile(req: HttpRequest<State>) -> Result<HttpResponse> {
 fn tile(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
     let sources = &req.state().sources;
     let source_id = req.match_info().get("source").unwrap();
 
     let source = sources
         .get(source_id)
-        .ok_or(ErrorNotFound(format!("source {} not found", source_id)))?;
+        .ok_or(error::ErrorNotFound(format!(
+            "source {} not found",
+            source_id
+        )))
+        .unwrap();
 
     let z = req.match_info()
         .get("z")
         .and_then(|i| i.parse::<u32>().ok())
-        .ok_or(ErrorNotFound("invalid z"))?;
+        .ok_or(error::ErrorNotFound("invalid z"))
+        .unwrap();
 
     let x = req.match_info()
         .get("x")
         .and_then(|i| i.parse::<u32>().ok())
-        .ok_or(ErrorNotFound("invalid x"))?;
+        .ok_or(error::ErrorNotFound("invalid x"))
+        .unwrap();
 
     let y = req.match_info()
         .get("y")
         .and_then(|i| i.parse::<u32>().ok())
-        .ok_or(ErrorNotFound("invalid y"))?;
+        .ok_or(error::ErrorNotFound("invalid y"))
+        .unwrap();
 
-    // req.state()
-    //     .db
-    //     .send(GetTile { z: z, x: x, y: y })
-    //     .from_err()
-    //     .and_then(|_| {
-    //         let response = HttpResponse::Ok()
-    //             .content_type("plain/text")
-    //             .body(format!("requested tile {} {} {}", z, x, y));
-
-    //         Ok(response?)
-    //     })
-    //     .responder()
-
-    let res = req.state()
+    req.state()
         .db
-        .send(GetTile { z: z, x: x, y: y })
-        .from_err()
-        .and_then(|_| {
-            let response = HttpResponse::Ok()
-                .content_type("plain/text")
-                .body(format!("requested tile {} {} {}", z, x, y));
-
-            Ok(response?)
+        .send(GetTile {
+            source: source.clone(),
+            z: z,
+            x: x,
+            y: y,
         })
-        .responder();
-
-    res
+        .from_err()
+        .and_then(|res| match res {
+            Ok(tile) => Ok(HttpResponse::Ok()
+                .content_type("application/x-protobuf")
+                .body(tile)
+                .unwrap()),
+            Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
+        })
+        .responder()
 }
 
 pub fn new(db_sync_arbiter: Addr<Syn, DbExecutor>, sources: Sources) -> Application<State> {
