@@ -1,8 +1,8 @@
 use actix::*;
 use actix_web::*;
-use futures::future::Future;
+use futures::future::{result, Future};
 
-use super::db::{DbExecutor, GetTile};
+use super::db::{DbExecutor, GetSources, GetTile};
 use super::source::Sources;
 
 pub struct State {
@@ -10,23 +10,31 @@ pub struct State {
     sources: Sources,
 }
 
-// TODO: read sources on each request
-fn index(req: HttpRequest<State>) -> Result<HttpResponse> {
-    let sources = &req.state().sources;
-    Ok(httpcodes::HTTPOk.build().json(sources)?)
+fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
+    req.state()
+        .db
+        .send(GetSources {})
+        .from_err()
+        .and_then(|res| match res {
+            Ok(sources) => Ok(httpcodes::HTTPOk.build().json(sources)?),
+            Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
+        })
+        .responder()
 }
 
-// TODO: read source on each request
-fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
+fn source(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
     let sources = &req.state().sources;
     let source_id = req.match_info().get("source").unwrap();
 
-    let source = sources.get(source_id).ok_or(error::ErrorNotFound(format!(
-        "source {} not found",
-        source_id
-    )))?;
+    let source = sources
+        .get(source_id)
+        .ok_or(error::ErrorNotFound(format!(
+            "source {} not found",
+            source_id
+        )))
+        .and_then(|source| httpcodes::HTTPOk.build().json(source));
 
-    Ok(httpcodes::HTTPOk.build().json(source)?)
+    result(source).responder()
 }
 
 fn tile(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
@@ -94,8 +102,8 @@ pub fn new(db_sync_arbiter: Addr<Syn, DbExecutor>, sources: Sources) -> Applicat
     Application::with_state(state)
         .middleware(middleware::Logger::default())
         .middleware(cors)
-        .resource("/index.json", |r| r.method(Method::GET).f(index))
-        .resource("/{source}.json", |r| r.method(Method::GET).f(source))
+        .resource("/index.json", |r| r.method(Method::GET).a(index))
+        .resource("/{source}.json", |r| r.method(Method::GET).a(source))
         .resource("/{source}/{z}/{x}/{y}.pbf", |r| {
             r.method(Method::GET).a(tile)
         })

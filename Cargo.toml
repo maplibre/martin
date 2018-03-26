@@ -6,12 +6,12 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 [dependencies]
 actix = "0.5"
 actix-web = "0.4"
-env_logger = "0.5.3"
-futures = "0.1.18"
-log = "0.4.1"
+env_logger = "0.5"
+futures = "0.1"
+log = "0.4"
 postgres = { version = "0.15", features = ["with-time", "with-uuid", "with-serde_json"] }
-r2d2 = "0.7.4"
-r2d2_postgres = "0.13.0"
+r2d2 = "0.8"
+r2d2_postgres = "0.14"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"

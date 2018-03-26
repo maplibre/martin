@@ -11,9 +11,11 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use std::env;
 use actix_web::HttpServer;
 use actix::SyncArbiter;
+use std::env;
+use std::error::Error;
+use std::io;
 
 mod db;
 mod utils;
@@ -43,7 +45,7 @@ fn main() {
     };
 
     let sources = match pool.get()
-        .map_err(|err| err.into())
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))
         .and_then(|conn| source::get_sources(conn))
     {
         Ok(sources) => sources,
