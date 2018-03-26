@@ -1,13 +1,14 @@
-use actix::*;
 use actix_web::*;
+use actix::*;
 use futures::future::Future;
+use std::cell::RefCell;
 
 use super::db::{DbExecutor, GetSources, GetTile};
 use super::source::Sources;
 
 pub struct State {
     db: Addr<Syn, DbExecutor>,
-    sources: Sources,
+    sources: RefCell<Sources>,
 }
 
 fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
@@ -15,15 +16,18 @@ fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Err
         .db
         .send(GetSources {})
         .from_err()
-        .and_then(|res| match res {
-            Ok(sources) => Ok(httpcodes::HTTPOk.build().json(sources)?),
+        .and_then(move |res| match res {
+            Ok(sources) => {
+                *req.state().sources.borrow_mut() = sources.clone();
+                Ok(httpcodes::HTTPOk.build().json(sources)?)
+            }
             Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
         })
         .responder()
 }
 
 fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
-    let sources = &req.state().sources;
+    let sources = req.state().sources.borrow();
 
     let source_id = req.match_info()
         .get("source")
@@ -38,7 +42,7 @@ fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
 }
 
 fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
-    let sources = &req.state().sources;
+    let sources = &req.state().sources.borrow();
 
     let source_id = req.match_info()
         .get("source")
@@ -88,7 +92,7 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
 pub fn new(db_sync_arbiter: Addr<Syn, DbExecutor>, sources: Sources) -> Application<State> {
     let state = State {
         db: db_sync_arbiter,
-        sources: sources,
+        sources: RefCell::new(sources),
     };
 
     let cors = middleware::cors::Cors::build()
