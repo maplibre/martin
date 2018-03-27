@@ -21,8 +21,9 @@ mod db;
 mod utils;
 mod martin;
 mod source;
-mod coordinator_actor;
+mod messages;
 mod worker_actor;
+mod coordinator_actor;
 
 fn main() {
     env_logger::init();
@@ -67,21 +68,16 @@ fn main() {
         }
     };
 
-    let coordinator_system = actix::System::new("coordinator");
-    let coordinator_addr: Addr<Syn, _> = coordinator_actor::CoordinatorActor.start();
-    coordinator_system.run();
-
     let server = actix::System::new("server");
+    let coordinator_addr: Addr<Syn, _> = coordinator_actor::CoordinatorActor::default().start();
     let db_sync_arbiter = SyncArbiter::start(3, move || db::DbExecutor(pool.clone()));
 
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
     let _addr = HttpServer::new(move || {
-        martin::new(
-            db_sync_arbiter.clone(),
-            coordinator_addr.clone(),
-            sources.clone(),
-        )
+        let worker_addr: Addr<Syn, _> = worker_actor::WorkerActor.start();
+        coordinator_addr.do_send(messages::Connect { addr: worker_addr });
+        martin::new(db_sync_arbiter.clone(), sources.clone())
     }).bind(bind_addr.clone())
         .expect(&format!("Can't bind to {}", bind_addr))
         .keep_alive(keep_alive)

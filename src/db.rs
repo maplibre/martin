@@ -1,10 +1,11 @@
-use actix::prelude::{Actor, Handler, Message, SyncContext};
+use actix::prelude::*;
 use r2d2_postgres::{PostgresConnectionManager, TlsMode};
 use r2d2::{Pool, PooledConnection};
 use std::error::Error;
 use std::io;
 
-use super::source::{get_sources, Source, Sources, Tile};
+use super::messages;
+use super::source::{get_sources, Sources, Tile};
 
 pub type PostgresPool = Pool<PostgresConnectionManager>;
 pub type PostgresConnection = PooledConnection<PostgresConnectionManager>;
@@ -22,38 +23,20 @@ impl Actor for DbExecutor {
     type Context = SyncContext<Self>;
 }
 
-pub struct GetSources {}
-impl Message for GetSources {
-    type Result = Result<Sources, io::Error>;
-}
-
-impl Handler<GetSources> for DbExecutor {
+impl Handler<messages::GetSources> for DbExecutor {
     type Result = Result<Sources, io::Error>;
 
-    fn handle(&mut self, _msg: GetSources, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, _msg: messages::GetSources, _: &mut Self::Context) -> Self::Result {
         let conn = self.0.get().unwrap();
         let sources = get_sources(conn)?;
         Ok(sources)
     }
 }
 
-#[derive(Debug)]
-pub struct GetTile {
-    pub z: u32,
-    pub x: u32,
-    pub y: u32,
-    pub source: Source,
-    pub condition: Option<String>,
-}
-
-impl Message for GetTile {
-    type Result = Result<Tile, io::Error>;
-}
-
-impl Handler<GetTile> for DbExecutor {
+impl Handler<messages::GetTile> for DbExecutor {
     type Result = Result<Tile, io::Error>;
 
-    fn handle(&mut self, msg: GetTile, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {
         let conn = self.0.get().unwrap();
 
         let tile = msg.source
