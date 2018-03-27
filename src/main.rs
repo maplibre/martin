@@ -77,7 +77,12 @@ fn main() {
     let _addr = HttpServer::new(move || {
         let worker_addr: Addr<Syn, _> = worker_actor::WorkerActor.start();
         coordinator_addr.do_send(messages::Connect { addr: worker_addr });
-        martin::new(db_sync_arbiter.clone(), sources.clone())
+
+        martin::new(
+            db_sync_arbiter.clone(),
+            coordinator_addr.clone(),
+            sources.clone(),
+        )
     }).bind(bind_addr.clone())
         .expect(&format!("Can't bind to {}", bind_addr))
         .keep_alive(keep_alive)

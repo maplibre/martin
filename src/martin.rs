@@ -6,10 +6,12 @@ use std::cell::RefCell;
 use super::messages;
 use super::db::DbExecutor;
 use super::source::Sources;
+use super::coordinator_actor::CoordinatorActor;
 
 pub struct State {
     db: Addr<Syn, DbExecutor>,
     sources: RefCell<Sources>,
+    coordinator_addr: Addr<Syn, CoordinatorActor>,
 }
 
 fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
@@ -19,6 +21,11 @@ fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Err
         .from_err()
         .and_then(move |res| match res {
             Ok(sources) => {
+                let coordinator_addr = &req.state().coordinator_addr;
+                coordinator_addr.do_send(messages::RefreshSources {
+                    sources: sources.clone(),
+                });
+
                 *req.state().sources.borrow_mut() = sources.clone();
                 Ok(httpcodes::HTTPOk.build().json(sources)?)
             }
@@ -90,10 +97,15 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
         .responder())
 }
 
-pub fn new(db_sync_arbiter: Addr<Syn, DbExecutor>, sources: Sources) -> Application<State> {
+pub fn new(
+    db_sync_arbiter: Addr<Syn, DbExecutor>,
+    coordinator_addr: Addr<Syn, CoordinatorActor>,
+    sources: Sources,
+) -> Application<State> {
     let state = State {
         db: db_sync_arbiter,
         sources: RefCell::new(sources),
+        coordinator_addr: coordinator_addr,
     };
 
     let cors = middleware::cors::Cors::build()

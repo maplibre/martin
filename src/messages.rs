@@ -18,7 +18,14 @@ impl Message for GetSources {
   type Result = Result<Sources, io::Error>;
 }
 
-#[derive(Debug)]
+pub struct RefreshSources {
+  pub sources: Sources,
+}
+
+impl Message for RefreshSources {
+  type Result = Result<Sources, io::Error>;
+}
+
 pub struct GetTile {
   pub z: u32,
   pub x: u32,
