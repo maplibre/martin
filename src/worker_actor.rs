@@ -1,10 +1,13 @@
 use actix::prelude::*;
-use std::io;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use super::messages;
 use super::source::Sources;
 
-pub struct WorkerActor;
+pub struct WorkerActor {
+  pub sources: Rc<RefCell<Sources>>,
+}
 
 impl Actor for WorkerActor {
   type Context = Context<Self>;
@@ -15,9 +18,9 @@ impl Actor for WorkerActor {
 }
 
 impl Handler<messages::RefreshSources> for WorkerActor {
-  type Result = Result<Sources, io::Error>;
+  type Result = ();
 
   fn handle(&mut self, msg: messages::RefreshSources, _: &mut Context<Self>) -> Self::Result {
-    Ok(msg.sources)
+    *self.sources.borrow_mut() = msg.sources.clone();
   }
 }

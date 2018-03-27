@@ -1,6 +1,7 @@
 use actix_web::*;
 use actix::*;
 use futures::future::Future;
+use std::rc::Rc;
 use std::cell::RefCell;
 
 use super::messages;
@@ -10,7 +11,7 @@ use super::coordinator_actor::CoordinatorActor;
 
 pub struct State {
     db: Addr<Syn, DbExecutor>,
-    sources: RefCell<Sources>,
+    sources: Rc<RefCell<Sources>>,
     coordinator_addr: Addr<Syn, CoordinatorActor>,
 }
 
@@ -25,8 +26,6 @@ fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Err
                 coordinator_addr.do_send(messages::RefreshSources {
                     sources: sources.clone(),
                 });
-
-                *req.state().sources.borrow_mut() = sources.clone();
                 Ok(httpcodes::HTTPOk.build().json(sources)?)
             }
             Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
@@ -100,11 +99,11 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
 pub fn new(
     db_sync_arbiter: Addr<Syn, DbExecutor>,
     coordinator_addr: Addr<Syn, CoordinatorActor>,
-    sources: Sources,
+    sources: Rc<RefCell<Sources>>,
 ) -> Application<State> {
     let state = State {
         db: db_sync_arbiter,
-        sources: RefCell::new(sources),
+        sources: sources.clone(),
         coordinator_addr: coordinator_addr,
     };
 

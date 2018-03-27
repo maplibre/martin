@@ -23,7 +23,7 @@ pub struct RefreshSources {
 }
 
 impl Message for RefreshSources {
-  type Result = Result<Sources, io::Error>;
+  type Result = ();
 }
 
 pub struct GetTile {

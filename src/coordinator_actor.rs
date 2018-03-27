@@ -1,8 +1,6 @@
 use actix::prelude::*;
-use std::io;
 
 use super::messages;
-use super::source::Sources;
 use super::worker_actor::WorkerActor;
 
 pub struct CoordinatorActor {
@@ -34,7 +32,7 @@ impl Handler<messages::Connect> for CoordinatorActor {
 }
 
 impl Handler<messages::RefreshSources> for CoordinatorActor {
-  type Result = Result<Sources, io::Error>;
+  type Result = ();
 
   fn handle(&mut self, msg: messages::RefreshSources, _: &mut Context<Self>) -> Self::Result {
     for worker in &self.workers {
@@ -42,7 +40,5 @@ impl Handler<messages::RefreshSources> for CoordinatorActor {
         sources: msg.sources.clone(),
       });
     }
-
-    Ok(msg.sources)
   }
 }

@@ -16,6 +16,8 @@ use actix::{Actor, Addr, Syn, SyncArbiter};
 use std::env;
 use std::error::Error;
 use std::io;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 mod db;
 mod utils;
@@ -75,13 +77,19 @@ fn main() {
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
     let _addr = HttpServer::new(move || {
-        let worker_addr: Addr<Syn, _> = worker_actor::WorkerActor.start();
+        let sources_rc = Rc::new(RefCell::new(sources.clone()));
+
+        let worker_actor = worker_actor::WorkerActor {
+            sources: sources_rc.clone(),
+        };
+
+        let worker_addr: Addr<Syn, _> = worker_actor.start();
         coordinator_addr.do_send(messages::Connect { addr: worker_addr });
 
         martin::new(
             db_sync_arbiter.clone(),
             coordinator_addr.clone(),
-            sources.clone(),
+            sources_rc.clone(),
         )
     }).bind(bind_addr.clone())
         .expect(&format!("Can't bind to {}", bind_addr))
