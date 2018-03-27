@@ -5,10 +5,13 @@ use std::cell::RefCell;
 
 use super::db::{DbExecutor, GetSources, GetTile};
 use super::source::Sources;
+use super::coordinator_actor::CoordinatorActor;
+use super::worker_actor::WorkerActor;
 
 pub struct State {
     db: Addr<Syn, DbExecutor>,
     sources: RefCell<Sources>,
+    coordinator_addr: Addr<Syn, CoordinatorActor>,
 }
 
 fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
@@ -89,11 +92,18 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
         .responder())
 }
 
-pub fn new(db_sync_arbiter: Addr<Syn, DbExecutor>, sources: Sources) -> Application<State> {
+pub fn new(
+    db_sync_arbiter: Addr<Syn, DbExecutor>,
+    coordinator_addr: Addr<Syn, CoordinatorActor>,
+    sources: Sources,
+) -> Application<State> {
     let state = State {
         db: db_sync_arbiter,
         sources: RefCell::new(sources),
+        coordinator_addr: coordinator_addr,
     };
+
+    let _worker_addr: Addr<Syn, _> = WorkerActor.start();
 
     let cors = middleware::cors::Cors::build()
         .finish()
