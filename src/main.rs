@@ -11,6 +11,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate tilejson;
 
 use actix_web::HttpServer;
 use actix::{Actor, Addr, Syn, SyncArbiter};

@@ -4,6 +4,7 @@ use futures::future::Future;
 use mapbox_expressions_to_sql;
 use std::cell::RefCell;
 use std::rc::Rc;
+use tilejson::TileJSONBuilder;
 
 use super::messages;
 use super::db::DbExecutor;
@@ -36,25 +37,30 @@ fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Err
 }
 
 fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
-    let sources = req.state().sources.borrow();
-
-    let source_id = req.match_info()
-        .get("source")
+    let source_ids = req.match_info()
+        .get("sources")
         .ok_or(error::ErrorBadRequest("invalid source"))?;
 
-    let source = sources.get(source_id).ok_or(error::ErrorNotFound(format!(
-        "source {} not found",
-        source_id
-    )))?;
+    let mut tilejson_builder = TileJSONBuilder::new();
+    tilejson_builder.scheme("tms");
+    tilejson_builder.name(&source_ids);
 
-    Ok(httpcodes::HTTPOk.build().json(source)?)
+    let tiles_url = format!(
+        "{}/{{z}}/{{x}}/{{y}}.pbf",
+        req.url_for("tilejson", &[source_ids]).unwrap()
+    );
+
+    tilejson_builder.tiles(vec![&tiles_url]);
+
+    let tilejson = tilejson_builder.finalize();
+    Ok(httpcodes::HTTPOk.build().json(tilejson)?)
 }
 
 fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
     let sources = &req.state().sources.borrow();
 
     let source_id = req.match_info()
-        .get("source")
+        .get("sources")
         .ok_or(error::ErrorBadRequest("invalid source"))?;
 
     let source = sources.get(source_id).ok_or(error::ErrorNotFound(format!(
@@ -133,8 +139,11 @@ pub fn new(
         .middleware(middleware::Logger::default())
         .middleware(cors)
         .resource("/index.json", |r| r.method(Method::GET).a(index))
-        .resource("/{source}.json", |r| r.method(Method::GET).f(source))
-        .resource("/{source}/{z}/{x}/{y}.pbf", |r| {
+        .resource("/{sources}.json", |r| {
+            r.name("tilejson");
+            r.method(Method::GET).f(source)
+        })
+        .resource("/{sources}/{z}/{x}/{y}.pbf", |r| {
             r.method(Method::GET).f(tile)
         })
 }
