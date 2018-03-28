@@ -21,7 +21,7 @@ before_script:
 - sudo apt-get install -y postgresql-9.6-postgis-2.4
 - psql -U postgres -c 'create database test'
 - psql -U postgres -d test -c 'create extension postgis'
-- psql -U postgres -d test -f tests/fixtures/points.sql
+# - psql -U postgres -d test -f tests/fixtures/points.sql
 
 script:
 - cargo test --verbose --all

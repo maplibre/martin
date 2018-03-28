@@ -8,6 +8,7 @@ use std::rc::Rc;
 use super::messages;
 use super::db::DbExecutor;
 use super::source::Sources;
+use super::worker_actor::WorkerActor;
 use super::coordinator_actor::CoordinatorActor;
 
 pub struct State {
@@ -107,11 +108,20 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
 pub fn new(
     db_sync_arbiter: Addr<Syn, DbExecutor>,
     coordinator_addr: Addr<Syn, CoordinatorActor>,
-    sources: Rc<RefCell<Sources>>,
+    sources: Sources,
 ) -> Application<State> {
+    let sources_rc = Rc::new(RefCell::new(sources));
+
+    let worker_actor = WorkerActor {
+        sources: sources_rc.clone(),
+    };
+
+    let worker_addr: Addr<Syn, _> = worker_actor.start();
+    coordinator_addr.do_send(messages::Connect { addr: worker_addr });
+
     let state = State {
         db: db_sync_arbiter,
-        sources: sources.clone(),
+        sources: sources_rc.clone(),
         coordinator_addr: coordinator_addr,
     };
 
