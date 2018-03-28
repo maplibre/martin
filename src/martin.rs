@@ -91,9 +91,14 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
         })
         .from_err()
         .and_then(|res| match res {
-            Ok(tile) => Ok(HttpResponse::Ok()
-                .content_type("application/x-protobuf")
-                .body(tile)?),
+            Ok(tile) => match tile.len() {
+                0 => Ok(HttpResponse::NoContent()
+                    .content_type("application/x-protobuf")
+                    .body(tile)?),
+                _ => Ok(HttpResponse::Ok()
+                    .content_type("application/x-protobuf")
+                    .body(tile)?),
+            },
             Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
         })
         .responder())
