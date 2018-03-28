@@ -1,8 +1,9 @@
 use actix_web::*;
 use actix::*;
 use futures::future::Future;
-use std::rc::Rc;
+use mapbox_expressions_to_sql;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use super::messages;
 use super::db::DbExecutor;
@@ -75,7 +76,9 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
         .and_then(|i| i.parse::<u32>().ok())
         .ok_or(error::ErrorBadRequest("invalid y"))?;
 
-    let condition = None;
+    let condition = req.query()
+        .get("filter")
+        .and_then(|filter| mapbox_expressions_to_sql::parse(filter).ok());
 
     Ok(req.state()
         .db

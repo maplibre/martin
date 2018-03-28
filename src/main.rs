@@ -4,6 +4,7 @@ extern crate env_logger;
 extern crate futures;
 #[macro_use]
 extern crate log;
+extern crate mapbox_expressions_to_sql;
 extern crate r2d2;
 extern crate r2d2_postgres;
 extern crate serde;
