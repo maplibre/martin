@@ -29,7 +29,10 @@ fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Err
                 coordinator_addr.do_send(messages::RefreshSources {
                     sources: sources.clone(),
                 });
-                Ok(httpcodes::HTTPOk.build().json(sources)?)
+                Ok(httpcodes::HTTPOk
+                    .build()
+                    .header("Access-Control-Allow-Origin", "*")
+                    .json(sources)?)
             }
             Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
         })
@@ -41,19 +44,21 @@ fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
         .get("sources")
         .ok_or(error::ErrorBadRequest("invalid source"))?;
 
-    let mut tilejson_builder = TileJSONBuilder::new();
-    tilejson_builder.scheme("tms");
-    tilejson_builder.name(&source_ids);
-
     let tiles_url = format!(
         "{}/{{z}}/{{x}}/{{y}}.pbf",
         req.url_for("tilejson", &[source_ids]).unwrap()
     );
 
+    let mut tilejson_builder = TileJSONBuilder::new();
+    tilejson_builder.scheme("tms");
+    tilejson_builder.name(&source_ids);
     tilejson_builder.tiles(vec![&tiles_url]);
-
     let tilejson = tilejson_builder.finalize();
-    Ok(httpcodes::HTTPOk.build().json(tilejson)?)
+
+    Ok(httpcodes::HTTPOk
+        .build()
+        .header("Access-Control-Allow-Origin", "*")
+        .json(tilejson)?)
 }
 
 fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
@@ -101,9 +106,11 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
                     .content_type("application/x-protobuf")
+                    .header("Access-Control-Allow-Origin", "*")
                     .body(tile)?),
                 _ => Ok(HttpResponse::Ok()
                     .content_type("application/x-protobuf")
+                    .header("Access-Control-Allow-Origin", "*")
                     .body(tile)?),
             },
             Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
@@ -131,13 +138,8 @@ pub fn new(
         coordinator_addr: coordinator_addr,
     };
 
-    let cors = middleware::cors::Cors::build()
-        .finish()
-        .expect("Can not create CORS middleware");
-
     Application::with_state(state)
         .middleware(middleware::Logger::default())
-        .middleware(cors)
         .resource("/index.json", |r| r.method(Method::GET).a(index))
         .resource("/{sources}.json", |r| {
             r.name("tilejson");
