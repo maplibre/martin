@@ -11,7 +11,10 @@ WITH columns AS (
   WHERE NOT attr.attisdropped AND attr.attnum > 0)
 SELECT
   f_table_schema, f_table_name, f_geometry_column, srid, type,
-  jsonb_object_agg(columns.column_name, columns.type_name) as properties
+    COALESCE(
+      jsonb_object_agg(columns.column_name, columns.type_name) FILTER (WHERE columns.column_name IS NOT NULL),
+      '{}'::jsonb
+    ) as properties
 FROM geometry_columns
 LEFT JOIN columns ON
   geometry_columns.f_table_schema = columns.table_schema AND
