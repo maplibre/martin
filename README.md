@@ -17,6 +17,13 @@ PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server
 
     DATABASE_URL=postgres://postgres:password@localhost:5432/test martin
 
+## Environment variables
+
+    DATABASE_URL
+    DATABASE_POOL_SIZE
+    WORKER_PROCESSES
+    KEEP_ALIVE
+
 ## Using with Docker
 
     docker run -d —rm —name martin \

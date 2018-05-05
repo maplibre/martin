@@ -17,7 +17,7 @@ pub fn tilebbox(z: u32, x: u32, y: u32) -> String {
   )
 }
 
-pub fn value_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
+pub fn json_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
   let mut hashmap = HashMap::new();
 
   let object = value.as_object().unwrap();

@@ -1,50 +1,53 @@
+extern crate actix;
+extern crate actix_web;
 extern crate env_logger;
-extern crate iron;
-extern crate iron_test;
+extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate logger;
-extern crate lru;
 extern crate mapbox_expressions_to_sql;
-extern crate persistent;
 extern crate r2d2;
 extern crate r2d2_postgres;
-extern crate regex;
-extern crate rererouter;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 extern crate tilejson;
-extern crate urlencoded;
 
+use actix_web::HttpServer;
+use actix::{Actor, Addr, Syn, SyncArbiter};
 use std::env;
-use lru::LruCache;
-use iron::prelude::Iron;
+use std::error::Error;
+use std::io;
 
-mod cache;
-mod cors;
 mod db;
+mod utils;
 mod martin;
 mod source;
-mod utils;
+mod messages;
+mod worker_actor;
+mod coordinator_actor;
 
 fn main() {
     env_logger::init();
 
     let conn_string: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    let pool_size = env::var("POOL_SIZE")
+    let pool_size = env::var("DATABASE_POOL_SIZE")
         .ok()
         .and_then(|pool_size| pool_size.parse::<u32>().ok())
         .unwrap_or(20);
 
-    let cache_size = env::var("CACHE_SIZE")
+    let worker_processes = env::var("WORKER_PROCESSES")
         .ok()
-        .and_then(|cache_size| cache_size.parse::<u32>().ok())
-        .unwrap_or(16384);
+        .and_then(|worker_processes| worker_processes.parse::<usize>().ok())
+        .unwrap_or(4);
 
-    info!("Connecting to {} with pool size {}", conn_string, pool_size);
+    let keep_alive = env::var("KEEP_ALIVE")
+        .ok()
+        .and_then(|keep_alive| keep_alive.parse::<usize>().ok())
+        .unwrap_or(75);
+
+    info!("Connecting to {}", conn_string);
     let pool = match db::setup_connection_pool(&conn_string, pool_size) {
         Ok(pool) => {
             info!("Connected to postgres: {}", conn_string);
@@ -57,7 +60,7 @@ fn main() {
     };
 
     let sources = match pool.get()
-        .map_err(|err| err.into())
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))
         .and_then(|conn| source::get_sources(conn))
     {
         Ok(sources) => sources,
@@ -67,14 +70,25 @@ fn main() {
         }
     };
 
-    let tile_cache = LruCache::new(cache_size as usize);
-
-    let chain = martin::chain(pool, sources, tile_cache);
+    let server = actix::System::new("server");
+    let coordinator_addr: Addr<Syn, _> = coordinator_actor::CoordinatorActor::default().start();
+    let db_sync_arbiter = SyncArbiter::start(3, move || db::DbExecutor(pool.clone()));
 
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
-    match Iron::new(chain).http(bind_addr.as_str()) {
-        Ok(_) => info!("Server has been started on {}.", bind_addr),
-        Err(err) => panic!("{:?}", err),
-    };
+    let _addr = HttpServer::new(move || {
+        martin::new(
+            db_sync_arbiter.clone(),
+            coordinator_addr.clone(),
+            sources.clone(),
+        )
+    }).bind(bind_addr.clone())
+        .expect(&format!("Can't bind to {}", bind_addr))
+        .keep_alive(keep_alive)
+        .shutdown_timeout(0)
+        .threads(worker_processes)
+        .start();
+
+    let _ = server.run();
+    info!("Server has been started on {}.", bind_addr);
 }

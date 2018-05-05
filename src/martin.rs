@@ -1,208 +1,151 @@
-use iron::{mime, status, IronResult, Request, Response};
-use iron::headers::{parsing, Headers};
-use iron::prelude::{Chain, Plugin};
-use iron::url::Url;
-use logger::Logger;
-use lru::LruCache;
+use actix_web::*;
+use actix::*;
+use futures::future::Future;
 use mapbox_expressions_to_sql;
-use persistent::{Read, State};
-use regex::{Captures, Regex};
-use rererouter::RouterBuilder;
-use serde_json;
-use std::collections::HashMap;
-use std::ops::Deref;
-use urlencoded::UrlEncodedQuery;
-
-use super::cache::TileCache;
-use super::cors;
-use super::db::{get_connection, PostgresPool, DB};
-use super::source::{Source, Sources};
+use std::cell::RefCell;
+use std::rc::Rc;
 use tilejson::TileJSONBuilder;
 
-fn get_header(headers: &Headers, name: &str, default: &str) -> String {
-    headers
-        .get_raw(name)
-        .and_then(|h| parsing::from_one_raw_str(h).ok())
-        .unwrap_or(default.to_string())
+use super::messages;
+use super::db::DbExecutor;
+use super::source::Sources;
+use super::worker_actor::WorkerActor;
+use super::coordinator_actor::CoordinatorActor;
+
+pub struct State {
+    db: Addr<Syn, DbExecutor>,
+    sources: Rc<RefCell<Sources>>,
+    coordinator_addr: Addr<Syn, CoordinatorActor>,
 }
 
-fn get_filter<'a>(req: &'a mut Request) -> Option<&'a String> {
-    req.get_ref::<UrlEncodedQuery>()
-        .ok()
-        .and_then(|query| query.get("filter"))
-        .and_then(|filter| filter.last())
+fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
+    req.state()
+        .db
+        .send(messages::GetSources {})
+        .from_err()
+        .and_then(move |res| match res {
+            Ok(sources) => {
+                let coordinator_addr = &req.state().coordinator_addr;
+                coordinator_addr.do_send(messages::RefreshSources {
+                    sources: sources.clone(),
+                });
+                Ok(httpcodes::HTTPOk
+                    .build()
+                    .header("Access-Control-Allow-Origin", "*")
+                    .json(sources)?)
+            }
+            Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
+        })
+        .responder()
 }
 
-pub fn index(req: &mut Request, _caps: Captures) -> IronResult<Response> {
-    let sources = req.get::<Read<Sources>>().unwrap();
-    let serialized_sources = serde_json::to_string(&sources.deref()).unwrap();
-
-    let content_type = "application/json".parse::<mime::Mime>().unwrap();
-
-    Ok(Response::with((
-        content_type,
-        status::Ok,
-        serialized_sources,
-    )))
-}
-
-pub fn source(req: &mut Request, caps: Captures) -> IronResult<Response> {
-    let sources = req.get::<Read<Sources>>().unwrap();
-    let source = match sources.get(&caps["source"]) {
-        Some(source) => source,
-        None => return Ok(Response::with(status::NotFound)),
-    };
-
-    let protocol = get_header(&req.headers, "x-forwarded-proto", req.url.scheme());
-
-    let host = get_header(
-        &req.headers,
-        "x-forwarded-host",
-        &req.url.host().to_string(),
-    );
-    let port = req.url.port();
-    let host_and_port = if port == 80 || port == 443 {
-        host
-    } else {
-        format!("{}:{}", host, port)
-    };
-
-    let original_url = get_header(&req.headers, "x-rewrite-url", &req.url.path().join("/"));
-    let re = Regex::new(r"\A(.*)\.json\z").unwrap();
-    let uri = match re.captures(&original_url) {
-        Some(caps) => caps[1].to_string(),
-        None => return Ok(Response::with(status::InternalServerError)),
-    };
+fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
+    let source_ids = req.match_info()
+        .get("sources")
+        .ok_or(error::ErrorBadRequest("invalid source"))?;
 
     let tiles_url = format!(
-        "{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf",
-        protocol, host_and_port, uri
+        "{}/{{z}}/{{x}}/{{y}}.pbf",
+        req.url_for("tilejson", &[source_ids]).unwrap()
     );
 
     let mut tilejson_builder = TileJSONBuilder::new();
     tilejson_builder.scheme("tms");
-    tilejson_builder.name(&source.id);
+    tilejson_builder.name(&source_ids);
     tilejson_builder.tiles(vec![&tiles_url]);
-
     let tilejson = tilejson_builder.finalize();
-    let serialized_tilejson = serde_json::to_string(&tilejson).unwrap();
 
-    let content_type = "application/json".parse::<mime::Mime>().unwrap();
-    Ok(Response::with((
-        content_type,
-        status::Ok,
-        serialized_tilejson,
-    )))
+    Ok(httpcodes::HTTPOk
+        .build()
+        .header("Access-Control-Allow-Origin", "*")
+        .json(tilejson)?)
 }
 
-pub fn tile(req: &mut Request, caps: Captures) -> IronResult<Response> {
-    let url: Url = req.url.clone().into();
-    let lock = req.get::<State<TileCache>>().unwrap();
-    let cached_tile = lock.write()
-        .ok()
-        .and_then(|mut guard| guard.get(&url).cloned());
+fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
+    let sources = &req.state().sources.borrow();
 
-    let content_type = "application/x-protobuf".parse::<mime::Mime>().unwrap();
-    if let Some(tile) = cached_tile {
-        debug!("{} hit", url);
-        return match tile.len() {
-            0 => {
-                debug!("{} 204", url);
-                Ok(Response::with((content_type, status::NoContent)))
-            }
-            _ => {
-                debug!("{} 200", url);
-                Ok(Response::with((content_type, status::Ok, tile)))
-            }
-        };
-    };
+    let source_id = req.match_info()
+        .get("sources")
+        .ok_or(error::ErrorBadRequest("invalid source"))?;
 
-    debug!("{} miss", url);
-    let sources = req.get::<Read<Sources>>().unwrap();
-    let source = match sources.get(&caps["source"]) {
-        Some(source) => source,
-        None => return Ok(Response::with(status::NotFound)),
-    };
+    let source = sources.get(source_id).ok_or(error::ErrorNotFound(format!(
+        "source {} not found",
+        source_id
+    )))?;
 
-    let conn = match get_connection(req) {
-        Ok(conn) => conn,
-        Err(error) => {
-            debug!("{} 500", url);
-            error!("Couldn't get a connection to postgres: {}", error);
-            return Ok(Response::with(status::InternalServerError));
-        }
-    };
+    let z = req.match_info()
+        .get("z")
+        .and_then(|i| i.parse::<u32>().ok())
+        .ok_or(error::ErrorBadRequest("invalid z"))?;
 
-    let z: &u32 = &caps["z"].parse().unwrap();
-    let x: &u32 = &caps["x"].parse().unwrap();
-    let y: &u32 = &caps["y"].parse().unwrap();
+    let x = req.match_info()
+        .get("x")
+        .and_then(|i| i.parse::<u32>().ok())
+        .ok_or(error::ErrorBadRequest("invalid x"))?;
 
-    let filter = get_filter(req).cloned();
-    let condition = match filter {
-        Some(filter) => match mapbox_expressions_to_sql::parse(&filter) {
-            Ok(condition) => Some(condition),
-            Err(error) => {
-                debug!("{} 500", url);
-                error!("Couldn't parse expression: {:?}", error);
-                return Ok(Response::with(status::InternalServerError));
-            }
-        },
-        None => None,
-    };
+    let y = req.match_info()
+        .get("y")
+        .and_then(|i| i.parse::<u32>().ok())
+        .ok_or(error::ErrorBadRequest("invalid y"))?;
 
-    let query = source.get_query(z.clone(), x.clone(), y.clone(), condition);
-    let tile: Vec<u8> = match conn.query(&query, &[]) {
-        Ok(rows) => rows.get(0).get("st_asmvt"),
-        Err(error) => {
-            debug!("{} 500", url);
-            error!("Couldn't get a tile: {}", error);
-            return Ok(Response::with(status::InternalServerError));
-        }
-    };
+    let condition = req.query()
+        .get("filter")
+        .and_then(|filter| mapbox_expressions_to_sql::parse(filter).ok());
 
-    let mut guard = lock.write().unwrap();
-    guard.put(req.url.clone().into(), tile.clone());
-
-    match tile.len() {
-        0 => {
-            debug!("{} 204", url);
-            Ok(Response::with((content_type, status::NoContent)))
-        }
-        _ => {
-            debug!("{} 200", url);
-            Ok(Response::with((content_type, status::Ok, tile)))
-        }
-    }
+    Ok(req.state()
+        .db
+        .send(messages::GetTile {
+            z: z,
+            x: x,
+            y: y,
+            source: source.clone(),
+            condition: condition,
+        })
+        .from_err()
+        .and_then(|res| match res {
+            Ok(tile) => match tile.len() {
+                0 => Ok(HttpResponse::NoContent()
+                    .content_type("application/x-protobuf")
+                    .header("Access-Control-Allow-Origin", "*")
+                    .body(tile)?),
+                _ => Ok(HttpResponse::Ok()
+                    .content_type("application/x-protobuf")
+                    .header("Access-Control-Allow-Origin", "*")
+                    .body(tile)?),
+            },
+            Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
+        })
+        .responder())
 }
 
-pub fn chain(
-    pool: PostgresPool,
-    sources: HashMap<String, Source>,
-    tile_cache: LruCache<Url, Vec<u8>>,
-) -> Chain {
-    let mut router_builder = RouterBuilder::new();
+pub fn new(
+    db_sync_arbiter: Addr<Syn, DbExecutor>,
+    coordinator_addr: Addr<Syn, CoordinatorActor>,
+    sources: Sources,
+) -> Application<State> {
+    let sources_rc = Rc::new(RefCell::new(sources));
 
-    router_builder.get(r"/index.json", index);
-    router_builder.get(r"/(?P<source>[\w|\.]*)\.json", source);
+    let worker_actor = WorkerActor {
+        sources: sources_rc.clone(),
+    };
 
-    router_builder.get(
-        r"/(?P<source>[\w|\.]*)/(?P<z>\d*)/(?P<x>\d*)/(?P<y>\d*).pbf",
-        tile,
-    );
+    let worker_addr: Addr<Syn, _> = worker_actor.start();
+    coordinator_addr.do_send(messages::Connect { addr: worker_addr });
 
-    let router = router_builder.finalize();
+    let state = State {
+        db: db_sync_arbiter,
+        sources: sources_rc.clone(),
+        coordinator_addr: coordinator_addr,
+    };
 
-    let mut chain = Chain::new(router);
-
-    let (logger_before, logger_after) = Logger::new(None);
-    chain.link_before(logger_before);
-
-    chain.link(Read::<Sources>::both(sources));
-    chain.link(Read::<DB>::both(pool));
-    chain.link(State::<TileCache>::both(tile_cache));
-
-    chain.link_after(cors::Middleware);
-    chain.link_after(logger_after);
-
-    chain
+    Application::with_state(state)
+        .middleware(middleware::Logger::default())
+        .resource("/index.json", |r| r.method(Method::GET).a(index))
+        .resource("/{sources}.json", |r| {
+            r.name("tilejson");
+            r.method(Method::GET).f(source)
+        })
+        .resource("/{sources}/{z}/{x}/{y}.pbf", |r| {
+            r.method(Method::GET).f(tile)
+        })
 }
