@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::io;
 use std::error::Error;
+use std::io;
 
-use super::utils;
 use super::db::PostgresConnection;
+use super::utils;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Source {
@@ -74,7 +74,7 @@ pub type Sources = HashMap<String, Source>;
 
 pub fn get_sources(conn: PostgresConnection) -> Result<Sources, io::Error> {
     let default_extent = 4096;
-    let default_buffer = 0; // 256
+    let default_buffer = 64;
     let default_clip_geom = true;
 
     let mut sources = HashMap::new();
