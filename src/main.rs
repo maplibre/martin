@@ -5,6 +5,7 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate mapbox_expressions_to_sql;
+extern crate num_cpus;
 extern crate r2d2;
 extern crate r2d2_postgres;
 extern crate serde;
@@ -13,19 +14,19 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate tilejson;
 
-use actix_web::HttpServer;
 use actix::{Actor, Addr, Syn, SyncArbiter};
+use actix_web::server;
 use std::env;
 use std::error::Error;
 use std::io;
 
-mod db;
-mod utils;
-mod martin;
-mod source;
-mod messages;
-mod worker_actor;
 mod coordinator_actor;
+mod db;
+mod martin;
+mod messages;
+mod source;
+mod utils;
+mod worker_actor;
 
 fn main() {
     env_logger::init();
@@ -40,7 +41,7 @@ fn main() {
     let worker_processes = env::var("WORKER_PROCESSES")
         .ok()
         .and_then(|worker_processes| worker_processes.parse::<usize>().ok())
-        .unwrap_or(4);
+        .unwrap_or(num_cpus::get());
 
     let keep_alive = env::var("KEEP_ALIVE")
         .ok()
@@ -76,7 +77,7 @@ fn main() {
 
     let port = 3000;
     let bind_addr = format!("0.0.0.0:{}", port);
-    let _addr = HttpServer::new(move || {
+    let _addr = server::new(move || {
         martin::new(
             db_sync_arbiter.clone(),
             coordinator_addr.clone(),
@@ -86,7 +87,7 @@ fn main() {
         .expect(&format!("Can't bind to {}", bind_addr))
         .keep_alive(keep_alive)
         .shutdown_timeout(0)
-        .threads(worker_processes)
+        .workers(worker_processes)
         .start();
 
     let _ = server.run();

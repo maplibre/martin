@@ -1,16 +1,16 @@
-use actix_web::*;
 use actix::*;
+use actix_web::*;
 use futures::future::Future;
 use mapbox_expressions_to_sql;
 use std::cell::RefCell;
 use std::rc::Rc;
 use tilejson::TileJSONBuilder;
 
-use super::messages;
+use super::coordinator_actor::CoordinatorActor;
 use super::db::DbExecutor;
+use super::messages;
 use super::source::Sources;
 use super::worker_actor::WorkerActor;
-use super::coordinator_actor::CoordinatorActor;
 
 pub struct State {
     db: Addr<Syn, DbExecutor>,
@@ -29,12 +29,11 @@ fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Err
                 coordinator_addr.do_send(messages::RefreshSources {
                     sources: sources.clone(),
                 });
-                Ok(httpcodes::HTTPOk
-                    .build()
+                Ok(HttpResponse::Ok()
                     .header("Access-Control-Allow-Origin", "*")
-                    .json(sources)?)
+                    .json(sources))
             }
-            Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder()
 }
@@ -55,10 +54,9 @@ fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
     tilejson_builder.tiles(vec![&tiles_url]);
     let tilejson = tilejson_builder.finalize();
 
-    Ok(httpcodes::HTTPOk
-        .build()
+    Ok(HttpResponse::Ok()
         .header("Access-Control-Allow-Origin", "*")
-        .json(tilejson)?)
+        .json(tilejson))
 }
 
 fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
@@ -107,13 +105,13 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
                 0 => Ok(HttpResponse::NoContent()
                     .content_type("application/x-protobuf")
                     .header("Access-Control-Allow-Origin", "*")
-                    .body(tile)?),
+                    .body(tile)),
                 _ => Ok(HttpResponse::Ok()
                     .content_type("application/x-protobuf")
                     .header("Access-Control-Allow-Origin", "*")
-                    .body(tile)?),
+                    .body(tile)),
             },
-            Err(_) => Ok(httpcodes::HTTPInternalServerError.into()),
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder())
 }
@@ -122,7 +120,7 @@ pub fn new(
     db_sync_arbiter: Addr<Syn, DbExecutor>,
     coordinator_addr: Addr<Syn, CoordinatorActor>,
     sources: Sources,
-) -> Application<State> {
+) -> App<State> {
     let sources_rc = Rc::new(RefCell::new(sources));
 
     let worker_actor = WorkerActor {
@@ -138,14 +136,14 @@ pub fn new(
         coordinator_addr: coordinator_addr,
     };
 
-    Application::with_state(state)
+    App::with_state(state)
         .middleware(middleware::Logger::default())
-        .resource("/index.json", |r| r.method(Method::GET).a(index))
+        .resource("/index.json", |r| r.method(http::Method::GET).a(index))
         .resource("/{sources}.json", |r| {
             r.name("tilejson");
-            r.method(Method::GET).f(source)
+            r.method(http::Method::GET).f(source)
         })
         .resource("/{sources}/{z}/{x}/{y}.pbf", |r| {
-            r.method(Method::GET).f(tile)
+            r.method(http::Method::GET).f(tile)
         })
 }
