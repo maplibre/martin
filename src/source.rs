@@ -90,7 +90,8 @@ pub fn get_sources(conn: PostgresConnection) -> Result<Sources, io::Error> {
         let srid: i32 = row.get("srid");
 
         if srid == 0 {
-            warn!("{} has SRID 0", id);
+            warn!("{} has SRID 0, skipping", id);
+            continue;
         }
 
         let source = Source {
