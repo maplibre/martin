@@ -41,12 +41,17 @@ impl Source {
             )
         };
 
-        let columns: Vec<String> = self.properties
-            .keys()
-            .map(|column| format!("\"{0}\"", column))
-            .collect();
+        let properties = if self.properties.is_empty() {
+            "".to_string()
+        } else {
+            let properties = self.properties
+                .keys()
+                .map(|column| format!("\"{0}\"", column))
+                .collect::<Vec<String>>()
+                .join(",");
 
-        let properties = columns.join(",");
+            format!(", {0}", properties)
+        };
 
         let query = format!(
             include_str!("scripts/get_tile.sql"),
