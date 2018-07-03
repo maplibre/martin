@@ -43,9 +43,23 @@ fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
         .get("sources")
         .ok_or(error::ErrorBadRequest("invalid source"))?;
 
+    let path = req.headers()
+        .get("x-rewrite-url")
+        .map_or(String::from(source_ids), |header| {
+            let parts: Vec<&str> = header.to_str().unwrap().split(".").collect();
+            let (_, parts_without_extension) = parts.split_last().unwrap();
+            let path_without_extension = parts_without_extension.join(".");
+            let (_, path_without_leading_slash) = path_without_extension.split_at(1);
+
+            String::from(path_without_leading_slash)
+        });
+
+    let conn = req.connection_info();
     let tiles_url = format!(
-        "{}/{{z}}/{{x}}/{{y}}.pbf",
-        req.url_for("tilejson", &[source_ids]).unwrap()
+        "{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf",
+        conn.scheme(),
+        conn.host(),
+        path
     );
 
     let mut tilejson_builder = TileJSONBuilder::new();
