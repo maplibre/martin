@@ -14,7 +14,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate tilejson;
 
-use actix::{Actor, Addr, Syn, SyncArbiter};
+use actix::{Actor, Addr, SyncArbiter};
 use actix_web::server;
 use std::env;
 use std::error::Error;
@@ -72,7 +72,7 @@ fn main() {
     };
 
     let server = actix::System::new("server");
-    let coordinator_addr: Addr<Syn, _> = coordinator_actor::CoordinatorActor::default().start();
+    let coordinator_addr: Addr<_> = coordinator_actor::CoordinatorActor::default().start();
     let db_sync_arbiter = SyncArbiter::start(3, move || db::DbExecutor(pool.clone()));
 
     let port = 3000;

@@ -4,7 +4,7 @@ use super::messages;
 use super::worker_actor::WorkerActor;
 
 pub struct CoordinatorActor {
-  workers: Vec<Addr<Syn, WorkerActor>>,
+  workers: Vec<Addr<WorkerActor>>,
 }
 
 impl Default for CoordinatorActor {
@@ -22,7 +22,7 @@ impl Actor for CoordinatorActor {
 }
 
 impl Handler<messages::Connect> for CoordinatorActor {
-  type Result = Addr<Syn, WorkerActor>;
+  type Result = Addr<WorkerActor>;
 
   fn handle(&mut self, msg: messages::Connect, _: &mut Context<Self>) -> Self::Result {
     info!("WorkerActor connected");

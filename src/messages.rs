@@ -5,11 +5,11 @@ use super::source::{Source, Sources, Tile};
 use super::worker_actor::WorkerActor;
 
 pub struct Connect {
-  pub addr: Addr<Syn, WorkerActor>,
+  pub addr: Addr<WorkerActor>,
 }
 
 impl Message for Connect {
-  type Result = Addr<Syn, WorkerActor>;
+  type Result = Addr<WorkerActor>;
 }
 
 pub struct GetSources {}

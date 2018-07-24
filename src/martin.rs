@@ -13,22 +13,24 @@ use super::source::Sources;
 use super::worker_actor::WorkerActor;
 
 pub struct State {
-    db: Addr<Syn, DbExecutor>,
+    db: Addr<DbExecutor>,
     sources: Rc<RefCell<Sources>>,
-    coordinator_addr: Addr<Syn, CoordinatorActor>,
+    coordinator_addr: Addr<CoordinatorActor>,
 }
 
-fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
+fn index(req: &HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
+    let coordinator_addr = req.state().coordinator_addr.clone();
+
     req.state()
         .db
         .send(messages::GetSources {})
         .from_err()
         .and_then(move |res| match res {
             Ok(sources) => {
-                let coordinator_addr = &req.state().coordinator_addr;
                 coordinator_addr.do_send(messages::RefreshSources {
                     sources: sources.clone(),
                 });
+
                 Ok(HttpResponse::Ok()
                     .header("Access-Control-Allow-Origin", "*")
                     .json(sources))
@@ -38,7 +40,7 @@ fn index(req: HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Err
         .responder()
 }
 
-fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
+fn source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let source_ids = req.match_info()
         .get("sources")
         .ok_or(error::ErrorBadRequest("invalid source"))?;
@@ -73,7 +75,7 @@ fn source(req: HttpRequest<State>) -> Result<HttpResponse> {
         .json(tilejson))
 }
 
-fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
+fn tile(req: &HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
     let sources = &req.state().sources.borrow();
 
     let source_id = req.match_info()
@@ -131,8 +133,8 @@ fn tile(req: HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error
 }
 
 pub fn new(
-    db_sync_arbiter: Addr<Syn, DbExecutor>,
-    coordinator_addr: Addr<Syn, CoordinatorActor>,
+    db_sync_arbiter: Addr<DbExecutor>,
+    coordinator_addr: Addr<CoordinatorActor>,
     sources: Sources,
 ) -> App<State> {
     let sources_rc = Rc::new(RefCell::new(sources));
@@ -141,7 +143,7 @@ pub fn new(
         sources: sources_rc.clone(),
     };
 
-    let worker_addr: Addr<Syn, _> = worker_actor.start();
+    let worker_addr: Addr<_> = worker_actor.start();
     coordinator_addr.do_send(messages::Connect { addr: worker_addr });
 
     let state = State {
