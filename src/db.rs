@@ -1,6 +1,6 @@
 use actix::prelude::*;
-use r2d2_postgres::{PostgresConnectionManager, TlsMode};
 use r2d2::{Pool, PooledConnection};
+use r2d2_postgres::{PostgresConnectionManager, TlsMode};
 use std::error::Error;
 use std::io;
 

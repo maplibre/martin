@@ -1,4 +1,6 @@
 /target/
 **/*.rs.bk
 
+db
+config.yaml
 docker-compose.yml

@@ -5,19 +5,27 @@ use std::io;
 use super::db::PostgresConnection;
 use super::utils;
 
-#[derive(Clone, Debug, Serialize)]
+static DEFAULT_ID_COLUMN: &str = "id";
+static DEFAULT_EXTENT: u32 = 4096;
+static DEFAULT_BUFFER: u32 = 64;
+static DEFAULT_CLIP_GEOM: bool = true;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Source {
     pub id: String,
     pub schema: String,
     pub table: String,
+    pub id_column: Option<String>,
     pub geometry_column: String,
     pub srid: u32,
-    pub extent: u32,
-    pub buffer: u32,
-    pub clip_geom: bool,
-    pub geometry_type: String,
+    pub extent: Option<u32>,
+    pub buffer: Option<u32>,
+    pub clip_geom: Option<bool>,
+    pub geometry_type: Option<String>,
     pub properties: HashMap<String, String>,
 }
+
+pub type Sources = HashMap<String, Source>;
 
 pub type Tile = Vec<u8>;
 
@@ -53,16 +61,21 @@ impl Source {
             format!(", {0}", properties)
         };
 
+        let id_column = self.id_column
+            .clone()
+            .map_or("".to_string(), |id_column| format!(", '{}'", id_column));
+
         let query = format!(
             include_str!("scripts/get_tile.sql"),
             id = self.id,
+            id_column = id_column,
             geometry_column = self.geometry_column,
             geometry_column_mercator = geometry_column_mercator,
             original_bounds = original_bounds,
             mercator_bounds = mercator_bounds,
-            extent = self.extent,
-            buffer = self.buffer,
-            clip_geom = self.clip_geom,
+            extent = self.extent.unwrap_or(DEFAULT_EXTENT),
+            buffer = self.buffer.unwrap_or(DEFAULT_BUFFER),
+            clip_geom = self.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
             properties = properties,
             condition = condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
         );
@@ -75,13 +88,7 @@ impl Source {
     }
 }
 
-pub type Sources = HashMap<String, Source>;
-
 pub fn get_sources(conn: PostgresConnection) -> Result<Sources, io::Error> {
-    let default_extent = 4096;
-    let default_buffer = 64;
-    let default_clip_geom = true;
-
     let mut sources = HashMap::new();
     let rows = conn.query(include_str!("scripts/get_sources.sql"), &[])
         .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
@@ -99,17 +106,26 @@ pub fn get_sources(conn: PostgresConnection) -> Result<Sources, io::Error> {
             continue;
         }
 
+        let properties = utils::json_to_hashmap(row.get("properties"));
+
+        let id_column = if properties.contains_key(DEFAULT_ID_COLUMN) {
+            Some(DEFAULT_ID_COLUMN.to_string())
+        } else {
+            None
+        };
+
         let source = Source {
             id: id.to_string(),
             schema: schema,
             table: table,
+            id_column: id_column,
             geometry_column: geometry_column,
             srid: srid as u32,
-            extent: default_extent,
-            buffer: default_buffer,
-            clip_geom: default_clip_geom,
+            extent: Some(DEFAULT_EXTENT),
+            buffer: Some(DEFAULT_BUFFER),
+            clip_geom: Some(DEFAULT_CLIP_GEOM),
             geometry_type: row.get("type"),
-            properties: utils::json_to_hashmap(row.get("properties")),
+            properties: properties,
         };
 
         sources.insert(id, source);
