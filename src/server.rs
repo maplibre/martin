@@ -1,27 +1,20 @@
-use actix::{Actor, Addr, SyncArbiter, System, SystemRunner};
+use actix::{SyncArbiter, System, SystemRunner};
 use actix_web::server;
 
 use super::config::Config;
-use super::coordinator_actor;
 use super::db;
 use super::martin;
 
 pub fn new(config: Config, pool: db::PostgresPool) -> SystemRunner {
     let server = System::new("server");
-    let coordinator_addr: Addr<_> = coordinator_actor::CoordinatorActor::default().start();
     let db_sync_arbiter = SyncArbiter::start(3, move || db::DbExecutor(pool.clone()));
 
     let keep_alive = config.keep_alive;
     let worker_processes = config.worker_processes;
     let listen_addresses = config.listen_addresses.clone();
 
-    let _addr = server::new(move || {
-        martin::new(
-            db_sync_arbiter.clone(),
-            coordinator_addr.clone(),
-            config.sources.clone(),
-        )
-    }).bind(listen_addresses.clone())
+    let _addr = server::new(move || martin::new(db_sync_arbiter.clone(), config.sources.clone()))
+        .bind(listen_addresses.clone())
         .expect(&format!("Can't bind to {}", listen_addresses))
         .keep_alive(keep_alive)
         .shutdown_timeout(0)

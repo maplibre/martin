@@ -2,42 +2,23 @@ use actix::*;
 use actix_web::*;
 use futures::future::Future;
 use mapbox_expressions_to_sql;
-use std::cell::RefCell;
-use std::rc::Rc;
 use tilejson::TileJSONBuilder;
 
-use super::coordinator_actor::CoordinatorActor;
 use super::db::DbExecutor;
 use super::messages;
 use super::source::Sources;
-use super::worker_actor::WorkerActor;
 
 pub struct State {
     db: Addr<DbExecutor>,
-    sources: Rc<RefCell<Sources>>,
-    coordinator_addr: Addr<CoordinatorActor>,
+    sources: Sources,
 }
 
-fn index(req: &HttpRequest<State>) -> Box<Future<Item = HttpResponse, Error = Error>> {
-    let coordinator_addr = req.state().coordinator_addr.clone();
+fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
+    let sources = &req.state().sources;
 
-    req.state()
-        .db
-        .send(messages::GetSources {})
-        .from_err()
-        .and_then(move |res| match res {
-            Ok(sources) => {
-                coordinator_addr.do_send(messages::RefreshSources {
-                    sources: sources.clone(),
-                });
-
-                Ok(HttpResponse::Ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .json(sources))
-            }
-            Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .responder()
+    Ok(HttpResponse::Ok()
+        .header("Access-Control-Allow-Origin", "*")
+        .json(sources))
 }
 
 fn source(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -76,7 +57,7 @@ fn source(req: &HttpRequest<State>) -> Result<HttpResponse> {
 }
 
 fn tile(req: &HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
-    let sources = &req.state().sources.borrow();
+    let sources = &req.state().sources;
 
     let source_id = req.match_info()
         .get("sources")
@@ -132,33 +113,16 @@ fn tile(req: &HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Erro
         .responder())
 }
 
-pub fn new(
-    db_sync_arbiter: Addr<DbExecutor>,
-    coordinator_addr: Addr<CoordinatorActor>,
-    sources: Sources,
-) -> App<State> {
-    let sources_rc = Rc::new(RefCell::new(sources));
-
-    let worker_actor = WorkerActor {
-        sources: sources_rc.clone(),
-    };
-
-    let worker_addr: Addr<_> = worker_actor.start();
-    coordinator_addr.do_send(messages::Connect { addr: worker_addr });
-
+pub fn new(db_sync_arbiter: Addr<DbExecutor>, sources: Sources) -> App<State> {
     let state = State {
         db: db_sync_arbiter,
-        sources: sources_rc.clone(),
-        coordinator_addr: coordinator_addr,
+        sources: sources,
     };
 
     App::with_state(state)
         .middleware(middleware::Logger::default())
-        .resource("/index.json", |r| r.method(http::Method::GET).a(index))
-        .resource("/{sources}.json", |r| {
-            r.name("tilejson");
-            r.method(http::Method::GET).f(source)
-        })
+        .resource("/index.json", |r| r.method(http::Method::GET).f(index))
+        .resource("/{sources}.json", |r| r.method(http::Method::GET).f(source))
         .resource("/{sources}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(tile)
         })

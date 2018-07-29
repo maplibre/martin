@@ -21,14 +21,12 @@ use std::error::Error;
 use std::io;
 
 mod config;
-mod coordinator_actor;
 mod db;
 mod martin;
 mod messages;
 mod server;
 mod source;
 mod utils;
-mod worker_actor;
 
 static CONFIG_FILENAME: &str = "config.yaml";
 
