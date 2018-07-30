@@ -5,7 +5,7 @@ use std::io;
 use super::db::PostgresConnection;
 use super::utils;
 
-static DEFAULT_ID_COLUMN: &str = "id";
+// static DEFAULT_ID_COLUMN: &str = "id";
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
@@ -108,11 +108,12 @@ pub fn get_sources(conn: PostgresConnection) -> Result<Sources, io::Error> {
 
         let properties = utils::json_to_hashmap(row.get("properties"));
 
-        let id_column = if properties.contains_key(DEFAULT_ID_COLUMN) {
-            Some(DEFAULT_ID_COLUMN.to_string())
-        } else {
-            None
-        };
+        let id_column = None;
+        // let id_column = if properties.contains_key(DEFAULT_ID_COLUMN) {
+        //     Some(DEFAULT_ID_COLUMN.to_string())
+        // } else {
+        //     None
+        // };
 
         let source = Source {
             id: id.to_string(),
