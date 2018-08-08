@@ -14,7 +14,7 @@ pub struct XYZ {
 }
 
 pub trait Source: Debug {
-  fn get_id(self) -> String;
+  fn get_id(&self) -> &str;
   fn get_tile(&self, conn: PostgresConnection, xyz: XYZ, query: Query) -> Result<Tile, io::Error>;
 }
 

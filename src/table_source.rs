@@ -26,8 +26,8 @@ pub struct TableSource {
 pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl Source for TableSource {
-  fn get_id(self) -> String {
-    self.id
+  fn get_id(&self) -> &str {
+    self.id.as_str()
   }
 
   fn get_tile(&self, conn: PostgresConnection, xyz: XYZ, query: Query) -> Result<Tile, io::Error> {

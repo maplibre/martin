@@ -84,5 +84,7 @@ pub fn build_config(config_filename: &str, conn: PostgresConnection) -> io::Resu
   let table_sources = get_table_sources(conn)?;
   let config = generate_config(table_sources);
 
+  // let _ = write_config(config_filename, config.clone());
+
   Ok(config)
 }

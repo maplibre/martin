@@ -1,8 +1,43 @@
-use actix_web::dev::Params;
+use actix_web::dev::{ConnectionInfo, Params};
+use actix_web::http::header::HeaderMap;
 use serde_json;
 use std::collections::HashMap;
+use tilejson::{TileJSON, TileJSONBuilder};
 
-use super::source::XYZ;
+use super::source::{Source, XYZ};
+
+pub fn build_tilejson(
+  source: Box<dyn Source>,
+  connection_info: ConnectionInfo,
+  headers: HeaderMap,
+) -> TileJSON {
+  let source_id = source.get_id();
+
+  let path = headers
+    .get("x-rewrite-url")
+    .map_or(String::from(source_id), |header| {
+      let parts: Vec<&str> = header.to_str().unwrap().split('.').collect();
+      let (_, parts_without_extension) = parts.split_last().unwrap();
+      let path_without_extension = parts_without_extension.join(".");
+      let (_, path_without_leading_slash) = path_without_extension.split_at(1);
+
+      String::from(path_without_leading_slash)
+    });
+
+  let tiles_url = format!(
+    "{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf",
+    connection_info.scheme(),
+    connection_info.host(),
+    path
+  );
+
+  let mut tilejson_builder = TileJSONBuilder::new();
+  tilejson_builder.scheme("tms");
+  tilejson_builder.name(source_id);
+  tilejson_builder.tiles(vec![&tiles_url]);
+
+  tilejson_builder.finalize()
+}
 
 pub fn parse_xyz(params: &Params) -> Result<XYZ, &str> {
   let z = params

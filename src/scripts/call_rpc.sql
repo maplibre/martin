@@ -1,0 +1,1 @@
+SELECT {function}(z => {z}, x => {x}, y => {y}, query => '{query}'::json);
