@@ -1,35 +1,44 @@
 use actix::*;
 use actix_web::*;
 use futures::future::Future;
-use mapbox_expressions_to_sql;
+use std::collections::HashMap;
 use tilejson::TileJSONBuilder;
 
-use super::db::DbExecutor;
+use super::config::Config;
+use super::db_executor::DbExecutor;
+// use super::function_source::FunctionSources;
 use super::messages;
-use super::source::Sources;
+use super::table_source::TableSources;
+use super::utils::parse_xyz;
+
+pub type Query = HashMap<String, String>;
 
 pub struct State {
     db: Addr<DbExecutor>,
-    sources: Sources,
+    table_sources: Option<TableSources>,
+    // function_sources: Option<FunctionSources>,
 }
 
+// TODO: Swagger endpoint
 fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let sources = &req.state().sources;
+    let table_sources = &req.state().table_sources.clone().unwrap();
 
     Ok(HttpResponse::Ok()
         .header("Access-Control-Allow-Origin", "*")
-        .json(sources))
+        .json(table_sources))
 }
 
 fn source(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let source_ids = req.match_info()
-        .get("sources")
+    let source_id = req
+        .match_info()
+        .get("source_id")
         .ok_or(error::ErrorBadRequest("invalid source"))?;
 
-    let path = req.headers()
+    let path = req
+        .headers()
         .get("x-rewrite-url")
-        .map_or(String::from(source_ids), |header| {
-            let parts: Vec<&str> = header.to_str().unwrap().split(".").collect();
+        .map_or(String::from(source_id), |header| {
+            let parts: Vec<&str> = header.to_str().unwrap().split('.').collect();
             let (_, parts_without_extension) = parts.split_last().unwrap();
             let path_without_extension = parts_without_extension.join(".");
             let (_, path_without_leading_slash) = path_without_extension.split_at(1);
@@ -47,7 +56,7 @@ fn source(req: &HttpRequest<State>) -> Result<HttpResponse> {
 
     let mut tilejson_builder = TileJSONBuilder::new();
     tilejson_builder.scheme("tms");
-    tilejson_builder.name(&source_ids);
+    tilejson_builder.name(&source_id);
     tilejson_builder.tiles(vec![&tiles_url]);
     let tilejson = tilejson_builder.finalize();
 
@@ -57,10 +66,12 @@ fn source(req: &HttpRequest<State>) -> Result<HttpResponse> {
 }
 
 fn tile(req: &HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
-    let sources = &req.state().sources;
+    let sources = &req.state().table_sources.clone().unwrap();
+    let params = req.match_info();
+    let query = req.query();
 
-    let source_id = req.match_info()
-        .get("sources")
+    let source_id = params
+        .get("source_id")
         .ok_or(error::ErrorBadRequest("invalid source"))?;
 
     let source = sources.get(source_id).ok_or(error::ErrorNotFound(format!(
@@ -68,33 +79,16 @@ fn tile(req: &HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Erro
         source_id
     )))?;
 
-    let z = req.match_info()
-        .get("z")
-        .and_then(|i| i.parse::<u32>().ok())
-        .ok_or(error::ErrorBadRequest("invalid z"))?;
+    let xyz = parse_xyz(params)
+        .map_err(|e| error::ErrorBadRequest(format!("Can't parse XYZ scheme: {}", e)))?;
 
-    let x = req.match_info()
-        .get("x")
-        .and_then(|i| i.parse::<u32>().ok())
-        .ok_or(error::ErrorBadRequest("invalid x"))?;
-
-    let y = req.match_info()
-        .get("y")
-        .and_then(|i| i.parse::<u32>().ok())
-        .ok_or(error::ErrorBadRequest("invalid y"))?;
-
-    let condition = req.query()
-        .get("filter")
-        .and_then(|filter| mapbox_expressions_to_sql::parse(filter).ok());
-
-    Ok(req.state()
+    Ok(req
+        .state()
         .db
         .send(messages::GetTile {
-            z: z,
-            x: x,
-            y: y,
+            xyz: xyz,
+            query: query.clone(),
             source: source.clone(),
-            condition: condition,
         })
         .from_err()
         .and_then(|res| match res {
@@ -113,17 +107,20 @@ fn tile(req: &HttpRequest<State>) -> Result<Box<Future<Item = HttpResponse, Erro
         .responder())
 }
 
-pub fn new(db_sync_arbiter: Addr<DbExecutor>, sources: Sources) -> App<State> {
+pub fn new(db_sync_arbiter: Addr<DbExecutor>, config: Config) -> App<State> {
     let state = State {
         db: db_sync_arbiter,
-        sources: sources,
+        table_sources: config.table_sources,
+        // function_sources: config.function_sources,
     };
 
     App::with_state(state)
         .middleware(middleware::Logger::default())
         .resource("/index.json", |r| r.method(http::Method::GET).f(index))
-        .resource("/{sources}.json", |r| r.method(http::Method::GET).f(source))
-        .resource("/{sources}/{z}/{x}/{y}.pbf", |r| {
+        .resource("/{source_id}.json", |r| {
+            r.method(http::Method::GET).f(source)
+        })
+        .resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(tile)
         })
 }

@@ -7,79 +7,82 @@ use std::io::prelude::*;
 use std::path::Path;
 
 use super::db::PostgresConnection;
-use super::source::{get_sources, Sources};
+use super::function_source::FunctionSources;
+use super::table_source::{get_table_sources, TableSources};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Config {
-    pub pool_size: u32,
-    pub keep_alive: usize,
-    pub worker_processes: usize,
-    pub listen_addresses: String,
-    pub sources: Sources,
+  pub pool_size: u32,
+  pub keep_alive: usize,
+  pub worker_processes: usize,
+  pub listen_addresses: String,
+  pub table_sources: Option<TableSources>,
+  pub function_sources: Option<FunctionSources>,
 }
 
 #[derive(Deserialize)]
-pub struct ConfigBuilder {
-    pub pool_size: Option<u32>,
-    pub keep_alive: Option<usize>,
-    pub worker_processes: Option<usize>,
-    pub listen_addresses: Option<String>,
-    pub sources: Sources,
+struct ConfigBuilder {
+  pub pool_size: Option<u32>,
+  pub keep_alive: Option<usize>,
+  pub worker_processes: Option<usize>,
+  pub listen_addresses: Option<String>,
+  pub table_sources: Option<TableSources>,
+  pub function_sources: Option<FunctionSources>,
 }
 
 impl ConfigBuilder {
-    pub fn finalize(self) -> Config {
-        Config {
-            pool_size: self.pool_size.unwrap_or(20),
-            keep_alive: self.keep_alive.unwrap_or(75),
-            worker_processes: self.worker_processes.unwrap_or(num_cpus::get()),
-            listen_addresses: self.listen_addresses.unwrap_or("0.0.0.0:3000".to_string()),
-            sources: self.sources,
-        }
+  pub fn finalize(self) -> Config {
+    Config {
+      pool_size: self.pool_size.unwrap_or(20),
+      keep_alive: self.keep_alive.unwrap_or(75),
+      worker_processes: self.worker_processes.unwrap_or_else(num_cpus::get),
+      listen_addresses: self.listen_addresses.unwrap_or("0.0.0.0:3000".to_owned()),
+      table_sources: self.table_sources,
+      function_sources: self.function_sources,
     }
+  }
 }
 
-pub fn build(config_filename: &str, conn: PostgresConnection) -> io::Result<Config> {
-    if Path::new(config_filename).exists() {
-        info!("Config found at {}", config_filename);
-        let config = read_config(config_filename)?;
-        return Ok(config);
-    };
+pub fn read_config(file_name: &str) -> io::Result<Config> {
+  let mut file = File::open(file_name)?;
+  let mut contents = String::new();
+  file.read_to_string(&mut contents)?;
 
-    let sources = get_sources(conn)?;
-    let config = generate_config(sources);
+  let config_builder: ConfigBuilder = serde_yaml::from_str(contents.as_str())
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
 
-    // let _ = write_config(config_filename, config.clone());
-
-    Ok(config)
+  Ok(config_builder.finalize())
 }
 
-pub fn generate_config(sources: Sources) -> Config {
-    let config = ConfigBuilder {
-        pool_size: None,
-        keep_alive: None,
-        worker_processes: None,
-        listen_addresses: None,
-        sources: sources,
-    };
+fn generate_config(table_sources: TableSources) -> Config {
+  let config = ConfigBuilder {
+    pool_size: None,
+    keep_alive: None,
+    worker_processes: None,
+    listen_addresses: None,
+    table_sources: Some(table_sources),
+    function_sources: None,
+  };
 
-    config.finalize()
+  config.finalize()
 }
 
 // pub fn write_config(file_name: &str, config: Config) -> io::Result<()> {
-//     let mut file = File::create(file_name)?;
-//     let yaml = serde_yaml::to_string(&config).unwrap();
-//     file.write_all(yaml.as_bytes())?;
-//     Ok(())
+//   let mut file = File::create(file_name)?;
+//   let yaml = serde_yaml::to_string(&config).unwrap();
+//   file.write_all(yaml.as_bytes())?;
+//   Ok(())
 // }
 
-pub fn read_config(file_name: &str) -> io::Result<Config> {
-    let mut file = File::open(file_name)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+pub fn build_config(config_filename: &str, conn: PostgresConnection) -> io::Result<Config> {
+  if Path::new(config_filename).exists() {
+    info!("Config found at {}", config_filename);
+    let config = read_config(config_filename)?;
+    return Ok(config);
+  };
 
-    let config: ConfigBuilder = serde_yaml::from_str(contents.as_str())
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+  let table_sources = get_table_sources(conn)?;
+  let config = generate_config(table_sources);
 
-    Ok(config.finalize())
+  Ok(config)
 }

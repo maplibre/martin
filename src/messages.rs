@@ -1,20 +1,13 @@
 use actix::prelude::*;
 use std::io;
 
-use super::source::{Source, Sources, Tile};
-
-pub struct GetSources {}
-
-impl Message for GetSources {
-  type Result = Result<Sources, io::Error>;
-}
+use super::martin::Query;
+use super::source::{Source, Tile, XYZ};
 
 pub struct GetTile {
-  pub z: u32,
-  pub x: u32,
-  pub y: u32,
-  pub source: Source,
-  pub condition: Option<String>,
+  pub xyz: XYZ,
+  pub query: Query,
+  pub source: Box<dyn Source + Send>,
 }
 
 impl Message for GetTile {

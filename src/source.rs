@@ -1,136 +1,21 @@
-use std::collections::HashMap;
-use std::error::Error;
+// use std::collections::HashMap;
+use std::fmt::Debug;
 use std::io;
 
 use super::db::PostgresConnection;
-use super::utils;
-
-// static DEFAULT_ID_COLUMN: &str = "id";
-static DEFAULT_EXTENT: u32 = 4096;
-static DEFAULT_BUFFER: u32 = 64;
-static DEFAULT_CLIP_GEOM: bool = true;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Source {
-    pub id: String,
-    pub schema: String,
-    pub table: String,
-    pub id_column: Option<String>,
-    pub geometry_column: String,
-    pub srid: u32,
-    pub extent: Option<u32>,
-    pub buffer: Option<u32>,
-    pub clip_geom: Option<bool>,
-    pub geometry_type: Option<String>,
-    pub properties: HashMap<String, String>,
-}
-
-pub type Sources = HashMap<String, Source>;
+use super::martin::Query;
 
 pub type Tile = Vec<u8>;
 
-impl Source {
-    pub fn get_tile(
-        &self,
-        conn: PostgresConnection,
-        z: u32,
-        x: u32,
-        y: u32,
-        condition: Option<String>,
-    ) -> Result<Tile, io::Error> {
-        let mercator_bounds = utils::tilebbox(z, x, y);
-
-        let (geometry_column_mercator, original_bounds) = if self.srid == 3857 {
-            (self.geometry_column.clone(), mercator_bounds.clone())
-        } else {
-            (
-                format!("ST_Transform({0}, 3857)", self.geometry_column),
-                format!("ST_Transform({0}, {1})", mercator_bounds, self.srid),
-            )
-        };
-
-        let properties = if self.properties.is_empty() {
-            "".to_string()
-        } else {
-            let properties = self.properties
-                .keys()
-                .map(|column| format!("\"{0}\"", column))
-                .collect::<Vec<String>>()
-                .join(",");
-
-            format!(", {0}", properties)
-        };
-
-        let id_column = self.id_column
-            .clone()
-            .map_or("".to_string(), |id_column| format!(", '{}'", id_column));
-
-        let query = format!(
-            include_str!("scripts/get_tile.sql"),
-            id = self.id,
-            id_column = id_column,
-            geometry_column = self.geometry_column,
-            geometry_column_mercator = geometry_column_mercator,
-            original_bounds = original_bounds,
-            mercator_bounds = mercator_bounds,
-            extent = self.extent.unwrap_or(DEFAULT_EXTENT),
-            buffer = self.buffer.unwrap_or(DEFAULT_BUFFER),
-            clip_geom = self.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
-            properties = properties,
-            condition = condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
-        );
-
-        let tile: Tile = conn.query(&query, &[])
-            .map(|rows| rows.get(0).get("st_asmvt"))
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
-
-        Ok(tile)
-    }
+pub struct XYZ {
+  pub z: u32,
+  pub x: u32,
+  pub y: u32,
 }
 
-pub fn get_sources(conn: PostgresConnection) -> Result<Sources, io::Error> {
-    let mut sources = HashMap::new();
-    let rows = conn.query(include_str!("scripts/get_sources.sql"), &[])
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
-
-    for row in &rows {
-        let schema: String = row.get("f_table_schema");
-        let table: String = row.get("f_table_name");
-        let id = format!("{}.{}", schema, table);
-
-        let geometry_column: String = row.get("f_geometry_column");
-        let srid: i32 = row.get("srid");
-
-        if srid == 0 {
-            warn!("{} has SRID 0, skipping", id);
-            continue;
-        }
-
-        let properties = utils::json_to_hashmap(row.get("properties"));
-
-        let id_column = None;
-        // let id_column = if properties.contains_key(DEFAULT_ID_COLUMN) {
-        //     Some(DEFAULT_ID_COLUMN.to_string())
-        // } else {
-        //     None
-        // };
-
-        let source = Source {
-            id: id.to_string(),
-            schema: schema,
-            table: table,
-            id_column: id_column,
-            geometry_column: geometry_column,
-            srid: srid as u32,
-            extent: Some(DEFAULT_EXTENT),
-            buffer: Some(DEFAULT_BUFFER),
-            clip_geom: Some(DEFAULT_CLIP_GEOM),
-            geometry_type: row.get("type"),
-            properties: properties,
-        };
-
-        sources.insert(id, source);
-    }
-
-    Ok(sources)
+pub trait Source: Debug {
+  fn get_id(self) -> String;
+  fn get_tile(&self, conn: PostgresConnection, xyz: XYZ, query: Query) -> Result<Tile, io::Error>;
 }
+
+// pub type Sources = HashMap<String, Box<dyn Source>>;
