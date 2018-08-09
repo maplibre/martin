@@ -9,6 +9,7 @@ use super::utils::query_to_json_string;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {
   id: String,
+  schema: String,
   function: String,
 }
 
@@ -23,6 +24,7 @@ impl Source for FunctionSource {
 
     let query = format!(
       include_str!("scripts/call_rpc.sql"),
+      schema = self.schema,
       function = self.function,
       z = xyz.z,
       x = xyz.x,
