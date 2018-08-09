@@ -2,5 +2,6 @@
 **/*.rs.bk
 
 db
+sql
 config.yaml
 docker-compose.yml

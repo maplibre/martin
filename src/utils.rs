@@ -1,5 +1,6 @@
 use actix_web::dev::{ConnectionInfo, Params};
 use actix_web::http::header::HeaderMap;
+use martin::Query;
 use serde_json;
 use std::collections::HashMap;
 use tilejson::{TileJSON, TileJSONBuilder};
@@ -88,4 +89,14 @@ pub fn json_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
   }
 
   hashmap
+}
+
+pub fn query_to_json_string(query: Query) -> Result<String, serde_json::Error> {
+  let mut query_as_json = HashMap::new();
+  for (k, v) in query.iter() {
+    let json_value: serde_json::Value = serde_json::from_str(v)?;
+    query_as_json.insert(k, json_value);
+  }
+
+  serde_json::to_string(&query_as_json)
 }

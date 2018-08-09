@@ -1,10 +1,10 @@
-use serde_json;
 use std::collections::HashMap;
 use std::io;
 
 use super::db::PostgresConnection;
 use super::martin::Query;
 use super::source::{Source, Tile, XYZ};
+use super::utils::query_to_json_string;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {
@@ -18,13 +18,16 @@ impl Source for FunctionSource {
   }
 
   fn get_tile(&self, conn: PostgresConnection, xyz: XYZ, query: Query) -> Result<Tile, io::Error> {
+    let query_json_string =
+      query_to_json_string(query).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+
     let query = format!(
       include_str!("scripts/call_rpc.sql"),
       function = self.function,
       z = xyz.z,
       x = xyz.x,
       y = xyz.y,
-      query = serde_json::to_string(&query)?
+      query = query_json_string
     );
 
     let tile: Tile = conn
