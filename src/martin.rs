@@ -19,7 +19,7 @@ pub struct State {
 }
 
 // TODO: Swagger endpoint
-fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
+fn get_table_sources(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let state = &req.state();
     let table_sources = state
         .table_sources
@@ -54,8 +54,9 @@ fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let tilejson = build_tilejson(
         source.clone(),
         req.connection_info().clone(),
-        req.headers().clone(),
-    );
+        req.path(),
+        req.headers(),
+    ).map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
 
     Ok(HttpResponse::Ok()
         .header("Access-Control-Allow-Origin", "*")
@@ -111,6 +112,49 @@ fn get_table_source_tile(
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder())
+}
+
+fn get_function_sources(req: &HttpRequest<State>) -> Result<HttpResponse> {
+    let state = &req.state();
+    let function_sources = state
+        .function_sources
+        .clone()
+        .ok_or(error::ErrorNotFound("There is no function sources"))?;
+
+    Ok(HttpResponse::Ok()
+        .header("Access-Control-Allow-Origin", "*")
+        .json(function_sources))
+}
+
+fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
+    let state = &req.state();
+    let function_sources = state
+        .function_sources
+        .clone()
+        .ok_or(error::ErrorNotFound("There is no function sources"))?;
+
+    let params = req.match_info();
+    let source_id = params
+        .get("source_id")
+        .ok_or(error::ErrorBadRequest("Invalid function source id"))?;
+
+    let source = function_sources
+        .get(source_id)
+        .ok_or(error::ErrorNotFound(format!(
+            "Function source '{}' not found",
+            source_id
+        )))?;
+
+    let tilejson = build_tilejson(
+        source.clone(),
+        req.connection_info().clone(),
+        req.path(),
+        req.headers(),
+    ).map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
+
+    Ok(HttpResponse::Ok()
+        .header("Access-Control-Allow-Origin", "*")
+        .json(tilejson))
 }
 
 fn get_function_source_tile(
@@ -173,12 +217,20 @@ pub fn new(db_sync_arbiter: Addr<DbExecutor>, config: Config) -> App<State> {
 
     App::with_state(state)
         .middleware(middleware::Logger::default())
-        .resource("/index.json", |r| r.method(http::Method::GET).f(index))
+        .resource("/index.json", |r| {
+            r.method(http::Method::GET).f(get_table_sources)
+        })
         .resource("/{source_id}.json", |r| {
             r.method(http::Method::GET).f(get_table_source)
         })
         .resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(get_table_source_tile)
+        })
+        .resource("/rpc/index.json", |r| {
+            r.method(http::Method::GET).f(get_function_sources)
+        })
+        .resource("/rpc/{source_id}.json", |r| {
+            r.method(http::Method::GET).f(get_function_source)
         })
         .resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(get_function_source_tile)

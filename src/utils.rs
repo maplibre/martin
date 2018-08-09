@@ -1,5 +1,5 @@
 use actix_web::dev::{ConnectionInfo, Params};
-use actix_web::http::header::HeaderMap;
+use actix_web::http::header::{HeaderMap, ToStrError};
 use martin::Query;
 use serde_json;
 use std::collections::HashMap;
@@ -10,23 +10,20 @@ use super::source::{Source, XYZ};
 pub fn build_tilejson(
   source: Box<dyn Source>,
   connection_info: ConnectionInfo,
-  headers: HeaderMap,
-) -> TileJSON {
+  path: &str,
+  headers: &HeaderMap,
+) -> Result<TileJSON, ToStrError> {
   let source_id = source.get_id();
 
   let path = headers
     .get("x-rewrite-url")
-    .map_or(String::from(source_id), |header| {
-      let parts: Vec<&str> = header.to_str().unwrap().split('.').collect();
-      let (_, parts_without_extension) = parts.split_last().unwrap();
-      let path_without_extension = parts_without_extension.join(".");
-      let (_, path_without_leading_slash) = path_without_extension.split_at(1);
-
-      String::from(path_without_leading_slash)
-    });
+    .map_or(Ok(path.trim_right_matches(".json")), |header| {
+      let header_str = header.to_str()?;
+      Ok(header_str.trim_right_matches(".json"))
+    })?;
 
   let tiles_url = format!(
-    "{}://{}/{}/{{z}}/{{x}}/{{y}}.pbf",
+    "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf",
     connection_info.scheme(),
     connection_info.host(),
     path
@@ -37,7 +34,7 @@ pub fn build_tilejson(
   tilejson_builder.name(source_id);
   tilejson_builder.tiles(vec![&tiles_url]);
 
-  tilejson_builder.finalize()
+  Ok(tilejson_builder.finalize())
 }
 
 pub fn parse_xyz(params: &Params) -> Result<XYZ, &str> {
