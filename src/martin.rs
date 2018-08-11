@@ -55,6 +55,7 @@ fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
         source.clone(),
         req.connection_info().clone(),
         req.path(),
+        req.query_string(),
         req.headers(),
     ).map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
 
@@ -149,6 +150,7 @@ fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
         source.clone(),
         req.connection_info().clone(),
         req.path(),
+        req.query_string(),
         req.headers(),
     ).map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
 

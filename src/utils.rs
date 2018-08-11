@@ -11,6 +11,7 @@ pub fn build_tilejson(
   source: Box<dyn Source>,
   connection_info: ConnectionInfo,
   path: &str,
+  query_string: &str,
   headers: &HeaderMap,
 ) -> Result<TileJSON, ToStrError> {
   let source_id = source.get_id();
@@ -22,11 +23,18 @@ pub fn build_tilejson(
       Ok(header_str.trim_right_matches(".json"))
     })?;
 
+  let query = if query_string.is_empty() {
+    query_string.to_owned()
+  } else {
+    format!("?{}", query_string)
+  };
+
   let tiles_url = format!(
-    "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf",
+    "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf{}",
     connection_info.scheme(),
     connection_info.host(),
-    path
+    path,
+    query
   );
 
   let mut tilejson_builder = TileJSONBuilder::new();
