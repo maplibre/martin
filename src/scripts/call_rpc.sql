@@ -1,1 +1,1 @@
-SELECT {schema}.{function}(z => {z}, x => {x}, y => {y}, query => '{query}'::json);
+SELECT {schema}.{function}(z => {z}, x => {x}, y => {y}, query_params => '{query_params}'::json);

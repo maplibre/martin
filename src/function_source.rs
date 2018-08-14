@@ -29,7 +29,7 @@ impl Source for FunctionSource {
       z = xyz.z,
       x = xyz.x,
       y = xyz.y,
-      query = query_json_string
+      query_params = query_json_string
     );
 
     let tile: Tile = conn
