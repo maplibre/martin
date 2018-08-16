@@ -3,5 +3,6 @@
 
 db
 sql
+debug.html
 config.yaml
 docker-compose.yml

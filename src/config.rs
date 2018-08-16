@@ -67,7 +67,7 @@ fn generate_config(table_sources: TableSources, function_sources: FunctionSource
   config.finalize()
 }
 
-pub fn build_config(config_filename: &str, pool: PostgresPool) -> io::Result<Config> {
+pub fn build_config(config_filename: &str, pool: &PostgresPool) -> io::Result<Config> {
   if Path::new(config_filename).exists() {
     info!("Config found at {}", config_filename);
     let config = read_config(config_filename)?;
@@ -78,13 +78,8 @@ pub fn build_config(config_filename: &str, pool: PostgresPool) -> io::Result<Con
     .get()
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
 
-  let table_sources = get_table_sources(conn)?;
-
-  let conn = pool
-    .get()
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
-
-  let function_sources = get_function_sources(conn)?;
+  let table_sources = get_table_sources(&conn)?;
+  let function_sources = get_function_sources(&conn)?;
 
   let config = generate_config(table_sources, function_sources);
 

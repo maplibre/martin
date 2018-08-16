@@ -1,10 +1,10 @@
 use actix::{SyncArbiter, System, SystemRunner};
 use actix_web::server;
 
+use super::app;
 use super::config::Config;
 use super::db::PostgresPool;
 use super::db_executor::DbExecutor;
-use super::martin;
 
 pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
     let server = System::new("server");
@@ -14,7 +14,7 @@ pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
     let worker_processes = config.worker_processes;
     let listen_addresses = config.listen_addresses.clone();
 
-    let _addr = server::new(move || martin::new(db_sync_arbiter.clone(), config.clone()))
+    let _addr = server::new(move || app::new(db_sync_arbiter.clone(), config.clone()))
         .bind(listen_addresses.clone())
         .expect(&format!("Can't bind to {}", listen_addresses))
         .keep_alive(keep_alive)

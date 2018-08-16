@@ -1,15 +1,15 @@
 use actix_web::dev::{ConnectionInfo, Params};
 use actix_web::http::header::{HeaderMap, ToStrError};
-use martin::Query;
 use serde_json;
 use std::collections::HashMap;
 use tilejson::{TileJSON, TileJSONBuilder};
 
+use super::app::Query;
 use super::source::{Source, XYZ};
 
 pub fn build_tilejson(
   source: Box<dyn Source>,
-  connection_info: ConnectionInfo,
+  connection_info: &ConnectionInfo,
   path: &str,
   query_string: &str,
   headers: &HeaderMap,
@@ -65,18 +65,18 @@ pub fn parse_xyz(params: &Params) -> Result<XYZ, &str> {
 }
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
-pub fn tilebbox(xyz: XYZ) -> String {
+pub fn tilebbox(xyz: &XYZ) -> String {
   let x = xyz.x;
   let y = xyz.y;
   let z = xyz.z;
 
   let max = 20037508.34;
-  let res = (max * 2.0) / (2_i32.pow(z) as f64);
+  let res = (max * 2.0) / f64::from(2_i32.pow(z));
 
-  let xmin = -max + (x as f64 * res);
-  let ymin = max - (y as f64 * res);
-  let xmax = -max + (x as f64 * res) + res;
-  let ymax = max - (y as f64 * res) - res;
+  let xmin = -max + (f64::from(x) * res);
+  let ymin = max - (f64::from(y) * res);
+  let xmax = -max + (f64::from(x) * res) + res;
+  let ymax = max - (f64::from(y) * res) - res;
 
   format!(
     "ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)",
@@ -84,7 +84,7 @@ pub fn tilebbox(xyz: XYZ) -> String {
   )
 }
 
-pub fn json_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
+pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
   let mut hashmap = HashMap::new();
 
   let object = value.as_object().unwrap();
@@ -96,7 +96,7 @@ pub fn json_to_hashmap(value: serde_json::Value) -> HashMap<String, String> {
   hashmap
 }
 
-pub fn query_to_json_string(query: Query) -> Result<String, serde_json::Error> {
+pub fn query_to_json_string(query: &Query) -> Result<String, serde_json::Error> {
   let mut query_as_json = HashMap::new();
   for (k, v) in query.iter() {
     let json_value: serde_json::Value = serde_json::from_str(v)?;

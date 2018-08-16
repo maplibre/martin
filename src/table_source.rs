@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 
+use super::app::Query;
 use super::db::PostgresConnection;
-use super::martin::Query;
 use super::source::{Source, Tile, XYZ};
 use super::utils;
 
@@ -30,7 +30,12 @@ impl Source for TableSource {
     self.id.as_str()
   }
 
-  fn get_tile(&self, conn: PostgresConnection, xyz: XYZ, query: Query) -> Result<Tile, io::Error> {
+  fn get_tile(
+    &self,
+    conn: &PostgresConnection,
+    xyz: &XYZ,
+    query: &Query,
+  ) -> Result<Tile, io::Error> {
     let mercator_bounds = utils::tilebbox(xyz);
 
     let (geometry_column_mercator, original_bounds) = if self.srid == 3857 {
@@ -92,7 +97,7 @@ static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-pub fn get_table_sources(conn: PostgresConnection) -> Result<TableSources, io::Error> {
+pub fn get_table_sources(conn: &PostgresConnection) -> Result<TableSources, io::Error> {
   let mut sources = HashMap::new();
 
   let rows = conn
@@ -112,20 +117,20 @@ pub fn get_table_sources(conn: PostgresConnection) -> Result<TableSources, io::E
       continue;
     }
 
-    let properties = utils::json_to_hashmap(row.get("properties"));
+    let properties = utils::json_to_hashmap(&row.get("properties"));
 
     let source = TableSource {
       id: id.to_string(),
-      schema: schema,
-      table: table,
+      schema,
+      table,
       id_column: None,
-      geometry_column: geometry_column,
+      geometry_column,
       srid: srid as u32,
       extent: Some(DEFAULT_EXTENT),
       buffer: Some(DEFAULT_BUFFER),
       clip_geom: Some(DEFAULT_CLIP_GEOM),
       geometry_type: row.get("type"),
-      properties: properties,
+      properties,
     };
 
     sources.insert(id, Box::new(source));

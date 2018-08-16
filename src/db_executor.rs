@@ -17,7 +17,7 @@ impl Handler<messages::GetTile> for DbExecutor {
   fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {
     let conn = self.0.get().unwrap();
 
-    let tile = msg.source.get_tile(conn, msg.xyz, msg.query)?;
+    let tile = msg.source.get_tile(&conn, &msg.xyz, &msg.query)?;
 
     Ok(tile)
   }

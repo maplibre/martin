@@ -18,11 +18,11 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate serde_yaml;
 
+mod app;
 mod config;
 mod db;
 mod db_executor;
 mod function_source;
-mod martin;
 mod messages;
 mod server;
 mod source;
@@ -54,7 +54,7 @@ fn main() {
     }
   };
 
-  let config = match build_config(DEFAULT_CONFIG_FILENAME, pool.clone()) {
+  let config = match build_config(DEFAULT_CONFIG_FILENAME, &pool) {
     Ok(config) => config,
     Err(error) => {
       error!("Can't build config: {}", error);

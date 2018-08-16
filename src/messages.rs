@@ -1,7 +1,7 @@
 use actix::prelude::*;
 use std::io;
 
-use super::martin::Query;
+use super::app::Query;
 use super::source::{Source, Tile, XYZ};
 
 pub struct GetTile {

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 
+use super::app::Query;
 use super::db::PostgresConnection;
-use super::martin::Query;
 use super::source::{Source, Tile, XYZ};
 use super::utils::query_to_json_string;
 
@@ -21,7 +21,12 @@ impl Source for FunctionSource {
     self.id.as_str()
   }
 
-  fn get_tile(&self, conn: PostgresConnection, xyz: XYZ, query: Query) -> Result<Tile, io::Error> {
+  fn get_tile(
+    &self,
+    conn: &PostgresConnection,
+    xyz: &XYZ,
+    query: &Query,
+  ) -> Result<Tile, io::Error> {
     let query_json_string =
       query_to_json_string(query).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
@@ -44,7 +49,7 @@ impl Source for FunctionSource {
   }
 }
 
-pub fn get_function_sources(conn: PostgresConnection) -> Result<FunctionSources, io::Error> {
+pub fn get_function_sources(conn: &PostgresConnection) -> Result<FunctionSources, io::Error> {
   let mut sources = HashMap::new();
 
   let rows = conn
@@ -57,9 +62,9 @@ pub fn get_function_sources(conn: PostgresConnection) -> Result<FunctionSources,
     let id = format!("{}.{}", schema, function);
 
     let source = FunctionSource {
-      id: id.to_string(),
-      schema: schema,
-      function: function,
+      id: id.clone(),
+      schema,
+      function,
     };
 
     sources.insert(id, Box::new(source));

@@ -53,7 +53,7 @@ fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
 
     let tilejson = build_tilejson(
         source.clone(),
-        req.connection_info().clone(),
+        &req.connection_info(),
         req.path(),
         req.query_string(),
         req.headers(),
@@ -94,7 +94,7 @@ fn get_table_source_tile(
         .state()
         .db
         .send(messages::GetTile {
-            xyz: xyz,
+            xyz,
             query: query.clone(),
             source: source.clone(),
         })
@@ -148,7 +148,7 @@ fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
 
     let tilejson = build_tilejson(
         source.clone(),
-        req.connection_info().clone(),
+        &req.connection_info(),
         req.path(),
         req.query_string(),
         req.headers(),
@@ -189,7 +189,7 @@ fn get_function_source_tile(
         .state()
         .db
         .send(messages::GetTile {
-            xyz: xyz,
+            xyz,
             query: query.clone(),
             source: source.clone(),
         })
