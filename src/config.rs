@@ -6,8 +6,8 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
-use super::db::PostgresConnection;
-use super::function_source::FunctionSources;
+use super::db::PostgresPool;
+use super::function_source::{get_function_sources, FunctionSources};
 use super::table_source::{get_table_sources, TableSources};
 
 #[derive(Clone, Debug, Serialize)]
@@ -54,37 +54,39 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
   Ok(config_builder.finalize())
 }
 
-fn generate_config(table_sources: TableSources) -> Config {
+fn generate_config(table_sources: TableSources, function_sources: FunctionSources) -> Config {
   let config = ConfigBuilder {
     pool_size: None,
     keep_alive: None,
     worker_processes: None,
     listen_addresses: None,
     table_sources: Some(table_sources),
-    function_sources: None,
+    function_sources: Some(function_sources),
   };
 
   config.finalize()
 }
 
-// pub fn write_config(file_name: &str, config: Config) -> io::Result<()> {
-//   let mut file = File::create(file_name)?;
-//   let yaml = serde_yaml::to_string(&config).unwrap();
-//   file.write_all(yaml.as_bytes())?;
-//   Ok(())
-// }
-
-pub fn build_config(config_filename: &str, conn: PostgresConnection) -> io::Result<Config> {
+pub fn build_config(config_filename: &str, pool: PostgresPool) -> io::Result<Config> {
   if Path::new(config_filename).exists() {
     info!("Config found at {}", config_filename);
     let config = read_config(config_filename)?;
     return Ok(config);
   };
 
-  let table_sources = get_table_sources(conn)?;
-  let config = generate_config(table_sources);
+  let conn = pool
+    .get()
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
 
-  // let _ = write_config(config_filename, config.clone());
+  let table_sources = get_table_sources(conn)?;
+
+  let conn = pool
+    .get()
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+
+  let function_sources = get_function_sources(conn)?;
+
+  let config = generate_config(table_sources, function_sources);
 
   Ok(config)
 }

@@ -30,8 +30,6 @@ mod table_source;
 mod utils;
 
 use std::env;
-use std::error::Error;
-use std::io;
 
 use config::build_config;
 use db::setup_connection_pool;
@@ -56,11 +54,7 @@ fn main() {
     }
   };
 
-  let config = match pool
-    .get()
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))
-    .and_then(|conn| build_config(DEFAULT_CONFIG_FILENAME, conn))
-  {
+  let config = match build_config(DEFAULT_CONFIG_FILENAME, pool.clone()) {
     Ok(config) => config,
     Err(error) => {
       error!("Can't build config: {}", error);

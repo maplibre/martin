@@ -96,7 +96,7 @@ pub fn get_table_sources(conn: PostgresConnection) -> Result<TableSources, io::E
   let mut sources = HashMap::new();
 
   let rows = conn
-    .query(include_str!("scripts/get_sources.sql"), &[])
+    .query(include_str!("scripts/get_table_sources.sql"), &[])
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
 
   for row in &rows {

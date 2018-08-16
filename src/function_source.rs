@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::error::Error;
 use std::io;
 
 use super::db::PostgresConnection;
@@ -12,6 +13,8 @@ pub struct FunctionSource {
   schema: String,
   function: String,
 }
+
+pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
 
 impl Source for FunctionSource {
   fn get_id(&self) -> &str {
@@ -41,4 +44,26 @@ impl Source for FunctionSource {
   }
 }
 
-pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
+pub fn get_function_sources(conn: PostgresConnection) -> Result<FunctionSources, io::Error> {
+  let mut sources = HashMap::new();
+
+  let rows = conn
+    .query(include_str!("scripts/get_function_sources.sql"), &[])
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+
+  for row in &rows {
+    let schema: String = row.get("specific_schema");
+    let function: String = row.get("routine_name");
+    let id = format!("{}.{}", schema, function);
+
+    let source = FunctionSource {
+      id: id.to_string(),
+      schema: schema,
+      function: function,
+    };
+
+    sources.insert(id, Box::new(source));
+  }
+
+  Ok(sources)
+}
