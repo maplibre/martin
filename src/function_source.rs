@@ -9,9 +9,9 @@ use super::utils::query_to_json_string;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {
-  id: String,
-  schema: String,
-  function: String,
+  pub id: String,
+  pub schema: String,
+  pub function: String,
 }
 
 pub type FunctionSources = HashMap<String, Box<FunctionSource>>;

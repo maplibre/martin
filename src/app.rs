@@ -233,6 +233,8 @@ mod tests {
 
     use super::super::db::setup_connection_pool;
     use super::super::db_executor::DbExecutor;
+    use super::super::function_source::{FunctionSource, FunctionSources};
+    use super::super::table_source::{TableSource, TableSources};
     use super::*;
     use actix::SyncArbiter;
     use actix_web::{http, test};
@@ -278,7 +280,6 @@ mod tests {
     fn sources_not_found_test() {
         let mut srv = build_test_server(None, None);
 
-        // test table sources
         let request = srv
             .client(http::Method::GET, "/index.json")
             .finish()
@@ -288,14 +289,13 @@ mod tests {
         assert_eq!(response.status().as_u16(), 404);
 
         let request = srv
-            .client(http::Method::GET, "/public.points.json")
+            .client(http::Method::GET, "/public.table_source.json")
             .finish()
             .unwrap();
 
         let response = srv.execute(request.send()).unwrap();
         assert_eq!(response.status().as_u16(), 404);
 
-        // test function sources
         let request = srv
             .client(http::Method::GET, "/rpc/index.json")
             .finish()
@@ -305,11 +305,85 @@ mod tests {
         assert_eq!(response.status().as_u16(), 404);
 
         let request = srv
-            .client(http::Method::GET, "/rpc/public.points.json")
+            .client(http::Method::GET, "/rpc/public.function_source.json")
             .finish()
             .unwrap();
 
         let response = srv.execute(request.send()).unwrap();
         assert_eq!(response.status().as_u16(), 404);
+    }
+
+    #[test]
+    fn table_sources_test() {
+        let id = "public.table_source";
+        let source = TableSource {
+            id: id.to_owned(),
+            schema: "public".to_owned(),
+            table: "table_source".to_owned(),
+            id_column: None,
+            geometry_column: "geom".to_owned(),
+            srid: 3857,
+            extent: Some(4096),
+            buffer: Some(64),
+            clip_geom: Some(true),
+            geometry_type: None,
+            properties: HashMap::new(),
+        };
+
+        let mut table_sources: TableSources = HashMap::new();
+        table_sources.insert(id.to_owned(), Box::new(source));
+
+        let mut srv = build_test_server(Some(table_sources), None);
+
+        let request = srv
+            .client(http::Method::GET, "/public.table_source.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        println!("response {:?}", response);
+        assert!(response.status().is_success());
+
+        let request = srv
+            .client(http::Method::GET, "/public.table_source/0/0/0.pbf")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        println!("response {:?}", response);
+        assert!(response.status().is_success());
+    }
+
+    #[test]
+    fn function_sources_test() {
+        let id = "public.function_source";
+        let source = FunctionSource {
+            id: id.to_owned(),
+            schema: "public".to_owned(),
+            function: "function_source".to_owned(),
+        };
+
+        let mut function_sources: FunctionSources = HashMap::new();
+        function_sources.insert(id.to_owned(), Box::new(source));
+
+        let mut srv = build_test_server(None, Some(function_sources));
+
+        let request = srv
+            .client(http::Method::GET, "/rpc/public.function_source.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        println!("response {:?}", response);
+        assert!(response.status().is_success());
+
+        let request = srv
+            .client(http::Method::GET, "/rpc/public.function_source/0/0/0.pbf")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        println!("response {:?}", response);
+        assert!(response.status().is_success());
     }
 }
