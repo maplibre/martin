@@ -14,8 +14,13 @@ pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
     let worker_processes = config.worker_processes;
     let listen_addresses = config.listen_addresses.clone();
 
-    let _addr = server::new(move || app::new(db_sync_arbiter.clone(), config.clone()))
-        .bind(listen_addresses.clone())
+    let _addr = server::new(move || {
+        app::new(
+            db_sync_arbiter.clone(),
+            config.table_sources.clone(),
+            config.function_sources.clone(),
+        )
+    }).bind(listen_addresses.clone())
         .expect(&format!("Can't bind to {}", listen_addresses))
         .keep_alive(keep_alive)
         .shutdown_timeout(0)

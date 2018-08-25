@@ -3,7 +3,6 @@ use actix_web::*;
 use futures::future::Future;
 use std::collections::HashMap;
 
-use super::config::Config;
 use super::db_executor::DbExecutor;
 use super::function_source::FunctionSources;
 use super::messages;
@@ -198,11 +197,15 @@ fn get_function_source_tile(
         .responder())
 }
 
-pub fn new(db_sync_arbiter: Addr<DbExecutor>, config: Config) -> App<State> {
+pub fn new(
+    db_sync_arbiter: Addr<DbExecutor>,
+    table_sources: Option<TableSources>,
+    function_sources: Option<FunctionSources>,
+) -> App<State> {
     let state = State {
         db: db_sync_arbiter,
-        table_sources: config.table_sources,
-        function_sources: config.function_sources,
+        table_sources,
+        function_sources,
     };
 
     App::with_state(state)
@@ -240,6 +243,7 @@ mod tests {
     use actix_web::{http, test};
     use std::env;
 
+    // TODO: rewrite using test::TestServer::with_factory
     fn build_test_server(
         table_sources: Option<TableSources>,
         function_sources: Option<FunctionSources>,
