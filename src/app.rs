@@ -24,7 +24,7 @@ fn get_table_sources(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let table_sources = state
         .table_sources
         .clone()
-        .ok_or(error::ErrorNotFound("There is no table sources"))?;
+        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     Ok(HttpResponse::Ok()
         .header("Access-Control-Allow-Origin", "*")
@@ -37,19 +37,16 @@ fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let table_sources = state
         .table_sources
         .clone()
-        .ok_or(error::ErrorNotFound("There is no table sources"))?;
+        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let params = req.match_info();
     let source_id = params
         .get("source_id")
-        .ok_or(error::ErrorBadRequest("Invalid table source id"))?;
+        .ok_or_else(|| error::ErrorBadRequest("Invalid table source id"))?;
 
     let source = table_sources
         .get(source_id)
-        .ok_or(error::ErrorNotFound(format!(
-            "Table source '{}' not found",
-            source_id
-        )))?;
+        .ok_or_else(|| error::ErrorNotFound(format!("Table source '{}' not found", source_id)))?;
 
     let tilejson = build_tilejson(
         source.clone(),
@@ -71,19 +68,16 @@ fn get_table_source_tile(
     let table_sources = state
         .table_sources
         .clone()
-        .ok_or(error::ErrorNotFound("There is no table sources"))?;
+        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let params = req.match_info();
     let source_id = params
         .get("source_id")
-        .ok_or(error::ErrorBadRequest("Invalid table source id"))?;
+        .ok_or_else(|| error::ErrorBadRequest("Invalid table source id"))?;
 
     let source = table_sources
         .get(source_id)
-        .ok_or(error::ErrorNotFound(format!(
-            "Table source '{}' not found",
-            source_id
-        )))?;
+        .ok_or_else(|| error::ErrorNotFound(format!("Table source '{}' not found", source_id)))?;
 
     let xyz = parse_xyz(params)
         .map_err(|e| error::ErrorBadRequest(format!("Can't parse XYZ scheme: {}", e)))?;
@@ -120,7 +114,7 @@ fn get_function_sources(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let function_sources = state
         .function_sources
         .clone()
-        .ok_or(error::ErrorNotFound("There is no function sources"))?;
+        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
     Ok(HttpResponse::Ok()
         .header("Access-Control-Allow-Origin", "*")
@@ -132,19 +126,16 @@ fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let function_sources = state
         .function_sources
         .clone()
-        .ok_or(error::ErrorNotFound("There is no function sources"))?;
+        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
     let params = req.match_info();
     let source_id = params
         .get("source_id")
-        .ok_or(error::ErrorBadRequest("Invalid function source id"))?;
+        .ok_or_else(|| error::ErrorBadRequest("Invalid function source id"))?;
 
     let source = function_sources
         .get(source_id)
-        .ok_or(error::ErrorNotFound(format!(
-            "Function source '{}' not found",
-            source_id
-        )))?;
+        .ok_or_else(|| error::ErrorNotFound(format!("Function source '{}' not found", source_id)))?;
 
     let tilejson = build_tilejson(
         source.clone(),
@@ -166,19 +157,16 @@ fn get_function_source_tile(
     let function_sources = state
         .function_sources
         .clone()
-        .ok_or(error::ErrorNotFound("There is no function sources"))?;
+        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
     let params = req.match_info();
     let source_id = params
         .get("source_id")
-        .ok_or(error::ErrorBadRequest("Invalid function source id"))?;
+        .ok_or_else(|| error::ErrorBadRequest("Invalid function source id"))?;
 
     let source = function_sources
         .get(source_id)
-        .ok_or(error::ErrorNotFound(format!(
-            "Function source '{}' not found",
-            source_id
-        )))?;
+        .ok_or_else(|| error::ErrorNotFound(format!("Function source '{}' not found", source_id)))?;
 
     let xyz = parse_xyz(params)
         .map_err(|e| error::ErrorBadRequest(format!("Can't parse XYZ scheme: {}", e)))?;

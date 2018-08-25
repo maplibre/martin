@@ -36,7 +36,9 @@ impl ConfigBuilder {
       pool_size: self.pool_size.unwrap_or(20),
       keep_alive: self.keep_alive.unwrap_or(75),
       worker_processes: self.worker_processes.unwrap_or_else(num_cpus::get),
-      listen_addresses: self.listen_addresses.unwrap_or("0.0.0.0:3000".to_owned()),
+      listen_addresses: self
+        .listen_addresses
+        .unwrap_or_else(|| "0.0.0.0:3000".to_owned()),
       table_sources: self.table_sources,
       function_sources: self.function_sources,
     }
