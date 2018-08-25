@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/urbica/martin.svg?branch=master)](https://travis-ci.org/urbica/martin)
 
-PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server.
+Martin is a PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server written in Rust using [Actix](https://github.com/actix/actix-web) web framework.
 
 **Warning: this is experimental**
 

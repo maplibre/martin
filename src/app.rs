@@ -226,3 +226,90 @@ pub fn new(db_sync_arbiter: Addr<DbExecutor>, config: Config) -> App<State> {
             r.method(http::Method::GET).f(get_function_source_tile)
         })
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate env_logger;
+
+    use super::super::db::setup_connection_pool;
+    use super::super::db_executor::DbExecutor;
+    use super::*;
+    use actix::SyncArbiter;
+    use actix_web::{http, test};
+    use std::env;
+
+    fn build_test_server(
+        table_sources: Option<TableSources>,
+        function_sources: Option<FunctionSources>,
+    ) -> test::TestServer {
+        test::TestServer::build_with_state(move || {
+            let pool_size = 20;
+            let conn_string: String = env::var("DATABASE_URL").unwrap();
+            let pool = setup_connection_pool(&conn_string, pool_size).unwrap();
+            let db_sync_arbiter = SyncArbiter::start(3, move || DbExecutor(pool.clone()));
+
+            State {
+                db: db_sync_arbiter,
+                table_sources: table_sources.clone(),
+                function_sources: function_sources.clone(),
+            }
+        }).start(|app| {
+            app.resource("/index.json", |r| {
+                r.method(http::Method::GET).f(get_table_sources)
+            }).resource("/{source_id}.json", |r| {
+                    r.method(http::Method::GET).f(get_table_source)
+                })
+                .resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
+                    r.method(http::Method::GET).f(get_table_source_tile)
+                })
+                .resource("/rpc/index.json", |r| {
+                    r.method(http::Method::GET).f(get_function_sources)
+                })
+                .resource("/rpc/{source_id}.json", |r| {
+                    r.method(http::Method::GET).f(get_function_source)
+                })
+                .resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
+                    r.method(http::Method::GET).f(get_function_source_tile)
+                });
+        })
+    }
+
+    #[test]
+    fn sources_not_found_test() {
+        let mut srv = build_test_server(None, None);
+
+        // test table sources
+        let request = srv
+            .client(http::Method::GET, "/index.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert_eq!(response.status().as_u16(), 404);
+
+        let request = srv
+            .client(http::Method::GET, "/public.points.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert_eq!(response.status().as_u16(), 404);
+
+        // test function sources
+        let request = srv
+            .client(http::Method::GET, "/rpc/index.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert_eq!(response.status().as_u16(), 404);
+
+        let request = srv
+            .client(http::Method::GET, "/rpc/public.points.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert_eq!(response.status().as_u16(), 404);
+    }
+}
