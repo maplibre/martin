@@ -26,7 +26,12 @@ Martin is a PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-
 
 ## Using with Docker
 
-    docker run -d —rm —name martin \
+    docker run -d --rm --name postgres \
+      -p 5432:5432 \
+      -e POSTGRES_PASSWORD=password \
+      mdillon/postgis:10-alpine
+
+    docker run -d --rm --name martin \
       -p 3000:3000 \
       -e DATABASE_URL=postgres://postgres:password@localhost:5432/test \
       urbica/martin
