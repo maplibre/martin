@@ -1,0 +1,38 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: circleci/postgres:10-alpine-postgis
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+
+      - image: circleci/rust:1.29
+        environment:
+          DATABASE_URL: postgres://postgres@localhost/test
+          RUST_LOG: actix_web=debug,postgres=debug,martin=debug
+    
+    steps:
+      - checkout
+
+      - run:
+          name: Wait for database
+          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+
+      - run:
+          name: Install dependencies
+          command: sudo apt-get install postgresql-client
+
+      - run:
+          name: Prepare database
+          command: |
+            psql -h localhost -p 5432 -U postgres -d test -c 'create extension postgis'
+            psql -h localhost -p 5432 -U postgres -d test -f tests/fixtures/TileBBox.sql
+            psql -h localhost -p 5432 -U postgres -d test -f tests/fixtures/table_source.sql
+            psql -h localhost -p 5432 -U postgres -d test -f tests/fixtures/function_source.sql
+            psql -h localhost -p 5432 -U postgres -d test -c "select public.function_source(0, 0, 0, '{}'::json);"
+
+      - run:
+          name: Run tests
+          command: cargo test --verbose --all
