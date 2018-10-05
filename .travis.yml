@@ -14,7 +14,10 @@ addons:
   postgresql: 9.6
 
 env:
-  - RUST_BACKTRACE=1 RUST_LOG=actix_web=info,postgres=debug,martin=debug DATABASE_URL=postgres://postgres@localhost/test
+  global:
+    - DATABASE_URL=postgres://postgres@localhost/test
+    - RUST_BACKTRACE=1
+    - RUST_LOG=actix_web=info,postgres=debug,martin=debug
 
 before_script:
   - sudo apt-get -qq update

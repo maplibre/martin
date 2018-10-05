@@ -15,7 +15,7 @@ Martin is a PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-
 
 ## Usage
 
-    DATABASE_URL=postgres://postgres:password@localhost:5432/test martin
+    DATABASE_URL=postgres://postgres@localhost:5432/db martin
 
 ## Environment variables
 
@@ -29,7 +29,7 @@ Martin is a PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-
     docker run -d --rm --name postgres \
       -p 5432:5432 \
       -e POSTGRES_PASSWORD=password \
-      mdillon/postgis:10-alpine
+      mdillon/postgis:11-alpine
 
     docker run -d --rm --name martin \
       -p 3000:3000 \
