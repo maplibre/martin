@@ -3,16 +3,16 @@ version: 2
 jobs:
   build:
     docker:
+      - image: circleci/rust:1.29
+        environment:
+          DATABASE_URL: postgres://postgres@localhost/test
+          RUST_LOG: actix_web=debug,postgres=debug,martin=debug
+
       - image: circleci/postgres:10-alpine-postgis
         environment:
           POSTGRES_USER: postgres
           POSTGRES_DB: test
 
-      - image: circleci/rust:1.29
-        environment:
-          DATABASE_URL: postgres://postgres@localhost/test
-          RUST_LOG: actix_web=debug,postgres=debug,martin=debug
-    
     steps:
       - checkout
 
