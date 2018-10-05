@@ -8,7 +8,7 @@ jobs:
           DATABASE_URL: postgres://postgres@localhost/test
           RUST_LOG: actix_web=debug,postgres=debug,martin=debug
 
-      - image: circleci/postgres:10-alpine-postgis
+      - image: mdillon/postgis:11-alpine
         environment:
           POSTGRES_USER: postgres
           POSTGRES_DB: test
