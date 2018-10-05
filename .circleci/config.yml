@@ -27,7 +27,6 @@ jobs:
       - run:
           name: Prepare database
           command: |
-            psql -h localhost -p 5432 -U postgres -d test -c 'create extension postgis'
             psql -h localhost -p 5432 -U postgres -d test -f tests/fixtures/TileBBox.sql
             psql -h localhost -p 5432 -U postgres -d test -f tests/fixtures/table_source.sql
             psql -h localhost -p 5432 -U postgres -d test -f tests/fixtures/function_source.sql
