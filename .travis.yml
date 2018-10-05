@@ -17,7 +17,7 @@ env:
   global:
     - DATABASE_URL=postgres://postgres@localhost/test
     - RUST_BACKTRACE=1
-    - RUST_LOG=actix_web=info,postgres=debug,martin=debug
+    - RUST_LOG=actix_web=debug,postgres=debug,martin=debug
 
 before_script:
   - sudo apt-get -qq update
@@ -27,6 +27,7 @@ before_script:
   - psql -U postgres -d test -f tests/fixtures/TileBBox.sql
   - psql -U postgres -d test -f tests/fixtures/table_source.sql
   - psql -U postgres -d test -f tests/fixtures/function_source.sql
+  - psql -U postgres -d test -c "select public.function_source(0, 0, 0, '{}'::json);"
 
 script:
   - cargo test --verbose --all
