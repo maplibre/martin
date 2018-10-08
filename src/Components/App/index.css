@@ -1,0 +1,116 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #1c1c30;
+  font-family: 'Nunito Sans', sans-serif;
+  color: #949ab3;
+}
+
+.intro {
+  padding-top: 20px;
+  background-image: linear-gradient(to bottom, #1c1c30, #0e0e1e 50%, #1c1c30);
+  margin-bottom: 28px;
+}
+
+.logo_martin {
+  height: 420px;
+  background: url("logo-martin.svg") no-repeat center;
+  background-size: contain;
+  padding-top: 90px;
+}
+
+.martin {
+  margin: auto;
+  font-size: 100px;
+  font-weight: 800;
+  letter-spacing: 20px;
+  color: #d2d7eb;
+  text-shadow: 0 2.5px 2px rgba(2, 2, 2, 0.5);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.slogan {
+  font-size: 36px;
+  font-weight: 300;
+  text-align: center;
+  color: #acb2ce;
+}
+
+.description {
+  max-width: 673px;
+  margin: auto auto 76px;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 2.08;
+  text-align: center;
+  color: #949ab3;
+}
+
+.feature {
+  font-size: 36px;
+  font-weight: bold;
+  line-height: 1.11;
+  text-align: center;
+  text-transform: uppercase;
+  color: #d2d7eb;
+}
+
+.feature-description {
+  max-width: 550px;
+  margin: auto auto 34px;
+  font-size: 20px;
+  text-align: center;
+  color: #949ab3;
+}
+
+.try-it {
+  max-width: 562px;
+  margin: 90px auto 40px;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 1.04;
+  text-align: center;
+  color: #949ab3;
+}
+
+#map {
+  height: 490px;
+  margin-bottom: 95px;
+}
+
+.development {
+  max-width: 723px;
+  margin: auto auto 20px;
+  font-size: 30px;
+  line-height: 1.33;
+  text-align: center;
+  color: #949ab3;
+}
+
+.get-started {
+  display: flex;
+  justify-content: space-between;
+  width: 230px;
+  padding: 6px 15px;
+  border-radius: 5px;
+  margin: auto auto 139px;
+  background-color: #171727;
+  box-shadow: 0 4px 5px 0 rgba(0, 0, 0, 0.5);
+  font-size: 24px;
+  font-weight: bold;
+  color: #c0c4d4;
+  text-decoration: none;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  height: 137px;
+  padding: 30px 0;
+  background-color: #171727;
+}

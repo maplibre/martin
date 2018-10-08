@@ -1,0 +1,35 @@
+version: '3.7'
+
+services:
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - martin
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./src:/usr/share/nginx/html
+    ports:
+      - 80:80
+
+  martin:
+    image: urbica/martin
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://postgres@db/db
+    depends_on:
+      - db
+
+  db:
+    image: timescale/timescaledb-postgis
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+    volumes:
+      - ./data:/data
+      - ./db:/var/lib/postgresql/data
+      - ./scripts:/scripts
+      - ./scripts/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
+    ports:
+      - 5432:5432
