@@ -6,6 +6,7 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
+use super::cli::Args;
 use super::db::PostgresPool;
 use super::function_source::{get_function_sources, FunctionSources};
 use super::table_source::{get_table_sources, TableSources};
@@ -56,24 +57,14 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
   Ok(config_builder.finalize())
 }
 
-fn generate_config(table_sources: TableSources, function_sources: FunctionSources) -> Config {
-  let config = ConfigBuilder {
-    pool_size: None,
-    keep_alive: None,
-    worker_processes: None,
-    listen_addresses: None,
-    table_sources: Some(table_sources),
-    function_sources: Some(function_sources),
-  };
-
-  config.finalize()
-}
-
-pub fn build_config(config_filename: &str, pool: &PostgresPool) -> io::Result<Config> {
-  if Path::new(config_filename).exists() {
-    info!("Config found at {}", config_filename);
-    let config = read_config(config_filename)?;
-    return Ok(config);
+pub fn build_config(pool: &PostgresPool, args: Args) -> io::Result<Config> {
+  if args.flag_config.is_some() {
+    let filename = args.flag_config.unwrap();
+    if Path::new(&filename).exists() {
+      info!("Config found at {}", filename);
+      let config = read_config(&filename)?;
+      return Ok(config);
+    };
   };
 
   let conn = pool
@@ -83,7 +74,14 @@ pub fn build_config(config_filename: &str, pool: &PostgresPool) -> io::Result<Co
   let table_sources = get_table_sources(&conn)?;
   let function_sources = get_function_sources(&conn)?;
 
-  let config = generate_config(table_sources, function_sources);
+  let config = ConfigBuilder {
+    keep_alive: args.flag_keep_alive,
+    listen_addresses: args.flag_listen_addresses,
+    pool_size: args.flag_pool_size,
+    worker_processes: args.flag_workers,
+    table_sources: Some(table_sources),
+    function_sources: Some(function_sources),
+  };
 
-  Ok(config)
+  Ok(config.finalize())
 }

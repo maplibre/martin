@@ -90,8 +90,7 @@ fn get_table_source_tile(
             xyz,
             query: query.clone(),
             source: source.clone(),
-        })
-        .from_err()
+        }).from_err()
         .and_then(|res| match res {
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
@@ -104,8 +103,7 @@ fn get_table_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .responder())
+        }).responder())
 }
 
 fn get_function_sources(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -132,9 +130,9 @@ fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
         .get("source_id")
         .ok_or_else(|| error::ErrorBadRequest("Invalid function source id"))?;
 
-    let source = function_sources
-        .get(source_id)
-        .ok_or_else(|| error::ErrorNotFound(format!("Function source '{}' not found", source_id)))?;
+    let source = function_sources.get(source_id).ok_or_else(|| {
+        error::ErrorNotFound(format!("Function source '{}' not found", source_id))
+    })?;
 
     let tilejson = build_tilejson(
         source.clone(),
@@ -163,9 +161,9 @@ fn get_function_source_tile(
         .get("source_id")
         .ok_or_else(|| error::ErrorBadRequest("Invalid function source id"))?;
 
-    let source = function_sources
-        .get(source_id)
-        .ok_or_else(|| error::ErrorNotFound(format!("Function source '{}' not found", source_id)))?;
+    let source = function_sources.get(source_id).ok_or_else(|| {
+        error::ErrorNotFound(format!("Function source '{}' not found", source_id))
+    })?;
 
     let xyz = parse_xyz(params)
         .map_err(|e| error::ErrorBadRequest(format!("Can't parse XYZ scheme: {}", e)))?;
@@ -179,8 +177,7 @@ fn get_function_source_tile(
             xyz,
             query: query.clone(),
             source: source.clone(),
-        })
-        .from_err()
+        }).from_err()
         .and_then(|res| match res {
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
@@ -193,8 +190,7 @@ fn get_function_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .responder())
+        }).responder())
 }
 
 pub fn new(
@@ -212,20 +208,15 @@ pub fn new(
         .middleware(middleware::Logger::default())
         .resource("/index.json", |r| {
             r.method(http::Method::GET).f(get_table_sources)
-        })
-        .resource("/{source_id}.json", |r| {
+        }).resource("/{source_id}.json", |r| {
             r.method(http::Method::GET).f(get_table_source)
-        })
-        .resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
+        }).resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(get_table_source_tile)
-        })
-        .resource("/rpc/index.json", |r| {
+        }).resource("/rpc/index.json", |r| {
             r.method(http::Method::GET).f(get_function_sources)
-        })
-        .resource("/rpc/{source_id}.json", |r| {
+        }).resource("/rpc/{source_id}.json", |r| {
             r.method(http::Method::GET).f(get_function_source)
-        })
-        .resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
+        }).resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(get_function_source_tile)
         })
 }
@@ -249,9 +240,8 @@ mod tests {
         function_sources: Option<FunctionSources>,
     ) -> test::TestServer {
         test::TestServer::build_with_state(move || {
-            let pool_size = 20;
             let conn_string: String = env::var("DATABASE_URL").unwrap();
-            let pool = setup_connection_pool(&conn_string, pool_size).unwrap();
+            let pool = setup_connection_pool(&conn_string, None).unwrap();
             let db_sync_arbiter = SyncArbiter::start(3, move || DbExecutor(pool.clone()));
 
             State {
@@ -263,20 +253,16 @@ mod tests {
             app.resource("/index.json", |r| {
                 r.method(http::Method::GET).f(get_table_sources)
             }).resource("/{source_id}.json", |r| {
-                    r.method(http::Method::GET).f(get_table_source)
-                })
-                .resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
-                    r.method(http::Method::GET).f(get_table_source_tile)
-                })
-                .resource("/rpc/index.json", |r| {
-                    r.method(http::Method::GET).f(get_function_sources)
-                })
-                .resource("/rpc/{source_id}.json", |r| {
-                    r.method(http::Method::GET).f(get_function_source)
-                })
-                .resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
-                    r.method(http::Method::GET).f(get_function_source_tile)
-                });
+                r.method(http::Method::GET).f(get_table_source)
+            }).resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
+                r.method(http::Method::GET).f(get_table_source_tile)
+            }).resource("/rpc/index.json", |r| {
+                r.method(http::Method::GET).f(get_function_sources)
+            }).resource("/rpc/{source_id}.json", |r| {
+                r.method(http::Method::GET).f(get_function_source)
+            }).resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
+                r.method(http::Method::GET).f(get_function_source_tile)
+            });
         })
     }
 

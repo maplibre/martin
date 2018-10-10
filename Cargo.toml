@@ -6,6 +6,7 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 [dependencies]
 actix = "0.7"
 actix-web = "0.7"
+docopt = "1"
 env_logger = "0.5"
 futures = "0.1"
 log = "0.4"

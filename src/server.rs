@@ -21,11 +21,11 @@ pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
             config.function_sources.clone(),
         )
     }).bind(listen_addresses.clone())
-        .expect(&format!("Can't bind to {}", listen_addresses))
-        .keep_alive(keep_alive)
-        .shutdown_timeout(0)
-        .workers(worker_processes)
-        .start();
+    .expect(&format!("Can't bind to {}", listen_addresses))
+    .keep_alive(keep_alive)
+    .shutdown_timeout(0)
+    .workers(worker_processes)
+    .start();
 
     server
 }
