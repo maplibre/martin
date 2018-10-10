@@ -17,8 +17,28 @@ brew install martin
 
 ## Usage
 
+Martin requires a database connection string. It can be passed as a command-line argument or as a `DATABASE_URL` environment variable.
+
 ```shell
 martin postgres://postgres@localhost/db
+```
+
+Martin also supports a list of options
+
+```shell
+Usage:
+  martin [options] [<connection>]
+  martin -h | --help
+  martin -v | --version
+
+Options:
+  -h --help               Show this screen.
+  -v --version            Show version.
+  --workers=<n>           Number of web server workers.
+  --pool_size=<n>         Maximum connections pool size [default: 20].
+  --keep_alive=<n>        Connection keep alive timeout [default: 75].
+  --listen_addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
+  --config=<path>         Path to config file.
 ```
 
 ## Environment variables
@@ -56,7 +76,8 @@ cargo build --release
 The binary will be available at `./target/release/martin`
 
 ```shell
-./target/release/martin postgres://postgres@localhost/db
+cd ./target/release/
+./martin postgres://postgres@localhost/db
 ```
 
 ## Development
