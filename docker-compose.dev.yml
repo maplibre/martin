@@ -1,33 +1,40 @@
 version: '3.7'
 
 services:
-  front:
+#  front:
+#    build:
+#      context: .
+#      dockerfile: front.Dockerfile
+#    volumes:
+#      - .:/usr/src/app
+#      - /usr/src/app/node_modules
+#    ports:
+#      - 3000:3000
+#    environment:
+#      - NODE_ENV=development
+  data:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: data.Dockerfile
+    depends_on:
+      - db
     volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
-    ports:
-      - 3000:3000
+      - ./data:/data
+  martin:
+    image: urbica/martin
+    restart: unless-stopped
     environment:
-      - NODE_ENV=development
-#  martin:
-#    image: urbica/martin
-#    restart: unless-stopped
-#    environment:
-#      - DATABASE_URL=postgres://postgres@db/db
-#    depends_on:
-#      - db
-#
-#  db:
-#    image: timescale/timescaledb-postgis
-#    restart: unless-stopped
-#    environment:
-#      - POSTGRES_DB=db
-#      - POSTGRES_USER=postgres
-#    volumes:
-#      - ./data:/data
-#      - ./db:/var/lib/postgresql/data
-#      - ./scripts:/scripts
-#      - ./scripts/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
+      - DATABASE_URL=postgres://postgres:postgres@db/db
+    depends_on:
+      - db
+  db:
+    image: timescale/timescaledb-postgis
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./data:/data
+      - ./db:/var/lib/postgresql/data
+      - ./scripts/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
