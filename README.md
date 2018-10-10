@@ -11,7 +11,7 @@ You can download Martin from the [Github releases page](https://github.com/urbic
 If you are running macOS and use [Homebrew](https://brew.sh/), you can install Martin using Homebrew tap.
 
 ```shell
-brew tap urbica/martin
+brew tap urbica/tap
 brew install martin
 ```
 
