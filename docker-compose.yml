@@ -9,8 +9,6 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
       - ./src:/usr/share/nginx/html
-    ports:
-      - 80:80
   data:
     build:
       context: .
