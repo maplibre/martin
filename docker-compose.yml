@@ -2,7 +2,9 @@ version: '3.7'
 
 services:
   nginx:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: front.Dockerfile
     restart: unless-stopped
     depends_on:
       - martin
