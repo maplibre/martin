@@ -144,7 +144,7 @@ docker run \
 
 ## Building from source
 
-You can clone repository and build Martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
+You can clone repository and build martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
 
 ```shell
 git clone git@github.com:urbica/martin.git

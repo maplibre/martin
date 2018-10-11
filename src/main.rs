@@ -84,9 +84,8 @@ fn main() {
   };
 
   let listen_addresses = config.listen_addresses.clone();
+  info!("Server has been started on {}.", listen_addresses);
 
   let server = server::new(config, pool);
   let _ = server.run();
-
-  info!("Server has been started on {}.", listen_addresses);
 }
