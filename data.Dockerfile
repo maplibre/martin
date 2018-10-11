@@ -1,6 +1,6 @@
 FROM alpine
 
-RUN apk add dos2unix postgresql-client
+RUN apk add -U dos2unix postgresql-client
 RUN mkdir -p /data
 
 COPY processingData.sh /
