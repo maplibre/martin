@@ -8,7 +8,7 @@ Martin is a PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-
 
 You can download Martin from the [Github releases page](https://github.com/urbica/martin/releases).
 
-If you are running macOS and use [Homebrew](https://brew.sh/), you can install Martin using Homebrew tap.
+If you are running macOS and use [Homebrew](https://brew.sh/), you can install martin using Homebrew tap.
 
 ```shell
 brew tap urbica/tap
@@ -23,7 +23,86 @@ Martin requires a database connection string. It can be passed as a command-line
 martin postgres://postgres@localhost/db
 ```
 
-Martin also supports a list of options
+### Table Sources List
+
+Table Sources list endpoint is available at `/index.json`
+
+```shell
+curl localhost:3000/index.json
+```
+
+### Table Source TileJSON
+
+Table Source TileJSON endpoint is available at `/{schema_name}.{table_name}.json`.
+
+For example, `points` table in `public` schema will be available at `/public.points.json`
+
+```shell
+curl localhost:3000/public.points.json
+```
+
+### Table Source tiles
+
+Table Source tiles endpoint is available at `/{schema_name}.{table_name}/{z}/{x}/{y}.pbf`
+
+For example, `points` table in `public` schema will be available at `/public.points/{z}/{x}/{y}.pbf`
+
+```shell
+curl localhost:3000/public.points/0/0/0.pbf
+```
+
+### Function Sources List
+
+Function Sources list endpoint is available at `/rpc/index.json`
+
+```shell
+curl localhost:3000/rpc/index.json
+```
+
+### Function Source TileJSON
+
+Function Source TileJSON endpoint is available at `/rpc/{schema_name}.{function_name}.json`
+
+For example, `points` function in `public` schema will be available at `/rpc/public.points.json`
+
+```shell
+curl localhost:3000/rpc/public.points.json
+```
+
+### Function Source tiles
+
+Function Source tiles endpoint is available at `/rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf`
+
+For example, `points` function in `public` schema will be available at `/rpc/public.points/{z}/{x}/{y}.pbf`
+
+```shell
+curl localhost:3000/rpc/public.points/0/0/0.pbf
+```
+
+## Using with Mapbox GL JS
+
+[Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a JavaScript library for interactive, customizable vector maps on the web. It takes map styles that conform to the
+[Mapbox Style Specification](https://www.mapbox.com/mapbox-gl-js/style-spec), applies them to vector tiles that
+conform to the [Mapbox Vector Tile Specification](https://github.com/mapbox/vector-tile-spec), and renders them using
+WebGL.
+
+You can add a layer to the map and specify martin TileJSON endpoint as a vector source url. You should also specify a `source-layer` property. For Table Sources it is `{schema_name}.{table_name}` by default.
+
+```js
+map.addLayer({
+  "id": "public.points",
+  "type": "circle",
+  "source": {
+    "type": "vector",
+    "url": "http://localhost:3000/public.points.json",
+  },
+  "source-layer": "public.points"
+});
+```
+
+## Command-line interface
+
+You can configure martin using command-line interface
 
 ```shell
 Usage:
@@ -43,7 +122,7 @@ Options:
 
 ## Environment variables
 
-You can configure martin with environment variables
+You can also configure martin using environment variables
 
 | Environment variable | Example                          | Description                   |
 |----------------------|----------------------------------|-------------------------------|
