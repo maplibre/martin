@@ -11,25 +11,29 @@ services:
       - ./src:/usr/share/nginx/html
     ports:
       - 80:80
-
+  data:
+    build:
+      context: .
+      dockerfile: data.Dockerfile
+    depends_on:
+      - db
+    volumes:
+      - ./data:/data
   martin:
     image: urbica/martin
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgres://postgres@db/db
+      - DATABASE_URL=postgres://postgres:postgres@db/db
     depends_on:
       - db
-
   db:
     image: timescale/timescaledb-postgis
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
     volumes:
       - ./data:/data
       - ./db:/var/lib/postgresql/data
-      - ./scripts:/scripts
       - ./scripts/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
-    ports:
-      - 5432:5432
