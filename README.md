@@ -23,6 +23,10 @@ Martin requires a database connection string. It can be passed as a command-line
 martin postgres://postgres@localhost/db
 ```
 
+## Table Sources
+
+Table Source is a database table wich can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as a properties of vector tile feature.
+
 ### Table Sources List
 
 Table Sources list endpoint is available at `/index.json`
@@ -33,7 +37,7 @@ curl localhost:3000/index.json
 
 ### Table Source TileJSON
 
-Table Source TileJSON endpoint is available at `/{schema_name}.{table_name}.json`.
+Table Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{schema_name}.{table_name}.json`.
 
 For example, `points` table in `public` schema will be available at `/public.points.json`
 
@@ -51,6 +55,41 @@ For example, `points` table in `public` schema will be available at `/public.poi
 curl localhost:3000/public.points/0/0/0.pbf
 ```
 
+## Function Sources
+
+Function Source is a database function wich can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer`, `x integer`, `y integer`, and `query_params json` and returns `bytea`, can be used as a Function Source.
+
+| Argument     | Type    | Description             |
+|--------------|---------|-------------------------|
+| z            | integer | Tile zoom parameter     |
+| x            | integer | Tile x parameter        |
+| y            | integer | Tile y parameter        |
+| query_params | json    | Query string parameters |
+
+**Hint**: You may want to use [TileBBox](https://github.com/mapbox/postgis-vt-util#tilebbox) function to generate bounding-box geometry of the area covered by a tile.
+
+Here is an example of function, that can be used as a Function Source.
+
+```plsql
+CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
+DECLARE
+  bounds geometry;
+  mvt bytea;
+BEGIN
+  SELECT INTO bounds TileBBox(z, x, y, 3857);
+
+  SELECT INTO mvt ST_AsMVT(tile, 'public.function_source', 4096, 'geom') FROM (
+    SELECT
+      ST_AsMVTGeom(geom, bounds, 4096, 64, true) AS geom
+    FROM public.table_source
+    WHERE geom && bounds
+  ) as tile WHERE geom IS NOT NULL;
+
+  RETURN mvt;
+END
+$$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
+```
+
 ### Function Sources List
 
 Function Sources list endpoint is available at `/rpc/index.json`
@@ -61,7 +100,7 @@ curl localhost:3000/rpc/index.json
 
 ### Function Source TileJSON
 
-Function Source TileJSON endpoint is available at `/rpc/{schema_name}.{function_name}.json`
+Function Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/rpc/{schema_name}.{function_name}.json`
 
 For example, `points` function in `public` schema will be available at `/rpc/public.points.json`
 
@@ -78,6 +117,16 @@ For example, `points` function in `public` schema will be available at `/rpc/pub
 ```shell
 curl localhost:3000/rpc/public.points/0/0/0.pbf
 ```
+
+## Configuration file
+
+If you don't want to expose all of your tables and functions, you can list your sources in configuration file. To start martin with a configuration file, you need to pass a file name with a `--config` argument.
+
+```shell
+martin --config config.yaml
+```
+
+You can find example configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
 
 ## Using with Mapbox GL JS
 

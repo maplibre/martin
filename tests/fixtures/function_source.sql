@@ -5,7 +5,7 @@ DECLARE
   mvt bytea;
 BEGIN
   SELECT INTO bounds TileBBox(z, x, y, 3857);
-  
+
   SELECT INTO mvt ST_AsMVT(tile, 'public.function_source', 4096, 'geom') FROM (
     SELECT
       ST_AsMVTGeom(geom, bounds, 4096, 64, true) AS geom

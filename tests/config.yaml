@@ -1,0 +1,38 @@
+---
+pool_size: 20
+keep_alive: 75
+worker_processes: 8
+listen_addresses: "0.0.0.0:3000"
+
+table_sources:
+  public.table_source:
+    id: public.table_source
+    schema: public
+    table: table_source
+    geometry_column: geom
+    srid: 4326
+    extent: 4096
+    buffer: 64
+    clip_geom: true
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+
+  public.points:
+    id: public.points
+    schema: public
+    table: points
+    geometry_column: geom
+    srid: 4326
+    extent: 4096
+    buffer: 64
+    clip_geom: true
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+
+function_sources:
+  public.function_source:
+    id: public.function_source
+    schema: public
+    function: function_source

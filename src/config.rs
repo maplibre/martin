@@ -57,6 +57,13 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
   Ok(config_builder.finalize())
 }
 
+// pub fn write_config(file_name: &str, config: Config) -> io::Result<()> {
+//   let mut file = File::create(file_name)?;
+//   let config = serde_yaml::to_string(&config)?;
+//   file.write_all(config.as_bytes())?;
+//   Ok(())
+// }
+
 pub fn build_config(pool: &PostgresPool, args: Args) -> io::Result<Config> {
   if args.flag_config.is_some() {
     let filename = args.flag_config.unwrap();
@@ -83,5 +90,6 @@ pub fn build_config(pool: &PostgresPool, args: Args) -> io::Result<Config> {
     function_sources: Some(function_sources),
   };
 
-  Ok(config.finalize())
+  let config = config.finalize();
+  Ok(config)
 }

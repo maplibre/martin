@@ -3,5 +3,5 @@
 
 db
 sql
-config.yaml
 docker-compose.yml
+./config.yaml
