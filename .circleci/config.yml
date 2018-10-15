@@ -35,3 +35,22 @@ jobs:
       - run:
           name: Run tests
           command: cargo test --verbose --all
+
+      - run:
+          name: Run server
+          command: cargo run -- postgres://postgres@localhost/test
+          background: true
+
+      - run:
+          name: Check tiles
+          command: |
+            wget https://github.com/urbica/martin/releases/download/v0.1.0/vtzero-check
+            chmod +x vtzero-check
+            wget https://github.com/urbica/martin/releases/download/v0.1.0/vtzero-show
+            chmod +x vtzero-show
+            curl localhost:3000/public.table_source/0/0/0.pbf > table_source.pbf
+            vtzero-check table_source.pbf
+            vtzero-show table_source.pbf
+            curl localhost:3000/rpc/public.function_source/0/0/0.pbf > function_source.pbf
+            vtzero-check function_source.pbf
+            vtzero-show function_source.pbf
