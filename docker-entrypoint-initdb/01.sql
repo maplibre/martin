@@ -1,5 +1,3 @@
-create extension postgis;
-create extension timescaledb;
 create table trips
 (
   vendorid              numeric,

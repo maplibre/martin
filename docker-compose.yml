@@ -10,15 +10,6 @@ services:
       - martin
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./src:/usr/share/nginx/html
-  data:
-    build:
-      context: .
-      dockerfile: data.Dockerfile
-    depends_on:
-      - db
-    volumes:
-      - ./data:/data
   martin:
     image: urbica/martin
     restart: unless-stopped
@@ -27,13 +18,14 @@ services:
     depends_on:
       - db
   db:
-    image: timescale/timescaledb-postgis
+    build:
+      context: .
+      dockerfile: db.Dockerfile
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     volumes:
-      - ./data:/data
       - ./db:/var/lib/postgresql/data
-      - ./scripts/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
+      - ./docker-entrypoint-initdb:/docker-entrypoint-initdb.d
