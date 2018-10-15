@@ -54,8 +54,8 @@ jobs:
             chmod +x vtzero-show
             dockerize -wait tcp://localhost:3000 -timeout 1m
             curl localhost:3000/public.table_source/0/0/0.pbf > table_source.pbf
-            vtzero-check table_source.pbf
-            vtzero-show table_source.pbf
+            ./vtzero-check table_source.pbf
+            ./vtzero-show table_source.pbf
             curl localhost:3000/rpc/public.function_source/0/0/0.pbf > function_source.pbf
-            vtzero-check function_source.pbf
-            vtzero-show function_source.pbf
+            ./vtzero-check function_source.pbf
+            ./vtzero-show function_source.pbf
