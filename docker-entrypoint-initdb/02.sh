@@ -18,4 +18,4 @@ do
     psql -U postgres -d db -c "COPY trips FROM '${filePath}' WITH csv header;"
 done
 
-psql -U postgres -d db -c "select create_hypertable('trips', 'pickup_datetime');"
+psql -U postgres -d db -c "select create_hypertable('trips', 'pickup_datetime', migrate_data => true);"
