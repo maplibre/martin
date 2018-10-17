@@ -1,19 +1,20 @@
-import React, { Component } from 'react';
+import React, { PureComponent } from 'react';
 
+import 'normalize.css';
+import GlobalStyle from './GlobalStyle';
 import './index.css';
 import kotik from './kotik.svg';
 import urbica from './urbica-logo.svg';
 
-class App extends Component {
+// import Map from '../Map';
+import Intro from '../Intro';
+
+class App extends PureComponent {
   render() {
     return (
       <>
-        <div className="intro">
-          <div className="logo_martin">
-            <h1 className="martin">Martin</h1>
-            <div className="slogan">vector tiles from large databases on the fly</div>
-          </div>
-        </div>
+        <GlobalStyle />
+        <Intro />
         <div className="description">
           Martin is an Open Source PostGIS/MVT
           <br/>
@@ -31,7 +32,7 @@ class App extends Component {
           user function to filter the features and aggregate the attribute values
         </div>
         <div className="try-it">Try it yourself on NY TAXI TRIPS dataset</div>
-        <div id="map"/>
+        {/*<Map />*/}
         <div className="development">
           The project is still under development, so stay tuned.
           Being a free and open source project contributors and supporters are extremely welcome.

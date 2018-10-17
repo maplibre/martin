@@ -1,0 +1,30 @@
+.intro {
+  padding-top: 20px;
+  background-image: linear-gradient(to bottom, #1c1c30, #0e0e1e 50%, #1c1c30);
+  margin-bottom: 28px;
+}
+
+.logo_martin {
+  height: 420px;
+  background: url("logo-martin.svg") no-repeat center;
+  background-size: contain;
+  padding-top: 90px;
+}
+
+.martin {
+  margin: auto;
+  font-size: 100px;
+  font-weight: 800;
+  letter-spacing: 20px;
+  color: #d2d7eb;
+  text-shadow: 0 2.5px 2px rgba(2, 2, 2, 0.5);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.slogan {
+  font-size: 36px;
+  font-weight: 300;
+  text-align: center;
+  color: #acb2ce;
+}
