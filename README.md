@@ -2,13 +2,13 @@
 
 ![CircleCI](https://img.shields.io/circleci/project/github/urbica/martin.svg?style=popout)
 
-Martin is a [PostGIS](https://github.com/postgis/postgis)/[MVT](https://github.com/mapbox/vector-tile-spec) vector tiles server for large databases created by [Urbica](http://urbica.co/). Martin is written in Rust using [Actix](https://github.com/actix/actix-web) web framework.
+Martin is a [PostGIS](https://github.com/postgis/postgis)/[MVT](https://github.com/mapbox/vector-tile-spec) vector tiles server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
 ## Installation
 
-You can download Martin from the [Github releases page](https://github.com/urbica/martin/releases).
+You can download Martin from [Github releases page](https://github.com/urbica/martin/releases).
 
-If you are running macOS and use [Homebrew](https://brew.sh/) you can install Martin using Homebrew tap.
+If you are using macOS and use [Homebrew](https://brew.sh/) you can install Martin using Homebrew tap.
 
 ```shell
 brew tap urbica/tap
