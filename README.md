@@ -2,13 +2,13 @@
 
 ![CircleCI](https://img.shields.io/circleci/project/github/urbica/martin.svg?style=popout)
 
-Martin is a [PostGIS](https://github.com/postgis/postgis)/[MVT](https://github.com/mapbox/vector-tile-spec) vector tiles server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
+Martin is a [PostGIS](https://github.com/postgis/postgis)/[Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
 ## Installation
 
-You can download Martin from [Github releases page](https://github.com/urbica/martin/releases).
+You can download martin from [Github releases page](https://github.com/urbica/martin/releases).
 
-If you are using macOS and use [Homebrew](https://brew.sh/) you can install Martin using Homebrew tap.
+If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
 
 ```shell
 brew tap urbica/tap
@@ -25,7 +25,7 @@ martin postgres://postgres@localhost/db
 
 ## Table Sources
 
-Table Source is a database table which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as properties of a vector tile feature.
+Table Source is a database table which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as properties of a vector tile feature.
 
 ### Table Sources List
 
@@ -57,7 +57,7 @@ curl localhost:3000/public.points/0/0/0.pbf
 
 ## Function Sources
 
-Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with a suitable signature. A function that takes `z integer`, `x integer`, `y integer`, and `query_params json` and returns `bytea`, can be used as a Function Source.
+Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer`, `x integer`, `y integer`, and `query_params json` and returns `bytea`, can be used as a Function Source.
 
 | Argument     | Type    | Description             |
 |--------------|---------|-------------------------|
@@ -120,7 +120,7 @@ curl localhost:3000/rpc/public.points/0/0/0.pbf
 
 ## Configuration File
 
-If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a file name with a `--config` argument.
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a file name with a `--config` argument.
 
 ```shell
 martin --config config.yaml
@@ -135,7 +135,7 @@ You can find an example of a configuration file [here](https://github.com/urbica
 conform to the [Mapbox Vector Tile Specification](https://github.com/mapbox/vector-tile-spec), and renders them using
 WebGL.
 
-You can add a layer to the map and specify Martin TileJSON endpoint as a vector source URL. You should also specify a `source-layer` property. For Table Sources it is `{schema_name}.{table_name}` by default.
+You can add a layer to the map and specify martin TileJSON endpoint as a vector source URL. You should also specify a `source-layer` property. For Table Sources it is `{schema_name}.{table_name}` by default.
 
 ```js
 map.addLayer({
@@ -151,7 +151,7 @@ map.addLayer({
 
 ## Command-line Interface
 
-You can configure Martin using command-line interface
+You can configure martin using command-line interface
 
 ```shell
 Usage:
@@ -171,7 +171,7 @@ Options:
 
 ## Environment Variables
 
-You can also configure Martin using environment variables
+You can also configure martin using environment variables
 
 | Environment variable | Example                          | Description                   |
 |----------------------|----------------------------------|-------------------------------|
@@ -193,7 +193,7 @@ docker run \
 
 ## Building from Source
 
-You can clone the repository and build Martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
+You can clone the repository and build martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
 
 ```shell
 git clone git@github.com:urbica/martin.git
