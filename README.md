@@ -2,13 +2,13 @@
 
 ![CircleCI](https://img.shields.io/circleci/project/github/urbica/martin.svg?style=popout)
 
-Martin is a PostGIS [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server written in Rust using [Actix](https://github.com/actix/actix-web) web framework.
+Martin is a [PostGIS](https://github.com/postgis/postgis)/[MVT](https://github.com/mapbox/vector-tile-spec) vector tiles server for large databases created by [Urbica](http://urbica.co/). Martin is written in Rust using [Actix](https://github.com/actix/actix-web) web framework.
 
 ## Installation
 
 You can download Martin from the [Github releases page](https://github.com/urbica/martin/releases).
 
-If you are running macOS and use [Homebrew](https://brew.sh/), you can install martin using Homebrew tap.
+If you are running macOS and use [Homebrew](https://brew.sh/) you can install Martin using Homebrew tap.
 
 ```shell
 brew tap urbica/tap
@@ -25,7 +25,7 @@ martin postgres://postgres@localhost/db
 
 ## Table Sources
 
-Table Source is a database table wich can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as a properties of vector tile feature.
+Table Source is a database table which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as properties of a vector tile feature.
 
 ### Table Sources List
 
@@ -57,7 +57,7 @@ curl localhost:3000/public.points/0/0/0.pbf
 
 ## Function Sources
 
-Function Source is a database function wich can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer`, `x integer`, `y integer`, and `query_params json` and returns `bytea`, can be used as a Function Source.
+Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with a suitable signature. A function that takes `z integer`, `x integer`, `y integer`, and `query_params json` and returns `bytea`, can be used as a Function Source.
 
 | Argument     | Type    | Description             |
 |--------------|---------|-------------------------|
@@ -68,7 +68,7 @@ Function Source is a database function wich can be used to query [vector tiles](
 
 **Hint**: You may want to use [TileBBox](https://github.com/mapbox/postgis-vt-util#tilebbox) function to generate bounding-box geometry of the area covered by a tile.
 
-Here is an example of function, that can be used as a Function Source.
+Here is an example of a function that can be used as a Function Source.
 
 ```plsql
 CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
@@ -108,7 +108,7 @@ For example, `points` function in `public` schema will be available at `/rpc/pub
 curl localhost:3000/rpc/public.points.json
 ```
 
-### Function Source tiles
+### Function Source Tiles
 
 Function Source tiles endpoint is available at `/rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf`
 
@@ -118,24 +118,24 @@ For example, `points` function in `public` schema will be available at `/rpc/pub
 curl localhost:3000/rpc/public.points/0/0/0.pbf
 ```
 
-## Configuration file
+## Configuration File
 
-If you don't want to expose all of your tables and functions, you can list your sources in configuration file. To start martin with a configuration file, you need to pass a file name with a `--config` argument.
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a file name with a `--config` argument.
 
 ```shell
 martin --config config.yaml
 ```
 
-You can find example configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
+You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
 
-## Using with Mapbox GL JS
+## Using Martin with Mapbox GL JS
 
 [Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a JavaScript library for interactive, customizable vector maps on the web. It takes map styles that conform to the
 [Mapbox Style Specification](https://www.mapbox.com/mapbox-gl-js/style-spec), applies them to vector tiles that
 conform to the [Mapbox Vector Tile Specification](https://github.com/mapbox/vector-tile-spec), and renders them using
 WebGL.
 
-You can add a layer to the map and specify martin TileJSON endpoint as a vector source url. You should also specify a `source-layer` property. For Table Sources it is `{schema_name}.{table_name}` by default.
+You can add a layer to the map and specify Martin TileJSON endpoint as a vector source URL. You should also specify a `source-layer` property. For Table Sources it is `{schema_name}.{table_name}` by default.
 
 ```js
 map.addLayer({
@@ -149,9 +149,9 @@ map.addLayer({
 });
 ```
 
-## Command-line interface
+## Command-line Interface
 
-You can configure martin using command-line interface
+You can configure Martin using command-line interface
 
 ```shell
 Usage:
@@ -169,9 +169,9 @@ Options:
   --config=<path>         Path to config file.
 ```
 
-## Environment variables
+## Environment Variables
 
-You can also configure martin using environment variables
+You can also configure Martin using environment variables
 
 | Environment variable | Example                          | Description                   |
 |----------------------|----------------------------------|-------------------------------|
@@ -191,9 +191,9 @@ docker run \
   urbica/martin
 ```
 
-## Building from source
+## Building from Source
 
-You can clone repository and build martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
+You can clone the repository and build Martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
 
 ```shell
 git clone git@github.com:urbica/martin.git
@@ -201,7 +201,7 @@ cd martin
 cargo build --release
 ```
 
-The binary will be available at `./target/release/martin`
+The binary will be available at `./target/release/martin`.
 
 ```shell
 cd ./target/release/
@@ -210,7 +210,7 @@ cd ./target/release/
 
 ## Development
 
-Install project dependencies and check that all the tests run
+Install project dependencies and check if all the tests are running.
 
 ```shell
 cargo test
