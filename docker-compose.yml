@@ -7,14 +7,14 @@ services:
       dockerfile: front.Dockerfile
     restart: unless-stopped
     depends_on:
-      - martin
+      - tiles
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-  martin:
+  tiles:
     image: urbica/martin
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@db/db
+      - DATABASE_URL=postgres://postgres@db/db
     depends_on:
       - db
   db:
@@ -25,7 +25,6 @@ services:
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
     volumes:
       - ./db:/var/lib/postgresql/data
       - ./docker-entrypoint-initdb:/docker-entrypoint-initdb.d

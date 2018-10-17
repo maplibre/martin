@@ -1,8 +1,11 @@
+create extension postgis;
+create extension timescaledb;
+
 create table trips
 (
   vendorid              numeric,
-  tpep_pickup_datetime  timestamp,
-  tpep_dropoff_datetime timestamp,
+  pickup_datetime       timestamp,
+  dropoff_datetime      timestamp,
   passenger_count       numeric,
   trip_distance         numeric,
   ratecodeid            numeric,
@@ -19,8 +22,29 @@ create table trips
   total_amount          numeric
 );
 
-alter table trips
-  owner to postgres;
+create function tilebbox(z integer, x integer, y integer, srid integer DEFAULT 3857) returns geometry
+immutable
+language plpgsql
+as $$
+declare
+  max numeric := 20037508.34;
+  res numeric := (max*2)/(2^z);
+  bbox geometry;
+begin
+  bbox := ST_MakeEnvelope(
+      -max + (x * res),
+      max - (y * res),
+      -max + (x * res) + res,
+      max - (y * res) - res,
+      3857
+  );
+  if srid = 3857 then
+    return bbox;
+  else
+    return ST_Transform(bbox, srid);
+  end if;
+end;
+$$
+;
 
-create index pulocationid_idx
-  on trips (pulocationid);
+-- TODO: add martin function
