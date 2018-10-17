@@ -2,7 +2,7 @@
 
 ![CircleCI](https://img.shields.io/circleci/project/github/urbica/martin.svg?style=popout)
 
-Martin is a [PostGIS](https://github.com/postgis/postgis)/[Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
+Martin is a [PostGIS](https://github.com/postgis/postgis) [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
 ## Installation
 
