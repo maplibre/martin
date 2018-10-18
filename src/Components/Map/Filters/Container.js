@@ -9,4 +9,5 @@ export default styled.div`
   border-bottom-right-radius: 5px;
   box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.5);
   background-color: rgba(28,28,48,0.9);
+  color: #dadfee;
 `;

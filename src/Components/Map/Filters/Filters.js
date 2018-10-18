@@ -33,7 +33,7 @@ class Filters extends PureComponent {
           Number of trips
         </Title>
         <Description>
-          The sum of trips for the specified period cho-to mozet escho pro etot pokazatel
+          Conducted from an area
         </Description>
         <DayPicker>
           <DayPickerInput

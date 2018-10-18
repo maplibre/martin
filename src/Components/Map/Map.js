@@ -26,7 +26,6 @@ class Map extends PureComponent {
     this.map.scrollZoom.disable();
     this.map.addControl(this.nav, 'top-right');
     this.map.on('load', this.mapOnLoad);
-    window.map = this.map;
   }
 
   componentDidUpdate() {
@@ -45,7 +44,7 @@ class Map extends PureComponent {
   mapOnLoad = () => {
     this.map.addSource('public.get_trips', {
       type: 'vector',
-      url: '/tiles/rpc/public.get_trips.json?date_from=01/01/2017&date_to=02/01/2017&hour=9'
+      url: '/tiles/rpc/public.get_trips.json?date_from=01.01.2017&date_to=02.01.2017&hour=9'
     });
     this.map.addLayer({
       id: 'trips',
@@ -97,7 +96,7 @@ class Map extends PureComponent {
     const month = date.getMonth() + 1;
     const day = date.getDate();
 
-    return `${month}/${day}/${year}`;
+    return `${month}.${day}.${year}`;
   };
 
   render() {
