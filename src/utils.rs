@@ -16,12 +16,13 @@ pub fn build_tilejson(
 ) -> Result<TileJSON, ToStrError> {
   let source_id = source.get_id();
 
-  let path = headers
-    .get("x-rewrite-url")
-    .map_or(Ok(path.trim_right_matches(".json")), |header| {
-      let header_str = header.to_str()?;
-      Ok(header_str.trim_right_matches(".json"))
-    })?;
+  let path =
+    headers
+      .get("x-rewrite-url")
+      .map_or(Ok(path.trim_right_matches(".json")), |header| {
+        let header_str = header.to_str()?;
+        Ok(header_str.trim_right_matches(".json"))
+      })?;
 
   let query = if query_string.is_empty() {
     query_string.to_owned()
@@ -99,7 +100,9 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
 pub fn query_to_json_string(query: &Query) -> Result<String, serde_json::Error> {
   let mut query_as_json = HashMap::new();
   for (k, v) in query.iter() {
-    let json_value: serde_json::Value = serde_json::from_str(v)?;
+    let json_value: serde_json::Value =
+      serde_json::from_str(v).unwrap_or_else(|_| serde_json::Value::String(v.clone()));
+
     query_as_json.insert(k, json_value);
   }
 
