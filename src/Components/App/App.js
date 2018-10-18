@@ -6,7 +6,7 @@ import './index.css';
 import kotik from './kotik.svg';
 import urbica from './urbica-logo.svg';
 
-// import Map from '../Map';
+import Map from '../Map';
 import Intro from '../Intro';
 
 class App extends PureComponent {
@@ -32,7 +32,7 @@ class App extends PureComponent {
           user function to filter the features and aggregate the attribute values
         </div>
         <div className="try-it">Try it yourself on NY TAXI TRIPS dataset</div>
-        {/*<Map />*/}
+        <Map />
         <div className="development">
           The project is still under development, so stay tuned.
           Being a free and open source project contributors and supporters are extremely welcome.
