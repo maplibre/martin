@@ -1,70 +1,103 @@
-.description {
-  max-width: 673px;
-  margin: auto auto 76px;
-  font-size: 24px;
-  font-weight: bold;
-  line-height: 2.08;
-  text-align: center;
-  color: #949ab3;
+
+.martin_items {
+  display: flex;
+  
+
+  flex-direction: column;
+  width: 100%;
+ 
 }
 
 .feature {
-  font-size: 36px;
-  font-weight: bold;
-  line-height: 1.11;
-  text-align: center;
-  text-transform: uppercase;
-  color: #d2d7eb;
+  display: flex;
+  flex-direction: column; 
+  
+  margin: 20% 75% 20% 25%;
+  border: 7px solid #7300FF;
+  width: 350px;
+  height: 450px;
 }
 
-.feature-description {
-  max-width: 550px;
-  margin: auto auto 34px;
-  font-size: 20px;
-  text-align: center;
-  color: #949ab3;
+.feature-description{
+  display: flex;
+  transform: translate(-125px, -80px);
+  width:300px;
+  font-size: 2.75rem;
+  font-weight: bold;
+  color: rgba(0,0,0,0);
+  -webkit-text-stroke-width: 1px;
+   -webkit-text-stroke-color: white;
+  text-transform: uppercase;
+}
+
+h2{
+  display: flex;
+  justify-items: flex-end;
+  /* transform: translate(25px, -20px); */
+  margin: 0;
+  width:450px;
+  font-size: 35px;
+  color: #ffffff;
+  font-weight: normal;
 }
 
 .try-it {
-  max-width: 562px;
-  margin: 90px auto 40px;
-  font-size: 24px;
-  font-weight: bold;
-  line-height: 1.04;
-  text-align: center;
-  color: #949ab3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 120px 100px 40px 100px;
+  font-size: 30px;
+  font-weight: normal;
+  color: white;
+} 
+
+.map {
+  display: flex;
+  height: 600px;
+  background-color: #7300FF;
 }
+
 
 .development {
-  max-width: 723px;
-  margin: auto auto 20px;
+  display: flex;
+  flex-direction: column;
   font-size: 30px;
-  line-height: 1.33;
-  text-align: center;
-  color: #949ab3;
+  font-weight: normal;
+  color: white;
+  margin: 120px 100px;
+
 }
 
-.get-started {
+
+.git-button{
   display: flex;
   justify-content: space-between;
-  width: 230px;
+  align-items: center;
+  width: 200px;
+  height: 50px;
   padding: 6px 15px;
-  border-radius: 5px;
-  margin: auto auto 139px;
-  background-color: #171727;
-  box-shadow: 0 4px 5px 0 rgba(0, 0, 0, 0.5);
-  font-size: 24px;
-  font-weight: bold;
-  color: #c0c4d4;
-  text-decoration: none;
+  margin-top: 4rem;
+  font-size: 20px;
+  font-weight: normal;
+  background-color: rgba(0,0,0,0);
+  border: solid 1px #ffffff;
+  color:  #ffffff;
+  text-decoration: none; 
+}
+
+.git-button:hover{
+  background-color: #1C1C30;
+  box-shadow: 4px 4px 0 rgba(115, 0, 255, 1);
+  border-color: #1C1C30;
 }
 
 .footer {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-around;
-  height: 137px;
-  padding: 30px 0;
+  align-items: baseline;
+  justify-content: flex-end;
+  padding: 5vh 8vh 3vh 9vh;
+  color: white;
+  height: 10vh;
+  font-size: 0.8rem;
   background-color: #171727;
 }
