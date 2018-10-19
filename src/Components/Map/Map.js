@@ -1,5 +1,6 @@
 import React, { PureComponent } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { DateUtils } from 'react-day-picker';
 import 'mapbox-gl/dist/mapbox-gl.css'
 import Container from './Container';
 import Filters from './Filters';
@@ -11,8 +12,10 @@ const mapStyle = {
 
 class Map extends PureComponent {
   state = {
-    from: undefined,
-    to: undefined,
+    range: {
+      from: new Date(2017, 0, 1),
+      to: new Date(2017, 3, 4),
+    },
     hour: 9
   };
 
@@ -20,7 +23,7 @@ class Map extends PureComponent {
     mapboxgl.accessToken = 'pk.eyJ1IjoibWFydGlucHJvamVjdDEiLCJhIjoiY2ptdW93MXZrMDNjMTNrcGhmNTJ1ZGljdCJ9.9fC5LXUepNAYTKu8O162OA';
     this.map = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/martinproject1/cjmuoyx103ioc2rnw61w96aen'
+      style: 'mapbox://styles/martinproject1/cjnfxj6053wz32rq8r9sija4o'
     });
     this.nav = new mapboxgl.NavigationControl();
     this.map.scrollZoom.disable();
@@ -29,7 +32,8 @@ class Map extends PureComponent {
   }
 
   componentDidUpdate() {
-    const { from, to, hour } = this.state;
+    const { range, hour } = this.state;
+    const { from, to } = range;
     if (!from || !to) return;
 
     const dateFrom = this.dateConverter(from);
@@ -100,7 +104,7 @@ class Map extends PureComponent {
   };
 
   render() {
-    const { from, to, hour } = this.state;
+    const { range, hour } = this.state;
 
     return (
       <Container>
@@ -109,8 +113,7 @@ class Map extends PureComponent {
           style={mapStyle}
         />
         <Filters
-          from={from}
-          to={to}
+          range={range}
           hour={hour}
           changeFilter={this.changeFilter}
         />
