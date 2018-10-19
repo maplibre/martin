@@ -6,7 +6,7 @@ export default styled.div`
     justify-content: center;
     height: 600px;
     
-    margin: 0vh 20vh 0 20vh;
+    margin: 0vh 7vh 0 7vh;
     line-height: 61px;
     font-size: 50px;
     font-weight: normal;

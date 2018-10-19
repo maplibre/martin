@@ -4,7 +4,8 @@ import DescriptionBlock from './DescriptionStyle'
 
 const Description = () => (
   <DescriptionBlock>
-    Martin is an Open Source PostGIS<br></br>Mapbox Vector Tiles server<br></br>created by Urbica 
+    Martin is an Open Source<br></br>PostGIS
+    vector tile server<br></br>created by Urbica 
   </DescriptionBlock>
 );
 
