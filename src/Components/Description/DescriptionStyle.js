@@ -5,10 +5,11 @@ export default styled.div`
     align-items: center;
     justify-content: center;
     height: 600px;
-    width: 80vw;
-    margin: 20px 0px 0px 30px;
+    
+    margin: 0vh 20vh 0 20vh;
     line-height: 61px;
     font-size: 50px;
     font-weight: normal;
     color: white;
 `
+

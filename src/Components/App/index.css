@@ -2,23 +2,28 @@
 .martin_items {
   display: flex;
   flex-direction: column;
-  width: 100%;
- 
+  width: 100vw; 
 }
 
 .feature {
   display: flex;
   flex-direction: column; 
-  
+  flex-grow: inherit;
+  margin: 150px 0 100px 40vh;
   border: 7px solid #7300FF;
-  width: 350px;
+  width: 400px;
   height: 450px;
 }
+
+.feature:nth-child(2) {
+  margin: 150px 0 100px 80vh;
+}
+
 
 .feature-description{
   display: flex;
   transform: translate(-125px, -80px);
-  
+  margin: 0;
   font-size: 45px;
   line-height: 55px;
   font-weight: bold;
@@ -30,13 +35,14 @@
 
 h2{
   display: flex;
-  justify-items: baseline;
-  margin: 0;
-  width:450px;
+  width: 40vw;
+  padding: 0;
+  margin: 0px;
   font-size: 35px;
   line-height: 45px;
   color: #ffffff;
   font-weight: normal;
+  transform: translate(80px, 0px);
 }
 
 .try-it {
@@ -44,6 +50,7 @@ h2{
   align-items: center;
   justify-content: center;
   margin: 120px 100px 40px 100px;
+  
   font-size: 30px;
   font-weight: normal;
   line-height: 40px;
