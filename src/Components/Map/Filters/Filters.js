@@ -27,7 +27,7 @@ class Filters extends PureComponent {
     debounce(this.props.changeFilter('hour', e.target.value), 300);
   };
 
-  dateConverter = date => `${date.getDate()}.${date.getMonth() + 1}`;
+  dateConverter = date => date && `${date.getDate()}.${date.getMonth() + 1}`;
 
   toggleDayPicker = () => {
     this.setState(({isDayPickerEnabled}) => ({isDayPickerEnabled: !isDayPickerEnabled}))
