@@ -14,7 +14,7 @@ class Map extends PureComponent {
   state = {
     range: {
       from: new Date(2017, 0, 1),
-      to: new Date(2017, 3, 4),
+      to: new Date(2017, 4, 4),
     },
     hour: 9
   };
