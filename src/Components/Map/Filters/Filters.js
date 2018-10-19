@@ -13,6 +13,10 @@ import AvgTime from "./AvgTime";
 import Input from "./Input";
 
 class Filters extends PureComponent {
+  state = {
+    isDayPickerEnabled: false
+  };
+
   handleDayClick = (day) => {
     const range = DateUtils.addDayToRange(day, this.props.range);
 
@@ -23,7 +27,11 @@ class Filters extends PureComponent {
     debounce(this.props.changeFilter('hour', e.target.value), 300);
   };
 
-  dateConverter = date => `${date.getDay()}.${date.getMonth() + 1}`;
+  dateConverter = date => `${date.getDate()}.${date.getMonth() + 1}`;
+
+  toggleDayPicker = () => {
+    this.setState(({isDayPickerEnabled}) => ({isDayPickerEnabled: !isDayPickerEnabled}))
+  };
 
   render() {
     const { range, hour } = this.props;
@@ -38,30 +46,32 @@ class Filters extends PureComponent {
         <Description>
           Conducted from an area
         </Description>
-        <Range>
+        <Range onClick={this.toggleDayPicker}>
           {this.dateConverter(from)} – {this.dateConverter(to)}
         </Range>
-        <DayPickerContainer>
-          <DayPicker
-            numberOfMonths={1}
-            selectedDays={[from, { from, to }]}
-            modifiers={modifiers}
-            onDayClick={this.handleDayClick}
-            captionElement={({date, localeUtils, locale}) => {
-              const months = localeUtils.getMonths(locale);
+        {this.state.isDayPickerEnabled && (
+          <DayPickerContainer>
+            <DayPicker
+              numberOfMonths={1}
+              selectedDays={[from, { from, to }]}
+              modifiers={modifiers}
+              onDayClick={this.handleDayClick}
+              captionElement={({date, localeUtils, locale}) => {
+                const months = localeUtils.getMonths(locale);
 
-              return (
-                <div className='DayPicker-Caption'>
-                  {months[date.getMonth()]}
-                </div>
-              );
-            }}
+                return (
+                  <div className='DayPicker-Caption'>
+                    {months[date.getMonth()]}
+                  </div>
+                );
+              }}
 
-            initialMonth={new Date(2017, 0)}
-            fromMonth={new Date(2017, 0)}
-            toMonth={new Date(2017, 11)}
-          />
-        </DayPickerContainer>
+              initialMonth={new Date(2017, 0)}
+              fromMonth={new Date(2017, 0)}
+              toMonth={new Date(2017, 11)}
+            />
+          </DayPickerContainer>
+        )}
         <TimePicker>
           <AvgTime
             isEnabled={hour === -1}
