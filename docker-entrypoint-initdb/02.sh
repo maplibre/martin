@@ -2,8 +2,8 @@
 
 wget -O ${HOME}/taxi_zones.zip https://s3.amazonaws.com/nyc-tlc/misc/taxi_zones.zip
 unzip ${HOME}/taxi_zones.zip -d ${HOME}
-ogr2ogr -f PostgreSQL PG:dbname=db -nln taxi_zones -nlt MULTIPOLYGON ${HOME}/taxi_zones.shp
-geomColumn=wkb_geometry
+geomColumn=geom
+ogr2ogr -f PostgreSQL PG:dbname=db -nln taxi_zones -nlt MULTIPOLYGON -lco GEOMETRY_NAME=${geomColumn} ${HOME}/taxi_zones.shp
 psql -U postgres -d db -c "alter table taxi_zones alter column ${geomColumn} type geometry(multipolygon, 3857) using st_transform(${geomColumn}, 3857); \
   create index idx_taxi_zones_geom on taxi_zones using gist(${geomColumn});"
 

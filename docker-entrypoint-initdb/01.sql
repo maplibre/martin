@@ -47,4 +47,51 @@ end;
 $$
 ;
 
--- TODO: add martin function
+create or replace function get_trips(z integer, x integer, y integer, query_params json) returns bytea
+    stable
+    strict
+    parallel safe
+    language plpgsql
+as $$
+DECLARE
+  bounds GEOMETRY(POLYGON, 3857) := TileBBox(z, x, y, 3857);
+  date_from DATE := (query_params->>'date_from')::DATE;
+  date_to DATE := (query_params->>'date_to')::DATE;
+  in_hour INTEGER := (query_params->>'hour')::INTEGER;
+  in_dow INTEGER[];
+  res BYTEA;
+BEGIN
+  WITH sel_zones AS (
+    SELECT locationid, geom
+    FROM taxi_zones
+    WHERE geom && bounds
+  ),
+  tile AS (
+      SELECT
+        sel_zones.locationid,
+        coalesce(sum(trips_by_hour.trips_count), 0)::integer AS trips,
+            coalesce(round(avg(trips_by_hour.trips_price)), 0)::integer AS trips_price,
+            coalesce(round(avg(trips_by_hour.trips_duration)), 0)::integer AS trips_duration,
+        ST_AsMVTGeom(min(sel_zones.geom), bounds, 4096, 1024, TRUE) AS geom
+      FROM
+          sel_zones LEFT JOIN trips_by_hour ON (
+            sel_zones.locationid = trips_by_hour.pulocationid
+            AND cast(trips_by_hour.pickup_datetime AS DATE) >= date_from
+            AND cast(trips_by_hour.pickup_datetime AS DATE) <= date_to
+            AND ((extract (HOUR FROM trips_by_hour.pickup_datetime) = in_hour) OR (in_hour IS NULL))
+        )
+  GROUP BY
+        sel_zones.locationid
+  )
+  SELECT INTO res ST_AsMVT(tile, 'trips', 4096, 'geom')
+  FROM tile
+  WHERE geom IS NOT NULL;
+
+  RETURN res;
+
+END;
+$$
+;
+
+alter function get_trips(integer, integer, integer, json) owner to postgres
+;
