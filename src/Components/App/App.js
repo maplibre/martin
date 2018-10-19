@@ -42,10 +42,10 @@ class App extends PureComponent {
           </a>
         </div>
         <footer className="footer">
-          MADE BY
-          <img src={urbica} alt="urbica"/>
-          <a href="https://urbica.co">
-            <img src={arrowurbica} alt="arrowurbica"/>
+          <div className="footerdescription">MADE BY</div>
+          <img src={urbica} alt="urbica" />
+          <a href="https://urbica.co" className="footerarrow">
+            <img src={arrowurbica} alt="arrowurbica" />
           </a>
         </footer>
       </>

@@ -1,56 +1,45 @@
 .intro {
-  
-  height: 800px;
-  background: url("logo_martin.svg") no-repeat;
-  background-size: contain;
   display: flex;
-  
-  justify-content: flex-end;
-  
-  
-}
-/* .martin-logo{
-  width: 1091px; 
-  height: 800px;
+  justify-content: center;
+  height: 100vh;
   background: url("logo_martin.svg") no-repeat;
   background-size: contain;
-  align-items: flex-start;
-} */
+}
 
 .introblock {
-  align-self: center;
   flex-direction: column; 
+  align-self: center;
+  padding-left: 50%; 
 }
 
 .martin {
-  
-  margin-top: -10px;
-  font-size: 5.5rem;
+  margin-top: 150px;
+  font-family: VremenaGroteskBold, sans-serif;
+  font-size: 80px;
   font-weight: bold;
-  letter-spacing: 12px;
+  letter-spacing: 15px;
   color: rgba(0,0,0,0);
-  -webkit-text-stroke-width: 1px;
+  -webkit-text-stroke-width: 2px;
    -webkit-text-stroke-color: white;
   text-transform: uppercase;
-  font-family: 'VremanaGrotesk',sans-serif;
-  
 }
 
 .slogan {
-  width: 500px;
-  font-size: 1.75rem;
+  margin-top: 45px;
+  margin-bottom: 80px;
+  font-size: 35px;
+  line-height: 50px;
   font-weight: normal;
   color: #ffffff;
 }
 
 .gitbutton{
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: space-around;
+  align-items:center;
   width: 200px;
   height: 50px;
-  padding: 6px 15px;
-  margin-top: 4rem;
+  padding: 10px 10px;
   font-size: 20px;
   font-weight: normal;
   background-color: rgba(0,0,0,0);
@@ -61,7 +50,7 @@
 
 .gitbutton:hover{
   background-color: #0E0E1E;
-  box-shadow: 4px 4px 0px rgba(115, 0, 255, 1);
+  box-shadow: 3px 3px 0px rgba(115, 0, 255, 1);
   border-color: #0E0E1E;
 }
 

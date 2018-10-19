@@ -1,15 +1,11 @@
 import React from 'react';
 
-import Description1 from './style'
+import DescriptionBlock from './DescriptionStyle'
 
 const Description = () => (
-  <Description1>
-    Martin is an Open Source PostGIS
-    <br/>
-    Mapbox Vector Tiles server created by
-    <br/>
-    Urbica 
-  </Description1>
+  <DescriptionBlock>
+    Martin is an Open Source PostGIS<br></br>Mapbox Vector Tiles server<br></br>created by Urbica 
+  </DescriptionBlock>
 );
 
 export default Description;

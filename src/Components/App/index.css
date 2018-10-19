@@ -1,8 +1,6 @@
 
 .martin_items {
   display: flex;
-  
-
   flex-direction: column;
   width: 100%;
  
@@ -12,7 +10,6 @@
   display: flex;
   flex-direction: column; 
   
-  margin: 20% 75% 20% 25%;
   border: 7px solid #7300FF;
   width: 350px;
   height: 450px;
@@ -21,8 +18,9 @@
 .feature-description{
   display: flex;
   transform: translate(-125px, -80px);
-  width:300px;
-  font-size: 2.75rem;
+  
+  font-size: 45px;
+  line-height: 55px;
   font-weight: bold;
   color: rgba(0,0,0,0);
   -webkit-text-stroke-width: 1px;
@@ -32,11 +30,11 @@
 
 h2{
   display: flex;
-  justify-items: flex-end;
-  /* transform: translate(25px, -20px); */
+  justify-items: baseline;
   margin: 0;
   width:450px;
   font-size: 35px;
+  line-height: 45px;
   color: #ffffff;
   font-weight: normal;
 }
@@ -48,6 +46,7 @@ h2{
   margin: 120px 100px 40px 100px;
   font-size: 30px;
   font-weight: normal;
+  line-height: 40px;
   color: white;
 } 
 
@@ -61,43 +60,55 @@ h2{
 .development {
   display: flex;
   flex-direction: column;
+  margin: 120px 100px;
   font-size: 30px;
   font-weight: normal;
+  line-height: 40px;
   color: white;
-  margin: 120px 100px;
-
 }
 
 
 .git-button{
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: space-around;
+  align-items:center;
   width: 200px;
   height: 50px;
-  padding: 6px 15px;
-  margin-top: 4rem;
+  margin-top: 50px;
+  padding: 10px 10px;
   font-size: 20px;
   font-weight: normal;
   background-color: rgba(0,0,0,0);
   border: solid 1px #ffffff;
   color:  #ffffff;
-  text-decoration: none; 
+  text-decoration: none;
 }
 
 .git-button:hover{
   background-color: #1C1C30;
-  box-shadow: 4px 4px 0 rgba(115, 0, 255, 1);
+  box-shadow: 3px 3px 0 rgba(115, 0, 255, 1);
   border-color: #1C1C30;
 }
 
 .footer {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  
   justify-content: flex-end;
-  padding: 5vh 8vh 3vh 9vh;
-  color: white;
-  height: 10vh;
-  font-size: 0.8rem;
+  height: 70px;
   background-color: #171727;
+  color: white;
+  font-size: 16px;
 }
+
+.footerdescription {
+  margin-top: 10px;
+  padding: 6px;
+  color: #9fa3b2;
+} 
+
+.footerarrow {
+  padding: 4px 25px 0px 8px;
+}
+
+
