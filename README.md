@@ -1,8 +1,8 @@
 # Martin
 
-![CircleCI](https://img.shields.io/circleci/project/github/urbica/martin.svg?style=popout)
+[![CircleCI](https://img.shields.io/circleci/project/github/urbica/martin.svg?style=popout)](https://circleci.com/gh/urbica/martin)
 
-Martin is a [PostGIS](https://github.com/postgis/postgis) [Mapbox Vector Tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
+Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
 ![Martin](https://raw.githubusercontent.com/urbica/martin/master/mart.png)
 
@@ -62,7 +62,7 @@ curl localhost:3000/public.points/0/0/0.pbf
 Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer`, `x integer`, `y integer`, and `query_params json` and returns `bytea`, can be used as a Function Source.
 
 | Argument     | Type    | Description             |
-|--------------|---------|-------------------------|
+| ------------ | ------- | ----------------------- |
 | z            | integer | Tile zoom parameter     |
 | x            | integer | Tile x parameter        |
 | y            | integer | Tile y parameter        |
@@ -141,11 +141,11 @@ You can add a layer to the map and specify martin TileJSON endpoint as a vector 
 
 ```js
 map.addLayer({
-  "id": "public.points",
-  "type": "circle",
-  "source": {
-    "type": "vector",
-    "url": "http://localhost:3000/public.points.json",
+  id: "public.points",
+  type: "circle",
+  source: {
+    type: "vector",
+    url: "http://localhost:3000/public.points.json"
   },
   "source-layer": "public.points"
 });
@@ -176,7 +176,7 @@ Options:
 You can also configure martin using environment variables
 
 | Environment variable | Example                          | Description                   |
-|----------------------|----------------------------------|-------------------------------|
+| -------------------- | -------------------------------- | ----------------------------- |
 | DATABASE_URL         | postgres://postgres@localhost/db | postgres database connection  |
 | DATABASE_POOL_SIZE   | 20                               | maximum connections pool size |
 | WORKER_PROCESSES     | 8                                | number of web server workers  |
