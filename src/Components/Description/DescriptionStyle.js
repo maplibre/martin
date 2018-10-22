@@ -1,4 +1,4 @@
-import styled from 'styled-components'
+import styled from 'styled-components';
 
 export default styled.div`
     display: flex;
@@ -11,5 +11,4 @@ export default styled.div`
     font-size: 50px;
     font-weight: normal;
     color: white;
-`
-
+`;

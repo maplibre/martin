@@ -4,13 +4,17 @@ import './Intro.css';
 import octocat from './kotik.svg';
 
 const Intro = () => (
-  <div className="intro">
-    <div className="introblock">
-      <div className="martin">Martin</div>
-      <div className="slogan">Vector Tiles from Large Databases<br></br>on the Fly</div>
-      <a href="https://github.com/urbica/martin" className="gitbutton">
+  <div className='intro'>
+    <div className='introblock'>
+      <div className='martin'>Martin</div>
+      <div className='slogan'>
+Vector Tiles from Large Databases
+        <br />
+on the Fly
+      </div>
+      <a href='https://github.com/urbica/martin' className='gitbutton'>
           View on Github
-          <img src={octocat} alt="octocat"/>
+        <img src={octocat} alt='octocat' />
       </a>
     </div>
   </div>

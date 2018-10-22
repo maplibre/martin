@@ -1,19 +1,16 @@
+/* eslint-disable max-len */
 import { createGlobalStyle } from 'styled-components';
-
 
 import media from './media';
 import fontSize from './fontSize';
 
 // vremenaGroteskBook
 import vremenaGroteskBook from './assets/fonts/VremenaGroteskBook.otf';
-
 import vremenaGroteskBookWoff2 from './assets/fonts/VremenaGroteskBookWoff2.woff2';
 
 // vremenaGroteskBold
 import vremenaGroteskBold from './assets/fonts/VremenaGroteskBold.otf';
 import vremenaGroteskBoldWoff2 from './assets/fonts/VremenaGroteskBoldWoff2.woff2';
-
-
 
 
 export default createGlobalStyle`
@@ -53,8 +50,6 @@ export default createGlobalStyle`
       ${media.tablet`font-size: ${fontSize.size.tablet} line-height: ${fontSize.lineHeight.tablet};`}
       ${media.phone`font-size: ${fontSize.size.phone}; line-height: ${fontSize.lineHeight.phone};`}
     }
-  
-
 
   body {
     background-image: linear-gradient(to bottom,  #0e0e1e 50%, #1c1c30);

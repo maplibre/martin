@@ -4,13 +4,13 @@ import { debounce } from 'debounce';
 import 'react-day-picker/lib/style.css';
 
 import Container from './Container';
-import Title from "./Title";
-import Description from "./Description";
-import Range from "./Range";
-import DayPickerContainer from "./DayPicker";
-import TimePicker from "./TimePicker";
-import AvgTime from "./AvgTime";
-import Input from "./Input";
+import Title from './Title';
+import Description from './Description';
+import Range from './Range';
+import DayPickerContainer from './DayPicker';
+import TimePicker from './TimePicker';
+import AvgTime from './AvgTime';
+import Input from './Input';
 
 class Filters extends PureComponent {
   state = {
@@ -30,7 +30,9 @@ class Filters extends PureComponent {
   dateConverter = date => date && `${date.getDate()}.${date.getMonth() + 1}`;
 
   toggleDayPicker = () => {
-    this.setState(({isDayPickerEnabled}) => ({isDayPickerEnabled: !isDayPickerEnabled}))
+    this.setState(
+      ({ isDayPickerEnabled }) => ({ isDayPickerEnabled: !isDayPickerEnabled })
+    );
   };
 
   render() {
@@ -47,7 +49,7 @@ class Filters extends PureComponent {
           Conducted from an area
         </Description>
         <Range onClick={this.toggleDayPicker}>
-          {this.dateConverter(from)} – {this.dateConverter(to)}
+          {`${this.dateConverter(from)} – ${this.dateConverter(to)}`}
         </Range>
         {this.state.isDayPickerEnabled && (
           <DayPickerContainer>
@@ -56,7 +58,7 @@ class Filters extends PureComponent {
               selectedDays={[from, { from, to }]}
               modifiers={modifiers}
               onDayClick={this.handleDayClick}
-              captionElement={({date, localeUtils, locale}) => {
+              captionElement={({ date, localeUtils, locale }) => {
                 const months = localeUtils.getMonths(locale);
 
                 return (
@@ -88,7 +90,9 @@ class Filters extends PureComponent {
             onChange={this.changeTime}
           />
           {hour !== -1 && (
-            <div>{hour}:00</div>
+            <div>
+              {`${hour}:00`}
+            </div>
           )}
         </TimePicker>
       </Container>

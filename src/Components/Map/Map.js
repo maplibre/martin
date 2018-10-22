@@ -1,7 +1,6 @@
 import React, { PureComponent } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { DateUtils } from 'react-day-picker';
-import 'mapbox-gl/dist/mapbox-gl.css'
+import 'mapbox-gl/dist/mapbox-gl.css';
 import Container from './Container';
 import Filters from './Filters';
 
@@ -14,7 +13,7 @@ class Map extends PureComponent {
   state = {
     range: {
       from: new Date(2017, 0, 1),
-      to: new Date(2017, 4, 4),
+      to: new Date(2017, 4, 4)
     },
     hour: 9
   };
@@ -38,7 +37,9 @@ class Map extends PureComponent {
 
     const dateFrom = this.dateConverter(from);
     const dateTo = this.dateConverter(to);
-    const queryParams = encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`);
+    const queryParams = encodeURI(
+      `date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`
+    );
 
     const newStyle = this.map.getStyle();
     newStyle.sources['public.get_trips'].url = `/tiles/rpc/public.get_trips.json?${queryParams}`;
@@ -56,10 +57,10 @@ class Map extends PureComponent {
       source: 'public.get_trips',
       'source-layer': 'trips',
       paint: {
-        "fill-extrusion-height": [
-          "interpolate",
-          ["exponential", 1.3],
-          ["get", "trips"],
+        'fill-extrusion-height': [
+          'interpolate',
+          ['exponential', 1.3],
+          ['get', 'trips'],
           17,
           10,
           1204,
@@ -71,33 +72,36 @@ class Map extends PureComponent {
           6249,
           600
         ],
-        "fill-extrusion-color": [
-          "interpolate",
-          ["exponential", 1.3],
-          ["get", "trips"],
+        'fill-extrusion-color': [
+          'interpolate',
+          ['exponential', 1.3],
+          ['get', 'trips'],
           0,
-          "#f2a8ff",
+          '#f2a8ff',
           2,
-          "#f2a8ff",
+          '#f2a8ff',
           15,
-          "#dc70ff",
+          '#dc70ff',
           26,
-          "#bc39fe",
+          '#bc39fe',
           540,
-          "#9202fd",
+          '#9202fd',
           900,
-          "#6002c5"
+          '#6002c5'
         ],
-        "fill-extrusion-opacity": 0.75
+        'fill-extrusion-opacity': 0.75
       }
-    })
+    });
   };
 
   changeFilter = (filter, value) => {
-    this.setState(state => ({...state, [filter]: value}));
+    this.setState(state => ({
+      ...state,
+      [filter]: value
+    }));
   };
 
-  dateConverter = date => {
+  dateConverter = (date) => {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     const day = date.getDate();
