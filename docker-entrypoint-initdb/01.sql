@@ -78,7 +78,7 @@ BEGIN
             sel_zones.locationid = trips_by_hour.pulocationid
             AND cast(trips_by_hour.pickup_datetime AS DATE) >= date_from
             AND cast(trips_by_hour.pickup_datetime AS DATE) <= date_to
-            AND ((extract (HOUR FROM trips_by_hour.pickup_datetime) = in_hour) OR (in_hour IS NULL))
+            AND ((extract (HOUR FROM trips_by_hour.pickup_datetime) = in_hour) OR (in_hour = -1))
         )
   GROUP BY
         sel_zones.locationid

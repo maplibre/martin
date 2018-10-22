@@ -1,6 +1,10 @@
 import React, { PureComponent } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+
+import { MAPBOX_STYLE, MAPBOX_TOKEN } from '../../config/constants';
+import dateConverter from '../../utils/dateConverter';
+
 import Container from './Container';
 import Filters from './Filters';
 
@@ -19,37 +23,33 @@ class Map extends PureComponent {
   };
 
   componentDidMount() {
-    mapboxgl.accessToken = 'pk.eyJ1IjoibWFydGlucHJvamVjdDEiLCJhIjoiY2ptdW93MXZrMDNjMTNrcGhmNTJ1ZGljdCJ9.9fC5LXUepNAYTKu8O162OA';
+    mapboxgl.accessToken = MAPBOX_TOKEN;
     this.map = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/martinproject1/cjnfxj6053wz32rq8r9sija4o'
+      style: MAPBOX_STYLE
     });
     this.nav = new mapboxgl.NavigationControl();
+
     this.map.scrollZoom.disable();
     this.map.addControl(this.nav, 'top-right');
     this.map.on('load', this.mapOnLoad);
   }
 
   componentDidUpdate() {
-    const { range, hour } = this.state;
-    const { from, to } = range;
-    if (!from || !to) return;
-
-    const dateFrom = this.dateConverter(from);
-    const dateTo = this.dateConverter(to);
-    const queryParams = encodeURI(
-      `date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`
-    );
-
+    const queryParams = this.getQueryParams();
+    const newStyleUrl = `/tiles/rpc/public.get_trips.json?${queryParams}`;
     const newStyle = this.map.getStyle();
-    newStyle.sources['public.get_trips'].url = `/tiles/rpc/public.get_trips.json?${queryParams}`;
+
+    newStyle.sources['public.get_trips'].url = newStyleUrl;
     this.map.setStyle(newStyle);
   }
 
   mapOnLoad = () => {
+    const queryParams = this.getQueryParams();
+
     this.map.addSource('public.get_trips', {
       type: 'vector',
-      url: '/tiles/rpc/public.get_trips.json?date_from=01.01.2017&date_to=02.01.2017&hour=9'
+      url: `/tiles/rpc/public.get_trips.json?${queryParams}`
     });
     this.map.addLayer({
       id: 'trips',
@@ -59,39 +59,65 @@ class Map extends PureComponent {
       paint: {
         'fill-extrusion-height': [
           'interpolate',
-          ['exponential', 1.3],
+          ['linear'],
           ['get', 'trips'],
-          17,
+          0,
           10,
-          1204,
-          100,
-          2526,
-          200,
-          4738,
+          3,
+          30,
+          70,
+          70,
+          90,
+          150,
+          300,
+          300,
+          2500,
           400,
-          6249,
-          600
+          8000,
+          600,
+          12000,
+          800,
+          20000,
+          1100,
+          30000,
+          1600,
+          55000,
+          2000,
+          76000,
+          3000
         ],
         'fill-extrusion-color': [
           'interpolate',
-          ['exponential', 1.3],
+          ['linear'],
           ['get', 'trips'],
           0,
-          '#f2a8ff',
-          2,
-          '#f2a8ff',
-          15,
-          '#dc70ff',
-          26,
-          '#bc39fe',
-          540,
-          '#9202fd',
-          900,
-          '#6002c5'
+          '#fff0f0',
+          3,
+          '#ffdade',
+          70,
+          '#ffc4d1',
+          90,
+          '#ffaec9',
+          300,
+          '#ff98c5',
+          2500,
+          '#f982c5',
+          8000,
+          '#ee6cc8',
+          12000,
+          '#de58ce',
+          20000,
+          '#c847d7',
+          30000,
+          '#ab3ae1',
+          55000,
+          '#8233ed',
+          76000,
+          '#3434f9'
         ],
         'fill-extrusion-opacity': 0.75
       }
-    });
+    }, 'place-town');
   };
 
   changeFilter = (filter, value) => {
@@ -101,12 +127,13 @@ class Map extends PureComponent {
     }));
   };
 
-  dateConverter = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
+  getQueryParams = () => {
+    const { range: { from, to }, hour } = this.state;
 
-    return `${month}.${day}.${year}`;
+    const dateFrom = `${dateConverter(from)}.2017`;
+    const dateTo = `${dateConverter(to)}.2017`;
+
+    return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`);
   };
 
   render() {

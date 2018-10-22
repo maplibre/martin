@@ -1,12 +1,5 @@
 {
-  "parser": "babel-eslint",
-  "extends": ["airbnb"],
-  "plugins": ["import", "react"],
-  "env": {
-    "browser": true,
-    "node": true,
-    "jest": true
-  },
+  "extends": ["react-app", "airbnb"],
   "rules": {
     "arrow-parens": [
       "warn",
@@ -16,7 +9,6 @@
       }
     ],
     "comma-dangle": ["error", "never"],
-    "function-paren-newline": ["error", "consistent"],
     "jsx-quotes": ["error", "prefer-single"],
     "max-len": [
       "error",
@@ -27,13 +19,6 @@
       }
     ],
     "no-return-assign": "warn",
-    "no-underscore-dangle": [
-      "error",
-      {
-        "allowAfterThis": true,
-        "allow": ["_id"]
-      }
-    ],
     "quotes": ["error", "single"],
     "react/button-has-type": "off",
     "react/destructuring-assignment": "off",
