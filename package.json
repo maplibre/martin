@@ -10,7 +10,7 @@
     "react-day-picker": "7.2.4",
     "react-dom": "16.5.2",
     "react-scripts": "2.0.5",
-    "styled-components": "4.0.0"
+    "styled-components": "4.0.2"
   },
   "scripts": {
     "start": "react-scripts start",
