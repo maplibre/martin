@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { MAPBOX_STYLE, MAPBOX_TOKEN } from '../../config/constants';
+import layers from '../../config/layers';
 import dateConverter from '../../utils/dateConverter';
 
 import Container from './Container';
@@ -15,6 +16,7 @@ const mapStyle = {
 
 class Map extends PureComponent {
   state = {
+    visibleLayer: 'trips',
     range: {
       from: new Date(2017, 0, 1),
       to: new Date(2017, 4, 4)
@@ -51,73 +53,9 @@ class Map extends PureComponent {
       type: 'vector',
       url: `/tiles/rpc/public.get_trips.json?${queryParams}`
     });
-    this.map.addLayer({
-      id: 'trips',
-      type: 'fill-extrusion',
-      source: 'public.get_trips',
-      'source-layer': 'trips',
-      paint: {
-        'fill-extrusion-height': [
-          'interpolate',
-          ['linear'],
-          ['get', 'trips'],
-          0,
-          10,
-          3,
-          30,
-          70,
-          70,
-          90,
-          150,
-          300,
-          300,
-          2500,
-          400,
-          8000,
-          600,
-          12000,
-          800,
-          20000,
-          1100,
-          30000,
-          1600,
-          55000,
-          2000,
-          76000,
-          3000
-        ],
-        'fill-extrusion-color': [
-          'interpolate',
-          ['linear'],
-          ['get', 'trips'],
-          0,
-          '#fff0f0',
-          3,
-          '#ffdade',
-          70,
-          '#ffc4d1',
-          90,
-          '#ffaec9',
-          300,
-          '#ff98c5',
-          2500,
-          '#f982c5',
-          8000,
-          '#ee6cc8',
-          12000,
-          '#de58ce',
-          20000,
-          '#c847d7',
-          30000,
-          '#ab3ae1',
-          55000,
-          '#8233ed',
-          76000,
-          '#3434f9'
-        ],
-        'fill-extrusion-opacity': 0.75
-      }
-    }, 'place-town');
+    layers.forEach(({ mapboxLayer }) => {
+      this.map.addLayer(mapboxLayer, 'place-town');
+    });
   };
 
   changeFilter = (filter, value) => {
@@ -136,8 +74,19 @@ class Map extends PureComponent {
     return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`);
   };
 
+  toggleLayer = (layerId) => {
+    layers.forEach(({ id }) => {
+      if (layerId === id) {
+        this.map.setLayoutProperty(id, 'visibility', 'visible');
+      } else {
+        this.map.setLayoutProperty(id, 'visibility', 'none');
+      }
+    });
+    this.setState({ visibleLayer: layerId });
+  };
+
   render() {
-    const { range, hour } = this.state;
+    const { visibleLayer, range, hour } = this.state;
 
     return (
       <Container>
@@ -146,8 +95,10 @@ class Map extends PureComponent {
           style={mapStyle}
         />
         <Filters
+          visibleLayer={visibleLayer}
           range={range}
           hour={hour}
+          toggleLayer={this.toggleLayer}
           changeFilter={this.changeFilter}
         />
       </Container>

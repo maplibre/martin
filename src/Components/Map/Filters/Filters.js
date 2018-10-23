@@ -3,10 +3,12 @@ import DayPicker, { DateUtils } from 'react-day-picker';
 import { debounce } from 'debounce';
 import 'react-day-picker/lib/style.css';
 
+import layers from '../../../config/layers';
 import { JAN, DEC } from '../../../config/constants';
 import dateConverter from '../../../utils/dateConverter';
 
 import Container from './Container';
+import Layer from './Layer';
 import Title from './Title';
 import Description from './Description';
 import Separator from './Separator';
@@ -42,21 +44,42 @@ class Filters extends PureComponent {
     );
   };
 
+  toggleLayerHandler = layerId => () => {
+    this.props.toggleLayer(layerId);
+  };
+
   render() {
-    const { range: { from, to }, hour } = this.props;
-    const modifiers = { start: from, end: to };
+    const { visibleLayer, range: { from, to }, hour } = this.props;
+    const modifiers = {
+      start: from,
+      end: to
+    };
     const isAvgHour = hour === -1;
     const dateFrom = dateConverter(from);
     const dateTo = dateConverter(to);
 
     return (
       <Container>
-        <Title>
-          Number of trips
-        </Title>
-        <Description>
-          Conducted from an area
-        </Description>
+        {layers.map((layer) => {
+          const isLayerVisible = visibleLayer === layer.id;
+
+          return (
+            <Layer
+              key={layer.id}
+              onClick={this.toggleLayerHandler(layer.id)}
+              isLayerVisible={isLayerVisible}
+            >
+              <Title>
+                {layer.title}
+              </Title>
+              {isLayerVisible && (
+                <Description>
+                  {layer.description}
+                </Description>
+              )}
+            </Layer>
+          );
+        })}
         <Separator />
         <Range onClick={this.toggleDayPicker}>
           {`${dateFrom} – ${dateTo}`}
@@ -65,7 +88,10 @@ class Filters extends PureComponent {
           <DayPickerContainer>
             <DayPicker
               numberOfMonths={1}
-              selectedDays={[from, { from, to }]}
+              selectedDays={[from, {
+                from,
+                to
+              }]}
               modifiers={modifiers}
               onDayClick={this.handleDayClick}
               captionElement={CaptionElement}

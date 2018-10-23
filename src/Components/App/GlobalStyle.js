@@ -1,9 +1,6 @@
 /* eslint-disable max-len */
 import { createGlobalStyle } from 'styled-components';
 
-import media from './media';
-import fontSize from './fontSize';
-
 // vremenaGroteskBook
 import vremenaGroteskBook from './assets/fonts/VremenaGroteskBook.otf';
 import vremenaGroteskBookWoff2 from './assets/fonts/VremenaGroteskBookWoff2.woff2';
@@ -22,9 +19,7 @@ export default createGlobalStyle`
     font-family: VremenaGroteskBook;
     src:
       url(${vremenaGroteskBook}) format('otf'),
-      
       url(${vremenaGroteskBookWoff2}) format('woff2');
-
     font-weight: normal;
     font-style: normal;
   }
@@ -37,19 +32,6 @@ export default createGlobalStyle`
     font-weight: bold;
     font-style: normal;
   }
-
-  html, body {
-    -webkit-overflow-scrolling: touch;
-    font-size: 16px;
-      ${media.more`font-size: ${fontSize.size.more}; line-height: ${fontSize.lineHeight.more};`}
-      ${media.giant`font-size: ${fontSize.size.giant}; line-height: ${fontSize.lineHeight.giant};`}
-      ${media.desktop`
-        font-size: ${fontSize.size.desktop};
-        line-height: ${fontSize.lineHeight.desktop};
-      `}
-      ${media.tablet`font-size: ${fontSize.size.tablet} line-height: ${fontSize.lineHeight.tablet};`}
-      ${media.phone`font-size: ${fontSize.size.phone}; line-height: ${fontSize.lineHeight.phone};`}
-    }
 
   body {
     background-image: linear-gradient(to bottom,  #0e0e1e 50%, #1c1c30);
