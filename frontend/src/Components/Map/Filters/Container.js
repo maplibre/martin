@@ -4,7 +4,7 @@ export default styled.div`
   position: absolute;
   top: 0;
 
-  width: 350px;
+  width: 320px;
   padding: 25px;
   border-bottom-right-radius: 5px;
   box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.5);
@@ -12,4 +12,10 @@ export default styled.div`
   color: #dadfee;
 
   z-index: 2;
+  
+  @media (max-width: 500px) {
+    position: initial;
+
+    width: 100%;
+  }
 `;

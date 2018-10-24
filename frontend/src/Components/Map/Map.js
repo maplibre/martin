@@ -9,10 +9,7 @@ import dateConverter from '../../utils/dateConverter';
 import Container from './Container';
 import Filters from './Filters';
 
-const mapStyle = {
-  height: '70vh',
-  marginBottom: '95px'
-};
+const mapStyle = { height: '70vh' };
 
 class Map extends PureComponent {
   state = {
@@ -28,7 +25,11 @@ class Map extends PureComponent {
     mapboxgl.accessToken = MAPBOX_TOKEN;
     this.map = new mapboxgl.Map({
       container: 'map',
-      style: MAPBOX_STYLE
+      style: MAPBOX_STYLE,
+      center: [-74.005308, 40.713370],
+      pitch: 45,
+      minZoom: 8,
+      maxZoom: 16
     });
     this.nav = new mapboxgl.NavigationControl();
 
@@ -90,16 +91,16 @@ class Map extends PureComponent {
 
     return (
       <Container>
-        <div
-          id='map'
-          style={mapStyle}
-        />
         <Filters
           visibleLayer={visibleLayer}
           range={range}
           hour={hour}
           toggleLayer={this.toggleLayer}
           changeFilter={this.changeFilter}
+        />
+        <div
+          id='map'
+          style={mapStyle}
         />
       </Container>
     );

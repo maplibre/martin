@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 
 export default styled.div`
-  position: relative;
+  margin-right: 6px;
 
-  margin-bottom: 50px;
+  color: #9fa3b2;
 `;

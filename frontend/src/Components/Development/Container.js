@@ -1,7 +1,8 @@
 import styled from 'styled-components';
 
 export default styled.div`
-  position: relative;
+  padding: 7vw;
 
-  margin-bottom: 50px;
+  font-size: 30px;
+  line-height: 40px;
 `;
