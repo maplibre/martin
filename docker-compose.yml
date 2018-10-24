@@ -6,10 +6,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - 80:80
-    volumes:
-      - ./frontend/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - tiles
 
