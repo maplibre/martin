@@ -1,5 +1,5 @@
 create extension postgis;
-create extension timescaledb;
+-- create extension timescaledb;
 
 create table trips
 (
@@ -93,5 +93,4 @@ END;
 $$
 ;
 
-alter function get_trips(integer, integer, integer, json) owner to postgres
-;
+alter function get_trips(integer, integer, integer, json) owner to postgres;

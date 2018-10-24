@@ -1,5 +1,9 @@
-# Martin landing page
+# Martin Use Case
 
-## How to run local
-* run `docker-compose -f docker-compose.dev.yml up --build`
-* go to `localhost:3000` in your browser
+## Usage
+
+```shell
+docker-compose up
+```
+
+Open `localhost:3000` in your browser

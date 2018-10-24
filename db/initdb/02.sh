@@ -2,6 +2,7 @@
 
 wget -O ${HOME}/taxi_zones.zip https://s3.amazonaws.com/nyc-tlc/misc/taxi_zones.zip
 unzip ${HOME}/taxi_zones.zip -d ${HOME}
+
 geomColumn=geom
 ogr2ogr -f PostgreSQL PG:dbname=db -nln taxi_zones -nlt MULTIPOLYGON -lco GEOMETRY_NAME=${geomColumn} ${HOME}/taxi_zones.shp
 psql -U postgres -d db -c "alter table taxi_zones alter column ${geomColumn} type geometry(multipolygon, 3857) using st_transform(${geomColumn}, 3857); \
@@ -17,5 +18,3 @@ do
     sed -i -e '2d' ${filePath}
     psql -U postgres -d db -c "COPY trips FROM '${filePath}' WITH csv header;"
 done
-
-psql -U postgres -d db -c "select create_hypertable('trips', 'pickup_datetime', migrate_data => true);"
