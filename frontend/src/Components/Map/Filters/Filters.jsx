@@ -93,7 +93,7 @@ class Filters extends PureComponent {
             onChange={this.changeTime}
           />
           {!isAvgHour && (
-            <div>
+            <div style={{ fontWeight: 'bold', color: '#DADFEE' }}>
               {`${hour}:00`}
             </div>
           )}

@@ -20,10 +20,12 @@ export default styled.div`
     top: 80px;
     left: 125px;
 
-    width: 400px;
+    width: 350px;
     height: 450px;
 
-    border: 7px solid #7300FF;
+    border: 7px solid;
+
+    border-image: linear-gradient(to bottom left, #7300FF, #351c83) 1;
     
     @media (max-width: 500px) {
       height: 380px;
@@ -31,8 +33,10 @@ export default styled.div`
   }
 
   &:nth-child(2) {
-    align-self: flex-end;
+    margin-right: calc(15vw - 500px);
 
-    margin-right: initial;
+    @media (max-width: 500px) {
+      margin-right: initial;
+    }
   }
 `;

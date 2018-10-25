@@ -2,9 +2,8 @@ import styled from 'styled-components';
 
 export default styled.div`
   max-width: 1024px;
-  padding: 7vw;
-  margin: auto;
+  padding: 7vw 0;
+  margin: auto auto 125px;
 
-  font-size: 30px;
-  line-height: 40px;
+  font-size: 40px;
 `;

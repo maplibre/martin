@@ -10,12 +10,14 @@ export default styled.a`
   color: #fff;
   text-decoration: none;
   
+  background-color: transparent;
+  
   cursor: pointer;
 
   &:hover{
-    background-color: #0E0E1E;
+    border-color: transparent;
+
     box-shadow: 3px 3px 0 rgba(115, 0, 255, 1);
-    border-color: #0E0E1E;
   }
 
   img {

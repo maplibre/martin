@@ -12,6 +12,7 @@ export default styled.h1`
   
   @media (max-width: 500px) {
     font-size: 50px;
+    letter-spacing: initial;
     -webkit-text-stroke-width: 1px;
   }
 `;

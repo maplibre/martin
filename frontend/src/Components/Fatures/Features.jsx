@@ -1,4 +1,5 @@
 import React from 'react';
+import { Parallax } from 'react-scroll-parallax';
 
 import martinFeatures from '../../config/features';
 
@@ -11,12 +12,28 @@ const Features = () => (
   <Container>
     {martinFeatures.map(feature => (
       <Feature key={feature.id}>
-        <Title>
-          {feature.title}
-        </Title>
-        <Description>
-          {feature.description}
-        </Description>
+        <Parallax
+          offsetYMax={50}
+          offsetYMin={-50}
+          offsetXMin={20}
+          offsetXMax={0}
+          // slowerScrollRate
+        >
+          <Title>
+            {feature.title}
+          </Title>
+        </Parallax>
+        <Parallax
+          offsetYMax={50}
+          offsetYMin={-40}
+          offsetXMin={0}
+          offsetXMax={10}
+          // slowerScrollRate
+        >
+          <Description>
+            {feature.description}
+          </Description>
+        </Parallax>
       </Feature>
     ))}
   </Container>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Parallax } from 'react-scroll-parallax';
 
 import Container from './Container';
 import Title from './Title';
@@ -7,7 +8,10 @@ import GitHubButton from '../GitHubButton';
 
 const Intro = () => (
   <Container>
-    <div>
+    <Parallax
+      offsetYMax={100}
+      offsetYMin={-50}
+    >
       <Title>
         Martin
       </Title>
@@ -15,7 +19,7 @@ const Intro = () => (
         Vector Tiles from Large Databases on the Fly
       </Description>
       <GitHubButton />
-    </div>
+    </Parallax>
   </Container>
 );
 

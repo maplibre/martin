@@ -5,11 +5,17 @@ export default styled.div`
   align-items: center;
   justify-content: center;
 
-  max-width: 635px;
-  height: 40vh;
+  max-width: 980px;
+  height: 50vh;
   padding: 7vw;
   margin:auto;
 
-  font-size: 30px;
+  font-size: 50px;
   line-height: 1.55;
+
+  @media (max-width: 500px) {
+    height: 30vh;
+
+    font-size: 30px;
+  }
 `;

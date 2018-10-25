@@ -7,7 +7,7 @@ export default styled.div`
   justify-content: flex-end;
   align-items: center;
 
-  height: 100vh;
+  height: 110vh;
   padding: 7vw;
 
   color: #fff;

@@ -5,10 +5,10 @@ export default styled.div`
   max-width: 400px;
   margin-bottom: 80px;
 
-  font-size: 45px;
+  font-size: 50px;
   font-weight: bold;
   color: transparent;
-  line-height: 55px;
+  line-height: 1.3;
   -webkit-text-stroke-width: 1px;
   -webkit-text-stroke-color: white;
   text-transform: uppercase;

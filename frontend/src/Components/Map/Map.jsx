@@ -9,7 +9,7 @@ import dateConverter from '../../utils/dateConverter';
 import Container from './Container';
 import Filters from './Filters';
 
-const mapStyle = { height: '70vh' };
+const mapStyle = { height: '585px' };
 
 class Map extends PureComponent {
   state = {
@@ -28,6 +28,7 @@ class Map extends PureComponent {
       style: MAPBOX_STYLE,
       center: [-74.005308, 40.713370],
       pitch: 45,
+      zoom: 10,
       minZoom: 8,
       maxZoom: 16
     });
