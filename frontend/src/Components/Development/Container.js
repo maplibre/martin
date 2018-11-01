@@ -8,6 +8,6 @@ export default styled.div`
   font-size: 30px;
   
   @media (max-width: 500px) {
-    padding: 7vw;
+    padding: 7vw 7vw 50px;
   }
 `;

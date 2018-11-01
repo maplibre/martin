@@ -7,9 +7,12 @@ import Intro from '../Intro';
 import Description from '../Description';
 import Features from '../Fatures';
 import TryIt from '../TryIt';
+import MobileMap from '../MobileMap';
 import Map from '../Map';
 import Development from '../Development/Development';
 import Footer from '../Footer/Footer';
+
+import martin from './small_martin.gif';
 
 const App = () => (
   <ParallaxProvider>
@@ -29,6 +32,7 @@ const App = () => (
         days of the week, and hours and to sum or average the numbers by areas.
       </p>
     </TryIt>
+    <MobileMap src={martin} alt='map example' />
     <Map />
     <Development />
     <Footer />
