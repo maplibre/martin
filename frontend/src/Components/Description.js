@@ -15,6 +15,7 @@ export default styled.div`
 
   @media (max-width: 500px) {
     height: 30vh;
+    margin-bottom: 10px;
 
     font-size: 30px;
   }
