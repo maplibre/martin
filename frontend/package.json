@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "debounce": "1.2.0",
-    "mapbox-gl": "0.50.0",
+    "mapbox-gl": "0.49.0",
     "normalize.css": "8.0.0",
     "react": "16.6.0",
     "react-day-picker": "7.2.4",

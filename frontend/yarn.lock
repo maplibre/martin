@@ -6058,10 +6058,10 @@ map-visit@^1.0.0:
   dependencies:
     object-visit "^1.0.0"
 
-mapbox-gl@0.50.0:
-  version "0.50.0"
-  resolved "https://registry.yarnpkg.com/mapbox-gl/-/mapbox-gl-0.50.0.tgz#49f44149f02fdd25ab64a2ec4efc7a11a5c96f55"
-  integrity sha512-rr/fP1mlsQBtAE3JaYenSFM5tYRzYaSU1j7KsrPtICSHMzAUMrsl1TlnC5JpMbcZu6nu8R2GFTJ8hYsoBsX9Bg==
+mapbox-gl@0.49.0:
+  version "0.49.0"
+  resolved "https://registry.yarnpkg.com/mapbox-gl/-/mapbox-gl-0.49.0.tgz#701fe5ae750b7edc1398b985553c0e0690fc3d2b"
+  integrity sha512-2gbKNosaIQjHp6xgCcOLYAC+vnmgYQ89qiOtip5L8tQLPhsJ3vNwU7pXRaCm4sFU1i8JakvF13vu8Xnsi5/ssA==
   dependencies:
     "@mapbox/geojson-types" "^1.0.2"
     "@mapbox/jsonlint-lines-primitives" "^2.0.2"
