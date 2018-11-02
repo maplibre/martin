@@ -8,6 +8,8 @@ import Feature from './Feature';
 import Title from './Title';
 import Description from './Description';
 
+import tiles from './martin_mobile.png';
+
 const Features = () => (
   <Container>
     {martinFeatures.map(feature => (
@@ -36,6 +38,22 @@ const Features = () => (
         </Parallax>
       </Feature>
     ))}
+    <Feature>
+      <Title>
+        <img src={tiles} alt='tiles' />
+      </Title>
+      <Parallax
+        offsetYMax={50}
+        offsetYMin={-40}
+        offsetXMin={0}
+        offsetXMax={10}
+        // slowerScrollRate
+      >
+        <Description>
+          Start building with Martin!
+        </Description>
+      </Parallax>
+    </Feature>
   </Container>
 );
 

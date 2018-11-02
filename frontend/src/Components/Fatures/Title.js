@@ -16,4 +16,8 @@ export default styled.div`
   @media (max-width: 500px) {
     font-size: 35px;
   }
+  
+  img {
+    max-width: 100%;
+  }
 `;

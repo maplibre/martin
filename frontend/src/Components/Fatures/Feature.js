@@ -39,4 +39,12 @@ export default styled.div`
       margin-right: initial;
     }
   }
+
+  &:last-child {
+  display: none;
+    @media (max-width: 500px) {
+       display: block;
+       margin-bottom: 0;
+    }
+  }
 `;
