@@ -63,6 +63,8 @@ fn main() {
     .clone()
     .unwrap_or_else(|| env::var("DATABASE_URL").expect("DATABASE_URL must be set"));
 
+  info!("Starting martin v{}", VERSION);
+
   info!("Connecting to {}", conn_string);
   let pool = match setup_connection_pool(&conn_string, args.flag_pool_size) {
     Ok(pool) => {
@@ -84,7 +86,7 @@ fn main() {
   };
 
   let listen_addresses = config.listen_addresses.clone();
-  info!("Server has been started on {}.", listen_addresses);
+  info!("Martin has been started on {}.", listen_addresses);
 
   let server = server::new(config, pool);
   let _ = server.run();
