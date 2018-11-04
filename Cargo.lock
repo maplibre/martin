@@ -770,7 +770,7 @@ dependencies = [
  "mapbox_expressions_to_sql 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num_cpus 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "postgres 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "r2d2 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "r2d2 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "r2d2_postgres 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1058,7 +1058,7 @@ dependencies = [
 
 [[package]]
 name = "r2d2"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "antidote 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1073,7 +1073,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "postgres 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "postgres-shared 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "r2d2 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "r2d2 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1975,7 +1975,7 @@ dependencies = [
 "checksum proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)" = "3d7b7eaaa90b4a90a932a9ea6666c95a389e424eff347f0f793979289429feee"
 "checksum quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9274b940887ce9addde99c4eee6b5c44cc494b182b97e73dc8ffdcb3397fd3f0"
 "checksum quote 0.6.9 (registry+https://github.com/rust-lang/crates.io-index)" = "63b5829244f52738cfee93b3a165c1911388675be000c888d2fae620dee8fa5b"
-"checksum r2d2 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f9078ca6a8a5568ed142083bb2f7dc9295b69d16f867ddcc9849e51b17d8db46"
+"checksum r2d2 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)" = "5d746fc8a0dab19ccea7ff73ad535854e90ddb3b4b8cdce953dd5cd0b2e7bd22"
 "checksum r2d2_postgres 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "78c7fe9c0c3d2c298cf262bc3ce4b89cdf0eab620fd9fe759f65b34a1a00fb93"
 "checksum rand 0.3.22 (registry+https://github.com/rust-lang/crates.io-index)" = "15a732abf9d20f0ad8eeb6f909bf6868722d9a06e1e50802b6a70351f40b4eb1"
 "checksum rand 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "8356f47b32624fef5b3301c1be97e5944ecdd595409cc5da11d05f211db6cfbd"
