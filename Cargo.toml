@@ -15,6 +15,7 @@ num_cpus = "1.8"
 postgres = { version = "0.15", features = ["with-time", "with-uuid", "with-serde_json"] }
 r2d2 = "0.8"
 r2d2_postgres = "0.14"
+semver = "0.9"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"

@@ -1,5 +1,4 @@
-#![warn(clippy)]
-
+#[cfg_attr(feature = "cargo-clippy", allow(clippy))]
 extern crate actix;
 extern crate actix_web;
 extern crate docopt;
@@ -13,6 +12,7 @@ extern crate num_cpus;
 extern crate postgres;
 extern crate r2d2;
 extern crate r2d2_postgres;
+extern crate semver;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -32,13 +32,16 @@ mod table_source;
 mod utils;
 
 use docopt::Docopt;
+use semver::Version;
+use semver::VersionReq;
 use std::env;
 
 use cli::{Args, USAGE};
 use config::build_config;
-use db::setup_connection_pool;
+use db::{select_postgis_verion, setup_connection_pool};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
 
 fn main() {
   let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
@@ -73,6 +76,25 @@ fn main() {
     }
     Err(error) => {
       error!("Can't connect to postgres: {}", error);
+      std::process::exit(-1);
+    }
+  };
+
+  match select_postgis_verion(&pool) {
+    Ok(postgis_version) => {
+      info!("PostGIS version: {}", postgis_version);
+
+      let req = VersionReq::parse(REQUIRED_POSTGIS_VERSION).unwrap();
+      let version = Version::parse(postgis_version.as_str()).unwrap();
+
+      if !req.matches(&version) {
+        error!("Martin requires PostGIS {}", REQUIRED_POSTGIS_VERSION);
+        std::process::exit(-1);
+      }
+    }
+    Err(error) => {
+      error!("Can't get PostGIS version: {}", error);
+      error!("Martin requires PostGIS {}", REQUIRED_POSTGIS_VERSION);
       std::process::exit(-1);
     }
   };
