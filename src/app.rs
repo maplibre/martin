@@ -341,32 +341,32 @@ mod tests {
     fn sources_not_found_test() {
         let mut srv = build_test_server(None, None);
 
+        // let request = srv
+        //     .client(http::Method::GET, "/index.json")
+        //     .finish()
+        //     .unwrap();
+
+        // let response = srv.execute(request.send()).unwrap();
+        // assert_eq!(response.status().as_u16(), 404);
+
         let request = srv
-            .client(http::Method::GET, "/index.json")
+            .client(http::Method::GET, "/public.non_existant.json")
             .finish()
             .unwrap();
 
         let response = srv.execute(request.send()).unwrap();
         assert_eq!(response.status().as_u16(), 404);
 
-        let request = srv
-            .client(http::Method::GET, "/public.table_source.json")
-            .finish()
-            .unwrap();
+        // let request = srv
+        //     .client(http::Method::GET, "/rpc/index.json")
+        //     .finish()
+        //     .unwrap();
 
-        let response = srv.execute(request.send()).unwrap();
-        assert_eq!(response.status().as_u16(), 404);
-
-        let request = srv
-            .client(http::Method::GET, "/rpc/index.json")
-            .finish()
-            .unwrap();
-
-        let response = srv.execute(request.send()).unwrap();
-        assert_eq!(response.status().as_u16(), 404);
+        // let response = srv.execute(request.send()).unwrap();
+        // assert_eq!(response.status().as_u16(), 404);
 
         let request = srv
-            .client(http::Method::GET, "/rpc/public.function_source.json")
+            .client(http::Method::GET, "/rpc/public.non_existant.json")
             .finish()
             .unwrap();
 
