@@ -1,40 +1,59 @@
 use actix::*;
 use actix_web::*;
 use futures::future::Future;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
+use super::coordinator_actor::CoordinatorActor;
 use super::db_executor::DbExecutor;
 use super::function_source::FunctionSources;
 use super::messages;
 use super::table_source::TableSources;
 use super::utils::{build_tilejson, parse_xyz};
+use super::worker_actor::WorkerActor;
 
 pub type Query = HashMap<String, String>;
 
 pub struct State {
     db: Addr<DbExecutor>,
-    table_sources: Option<TableSources>,
-    function_sources: Option<FunctionSources>,
+    coordinator: Addr<CoordinatorActor>,
+    table_sources: Rc<RefCell<Option<TableSources>>>,
+    function_sources: Rc<RefCell<Option<FunctionSources>>>,
 }
 
-// TODO: Swagger endpoint
-fn get_table_sources(req: &HttpRequest<State>) -> Result<HttpResponse> {
+fn get_table_sources(
+    req: &HttpRequest<State>,
+) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
-    let table_sources = state
-        .table_sources
-        .clone()
-        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
+    let coordinator = state.coordinator.clone();
 
-    Ok(HttpResponse::Ok()
-        .header("Access-Control-Allow-Origin", "*")
-        .json(table_sources))
+    let result = req.state().db.send(messages::GetTableSources {});
+
+    let response = result
+        .from_err()
+        .and_then(move |res| match res {
+            Ok(table_sources) => {
+                coordinator.do_send(messages::RefreshTableSources {
+                    table_sources: Some(table_sources.clone()),
+                });
+
+                Ok(HttpResponse::Ok()
+                    .header("Access-Control-Allow-Origin", "*")
+                    .json(table_sources))
+            }
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        }).responder();
+
+    Ok(response)
 }
 
-// TODO: add properties to TileJSON endpoint
 fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let state = &req.state();
+
     let table_sources = state
         .table_sources
+        .borrow()
         .clone()
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
@@ -64,8 +83,10 @@ fn get_table_source_tile(
     req: &HttpRequest<State>,
 ) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
+
     let table_sources = state
         .table_sources
+        .borrow()
         .clone()
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
@@ -83,14 +104,16 @@ fn get_table_source_tile(
 
     let query = req.query();
 
-    Ok(req
-        .state()
-        .db
-        .send(messages::GetTile {
-            xyz,
-            query: query.clone(),
-            source: source.clone(),
-        }).from_err()
+    let message = messages::GetTile {
+        xyz,
+        query: query.clone(),
+        source: source.clone(),
+    };
+
+    let result = req.state().db.send(message);
+
+    let response = result
+        .from_err()
         .and_then(|res| match res {
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
@@ -103,25 +126,41 @@ fn get_table_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        }).responder())
+        }).responder();
+
+    Ok(response)
 }
 
-fn get_function_sources(req: &HttpRequest<State>) -> Result<HttpResponse> {
+fn get_function_sources(
+    req: &HttpRequest<State>,
+) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
-    let function_sources = state
-        .function_sources
-        .clone()
-        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
+    let coordinator = state.coordinator.clone();
 
-    Ok(HttpResponse::Ok()
-        .header("Access-Control-Allow-Origin", "*")
-        .json(function_sources))
+    let result = req.state().db.send(messages::GetFunctionSources {});
+    let response = result
+        .from_err()
+        .and_then(move |res| match res {
+            Ok(function_sources) => {
+                coordinator.do_send(messages::RefreshFunctionSources {
+                    function_sources: Some(function_sources.clone()),
+                });
+
+                Ok(HttpResponse::Ok()
+                    .header("Access-Control-Allow-Origin", "*")
+                    .json(function_sources))
+            }
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        }).responder();
+
+    Ok(response)
 }
 
 fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let state = &req.state();
     let function_sources = state
         .function_sources
+        .borrow()
         .clone()
         .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
@@ -153,6 +192,7 @@ fn get_function_source_tile(
     let state = &req.state();
     let function_sources = state
         .function_sources
+        .borrow()
         .clone()
         .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
@@ -170,14 +210,16 @@ fn get_function_source_tile(
 
     let query = req.query();
 
-    Ok(req
-        .state()
-        .db
-        .send(messages::GetTile {
-            xyz,
-            query: query.clone(),
-            source: source.clone(),
-        }).from_err()
+    let message = messages::GetTile {
+        xyz,
+        query: query.clone(),
+        source: source.clone(),
+    };
+
+    let result = req.state().db.send(message);
+
+    let response = result
+        .from_err()
         .and_then(|res| match res {
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
@@ -190,18 +232,33 @@ fn get_function_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        }).responder())
+        }).responder();
+
+    Ok(response)
 }
 
 pub fn new(
-    db_sync_arbiter: Addr<DbExecutor>,
+    db: Addr<DbExecutor>,
+    coordinator: Addr<CoordinatorActor>,
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,
 ) -> App<State> {
+    let table_sources_rc = Rc::new(RefCell::new(table_sources));
+    let function_sources_rc = Rc::new(RefCell::new(function_sources));
+
+    let worker_actor = WorkerActor {
+        table_sources: table_sources_rc.clone(),
+        function_sources: function_sources_rc.clone(),
+    };
+
+    let worker: Addr<_> = worker_actor.start();
+    coordinator.do_send(messages::Connect { addr: worker });
+
     let state = State {
-        db: db_sync_arbiter,
-        table_sources,
-        function_sources,
+        db,
+        coordinator,
+        table_sources: table_sources_rc.clone(),
+        function_sources: function_sources_rc.clone(),
     };
 
     App::with_state(state)
@@ -242,12 +299,26 @@ mod tests {
         test::TestServer::build_with_state(move || {
             let conn_string: String = env::var("DATABASE_URL").unwrap();
             let pool = setup_connection_pool(&conn_string, None).unwrap();
-            let db_sync_arbiter = SyncArbiter::start(3, move || DbExecutor(pool.clone()));
+            let db = SyncArbiter::start(3, move || DbExecutor(pool.clone()));
+
+            let table_sources_rc = Rc::new(RefCell::new(table_sources.clone()));
+            let function_sources_rc = Rc::new(RefCell::new(function_sources.clone()));
+
+            let coordinator: Addr<_> = CoordinatorActor::default().start();
+
+            let worker_actor = WorkerActor {
+                table_sources: table_sources_rc.clone(),
+                function_sources: function_sources_rc.clone(),
+            };
+
+            let worker: Addr<_> = worker_actor.start();
+            coordinator.do_send(messages::Connect { addr: worker });
 
             State {
-                db: db_sync_arbiter,
-                table_sources: table_sources.clone(),
-                function_sources: function_sources.clone(),
+                db,
+                coordinator,
+                table_sources: table_sources_rc.clone(),
+                function_sources: function_sources_rc.clone(),
             }
         }).start(|app| {
             app.resource("/index.json", |r| {

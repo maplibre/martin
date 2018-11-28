@@ -1,14 +1,17 @@
-use actix::{SyncArbiter, System, SystemRunner};
+use actix::{Actor, Addr, SyncArbiter, System, SystemRunner};
 use actix_web::server;
 
 use super::app;
 use super::config::Config;
+use super::coordinator_actor::CoordinatorActor;
 use super::db::PostgresPool;
 use super::db_executor::DbExecutor;
 
 pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
     let server = System::new("server");
-    let db_sync_arbiter = SyncArbiter::start(3, move || DbExecutor(pool.clone()));
+
+    let db = SyncArbiter::start(3, move || DbExecutor(pool.clone()));
+    let coordinator: Addr<_> = CoordinatorActor::default().start();
 
     let keep_alive = config.keep_alive;
     let worker_processes = config.worker_processes;
@@ -16,7 +19,8 @@ pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
 
     let _addr = server::new(move || {
         app::new(
-            db_sync_arbiter.clone(),
+            db.clone(),
+            coordinator.clone(),
             config.table_sources.clone(),
             config.function_sources.clone(),
         )

@@ -22,6 +22,7 @@ extern crate serde_yaml;
 mod app;
 mod cli;
 mod config;
+mod coordinator_actor;
 mod db;
 mod db_executor;
 mod function_source;
@@ -30,6 +31,7 @@ mod server;
 mod source;
 mod table_source;
 mod utils;
+mod worker_actor;
 
 use docopt::Docopt;
 use semver::Version;
