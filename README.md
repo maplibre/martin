@@ -6,6 +6,10 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 
 ![Martin](https://raw.githubusercontent.com/urbica/martin/master/mart.png)
 
+## Requirements
+
+Martin requires PostGIS >= 2.4.0.
+
 ## Installation
 
 You can download martin from [Github releases page](https://github.com/urbica/martin/releases).
@@ -141,13 +145,13 @@ You can add a layer to the map and specify martin TileJSON endpoint as a vector 
 
 ```js
 map.addLayer({
-  id: "public.points",
-  type: "circle",
+  id: 'public.points',
+  type: 'circle',
   source: {
-    type: "vector",
-    url: "http://localhost:3000/public.points.json"
+    type: 'vector',
+    url: 'http://localhost:3000/public.points.json'
   },
-  "source-layer": "public.points"
+  'source-layer': 'public.points'
 });
 ```
 
