@@ -10,4 +10,5 @@ COPY --from=builder \
   /home/rust/src/target/x86_64-unknown-linux-musl/release/martin \
   /usr/local/bin/
 
+EXPOSE 3000
 CMD /usr/local/bin/martin
