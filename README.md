@@ -6,6 +6,25 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 
 ![Martin](https://raw.githubusercontent.com/urbica/martin/master/mart.png)
 
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Table Sources](#table-sources)
+  - [Table Sources List](#table-sources-list)
+  - [Table Source TileJSON](#table-source-tilejson)
+  - [Table Source tiles](#table-source-tiles)
+- [Function Sources](#function-sources)
+  - [Function Sources List](#function-sources-list)
+  - [Function Source TileJSON](#function-source-tilejson)
+  - [Function Source Tiles](#function-source-tiles)
+- [Configuration File](#configuration-file)
+- [Using Martin with Mapbox GL JS](#using-martin-with-mapbox-gl-js)
+- [Command-line Interface](#command-line-interface)
+- [Environment Variables](#environment-variables)
+- [Using with Docker](#using-with-docker)
+- [Building from Source](#building-from-source)
+- [Development](#development)
+
 ## Requirements
 
 Martin requires PostGIS >= 2.4.0.
