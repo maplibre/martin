@@ -11,18 +11,18 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Using with Mapbox GL JS](#using-with-mapbox-gl-js)
 - [Table Sources](#table-sources)
   - [Table Sources List](#table-sources-list)
   - [Table Source TileJSON](#table-source-tilejson)
-  - [Table Source tiles](#table-source-tiles)
+  - [Table Source Tiles](#table-source-tiles)
 - [Function Sources](#function-sources)
   - [Function Sources List](#function-sources-list)
   - [Function Source TileJSON](#function-source-tilejson)
   - [Function Source Tiles](#function-source-tiles)
-- [Configuration File](#configuration-file)
-- [Using Martin with Mapbox GL JS](#using-martin-with-mapbox-gl-js)
 - [Command-line Interface](#command-line-interface)
 - [Environment Variables](#environment-variables)
+- [Configuration File](#configuration-file)
 - [Using with Docker](#using-with-docker)
 - [Using with Nginx](#using-with-nginx)
 - [Building from Source](#building-from-source)
@@ -51,6 +51,27 @@ Martin requires a database connection string. It can be passed as a command-line
 martin postgres://postgres@localhost/db
 ```
 
+## Using with Mapbox GL JS
+
+[Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a JavaScript library for interactive, customizable vector maps on the web. It takes map styles that conform to the
+[Mapbox Style Specification](https://www.mapbox.com/mapbox-gl-js/style-spec), applies them to vector tiles that
+conform to the [Mapbox Vector Tile Specification](https://github.com/mapbox/vector-tile-spec), and renders them using
+WebGL.
+
+You can add a layer to the map and specify martin TileJSON endpoint as a vector source URL. You should also specify a `source-layer` property. For [Table Sources](#table-sources) it is `{schema_name}.{table_name}` by default.
+
+```js
+map.addLayer({
+  id: 'public.points',
+  type: 'circle',
+  source: {
+    type: 'vector',
+    url: 'http://localhost:3000/public.points.json'
+  },
+  'source-layer': 'public.points'
+});
+```
+
 ## Table Sources
 
 Table Source is a database table which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as properties of a vector tile feature.
@@ -73,7 +94,7 @@ For example, `points` table in `public` schema will be available at `/public.poi
 curl localhost:3000/public.points.json
 ```
 
-### Table Source tiles
+### Table Source Tiles
 
 Table Source tiles endpoint is available at `/{schema_name}.{table_name}/{z}/{x}/{y}.pbf`
 
@@ -144,37 +165,6 @@ For example, `points` function in `public` schema will be available at `/rpc/pub
 curl localhost:3000/rpc/public.points/0/0/0.pbf
 ```
 
-## Configuration File
-
-If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a file name with a `--config` argument.
-
-```shell
-martin --config config.yaml
-```
-
-You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
-
-## Using Martin with Mapbox GL JS
-
-[Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a JavaScript library for interactive, customizable vector maps on the web. It takes map styles that conform to the
-[Mapbox Style Specification](https://www.mapbox.com/mapbox-gl-js/style-spec), applies them to vector tiles that
-conform to the [Mapbox Vector Tile Specification](https://github.com/mapbox/vector-tile-spec), and renders them using
-WebGL.
-
-You can add a layer to the map and specify martin TileJSON endpoint as a vector source URL. You should also specify a `source-layer` property. For Table Sources it is `{schema_name}.{table_name}` by default.
-
-```js
-map.addLayer({
-  id: 'public.points',
-  type: 'circle',
-  source: {
-    type: 'vector',
-    url: 'http://localhost:3000/public.points.json'
-  },
-  'source-layer': 'public.points'
-});
-```
-
 ## Command-line Interface
 
 You can configure martin using command-line interface
@@ -205,6 +195,76 @@ You can also configure martin using environment variables
 | DATABASE_POOL_SIZE   | 20                               | maximum connections pool size |
 | WORKER_PROCESSES     | 8                                | number of web server workers  |
 | KEEP_ALIVE           | 75                               | connection keep alive timeout |
+
+## Configuration File
+
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a path to a file with a `--config` argument.
+
+```shell
+martin --config config.yaml
+```
+
+You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
+
+```yaml
+# Maximum connections pool size [default: 20]
+pool_size: 20
+
+# Connection keep alive timeout [default: 75]
+keep_alive: 75
+
+# Number of web server workers
+worker_processes: 8
+
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: '0.0.0.0:3000'
+
+# associative arrays of table sources
+table_sources:
+  public.table_source:
+    # table source id
+    id: public.table_source
+
+    # table schema
+    schema: public
+
+    # table name
+    table: table_source
+
+    # geometry column name
+    geometry_column: geom
+
+    # geometry srid
+    srid: 4326
+
+    # tile extent in tile coordinate space
+    extent: 4096
+
+    # buffer distance in tile coordinate space to optionally clip geometries
+    buffer: 64
+
+    # boolean to control if geometries should be clipped or encoded as is
+    clip_geom: true
+
+    # geometry type
+    geometry_type: GEOMETRY
+
+    # list of columns, that should be encoded as a tile properties
+    properties:
+      gid: int4
+
+# associative arrays of function sources
+function_sources:
+  public.function_source:
+    # function source id
+    id: public.function_source
+
+    # schema name
+    schema: public
+
+    # function name
+    function: function_source
+```
 
 ## Using with Docker
 

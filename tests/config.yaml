@@ -1,38 +1,70 @@
 ---
+# Maximum connections pool size [default: 20]
 pool_size: 20
-keep_alive: 75
-worker_processes: 8
-listen_addresses: "0.0.0.0:3000"
 
+# Connection keep alive timeout [default: 75]
+keep_alive: 75
+
+# Number of web server workers
+worker_processes: 8
+
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: '0.0.0.0:3000'
+
+# associative arrays of table sources
 table_sources:
   public.table_source:
+    # table source id
     id: public.table_source
+    # table schema
     schema: public
+    # table name
     table: table_source
+    # geometry column name
     geometry_column: geom
+    # geometry srid
     srid: 4326
+    # tile extent in tile coordinate space
     extent: 4096
+    # buffer distance in tile coordinate space to optionally clip geometries
     buffer: 64
+    # boolean to control if geometries should be clipped or encoded as is
     clip_geom: true
+    # geometry type
     geometry_type: GEOMETRY
+    # list of columns, that should be encoded as tile properties
     properties:
       gid: int4
 
   public.points:
+    # table source id
     id: public.points
+    # table schema
     schema: public
+    # table name
     table: points
+    # geometry column name
     geometry_column: geom
+    # geometry srid
     srid: 4326
+    # tile extent in tile coordinate space
     extent: 4096
+    # buffer distance in tile coordinate space to optionally clip geometries
     buffer: 64
+    # boolean to control if geometries should be clipped or encoded as is
     clip_geom: true
+    # geometry type
     geometry_type: GEOMETRY
+    # list of columns, that should be encoded as tile properties
     properties:
       gid: int4
 
+# associative arrays of function sources
 function_sources:
   public.function_source:
+    # function source id
     id: public.function_source
+    # schema name
     schema: public
+    # function name
     function: function_source
