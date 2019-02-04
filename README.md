@@ -98,13 +98,11 @@ Function Source is a database function which can be used to query [vector tiles]
 Here is an example of a function that can be used as a Function Source.
 
 ```plsql
-CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
+CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS BYTEA AS $$
 DECLARE
-  bounds geometry;
-  mvt bytea;
+  bounds GEOMETRY(POLYGON, 3857) := TileBBox(z, x, y, 3857);
+  mvt BYTEA;
 BEGIN
-  SELECT INTO bounds TileBBox(z, x, y, 3857);
-
   SELECT INTO mvt ST_AsMVT(tile, 'public.function_source', 4096, 'geom') FROM (
     SELECT
       ST_AsMVTGeom(geom, bounds, 4096, 64, true) AS geom
@@ -209,12 +207,42 @@ You can also configure martin using environment variables
 
 ## Using with Docker
 
-You can use official Docker image `urbica/martin`
+You can use official Docker image [`urbica/martin`](https://hub.docker.com/r/urbica/martin)
 
 ```shell
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@localhost/db \
+  urbica/martin
+```
+
+If you are running PostgreSQL instance on `localhost`, you have to change network settings to allow the Docker container to access the `localhost` network.
+
+For Linux, add the `--net=host` flag to access the `localhost` PostgreSQL service.
+
+```shell
+docker run \
+  --net=host \
+  -p 3000:3000 \
+  -e DATABASE_URL=postgres://postgres@localhost/db \
+  urbica/martin
+```
+
+For macOS, use `host.docker.internal` as hostname to access the `localhost` PostgreSQL service.
+
+```shell
+docker run \
+  -p 3000:3000 \
+  -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
+  urbica/martin
+```
+
+For Windows, use `docker.for.win.localhost` as hostname to access the `localhost` PostgreSQL service.
+
+```shell
+docker run \
+  -p 3000:3000 \
+  -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
   urbica/martin
 ```
 
