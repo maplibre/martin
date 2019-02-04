@@ -24,6 +24,7 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Command-line Interface](#command-line-interface)
 - [Environment Variables](#environment-variables)
 - [Using with Docker](#using-with-docker)
+- [Using with Nginx](#using-with-nginx)
 - [Building from Source](#building-from-source)
 - [Development](#development)
 
