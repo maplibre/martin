@@ -6,7 +6,7 @@
 
 Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
-![Martin](https://raw.githubusercontent.com/urbica/martin/master/mart.png)
+![Martin](https://raw.githubusercontent.com/urbica/martin/master/logo.png)
 
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -26,6 +26,7 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Using with Docker](#using-with-docker)
 - [Using with Nginx](#using-with-nginx)
 - [Building from Source](#building-from-source)
+- [Debugging](#debugging)
 - [Development](#development)
 
 ## Requirements
@@ -309,7 +310,7 @@ docker run \
 
 ## Using with Nginx
 
-If you are running martin behind nginx proxy, you may want to rewrite request URL, so martin can properly handle tile urls in TileJSON endpoints.
+If you are running martin behind nginx proxy, you may want to rewrite request URL, to properly handle tile urls in [TileJSON](#table-source-tilejson) [endpoints](#function-source-tilejson).
 
 ```nginx
 location ~ /tiles/(?<fwd_path>.*) {
@@ -333,6 +334,17 @@ The binary will be available at `./target/release/martin`.
 ```shell
 cd ./target/release/
 ./martin postgres://postgres@localhost/db
+```
+
+## Debugging
+
+Log levels are controlled on a per-module basis, and by default all logging is disabled except for errors. Logging is controlled via the `RUST_LOG` environment variable. The value of this environment variable is a comma-separated list of logging directives.
+
+This will enable verbose logging for the `actix_web` module and enable debug logging for the `martin` and `postgres` modules:
+
+```shell
+export RUST_LOG=actix_web=info,martin=debug,postgres=debug
+martin postgres://postgres@localhost/db
 ```
 
 ## Development
