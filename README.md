@@ -246,6 +246,17 @@ docker run \
   urbica/martin
 ```
 
+## Using with Nginx
+
+If you are running martin behind nginx proxy, you may want to rewrite request URL, so martin can properly handle tile urls in TileJSON endpoints.
+
+```nginx
+location ~ /tiles/(?<fwd_path>.*) {
+    proxy_set_header  X-Rewrite-URL $request_uri;
+    proxy_pass        http://martin:3000/$fwd_path$is_args$args;
+}
+```
+
 ## Building from Source
 
 You can clone the repository and build martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
