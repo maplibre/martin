@@ -1,4 +1,3 @@
-#[cfg_attr(feature = "cargo-clippy", allow(clippy))]
 extern crate actix;
 extern crate actix_web;
 extern crate docopt;

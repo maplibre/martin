@@ -24,7 +24,8 @@ pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
             config.table_sources.clone(),
             config.function_sources.clone(),
         )
-    }).bind(listen_addresses.clone())
+    })
+    .bind(listen_addresses.clone())
     .expect(&format!("Can't bind to {}", listen_addresses))
     .keep_alive(keep_alive)
     .shutdown_timeout(0)
