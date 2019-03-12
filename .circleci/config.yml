@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/rust:1.32.0
+      - image: circleci/rust:1.33.0
         environment:
           DATABASE_URL: postgres://postgres@localhost/test
           RUST_LOG: actix_web=debug,postgres=debug,martin=debug

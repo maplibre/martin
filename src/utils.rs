@@ -19,9 +19,9 @@ pub fn build_tilejson(
   let path =
     headers
       .get("x-rewrite-url")
-      .map_or(Ok(path.trim_right_matches(".json")), |header| {
+      .map_or(Ok(path.trim_end_matches(".json")), |header| {
         let header_str = header.to_str()?;
-        Ok(header_str.trim_right_matches(".json"))
+        Ok(header_str.trim_end_matches(".json"))
       })?;
 
   let query = if query_string.is_empty() {
