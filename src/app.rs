@@ -43,7 +43,8 @@ fn get_table_sources(
                     .json(table_sources))
             }
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        }).responder();
+        })
+        .responder();
 
     Ok(response)
 }
@@ -72,7 +73,8 @@ fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
         req.path(),
         req.query_string(),
         req.headers(),
-    ).map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
+    )
+    .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
 
     Ok(HttpResponse::Ok()
         .header("Access-Control-Allow-Origin", "*")
@@ -126,7 +128,8 @@ fn get_table_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        }).responder();
+        })
+        .responder();
 
     Ok(response)
 }
@@ -151,7 +154,8 @@ fn get_function_sources(
                     .json(function_sources))
             }
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        }).responder();
+        })
+        .responder();
 
     Ok(response)
 }
@@ -179,7 +183,8 @@ fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
         req.path(),
         req.query_string(),
         req.headers(),
-    ).map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
+    )
+    .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
 
     Ok(HttpResponse::Ok()
         .header("Access-Control-Allow-Origin", "*")
@@ -232,7 +237,8 @@ fn get_function_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        }).responder();
+        })
+        .responder();
 
     Ok(response)
 }
@@ -265,15 +271,20 @@ pub fn new(
         .middleware(middleware::Logger::default())
         .resource("/index.json", |r| {
             r.method(http::Method::GET).f(get_table_sources)
-        }).resource("/{source_id}.json", |r| {
+        })
+        .resource("/{source_id}.json", |r| {
             r.method(http::Method::GET).f(get_table_source)
-        }).resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
+        })
+        .resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(get_table_source_tile)
-        }).resource("/rpc/index.json", |r| {
+        })
+        .resource("/rpc/index.json", |r| {
             r.method(http::Method::GET).f(get_function_sources)
-        }).resource("/rpc/{source_id}.json", |r| {
+        })
+        .resource("/rpc/{source_id}.json", |r| {
             r.method(http::Method::GET).f(get_function_source)
-        }).resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
+        })
+        .resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
             r.method(http::Method::GET).f(get_function_source_tile)
         })
 }
@@ -320,18 +331,24 @@ mod tests {
                 table_sources: table_sources_rc.clone(),
                 function_sources: function_sources_rc.clone(),
             }
-        }).start(|app| {
+        })
+        .start(|app| {
             app.resource("/index.json", |r| {
                 r.method(http::Method::GET).f(get_table_sources)
-            }).resource("/{source_id}.json", |r| {
+            })
+            .resource("/{source_id}.json", |r| {
                 r.method(http::Method::GET).f(get_table_source)
-            }).resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
+            })
+            .resource("/{source_id}/{z}/{x}/{y}.pbf", |r| {
                 r.method(http::Method::GET).f(get_table_source_tile)
-            }).resource("/rpc/index.json", |r| {
+            })
+            .resource("/rpc/index.json", |r| {
                 r.method(http::Method::GET).f(get_function_sources)
-            }).resource("/rpc/{source_id}.json", |r| {
+            })
+            .resource("/rpc/{source_id}.json", |r| {
                 r.method(http::Method::GET).f(get_function_source)
-            }).resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
+            })
+            .resource("/rpc/{source_id}/{z}/{x}/{y}.pbf", |r| {
                 r.method(http::Method::GET).f(get_function_source_tile)
             });
         })

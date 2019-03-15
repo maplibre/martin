@@ -33,16 +33,50 @@ mod utils;
 mod worker_actor;
 
 use docopt::Docopt;
-use semver::Version;
-use semver::VersionReq;
 use std::env;
 
 use cli::{Args, USAGE};
-use config::build_config;
-use db::{select_postgis_verion, setup_connection_pool};
+use config::{generate_config, read_config, Config};
+use db::{check_postgis_version, setup_connection_pool, PostgresPool};
+use utils::prettify_error;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
+
+fn setup_from_config(args: Args) -> Result<(Config, PostgresPool), std::io::Error> {
+  let file_name = args.flag_config.unwrap();
+
+  let config = read_config(&file_name).map_err(prettify_error("Can't read config"))?;
+
+  let pool = setup_connection_pool(&config.connection_string, args.flag_pool_size)
+    .map_err(prettify_error("Can't setup connection pool"))?;
+
+  Ok((config, pool))
+}
+
+fn setup_from_database(args: Args) -> Result<(Config, PostgresPool), std::io::Error> {
+  let connection_string = if args.arg_connection.is_some() {
+    args.arg_connection.clone().unwrap()
+  } else {
+    env::var("DATABASE_URL").map_err(prettify_error("DATABASE_URL not set"))?
+  };
+
+  let pool = setup_connection_pool(&connection_string, args.flag_pool_size)
+    .map_err(prettify_error("Can't setup connection pool"))?;
+
+  let config = generate_config(args, connection_string, &pool)
+    .map_err(prettify_error("Can't generate config"))?;
+
+  Ok((config, pool))
+}
+
+fn setup(args: Args) -> Result<(Config, PostgresPool), std::io::Error> {
+  if args.flag_config.is_some() {
+    setup_from_config(args)
+  } else {
+    setup_from_database(args)
+  }
+}
 
 fn main() {
   let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
@@ -62,51 +96,16 @@ fn main() {
     std::process::exit(0);
   }
 
-  let conn_string = args
-    .arg_connection
-    .clone()
-    .unwrap_or_else(|| env::var("DATABASE_URL").expect("DATABASE_URL must be set"));
-
   info!("Starting martin v{}", VERSION);
-
-  info!("Connecting to {}", conn_string);
-  let pool = match setup_connection_pool(&conn_string, args.flag_pool_size) {
-    Ok(pool) => {
-      info!("Connected to postgres: {}", conn_string);
-      pool
-    }
+  let (config, pool) = match setup(args) {
+    Ok((config, pool)) => (config, pool),
     Err(error) => {
-      error!("Can't connect to postgres: {}", error);
+      error!("{}", error);
       std::process::exit(-1);
     }
   };
 
-  match select_postgis_verion(&pool) {
-    Ok(postgis_version) => {
-      info!("PostGIS version: {}", postgis_version);
-
-      let req = VersionReq::parse(REQUIRED_POSTGIS_VERSION).unwrap();
-      let version = Version::parse(postgis_version.as_str()).unwrap();
-
-      if !req.matches(&version) {
-        error!("Martin requires PostGIS {}", REQUIRED_POSTGIS_VERSION);
-        std::process::exit(-1);
-      }
-    }
-    Err(error) => {
-      error!("Can't get PostGIS version: {}", error);
-      error!("Martin requires PostGIS {}", REQUIRED_POSTGIS_VERSION);
-      std::process::exit(-1);
-    }
-  };
-
-  let config = match build_config(&pool, args) {
-    Ok(config) => config,
-    Err(error) => {
-      error!("Can't build config: {}", error);
-      std::process::exit(-1);
-    }
-  };
+  check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool);
 
   let listen_addresses = config.listen_addresses.clone();
   info!("Martin has been started on {}.", listen_addresses);

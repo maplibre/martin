@@ -7,6 +7,10 @@ use tilejson::{TileJSON, TileJSONBuilder};
 use super::app::Query;
 use super::source::{Source, XYZ};
 
+pub fn prettify_error<E: std::fmt::Display>(message: &'static str) -> impl Fn(E) -> std::io::Error {
+  move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
+}
+
 pub fn build_tilejson(
   source: Box<dyn Source>,
   connection_info: &ConnectionInfo,
@@ -16,13 +20,12 @@ pub fn build_tilejson(
 ) -> Result<TileJSON, ToStrError> {
   let source_id = source.get_id();
 
-  let path =
-    headers
-      .get("x-rewrite-url")
-      .map_or(Ok(path.trim_end_matches(".json")), |header| {
-        let header_str = header.to_str()?;
-        Ok(header_str.trim_end_matches(".json"))
-      })?;
+  let path = headers
+    .get("x-rewrite-url")
+    .map_or(Ok(path.trim_end_matches(".json")), |header| {
+      let header_str = header.to_str()?;
+      Ok(header_str.trim_end_matches(".json"))
+    })?;
 
   let query = if query_string.is_empty() {
     query_string.to_owned()

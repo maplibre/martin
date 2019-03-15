@@ -15,17 +15,12 @@ impl Default for CoordinatorActor {
 
 impl Actor for CoordinatorActor {
   type Context = Context<Self>;
-
-  fn started(&mut self, _ctx: &mut Self::Context) {
-    info!("Starting CoordinatorActor");
-  }
 }
 
 impl Handler<messages::Connect> for CoordinatorActor {
   type Result = Addr<WorkerActor>;
 
   fn handle(&mut self, msg: messages::Connect, _: &mut Context<Self>) -> Self::Result {
-    info!("WorkerActor connected");
     self.workers.push(msg.addr.clone());
     msg.addr
   }
