@@ -58,7 +58,7 @@ fn setup_from_database(args: Args) -> Result<(Config, PostgresPool), std::io::Er
   let connection_string = if args.arg_connection.is_some() {
     args.arg_connection.clone().unwrap()
   } else {
-    env::var("DATABASE_URL").map_err(prettify_error("DATABASE_URL not set"))?
+    env::var("DATABASE_URL").map_err(prettify_error("DATABASE_URL is not set"))?
   };
 
   let pool = setup_connection_pool(&connection_string, args.flag_pool_size)
@@ -70,12 +70,27 @@ fn setup_from_database(args: Args) -> Result<(Config, PostgresPool), std::io::Er
   Ok((config, pool))
 }
 
-fn setup(args: Args) -> Result<(Config, PostgresPool), std::io::Error> {
-  if args.flag_config.is_some() {
-    setup_from_config(args)
+fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
+  info!("Starting martin v{}", VERSION);
+
+  let (config, pool) = if args.flag_config.is_some() {
+    setup_from_config(args)?
   } else {
-    setup_from_database(args)
+    setup_from_database(args)?
+  };
+
+  let matches = check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool)
+    .map_err(prettify_error("Can't check PostGIS version"))?;
+
+  if !matches {
+    std::process::exit(-1);
   }
+
+  let listen_addresses = config.listen_addresses.clone();
+  let server = server::new(config, pool);
+  info!("Martin has been started on {}.", listen_addresses);
+
+  Ok(server)
 }
 
 fn main() {
@@ -96,20 +111,13 @@ fn main() {
     std::process::exit(0);
   }
 
-  info!("Starting martin v{}", VERSION);
-  let (config, pool) = match setup(args) {
-    Ok((config, pool)) => (config, pool),
+  let server = match start(args) {
+    Ok(server) => server,
     Err(error) => {
       error!("{}", error);
       std::process::exit(-1);
     }
   };
 
-  check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool);
-
-  let listen_addresses = config.listen_addresses.clone();
-  info!("Martin has been started on {}.", listen_addresses);
-
-  let server = server::new(config, pool);
   let _ = server.run();
 }

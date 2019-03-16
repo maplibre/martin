@@ -31,23 +31,26 @@ pub fn select_postgis_verion(pool: &PostgresPool) -> io::Result<String> {
   Ok(version)
 }
 
-pub fn check_postgis_version(required_postgis_version: &str, pool: &PostgresPool) {
-  match select_postgis_verion(&pool) {
-    Ok(postgis_version) => {
-      let req = VersionReq::parse(required_postgis_version).unwrap();
-      let version = Version::parse(postgis_version.as_str()).unwrap();
-      if !req.matches(&version) {
-        error!(
-          "Martin requires PostGIS {}, current version is {}",
-          required_postgis_version, postgis_version
-        );
-        std::process::exit(-1);
-      }
-    }
-    Err(error) => {
-      error!("Can't get PostGIS version: {}", error);
-      error!("Martin requires PostGIS {}", required_postgis_version);
-      std::process::exit(-1);
-    }
-  };
+pub fn check_postgis_version(
+  required_postgis_version: &str,
+  pool: &PostgresPool,
+) -> io::Result<bool> {
+  let postgis_version = select_postgis_verion(&pool)?;
+
+  let req = VersionReq::parse(required_postgis_version)
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+
+  let version = Version::parse(postgis_version.as_str())
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+
+  let matches = req.matches(&version);
+
+  if !matches {
+    error!(
+      "Martin requires PostGIS {}, current version is {}",
+      required_postgis_version, postgis_version
+    );
+  }
+
+  Ok(matches)
 }
