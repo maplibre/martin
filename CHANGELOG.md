@@ -1,3 +1,20 @@
+<a name="0.3.0"></a>
+
+## 0.3.0 (2019-03-16)
+
+#### Features
+
+- 🎸 add watch mode for dynamic source updates #12 ([5eeef48b](https://github.com/urbica/martin/commit/5eeef48b30ae22df83d1cff12ea1c6410e741b6b))
+- 🎸 add database `connection_string` support in config ([0eb5115b](https://github.com/urbica/martin/commit/0eb5115ba161e3d40e74fab4814d171b55de6804))
+
+#### Bug Fixes
+
+- 🐛 check if PostGIS is installed when starting ([e7c4dcfa](https://github.com/urbica/martin/commit/e7c4dcfa140fa6bc774fe185cb57159eeb9062e7))
+
+#### BREAKING CHANGES
+
+- 💡 remove table sources filter support ([a7c17934](https://github.com/urbica/martin/commit/a7c17934e2ea4188b2d4bd20e714441f30ea2731))
+
 <a name="0.2.0"></a>
 
 ## 0.2.0 (2018-11-02)
