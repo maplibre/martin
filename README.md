@@ -85,6 +85,8 @@ Table Sources list endpoint is available at `/index.json`
 curl localhost:3000/index.json
 ```
 
+**Note**: if in `watch` mode, this will rescan database for table sources.
+
 ### Table Source TileJSON
 
 Table Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{schema_name}.{table_name}.json`.
@@ -146,6 +148,8 @@ Function Sources list endpoint is available at `/rpc/index.json`
 curl localhost:3000/rpc/index.json
 ```
 
+**Note**: if in `watch` mode, this will rescan database for function sources.
+
 ### Function Source TileJSON
 
 Function Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/rpc/{schema_name}.{function_name}.json`
@@ -179,11 +183,12 @@ Usage:
 Options:
   -h --help               Show this screen.
   -v --version            Show version.
-  --workers=<n>           Number of web server workers.
-  --pool_size=<n>         Maximum connections pool size [default: 20].
+  --config=<path>         Path to config file.
   --keep_alive=<n>        Connection keep alive timeout [default: 75].
   --listen_addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
-  --config=<path>         Path to config file.
+  --pool_size=<n>         Maximum connections pool size [default: 20].
+  --watch                 Scan for new sources on sources list requests
+  --workers=<n>           Number of web server workers.
 ```
 
 ## Environment Variables
@@ -194,8 +199,9 @@ You can also configure martin using environment variables
 | -------------------- | -------------------------------- | ----------------------------- |
 | DATABASE_URL         | postgres://postgres@localhost/db | postgres database connection  |
 | DATABASE_POOL_SIZE   | 20                               | maximum connections pool size |
-| WORKER_PROCESSES     | 8                                | number of web server workers  |
 | KEEP_ALIVE           | 75                               | connection keep alive timeout |
+| WATCH_MODE           | true                             | scan for new sources          |
+| WORKER_PROCESSES     | 8                                | number of web server workers  |
 
 ## Configuration File
 
@@ -208,6 +214,9 @@ martin --config config.yaml
 You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
 
 ```yaml
+# Database connection string
+connection_string: 'postgres://postgres@localhost/db'
+
 # Maximum connections pool size [default: 20]
 pool_size: 20
 
@@ -219,6 +228,9 @@ worker_processes: 8
 
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
+
+# Enable watch mode
+watch: true
 
 # associative arrays of table sources
 table_sources:

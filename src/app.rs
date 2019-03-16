@@ -1,6 +1,6 @@
 use actix::*;
 use actix_web::*;
-use futures::future::Future;
+use futures::future::{result, Future};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -20,33 +20,49 @@ pub struct State {
     coordinator: Addr<CoordinatorActor>,
     table_sources: Rc<RefCell<Option<TableSources>>>,
     function_sources: Rc<RefCell<Option<FunctionSources>>>,
+    watch_mode: bool,
 }
 
 fn get_table_sources(
     req: &HttpRequest<State>,
 ) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
-    let coordinator = state.coordinator.clone();
+    if state.watch_mode {
+        info!("Scanning database for table sources");
+        let coordinator = state.coordinator.clone();
+        let result = req.state().db.send(messages::GetTableSources {});
 
-    let result = req.state().db.send(messages::GetTableSources {});
+        let response = result
+            .from_err()
+            .and_then(move |res| match res {
+                Ok(table_sources) => {
+                    coordinator.do_send(messages::RefreshTableSources {
+                        table_sources: Some(table_sources.clone()),
+                    });
 
-    let response = result
-        .from_err()
-        .and_then(move |res| match res {
-            Ok(table_sources) => {
-                coordinator.do_send(messages::RefreshTableSources {
-                    table_sources: Some(table_sources.clone()),
-                });
+                    Ok(HttpResponse::Ok()
+                        .header("Access-Control-Allow-Origin", "*")
+                        .json(table_sources))
+                }
+                Err(_) => Ok(HttpResponse::InternalServerError().into()),
+            })
+            .responder();
 
-                Ok(HttpResponse::Ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .json(table_sources))
-            }
-            Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .responder();
+        return Ok(response);
+    }
 
-    Ok(response)
+    let table_sources = state
+        .table_sources
+        .borrow()
+        .clone()
+        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
+
+    let http_response = HttpResponse::Ok()
+        .header("Access-Control-Allow-Origin", "*")
+        .json(table_sources);
+
+    let response = result(Ok(http_response)).responder();
+    return Ok(response);
 }
 
 fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -138,26 +154,42 @@ fn get_function_sources(
     req: &HttpRequest<State>,
 ) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
-    let coordinator = state.coordinator.clone();
+    if state.watch_mode {
+        info!("Scanning database for function sources");
+        let coordinator = state.coordinator.clone();
 
-    let result = req.state().db.send(messages::GetFunctionSources {});
-    let response = result
-        .from_err()
-        .and_then(move |res| match res {
-            Ok(function_sources) => {
-                coordinator.do_send(messages::RefreshFunctionSources {
-                    function_sources: Some(function_sources.clone()),
-                });
+        let result = req.state().db.send(messages::GetFunctionSources {});
+        let response = result
+            .from_err()
+            .and_then(move |res| match res {
+                Ok(function_sources) => {
+                    coordinator.do_send(messages::RefreshFunctionSources {
+                        function_sources: Some(function_sources.clone()),
+                    });
 
-                Ok(HttpResponse::Ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .json(function_sources))
-            }
-            Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .responder();
+                    Ok(HttpResponse::Ok()
+                        .header("Access-Control-Allow-Origin", "*")
+                        .json(function_sources))
+                }
+                Err(_) => Ok(HttpResponse::InternalServerError().into()),
+            })
+            .responder();
 
-    Ok(response)
+        return Ok(response);
+    }
+
+    let function_sources = state
+        .function_sources
+        .borrow()
+        .clone()
+        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
+
+    let http_response = HttpResponse::Ok()
+        .header("Access-Control-Allow-Origin", "*")
+        .json(function_sources);
+
+    let response = result(Ok(http_response)).responder();
+    return Ok(response);
 }
 
 fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -248,6 +280,7 @@ pub fn new(
     coordinator: Addr<CoordinatorActor>,
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,
+    watch_mode: bool,
 ) -> App<State> {
     let table_sources_rc = Rc::new(RefCell::new(table_sources));
     let function_sources_rc = Rc::new(RefCell::new(function_sources));
@@ -265,6 +298,7 @@ pub fn new(
         coordinator,
         table_sources: table_sources_rc.clone(),
         function_sources: function_sources_rc.clone(),
+        watch_mode,
     };
 
     App::with_state(state)
@@ -328,6 +362,7 @@ mod tests {
             State {
                 db,
                 coordinator,
+                watch_mode: true,
                 table_sources: table_sources_rc.clone(),
                 function_sources: function_sources_rc.clone(),
             }

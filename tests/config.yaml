@@ -1,15 +1,21 @@
 ---
-# Maximum connections pool size [default: 20]
-pool_size: 20
+# Database connection string
+connection_string: "postgres://postgres@localhost/test"
 
 # Connection keep alive timeout [default: 75]
 keep_alive: 75
 
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: "0.0.0.0:3000"
+
+# Maximum connections pool size [default: 20]
+pool_size: 20
+
+# Enable watch mode
+watch: false
+
 # Number of web server workers
 worker_processes: 8
-
-# The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
 
 # associative arrays of table sources
 table_sources:

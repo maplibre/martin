@@ -12,6 +12,7 @@ use super::table_source::{get_table_sources, TableSources};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Config {
+  pub watch: bool,
   pub pool_size: u32,
   pub keep_alive: usize,
   pub worker_processes: usize,
@@ -23,6 +24,7 @@ pub struct Config {
 
 #[derive(Deserialize)]
 struct ConfigBuilder {
+  pub watch: Option<bool>,
   pub pool_size: Option<u32>,
   pub keep_alive: Option<usize>,
   pub worker_processes: Option<usize>,
@@ -35,6 +37,7 @@ struct ConfigBuilder {
 impl ConfigBuilder {
   pub fn finalize(self) -> Config {
     Config {
+      watch: self.watch.unwrap_or(false),
       pool_size: self.pool_size.unwrap_or(20),
       keep_alive: self.keep_alive.unwrap_or(75),
       worker_processes: self.worker_processes.unwrap_or_else(num_cpus::get),
@@ -59,16 +62,6 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
   Ok(config_builder.finalize())
 }
 
-// pub fn write_config(file_name: &str, config: Config) -> io::Result<()> {
-//   let mut file = File::create(file_name)?;
-
-//   let config = serde_yaml::to_string(&config)
-//     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
-
-//   file.write_all(config.as_bytes())?;
-//   Ok(())
-// }
-
 pub fn generate_config(
   args: Args,
   connection_string: String,
@@ -82,6 +75,7 @@ pub fn generate_config(
   let function_sources = get_function_sources(&conn)?;
 
   let config = ConfigBuilder {
+    watch: Some(args.flag_watch),
     keep_alive: args.flag_keep_alive,
     listen_addresses: args.flag_listen_addresses,
     connection_string: connection_string,
@@ -94,10 +88,3 @@ pub fn generate_config(
   let config = config.finalize();
   Ok(config)
 }
-
-// pub fn to_string(config: Config) -> io::Result<String> {
-//   let config = serde_yaml::to_string(&config)
-//     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
-
-//   Ok(config)
-// }

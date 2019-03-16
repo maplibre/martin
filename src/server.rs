@@ -7,7 +7,7 @@ use super::coordinator_actor::CoordinatorActor;
 use super::db::PostgresPool;
 use super::db_executor::DbExecutor;
 
-pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
+pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner {
     let server = System::new("server");
 
     let db = SyncArbiter::start(3, move || DbExecutor(pool.clone()));
@@ -23,6 +23,7 @@ pub fn new(config: Config, pool: PostgresPool) -> SystemRunner {
             coordinator.clone(),
             config.table_sources.clone(),
             config.function_sources.clone(),
+            watch_mode,
         )
     })
     .bind(listen_addresses.clone())

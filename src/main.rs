@@ -75,8 +75,9 @@ fn setup_from_database(args: Args) -> Result<(Config, PostgresPool), std::io::Er
 fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
   info!("Starting martin v{}", VERSION);
 
-  let (config, pool) = if args.flag_config.is_some() {
-    let file_name = args.flag_config.unwrap();
+  let config_file_name = args.flag_config.clone();
+  let (config, pool) = if config_file_name.is_some() {
+    let file_name = config_file_name.clone().unwrap();
     info!("Using {}", file_name);
     setup_from_config(file_name)?
   } else {
@@ -91,8 +92,13 @@ fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
     std::process::exit(-1);
   }
 
+  let watch_mode = config.watch || env::var_os("WATCH_MODE").is_some();
+  if watch_mode {
+    info!("Watch mode enabled");
+  }
+
   let listen_addresses = config.listen_addresses.clone();
-  let server = server::new(config, pool);
+  let server = server::new(pool, config, watch_mode);
   info!("Martin has been started on {}.", listen_addresses);
 
   Ok(server)

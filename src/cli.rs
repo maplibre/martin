@@ -9,21 +9,23 @@ Usage:
 Options:
   -h --help               Show this screen.
   -v --version            Show version.
-  --workers=<n>           Number of web server workers.
-  --pool_size=<n>         Maximum connections pool size [default: 20].
+  --config=<path>         Path to config file.
   --keep_alive=<n>        Connection keep alive timeout [default: 75].
   --listen_addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
-  --config=<path>         Path to config file.
+  --pool_size=<n>         Maximum connections pool size [default: 20].
+  --watch                 Scan for new sources on sources list requests
+  --workers=<n>           Number of web server workers.
 ";
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
+  pub arg_connection: Option<String>,
+  pub flag_config: Option<String>,
   pub flag_help: bool,
-  pub flag_version: bool,
-  pub flag_workers: Option<usize>,
-  pub flag_pool_size: Option<u32>,
   pub flag_keep_alive: Option<usize>,
   pub flag_listen_addresses: Option<String>,
-  pub flag_config: Option<String>,
-  pub arg_connection: Option<String>,
+  pub flag_pool_size: Option<u32>,
+  pub flag_watch: bool,
+  pub flag_version: bool,
+  pub flag_workers: Option<usize>,
 }
