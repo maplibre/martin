@@ -3,7 +3,6 @@ extern crate actix_web;
 extern crate docopt;
 extern crate env_logger;
 extern crate futures;
-extern crate mapbox_expressions_to_sql;
 extern crate tilejson;
 #[macro_use]
 extern crate log;

@@ -1,4 +1,3 @@
-use mapbox_expressions_to_sql;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
@@ -34,7 +33,7 @@ impl Source for TableSource {
     &self,
     conn: &PostgresConnection,
     xyz: &XYZ,
-    query: &Query,
+    _query: &Query,
   ) -> Result<Tile, io::Error> {
     let mercator_bounds = utils::tilebbox(xyz);
 
@@ -65,10 +64,6 @@ impl Source for TableSource {
       .clone()
       .map_or("".to_string(), |id_column| format!(", '{}'", id_column));
 
-    let condition = query
-      .get("filter")
-      .and_then(|filter| mapbox_expressions_to_sql::parse(filter).ok());
-
     let query = format!(
       include_str!("scripts/get_tile.sql"),
       id = self.id,
@@ -80,8 +75,7 @@ impl Source for TableSource {
       extent = self.extent.unwrap_or(DEFAULT_EXTENT),
       buffer = self.buffer.unwrap_or(DEFAULT_BUFFER),
       clip_geom = self.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
-      properties = properties,
-      condition = condition.map_or("".to_string(), |condition| format!("AND {}", condition)),
+      properties = properties
     );
 
     let tile: Tile = conn
