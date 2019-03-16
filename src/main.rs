@@ -43,13 +43,13 @@ use utils::prettify_error;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
 
-fn setup_from_config(args: Args) -> Result<(Config, PostgresPool), std::io::Error> {
-  let file_name = args.flag_config.unwrap();
-
+fn setup_from_config(file_name: String) -> Result<(Config, PostgresPool), std::io::Error> {
   let config = read_config(&file_name).map_err(prettify_error("Can't read config"))?;
 
-  let pool = setup_connection_pool(&config.connection_string, args.flag_pool_size)
+  let pool = setup_connection_pool(&config.connection_string, Some(config.pool_size))
     .map_err(prettify_error("Can't setup connection pool"))?;
+
+  info!("Connected to {}", config.connection_string);
 
   Ok((config, pool))
 }
@@ -64,6 +64,8 @@ fn setup_from_database(args: Args) -> Result<(Config, PostgresPool), std::io::Er
   let pool = setup_connection_pool(&connection_string, args.flag_pool_size)
     .map_err(prettify_error("Can't setup connection pool"))?;
 
+  info!("Connected to {}", connection_string);
+
   let config = generate_config(args, connection_string, &pool)
     .map_err(prettify_error("Can't generate config"))?;
 
@@ -74,8 +76,11 @@ fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
   info!("Starting martin v{}", VERSION);
 
   let (config, pool) = if args.flag_config.is_some() {
-    setup_from_config(args)?
+    let file_name = args.flag_config.unwrap();
+    info!("Using {}", file_name);
+    setup_from_config(file_name)?
   } else {
+    info!("Config is not set, scanning database");
     setup_from_database(args)?
   };
 

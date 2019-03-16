@@ -61,7 +61,7 @@ pub fn get_function_sources(conn: &PostgresConnection) -> Result<FunctionSources
     let function: String = row.get("routine_name");
     let id = format!("{}.{}", schema, function);
 
-    info!("{} function found", id);
+    info!("Found {} function source", id);
 
     let source = FunctionSource {
       id: id.clone(),

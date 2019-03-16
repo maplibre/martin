@@ -112,7 +112,7 @@ pub fn get_table_sources(conn: &PostgresConnection) -> Result<TableSources, io::
     let geometry_column: String = row.get("f_geometry_column");
     let srid: i32 = row.get("srid");
 
-    info!("{} table found", id);
+    info!("Found {} table source", id);
 
     if srid == 0 {
       warn!("{} has SRID 0, skipping", id);
