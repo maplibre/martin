@@ -55,14 +55,14 @@ martin postgres://postgres@localhost/db
 
 ## API
 
-| URL                                                      | Description                                           |
-| -------------------------------------------------------- | ----------------------------------------------------- |
-| `GET /index.json`                                        | [Table Sources List](#table-sources-list)             |
-| `GET /{schema_name}.{table_name}.json`                   | [Table Source TileJSON](#table-source-tilejson)       |
-| `GET /{schema_name}.{table_name}/{z}/{x}/{y}.pbf`        | [Table Source Tiles](#table-source-tiles)             |
-| `GET /rpc/index.json`                                    | [Function Sources List](#function-sources-list)       |
-| `GET /rpc/{schema_name}.{function_name}.json`            | [Function Source TileJSON](#function-source-tilejson) |
-| `GET /rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf` | [Function Source Tiles](#function-source-tiles)       |
+| Method | URL                                                  | Description                                           |
+| ------ | ---------------------------------------------------- | ----------------------------------------------------- |
+| `GET`  | `/index.json`                                        | [Table Sources List](#table-sources-list)             |
+| `GET`  | `/{schema_name}.{table_name}.json`                   | [Table Source TileJSON](#table-source-tilejson)       |
+| `GET`  | `/{schema_name}.{table_name}/{z}/{x}/{y}.pbf`        | [Table Source Tiles](#table-source-tiles)             |
+| `GET`  | `/rpc/index.json`                                    | [Function Sources List](#function-sources-list)       |
+| `GET`  | `/rpc/{schema_name}.{function_name}.json`            | [Function Source TileJSON](#function-source-tilejson) |
+| `GET`  | `/rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf` | [Function Source Tiles](#function-source-tiles)       |
 
 ## Using with Mapbox GL JS
 
