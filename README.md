@@ -11,6 +11,7 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [API](#api)
 - [Using with Mapbox GL JS](#using-with-mapbox-gl-js)
 - [Table Sources](#table-sources)
   - [Table Sources List](#table-sources-list)
@@ -51,6 +52,17 @@ Martin requires a database connection string. It can be passed as a command-line
 ```shell
 martin postgres://postgres@localhost/db
 ```
+
+## API
+
+| URL                                                      | Description                                           |
+| -------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /index.json`                                        | [Table Sources List](#table-sources-list)             |
+| `GET /{schema_name}.{table_name}.json`                   | [Table Source TileJSON](#table-source-tilejson)       |
+| `GET /{schema_name}.{table_name}/{z}/{x}/{y}.pbf`        | [Table Source Tiles](#table-source-tiles)             |
+| `GET /rpc/index.json`                                    | [Function Sources List](#function-sources-list)       |
+| `GET /rpc/{schema_name}.{function_name}.json`            | [Function Source TileJSON](#function-source-tilejson) |
+| `GET /rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf` | [Function Source Tiles](#function-source-tiles)       |
 
 ## Using with Mapbox GL JS
 
@@ -122,7 +134,7 @@ Function Source is a database function which can be used to query [vector tiles]
 
 Here is an example of a function that can be used as a Function Source.
 
-```plsql
+```sql
 CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS BYTEA AS $$
 DECLARE
   bounds GEOMETRY(POLYGON, 3857) := TileBBox(z, x, y, 3857);
