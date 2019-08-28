@@ -25,6 +25,7 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Environment Variables](#environment-variables)
 - [Configuration File](#configuration-file)
 - [Using with Docker](#using-with-docker)
+- [Using with Docker Compose](#using-with-docker-compose)
 - [Using with Nginx](#using-with-nginx)
 - [Building from Source](#building-from-source)
 - [Debugging](#debugging)
@@ -331,6 +332,49 @@ docker run \
   -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
   urbica/martin
 ```
+
+## Using with Docker Compose
+
+You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/urbica/martin/master/docker-compose.yml) file as a reference
+
+```yml
+version: '3'
+
+services:
+  martin:
+    image: urbica/martin
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    environment:
+      - WATCH_MODE=true
+      - DATABASE_URL=postgres://postgres@db/db
+    depends_on:
+      - db
+
+  db:
+    image: mdillon/postgis:11-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+```
+
+First, you need to start `db` service
+
+```shell
+docker-compose up -d db
+```
+
+Then, after `db` service is ready to accept connections, you can start `martin`
+
+```shell
+docker-compose up -d martin
+```
+
+By default, martin will be available at [localhost:3000](http://localhost:3000/index.json)
 
 ## Using with Nginx
 

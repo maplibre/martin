@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  martin:
+    image: urbica/martin
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    environment:
+      - WATCH_MODE=true
+      - DATABASE_URL=postgres://postgres@db/db
+    depends_on:
+      - db
+
+  db:
+    image: mdillon/postgis:11-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data

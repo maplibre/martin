@@ -2,7 +2,5 @@
 /target/
 **/*.rs.bk
 
-db
-sql
+pg_data/
 config.yml
-docker-compose.yml
