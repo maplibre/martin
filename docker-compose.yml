@@ -15,6 +15,8 @@ services:
   db:
     image: mdillon/postgis:11-alpine
     restart: unless-stopped
+    ports:
+      - 5432:5432
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
