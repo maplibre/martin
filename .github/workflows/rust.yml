@@ -42,7 +42,7 @@ jobs:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
 
       - name: Run server
-        run: ./target/debug/martin
+        run: ./target/debug/martin &
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
 
