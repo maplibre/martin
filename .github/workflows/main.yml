@@ -1,0 +1,185 @@
+name: Main
+
+on: [push, pull_request]
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v1
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v1
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install clippy
+        run: rustup component add clippy
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v1
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        continue-on-error: true # WARNING: only for this example, remove it!
+        with:
+          command: fmt
+          args: --all -- --check
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: mdillon/postgis:11-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+        ports:
+          # will assign a random free host port
+          - 5432/tcp
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v1
+
+      - name: Setup database
+        run: |
+          sudo apt-get install postgresql-client
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/TileBBox.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/table_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source.sql
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+        env:
+          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
+
+      - name: Run build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
+      - name: Run server
+        run: |
+          ./target/debug/martin &
+          curl localhost:3000/public.table_source/0/0/0.pbf > table_source.pbf
+          curl localhost:3000/rpc/public.function_source/0/0/0.pbf > function_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          ./tests/vtzero-show function_source.pbf
+        env:
+          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
+
+  release:
+    needs: [test]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
+            bin: martin
+            name: martin-Linux-x86_64.tar.gz
+          - os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+            bin: martin.exe
+            name: martin-Windows-x86_64.zip
+          - os: macOS-latest
+            rust: stable
+            target: x86_64-apple-darwin
+            bin: martin
+            name: martin-Darwin-x86_64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          target: ${{ matrix.target }}
+      - name: Install musl tools
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y musl-tools
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        run: |
+          strip target/${{ matrix.target }}/release/${{ matrix.bin }}
+          cd target/${{ matrix.target }}/release
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]
+          then
+            7z a ../../../${{ matrix.name }} ${{ matrix.bin }}
+          else
+            tar czvf ../../../${{ matrix.name }} ${{ matrix.bin }}
+          fi
+          cd -
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: "martin*"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
