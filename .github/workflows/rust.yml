@@ -41,12 +41,12 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
 
-      - name: Run server
+      - name: Run server in background
         run: ./target/debug/martin &
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
 
-      - name: Run server
+      - name: Test server tile responses
         run: |
           curl localhost:3000/public.table_source/0/0/0.pbf > table_source.pbf
           curl localhost:3000/rpc/public.function_source/0/0/0.pbf > function_source.pbf
