@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Build
+        run: cargo build --release
+      - name: Compress
+        run: |
+          cd ./target/release
+          zip martin-linux-${{ github.ref }}.zip martin
+          shasum -a 256 martin-linux-${{ github.ref }}.zip
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: martin-linux-${{ github.ref }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  macos:
+    runs-on: macOS-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Build
+        run: cargo build --release
+      - name: Compress
+        run: |
+          cd ./target/release
+          zip martin-macos-${{ github.ref }}.zip martin
+          shasum -a 256 martin-macos-${{ github.ref }}.zip
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: martin-macos-${{ github.ref }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
