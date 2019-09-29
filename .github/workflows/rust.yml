@@ -36,3 +36,7 @@ jobs:
         POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }} # get randomly assigned published port
     - name: Run tests
       run: cargo test --verbose
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+        DATABASE_URL: postgres://postgres@$POSTGRES_HOST:$POSTGRES_PORT/test
