@@ -15,6 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v1
 
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+
+      - name: Run checks
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -28,8 +39,6 @@ jobs:
 
       - name: Build assets
         run: |
-          cargo install clog-cli
-          clog --setversion ${{ github.ref }}
           cd ./target/release
           zip martin-${{ matrix.os }}-${{ github.ref }}.zip martin
           shasum -a 256 martin-${{ matrix.os }}-${{ github.ref }}.zip
