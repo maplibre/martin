@@ -197,9 +197,9 @@ Options:
   -h --help               Show this screen.
   -v --version            Show version.
   --config=<path>         Path to config file.
-  --keep_alive=<n>        Connection keep alive timeout [default: 75].
-  --listen_addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
-  --pool_size=<n>         Maximum connections pool size [default: 20].
+  --keep-alive=<n>        Connection keep alive timeout [default: 75].
+  --listen-addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
+  --pool-size=<n>         Maximum connections pool size [default: 20].
   --watch                 Scan for new sources on sources list requests
   --workers=<n>           Number of web server workers.
 ```
