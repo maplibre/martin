@@ -21,11 +21,6 @@ jobs:
           toolchain: stable
           default: true
 
-      - name: Run checks
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -35,27 +30,24 @@ jobs:
       - name: Create changelog
         run: |
           ls -las
-          echo $TAG
           cargo install clog-cli
-          clog --from-latest-tag -i '' -o RELEASENOTES.md --setversion $TAG
+          clog --from-latest-tag -i '' -o RELEASENOTES.md --setversion $(git describe --tags --abbrev=0)
           cat RELEASENOTES.md
-        env:
-          TAG: $(git describe --tags --abbrev=0)
 
       - name: Build assets
         run: |
           ls -las
+          ls -las target
+          ls -las target/release
           cd ./target/release
-          zip martin-${{ matrix.os }}-$TAG.zip martin
-          shasum -a 256 martin-${{ matrix.os }}-$TAG.zip
-        env:
-          TAG: $(git describe --tags --abbrev=0)
+          export ARCHIVE=martin-${{ matrix.os }}-$(git describe --tags --abbrev=0).zip
+          zip $ARCHIVE martin
+          shasum -a 256 $ARCHIVE
 
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           body_path: RELEASENOTES.md
-          files: martin-${{ matrix.os }}-$TAG.zip
+          files: martin-${{ matrix.os }}-$(git describe --tags --abbrev=0).zip
         env:
-          TAG: $(git describe --tags --abbrev=0)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
