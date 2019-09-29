@@ -34,19 +34,28 @@ jobs:
 
       - name: Create changelog
         run: |
+          ls -las
+          echo $TAG
           cargo install clog-cli
-          clog --from-latest-tag -i '' -o RELEASENOTES.md --setversion ${{ github.ref }}
+          clog --from-latest-tag -i '' -o RELEASENOTES.md --setversion $TAG
+          cat RELEASENOTES.md
+        env:
+          TAG: $(git describe --tags --abbrev=0)
 
       - name: Build assets
         run: |
+          ls -las
           cd ./target/release
-          zip martin-${{ matrix.os }}-${{ github.ref }}.zip martin
-          shasum -a 256 martin-${{ matrix.os }}-${{ github.ref }}.zip
+          zip martin-${{ matrix.os }}-$TAG.zip martin
+          shasum -a 256 martin-${{ matrix.os }}-$TAG.zip
+        env:
+          TAG: $(git describe --tags --abbrev=0)
 
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           body_path: RELEASENOTES.md
-          files: martin-${{ matrix.os }}-${{ github.ref }}.zip
+          files: martin-${{ matrix.os }}-$TAG.zip
         env:
+          TAG: $(git describe --tags --abbrev=0)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
