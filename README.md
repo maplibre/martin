@@ -1,6 +1,6 @@
 # Martin
 
-[![CircleCI](https://img.shields.io/circleci/project/github/urbica/martin.svg?style=popout)](https://circleci.com/gh/urbica/martin)
+[![Rust](https://github.com/urbica/martin/workflows/Rust/badge.svg)](https://github.com/urbica/martin/actions)
 [![Docker pulls](https://img.shields.io/docker/pulls/urbica/martin.svg)](https://hub.docker.com/r/urbica/martin)
 [![Metadata](https://images.microbadger.com/badges/image/urbica/martin.svg)](https://microbadger.com/images/urbica/martin)
 
