@@ -7,39 +7,34 @@ on:
 
 jobs:
   linux:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v1
-      - name: Build
-        run: cargo build --release
-      - name: Compress
-        run: |
-          cd ./target/release
-          zip martin-linux-${{ github.ref }}.zip martin
-          shasum -a 256 martin-linux-${{ github.ref }}.zip
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: martin-linux-${{ github.ref }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  macos:
-    runs-on: macOS-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
       - name: Build
         run: cargo build --release
-      - name: Compress
+
+      - name: Create changelog
         run: |
+          cargo install clog-cli
+          clog --from-latest-tag -i '' -o RELEASENOTES.md --setversion ${{ github.ref }}
+
+      - name: Build assets
+        run: |
+          cargo install clog-cli
+          clog --setversion ${{ github.ref }}
           cd ./target/release
-          zip martin-macos-${{ github.ref }}.zip martin
-          shasum -a 256 martin-macos-${{ github.ref }}.zip
+          zip martin-${{ matrix.os }}-${{ github.ref }}.zip martin
+          shasum -a 256 martin-${{ matrix.os }}-${{ github.ref }}.zip
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: martin-macos-${{ github.ref }}.zip
+          body_path: RELEASENOTES.md
+          files: martin-${{ matrix.os }}-${{ github.ref }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
