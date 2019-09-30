@@ -178,6 +178,7 @@ jobs:
             tar czvf ../../../${{ matrix.name }} ${{ matrix.bin }}
           fi
           cd -
+          shasum -a 256 ${{ matrix.name }}
       - name: Publish
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
