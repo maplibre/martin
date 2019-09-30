@@ -187,6 +187,7 @@ jobs:
           cargo install clog-cli
           echo "Creating release notes from $PREVIOUS_TAG to $CURRENT_TAG"
           clog -f $PREVIOUS_TAG --setversion $CURRENT_TAG -i '' -o RELEASENOTES.md
+          cat RELEASENOTES.md
         if: startsWith(github.ref, 'refs/tags/')
       - name: Publish
         uses: softprops/action-gh-release@v1
