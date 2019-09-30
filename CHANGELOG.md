@@ -14,9 +14,7 @@ listen-addresses, pool_size -> pool-size
 
 * 🐛 use dashes in CLI args instead of underscore ([13bec40](https://github.com/urbica/martin/commit/13bec40)), closes [#21](https://github.com/urbica/martin/issues/21)
 
-<a name="0.3.0"></a>
-
-## 0.3.0 (2019-03-16)
+## [0.3.0](https://github.com/urbica/martin/compare/v0.2.0...v0.3.0) (2019-03-16)
 
 #### Features
 
@@ -31,9 +29,7 @@ listen-addresses, pool_size -> pool-size
 
 - 💡 remove table sources filter support ([a7c17934](https://github.com/urbica/martin/commit/a7c17934e2ea4188b2d4bd20e714441f30ea2731))
 
-<a name="0.2.0"></a>
-
-## 0.2.0 (2018-11-02)
+## [0.2.0](https://github.com/urbica/martin/compare/v0.1.0...v0.2.0) (2018-11-02)
 
 #### Features
 
@@ -42,8 +38,6 @@ listen-addresses, pool_size -> pool-size
 #### Bug Fixes
 
 - function source query params parsing ([8ac2812d](https://github.com/urbica/martin/commit/8ac2812d05ae993ea5c9013877ab4c6a1906454a))
-
-<a name="0.1.0"></a>
 
 ## 0.1.0 (2018-11-02)
 
