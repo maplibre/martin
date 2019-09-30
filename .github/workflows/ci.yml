@@ -178,7 +178,9 @@ jobs:
             tar czvf ../../../${{ matrix.name }} ${{ matrix.bin }}
           fi
           cd -
-          shasum -a 256 ${{ matrix.name }}
+      - name: Generate SHA-256
+        if: matrix.os == 'macOS-latest'
+        run: shasum -a 256 ${{ matrix.name }}
       - name: Publish
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
