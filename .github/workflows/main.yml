@@ -113,16 +113,18 @@ jobs:
           command: build
 
       - name: Run server
+        run: ./target/debug/martin &
+        env:
+          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
+
+      - name: Test server response
         run: |
-          ./target/debug/martin &
           curl localhost:3000/public.table_source/0/0/0.pbf > table_source.pbf
           curl localhost:3000/rpc/public.function_source/0/0/0.pbf > function_source.pbf
           ./tests/vtzero-check table_source.pbf
           ./tests/vtzero-check function_source.pbf
           ./tests/vtzero-show table_source.pbf
           ./tests/vtzero-show function_source.pbf
-        env:
-          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
 
   release:
     needs: [test]
