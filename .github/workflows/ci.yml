@@ -126,6 +126,14 @@ jobs:
           ./tests/vtzero-show table_source.pbf
           ./tests/vtzero-show function_source.pbf
 
+  docker:
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build the Docker image
+        run: docker build -t docker.pkg.github.com/urbica/martin/martin:latest .
+
   release:
     needs: [test]
     strategy:
