@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.4.0](https://github.com/urbica/martin/compare/v0.3.0...v0.4.0) (2019-09-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* renamed CLI args: keep_alive -> keep-alive, listen_addresses ->
+listen-addresses, pool_size -> pool-size
+
+### Bug Fixes
+
+* 🐛 use dashes in CLI args instead of underscore ([13bec40](https://github.com/urbica/martin/commit/13bec40)), closes [#21](https://github.com/urbica/martin/issues/21)
+
 ## [0.3.0](https://github.com/urbica/martin/compare/v0.2.0...v0.3.0) (2019-03-16)
 
 #### Features
