@@ -1,6 +1,9 @@
 name: Docker Image CI
 
-on: [push]
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
@@ -13,4 +16,3 @@ jobs:
         run: |
           docker login docker.pkg.github.com -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           docker push docker.pkg.github.com/urbica/martin/martin:latest
-        if: github.ref == 'refs/heads/master'
