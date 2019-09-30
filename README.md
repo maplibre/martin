@@ -39,11 +39,27 @@ Martin requires PostGIS >= 2.4.0.
 
 You can download martin from [Github releases page](https://github.com/urbica/martin/releases).
 
+| Platform | Downloads (latest)      |
+| -------- | ----------------------- |
+| Linux    | [64-bit][rl-linux-tar]  |
+| macOS    | [64-bit][rl-macos-tar]  |
+| Windows  | [64-bit][rl-winx64-zip] |
+
+[rl-linux-tar]: https://github.com/urbica/martin/releases/latest/download/martin-Linux-x86_64.tar.gz
+[rl-macos-tar]: https://github.com/urbica/martin/releases/latest/download/martin-Darwin-x86_64.tar.gz
+[rl-winx64-zip]: https://github.com/urbica/martin/releases/latest/download/martin-Windows-x86_64.zip
+
 If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
 
 ```shell
 brew tap urbica/tap
 brew install martin
+```
+
+You can also use [official Docker image](https://hub.docker.com/r/urbica/martin)
+
+```shell
+docker run -p 3000:3000 -e DATABASE_URL=postgres://postgres@localhost/db urbica/martin
 ```
 
 ## Usage
