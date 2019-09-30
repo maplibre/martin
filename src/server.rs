@@ -27,7 +27,7 @@ pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner
         )
     })
     .bind(listen_addresses.clone())
-    .expect(&format!("Can't bind to {}", listen_addresses))
+    .unwrap_or_else(|_| panic!("Can't bind to {}", listen_addresses))
     .keep_alive(keep_alive)
     .shutdown_timeout(0)
     .workers(worker_processes)

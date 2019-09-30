@@ -75,10 +75,10 @@ pub fn generate_config(
   let function_sources = get_function_sources(&conn)?;
 
   let config = ConfigBuilder {
+    connection_string,
     watch: Some(args.flag_watch),
     keep_alive: args.flag_keep_alive,
     listen_addresses: args.flag_listen_addresses,
-    connection_string: connection_string,
     pool_size: args.flag_pool_size,
     worker_processes: args.flag_workers,
     table_sources: Some(table_sources),

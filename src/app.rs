@@ -25,7 +25,7 @@ pub struct State {
 
 fn get_table_sources(
     req: &HttpRequest<State>,
-) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
+) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
     if state.watch_mode {
         info!("Scanning database for table sources");
@@ -62,7 +62,7 @@ fn get_table_sources(
         .json(table_sources);
 
     let response = result(Ok(http_response)).responder();
-    return Ok(response);
+    Ok(response)
 }
 
 fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -99,7 +99,7 @@ fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
 
 fn get_table_source_tile(
     req: &HttpRequest<State>,
-) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
+) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
 
     let table_sources = state
@@ -152,7 +152,7 @@ fn get_table_source_tile(
 
 fn get_function_sources(
     req: &HttpRequest<State>,
-) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
+) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
     if state.watch_mode {
         info!("Scanning database for function sources");
@@ -189,7 +189,7 @@ fn get_function_sources(
         .json(function_sources);
 
     let response = result(Ok(http_response)).responder();
-    return Ok(response);
+    Ok(response)
 }
 
 fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -225,7 +225,7 @@ fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
 
 fn get_function_source_tile(
     req: &HttpRequest<State>,
-) -> Result<Box<Future<Item = HttpResponse, Error = Error>>> {
+) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
     let state = &req.state();
     let function_sources = state
         .function_sources
