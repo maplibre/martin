@@ -1,6 +1,6 @@
 # Martin
 
-[![Rust](https://github.com/urbica/martin/workflows/Rust/badge.svg)](https://github.com/urbica/martin/actions)
+[![CI](https://github.com/urbica/martin/workflows/CI/badge.svg)](https://github.com/urbica/martin/actions)
 [![Docker pulls](https://img.shields.io/docker/pulls/urbica/martin.svg)](https://hub.docker.com/r/urbica/martin)
 [![Metadata](https://images.microbadger.com/badges/image/urbica/martin.svg)](https://microbadger.com/images/urbica/martin)
 

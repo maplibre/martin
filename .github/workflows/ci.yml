@@ -1,4 +1,4 @@
-name: Main
+name: CI
 
 on: [push, pull_request]
 
@@ -178,10 +178,22 @@ jobs:
             tar czvf ../../../${{ matrix.name }} ${{ matrix.bin }}
           fi
           cd -
+      - name: Release notes
+        shell: bash
+        run: |
+          export LAST_TAGS=$(git describe --tags --abbrev=0 $(git rev-list --tags --max-count=2))
+          export CURRENT_TAG=$(echo $LAST_TAGS | head -n 1)
+          export PREVIOUS_TAG=$(echo $LAST_TAGS | tail -n 1)
+          cargo install clog-cli
+          echo "Creating release notes from $PREVIOUS_TAG to $CURRENT_TAG"
+          clog -f $PREVIOUS_TAG --setversion $CURRENT_TAG -i '' -o RELEASENOTES.md
+        if: startsWith(github.ref, 'refs/tags/')
       - name: Publish
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: "martin*"
+          draft: true
+          files: 'martin*'
+          body_path: RELEASENOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
