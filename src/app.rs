@@ -41,7 +41,7 @@ fn get_table_sources(
                     });
 
                     Ok(HttpResponse::Ok()
-                        .header("Access-Control-Allow-Origin", "*")
+                        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                         .json(table_sources))
                 }
                 Err(_) => Ok(HttpResponse::InternalServerError().into()),
@@ -58,7 +58,7 @@ fn get_table_sources(
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let http_response = HttpResponse::Ok()
-        .header("Access-Control-Allow-Origin", "*")
+        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .json(table_sources);
 
     let response = result(Ok(http_response)).responder();
@@ -93,7 +93,7 @@ fn get_table_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
 
     Ok(HttpResponse::Ok()
-        .header("Access-Control-Allow-Origin", "*")
+        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .json(tilejson))
 }
 
@@ -136,11 +136,11 @@ fn get_table_source_tile(
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
                     .content_type("application/x-protobuf")
-                    .header("Access-Control-Allow-Origin", "*")
+                    .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                     .body(tile)),
                 _ => Ok(HttpResponse::Ok()
                     .content_type("application/x-protobuf")
-                    .header("Access-Control-Allow-Origin", "*")
+                    .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
@@ -168,7 +168,7 @@ fn get_function_sources(
                     });
 
                     Ok(HttpResponse::Ok()
-                        .header("Access-Control-Allow-Origin", "*")
+                        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                         .json(function_sources))
                 }
                 Err(_) => Ok(HttpResponse::InternalServerError().into()),
@@ -185,7 +185,7 @@ fn get_function_sources(
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let http_response = HttpResponse::Ok()
-        .header("Access-Control-Allow-Origin", "*")
+        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .json(function_sources);
 
     let response = result(Ok(http_response)).responder();
@@ -219,7 +219,7 @@ fn get_function_source(req: &HttpRequest<State>) -> Result<HttpResponse> {
     .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
 
     Ok(HttpResponse::Ok()
-        .header("Access-Control-Allow-Origin", "*")
+        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .json(tilejson))
 }
 
@@ -261,11 +261,11 @@ fn get_function_source_tile(
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
                     .content_type("application/x-protobuf")
-                    .header("Access-Control-Allow-Origin", "*")
+                    .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                     .body(tile)),
                 _ => Ok(HttpResponse::Ok()
                     .content_type("application/x-protobuf")
-                    .header("Access-Control-Allow-Origin", "*")
+                    .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
@@ -336,7 +336,6 @@ mod tests {
     use actix_web::{http, test};
     use std::env;
 
-    // TODO: rewrite using test::TestServer::with_factory
     fn build_test_server(
         table_sources: Option<TableSources>,
         function_sources: Option<FunctionSources>,
@@ -390,16 +389,79 @@ mod tests {
     }
 
     #[test]
+    fn table_sources_test() {
+        let id = "public.table_source";
+        let source = TableSource {
+            id: id.to_owned(),
+            schema: "public".to_owned(),
+            table: "table_source".to_owned(),
+            id_column: None,
+            geometry_column: "geom".to_owned(),
+            srid: 3857,
+            extent: Some(4096),
+            buffer: Some(64),
+            clip_geom: Some(true),
+            geometry_type: None,
+            properties: HashMap::new(),
+        };
+
+        let mut table_sources: TableSources = HashMap::new();
+        table_sources.insert(id.to_owned(), Box::new(source));
+
+        let mut srv = build_test_server(Some(table_sources), None);
+
+        let request = srv
+            .client(http::Method::GET, "/index.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert!(response.status().is_success());
+
+        let headers = response.headers();
+        assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
+
+        let body = response.body().wait().unwrap();
+        let body_str = std::str::from_utf8(&body).unwrap();
+        let table_sources: TableSources = serde_json::from_str(body_str).unwrap();
+        assert!(table_sources.contains_key("public.table_source"));
+    }
+
+    #[test]
+    fn function_sources_test() {
+        let id = "public.function_source";
+        let source = FunctionSource {
+            id: id.to_owned(),
+            schema: "public".to_owned(),
+            function: "function_source".to_owned(),
+        };
+
+        let mut function_sources: FunctionSources = HashMap::new();
+        function_sources.insert(id.to_owned(), Box::new(source));
+
+        let mut srv = build_test_server(None, Some(function_sources));
+
+        let request = srv
+            .client(http::Method::GET, "/rpc/index.json")
+            .finish()
+            .unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert!(response.status().is_success());
+
+        let headers = response.headers();
+        assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
+
+        let body = response.body().wait().unwrap();
+        let body_str = std::str::from_utf8(&body).unwrap();
+        let function_sources: FunctionSources = serde_json::from_str(body_str).unwrap();
+
+        assert!(function_sources.contains_key("public.function_source"));
+    }
+
+    #[test]
     fn sources_not_found_test() {
         let mut srv = build_test_server(None, None);
-
-        // let request = srv
-        //     .client(http::Method::GET, "/index.json")
-        //     .finish()
-        //     .unwrap();
-
-        // let response = srv.execute(request.send()).unwrap();
-        // assert_eq!(response.status().as_u16(), 404);
 
         let request = srv
             .client(http::Method::GET, "/public.non_existant.json")
@@ -408,14 +470,6 @@ mod tests {
 
         let response = srv.execute(request.send()).unwrap();
         assert_eq!(response.status().as_u16(), 404);
-
-        // let request = srv
-        //     .client(http::Method::GET, "/rpc/index.json")
-        //     .finish()
-        //     .unwrap();
-
-        // let response = srv.execute(request.send()).unwrap();
-        // assert_eq!(response.status().as_u16(), 404);
 
         let request = srv
             .client(http::Method::GET, "/rpc/public.non_existant.json")
@@ -427,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    fn table_sources_test() {
+    fn table_source_test() {
         let id = "public.table_source";
         let source = TableSource {
             id: id.to_owned(),
@@ -454,8 +508,10 @@ mod tests {
             .unwrap();
 
         let response = srv.execute(request.send()).unwrap();
-        println!("response {:?}", response);
         assert!(response.status().is_success());
+
+        let headers = response.headers();
+        assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
 
         let request = srv
             .client(http::Method::GET, "/public.table_source/0/0/0.pbf")
@@ -463,12 +519,14 @@ mod tests {
             .unwrap();
 
         let response = srv.execute(request.send()).unwrap();
-        println!("response {:?}", response);
         assert!(response.status().is_success());
+
+        let headers = response.headers();
+        assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
     }
 
     #[test]
-    fn function_sources_test() {
+    fn function_source_test() {
         let id = "public.function_source";
         let source = FunctionSource {
             id: id.to_owned(),
@@ -487,8 +545,10 @@ mod tests {
             .unwrap();
 
         let response = srv.execute(request.send()).unwrap();
-        println!("response {:?}", response);
         assert!(response.status().is_success());
+
+        let headers = response.headers();
+        assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
 
         let request = srv
             .client(http::Method::GET, "/rpc/public.function_source/0/0/0.pbf")
@@ -496,7 +556,9 @@ mod tests {
             .unwrap();
 
         let response = srv.execute(request.send()).unwrap();
-        println!("response {:?}", response);
         assert!(response.status().is_success());
+
+        let headers = response.headers();
+        assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
     }
 }
