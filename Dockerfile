@@ -1,4 +1,4 @@
-FROM ekidd/rust-musl-builder:1.37.0 as builder
+FROM ekidd/rust-musl-builder:1.38.0 as builder
 
 ADD . .
 RUN sudo chmod -R 0777 *
