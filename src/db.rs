@@ -25,7 +25,7 @@ pub fn select_postgis_verion(pool: &PostgresPool) -> io::Result<String> {
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
 
   let version: String = conn
-    .query("select postgis_lib_version()", &[])
+    .query(r#"select (regexp_matches(postgis_lib_version(), '^(\d+\.\d+\.\d+)', 'g'))[1] as postgis_lib_version"#, &[])
     .map(|rows| rows.get(0).get("postgis_lib_version"))?;
 
   Ok(version)
