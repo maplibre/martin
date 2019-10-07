@@ -725,7 +725,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "actix 0.7.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "actix-web 0.7.19 (registry+https://github.com/rust-lang/crates.io-index)",

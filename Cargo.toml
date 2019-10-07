@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 
 [dependencies]
