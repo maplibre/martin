@@ -1,5 +1,9 @@
-use actix::*;
-use actix_web::*;
+use crate::actix::{Actor, Addr};
+
+use actix_web::{
+    error, http, middleware, App, AsyncResponder, Error, HttpRequest, HttpResponse, Result,
+};
+
 use futures::future::{result, Future};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -12,8 +16,6 @@ use super::messages;
 use super::table_source::TableSources;
 use super::utils::{build_tilejson, parse_xyz};
 use super::worker_actor::WorkerActor;
-
-pub type Query = HashMap<String, String>;
 
 pub struct State {
     db: Addr<DbExecutor>,

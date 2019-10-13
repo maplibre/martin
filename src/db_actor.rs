@@ -1,4 +1,4 @@
-use actix::prelude::*;
+use actix::{Actor, Handler, SyncContext};
 use std::io;
 
 use super::db::PostgresPool;
@@ -7,13 +7,13 @@ use super::messages;
 use super::source::Tile;
 use super::table_source::{get_table_sources, TableSources};
 
-pub struct DbExecutor(pub PostgresPool);
+pub struct DBActor(pub PostgresPool);
 
-impl Actor for DbExecutor {
+impl Actor for DBActor {
   type Context = SyncContext<Self>;
 }
 
-impl Handler<messages::GetTableSources> for DbExecutor {
+impl Handler<messages::GetTableSources> for DBActor {
   type Result = Result<TableSources, io::Error>;
 
   fn handle(&mut self, _msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
@@ -23,7 +23,7 @@ impl Handler<messages::GetTableSources> for DbExecutor {
   }
 }
 
-impl Handler<messages::GetFunctionSources> for DbExecutor {
+impl Handler<messages::GetFunctionSources> for DBActor {
   type Result = Result<FunctionSources, io::Error>;
 
   fn handle(&mut self, _msg: messages::GetFunctionSources, _: &mut Self::Context) -> Self::Result {
@@ -33,7 +33,7 @@ impl Handler<messages::GetFunctionSources> for DbExecutor {
   }
 }
 
-impl Handler<messages::GetTile> for DbExecutor {
+impl Handler<messages::GetTile> for DBActor {
   type Result = Result<Tile, io::Error>;
 
   fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {

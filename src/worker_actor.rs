@@ -1,4 +1,4 @@
-use actix::prelude::*;
+use actix::{Actor, Context, Handler};
 use std::cell::RefCell;
 use std::rc::Rc;
 

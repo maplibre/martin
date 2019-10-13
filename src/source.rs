@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
 
-use super::app::Query;
 use super::db::PostgresConnection;
 
 pub type Tile = Vec<u8>;
+pub type Query = HashMap<String, String>;
 
 #[derive(Copy, Clone)]
 pub struct XYZ {

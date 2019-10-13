@@ -1,9 +1,8 @@
-use actix::prelude::*;
+use actix::{Addr, Message};
 use std::io;
 
-use super::app::Query;
 use super::function_source::FunctionSources;
-use super::source::{Source, Tile, XYZ};
+use super::source::{Query, Source, Tile, XYZ};
 use super::table_source::TableSources;
 use super::worker_actor::WorkerActor;
 

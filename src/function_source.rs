@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 
-use super::app::Query;
 use super::db::PostgresConnection;
-use super::source::{Source, Tile, XYZ};
+use super::source::{Query, Source, Tile, XYZ};
 use super::utils::query_to_json_string;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

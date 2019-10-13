@@ -1,4 +1,4 @@
-use actix::prelude::*;
+use actix::{Actor, Addr, Context, Handler};
 
 use super::messages;
 use super::worker_actor::WorkerActor;

@@ -1,11 +1,10 @@
-use actix_web::dev::{ConnectionInfo, Params};
+use actix_web::dev::ConnectionInfo;
 use actix_web::http::header::{HeaderMap, ToStrError};
 use serde_json;
 use std::collections::HashMap;
 use tilejson::{TileJSON, TileJSONBuilder};
 
-use super::app::Query;
-use super::source::{Source, XYZ};
+use super::source::{Query, Source, XYZ};
 
 pub fn prettify_error<E: std::fmt::Display>(message: &'static str) -> impl Fn(E) -> std::io::Error {
   move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
@@ -49,24 +48,24 @@ pub fn build_tilejson(
   Ok(tilejson_builder.finalize())
 }
 
-pub fn parse_xyz(params: &Params) -> Result<XYZ, &str> {
-  let z = params
-    .get("z")
-    .and_then(|i| i.parse::<u32>().ok())
-    .ok_or("invalid z value")?;
+// pub fn parse_xyz(params: &Params) -> Result<XYZ, &str> {
+//   let z = params
+//     .get("z")
+//     .and_then(|i| i.parse::<u32>().ok())
+//     .ok_or("invalid z value")?;
 
-  let x = params
-    .get("x")
-    .and_then(|i| i.parse::<u32>().ok())
-    .ok_or("invalid x value")?;
+//   let x = params
+//     .get("x")
+//     .and_then(|i| i.parse::<u32>().ok())
+//     .ok_or("invalid x value")?;
 
-  let y = params
-    .get("y")
-    .and_then(|i| i.parse::<u32>().ok())
-    .ok_or("invalid y value")?;
+//   let y = params
+//     .get("y")
+//     .and_then(|i| i.parse::<u32>().ok())
+//     .ok_or("invalid y value")?;
 
-  Ok(XYZ { x, y, z })
-}
+//   Ok(XYZ { x, y, z })
+// }
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
 pub fn tilebbox(xyz: &XYZ) -> String {

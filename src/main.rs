@@ -17,12 +17,12 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate serde_yaml;
 
-mod app;
+// mod app;
 mod cli;
 mod config;
 mod coordinator_actor;
 mod db;
-mod db_executor;
+mod db_actor;
 mod function_source;
 mod messages;
 mod server;
