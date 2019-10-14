@@ -149,24 +149,53 @@ Function Source is a database function which can be used to query [vector tiles]
 
 **Hint**: You may want to use [TileBBox](https://github.com/mapbox/postgis-vt-util#tilebbox) function to generate bounding-box geometry of the area covered by a tile.
 
-Here is an example of a function that can be used as a Function Source.
+For example, if you have a table `public.table_source` in WGS84 (`4326` SRID), then you can use this function as a Function Source:
 
 ```sql
-CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS BYTEA AS $$
+CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
 DECLARE
-  bounds GEOMETRY(POLYGON, 3857) := TileBBox(z, x, y, 3857);
-  mvt BYTEA;
+  mvt bytea;
 BEGIN
   SELECT INTO mvt ST_AsMVT(tile, 'public.function_source', 4096, 'geom') FROM (
     SELECT
-      ST_AsMVTGeom(geom, bounds, 4096, 64, true) AS geom
+      ST_AsMVTGeom(ST_Transform(geom, 3857), TileBBox(z, x, y, 3857), 4096, 64, true) AS geom
     FROM public.table_source
-    WHERE geom && bounds
+    WHERE geom && TileBBox(z, x, y, 4326)
   ) as tile WHERE geom IS NOT NULL;
 
   RETURN mvt;
 END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
+```
+
+The `query_params` argument is a JSON representation of the tile request query params. For example, if user requested a tile with [urlencoded](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent) params:
+
+```shell
+curl \
+  --data-urlencode 'arrayParam=[1, 2, 3]' \
+  --data-urlencode 'numberParam=42' \
+  --data-urlencode 'stringParam=value' \
+  --data-urlencode 'booleanParam=true' \
+  --data-urlencode 'objectParam={"answer" : 42}' \
+  --get localhost:3000/rpc/public.function_source/0/0/0.pbf
+```
+
+then `query_params` will be parsed as:
+
+```json
+{
+  "arrayParam": [1, 2, 3],
+  "numberParam": 42,
+  "stringParam": "value",
+  "booleanParam": true,
+  "objectParam": { "answer": 42 }
+}
+```
+
+You can access this params using [json operators](https://www.postgresql.org/docs/current/functions-json.html):
+
+```sql
+...WHERE answer = (query_params->'objectParam'->>'answer')::int;
 ```
 
 ### Function Sources List
