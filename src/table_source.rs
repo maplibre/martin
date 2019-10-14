@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 
+use tilejson::{TileJSON, TileJSONBuilder};
+
 use super::db::PostgresConnection;
 use super::source::{Query, Source, Tile, XYZ};
 use super::utils;
@@ -28,11 +30,20 @@ impl Source for TableSource {
     self.id.as_str()
   }
 
+  fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
+    let mut tilejson_builder = TileJSONBuilder::new();
+
+    tilejson_builder.scheme("tms");
+    tilejson_builder.name(&self.id);
+
+    Ok(tilejson_builder.finalize())
+  }
+
   fn get_tile(
     &self,
     conn: &PostgresConnection,
     xyz: &XYZ,
-    _query: &Query,
+    _query: &Option<Query>,
   ) -> Result<Tile, io::Error> {
     let mercator_bounds = utils::tilebbox(xyz);
 

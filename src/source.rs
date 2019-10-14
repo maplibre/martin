@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
 
+use tilejson::TileJSON;
+
 use super::db::PostgresConnection;
 
 pub type Tile = Vec<u8>;
@@ -16,11 +18,14 @@ pub struct XYZ {
 
 pub trait Source: Debug {
   fn get_id(&self) -> &str;
+
+  fn get_tilejson(&self) -> Result<TileJSON, io::Error>;
+
   fn get_tile(
     &self,
     conn: &PostgresConnection,
     xyz: &XYZ,
-    query: &Query,
+    query: &Option<Query>,
   ) -> Result<Tile, io::Error>;
 }
 

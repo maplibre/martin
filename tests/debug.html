@@ -32,28 +32,36 @@
     <div id="map"></div>
 
     <script>
-      mapboxgl.accessToken =
-        'pk.eyJ1Ijoic3RlcGFua3V6bWluIiwiYSI6Ik1ieW5udm8ifQ.25EOEC2-N92NCWT0Ci9w-Q';
+      let accessToken = localStorage.getItem('accessToken');
 
-      var map = new mapboxgl.Map({
+      if (!accessToken) {
+        accessToken = window.prompt('Mapbox accessToken');
+        localStorage.setItem('accessToken', accessToken);
+      }
+
+      mapboxgl.accessToken = accessToken;
+
+      const map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/light-v9',
         zoom: 0,
         center: [0, 0]
       });
 
+      const sourceId = 'public.points';
+
       map.on('load', function() {
         map.addLayer({
-          id: 'public.points',
+          id: sourceId,
           type: 'circle',
           source: {
             type: 'vector',
-            url: 'http://0.0.0.0:3000/public.points.json'
+            url: `http://0.0.0.0:3000/${sourceId}.json`
           },
-          'source-layer': 'public.points'
+          'source-layer': sourceId
         });
 
-        map.on('click', 'public.points', function(event) {
+        map.on('click', sourceId, function(event) {
           console.log(event.features);
         });
       });

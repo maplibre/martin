@@ -1,10 +1,11 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 
 use actix_web::{
-    error, http, middleware, web, App, Either, Error, HttpResponse, HttpServer, Result,
+    error, http, middleware, web, App, Either, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
 
 use futures::Future;
@@ -15,6 +16,7 @@ use super::db::PostgresPool;
 use super::db_actor::DBActor;
 use super::function_source::FunctionSources;
 use super::messages;
+use super::source::{Source, XYZ};
 use super::table_source::TableSources;
 use super::worker_actor::WorkerActor;
 
@@ -24,6 +26,21 @@ struct State {
     table_sources: Rc<RefCell<Option<TableSources>>>,
     function_sources: Rc<RefCell<Option<FunctionSources>>>,
     watch_mode: bool,
+}
+
+#[derive(Deserialize)]
+struct SourceRequest {
+    source_id: String,
+}
+
+#[derive(Deserialize)]
+struct TileRequest {
+    source_id: String,
+    z: u32,
+    x: u32,
+    y: u32,
+    #[allow(dead_code)]
+    format: String,
 }
 
 type SourcesResult = Either<HttpResponse, Box<dyn Future<Item = HttpResponse, Error = Error>>>;
@@ -51,20 +68,14 @@ fn get_table_sources(state: web::Data<State>) -> SourcesResult {
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
         });
 
-    return Either::B(Box::new(response));
-}
-
-#[derive(Deserialize)]
-struct SourceRequest {
-    source_id: String,
+    Either::B(Box::new(response))
 }
 
 fn get_table_source(
+    req: HttpRequest,
     path: web::Path<SourceRequest>,
     state: web::Data<State>,
 ) -> Result<HttpResponse> {
-    let response = format!("table source {}", path.source_id);
-
     let table_sources = state
         .table_sources
         .borrow()
@@ -75,12 +86,223 @@ fn get_table_source(
         error::ErrorNotFound(format!("Table source '{}' not found", path.source_id))
     })?;
 
-    Ok(HttpResponse::Ok().json("{}"))
+    let mut tilejson = source
+        .get_tilejson()
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
+
+    let tiles_path = req
+        .headers()
+        .get("x-rewrite-url")
+        .map_or(Ok(req.path().trim_end_matches(".json")), |header| {
+            let header_str = header.to_str()?;
+            Ok(header_str.trim_end_matches(".json"))
+        })
+        .map_err(|e: http::header::ToStrError| {
+            error::ErrorBadRequest(format!("Can't build TileJSON: {}", e))
+        })?;
+
+    let query_string = req.query_string();
+    let query = if query_string.is_empty() {
+        query_string.to_owned()
+    } else {
+        format!("?{}", query_string)
+    };
+
+    let connection_info = req.connection_info();
+
+    let tiles_url = format!(
+        "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf{}",
+        connection_info.scheme(),
+        connection_info.host(),
+        tiles_path,
+        query
+    );
+
+    tilejson.tiles = vec![tiles_url];
+    Ok(HttpResponse::Ok().json(tilejson))
+}
+
+fn get_table_source_tile(
+    path: web::Path<TileRequest>,
+    state: web::Data<State>,
+) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
+    let table_sources = state
+        .table_sources
+        .borrow()
+        .clone()
+        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
+
+    let source = table_sources.get(&path.source_id).ok_or_else(|| {
+        error::ErrorNotFound(format!("Table source '{}' not found", path.source_id))
+    })?;
+
+    let xyz = XYZ {
+        z: path.z,
+        x: path.x,
+        y: path.y,
+    };
+
+    let message = messages::GetTile {
+        xyz,
+        query: None,
+        source: source.clone(),
+    };
+
+    let response = state
+        .db
+        .send(message)
+        .from_err()
+        .and_then(|result| match result {
+            Ok(tile) => match tile.len() {
+                0 => Ok(HttpResponse::NoContent()
+                    .content_type("application/x-protobuf")
+                    .body(tile)),
+                _ => Ok(HttpResponse::Ok()
+                    .content_type("application/x-protobuf")
+                    .body(tile)),
+            },
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        });
+
+    Ok(Box::new(response))
+}
+
+fn get_function_sources(state: web::Data<State>) -> SourcesResult {
+    if !state.watch_mode {
+        let function_sources = state.function_sources.borrow().clone();
+        let response = HttpResponse::Ok().json(function_sources);
+        return Either::A(response);
+    }
+
+    info!("Scanning database for function sources");
+    let response = state
+        .db
+        .send(messages::GetFunctionSources {})
+        .from_err()
+        .and_then(move |function_sources| match function_sources {
+            Ok(function_sources) => {
+                state.coordinator.do_send(messages::RefreshFunctionSources {
+                    function_sources: Some(function_sources.clone()),
+                });
+
+                Ok(HttpResponse::Ok().json(function_sources))
+            }
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        });
+
+    Either::B(Box::new(response))
+}
+
+fn get_function_source(
+    req: HttpRequest,
+    path: web::Path<SourceRequest>,
+    state: web::Data<State>,
+) -> Result<HttpResponse> {
+    let function_sources = state
+        .function_sources
+        .borrow()
+        .clone()
+        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
+
+    let source = function_sources.get(&path.source_id).ok_or_else(|| {
+        error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
+    })?;
+
+    let mut tilejson = source
+        .get_tilejson()
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
+
+    let tiles_path = req
+        .headers()
+        .get("x-rewrite-url")
+        .map_or(Ok(req.path().trim_end_matches(".json")), |header| {
+            let header_str = header.to_str()?;
+            Ok(header_str.trim_end_matches(".json"))
+        })
+        .map_err(|e: http::header::ToStrError| {
+            error::ErrorBadRequest(format!("Can't build TileJSON: {}", e))
+        })?;
+
+    let query_string = req.query_string();
+    let query = if query_string.is_empty() {
+        query_string.to_owned()
+    } else {
+        format!("?{}", query_string)
+    };
+
+    let connection_info = req.connection_info();
+
+    let tiles_url = format!(
+        "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf{}",
+        connection_info.scheme(),
+        connection_info.host(),
+        tiles_path,
+        query
+    );
+
+    tilejson.tiles = vec![tiles_url];
+    Ok(HttpResponse::Ok().json(tilejson))
+}
+
+fn get_function_source_tile(
+    path: web::Path<TileRequest>,
+    query: web::Query<HashMap<String, String>>,
+    state: web::Data<State>,
+) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
+    let function_sources = state
+        .function_sources
+        .borrow()
+        .clone()
+        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
+
+    let source = function_sources.get(&path.source_id).ok_or_else(|| {
+        error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
+    })?;
+
+    let xyz = XYZ {
+        z: path.z,
+        x: path.x,
+        y: path.y,
+    };
+
+    let message = messages::GetTile {
+        xyz,
+        query: Some(query.into_inner()),
+        source: source.clone(),
+    };
+
+    let response = state
+        .db
+        .send(message)
+        .from_err()
+        .and_then(|result| match result {
+            Ok(tile) => match tile.len() {
+                0 => Ok(HttpResponse::NoContent()
+                    .content_type("application/x-protobuf")
+                    .body(tile)),
+                _ => Ok(HttpResponse::Ok()
+                    .content_type("application/x-protobuf")
+                    .body(tile)),
+            },
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        });
+
+    Ok(Box::new(response))
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.route("/index.json", web::get().to(get_table_sources))
-        .route("/{source_id}.json", web::get().to(get_table_sources));
+        .route("/{source_id}.json", web::get().to(get_table_source))
+        .route(
+            "/{source_id}/{z}/{x}/{y}.{format}",
+            web::get().to(get_table_source_tile),
+        )
+        .route("/rpc/index.json", web::get().to(get_function_sources))
+        .route("/rpc/{source_id}.json", web::get().to(get_function_source))
+        .route(
+            "/rpc/{source_id}/{z}/{x}/{y}.{format}",
+            web::get().to(get_function_source_tile),
+        );
 }
 
 pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner {

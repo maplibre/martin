@@ -16,7 +16,7 @@ impl Message for Connect {
 
 pub struct GetTile {
   pub xyz: XYZ,
-  pub query: Query,
+  pub query: Option<Query>,
   pub source: Box<dyn Source + Send>,
 }
 

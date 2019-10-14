@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 
+use tilejson::{TileJSON, TileJSONBuilder};
+
 use super::db::PostgresConnection;
 use super::source::{Query, Source, Tile, XYZ};
 use super::utils::query_to_json_string;
@@ -20,14 +22,27 @@ impl Source for FunctionSource {
     self.id.as_str()
   }
 
+  fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
+    let mut tilejson_builder = TileJSONBuilder::new();
+
+    tilejson_builder.scheme("tms");
+    tilejson_builder.name(&self.id);
+    tilejson_builder.tiles(vec![]);
+
+    Ok(tilejson_builder.finalize())
+  }
+
   fn get_tile(
     &self,
     conn: &PostgresConnection,
     xyz: &XYZ,
-    query: &Query,
+    query: &Option<Query>,
   ) -> Result<Tile, io::Error> {
+    let empty_query = HashMap::new();
+    let query = query.as_ref().unwrap_or(&empty_query);
+
     let query_json_string =
-      query_to_json_string(query).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+      query_to_json_string(&query).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
     let query = format!(
       include_str!("scripts/call_rpc.sql"),
