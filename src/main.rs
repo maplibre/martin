@@ -105,7 +105,6 @@ fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
 
 fn main() {
   let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
-
   env_logger::Builder::from_env(env).init();
 
   let args: Args = Docopt::new(USAGE)

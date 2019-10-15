@@ -3,11 +3,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
-
 use actix_web::{
     error, http, middleware, web, App, Either, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
-
 use futures::Future;
 
 use super::config::Config;
@@ -20,7 +18,7 @@ use super::source::{Source, XYZ};
 use super::table_source::TableSources;
 use super::worker_actor::WorkerActor;
 
-struct State {
+struct AppState {
     db: Addr<DBActor>,
     coordinator: Addr<CoordinatorActor>,
     table_sources: Rc<RefCell<Option<TableSources>>>,
@@ -45,7 +43,7 @@ struct TileRequest {
 
 type SourcesResult = Either<HttpResponse, Box<dyn Future<Item = HttpResponse, Error = Error>>>;
 
-fn get_table_sources(state: web::Data<State>) -> SourcesResult {
+fn get_table_sources(state: web::Data<AppState>) -> SourcesResult {
     if !state.watch_mode {
         let table_sources = state.table_sources.borrow().clone();
         let response = HttpResponse::Ok().json(table_sources);
@@ -74,7 +72,7 @@ fn get_table_sources(state: web::Data<State>) -> SourcesResult {
 fn get_table_source(
     req: HttpRequest,
     path: web::Path<SourceRequest>,
-    state: web::Data<State>,
+    state: web::Data<AppState>,
 ) -> Result<HttpResponse> {
     let table_sources = state
         .table_sources
@@ -124,7 +122,7 @@ fn get_table_source(
 
 fn get_table_source_tile(
     path: web::Path<TileRequest>,
-    state: web::Data<State>,
+    state: web::Data<AppState>,
 ) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
     let table_sources = state
         .table_sources
@@ -167,7 +165,7 @@ fn get_table_source_tile(
     Ok(Box::new(response))
 }
 
-fn get_function_sources(state: web::Data<State>) -> SourcesResult {
+fn get_function_sources(state: web::Data<AppState>) -> SourcesResult {
     if !state.watch_mode {
         let function_sources = state.function_sources.borrow().clone();
         let response = HttpResponse::Ok().json(function_sources);
@@ -196,7 +194,7 @@ fn get_function_sources(state: web::Data<State>) -> SourcesResult {
 fn get_function_source(
     req: HttpRequest,
     path: web::Path<SourceRequest>,
-    state: web::Data<State>,
+    state: web::Data<AppState>,
 ) -> Result<HttpResponse> {
     let function_sources = state
         .function_sources
@@ -247,7 +245,7 @@ fn get_function_source(
 fn get_function_source_tile(
     path: web::Path<TileRequest>,
     query: web::Query<HashMap<String, String>>,
-    state: web::Data<State>,
+    state: web::Data<AppState>,
 ) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
     let function_sources = state
         .function_sources
@@ -305,6 +303,32 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         );
 }
 
+fn create_state(
+    db: Addr<DBActor>,
+    coordinator: Addr<CoordinatorActor>,
+    config: Config,
+    watch_mode: bool,
+) -> AppState {
+    let table_sources = Rc::new(RefCell::new(config.table_sources));
+    let function_sources = Rc::new(RefCell::new(config.function_sources));
+
+    let worker_actor = WorkerActor {
+        table_sources: table_sources.clone(),
+        function_sources: function_sources.clone(),
+    };
+
+    let worker: Addr<_> = worker_actor.start();
+    coordinator.do_send(messages::Connect { addr: worker });
+
+    AppState {
+        db: db.clone(),
+        coordinator: coordinator.clone(),
+        table_sources,
+        function_sources,
+        watch_mode,
+    }
+}
+
 pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner {
     let sys = actix_rt::System::new("server");
 
@@ -316,24 +340,7 @@ pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner
     let listen_addresses = config.listen_addresses.clone();
 
     HttpServer::new(move || {
-        let table_sources = Rc::new(RefCell::new(config.table_sources.clone()));
-        let function_sources = Rc::new(RefCell::new(config.function_sources.clone()));
-
-        let worker_actor = WorkerActor {
-            table_sources: table_sources.clone(),
-            function_sources: function_sources.clone(),
-        };
-
-        let worker: Addr<_> = worker_actor.start();
-        coordinator.do_send(messages::Connect { addr: worker });
-
-        let state = State {
-            db: db.clone(),
-            coordinator: coordinator.clone(),
-            table_sources,
-            function_sources,
-            watch_mode,
-        };
+        let state = create_state(db.clone(), coordinator.clone(), config.clone(), watch_mode);
 
         let cors_middleware = middleware::DefaultHeaders::new()
             .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
@@ -354,4 +361,162 @@ pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner
     .start();
 
     sys
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::env;
+    use std::rc::Rc;
+
+    use actix::{Actor, Addr, SyncArbiter};
+    use actix_web::dev::Service;
+    use actix_web::{test, App};
+
+    use super::super::coordinator_actor::CoordinatorActor;
+    use super::super::db::setup_connection_pool;
+    use super::super::db_actor::DBActor;
+    use super::super::function_source::{FunctionSource, FunctionSources};
+    use super::super::table_source::{TableSource, TableSources};
+    use super::{router, AppState};
+
+    fn mock_table_sources() -> Option<TableSources> {
+        let id = "public.table_source";
+        let source = TableSource {
+            id: id.to_owned(),
+            schema: "public".to_owned(),
+            table: "table_source".to_owned(),
+            id_column: None,
+            geometry_column: "geom".to_owned(),
+            srid: 3857,
+            extent: Some(4096),
+            buffer: Some(64),
+            clip_geom: Some(true),
+            geometry_type: None,
+            properties: HashMap::new(),
+        };
+
+        let mut table_sources: TableSources = HashMap::new();
+        table_sources.insert(id.to_owned(), Box::new(source));
+        Some(table_sources)
+    }
+
+    fn mock_function_sources() -> Option<FunctionSources> {
+        let id = "public.function_source";
+        let source = FunctionSource {
+            id: id.to_owned(),
+            schema: "public".to_owned(),
+            function: "function_source".to_owned(),
+        };
+
+        let mut function_sources: FunctionSources = HashMap::new();
+        function_sources.insert(id.to_owned(), Box::new(source));
+        Some(function_sources)
+    }
+
+    fn mock_state(
+        table_sources: Option<TableSources>,
+        function_sources: Option<FunctionSources>,
+    ) -> AppState {
+        let connection_string: String = env::var("DATABASE_URL").unwrap();
+        info!("Connecting to {}", connection_string);
+
+        println!("connection_string: {}", connection_string);
+
+        let pool = setup_connection_pool(&connection_string, None).unwrap();
+
+        let db = SyncArbiter::start(3, move || DBActor(pool.clone()));
+        let coordinator: Addr<_> = CoordinatorActor::default().start();
+
+        let table_sources = Rc::new(RefCell::new(table_sources));
+        let function_sources = Rc::new(RefCell::new(function_sources));
+
+        AppState {
+            db: db.clone(),
+            coordinator: coordinator.clone(),
+            table_sources,
+            function_sources,
+            watch_mode: false,
+        }
+    }
+
+    #[test]
+    fn test_get_table_sources_ok() {
+        let state = test::run_on(|| mock_state(mock_table_sources(), None));
+        let mut app = test::init_service(App::new().data(state).configure(router));
+
+        let req = test::TestRequest::get().uri("/index.json").to_request();
+
+        let response = test::block_on(app.call(req)).unwrap();
+        assert!(response.status().is_success());
+
+        // let headers = response.headers();
+        // assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
+    #[test]
+    fn test_get_table_source_ok() {
+        let state = test::run_on(|| mock_state(mock_table_sources(), None));
+        let mut app = test::init_service(App::new().data(state).configure(router));
+
+        let req = test::TestRequest::get()
+            .uri("/public.table_source.json")
+            .to_request();
+
+        let resp = test::block_on(app.call(req)).unwrap();
+        assert!(resp.status().is_success());
+    }
+
+    #[test]
+    fn test_get_table_source_tile_ok() {
+        let state = test::run_on(|| mock_state(mock_table_sources(), None));
+        let mut app = test::init_service(App::new().data(state).configure(router));
+
+        let req = test::TestRequest::get()
+            .uri("/public.table_source/0/0/0.pbf")
+            .to_request();
+
+        let future = test::run_on(|| app.call(req));
+        let resp = test::block_on(future).unwrap();
+        assert!(resp.status().is_success());
+    }
+
+    #[test]
+    fn test_get_function_sources_ok() {
+        let state = test::run_on(|| mock_state(None, mock_function_sources()));
+        let mut app = test::init_service(App::new().data(state).configure(router));
+
+        let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
+
+        let response = test::block_on(app.call(req)).unwrap();
+        assert!(response.status().is_success());
+    }
+
+    #[test]
+    fn test_get_function_source_ok() {
+        let state = test::run_on(|| mock_state(None, mock_function_sources()));
+        let mut app = test::init_service(App::new().data(state).configure(router));
+
+        let req = test::TestRequest::get()
+            .uri("/rpc/public.function_source.json")
+            .to_request();
+
+        let resp = test::block_on(app.call(req)).unwrap();
+        assert!(resp.status().is_success());
+    }
+
+    #[test]
+    fn test_get_function_source_tile_ok() {
+        let state = test::run_on(|| mock_state(None, mock_function_sources()));
+        let mut app = test::init_service(App::new().data(state).configure(router));
+
+        let req = test::TestRequest::get()
+            .uri("/rpc/public.function_source/0/0/0.pbf")
+            .to_request();
+
+        let future = test::run_on(|| app.call(req));
+        let resp = test::block_on(future).unwrap();
+        assert!(resp.status().is_success());
+    }
 }
