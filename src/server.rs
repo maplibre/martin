@@ -372,7 +372,7 @@ mod tests {
 
     use actix::{Actor, Addr, SyncArbiter};
     use actix_web::dev::Service;
-    use actix_web::{test, App};
+    use actix_web::{http, test, App};
 
     use super::super::coordinator_actor::CoordinatorActor;
     use super::super::db::setup_connection_pool;
@@ -422,9 +422,8 @@ mod tests {
         let connection_string: String = env::var("DATABASE_URL").unwrap();
         info!("Connecting to {}", connection_string);
 
-        println!("connection_string: {}", connection_string);
-
-        let pool = setup_connection_pool(&connection_string, None).unwrap();
+        let pool = setup_connection_pool(&connection_string, Some(1)).unwrap();
+        info!("Connected to {}", connection_string);
 
         let db = SyncArbiter::start(3, move || DBActor(pool.clone()));
         let coordinator: Addr<_> = CoordinatorActor::default().start();
@@ -451,8 +450,9 @@ mod tests {
         let response = test::block_on(app.call(req)).unwrap();
         assert!(response.status().is_success());
 
-        // let headers = response.headers();
-        // assert!(headers.contains_key(http::header::ACCESS_CONTROL_ALLOW_ORIGIN));
+        let body = test::read_body(response);
+        let table_sources: TableSources = serde_json::from_slice(&body).unwrap();
+        assert!(table_sources.contains_key("public.table_source"));
     }
 
     #[test]
@@ -461,11 +461,18 @@ mod tests {
         let mut app = test::init_service(App::new().data(state).configure(router));
 
         let req = test::TestRequest::get()
+            .uri("/public.non_existant.json")
+            .to_request();
+
+        let response = test::block_on(app.call(req)).unwrap();
+        assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
+
+        let req = test::TestRequest::get()
             .uri("/public.table_source.json")
             .to_request();
 
-        let resp = test::block_on(app.call(req)).unwrap();
-        assert!(resp.status().is_success());
+        let response = test::block_on(app.call(req)).unwrap();
+        assert!(response.status().is_success());
     }
 
     #[test]
@@ -478,8 +485,8 @@ mod tests {
             .to_request();
 
         let future = test::run_on(|| app.call(req));
-        let resp = test::block_on(future).unwrap();
-        assert!(resp.status().is_success());
+        let response = test::block_on(future).unwrap();
+        assert!(response.status().is_success());
     }
 
     #[test]
@@ -491,6 +498,10 @@ mod tests {
 
         let response = test::block_on(app.call(req)).unwrap();
         assert!(response.status().is_success());
+
+        let body = test::read_body(response);
+        let function_sources: FunctionSources = serde_json::from_slice(&body).unwrap();
+        assert!(function_sources.contains_key("public.function_source"));
     }
 
     #[test]
@@ -499,11 +510,18 @@ mod tests {
         let mut app = test::init_service(App::new().data(state).configure(router));
 
         let req = test::TestRequest::get()
+            .uri("/rpc/public.non_existant.json")
+            .to_request();
+
+        let response = test::block_on(app.call(req)).unwrap();
+        assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
+
+        let req = test::TestRequest::get()
             .uri("/rpc/public.function_source.json")
             .to_request();
 
-        let resp = test::block_on(app.call(req)).unwrap();
-        assert!(resp.status().is_success());
+        let response = test::block_on(app.call(req)).unwrap();
+        assert!(response.status().is_success());
     }
 
     #[test]
@@ -516,7 +534,7 @@ mod tests {
             .to_request();
 
         let future = test::run_on(|| app.call(req));
-        let resp = test::block_on(future).unwrap();
-        assert!(resp.status().is_success());
+        let response = test::block_on(future).unwrap();
+        assert!(response.status().is_success());
     }
 }
