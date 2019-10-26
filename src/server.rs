@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -8,22 +9,22 @@ use actix_web::{
 };
 use futures::Future;
 
-use super::config::Config;
-use super::coordinator_actor::CoordinatorActor;
-use super::db::PostgresPool;
-use super::db_actor::DBActor;
-use super::function_source::FunctionSources;
-use super::messages;
-use super::source::{Source, XYZ};
-use super::table_source::TableSources;
-use super::worker_actor::WorkerActor;
+use crate::config::Config;
+use crate::coordinator_actor::CoordinatorActor;
+use crate::db::PostgresPool;
+use crate::db_actor::DBActor;
+use crate::function_source::FunctionSources;
+use crate::messages;
+use crate::source::{Source, XYZ};
+use crate::table_source::TableSources;
+use crate::worker_actor::WorkerActor;
 
-struct AppState {
-    db: Addr<DBActor>,
-    coordinator: Addr<CoordinatorActor>,
-    table_sources: Rc<RefCell<Option<TableSources>>>,
-    function_sources: Rc<RefCell<Option<FunctionSources>>>,
-    watch_mode: bool,
+pub struct AppState {
+    pub db: Addr<DBActor>,
+    pub coordinator: Addr<CoordinatorActor>,
+    pub table_sources: Rc<RefCell<Option<TableSources>>>,
+    pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
+    pub watch_mode: bool,
 }
 
 #[derive(Deserialize)]
@@ -361,180 +362,4 @@ pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner
     .start();
 
     sys
-}
-
-#[cfg(test)]
-mod tests {
-    use std::cell::RefCell;
-    use std::collections::HashMap;
-    use std::env;
-    use std::rc::Rc;
-
-    use actix::{Actor, Addr, SyncArbiter};
-    use actix_web::dev::Service;
-    use actix_web::{http, test, App};
-
-    use super::super::coordinator_actor::CoordinatorActor;
-    use super::super::db::setup_connection_pool;
-    use super::super::db_actor::DBActor;
-    use super::super::function_source::{FunctionSource, FunctionSources};
-    use super::super::table_source::{TableSource, TableSources};
-    use super::{router, AppState};
-
-    fn mock_table_sources() -> Option<TableSources> {
-        let id = "public.table_source";
-        let source = TableSource {
-            id: id.to_owned(),
-            schema: "public".to_owned(),
-            table: "table_source".to_owned(),
-            id_column: None,
-            geometry_column: "geom".to_owned(),
-            srid: 3857,
-            extent: Some(4096),
-            buffer: Some(64),
-            clip_geom: Some(true),
-            geometry_type: None,
-            properties: HashMap::new(),
-        };
-
-        let mut table_sources: TableSources = HashMap::new();
-        table_sources.insert(id.to_owned(), Box::new(source));
-        Some(table_sources)
-    }
-
-    fn mock_function_sources() -> Option<FunctionSources> {
-        let id = "public.function_source";
-        let source = FunctionSource {
-            id: id.to_owned(),
-            schema: "public".to_owned(),
-            function: "function_source".to_owned(),
-        };
-
-        let mut function_sources: FunctionSources = HashMap::new();
-        function_sources.insert(id.to_owned(), Box::new(source));
-        Some(function_sources)
-    }
-
-    fn mock_state(
-        table_sources: Option<TableSources>,
-        function_sources: Option<FunctionSources>,
-    ) -> AppState {
-        let connection_string: String = env::var("DATABASE_URL").unwrap();
-        info!("Connecting to {}", connection_string);
-
-        let pool = setup_connection_pool(&connection_string, Some(1)).unwrap();
-        info!("Connected to {}", connection_string);
-
-        let db = SyncArbiter::start(3, move || DBActor(pool.clone()));
-        let coordinator: Addr<_> = CoordinatorActor::default().start();
-
-        let table_sources = Rc::new(RefCell::new(table_sources));
-        let function_sources = Rc::new(RefCell::new(function_sources));
-
-        AppState {
-            db: db.clone(),
-            coordinator: coordinator.clone(),
-            table_sources,
-            function_sources,
-            watch_mode: false,
-        }
-    }
-
-    #[test]
-    fn test_get_table_sources_ok() {
-        let state = test::run_on(|| mock_state(mock_table_sources(), None));
-        let mut app = test::init_service(App::new().data(state).configure(router));
-
-        let req = test::TestRequest::get().uri("/index.json").to_request();
-
-        let response = test::block_on(app.call(req)).unwrap();
-        assert!(response.status().is_success());
-
-        let body = test::read_body(response);
-        let table_sources: TableSources = serde_json::from_slice(&body).unwrap();
-        assert!(table_sources.contains_key("public.table_source"));
-    }
-
-    #[test]
-    fn test_get_table_source_ok() {
-        let state = test::run_on(|| mock_state(mock_table_sources(), None));
-        let mut app = test::init_service(App::new().data(state).configure(router));
-
-        let req = test::TestRequest::get()
-            .uri("/public.non_existant.json")
-            .to_request();
-
-        let response = test::block_on(app.call(req)).unwrap();
-        assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
-
-        let req = test::TestRequest::get()
-            .uri("/public.table_source.json")
-            .to_request();
-
-        let response = test::block_on(app.call(req)).unwrap();
-        assert!(response.status().is_success());
-    }
-
-    #[test]
-    fn test_get_table_source_tile_ok() {
-        let state = test::run_on(|| mock_state(mock_table_sources(), None));
-        let mut app = test::init_service(App::new().data(state).configure(router));
-
-        let req = test::TestRequest::get()
-            .uri("/public.table_source/0/0/0.pbf")
-            .to_request();
-
-        let future = test::run_on(|| app.call(req));
-        let response = test::block_on(future).unwrap();
-        assert!(response.status().is_success());
-    }
-
-    #[test]
-    fn test_get_function_sources_ok() {
-        let state = test::run_on(|| mock_state(None, mock_function_sources()));
-        let mut app = test::init_service(App::new().data(state).configure(router));
-
-        let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
-
-        let response = test::block_on(app.call(req)).unwrap();
-        assert!(response.status().is_success());
-
-        let body = test::read_body(response);
-        let function_sources: FunctionSources = serde_json::from_slice(&body).unwrap();
-        assert!(function_sources.contains_key("public.function_source"));
-    }
-
-    #[test]
-    fn test_get_function_source_ok() {
-        let state = test::run_on(|| mock_state(None, mock_function_sources()));
-        let mut app = test::init_service(App::new().data(state).configure(router));
-
-        let req = test::TestRequest::get()
-            .uri("/rpc/public.non_existant.json")
-            .to_request();
-
-        let response = test::block_on(app.call(req)).unwrap();
-        assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
-
-        let req = test::TestRequest::get()
-            .uri("/rpc/public.function_source.json")
-            .to_request();
-
-        let response = test::block_on(app.call(req)).unwrap();
-        assert!(response.status().is_success());
-    }
-
-    #[test]
-    fn test_get_function_source_tile_ok() {
-        let state = test::run_on(|| mock_state(None, mock_function_sources()));
-        let mut app = test::init_service(App::new().data(state).configure(router));
-
-        let req = test::TestRequest::get()
-            .uri("/rpc/public.function_source/0/0/0.pbf")
-            .to_request();
-
-        let future = test::run_on(|| app.call(req));
-        let response = test::block_on(future).unwrap();
-        assert!(response.status().is_success());
-    }
 }

@@ -1,11 +1,11 @@
 use actix::{Actor, Handler, SyncContext};
 use std::io;
 
-use super::db::PostgresPool;
-use super::function_source::{get_function_sources, FunctionSources};
-use super::messages;
-use super::source::Tile;
-use super::table_source::{get_table_sources, TableSources};
+use crate::db::PostgresPool;
+use crate::function_source::{get_function_sources, FunctionSources};
+use crate::messages;
+use crate::source::Tile;
+use crate::table_source::{get_table_sources, TableSources};
 
 pub struct DBActor(pub PostgresPool);
 

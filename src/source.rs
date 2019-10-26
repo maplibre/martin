@@ -4,7 +4,7 @@ use std::io;
 
 use tilejson::TileJSON;
 
-use super::db::PostgresConnection;
+use crate::db::PostgresConnection;
 
 pub type Tile = Vec<u8>;
 pub type Query = HashMap<String, String>;

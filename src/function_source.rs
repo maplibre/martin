@@ -1,12 +1,12 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
-
 use tilejson::{TileJSON, TileJSONBuilder};
 
-use super::db::PostgresConnection;
-use super::source::{Query, Source, Tile, XYZ};
-use super::utils::query_to_json_string;
+use crate::db::PostgresConnection;
+use crate::source::{Query, Source, Tile, XYZ};
+use crate::utils::query_to_json_string;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {

@@ -194,7 +194,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           draft: true
-          files: 'martin*'
+          files: "martin*"
           body_path: CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,10 +1,10 @@
 use actix::{Addr, Message};
 use std::io;
 
-use super::function_source::FunctionSources;
-use super::source::{Query, Source, Tile, XYZ};
-use super::table_source::TableSources;
-use super::worker_actor::WorkerActor;
+use crate::function_source::FunctionSources;
+use crate::source::{Query, Source, Tile, XYZ};
+use crate::table_source::TableSources;
+use crate::worker_actor::WorkerActor;
 
 pub struct Connect {
   pub addr: Addr<WorkerActor>,

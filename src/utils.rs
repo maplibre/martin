@@ -1,7 +1,7 @@
 use serde_json;
 use std::collections::HashMap;
 
-use super::source::{Query, XYZ};
+use crate::source::{Query, XYZ};
 
 pub fn prettify_error<E: std::fmt::Display>(message: &'static str) -> impl Fn(E) -> std::io::Error {
   move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
