@@ -25,7 +25,7 @@ impl Source for FunctionSource {
   fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
     let mut tilejson_builder = TileJSONBuilder::new();
 
-    tilejson_builder.scheme("tms");
+    tilejson_builder.scheme("xyz");
     tilejson_builder.name(&self.id);
     tilejson_builder.tiles(vec![]);
 
