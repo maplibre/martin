@@ -1,71 +1,10 @@
-use actix_web::dev::{ConnectionInfo, Params};
-use actix_web::http::header::{HeaderMap, ToStrError};
 use serde_json;
 use std::collections::HashMap;
-use tilejson::{TileJSON, TileJSONBuilder};
 
-use super::app::Query;
-use super::source::{Source, XYZ};
+use crate::source::{Query, XYZ};
 
 pub fn prettify_error<E: std::fmt::Display>(message: &'static str) -> impl Fn(E) -> std::io::Error {
   move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
-}
-
-pub fn build_tilejson(
-  source: Box<dyn Source>,
-  connection_info: &ConnectionInfo,
-  path: &str,
-  query_string: &str,
-  headers: &HeaderMap,
-) -> Result<TileJSON, ToStrError> {
-  let source_id = source.get_id();
-
-  let path = headers
-    .get("x-rewrite-url")
-    .map_or(Ok(path.trim_end_matches(".json")), |header| {
-      let header_str = header.to_str()?;
-      Ok(header_str.trim_end_matches(".json"))
-    })?;
-
-  let query = if query_string.is_empty() {
-    query_string.to_owned()
-  } else {
-    format!("?{}", query_string)
-  };
-
-  let tiles_url = format!(
-    "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf{}",
-    connection_info.scheme(),
-    connection_info.host(),
-    path,
-    query
-  );
-
-  let mut tilejson_builder = TileJSONBuilder::new();
-  tilejson_builder.scheme("tms");
-  tilejson_builder.name(source_id);
-  tilejson_builder.tiles(vec![&tiles_url]);
-
-  Ok(tilejson_builder.finalize())
-}
-
-pub fn parse_xyz(params: &Params) -> Result<XYZ, &str> {
-  let z = params
-    .get("z")
-    .and_then(|i| i.parse::<u32>().ok())
-    .ok_or("invalid z value")?;
-
-  let x = params
-    .get("x")
-    .and_then(|i| i.parse::<u32>().ok())
-    .ok_or("invalid x value")?;
-
-  let y = params
-    .get("y")
-    .and_then(|i| i.parse::<u32>().ok())
-    .ok_or("invalid y value")?;
-
-  Ok(XYZ { x, y, z })
 }
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql

@@ -1,11 +1,10 @@
-use actix::prelude::*;
+use actix::{Addr, Message};
 use std::io;
 
-use super::app::Query;
-use super::function_source::FunctionSources;
-use super::source::{Source, Tile, XYZ};
-use super::table_source::TableSources;
-use super::worker_actor::WorkerActor;
+use crate::function_source::FunctionSources;
+use crate::source::{Query, Source, Tile, XYZ};
+use crate::table_source::TableSources;
+use crate::worker_actor::WorkerActor;
 
 pub struct Connect {
   pub addr: Addr<WorkerActor>,
@@ -17,7 +16,7 @@ impl Message for Connect {
 
 pub struct GetTile {
   pub xyz: XYZ,
-  pub query: Query,
+  pub query: Option<Query>,
   pub source: Box<dyn Source + Send>,
 }
 

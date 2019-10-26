@@ -1,10 +1,10 @@
-use actix::prelude::*;
+use actix::{Actor, Context, Handler};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::function_source::FunctionSources;
-use super::messages;
-use super::table_source::TableSources;
+use crate::function_source::FunctionSources;
+use crate::messages;
+use crate::table_source::TableSources;
 
 pub struct WorkerActor {
   pub table_sources: Rc<RefCell<Option<TableSources>>>,

@@ -1,46 +1,79 @@
-extern crate actix;
-extern crate actix_web;
-extern crate docopt;
-extern crate env_logger;
-extern crate futures;
-extern crate tilejson;
 #[macro_use]
 extern crate log;
-extern crate num_cpus;
-extern crate postgres;
-extern crate r2d2;
-extern crate r2d2_postgres;
-extern crate semver;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate serde_yaml;
-
-mod app;
-mod cli;
-mod config;
-mod coordinator_actor;
-mod db;
-mod db_executor;
-mod function_source;
-mod messages;
-mod server;
-mod source;
-mod table_source;
-mod utils;
-mod worker_actor;
 
 use docopt::Docopt;
-use std::env;
+use serde::Deserialize;
+use std::error::Error;
+use std::{env, io};
 
-use cli::{Args, USAGE};
-use config::{generate_config, read_config, Config};
-use db::{check_postgis_version, setup_connection_pool, PostgresPool};
-use utils::prettify_error;
+use martin::config::{read_config, Config, ConfigBuilder};
+use martin::db::{check_postgis_version, setup_connection_pool, PostgresPool};
+use martin::function_source::get_function_sources;
+use martin::server;
+use martin::table_source::get_table_sources;
+use martin::utils::prettify_error;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
+
+pub const USAGE: &str = "
+Martin - PostGIS Mapbox Vector Tiles server.
+
+Usage:
+  martin [options] [<connection>]
+  martin -h | --help
+  martin -v | --version
+
+Options:
+  -h --help               Show this screen.
+  -v --version            Show version.
+  --config=<path>         Path to config file.
+  --keep-alive=<n>        Connection keep alive timeout [default: 75].
+  --listen-addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
+  --pool-size=<n>         Maximum connections pool size [default: 20].
+  --watch                 Scan for new sources on sources list requests
+  --workers=<n>           Number of web server workers.
+";
+
+#[derive(Debug, Deserialize)]
+pub struct Args {
+  pub arg_connection: Option<String>,
+  pub flag_config: Option<String>,
+  pub flag_help: bool,
+  pub flag_keep_alive: Option<usize>,
+  pub flag_listen_addresses: Option<String>,
+  pub flag_pool_size: Option<u32>,
+  pub flag_watch: bool,
+  pub flag_version: bool,
+  pub flag_workers: Option<usize>,
+}
+
+pub fn generate_config(
+  args: Args,
+  connection_string: String,
+  pool: &PostgresPool,
+) -> io::Result<Config> {
+  let conn = pool
+    .get()
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+
+  let table_sources = get_table_sources(&conn)?;
+  let function_sources = get_function_sources(&conn)?;
+
+  let config = ConfigBuilder {
+    connection_string,
+    watch: Some(args.flag_watch),
+    keep_alive: args.flag_keep_alive,
+    listen_addresses: args.flag_listen_addresses,
+    pool_size: args.flag_pool_size,
+    worker_processes: args.flag_workers,
+    table_sources: Some(table_sources),
+    function_sources: Some(function_sources),
+  };
+
+  let config = config.finalize();
+  Ok(config)
+}
 
 fn setup_from_config(file_name: String) -> Result<(Config, PostgresPool), std::io::Error> {
   let config = read_config(&file_name).map_err(prettify_error("Can't read config"))?;

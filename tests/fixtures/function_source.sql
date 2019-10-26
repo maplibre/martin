@@ -1,16 +1,15 @@
 DROP FUNCTION IF EXISTS public.function_source;
 CREATE OR REPLACE FUNCTION public.function_source(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
 DECLARE
-  bounds geometry;
   mvt bytea;
 BEGIN
-  SELECT INTO bounds TileBBox(z, x, y, 3857);
+  RAISE NOTICE 'query_params: %', query_params;
 
   SELECT INTO mvt ST_AsMVT(tile, 'public.function_source', 4096, 'geom') FROM (
     SELECT
-      ST_AsMVTGeom(geom, bounds, 4096, 64, true) AS geom
+      ST_AsMVTGeom(ST_Transform(geom, 3857), TileBBox(z, x, y, 3857), 4096, 64, true) AS geom
     FROM public.table_source
-    WHERE geom && bounds
+    WHERE geom && TileBBox(z, x, y, 4326)
   ) as tile WHERE geom IS NOT NULL;
 
   RETURN mvt;

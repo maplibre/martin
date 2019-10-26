@@ -1,14 +1,12 @@
 use num_cpus;
-use serde_yaml;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-use super::cli::Args;
-use super::db::PostgresPool;
-use super::function_source::{get_function_sources, FunctionSources};
-use super::table_source::{get_table_sources, TableSources};
+use crate::function_source::FunctionSources;
+use crate::table_source::TableSources;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Config {
@@ -23,7 +21,7 @@ pub struct Config {
 }
 
 #[derive(Deserialize)]
-struct ConfigBuilder {
+pub struct ConfigBuilder {
   pub watch: Option<bool>,
   pub pool_size: Option<u32>,
   pub keep_alive: Option<usize>,
@@ -60,31 +58,4 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
 
   Ok(config_builder.finalize())
-}
-
-pub fn generate_config(
-  args: Args,
-  connection_string: String,
-  pool: &PostgresPool,
-) -> io::Result<Config> {
-  let conn = pool
-    .get()
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
-
-  let table_sources = get_table_sources(&conn)?;
-  let function_sources = get_function_sources(&conn)?;
-
-  let config = ConfigBuilder {
-    connection_string,
-    watch: Some(args.flag_watch),
-    keep_alive: args.flag_keep_alive,
-    listen_addresses: args.flag_listen_addresses,
-    pool_size: args.flag_pool_size,
-    worker_processes: args.flag_workers,
-    table_sources: Some(table_sources),
-    function_sources: Some(function_sources),
-  };
-
-  let config = config.finalize();
-  Ok(config)
 }

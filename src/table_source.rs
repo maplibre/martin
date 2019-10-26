@@ -1,11 +1,13 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 
-use super::app::Query;
-use super::db::PostgresConnection;
-use super::source::{Source, Tile, XYZ};
-use super::utils;
+use tilejson::{TileJSON, TileJSONBuilder};
+
+use crate::db::PostgresConnection;
+use crate::source::{Query, Source, Tile, XYZ};
+use crate::utils;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableSource {
@@ -29,11 +31,20 @@ impl Source for TableSource {
     self.id.as_str()
   }
 
+  fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
+    let mut tilejson_builder = TileJSONBuilder::new();
+
+    tilejson_builder.scheme("tms");
+    tilejson_builder.name(&self.id);
+
+    Ok(tilejson_builder.finalize())
+  }
+
   fn get_tile(
     &self,
     conn: &PostgresConnection,
     xyz: &XYZ,
-    _query: &Query,
+    _query: &Option<Query>,
   ) -> Result<Tile, io::Error> {
     let mercator_bounds = utils::tilebbox(xyz);
 
