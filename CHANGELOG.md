@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.5.0](https://github.com/urbica/martin/compare/v0.4.1...v0.5.0) (2019-10-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* TileJSON scheme is XYZ by default
+
+### Features
+
+* upgrade actix-web to 1.0 ([#33](https://github.com/urbica/martin/issues/33)) ([5a807e4](https://github.com/urbica/martin/commit/5a807e40e272f6b2ccf4e7d33290521b2736b54d))
+
+
+### Bug Fixes
+
+* 🐛 change tilejson scheme to xyz by default ([aecb7ce](https://github.com/urbica/martin/commit/aecb7ce6f45fc72034d20fcfaca186506a8dfce7)), closes [#29](https://github.com/urbica/martin/issues/29)
+
 ### [0.4.1](https://github.com/urbica/martin/compare/v0.4.0...v0.4.1) (2019-10-07)
 
 ### Bug Fixes
