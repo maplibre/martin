@@ -1,7 +1,7 @@
-FROM postgres:10
+FROM postgres:12
 
-ENV PG_MAJOR=10
-ENV POSTGIS_MAJOR=2.4
+ENV PG_MAJOR=12
+ENV POSTGIS_MAJOR=3
 
 RUN set -x \
   && apt-get update \
