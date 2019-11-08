@@ -133,12 +133,6 @@ jobs:
       - uses: actions/checkout@v1
       - name: Build the Docker image
         run: docker build -t docker.pkg.github.com/urbica/martin/martin:latest .
-      - name: Publish the Docker image
-        run: |
-          docker login docker.pkg.github.com -u publisher -p "${GITHUB_PACKAGE_REGISTRY_TOKEN}"
-          docker push docker.pkg.github.com/urbica/martin/martin:latest
-        env:
-          GITHUB_PACKAGE_REGISTRY_TOKEN: ${{ secrets.GITHUB_PACKAGE_REGISTRY_TOKEN }}
 
   release:
     needs: [test]
