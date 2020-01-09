@@ -322,8 +322,8 @@ fn create_state(
     coordinator.do_send(messages::Connect { addr: worker });
 
     AppState {
-        db: db.clone(),
-        coordinator: coordinator.clone(),
+        db,
+        coordinator,
         table_sources,
         function_sources,
         watch_mode,

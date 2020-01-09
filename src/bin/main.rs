@@ -107,14 +107,15 @@ fn setup_from_database(args: Args) -> Result<(Config, PostgresPool), std::io::Er
 fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
   info!("Starting martin v{}", VERSION);
 
-  let config_file_name = args.flag_config.clone();
-  let (config, pool) = if config_file_name.is_some() {
-    let file_name = config_file_name.clone().unwrap();
-    info!("Using {}", file_name);
-    setup_from_config(file_name)?
-  } else {
-    info!("Config is not set, scanning database");
-    setup_from_database(args)?
+  let (config, pool) = match args.flag_config {
+    Some(config_file_name) => {
+      info!("Using {}", config_file_name);
+      setup_from_config(config_file_name)?
+    }
+    None => {
+      info!("Config is not set, scanning database");
+      setup_from_database(args)?
+    }
   };
 
   let matches = check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool)

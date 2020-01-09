@@ -63,8 +63,8 @@ pub fn mock_state(
   let function_sources = Rc::new(RefCell::new(function_sources));
 
   AppState {
-    db: db.clone(),
-    coordinator: coordinator.clone(),
+    db,
+    coordinator,
     table_sources,
     function_sources,
     watch_mode: false,

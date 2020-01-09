@@ -19,7 +19,7 @@ impl Handler<messages::RefreshTableSources> for WorkerActor {
   type Result = ();
 
   fn handle(&mut self, msg: messages::RefreshTableSources, _: &mut Context<Self>) -> Self::Result {
-    *self.table_sources.borrow_mut() = msg.table_sources.clone();
+    *self.table_sources.borrow_mut() = msg.table_sources;
   }
 }
 
@@ -31,6 +31,6 @@ impl Handler<messages::RefreshFunctionSources> for WorkerActor {
     msg: messages::RefreshFunctionSources,
     _: &mut Context<Self>,
   ) -> Self::Result {
-    *self.function_sources.borrow_mut() = msg.function_sources.clone();
+    *self.function_sources.borrow_mut() = msg.function_sources;
   }
 }
