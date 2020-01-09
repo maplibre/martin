@@ -15,7 +15,7 @@ path = "src/bin/main.rs"
 [dependencies]
 actix = "0.8"
 actix-rt = "0.2"
-actix-web = "1.0"
+actix-web = "2.0"
 docopt = "1"
 env_logger = "0.7"
 futures = "0.1"
