@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error::Error;
 use std::io;
 use tilejson::{TileJSON, TileJSONBuilder};
 
@@ -68,7 +67,7 @@ pub fn get_function_sources(conn: &PostgresConnection) -> Result<FunctionSources
 
   let rows = conn
     .query(include_str!("scripts/get_function_sources.sql"), &[])
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
   for row in &rows {
     let schema: String = row.get("specific_schema");

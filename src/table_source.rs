@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error::Error;
 use std::io;
 
 use tilejson::{TileJSON, TileJSONBuilder};
@@ -92,7 +91,7 @@ impl Source for TableSource {
     let tile: Tile = conn
       .query(&query, &[])
       .map(|rows| rows.get(0).get("st_asmvt"))
-      .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+      .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
     Ok(tile)
   }
@@ -107,7 +106,7 @@ pub fn get_table_sources(conn: &PostgresConnection) -> Result<TableSources, io::
 
   let rows = conn
     .query(include_str!("scripts/get_table_sources.sql"), &[])
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
   for row in &rows {
     let schema: String = row.get("f_table_schema");
