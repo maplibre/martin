@@ -1,6 +1,5 @@
 use num_cpus;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -55,7 +54,7 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
   file.read_to_string(&mut contents)?;
 
   let config_builder: ConfigBuilder = serde_yaml::from_str(contents.as_str())
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
   Ok(config_builder.finalize())
 }

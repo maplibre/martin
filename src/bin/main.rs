@@ -3,7 +3,6 @@ extern crate log;
 
 use docopt::Docopt;
 use serde::Deserialize;
-use std::error::Error;
 use std::{env, io};
 
 use martin::config::{read_config, Config, ConfigBuilder};
@@ -55,7 +54,7 @@ pub fn generate_config(
 ) -> io::Result<Config> {
   let conn = pool
     .get()
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.description()))?;
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
   let table_sources = get_table_sources(&conn)?;
   let function_sources = get_function_sources(&conn)?;
