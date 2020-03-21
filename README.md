@@ -429,6 +429,7 @@ If you are running martin behind nginx proxy, you may want to rewrite request UR
 location ~ /tiles/(?<fwd_path>.*) {
     proxy_set_header  X-Rewrite-URL $request_uri;
     proxy_set_header  X-Forwarded-Host $host;
+    proxy_set_header  X-Forwarded-Proto $scheme; # or $http_x_forwarded_proto
     proxy_pass        http://martin:3000/$fwd_path$is_args$args;
 }
 ```
