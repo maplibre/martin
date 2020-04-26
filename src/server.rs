@@ -6,7 +6,7 @@ use std::rc::Rc;
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 use actix_cors::Cors;
 use actix_web::{
-    error, http, middleware, web, App, Either, Error, HttpRequest, HttpResponse, HttpServer, Result,
+    error, http, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
 
 use crate::config::Config;
@@ -42,32 +42,27 @@ struct TileRequest {
     format: String,
 }
 
-type SourcesResult = Either<HttpResponse, Result<HttpResponse, Error>>;
-
-async fn get_table_sources(state: web::Data<AppState>) -> SourcesResult {
+async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     if !state.watch_mode {
         let table_sources = state.table_sources.borrow().clone();
         let response = HttpResponse::Ok().json(table_sources);
-        return Either::A(response);
+        return Ok(response);
     }
 
     info!("Scanning database for table sources");
-    let response = state.db.send(messages::GetTableSources {}).await;
 
-    let response = response
-        .and_then(move |table_sources| match table_sources {
-            Ok(table_sources) => {
-                state.coordinator.do_send(messages::RefreshTableSources {
-                    table_sources: Some(table_sources.clone()),
-                });
+    let table_sources = state
+        .db
+        .send(messages::GetTableSources {})
+        .await
+        .map_err(|_| HttpResponse::InternalServerError())?
+        .map_err(|_| HttpResponse::InternalServerError())?;
 
-                Ok(HttpResponse::Ok().json(table_sources))
-            }
-            Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .map_err(|_| HttpResponse::InternalServerError().into());
+    state.coordinator.do_send(messages::RefreshTableSources {
+        table_sources: Some(table_sources.clone()),
+    });
 
-    Either::B(response)
+    Ok(HttpResponse::Ok().json(table_sources))
 }
 
 async fn get_table_source(
@@ -147,49 +142,44 @@ async fn get_table_source_tile(
         source: source.clone(),
     };
 
-    state
+    let tile = state
         .db
         .send(message)
         .await
-        .and_then(|result| match result {
-            Ok(tile) => match tile.len() {
-                0 => Ok(HttpResponse::NoContent()
-                    .content_type("application/x-protobuf")
-                    .body(tile)),
-                _ => Ok(HttpResponse::Ok()
-                    .content_type("application/x-protobuf")
-                    .body(tile)),
-            },
-            Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .map_err(|_| HttpResponse::InternalServerError().into())
+        .map_err(|_| HttpResponse::InternalServerError())?
+        .map_err(|_| HttpResponse::InternalServerError())?;
+
+    match tile.len() {
+        0 => Ok(HttpResponse::NoContent()
+            .content_type("application/x-protobuf")
+            .body(tile)),
+        _ => Ok(HttpResponse::Ok()
+            .content_type("application/x-protobuf")
+            .body(tile)),
+    }
 }
 
-async fn get_function_sources(state: web::Data<AppState>) -> SourcesResult {
+async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     if !state.watch_mode {
         let function_sources = state.function_sources.borrow().clone();
         let response = HttpResponse::Ok().json(function_sources);
-        return Either::A(response);
+        return Ok(response);
     }
 
     info!("Scanning database for function sources");
-    let response = state
+
+    let function_sources = state
         .db
         .send(messages::GetFunctionSources {})
         .await
-        .and_then(move |function_sources| match function_sources {
-            Ok(function_sources) => {
-                state.coordinator.do_send(messages::RefreshFunctionSources {
-                    function_sources: Some(function_sources.clone()),
-                });
+        .map_err(|_| HttpResponse::InternalServerError())?
+        .map_err(|_| HttpResponse::InternalServerError())?;
 
-                Ok(HttpResponse::Ok().json(function_sources))
-            }
-            Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .map_err(|_| HttpResponse::InternalServerError().into());
+    state.coordinator.do_send(messages::RefreshFunctionSources {
+        function_sources: Some(function_sources.clone()),
+    });
 
-    Either::B(response)
+    Ok(HttpResponse::Ok().json(function_sources))
 }
 
 async fn get_function_source(
@@ -270,22 +260,21 @@ async fn get_function_source_tile(
         source: source.clone(),
     };
 
-    state
+    let tile = state
         .db
         .send(message)
         .await
-        .and_then(|result| match result {
-            Ok(tile) => match tile.len() {
-                0 => Ok(HttpResponse::NoContent()
-                    .content_type("application/x-protobuf")
-                    .body(tile)),
-                _ => Ok(HttpResponse::Ok()
-                    .content_type("application/x-protobuf")
-                    .body(tile)),
-            },
-            Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        })
-        .map_err(|_| HttpResponse::InternalServerError().into())
+        .map_err(|_| HttpResponse::InternalServerError())?
+        .map_err(|_| HttpResponse::InternalServerError())?;
+
+    match tile.len() {
+        0 => Ok(HttpResponse::NoContent()
+            .content_type("application/x-protobuf")
+            .body(tile)),
+        _ => Ok(HttpResponse::Ok()
+            .content_type("application/x-protobuf")
+            .body(tile)),
+    }
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
