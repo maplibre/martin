@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
+use actix_cors::Cors;
 use actix_web::{
     error, http, middleware, web, App, Either, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
-use futures::Future;
 
 use crate::config::Config;
 use crate::coordinator_actor::CoordinatorActor;
@@ -42,9 +42,9 @@ struct TileRequest {
     format: String,
 }
 
-type SourcesResult = Either<HttpResponse, Box<dyn Future<Item = HttpResponse, Error = Error>>>;
+type SourcesResult = Either<HttpResponse, Result<HttpResponse, Error>>;
 
-fn get_table_sources(state: web::Data<AppState>) -> SourcesResult {
+async fn get_table_sources(state: web::Data<AppState>) -> SourcesResult {
     if !state.watch_mode {
         let table_sources = state.table_sources.borrow().clone();
         let response = HttpResponse::Ok().json(table_sources);
@@ -52,10 +52,9 @@ fn get_table_sources(state: web::Data<AppState>) -> SourcesResult {
     }
 
     info!("Scanning database for table sources");
-    let response = state
-        .db
-        .send(messages::GetTableSources {})
-        .from_err()
+    let response = state.db.send(messages::GetTableSources {}).await;
+
+    let response = response
         .and_then(move |table_sources| match table_sources {
             Ok(table_sources) => {
                 state.coordinator.do_send(messages::RefreshTableSources {
@@ -65,12 +64,13 @@ fn get_table_sources(state: web::Data<AppState>) -> SourcesResult {
                 Ok(HttpResponse::Ok().json(table_sources))
             }
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        });
+        })
+        .map_err(|_| HttpResponse::InternalServerError().into());
 
-    Either::B(Box::new(response))
+    Either::B(response)
 }
 
-fn get_table_source(
+async fn get_table_source(
     req: HttpRequest,
     path: web::Path<SourceRequest>,
     state: web::Data<AppState>,
@@ -121,10 +121,10 @@ fn get_table_source(
     Ok(HttpResponse::Ok().json(tilejson))
 }
 
-fn get_table_source_tile(
+async fn get_table_source_tile(
     path: web::Path<TileRequest>,
     state: web::Data<AppState>,
-) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
+) -> Result<HttpResponse, Error> {
     let table_sources = state
         .table_sources
         .borrow()
@@ -147,10 +147,10 @@ fn get_table_source_tile(
         source: source.clone(),
     };
 
-    let response = state
+    state
         .db
         .send(message)
-        .from_err()
+        .await
         .and_then(|result| match result {
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
@@ -161,12 +161,11 @@ fn get_table_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        });
-
-    Ok(Box::new(response))
+        })
+        .map_err(|_| HttpResponse::InternalServerError().into())
 }
 
-fn get_function_sources(state: web::Data<AppState>) -> SourcesResult {
+async fn get_function_sources(state: web::Data<AppState>) -> SourcesResult {
     if !state.watch_mode {
         let function_sources = state.function_sources.borrow().clone();
         let response = HttpResponse::Ok().json(function_sources);
@@ -177,7 +176,7 @@ fn get_function_sources(state: web::Data<AppState>) -> SourcesResult {
     let response = state
         .db
         .send(messages::GetFunctionSources {})
-        .from_err()
+        .await
         .and_then(move |function_sources| match function_sources {
             Ok(function_sources) => {
                 state.coordinator.do_send(messages::RefreshFunctionSources {
@@ -187,12 +186,13 @@ fn get_function_sources(state: web::Data<AppState>) -> SourcesResult {
                 Ok(HttpResponse::Ok().json(function_sources))
             }
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        });
+        })
+        .map_err(|_| HttpResponse::InternalServerError().into());
 
-    Either::B(Box::new(response))
+    Either::B(response)
 }
 
-fn get_function_source(
+async fn get_function_source(
     req: HttpRequest,
     path: web::Path<SourceRequest>,
     state: web::Data<AppState>,
@@ -243,11 +243,11 @@ fn get_function_source(
     Ok(HttpResponse::Ok().json(tilejson))
 }
 
-fn get_function_source_tile(
+async fn get_function_source_tile(
     path: web::Path<TileRequest>,
     query: web::Query<HashMap<String, String>>,
     state: web::Data<AppState>,
-) -> Result<Box<dyn Future<Item = HttpResponse, Error = Error>>> {
+) -> Result<HttpResponse, Error> {
     let function_sources = state
         .function_sources
         .borrow()
@@ -270,10 +270,10 @@ fn get_function_source_tile(
         source: source.clone(),
     };
 
-    let response = state
+    state
         .db
         .send(message)
-        .from_err()
+        .await
         .and_then(|result| match result {
             Ok(tile) => match tile.len() {
                 0 => Ok(HttpResponse::NoContent()
@@ -284,9 +284,8 @@ fn get_function_source_tile(
                     .body(tile)),
             },
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
-        });
-
-    Ok(Box::new(response))
+        })
+        .map_err(|_| HttpResponse::InternalServerError().into())
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
@@ -343,8 +342,10 @@ pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner
     HttpServer::new(move || {
         let state = create_state(db.clone(), coordinator.clone(), config.clone(), watch_mode);
 
-        let cors_middleware = middleware::DefaultHeaders::new()
-            .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        let cors_middleware = Cors::new()
+            .allowed_origin("*")
+            .allowed_methods(vec!["GET"])
+            .finish();
 
         App::new()
             .data(state)
@@ -359,7 +360,7 @@ pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner
     .keep_alive(keep_alive)
     .shutdown_timeout(0)
     .workers(worker_processes)
-    .start();
+    .run();
 
     sys
 }
