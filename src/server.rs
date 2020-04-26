@@ -342,10 +342,7 @@ pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner
     HttpServer::new(move || {
         let state = create_state(db.clone(), coordinator.clone(), config.clone(), watch_mode);
 
-        let cors_middleware = Cors::new()
-            .allowed_origin("*")
-            .allowed_methods(vec!["GET"])
-            .finish();
+        let cors_middleware = Cors::default();
 
         App::new()
             .data(state)
