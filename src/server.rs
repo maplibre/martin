@@ -11,7 +11,7 @@ use actix_web::{
 
 use crate::config::Config;
 use crate::coordinator_actor::CoordinatorActor;
-use crate::db::PostgresPool;
+use crate::db::Pool;
 use crate::db_actor::DBActor;
 use crate::function_source::FunctionSources;
 use crate::messages;
@@ -318,7 +318,7 @@ fn create_state(
     }
 }
 
-pub fn new(pool: PostgresPool, config: Config, watch_mode: bool) -> SystemRunner {
+pub fn new(pool: Pool, config: Config, watch_mode: bool) -> SystemRunner {
     let sys = actix_rt::System::new("server");
 
     let db = SyncArbiter::start(3, move || DBActor(pool.clone()));

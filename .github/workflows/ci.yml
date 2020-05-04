@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   check:
@@ -142,7 +142,7 @@ jobs:
         include:
           - os: ubuntu-latest
             rust: stable
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
             bin: martin
             name: martin-Linux-x86_64.tar.gz
           - os: windows-latest
@@ -163,10 +163,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
           target: ${{ matrix.target }}
-      - name: Install musl tools
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get install -y musl-tools
       - name: Checkout
         uses: actions/checkout@v1
       - name: Run build

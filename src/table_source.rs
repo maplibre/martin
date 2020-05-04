@@ -4,7 +4,7 @@ use std::io;
 
 use tilejson::{TileJSON, TileJSONBuilder};
 
-use crate::db::PostgresConnection;
+use crate::db::Connection;
 use crate::source::{Query, Source, Tile, XYZ};
 use crate::utils;
 
@@ -41,7 +41,7 @@ impl Source for TableSource {
 
   fn get_tile(
     &self,
-    conn: &PostgresConnection,
+    conn: &mut Connection,
     xyz: &XYZ,
     _query: &Option<Query>,
   ) -> Result<Tile, io::Error> {
@@ -89,8 +89,8 @@ impl Source for TableSource {
     );
 
     let tile: Tile = conn
-      .query(&query, &[])
-      .map(|rows| rows.get(0).get("st_asmvt"))
+      .query_one(query.as_str(), &[])
+      .map(|row| row.get("st_asmvt"))
       .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
     Ok(tile)
@@ -101,7 +101,7 @@ static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-pub fn get_table_sources(conn: &PostgresConnection) -> Result<TableSources, io::Error> {
+pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Error> {
   let mut sources = HashMap::new();
 
   let rows = conn
