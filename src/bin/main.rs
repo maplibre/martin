@@ -6,7 +6,7 @@ use serde::Deserialize;
 use std::{env, io};
 
 use martin::config::{read_config, Config, ConfigBuilder};
-use martin::db::{check_postgis_version, setup_connection_pool, PostgresPool};
+use martin::db::{check_postgis_version, setup_connection_pool, get_connection, PostgresPool};
 use martin::function_source::get_function_sources;
 use martin::server;
 use martin::table_source::get_table_sources;
@@ -52,12 +52,9 @@ pub fn generate_config(
   connection_string: String,
   pool: &PostgresPool,
 ) -> io::Result<Config> {
-  let conn = pool
-    .get()
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
-
-  let table_sources = get_table_sources(&conn)?;
-  let function_sources = get_function_sources(&conn)?;
+  let mut connection = get_connection(pool)?;
+  let table_sources = get_table_sources(&mut connection)?;
+  let function_sources = get_function_sources(&mut connection)?;
 
   let config = ConfigBuilder {
     connection_string,

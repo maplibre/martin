@@ -1,7 +1,7 @@
 use actix::{Actor, Handler, SyncContext};
 use std::io;
 
-use crate::db::PostgresPool;
+use crate::db::{get_connection, PostgresPool};
 use crate::function_source::{get_function_sources, FunctionSources};
 use crate::messages;
 use crate::source::Tile;
@@ -17,8 +17,8 @@ impl Handler<messages::GetTableSources> for DBActor {
   type Result = Result<TableSources, io::Error>;
 
   fn handle(&mut self, _msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
-    let conn = self.0.get().unwrap();
-    let table_sources = get_table_sources(&conn)?;
+    let mut connection = get_connection(&self.0)?;
+    let table_sources = get_table_sources(&mut connection)?;
     Ok(table_sources)
   }
 }
@@ -27,8 +27,8 @@ impl Handler<messages::GetFunctionSources> for DBActor {
   type Result = Result<FunctionSources, io::Error>;
 
   fn handle(&mut self, _msg: messages::GetFunctionSources, _: &mut Self::Context) -> Self::Result {
-    let conn = self.0.get().unwrap();
-    let function_sources = get_function_sources(&conn)?;
+    let mut connection = get_connection(&self.0)?;
+    let function_sources = get_function_sources(&mut connection)?;
     Ok(function_sources)
   }
 }
@@ -37,9 +37,8 @@ impl Handler<messages::GetTile> for DBActor {
   type Result = Result<Tile, io::Error>;
 
   fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {
-    let conn = self.0.get().unwrap();
-
-    let tile = msg.source.get_tile(&conn, &msg.xyz, &msg.query)?;
+    let mut connection = get_connection(&self.0)?;
+    let tile = msg.source.get_tile(&mut connection, &msg.xyz, &msg.query)?;
 
     Ok(tile)
   }

@@ -33,7 +33,7 @@ impl Source for FunctionSource {
 
   fn get_tile(
     &self,
-    conn: &PostgresConnection,
+    conn: &mut PostgresConnection,
     xyz: &XYZ,
     query: &Option<Query>,
   ) -> Result<Tile, io::Error> {
@@ -54,15 +54,15 @@ impl Source for FunctionSource {
     );
 
     let tile: Tile = conn
-      .query(&query, &[])
-      .map(|rows| rows.get(0).get(self.function.as_str()))
+      .query_one(query.as_str(), &[])
+      .map(|row| row.get(self.function.as_str()))
       .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
     Ok(tile)
   }
 }
 
-pub fn get_function_sources(conn: &PostgresConnection) -> Result<FunctionSources, io::Error> {
+pub fn get_function_sources(conn: &mut PostgresConnection) -> Result<FunctionSources, io::Error> {
   let mut sources = HashMap::new();
 
   let rows = conn

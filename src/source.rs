@@ -23,7 +23,7 @@ pub trait Source: Debug {
 
   fn get_tile(
     &self,
-    conn: &PostgresConnection,
+    conn: &mut PostgresConnection,
     xyz: &XYZ,
     query: &Option<Query>,
   ) -> Result<Tile, io::Error>;

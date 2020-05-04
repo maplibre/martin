@@ -1,16 +1,21 @@
-use r2d2::{Pool, PooledConnection};
-use r2d2_postgres::{PostgresConnectionManager, TlsMode};
+use std::io;
+use std::str::FromStr;
+
+use postgres::NoTls;
+use r2d2_postgres::PostgresConnectionManager;
 use semver::Version;
 use semver::VersionReq;
-use std::io;
 
-pub type PostgresPool = Pool<PostgresConnectionManager>;
-pub type PostgresConnection = PooledConnection<PostgresConnectionManager>;
+pub type PostgresPool = r2d2::Pool<PostgresConnectionManager<NoTls>>;
+pub type PostgresConnection = r2d2::PooledConnection<PostgresConnectionManager<NoTls>>;
 
 pub fn setup_connection_pool(cn_str: &str, pool_size: Option<u32>) -> io::Result<PostgresPool> {
-  let manager = PostgresConnectionManager::new(cn_str, TlsMode::None)?;
+  let config = postgres::config::Config::from_str(cn_str)
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-  let pool = Pool::builder()
+  let manager = PostgresConnectionManager::new(config, NoTls);
+
+  let pool = r2d2::Pool::builder()
     .max_size(pool_size.unwrap_or(20))
     .build(manager)
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
@@ -18,14 +23,21 @@ pub fn setup_connection_pool(cn_str: &str, pool_size: Option<u32>) -> io::Result
   Ok(pool)
 }
 
-pub fn select_postgis_verion(pool: &PostgresPool) -> io::Result<String> {
-  let conn = pool
+pub fn get_connection(pool: &PostgresPool) -> io::Result<PostgresConnection> {
+  let connection = pool
     .get()
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-  let version: String = conn
-    .query(r#"select (regexp_matches(postgis_lib_version(), '^(\d+\.\d+\.\d+)', 'g'))[1] as postgis_lib_version"#, &[])
-    .map(|rows| rows.get(0).get("postgis_lib_version"))?;
+  Ok(connection)
+}
+
+pub fn select_postgis_verion(pool: &PostgresPool) -> io::Result<String> {
+  let mut connection = get_connection(pool)?;
+
+  let version = connection
+    .query_one(include_str!("scripts/get_postgis_version.sql"), &[])
+    .map(|row| row.get::<_, String>("postgis_version"))
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
   Ok(version)
 }
