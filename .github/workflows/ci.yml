@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   check:
@@ -83,6 +83,10 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v1
+
+      - name: Install OpenSSL
+        run: |
+          sudo apt-get install libssl-dev
 
       - name: Setup database
         run: |
