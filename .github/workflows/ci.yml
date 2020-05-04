@@ -61,7 +61,6 @@ jobs:
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
-        continue-on-error: true # WARNING: only for this example, remove it!
         with:
           command: fmt
           args: --all -- --check
@@ -171,6 +170,7 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
       - name: Package
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
           strip target/${{ matrix.target }}/release/${{ matrix.bin }}
