@@ -84,10 +84,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v1
 
-      - name: Install OpenSSL
-        run: |
-          sudo apt-get install libssl-dev
-
       - name: Setup database
         run: |
           sudo apt-get install postgresql-client
@@ -171,6 +167,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get install -y musl-tools
+      - name: Install OpenSSL
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y libssl-dev
       - name: Checkout
         uses: actions/checkout@v1
       - name: Run build
