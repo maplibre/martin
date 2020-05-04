@@ -6,10 +6,10 @@ use r2d2_postgres::PostgresConnectionManager;
 use semver::Version;
 use semver::VersionReq;
 
-pub type PostgresPool = r2d2::Pool<PostgresConnectionManager<NoTls>>;
-pub type PostgresConnection = r2d2::PooledConnection<PostgresConnectionManager<NoTls>>;
+pub type Pool = r2d2::Pool<PostgresConnectionManager<NoTls>>;
+pub type Connection = r2d2::PooledConnection<PostgresConnectionManager<NoTls>>;
 
-pub fn setup_connection_pool(cn_str: &str, pool_size: Option<u32>) -> io::Result<PostgresPool> {
+pub fn setup_connection_pool(cn_str: &str, pool_size: Option<u32>) -> io::Result<Pool> {
   let config = postgres::config::Config::from_str(cn_str)
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
@@ -23,7 +23,7 @@ pub fn setup_connection_pool(cn_str: &str, pool_size: Option<u32>) -> io::Result
   Ok(pool)
 }
 
-pub fn get_connection(pool: &PostgresPool) -> io::Result<PostgresConnection> {
+pub fn get_connection(pool: &Pool) -> io::Result<Connection> {
   let connection = pool
     .get()
     .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
@@ -31,7 +31,7 @@ pub fn get_connection(pool: &PostgresPool) -> io::Result<PostgresConnection> {
   Ok(connection)
 }
 
-pub fn select_postgis_verion(pool: &PostgresPool) -> io::Result<String> {
+pub fn select_postgis_verion(pool: &Pool) -> io::Result<String> {
   let mut connection = get_connection(pool)?;
 
   let version = connection
@@ -44,7 +44,7 @@ pub fn select_postgis_verion(pool: &PostgresPool) -> io::Result<String> {
 
 pub fn check_postgis_version(
   required_postgis_version: &str,
-  pool: &PostgresPool,
+  pool: &Pool,
 ) -> io::Result<bool> {
   let postgis_version = select_postgis_verion(&pool)?;
 

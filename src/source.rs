@@ -4,7 +4,7 @@ use std::io;
 
 use tilejson::TileJSON;
 
-use crate::db::PostgresConnection;
+use crate::db::Connection;
 
 pub type Tile = Vec<u8>;
 pub type Query = HashMap<String, String>;
@@ -21,12 +21,7 @@ pub trait Source: Debug {
 
   fn get_tilejson(&self) -> Result<TileJSON, io::Error>;
 
-  fn get_tile(
-    &self,
-    conn: &mut PostgresConnection,
-    xyz: &XYZ,
-    query: &Option<Query>,
-  ) -> Result<Tile, io::Error>;
+  fn get_tile(&self, conn: &mut Connection, xyz: &XYZ, query: &Option<Query>) -> Result<Tile, io::Error>;
 }
 
 // pub type Sources = HashMap<String, Box<dyn Source>>;

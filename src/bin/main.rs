@@ -6,7 +6,7 @@ use serde::Deserialize;
 use std::{env, io};
 
 use martin::config::{read_config, Config, ConfigBuilder};
-use martin::db::{check_postgis_version, setup_connection_pool, get_connection, PostgresPool};
+use martin::db::{check_postgis_version, setup_connection_pool, get_connection, Pool};
 use martin::function_source::get_function_sources;
 use martin::server;
 use martin::table_source::get_table_sources;
@@ -50,7 +50,7 @@ pub struct Args {
 pub fn generate_config(
   args: Args,
   connection_string: String,
-  pool: &PostgresPool,
+  pool: &Pool,
 ) -> io::Result<Config> {
   let mut connection = get_connection(pool)?;
   let table_sources = get_table_sources(&mut connection)?;
@@ -71,7 +71,7 @@ pub fn generate_config(
   Ok(config)
 }
 
-fn setup_from_config(file_name: String) -> Result<(Config, PostgresPool), std::io::Error> {
+fn setup_from_config(file_name: String) -> Result<(Config, Pool), std::io::Error> {
   let config = read_config(&file_name).map_err(prettify_error("Can't read config"))?;
 
   let pool = setup_connection_pool(&config.connection_string, Some(config.pool_size))
@@ -82,7 +82,7 @@ fn setup_from_config(file_name: String) -> Result<(Config, PostgresPool), std::i
   Ok((config, pool))
 }
 
-fn setup_from_database(args: Args) -> Result<(Config, PostgresPool), std::io::Error> {
+fn setup_from_database(args: Args) -> Result<(Config, Pool), std::io::Error> {
   let connection_string = if args.arg_connection.is_some() {
     args.arg_connection.clone().unwrap()
   } else {

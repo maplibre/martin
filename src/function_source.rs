@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io;
 use tilejson::{TileJSON, TileJSONBuilder};
 
-use crate::db::PostgresConnection;
+use crate::db::Connection;
 use crate::source::{Query, Source, Tile, XYZ};
 use crate::utils::query_to_json_string;
 
@@ -33,7 +33,7 @@ impl Source for FunctionSource {
 
   fn get_tile(
     &self,
-    conn: &mut PostgresConnection,
+    conn: &mut Connection,
     xyz: &XYZ,
     query: &Option<Query>,
   ) -> Result<Tile, io::Error> {
@@ -62,7 +62,7 @@ impl Source for FunctionSource {
   }
 }
 
-pub fn get_function_sources(conn: &mut PostgresConnection) -> Result<FunctionSources, io::Error> {
+pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io::Error> {
   let mut sources = HashMap::new();
 
   let rows = conn
