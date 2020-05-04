@@ -173,7 +173,17 @@ jobs:
           sudo apt-get install -y pkg-config libssl-dev
       - name: Checkout
         uses: actions/checkout@v1
+      - name: Run build with OpenSSL
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+        env:
+          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
+          OPENSSL_INCLUDE_DIR: /usr/include/openssl
       - name: Run build
+        if: matrix.os != 'ubuntu-latest'
         uses: actions-rs/cargo@v1
         with:
           command: build
