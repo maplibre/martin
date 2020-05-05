@@ -133,12 +133,21 @@ jobs:
           ./tests/vtzero-show function_source.pbf
 
   docker:
-    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [test]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
       - name: Build the Docker image
-        run: docker build -t docker.pkg.github.com/urbica/martin/martin:latest .
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: urbica/martin
+          tag_with_ref: true
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
