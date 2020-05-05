@@ -183,7 +183,7 @@ jobs:
           fi
           cd -
       - name: Generate SHA-256
-        if: matrix.os == 'macOS-latest'
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'macOS-latest'
         run: shasum -a 256 ${{ matrix.name }}
       - name: Publish
         uses: softprops/action-gh-release@v1
