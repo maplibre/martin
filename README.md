@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/urbica/martin/workflows/CI/badge.svg)](https://github.com/urbica/martin/actions)
 ![Security audit](https://github.com/urbica/martin/workflows/Security%20audit/badge.svg)
+[![codecov](https://codecov.io/gh/urbica/martin/branch/master/graph/badge.svg)](https://codecov.io/gh/urbica/martin)
 [![Docker pulls](https://img.shields.io/docker/pulls/urbica/martin.svg)](https://hub.docker.com/r/urbica/martin)
 [![Metadata](https://images.microbadger.com/badges/image/urbica/martin.svg)](https://microbadger.com/images/urbica/martin)
 
