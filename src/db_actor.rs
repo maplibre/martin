@@ -10,36 +10,40 @@ use crate::table_source::{get_table_sources, TableSources};
 pub struct DBActor(pub Pool);
 
 impl Actor for DBActor {
-  type Context = SyncContext<Self>;
+    type Context = SyncContext<Self>;
 }
 
 impl Handler<messages::GetTableSources> for DBActor {
-  type Result = Result<TableSources, io::Error>;
+    type Result = Result<TableSources, io::Error>;
 
-  fn handle(&mut self, _msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
-    let mut connection = get_connection(&self.0)?;
-    let table_sources = get_table_sources(&mut connection)?;
-    Ok(table_sources)
-  }
+    fn handle(&mut self, _msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
+        let mut connection = get_connection(&self.0)?;
+        let table_sources = get_table_sources(&mut connection)?;
+        Ok(table_sources)
+    }
 }
 
 impl Handler<messages::GetFunctionSources> for DBActor {
-  type Result = Result<FunctionSources, io::Error>;
+    type Result = Result<FunctionSources, io::Error>;
 
-  fn handle(&mut self, _msg: messages::GetFunctionSources, _: &mut Self::Context) -> Self::Result {
-    let mut connection = get_connection(&self.0)?;
-    let function_sources = get_function_sources(&mut connection)?;
-    Ok(function_sources)
-  }
+    fn handle(
+        &mut self,
+        _msg: messages::GetFunctionSources,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        let mut connection = get_connection(&self.0)?;
+        let function_sources = get_function_sources(&mut connection)?;
+        Ok(function_sources)
+    }
 }
 
 impl Handler<messages::GetTile> for DBActor {
-  type Result = Result<Tile, io::Error>;
+    type Result = Result<Tile, io::Error>;
 
-  fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {
-    let mut connection = get_connection(&self.0)?;
-    let tile = msg.source.get_tile(&mut connection, &msg.xyz, &msg.query)?;
+    fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {
+        let mut connection = get_connection(&self.0)?;
+        let tile = msg.source.get_tile(&mut connection, &msg.xyz, &msg.query)?;
 
-    Ok(tile)
-  }
+        Ok(tile)
+    }
 }
