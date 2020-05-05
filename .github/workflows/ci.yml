@@ -99,10 +99,11 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Run cargo test
+      - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --all
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
 
