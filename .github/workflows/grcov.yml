@@ -33,7 +33,6 @@ jobs:
         with:
           toolchain: nightly
           override: true
-          profile: minimal
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -42,7 +41,7 @@ jobs:
           args: --all
         env:
           CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads"
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads'
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
 
       - name: Gather coverage data
