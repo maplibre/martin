@@ -134,6 +134,7 @@ jobs:
         run: docker build -t docker.pkg.github.com/urbica/martin/martin:latest .
 
   release:
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [test]
     strategy:
       matrix:
@@ -170,7 +171,6 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
       - name: Package
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
           strip target/${{ matrix.target }}/release/${{ matrix.bin }}
@@ -183,11 +183,10 @@ jobs:
           fi
           cd -
       - name: Generate SHA-256
-        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'macOS-latest'
+        if: matrix.os == 'macOS-latest'
         run: shasum -a 256 ${{ matrix.name }}
       - name: Publish
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           draft: true
           files: "martin*"
