@@ -49,6 +49,7 @@ pub fn mock_function_sources() -> Option<FunctionSources> {
 pub fn mock_state(
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,
+    watch_mode: bool,
 ) -> AppState {
     let connection_string: String = env::var("DATABASE_URL").unwrap();
     info!("Connecting to {}", connection_string);
@@ -67,6 +68,6 @@ pub fn mock_state(
         coordinator,
         table_sources,
         function_sources,
-        watch_mode: false,
+        watch_mode,
     }
 }

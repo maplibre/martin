@@ -9,7 +9,21 @@ use martin::table_source::TableSources;
 
 #[actix_rt::test]
 async fn test_get_table_sources_ok() {
-    let state = mock_state(mock_table_sources(), None);
+    let state = mock_state(mock_table_sources(), None, false);
+    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+
+    let req = test::TestRequest::get().uri("/index.json").to_request();
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+
+    let body = test::read_body(response).await;
+    let table_sources: TableSources = serde_json::from_slice(&body).unwrap();
+    assert!(table_sources.contains_key("public.table_source"));
+}
+
+#[actix_rt::test]
+async fn test_get_table_sources_watch_mode_ok() {
+    let state = mock_state(mock_table_sources(), None, true);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/index.json").to_request();
@@ -23,7 +37,7 @@ async fn test_get_table_sources_ok() {
 
 #[actix_rt::test]
 async fn test_get_table_source_ok() {
-    let state = mock_state(mock_table_sources(), None);
+    let state = mock_state(mock_table_sources(), None, false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -43,7 +57,7 @@ async fn test_get_table_source_ok() {
 
 #[actix_rt::test]
 async fn test_get_table_source_tile_ok() {
-    let state = mock_state(mock_table_sources(), None);
+    let state = mock_state(mock_table_sources(), None, false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -56,7 +70,21 @@ async fn test_get_table_source_tile_ok() {
 
 #[actix_rt::test]
 async fn test_get_function_sources_ok() {
-    let state = mock_state(None, mock_function_sources());
+    let state = mock_state(None, mock_function_sources(), false);
+    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+
+    let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+
+    let body = test::read_body(response).await;
+    let function_sources: FunctionSources = serde_json::from_slice(&body).unwrap();
+    assert!(function_sources.contains_key("public.function_source"));
+}
+
+#[actix_rt::test]
+async fn test_get_function_sources_watch_mode_ok() {
+    let state = mock_state(None, mock_function_sources(), true);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
@@ -70,7 +98,7 @@ async fn test_get_function_sources_ok() {
 
 #[actix_rt::test]
 async fn test_get_function_source_ok() {
-    let state = mock_state(None, mock_function_sources());
+    let state = mock_state(None, mock_function_sources(), false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -90,7 +118,7 @@ async fn test_get_function_source_ok() {
 
 #[actix_rt::test]
 async fn test_get_function_source_tile_ok() {
-    let state = mock_state(None, mock_function_sources());
+    let state = mock_state(None, mock_function_sources(), false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
     let req = test::TestRequest::get()
