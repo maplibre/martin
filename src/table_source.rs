@@ -142,5 +142,9 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
         sources.insert(id, Box::new(source));
     }
 
+    if sources.len() == 0 {
+        info!("No table sources found");
+    }
+
     Ok(sources)
 }

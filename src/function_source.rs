@@ -85,5 +85,9 @@ pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io
         sources.insert(id, Box::new(source));
     }
 
+    if sources.len() == 0 {
+        info!("No function sources found");
+    }
+
     Ok(sources)
 }

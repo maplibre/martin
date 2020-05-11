@@ -79,17 +79,22 @@ fn setup_from_config(file_name: String) -> Result<(Config, Pool), std::io::Error
 }
 
 fn setup_from_database(args: Args) -> Result<(Config, Pool), std::io::Error> {
-    let connection_string = if args.arg_connection.is_some() {
-        args.arg_connection.clone().unwrap()
-    } else {
-        env::var("DATABASE_URL").map_err(prettify_error("DATABASE_URL is not set"))?
+    let connection_string = match args.arg_connection.clone() {
+        Some(arg_connection) => {
+            info!("Using CLI argument");
+            arg_connection
+        }
+        None => {
+            info!("Using DATABASE_URL environment variable");
+            env::var("DATABASE_URL").map_err(prettify_error("DATABASE_URL is not set"))?
+        }
     };
 
+    info!("Connecting to {}", connection_string);
     let pool = setup_connection_pool(&connection_string, args.flag_pool_size)
         .map_err(prettify_error("Can't setup connection pool"))?;
 
-    info!("Connected to {}", connection_string);
-
+    info!("Scanning database");
     let config = generate_config(args, connection_string, &pool)
         .map_err(prettify_error("Can't generate config"))?;
 
@@ -105,7 +110,7 @@ fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
             setup_from_config(config_file_name)?
         }
         None => {
-            info!("Config is not set, scanning database");
+            info!("Config is not set");
             setup_from_database(args)?
         }
     };
