@@ -3,10 +3,10 @@ name: CI
 on:
   push:
     branches:
-    - master
+      - master
   pull_request:
     branches:
-    - master
+      - master
 
 jobs:
   check:
@@ -133,7 +133,6 @@ jobs:
           ./tests/vtzero-show function_source.pbf
 
   docker:
-    if: startsWith(github.ref, 'refs/tags/')
     needs: [test]
     runs-on: ubuntu-latest
     steps:
@@ -147,7 +146,6 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: urbica/martin
           tag_with_ref: true
-          push: ${{ startsWith(github.ref, 'refs/tags/') }}
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
