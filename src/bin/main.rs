@@ -50,10 +50,12 @@ pub struct Args {
 }
 
 pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
-    let connection_string = args.arg_connection.clone().ok_or(io::Error::new(
-        io::ErrorKind::Other,
-        "Database connection string is not set",
-    ))?;
+    let connection_string = args.arg_connection.clone().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            "Database connection string is not set",
+        )
+    })?;
 
     let mut connection = get_connection(pool)?;
     let table_sources = get_table_sources(&mut connection)?;
@@ -91,10 +93,12 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
 }
 
 fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
-    let connection_string = args.arg_connection.clone().ok_or(io::Error::new(
-        io::ErrorKind::Other,
-        "Database connection string is not set",
-    ))?;
+    let connection_string = args.arg_connection.clone().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            "Database connection string is not set",
+        )
+    })?;
 
     info!("Connecting to database");
     let pool = setup_connection_pool(
@@ -111,9 +115,9 @@ fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
 }
 
 fn parse_env(args: Args) -> io::Result<Args> {
-    let arg_connection = args
-        .arg_connection
-        .or(env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok()));
+    let arg_connection = args.arg_connection.or_else(|| {
+        env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
+    });
 
     let flag_danger_accept_invalid_certs = args.flag_danger_accept_invalid_certs
         || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some();
