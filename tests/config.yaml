@@ -14,6 +14,9 @@ pool_size: 20
 # Enable watch mode
 watch: false
 
+# Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
+danger_accept_invalid_certs: false
+
 # Number of web server workers
 worker_processes: 8
 

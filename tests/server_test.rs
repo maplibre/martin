@@ -7,8 +7,14 @@ use martin::function_source::FunctionSources;
 use martin::server::router;
 use martin::table_source::TableSources;
 
+fn init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
+
 #[actix_rt::test]
 async fn test_get_table_sources_ok() {
+    init();
+
     let state = mock_state(mock_table_sources(), None, false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
@@ -23,6 +29,8 @@ async fn test_get_table_sources_ok() {
 
 #[actix_rt::test]
 async fn test_get_table_sources_watch_mode_ok() {
+    init();
+
     let state = mock_state(mock_table_sources(), None, true);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
@@ -37,6 +45,8 @@ async fn test_get_table_sources_watch_mode_ok() {
 
 #[actix_rt::test]
 async fn test_get_table_source_ok() {
+    init();
+
     let state = mock_state(mock_table_sources(), None, false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
@@ -57,6 +67,8 @@ async fn test_get_table_source_ok() {
 
 #[actix_rt::test]
 async fn test_get_table_source_tile_ok() {
+    init();
+
     let state = mock_state(mock_table_sources(), None, false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
@@ -70,6 +82,8 @@ async fn test_get_table_source_tile_ok() {
 
 #[actix_rt::test]
 async fn test_get_function_sources_ok() {
+    init();
+
     let state = mock_state(None, mock_function_sources(), false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
@@ -84,6 +98,8 @@ async fn test_get_function_sources_ok() {
 
 #[actix_rt::test]
 async fn test_get_function_sources_watch_mode_ok() {
+    init();
+
     let state = mock_state(None, mock_function_sources(), true);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
@@ -98,6 +114,8 @@ async fn test_get_function_sources_watch_mode_ok() {
 
 #[actix_rt::test]
 async fn test_get_function_source_ok() {
+    init();
+
     let state = mock_state(None, mock_function_sources(), false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
@@ -118,6 +136,8 @@ async fn test_get_function_source_ok() {
 
 #[actix_rt::test]
 async fn test_get_function_source_tile_ok() {
+    init();
+
     let state = mock_state(None, mock_function_sources(), false);
     let mut app = test::init_service(App::new().data(state).configure(router)).await;
 
