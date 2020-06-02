@@ -16,6 +16,7 @@ pub struct Config {
     pub connection_string: String,
     pub table_sources: Option<TableSources>,
     pub function_sources: Option<FunctionSources>,
+    pub danger_accept_invalid_certs: bool,
 }
 
 #[derive(Deserialize)]
@@ -28,6 +29,7 @@ pub struct ConfigBuilder {
     pub connection_string: String,
     pub table_sources: Option<TableSources>,
     pub function_sources: Option<FunctionSources>,
+    pub danger_accept_invalid_certs: Option<bool>,
 }
 
 impl ConfigBuilder {
@@ -43,6 +45,7 @@ impl ConfigBuilder {
             connection_string: self.connection_string,
             table_sources: self.table_sources,
             function_sources: self.function_sources,
+            danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or(false),
         }
     }
 }

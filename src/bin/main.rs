@@ -24,14 +24,15 @@ Usage:
   martin -v | --version
 
 Options:
-  -h --help               Show this screen.
-  -v --version            Show version.
-  --config=<path>         Path to config file.
-  --keep-alive=<n>        Connection keep alive timeout [default: 75].
-  --listen-addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
-  --pool-size=<n>         Maximum connections pool size [default: 20].
-  --watch                 Scan for new sources on sources list requests
-  --workers=<n>           Number of web server workers.
+  -h --help                         Show this screen.
+  -v --version                      Show version.
+  --config=<path>                   Path to config file.
+  --keep-alive=<n>                  Connection keep alive timeout [default: 75].
+  --listen-addresses=<n>            The socket address to bind [default: 0.0.0.0:3000].
+  --pool-size=<n>                   Maximum connections pool size [default: 20].
+  --watch                           Scan for new sources on sources list requests.
+  --workers=<n>                     Number of web server workers.
+  --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
 ";
 
 #[derive(Debug, Deserialize)]
@@ -45,9 +46,17 @@ pub struct Args {
     pub flag_watch: bool,
     pub flag_version: bool,
     pub flag_workers: Option<usize>,
+    pub flag_danger_accept_invalid_certs: bool,
 }
 
-pub fn generate_config(args: Args, connection_string: String, pool: &Pool) -> io::Result<Config> {
+pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
+    let connection_string = args.arg_connection.clone().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            "Database connection string is not set",
+        )
+    })?;
+
     let mut connection = get_connection(pool)?;
     let table_sources = get_table_sources(&mut connection)?;
     let function_sources = get_function_sources(&mut connection)?;
@@ -61,42 +70,71 @@ pub fn generate_config(args: Args, connection_string: String, pool: &Pool) -> io
         worker_processes: args.flag_workers,
         table_sources: Some(table_sources),
         function_sources: Some(function_sources),
+        danger_accept_invalid_certs: Some(args.flag_danger_accept_invalid_certs),
     };
 
     let config = config.finalize();
     Ok(config)
 }
 
-fn setup_from_config(file_name: String) -> Result<(Config, Pool), std::io::Error> {
+fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     let config = read_config(&file_name).map_err(prettify_error("Can't read config"))?;
 
-    let pool = setup_connection_pool(&config.connection_string, Some(config.pool_size))
-        .map_err(prettify_error("Can't setup connection pool"))?;
+    let pool = setup_connection_pool(
+        &config.connection_string,
+        Some(config.pool_size),
+        config.danger_accept_invalid_certs,
+    )
+    .map_err(prettify_error("Can't setup connection pool"))?;
 
     info!("Connected to {}", config.connection_string);
 
     Ok((config, pool))
 }
 
-fn setup_from_database(args: Args) -> Result<(Config, Pool), std::io::Error> {
-    let connection_string = if args.arg_connection.is_some() {
-        args.arg_connection.clone().unwrap()
-    } else {
-        env::var("DATABASE_URL").map_err(prettify_error("DATABASE_URL is not set"))?
-    };
+fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
+    let connection_string = args.arg_connection.clone().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            "Database connection string is not set",
+        )
+    })?;
 
-    let pool = setup_connection_pool(&connection_string, args.flag_pool_size)
-        .map_err(prettify_error("Can't setup connection pool"))?;
+    info!("Connecting to database");
+    let pool = setup_connection_pool(
+        &connection_string,
+        args.flag_pool_size,
+        args.flag_danger_accept_invalid_certs,
+    )
+    .map_err(prettify_error("Can't setup connection pool"))?;
 
-    info!("Connected to {}", connection_string);
-
-    let config = generate_config(args, connection_string, &pool)
-        .map_err(prettify_error("Can't generate config"))?;
+    info!("Scanning database");
+    let config = generate_config(args, &pool).map_err(prettify_error("Can't generate config"))?;
 
     Ok((config, pool))
 }
 
-fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
+fn parse_env(args: Args) -> io::Result<Args> {
+    let arg_connection = args.arg_connection.or_else(|| {
+        env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
+    });
+
+    let flag_danger_accept_invalid_certs = args.flag_danger_accept_invalid_certs
+        || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some();
+
+    let flag_watch = args.flag_watch || env::var_os("WATCH_MODE").is_some();
+
+    let args = Args {
+        arg_connection,
+        flag_watch,
+        flag_danger_accept_invalid_certs,
+        ..args
+    };
+
+    Ok(args)
+}
+
+fn start(args: Args) -> io::Result<actix::SystemRunner> {
     info!("Starting martin v{}", VERSION);
 
     let (config, pool) = match args.flag_config {
@@ -105,8 +143,8 @@ fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
             setup_from_config(config_file_name)?
         }
         None => {
-            info!("Config is not set, scanning database");
-            setup_from_database(args)?
+            info!("Config is not set");
+            setup_from_args(args)?
         }
     };
 
@@ -117,25 +155,22 @@ fn start(args: Args) -> Result<actix::SystemRunner, std::io::Error> {
         std::process::exit(-1);
     }
 
-    let watch_mode = config.watch || env::var_os("WATCH_MODE").is_some();
-    if watch_mode {
-        info!("Watch mode enabled");
-    }
-
     let listen_addresses = config.listen_addresses.clone();
-    let server = server::new(pool, config, watch_mode);
+    let server = server::new(pool, config);
     info!("Martin has been started on {}.", listen_addresses);
 
     Ok(server)
 }
 
-fn main() {
+fn main() -> io::Result<()> {
     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
     env_logger::Builder::from_env(env).init();
 
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.deserialize())
-        .unwrap_or_else(|e| e.exit());
+    let args = Docopt::new(USAGE)
+        .and_then(|d| d.deserialize::<Args>())
+        .map_err(prettify_error("Can't parse CLI arguments"))?;
+
+    let args = parse_env(args).map_err(prettify_error("Can't parse environment variables"))?;
 
     if args.flag_help {
         println!("{}", USAGE);
@@ -147,6 +182,14 @@ fn main() {
         std::process::exit(0);
     }
 
+    if args.flag_danger_accept_invalid_certs {
+        warn!("Danger accept invalid certs enabled. You should think very carefully before using this option. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort.");
+    }
+
+    if args.flag_watch {
+        info!("Watch mode enabled");
+    }
+
     let server = match start(args) {
         Ok(server) => server,
         Err(error) => {
@@ -155,5 +198,5 @@ fn main() {
         }
     };
 
-    let _ = server.run();
+    server.run()
 }

@@ -49,11 +49,12 @@ pub fn mock_function_sources() -> Option<FunctionSources> {
 pub fn mock_state(
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,
+    watch_mode: bool,
 ) -> AppState {
     let connection_string: String = env::var("DATABASE_URL").unwrap();
     info!("Connecting to {}", connection_string);
 
-    let pool = setup_connection_pool(&connection_string, Some(1)).unwrap();
+    let pool = setup_connection_pool(&connection_string, Some(1), false).unwrap();
     info!("Connected to {}", connection_string);
 
     let db = SyncArbiter::start(3, move || DBActor(pool.clone()));
@@ -67,6 +68,6 @@ pub fn mock_state(
         coordinator,
         table_sources,
         function_sources,
-        watch_mode: false,
+        watch_mode,
     }
 }

@@ -241,27 +241,26 @@ Usage:
   martin -v | --version
 
 Options:
-  -h --help               Show this screen.
-  -v --version            Show version.
-  --config=<path>         Path to config file.
-  --keep-alive=<n>        Connection keep alive timeout [default: 75].
-  --listen-addresses=<n>  The socket address to bind [default: 0.0.0.0:3000].
-  --pool-size=<n>         Maximum connections pool size [default: 20].
-  --watch                 Scan for new sources on sources list requests
-  --workers=<n>           Number of web server workers.
+  -h --help                         Show this screen.
+  -v --version                      Show version.
+  --config=<path>                   Path to config file.
+  --keep-alive=<n>                  Connection keep alive timeout [default: 75].
+  --listen-addresses=<n>            The socket address to bind [default: 0.0.0.0:3000].
+  --pool-size=<n>                   Maximum connections pool size [default: 20].
+  --watch                           Scan for new sources on sources list requests.
+  --workers=<n>                     Number of web server workers.
+  --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
 ```
 
 ## Environment Variables
 
 You can also configure martin using environment variables
 
-| Environment variable | Example                          | Description                   |
-| -------------------- | -------------------------------- | ----------------------------- |
-| DATABASE_URL         | postgres://postgres@localhost/db | postgres database connection  |
-| DATABASE_POOL_SIZE   | 20                               | maximum connections pool size |
-| KEEP_ALIVE           | 75                               | connection keep alive timeout |
-| WATCH_MODE           | true                             | scan for new sources          |
-| WORKER_PROCESSES     | 8                                | number of web server workers  |
+| Environment variable        | Example                          | Description                  |
+| --------------------------- | -------------------------------- | ---------------------------- |
+| DATABASE_URL                | postgres://postgres@localhost/db | postgres database connection |
+| WATCH_MODE                  | true                             | scan for new sources         |
+| DANGER_ACCEPT_INVALID_CERTS | false                            | Trust invalid certificates   |
 
 ## Configuration File
 
@@ -291,6 +290,9 @@ listen_addresses: '0.0.0.0:3000'
 
 # Enable watch mode
 watch: true
+
+# Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
+danger_accept_invalid_certs: false
 
 # associative arrays of table sources
 table_sources:

@@ -296,7 +296,6 @@ fn create_state(
     db: Addr<DBActor>,
     coordinator: Addr<CoordinatorActor>,
     config: Config,
-    watch_mode: bool,
 ) -> AppState {
     let table_sources = Rc::new(RefCell::new(config.table_sources));
     let function_sources = Rc::new(RefCell::new(config.function_sources));
@@ -314,11 +313,11 @@ fn create_state(
         coordinator,
         table_sources,
         function_sources,
-        watch_mode,
+        watch_mode: config.watch,
     }
 }
 
-pub fn new(pool: Pool, config: Config, watch_mode: bool) -> SystemRunner {
+pub fn new(pool: Pool, config: Config) -> SystemRunner {
     let sys = actix_rt::System::new("server");
 
     let db = SyncArbiter::start(3, move || DBActor(pool.clone()));
@@ -329,7 +328,7 @@ pub fn new(pool: Pool, config: Config, watch_mode: bool) -> SystemRunner {
     let listen_addresses = config.listen_addresses.clone();
 
     HttpServer::new(move || {
-        let state = create_state(db.clone(), coordinator.clone(), config.clone(), watch_mode);
+        let state = create_state(db.clone(), coordinator.clone(), config.clone());
 
         let cors_middleware = Cors::default();
 
