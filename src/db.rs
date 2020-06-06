@@ -1,14 +1,14 @@
-use std::{env, io};
 use std::str::FromStr;
+use std::{env, io};
 
 use native_tls::{Certificate, Identity, TlsConnector};
-use std::fs::File;
-use std::io::{Read};
 use postgres_native_tls::MakeTlsConnector;
 use r2d2::PooledConnection;
 use r2d2_postgres::PostgresConnectionManager;
 use semver::Version;
 use semver::VersionReq;
+use std::fs::File;
+use std::io::Read;
 
 use crate::utils::prettify_error;
 
@@ -34,7 +34,7 @@ fn make_tls_connector(danger_accept_invalid_certs: bool) -> io::Result<MakeTlsCo
         }
     };
     let key = "CLIENT_PKCS12_PASS";
-    let client_identity_pass =  match env::var_os(key) {
+    let client_identity_pass = match env::var_os(key) {
         Some(s) => s.into_string().unwrap(),
         None => {
             println!("{} is not defined in the environment", key);
@@ -58,7 +58,8 @@ fn make_tls_connector(danger_accept_invalid_certs: bool) -> io::Result<MakeTlsCo
         let cert = Certificate::from_pem(&buf).unwrap();
         builder.add_root_certificate(cert);
     }
-    let connector = builder.danger_accept_invalid_certs(danger_accept_invalid_certs)
+    let connector = builder
+        .danger_accept_invalid_certs(danger_accept_invalid_certs)
         .build()
         .map_err(prettify_error("Can't build TLS connection"))?;
 
