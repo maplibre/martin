@@ -105,6 +105,10 @@ async fn get_composite_source(
         .map(|source| source.deref().clone())
         .collect();
 
+    if sources.is_empty() {
+        return Err(error::ErrorNotFound("There is no such table sources"));
+    }
+
     let source = CompositeSource {
         id: path.source_ids.clone(),
         table_sources: sources,
@@ -162,6 +166,10 @@ async fn get_composite_source_tile(
         .filter_map(|source_id| table_sources.get(source_id))
         .map(|source| source.deref().clone())
         .collect();
+
+    if sources.is_empty() {
+        return Err(error::ErrorNotFound("There is no such table sources"));
+    }
 
     let source = CompositeSource {
         id: path.source_ids.clone(),
