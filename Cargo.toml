@@ -13,7 +13,7 @@ name = "martin"
 path = "src/bin/main.rs"
 
 [dependencies]
-actix = "0.9"
+actix = "0.10"
 actix-cors = "0.2"
 actix-rt = "1.1"
 actix-web = "2.0"
