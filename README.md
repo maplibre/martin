@@ -468,9 +468,29 @@ martin postgres://postgres@localhost/db
 
 ## Development
 
-Install project dependencies and check if all the tests are running.
+Clone project
 
 ```shell
-cargo test
-cargo run
+git clone git@github.com:urbica/martin.git
+cd martin
+```
+
+Start `db` service using [docker-compose](https://docs.docker.com/compose/)
+
+```shell
+docker-compose up -d db
+```
+
+Then, after `db` service is ready to accept connections, you can start `martin` with
+
+```shell
+DATABASE_URL=postgres://postgres@localhost/db cargo run
+```
+
+By default, martin will be available at [localhost:3000](http://localhost:3000/index.json)
+
+Make your changes, and check if all the tests are running
+
+```shell
+DATABASE_URL=postgres://postgres@localhost/db cargo test
 ```
