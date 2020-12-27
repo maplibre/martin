@@ -12,7 +12,7 @@ services:
     depends_on:
       - db
 
-  db2:
+  db:
     image: postgis/postgis:13-3.1-alpine
     restart: unless-stopped
     ports:
@@ -26,7 +26,7 @@ services:
       - ./pg_data:/var/lib/postgresql/data
       - ./tests/initdb-martin.sh:/docker-entrypoint-initdb.d/20_martin.sh
 
-  db:
+  db-legacy:
     image: postgis/postgis:9.6-2.5-alpine
     restart: unless-stopped
     ports:
