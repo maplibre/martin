@@ -76,10 +76,11 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: mdillon/postgis:11-alpine
+        image: postgis/postgis:13-3.1-alpine
         env:
-          POSTGRES_USER: postgres
           POSTGRES_DB: test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           # will assign a random free host port
           - 5432/tcp

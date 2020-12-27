@@ -402,11 +402,12 @@ services:
       - db
 
   db:
-    image: mdillon/postgis:11-alpine
+    image: postgis/postgis:13-3.1-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
     volumes:
       - ./pg_data:/var/lib/postgresql/data
 ```

@@ -12,13 +12,30 @@ services:
     depends_on:
       - db
 
-  db:
-    image: mdillon/postgis:11-alpine
+  db2:
+    image: postgis/postgis:13-3.1-alpine
     restart: unless-stopped
     ports:
       - 5432:5432
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
+      - ./tests/fixtures:/fixtures
       - ./pg_data:/var/lib/postgresql/data
+      - ./tests/initdb-martin.sh:/docker-entrypoint-initdb.d/20_martin.sh
+
+  db:
+    image: postgis/postgis:9.6-2.5-alpine
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - ./tests/fixtures:/fixtures
+      - ./pg_data:/var/lib/postgresql/data
+      - ./tests/initdb-martin.sh:/docker-entrypoint-initdb.d/20_martin.sh
