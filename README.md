@@ -397,7 +397,7 @@ services:
       - 3000:3000
     environment:
       - WATCH_MODE=true
-      - DATABASE_URL=postgres://postgres@db/db
+      - DATABASE_URL=postgres://postgres:password@db/db
     depends_on:
       - db
 
