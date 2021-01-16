@@ -25,6 +25,54 @@ pub struct TableSource {
 
 pub type TableSources = HashMap<String, Box<TableSource>>;
 
+impl TableSource {
+    fn get_geom_query(&self, xyz: &XYZ) -> String {
+        let mercator_bounds = utils::tilebbox(xyz);
+
+        let properties = if self.properties.is_empty() {
+            "".to_string()
+        } else {
+            let properties = self
+                .properties
+                .keys()
+                .map(|column| format!("\"{0}\"", column))
+                .collect::<Vec<String>>()
+                .join(",");
+
+            format!(", {0}", properties)
+        };
+
+        format!(
+            include_str!("scripts/get_geom.sql"),
+            id = self.id,
+            srid = self.srid,
+            geometry_column = self.geometry_column,
+            mercator_bounds = mercator_bounds,
+            extent = self.extent.unwrap_or(DEFAULT_EXTENT),
+            buffer = self.buffer.unwrap_or(DEFAULT_BUFFER),
+            clip_geom = self.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
+            properties = properties
+        )
+    }
+
+    pub fn get_tile_query(&self, xyz: &XYZ) -> String {
+        let geom_query = self.get_geom_query(xyz);
+
+        let id_column = self
+            .id_column
+            .clone()
+            .map_or("".to_string(), |id_column| format!(", '{}'", id_column));
+
+        format!(
+            include_str!("scripts/get_tile.sql"),
+            id = self.id,
+            id_column = id_column,
+            geom_query = geom_query,
+            extent = self.extent.unwrap_or(DEFAULT_EXTENT),
+        )
+    }
+}
+
 impl Source for TableSource {
     fn get_id(&self) -> &str {
         self.id.as_str()
@@ -45,51 +93,10 @@ impl Source for TableSource {
         xyz: &XYZ,
         _query: &Option<Query>,
     ) -> Result<Tile, io::Error> {
-        let mercator_bounds = utils::tilebbox(xyz);
-
-        let (geometry_column_mercator, original_bounds) = if self.srid == 3857 {
-            (self.geometry_column.clone(), mercator_bounds.clone())
-        } else {
-            (
-                format!("ST_Transform({0}, 3857)", self.geometry_column),
-                format!("ST_Transform({0}, {1})", mercator_bounds, self.srid),
-            )
-        };
-
-        let properties = if self.properties.is_empty() {
-            "".to_string()
-        } else {
-            let properties = self
-                .properties
-                .keys()
-                .map(|column| format!("\"{0}\"", column))
-                .collect::<Vec<String>>()
-                .join(",");
-
-            format!(", {0}", properties)
-        };
-
-        let id_column = self
-            .id_column
-            .clone()
-            .map_or("".to_string(), |id_column| format!(", '{}'", id_column));
-
-        let query = format!(
-            include_str!("scripts/get_tile.sql"),
-            id = self.id,
-            id_column = id_column,
-            geometry_column = self.geometry_column,
-            geometry_column_mercator = geometry_column_mercator,
-            original_bounds = original_bounds,
-            mercator_bounds = mercator_bounds,
-            extent = self.extent.unwrap_or(DEFAULT_EXTENT),
-            buffer = self.buffer.unwrap_or(DEFAULT_BUFFER),
-            clip_geom = self.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
-            properties = properties
-        );
+        let tile_query = self.get_tile_query(xyz);
 
         let tile: Tile = conn
-            .query_one(query.as_str(), &[])
+            .query_one(tile_query.as_str(), &[])
             .map(|row| row.get("st_asmvt"))
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
