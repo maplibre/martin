@@ -22,7 +22,7 @@ impl CompositeSource {
             .collect::<Vec<String>>()
             .join(" || ");
 
-        return tile_query;
+        tile_query
     }
 }
 
