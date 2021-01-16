@@ -60,23 +60,3 @@ impl Source for CompositeSource {
         Ok(tile)
     }
 }
-
-/*
-
-
-
-
-with
-    layer1 as (select '...' as tile),
-    layer2 as (select '...' as tile),
-    layer3 as (select '...' as tile)
-        select
-            layer1.tile || layer2.tile || layer3.tile
-        from
-            layer1,
-            layer2
-            layer3;
-
-
-
-*/
