@@ -12,6 +12,20 @@ pub struct CompositeSource {
     pub table_sources: Vec<TableSource>,
 }
 
+impl CompositeSource {
+    fn get_tile_query(&self, xyz: &XYZ) -> String {
+        let tile_query: String = self
+            .table_sources
+            .clone()
+            .into_iter()
+            .map(|source| source.get_tile_query(xyz))
+            .collect::<Vec<String>>()
+            .join(" || ");
+
+        return tile_query;
+    }
+}
+
 impl Source for CompositeSource {
     fn get_id(&self) -> &str {
         self.id.as_str()
@@ -32,6 +46,9 @@ impl Source for CompositeSource {
         xyz: &XYZ,
         _query: &Option<Query>,
     ) -> Result<Tile, io::Error> {
+        let tile_query = self.get_tile_query(xyz);
+        println!("tile_query = {}\n\n\n\n", tile_query);
+
         let tile: Tile = self
             .table_sources
             .clone()
@@ -43,3 +60,23 @@ impl Source for CompositeSource {
         Ok(tile)
     }
 }
+
+/*
+
+
+
+
+with
+    layer1 as (select '...' as tile),
+    layer2 as (select '...' as tile),
+    layer3 as (select '...' as tile)
+        select
+            layer1.tile || layer2.tile || layer3.tile
+        from
+            layer1,
+            layer2
+            layer3;
+
+
+
+*/
