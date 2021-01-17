@@ -82,6 +82,7 @@ martin postgres://postgres@localhost/db
 | `GET`  | `/rpc/index.json`                                    | [Function Sources List](#function-sources-list)       |
 | `GET`  | `/rpc/{schema_name}.{function_name}.json`            | [Function Source TileJSON](#function-source-tilejson) |
 | `GET`  | `/rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf` | [Function Source Tiles](#function-source-tiles)       |
+| `GET`  | `/healthz`                                           | Martin server health check: returns `200 OK`          |
 
 ## Using with Mapbox GL JS
 
