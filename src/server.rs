@@ -6,7 +6,7 @@ use std::rc::Rc;
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 use actix_cors::Cors;
 use actix_web::{
-    error, http, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
+    error, http, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result
 };
 
 use crate::config::Config;
@@ -336,12 +336,12 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
     HttpServer::new(move || {
         let state = create_state(db.clone(), coordinator.clone(), config.clone());
 
-        let cors_middleware = Cors::default();
+        let cors_middleware = Cors::default().allow_any_origin();
 
         App::new()
             .data(state)
             .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath)
+            .wrap(middleware::NormalizePath::new(middleware::normalize::TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
             .configure(router)
