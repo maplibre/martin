@@ -336,12 +336,14 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
     HttpServer::new(move || {
         let state = create_state(db.clone(), coordinator.clone(), config.clone());
 
-        let cors_middleware = Cors::default();
+        let cors_middleware = Cors::default().allow_any_origin();
 
         App::new()
             .data(state)
             .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath)
+            .wrap(middleware::NormalizePath::new(
+                middleware::normalize::TrailingSlash::MergeOnly,
+            ))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
             .configure(router)

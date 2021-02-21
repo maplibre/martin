@@ -114,7 +114,7 @@ fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
     Ok((config, pool))
 }
 
-fn parse_env(args: Args) -> io::Result<Args> {
+fn parse_env(args: Args) -> Args {
     let arg_connection = args.arg_connection.or_else(|| {
         env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
     });
@@ -124,14 +124,12 @@ fn parse_env(args: Args) -> io::Result<Args> {
 
     let flag_watch = args.flag_watch || env::var_os("WATCH_MODE").is_some();
 
-    let args = Args {
+    Args {
         arg_connection,
         flag_watch,
         flag_danger_accept_invalid_certs,
         ..args
-    };
-
-    Ok(args)
+    }
 }
 
 fn start(args: Args) -> io::Result<actix::SystemRunner> {
@@ -170,7 +168,7 @@ fn main() -> io::Result<()> {
         .and_then(|d| d.deserialize::<Args>())
         .map_err(prettify_error("Can't parse CLI arguments"))?;
 
-    let args = parse_env(args).map_err(prettify_error("Can't parse environment variables"))?;
+    let args = parse_env(args);
 
     if args.flag_help {
         println!("{}", USAGE);
