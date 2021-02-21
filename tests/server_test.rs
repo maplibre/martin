@@ -155,3 +155,15 @@ async fn test_get_function_source_tile_ok() {
     let response = test::call_service(&mut app, req).await;
     assert!(response.status().is_success());
 }
+
+#[actix_rt::test]
+async fn test_get_health_returns_ok() {
+    init();
+
+    let state = mock_state(None, mock_function_sources(), false);
+    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+
+    let req = test::TestRequest::get().uri("/healthz").to_request();
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+}

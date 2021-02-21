@@ -59,6 +59,11 @@ struct CompositeTileRequest {
     format: String,
 }
 
+async fn get_health() -> Result<HttpResponse, Error> {
+    let response = HttpResponse::Ok().body("OK");
+    return Ok(response);
+}
+
 async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     if !state.watch_mode {
         let table_sources = state.table_sources.borrow().clone();
@@ -321,6 +326,7 @@ async fn get_function_source_tile(
 pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.route("/index.json", web::get().to(get_table_sources))
         .route("/{source_ids}.json", web::get().to(get_composite_source))
+        .route("/healthz", web::get().to(get_health))
         .route(
             "/{source_ids}/{z}/{x}/{y}.{format}",
             web::get().to(get_composite_source_tile),
