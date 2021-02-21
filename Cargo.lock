@@ -1423,6 +1423,7 @@ dependencies = [
  "criterion",
  "docopt",
  "env_logger",
+ "itertools 0.10.0",
  "log",
  "native-tls",
  "num_cpus",

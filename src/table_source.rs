@@ -26,7 +26,7 @@ pub struct TableSource {
 pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl TableSource {
-    fn get_geom_query(&self, xyz: &XYZ) -> String {
+    pub fn get_geom_query(&self, xyz: &XYZ) -> String {
         let mercator_bounds = utils::tilebbox(xyz);
 
         let properties = if self.properties.is_empty() {
@@ -71,6 +71,14 @@ impl TableSource {
             extent = self.extent.unwrap_or(DEFAULT_EXTENT),
         )
     }
+
+    pub fn build_tile_query(&self, xyz: &XYZ) -> String {
+        let srid_bounds = utils::get_srid_bounds(self.srid, xyz);
+        let bounds_cte = utils::get_bounds_cte(srid_bounds);
+        let tile_query = self.get_tile_query(xyz);
+
+        format!("{} {}", bounds_cte, tile_query)
+    }
 }
 
 impl Source for TableSource {
@@ -93,7 +101,7 @@ impl Source for TableSource {
         xyz: &XYZ,
         _query: &Option<Query>,
     ) -> Result<Tile, io::Error> {
-        let tile_query = self.get_tile_query(xyz);
+        let tile_query = self.build_tile_query(xyz);
 
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])

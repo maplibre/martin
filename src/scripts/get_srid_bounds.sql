@@ -1,0 +1,1 @@
+ST_Transform({mercator_bounds}, {srid}) AS srid_{srid}
