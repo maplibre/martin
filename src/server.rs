@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -104,8 +105,16 @@ async fn get_composite_source(
         return Err(error::ErrorNotFound("There is no such table sources"));
     }
 
+    let srids = sources
+        .clone()
+        .into_iter()
+        .map(|source| source.srid)
+        .unique()
+        .collect::<Vec<u32>>();
+
     let source = CompositeSource {
         id: path.source_ids.clone(),
+        srids: srids,
         table_sources: sources,
     };
 
@@ -166,8 +175,16 @@ async fn get_composite_source_tile(
         return Err(error::ErrorNotFound("There is no such table sources"));
     }
 
+    let srids = sources
+        .clone()
+        .into_iter()
+        .map(|source| source.srid)
+        .unique()
+        .collect::<Vec<u32>>();
+
     let source = CompositeSource {
         id: path.source_ids.clone(),
+        srids: srids,
         table_sources: sources,
     };
 
