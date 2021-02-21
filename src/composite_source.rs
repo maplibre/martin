@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::io;
 
 use tilejson::{TileJSON, TileJSONBuilder};
@@ -10,16 +11,18 @@ use crate::utils;
 #[derive(Clone, Debug)]
 pub struct CompositeSource {
     pub id: String,
-    pub srids: Vec<u32>,
     pub table_sources: Vec<TableSource>,
 }
 
 impl CompositeSource {
     fn get_bounds_cte(&self, xyz: &XYZ) -> String {
         let srid_bounds: String = self
-            .srids
-            .iter()
-            .map(|srid| utils::get_srid_bounds(*srid, xyz))
+            .table_sources
+            .clone()
+            .into_iter()
+            .map(|source| source.srid)
+            .unique()
+            .map(|srid| utils::get_srid_bounds(srid, xyz))
             .collect::<Vec<String>>()
             .join(", ");
 
