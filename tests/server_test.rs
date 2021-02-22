@@ -88,6 +88,50 @@ async fn test_get_table_source_tile_ok() {
 }
 
 #[actix_rt::test]
+async fn test_get_composite_source_ok() {
+    init();
+
+    let state = mock_state(mock_table_sources(), None, false);
+    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/public.non_existant1,public.non_existant2.json")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
+
+    let req = test::TestRequest::get()
+        .uri("/public.points1,public.points2.json")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+}
+
+#[actix_rt::test]
+async fn test_get_composite_source_tile_ok() {
+    init();
+
+    let state = mock_state(mock_table_sources(), None, false);
+    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/public.non_existant1,public.non_existant2/0/0/0.pbf")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
+
+    let req = test::TestRequest::get()
+        .uri("/public.points1,public.points2/0/0/0.pbf")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+}
+
+#[actix_rt::test]
 async fn test_get_function_sources_ok() {
     init();
 
