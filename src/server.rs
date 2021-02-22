@@ -61,7 +61,7 @@ struct CompositeTileRequest {
 
 async fn get_health() -> Result<HttpResponse, Error> {
     let response = HttpResponse::Ok().body("OK");
-    return Ok(response);
+    Ok(response)
 }
 
 async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
