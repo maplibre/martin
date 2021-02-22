@@ -324,13 +324,9 @@ async fn get_function_source_tile(
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
-    cfg.route("/index.json", web::get().to(get_table_sources))
-<<<<<<< HEAD
-        .route("/{source_id}.json", web::get().to(get_table_source))
-        .route("/healthz", web::get().to(get_health))
-=======
+    cfg.route("/healthz", web::get().to(get_health))
+        .route("/index.json", web::get().to(get_table_sources))
         .route("/{source_ids}.json", web::get().to(get_composite_source))
->>>>>>> feat: add composite sources support WIP
         .route(
             "/{source_ids}/{z}/{x}/{y}.{format}",
             web::get().to(get_composite_source_tile),
