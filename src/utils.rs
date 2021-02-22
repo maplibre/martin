@@ -61,6 +61,6 @@ pub fn get_srid_bounds(srid: u32, xyz: &XYZ) -> String {
     format!(
         include_str!("scripts/get_srid_bounds.sql"),
         srid = srid,
-        mercator_bounds = tilebbox(xyz)
+        mercator_bounds = tilebbox(xyz),
     )
 }
