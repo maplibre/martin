@@ -39,7 +39,7 @@
         container: 'map',
         style: 'mapbox://styles/mapbox/light-v9',
         zoom: 0,
-        center: [0, 0]
+        center: [0, 0],
       });
 
       const sourceId = 'public.points1';
@@ -50,9 +50,12 @@
           type: 'circle',
           source: {
             type: 'vector',
-            url: `http://0.0.0.0:3000/${sourceId}.json`
+            url: `http://0.0.0.0:3000/${sourceId}.json`,
           },
-          'source-layer': sourceId
+          'source-layer': sourceId,
+          paint: {
+            'circle-color': 'red',
+          },
         });
 
         map.on('click', sourceId, function (event) {
