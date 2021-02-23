@@ -14,6 +14,7 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Usage](#usage)
 - [API](#api)
 - [Using with Mapbox GL JS](#using-with-mapbox-gl-js)
+- [Using with Leaflet](#using-with-leaflet)
 - [Table Sources](#table-sources)
   - [Table Sources List](#table-sources-list)
   - [Table Source TileJSON](#table-source-tilejson)
@@ -98,10 +99,32 @@ map.addLayer({
   type: 'circle',
   source: {
     type: 'vector',
-    url: 'http://localhost:3000/public.points.json'
+    url: 'http://localhost:3000/public.points.json',
   },
-  'source-layer': 'public.points'
+  'source-layer': 'public.points',
+  paint: {
+    'circle-color': 'red',
+  },
 });
+```
+
+## Using with Leaflet
+
+[Leaflet](https://github.com/Leaflet/Leaflet) is the leading open-source JavaScript library for mobile-friendly interactive maps.
+
+You can add vector tiles using [Leaflet.VectorGrid](https://github.com/Leaflet/Leaflet.VectorGrid) plugin. You must initialize a [VectorGrid.Protobuf](https://leaflet.github.io/Leaflet.VectorGrid/vectorgrid-api-docs.html#vectorgrid-protobuf) with a URL template, just like in L.TileLayers. The difference is that you should define the styling for all the features.
+
+```js
+L.vectorGrid
+  .protobuf('http://localhost:3000/public.points/{z}/{x}/{y}.pbf', {
+    vectorTileLayerStyles: {
+      'public.points': {
+        color: 'red',
+        fill: true,
+      },
+    },
+  })
+  .addTo(map);
 ```
 
 ## Table Sources
