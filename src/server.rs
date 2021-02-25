@@ -5,9 +5,10 @@ use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 use actix_cors::Cors;
-use actix_web::{
+use actix_web::{dev,
     error, http, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
+use actix_web_httpauth::{extractors::bearer::BearerAuth, middleware::HttpAuthentication};
 
 use crate::config::Config;
 use crate::coordinator_actor::CoordinatorActor;
@@ -18,6 +19,11 @@ use crate::messages;
 use crate::source::{Source, XYZ};
 use crate::table_source::TableSources;
 use crate::worker_actor::WorkerActor;
+
+// For JWT
+use std::str::FromStr;
+use jsonwebtokens as jwt;
+use jwt::{Algorithm, AlgorithmID, Verifier, raw};
 
 pub struct AppState {
     pub db: Addr<DBActor>,
@@ -323,6 +329,39 @@ fn create_state(
     }
 }
 
+async fn bearer_auth_validator(req: dev::ServiceRequest, credentials: BearerAuth) -> Result<dev::ServiceRequest, Error> {
+    let secret = "zzzz";
+    
+    let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
+        let raw::TokenSlices {header, .. } = raw::split_token(credentials.token())?;
+        let header = raw::decode_json_token_slice(header)?;
+        let alg_name = header["alg"].as_str().unwrap_or("");
+        let alg_id = AlgorithmID::from_str(alg_name)?;
+        
+        Ok((Verifier::create().build()?, Algorithm::new_hmac(alg_id, secret)?))
+    };
+    
+    match try_catch_block() {
+        Ok((verifier, alg)) => {
+            // Only check the exp claim/field from jwt.
+            match verifier.verify(&credentials.token(), &alg) {
+                Ok(_) => {
+                    Ok(req)
+                },
+                Err(e) => {
+                    info!("Error verify JWT: token \"{}\" error \"{}\".",
+                        credentials.token(), e.to_string());
+                    Err(error::ErrorForbidden(e.to_string()))
+                }
+            }
+        },
+        Err(e) => {
+            info!("Error generate algorith and verifier JWT:token \"{}\" error \"{}\".", credentials.token(), e.to_string());
+            Err(error::ErrorForbidden(e.to_string()))
+        }
+    }
+}
+
 pub fn new(pool: Pool, config: Config) -> SystemRunner {
     let sys = actix_rt::System::new("server");
 
@@ -337,6 +376,8 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
         let state = create_state(db.clone(), coordinator.clone(), config.clone());
 
         let cors_middleware = Cors::default().allow_any_origin();
+        
+        let auth = HttpAuthentication::bearer(bearer_auth_validator);
 
         App::new()
             .data(state)
@@ -346,6 +387,7 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
             ))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
+            .wrap(auth)
             .configure(router)
     })
     .bind(listen_addresses.clone())
