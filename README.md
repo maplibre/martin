@@ -132,23 +132,20 @@ L.vectorGrid
 
 [deck.gl](https://deck.gl/) is a WebGL-powered framework for visual exploratory data analysis of large datasets.
 
-You can add vector tiles using [MVTLayer](https://deck.gl/docs/api-reference/geo-layers/mvt-layer).
-
-`data` property defines the remote data for the MVT layer.
-
-- String: Either a URL template or a [TileJSON](https://github.com/mapbox/tilejson-spec) URL. 
-
-- Array: an array of URL templates. It allows to balance the requests across different tile endpoints. For example, if you define an array with 4 urls and 16 tiles need to be loaded, each endpoint is responsible to server 16/4 tiles.
-
-- JSON: A valid [TileJSON object](https://github.com/mapbox/tilejson-spec/tree/master/2.2.0).
+You can add vector tiles using [MVTLayer](https://deck.gl/docs/api-reference/geo-layers/mvt-layer). MVTLayer `data` property defines the remote data for the MVT layer. It can be
+* `String`: Either a URL template or a [TileJSON](https://github.com/mapbox/tilejson-spec) URL. 
+* `Array`: an array of URL templates. It allows to balance the requests across different tile endpoints. For example, if you define an array with 4 urls and 16 tiles need to be loaded, each endpoint is responsible to server 16/4 tiles.
+* `JSON`: A valid [TileJSON object](https://github.com/mapbox/tilejson-spec/tree/master/2.2.0).
 
 ```js
-new MVTLayer({
+const pointsLayer = new MVTLayer({
   data: 'http://localhost:3000/public.points.json', // 'http://localhost:3000/public.table_source/{z}/{x}/{y}.pbf'
   pointRadiusUnits: 'pixels',
   getRadius: 5,
   getFillColor: [230, 0, 0]
 })
+
+map.addLayer(pointsLayer);
 ```
 
 ## Table Sources
