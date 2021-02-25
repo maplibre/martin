@@ -143,9 +143,18 @@ const pointsLayer = new MVTLayer({
   pointRadiusUnits: 'pixels',
   getRadius: 5,
   getFillColor: [230, 0, 0]
-})
+});
 
-map.addLayer(pointsLayer);
+const deckgl = new DeckGL({
+  container: 'map',
+  mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  initialViewState: {
+    latitude: 0,
+    longitude: 0,
+    zoom: 1
+  },
+  layers: [pointsLayer]
+});
 ```
 
 ## Table Sources
