@@ -329,7 +329,10 @@ fn create_state(
     }
 }
 
-async fn bearer_auth_validator(req: dev::ServiceRequest, credentials: BearerAuth) -> Result<dev::ServiceRequest, Error> {
+async fn bearer_auth_validator(
+    req: dev::ServiceRequest,
+    credentials: BearerAuth
+    ) -> Result<dev::ServiceRequest, Error> {
     let secret = "aaaa";
     
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
