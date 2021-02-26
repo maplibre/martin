@@ -342,19 +342,23 @@ async fn bearer_auth_validator(
         let alg_name = header["alg"].as_str().unwrap_or("");
         let alg_id = AlgorithmID::from_str(alg_name)?;
         
-        Ok((Verifier::create().build()?, Algorithm::new_hmac(alg_id, secret)?))
+        Ok((
+            Verifier::create().build()?,
+            Algorithm::new_hmac(alg_id, secret)?
+        ))
     };
     
     match try_catch_block() {
         Ok((verifier, alg)) => {
             // Only check the exp claim/field from jwt.
             match verifier.verify(&credentials.token(), &alg) {
-                Ok(_) => {
-                    Ok(req)
-                },
+                Ok(_) => Ok(req),
                 Err(e) => {
-                    info!("Error verify JWT: token \"{}\" error \"{}\".",
-                        credentials.token(), e.to_string());
+                    info!(
+                        "Error verify JWT: token \"{}\" error \"{}\".",
+                        credentials.token(),
+                        e.to_string()
+                    );
                     Err(error::ErrorForbidden(e.to_string()))
                 }
             }
