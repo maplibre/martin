@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 use actix_cors::Cors;
-use actix_web::{dev,
-    error, http, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
+use actix_web::{
+    dev, error, http, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
 use actix_web_httpauth::{extractors::bearer::BearerAuth, middleware::HttpAuthentication};
 
@@ -21,9 +21,9 @@ use crate::table_source::TableSources;
 use crate::worker_actor::WorkerActor;
 
 // For JWT
-use std::str::FromStr;
 use jsonwebtokens as jwt;
 use jwt::{Algorithm, AlgorithmID, Verifier, raw};
+use std::str::FromStr;
 
 pub struct AppState {
     pub db: Addr<DBActor>,
