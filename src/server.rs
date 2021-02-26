@@ -333,7 +333,7 @@ async fn bearer_auth_validator(
     req: dev::ServiceRequest,
     credentials: BearerAuth,
     )
--> Result<dev::ServiceRequest, Error> {
+ -> Result<dev::ServiceRequest, Error> {
     let secret = "aaaa";
 
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
@@ -347,7 +347,7 @@ async fn bearer_auth_validator(
             Algorithm::new_hmac(alg_id, secret)?,
         ))
     };
-    
+
     match try_catch_block() {
         Ok((verifier, alg)) => {
             // Only check the exp claim/field from jwt.
