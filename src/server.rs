@@ -22,7 +22,7 @@ use crate::worker_actor::WorkerActor;
 
 // For JWT
 use jsonwebtokens as jwt;
-use jwt::{Algorithm, AlgorithmID, Verifier, raw};
+use jwt::{raw, Algorithm, AlgorithmID, Verifier};
 use std::str::FromStr;
 
 pub struct AppState {
@@ -331,12 +331,12 @@ fn create_state(
 
 async fn bearer_auth_validator(
     req: dev::ServiceRequest,
-    credentials: BearerAuth
+    credentials: BearerAuth,
     ) -> Result<dev::ServiceRequest, Error> {
     let secret = "aaaa";
     
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
-        let raw::TokenSlices {header, .. } = raw::split_token(credentials.token())?;
+        let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
         let header = raw::decode_json_token_slice(header)?;
         let alg_name = header["alg"].as_str().unwrap_or("");
         let alg_id = AlgorithmID::from_str(alg_name)?;
