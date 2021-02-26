@@ -335,13 +335,13 @@ async fn bearer_auth_validator(
     )
 -> Result<dev::ServiceRequest, Error> {
     let secret = "aaaa";
-    
+
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
         let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
         let header = raw::decode_json_token_slice(header)?;
         let alg_name = header["alg"].as_str().unwrap_or("");
         let alg_id = AlgorithmID::from_str(alg_name)?;
-        
+
         Ok((
             Verifier::create().build()?,
             Algorithm::new_hmac(alg_id, secret)?,
@@ -360,9 +360,9 @@ async fn bearer_auth_validator(
                         e.to_string()
                     );
                     Err(error::ErrorForbidden(e.to_string()))
-                },
+                }
             }
-        },
+        }
         Err(e) => {
             info!(
                 "Error generate algorith and verifier JWT:token \"{}\" error \"{}\".",
