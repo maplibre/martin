@@ -333,7 +333,7 @@ async fn bearer_auth_validator(
     req: dev::ServiceRequest,
     credentials: BearerAuth,
     )
-    -> Result<dev::ServiceRequest, Error> {
+-> Result<dev::ServiceRequest, Error> {
     let secret = "aaaa";
     
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
@@ -344,7 +344,7 @@ async fn bearer_auth_validator(
         
         Ok((
             Verifier::create().build()?,
-            Algorithm::new_hmac(alg_id, secret)?
+            Algorithm::new_hmac(alg_id, secret)?,
         ))
     };
     
@@ -360,11 +360,15 @@ async fn bearer_auth_validator(
                         e.to_string()
                     );
                     Err(error::ErrorForbidden(e.to_string()))
-                }
+                },
             }
         },
         Err(e) => {
-            info!("Error generate algorith and verifier JWT:token \"{}\" error \"{}\".", credentials.token(), e.to_string());
+            info!(
+                "Error generate algorith and verifier JWT:token \"{}\" error \"{}\".",
+                credentials.token(),
+                e.to_string()
+            );
             Err(error::ErrorForbidden(e.to_string()))
         }
     }
@@ -384,7 +388,7 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
         let state = create_state(db.clone(), coordinator.clone(), config.clone());
 
         let cors_middleware = Cors::default().allow_any_origin();
-        
+
         let auth = HttpAuthentication::bearer(bearer_auth_validator);
 
         App::new()
