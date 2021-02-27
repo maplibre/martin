@@ -333,7 +333,6 @@ async fn bearer_auth_validator(
     req: dev::ServiceRequest,
     credentials: BearerAuth,
 ) -> Result<dev::ServiceRequest, Error> {
-
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
         let secret = req.app_data::<String>().unwrap().as_str();
         let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
