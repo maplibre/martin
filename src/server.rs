@@ -332,11 +332,10 @@ fn create_state(
 async fn bearer_auth_validator(
     req: dev::ServiceRequest,
     credentials: BearerAuth,
-    )
-  -> Result<dev::ServiceRequest, Error> {
-    let secret = "aaaa";
+) -> Result<dev::ServiceRequest, Error> {
 
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
+        let secret = req.app_data::<String>().unwrap().as_str();
         let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
         let header = raw::decode_json_token_slice(header)?;
         let alg_name = header["alg"].as_str().unwrap_or("");
@@ -365,7 +364,7 @@ async fn bearer_auth_validator(
         }
         Err(e) => {
             info!(
-                "Error generate algorith and verifier JWT:token \"{}\" error \"{}\".",
+                "Error generate algorith and verifier JWT: token \"{}\" error \"{}\".",
                 credentials.token(),
                 e.to_string()
             );
@@ -388,10 +387,10 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
         let state = create_state(db.clone(), coordinator.clone(), config.clone());
 
         let cors_middleware = Cors::default().allow_any_origin();
-
         let auth = HttpAuthentication::bearer(bearer_auth_validator);
 
         App::new()
+            .app_data(config.jwt_secret.clone())
             .data(state)
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(
@@ -399,7 +398,7 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
             ))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
-            .wrap(auth)
+            .wrap(middleware::Condition::new(config.jwt, auth))
             .configure(router)
     })
     .bind(listen_addresses.clone())

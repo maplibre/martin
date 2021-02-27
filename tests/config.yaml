@@ -20,6 +20,12 @@ danger_accept_invalid_certs: false
 # Number of web server workers
 worker_processes: 8
 
+# Enable secure endpoints with JWT.
+jwt: false
+
+#A secret to verify signature (need JWT enabled).
+jwt_secret: ""
+
 # associative arrays of table sources
 table_sources:
   public.table_source:

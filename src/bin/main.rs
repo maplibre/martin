@@ -33,6 +33,8 @@ Options:
   --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
   --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
+  --jwt                             Enable secure endpoints with JWT.
+  --jwt-secret=<secret>             A secret to verify signature (need JWT enabled).
 ";
 
 #[derive(Debug, Deserialize)]
@@ -47,6 +49,8 @@ pub struct Args {
     pub flag_version: bool,
     pub flag_workers: Option<usize>,
     pub flag_danger_accept_invalid_certs: bool,
+    pub flag_jwt: bool,
+    pub flag_jwt_secret: Option<String>,
 }
 
 pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
@@ -71,6 +75,8 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
         table_sources: Some(table_sources),
         function_sources: Some(function_sources),
         danger_accept_invalid_certs: Some(args.flag_danger_accept_invalid_certs),
+        jwt: Some(args.flag_jwt),
+        jwt_secret: args.flag_jwt_secret,
     };
 
     let config = config.finalize();

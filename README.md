@@ -251,6 +251,8 @@ Options:
   --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
   --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
+  --jwt                             Enable secure endpoints with JWT.
+  --jwt-secret=<secret>             A secret to verify signature (need JWT enabled).
 ```
 
 ## Environment Variables
