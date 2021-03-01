@@ -19,6 +19,7 @@ pub struct Config {
     pub danger_accept_invalid_certs: bool,
     pub jwt: bool,
     pub jwt_secret: String,
+    pub jwt_algorithm: String,
 }
 
 #[derive(Deserialize)]
@@ -34,6 +35,7 @@ pub struct ConfigBuilder {
     pub danger_accept_invalid_certs: Option<bool>,
     pub jwt: Option<bool>,
     pub jwt_secret: Option<String>,
+    pub jwt_algorithm: Option<String>,
 }
 
 impl ConfigBuilder {
@@ -52,6 +54,7 @@ impl ConfigBuilder {
             danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or(false),
             jwt: self.jwt.unwrap_or(false),
             jwt_secret: self.jwt_secret.unwrap_or_else(|| "".to_owned()),
+            jwt_algorithm: self.jwt_algorithm.unwrap_or_else(|| "".to_owned()),
         }
     }
 }

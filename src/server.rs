@@ -25,6 +25,11 @@ use jsonwebtokens as jwt;
 use jwt::{raw, Algorithm, AlgorithmID, Verifier};
 use std::str::FromStr;
 
+pub struct JWTConfig {
+    pub jwt_secret: String,
+    pub jwt_algorithm: String,
+}
+
 pub struct AppState {
     pub db: Addr<DBActor>,
     pub coordinator: Addr<CoordinatorActor>,
@@ -334,15 +339,21 @@ async fn bearer_auth_validator(
     credentials: BearerAuth,
 ) -> Result<dev::ServiceRequest, Error> {
     let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
-        let secret = req.app_data::<String>().unwrap().as_str();
-        let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
-        let header = raw::decode_json_token_slice(header)?;
-        let alg_name = header["alg"].as_str().unwrap_or("");
+        let jwt_config = req.app_data::<JWTConfig>().unwrap();
+
+        let header_json;
+        let alg_name = if jwt_config.jwt_algorithm == "" {
+            let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
+            header_json = raw::decode_json_token_slice(header)?;
+            header_json["alg"].as_str().unwrap_or("")
+        } else {
+            jwt_config.jwt_algorithm.as_str()
+        };
         let alg_id = AlgorithmID::from_str(alg_name)?;
 
         Ok((
             Verifier::create().build()?,
-            Algorithm::new_hmac(alg_id, secret)?,
+            Algorithm::new_hmac(alg_id, jwt_config.jwt_secret.as_str())?,
         ))
     };
 
@@ -384,12 +395,16 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
 
     HttpServer::new(move || {
         let state = create_state(db.clone(), coordinator.clone(), config.clone());
+        let jwt_config = JWTConfig {
+            jwt_secret: config.jwt_secret.clone(),
+            jwt_algorithm: config.jwt_algorithm.clone(),
+        };
 
         let cors_middleware = Cors::default().allow_any_origin();
         let auth = HttpAuthentication::bearer(bearer_auth_validator);
 
         App::new()
-            .app_data(config.jwt_secret.clone())
+            .app_data(jwt_config)
             .data(state)
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(
