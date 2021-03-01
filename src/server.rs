@@ -24,10 +24,12 @@ use crate::worker_actor::WorkerActor;
 use jsonwebtokens as jwt;
 use jwt::{raw, Algorithm, AlgorithmID, Verifier};
 use std::str::FromStr;
+use std::time::SystemTime;
 
 pub struct JWTConfig {
     pub jwt_secret: String,
     pub jwt_algorithm: String,
+    pub jwt_check_exp_time: bool,
 }
 
 pub struct AppState {
@@ -338,12 +340,13 @@ async fn bearer_auth_validator(
     req: dev::ServiceRequest,
     credentials: BearerAuth,
 ) -> Result<dev::ServiceRequest, Error> {
-    let try_catch_block = || -> Result<(Verifier, Algorithm), jwt::error::Error> {
-        let jwt_config = req.app_data::<JWTConfig>().unwrap();
+    let jwt_config = req.app_data::<JWTConfig>().unwrap();
 
+    let try_catch_block = || -> Result<(Verifier, Algorithm, bool), jwt::error::Error> {
         let header_json;
+        let raw::TokenSlices { header, claims, .. } = raw::split_token(credentials.token())?;
+        let claims_json = raw::decode_json_token_slice(claims)?;
         let alg_name = if jwt_config.jwt_algorithm.is_empty() {
-            let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
             header_json = raw::decode_json_token_slice(header)?;
             header_json["alg"].as_str().unwrap_or("")
         } else {
@@ -354,13 +357,32 @@ async fn bearer_auth_validator(
         Ok((
             Verifier::create().build()?,
             Algorithm::new_hmac(alg_id, jwt_config.jwt_secret.as_str())?,
+            claims_json["exp"].is_null(),
         ))
     };
 
     match try_catch_block() {
-        Ok((verifier, alg)) => {
-            // Only check the exp claim/field from jwt.
-            match verifier.verify(&credentials.token(), &alg) {
+        Ok((verifier, alg, exp_is_null)) => {
+            let result = if jwt_config.jwt_check_exp_time {
+                if exp_is_null {
+                    return Err(error::ErrorForbidden("Claim exp does not exist."));
+                }
+
+                let now_unixtimestamp = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                match verifier.verify_for_time(&credentials.token(), &alg, now_unixtimestamp) {
+                    Ok(_) => Ok(true),
+                    Err(e) => Err(e),
+                }
+            } else {
+                match verifier.verify(&credentials.token(), &alg) {
+                    Ok(_) => Ok(true),
+                    Err(e) => Err(e),
+                }
+            };
+            match result {
                 Ok(_) => Ok(req),
                 Err(e) => {
                     info!(
@@ -395,9 +417,11 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
 
     HttpServer::new(move || {
         let state = create_state(db.clone(), coordinator.clone(), config.clone());
+
         let jwt_config = JWTConfig {
             jwt_secret: config.jwt_secret.clone(),
             jwt_algorithm: config.jwt_algorithm.clone(),
+            jwt_check_exp_time: config.jwt_check_exp_time.clone(),
         };
 
         let cors_middleware = Cors::default().allow_any_origin();

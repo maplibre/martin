@@ -36,6 +36,7 @@ Options:
   --jwt                             Enable secure endpoints with JWT.
   --jwt-secret=<secret>             A secret to verify signature (need JWT enabled).
   --jwt-algorithm=<algorithm>       Algorithm can be: empty (autodetect from jwt token dangerous), HS256, HS384, HS512, ES256, ES384, RS256, RS384, RS512, PS256, PS384 or PS512.
+  --jwt-check-exp-time              Enable check expiration time in claims, by default disabled.
 ";
 
 #[derive(Debug, Deserialize)]
@@ -53,6 +54,7 @@ pub struct Args {
     pub flag_jwt: bool,
     pub flag_jwt_secret: Option<String>,
     pub flag_jwt_algorithm: Option<String>,
+    pub flag_jwt_check_exp_time: bool,
 }
 
 pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
@@ -80,6 +82,7 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
         jwt: Some(args.flag_jwt),
         jwt_secret: args.flag_jwt_secret,
         jwt_algorithm: args.flag_jwt_algorithm,
+        jwt_check_exp_time: Some(args.flag_jwt_check_exp_time),
     };
 
     let config = config.finalize();

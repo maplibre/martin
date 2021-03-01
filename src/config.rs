@@ -20,6 +20,7 @@ pub struct Config {
     pub jwt: bool,
     pub jwt_secret: String,
     pub jwt_algorithm: String,
+    pub jwt_check_exp_time: bool,
 }
 
 #[derive(Deserialize)]
@@ -36,6 +37,7 @@ pub struct ConfigBuilder {
     pub jwt: Option<bool>,
     pub jwt_secret: Option<String>,
     pub jwt_algorithm: Option<String>,
+    pub jwt_check_exp_time: Option<bool>,
 }
 
 impl ConfigBuilder {
@@ -55,6 +57,7 @@ impl ConfigBuilder {
             jwt: self.jwt.unwrap_or(false),
             jwt_secret: self.jwt_secret.unwrap_or_else(|| "".to_owned()),
             jwt_algorithm: self.jwt_algorithm.unwrap_or_else(|| "".to_owned()),
+            jwt_check_exp_time: self.jwt_check_exp_time.unwrap_or(false),
         }
     }
 }

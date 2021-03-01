@@ -306,6 +306,7 @@ Options:
   --jwt                             Enable secure endpoints with JWT.
   --jwt-secret=<secret>             A secret to verify signature (need JWT enabled).
   --jwt-algorithm=<algorithm>       Algorithm can be: empty (autodetect from jwt token dangerous), HS256, HS384, HS512, ES256, ES384, RS256, RS384, RS512, PS256, PS384 or PS512.
+  --jwt-check-exp-time              Enable check expiration time in claims, by default disabled.
 ```
 
 ## Environment Variables
