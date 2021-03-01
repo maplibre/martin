@@ -421,7 +421,7 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
         let jwt_config = JWTConfig {
             jwt_secret: config.jwt_secret.clone(),
             jwt_algorithm: config.jwt_algorithm.clone(),
-            jwt_check_exp_time: config.jwt_check_exp_time.clone(),
+            jwt_check_exp_time: config.jwt_check_exp_time,
         };
 
         let cors_middleware = Cors::default().allow_any_origin();
