@@ -342,7 +342,7 @@ async fn bearer_auth_validator(
         let jwt_config = req.app_data::<JWTConfig>().unwrap();
 
         let header_json;
-        let alg_name = if jwt_config.jwt_algorithm == "" {
+        let alg_name = if jwt_config.jwt_algorithm.is_empty() {
             let raw::TokenSlices { header, .. } = raw::split_token(credentials.token())?;
             header_json = raw::decode_json_token_slice(header)?;
             header_json["alg"].as_str().unwrap_or("")
