@@ -50,7 +50,7 @@ impl Source for FunctionSource {
             z = xyz.z,
             x = xyz.x,
             y = xyz.y,
-            query_params = query_json_string
+            query_params = query_json_string.replace("'", "''")
         );
 
         let tile: Tile = conn
