@@ -95,6 +95,8 @@ jobs:
           sudo apt-get install postgresql-client
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/TileBBox.sql
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/table_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points1_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points2_source.sql
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source.sql
         env:
           POSTGRES_HOST: localhost
@@ -126,11 +128,14 @@ jobs:
 
       - name: Test server response
         run: |
-          curl localhost:3000/public.table_source/0/0/0.pbf > table_source.pbf
-          curl localhost:3000/rpc/public.function_source/0/0/0.pbf > function_source.pbf
+          curl "localhost:3000/public.table_source/0/0/0.pbf" > table_source.pbf
+          curl "localhost:3000/public.points1,public.points2/0/0/0.pbf" > composite_source.pbf
+          curl "localhost:3000/rpc/public.function_source/0/0/0.pbf" > function_source.pbf
           ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-check composite_source.pbf
           ./tests/vtzero-check function_source.pbf
           ./tests/vtzero-show table_source.pbf
+          ./tests/vtzero-show composite_source.pbf
           ./tests/vtzero-show function_source.pbf
 
   docker:
@@ -158,7 +163,7 @@ jobs:
       - name: Build and push the Docker image
         uses: docker/build-push-action@v2
         with:
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
 

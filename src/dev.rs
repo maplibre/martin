@@ -13,9 +13,8 @@ use crate::server::AppState;
 use crate::table_source::{TableSource, TableSources};
 
 pub fn mock_table_sources() -> Option<TableSources> {
-    let id = "public.table_source";
     let source = TableSource {
-        id: id.to_owned(),
+        id: "public.table_source".to_owned(),
         schema: "public".to_owned(),
         table: "table_source".to_owned(),
         id_column: None,
@@ -28,8 +27,38 @@ pub fn mock_table_sources() -> Option<TableSources> {
         properties: HashMap::new(),
     };
 
+    let table_source1 = TableSource {
+        id: "public.points1".to_owned(),
+        schema: "public".to_owned(),
+        table: "points1".to_owned(),
+        id_column: None,
+        geometry_column: "geom".to_owned(),
+        srid: 3857,
+        extent: Some(4096),
+        buffer: Some(64),
+        clip_geom: Some(true),
+        geometry_type: None,
+        properties: HashMap::new(),
+    };
+
+    let table_source2 = TableSource {
+        id: "public.points2".to_owned(),
+        schema: "public".to_owned(),
+        table: "points2".to_owned(),
+        id_column: None,
+        geometry_column: "geom".to_owned(),
+        srid: 3857,
+        extent: Some(4096),
+        buffer: Some(64),
+        clip_geom: Some(true),
+        geometry_type: None,
+        properties: HashMap::new(),
+    };
+
     let mut table_sources: TableSources = HashMap::new();
-    table_sources.insert(id.to_owned(), Box::new(source));
+    table_sources.insert("public.table_source".to_owned(), Box::new(source));
+    table_sources.insert("public.points1".to_owned(), Box::new(table_source1));
+    table_sources.insert("public.points2".to_owned(), Box::new(table_source2));
     Some(table_sources)
 }
 

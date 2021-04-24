@@ -20,6 +20,9 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
   - [Table Sources List](#table-sources-list)
   - [Table Source TileJSON](#table-source-tilejson)
   - [Table Source Tiles](#table-source-tiles)
+- [Composite Sources](#composite-sources)
+  - [Composite Source TileJSON](#composite-source-tilejson)
+  - [Composite Source Tiles](#composite-source-tiles)
 - [Function Sources](#function-sources)
   - [Function Sources List](#function-sources-list)
   - [Function Source TileJSON](#function-source-tilejson)
@@ -73,17 +76,21 @@ Martin requires a database connection string. It can be passed as a command-line
 martin postgres://postgres@localhost/db
 ```
 
+Martin provides [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint for each [geospatial-enabled](https://postgis.net/docs/postgis_usage.html#geometry_columns) table in your database.
+
 ## API
 
-| Method | URL                                                  | Description                                           |
-| ------ | ---------------------------------------------------- | ----------------------------------------------------- |
-| `GET`  | `/index.json`                                        | [Table Sources List](#table-sources-list)             |
-| `GET`  | `/{schema_name}.{table_name}.json`                   | [Table Source TileJSON](#table-source-tilejson)       |
-| `GET`  | `/{schema_name}.{table_name}/{z}/{x}/{y}.pbf`        | [Table Source Tiles](#table-source-tiles)             |
-| `GET`  | `/rpc/index.json`                                    | [Function Sources List](#function-sources-list)       |
-| `GET`  | `/rpc/{schema_name}.{function_name}.json`            | [Function Source TileJSON](#function-source-tilejson) |
-| `GET`  | `/rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf` | [Function Source Tiles](#function-source-tiles)       |
-| `GET`  | `/healthz`                                           | Martin server health check: returns `200 OK`          |
+| Method | URL                                                                              | Description                                             |
+| ------ | -------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `GET`  | `/index.json`                                                                    | [Table Sources List](#table-sources-list)               |
+| `GET`  | `/{schema_name}.{table_name}.json`                                               | [Table Source TileJSON](#table-source-tilejson)         |
+| `GET`  | `/{schema_name}.{table_name}/{z}/{x}/{y}.pbf`                                    | [Table Source Tiles](#table-source-tiles)               |
+| `GET`  | `/{schema_name1}.{table_name1},...,{schema_nameN}.{table_nameN}.json`            | [Composite Source TileJSON](#composite-source-tilejson) |
+| `GET`  | `/{schema_name1}.{table_name1},...,{schema_nameN}.{table_nameN}/{z}/{x}/{y}.pbf` | [Composite Source Tiles](#composite-source-tiles)       |
+| `GET`  | `/rpc/index.json`                                                                | [Function Sources List](#function-sources-list)         |
+| `GET`  | `/rpc/{schema_name}.{function_name}.json`                                        | [Function Source TileJSON](#function-source-tilejson)   |
+| `GET`  | `/rpc/{schema_name}.{function_name}/{z}/{x}/{y}.pbf`                             | [Function Source Tiles](#function-source-tiles)         |
+| `GET`  | `/healthz`                                                                       | Martin server health check: returns `200 OK`            |
 
 ## Using with Mapbox GL JS
 
@@ -96,15 +103,44 @@ You can add a layer to the map and specify martin TileJSON endpoint as a vector 
 
 ```js
 map.addLayer({
-  id: 'public.points',
-  type: 'circle',
+  id: "public.points",
+  type: "circle",
   source: {
-    type: 'vector',
-    url: 'http://localhost:3000/public.points.json',
+    type: "vector",
+    url: "http://localhost:3000/public.points.json",
   },
-  'source-layer': 'public.points',
+  "source-layer": "public.points",
   paint: {
     'circle-color': 'red',
+  },
+});
+```
+
+You can also combine multiple tables into one source with [Composite Sources](#composite-sources). Each [Table Source](#table-sources) in Composite Source can be accessed with its `{schema_name}.{table_name}` as a `source-layer` property.
+
+```js
+map.addSource("points", {
+  type: "vector",
+  url: `http://0.0.0.0:3000/public.points1,public.points2.json`,
+});
+
+map.addLayer({
+  id: "red_points",
+  type: "circle",
+  source: "points",
+  "source-layer": "public.points1",
+  paint: {
+    "circle-color": "red",
+  },
+});
+
+map.addLayer({
+  id: "blue_points",
+  type: "circle",
+  source: "points",
+  "source-layer": "public.points2",
+  paint: {
+    "circle-color": "blue",
   },
 });
 ```
@@ -189,6 +225,32 @@ For example, `points` table in `public` schema will be available at `/public.poi
 
 ```shell
 curl localhost:3000/public.points/0/0/0.pbf
+```
+
+## Composite Sources
+
+Composite Sources allows combining multiple Table Sources into one. Composite Source consists of multiple Table Sources separated by comma `{schema_name1}.{table_name1},...,{schema_nameN}.{table_nameN}`
+
+Each [Table Source](#table-sources) in Composite Source can be accessed with its `{schema_name}.{table_name}` as a `source-layer` property.
+
+### Composite Source TileJSON
+
+Composite Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{schema_name1}.{table_name1},...,{schema_nameN}.{table_nameN}.json`.
+
+For example, composite source for `points` and `lines` tables in `public` schema will be available at `/public.points,public.lines.json`
+
+```shell
+curl localhost:3000/public.points,public.lines.json
+```
+
+### Composite Source Tiles
+
+Composite Source tiles endpoint is available at `/{schema_name1}.{table_name1},...,{schema_nameN}.{table_nameN}/{z}/{x}/{y}.pbf`
+
+For example, composite source for `points` and `lines` tables in `public` schema will be available at `/public.points,public.lines/{z}/{x}/{y}.pbf`
+
+```shell
+curl localhost:3000/public.points,public.lines/0/0/0.pbf
 ```
 
 ## Function Sources
@@ -327,7 +389,7 @@ You can find an example of a configuration file [here](https://github.com/urbica
 
 ```yaml
 # Database connection string
-connection_string: 'postgres://postgres@localhost/db'
+connection_string: "postgres://postgres@localhost/db"
 
 # Maximum connections pool size [default: 20]
 pool_size: 20
@@ -339,7 +401,7 @@ keep_alive: 75
 worker_processes: 8
 
 # The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
+listen_addresses: "0.0.0.0:3000"
 
 # Enable watch mode
 watch: true
@@ -440,7 +502,7 @@ docker run \
 You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/urbica/martin/master/docker-compose.yml) file as a reference
 
 ```yml
-version: '3'
+version: "3"
 
 services:
   martin:

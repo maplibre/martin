@@ -49,3 +49,18 @@ pub fn query_to_json_string(query: &Query) -> Result<String, serde_json::Error> 
 
     serde_json::to_string(&query_as_json)
 }
+
+pub fn get_bounds_cte(srid_bounds: String) -> String {
+    format!(
+        include_str!("scripts/get_bounds_cte.sql"),
+        srid_bounds = srid_bounds
+    )
+}
+
+pub fn get_srid_bounds(srid: u32, xyz: &XYZ) -> String {
+    format!(
+        include_str!("scripts/get_srid_bounds.sql"),
+        srid = srid,
+        mercator_bounds = tilebbox(xyz),
+    )
+}
