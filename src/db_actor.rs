@@ -7,13 +7,13 @@ use crate::messages;
 use crate::source::Tile;
 use crate::table_source::{get_table_sources, TableSources};
 
-pub struct DBActor(pub Pool);
+pub struct DbActor(pub Pool);
 
-impl Actor for DBActor {
+impl Actor for DbActor {
     type Context = SyncContext<Self>;
 }
 
-impl Handler<messages::GetTableSources> for DBActor {
+impl Handler<messages::GetTableSources> for DbActor {
     type Result = Result<TableSources, io::Error>;
 
     fn handle(&mut self, _msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
@@ -23,7 +23,7 @@ impl Handler<messages::GetTableSources> for DBActor {
     }
 }
 
-impl Handler<messages::GetFunctionSources> for DBActor {
+impl Handler<messages::GetFunctionSources> for DbActor {
     type Result = Result<FunctionSources, io::Error>;
 
     fn handle(
@@ -37,7 +37,7 @@ impl Handler<messages::GetFunctionSources> for DBActor {
     }
 }
 
-impl Handler<messages::GetTile> for DBActor {
+impl Handler<messages::GetTile> for DbActor {
     type Result = Result<Tile, io::Error>;
 
     fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {

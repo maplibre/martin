@@ -14,15 +14,15 @@ use crate::composite_source::CompositeSource;
 use crate::config::Config;
 use crate::coordinator_actor::CoordinatorActor;
 use crate::db::Pool;
-use crate::db_actor::DBActor;
+use crate::db_actor::DbActor;
 use crate::function_source::FunctionSources;
 use crate::messages;
-use crate::source::{Source, XYZ};
+use crate::source::{Source, Xyz};
 use crate::table_source::{TableSource, TableSources};
 use crate::worker_actor::WorkerActor;
 
 pub struct AppState {
-    pub db: Addr<DBActor>,
+    pub db: Addr<DbActor>,
     pub coordinator: Addr<CoordinatorActor>,
     pub table_sources: Rc<RefCell<Option<TableSources>>>,
     pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
@@ -176,7 +176,7 @@ async fn get_composite_source_tile(
         table_sources: sources,
     };
 
-    let xyz = XYZ {
+    let xyz = Xyz {
         z: path.z,
         x: path.x,
         y: path.y,
@@ -294,7 +294,7 @@ async fn get_function_source_tile(
         error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
     })?;
 
-    let xyz = XYZ {
+    let xyz = Xyz {
         z: path.z,
         x: path.x,
         y: path.y,
@@ -340,7 +340,7 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 fn create_state(
-    db: Addr<DBActor>,
+    db: Addr<DbActor>,
     coordinator: Addr<CoordinatorActor>,
     config: Config,
 ) -> AppState {
@@ -367,7 +367,7 @@ fn create_state(
 pub fn new(pool: Pool, config: Config) -> SystemRunner {
     let sys = actix_rt::System::new("server");
 
-    let db = SyncArbiter::start(3, move || DBActor(pool.clone()));
+    let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
     let coordinator: Addr<_> = CoordinatorActor::default().start();
 
     let keep_alive = config.keep_alive;

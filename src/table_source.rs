@@ -5,7 +5,7 @@ use std::io;
 use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
-use crate::source::{Query, Source, Tile, XYZ};
+use crate::source::{Query, Source, Tile, Xyz};
 use crate::utils;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,7 +26,7 @@ pub struct TableSource {
 pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl TableSource {
-    pub fn get_geom_query(&self, xyz: &XYZ) -> String {
+    pub fn get_geom_query(&self, xyz: &Xyz) -> String {
         let mercator_bounds = utils::tilebbox(xyz);
 
         let properties = if self.properties.is_empty() {
@@ -55,7 +55,7 @@ impl TableSource {
         )
     }
 
-    pub fn get_tile_query(&self, xyz: &XYZ) -> String {
+    pub fn get_tile_query(&self, xyz: &Xyz) -> String {
         let geom_query = self.get_geom_query(xyz);
 
         let id_column = self
@@ -72,7 +72,7 @@ impl TableSource {
         )
     }
 
-    pub fn build_tile_query(&self, xyz: &XYZ) -> String {
+    pub fn build_tile_query(&self, xyz: &Xyz) -> String {
         let srid_bounds = utils::get_srid_bounds(self.srid, xyz);
         let bounds_cte = utils::get_bounds_cte(srid_bounds);
         let tile_query = self.get_tile_query(xyz);
@@ -98,7 +98,7 @@ impl Source for TableSource {
     fn get_tile(
         &self,
         conn: &mut Connection,
-        xyz: &XYZ,
+        xyz: &Xyz,
         _query: &Option<Query>,
     ) -> Result<Tile, io::Error> {
         let tile_query = self.build_tile_query(xyz);

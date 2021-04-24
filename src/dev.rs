@@ -7,7 +7,7 @@ use actix::{Actor, Addr, SyncArbiter};
 
 use crate::coordinator_actor::CoordinatorActor;
 use crate::db::setup_connection_pool;
-use crate::db_actor::DBActor;
+use crate::db_actor::DbActor;
 use crate::function_source::{FunctionSource, FunctionSources};
 use crate::server::AppState;
 use crate::table_source::{TableSource, TableSources};
@@ -86,7 +86,7 @@ pub fn mock_state(
     let pool = setup_connection_pool(&connection_string, Some(1), false).unwrap();
     info!("Connected to {}", connection_string);
 
-    let db = SyncArbiter::start(3, move || DBActor(pool.clone()));
+    let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
     let coordinator: Addr<_> = CoordinatorActor::default().start();
 
     let table_sources = Rc::new(RefCell::new(table_sources));

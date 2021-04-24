@@ -4,7 +4,7 @@ use std::io;
 use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
-use crate::source::{Query, Source, Tile, XYZ};
+use crate::source::{Query, Source, Tile, Xyz};
 use crate::utils::query_to_json_string;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ impl Source for FunctionSource {
     fn get_tile(
         &self,
         conn: &mut Connection,
-        xyz: &XYZ,
+        xyz: &Xyz,
         query: &Option<Query>,
     ) -> Result<Tile, io::Error> {
         let empty_query = HashMap::new();

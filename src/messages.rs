@@ -2,7 +2,7 @@ use actix::{Addr, Message};
 use std::io;
 
 use crate::function_source::FunctionSources;
-use crate::source::{Query, Source, Tile, XYZ};
+use crate::source::{Query, Source, Tile, Xyz};
 use crate::table_source::TableSources;
 use crate::worker_actor::WorkerActor;
 
@@ -15,7 +15,7 @@ impl Message for Connect {
 }
 
 pub struct GetTile {
-    pub xyz: XYZ,
+    pub xyz: Xyz,
     pub query: Option<Query>,
     pub source: Box<dyn Source + Send>,
 }
