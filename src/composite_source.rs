@@ -4,7 +4,7 @@ use std::io;
 use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
-use crate::source::{Query, Source, Tile, XYZ};
+use crate::source::{Query, Source, Tile, Xyz};
 use crate::table_source::TableSource;
 use crate::utils;
 
@@ -15,7 +15,7 @@ pub struct CompositeSource {
 }
 
 impl CompositeSource {
-    fn get_bounds_cte(&self, xyz: &XYZ) -> String {
+    fn get_bounds_cte(&self, xyz: &Xyz) -> String {
         let srid_bounds: String = self
             .table_sources
             .clone()
@@ -29,7 +29,7 @@ impl CompositeSource {
         utils::get_bounds_cte(srid_bounds)
     }
 
-    fn get_tile_query(&self, xyz: &XYZ) -> String {
+    fn get_tile_query(&self, xyz: &Xyz) -> String {
         let tile_query: String = self
             .table_sources
             .clone()
@@ -41,7 +41,7 @@ impl CompositeSource {
         format!("SELECT {} AS tile", tile_query)
     }
 
-    pub fn build_tile_query(&self, xyz: &XYZ) -> String {
+    pub fn build_tile_query(&self, xyz: &Xyz) -> String {
         let bounds_cte = self.get_bounds_cte(xyz);
         let tile_query = self.get_tile_query(xyz);
 
@@ -66,7 +66,7 @@ impl Source for CompositeSource {
     fn get_tile(
         &self,
         conn: &mut Connection,
-        xyz: &XYZ,
+        xyz: &Xyz,
         _query: &Option<Query>,
     ) -> Result<Tile, io::Error> {
         let tile_query = self.build_tile_query(xyz);

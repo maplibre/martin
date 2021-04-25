@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use crate::source::{Query, XYZ};
+use crate::source::{Query, Xyz};
 
 pub fn prettify_error<E: std::fmt::Display>(message: &'static str) -> impl Fn(E) -> std::io::Error {
     move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
 }
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
-pub fn tilebbox(xyz: &XYZ) -> String {
+pub fn tilebbox(xyz: &Xyz) -> String {
     let x = xyz.x;
     let y = xyz.y;
     let z = xyz.z;
@@ -57,7 +57,7 @@ pub fn get_bounds_cte(srid_bounds: String) -> String {
     )
 }
 
-pub fn get_srid_bounds(srid: u32, xyz: &XYZ) -> String {
+pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
     format!(
         include_str!("scripts/get_srid_bounds.sql"),
         srid = srid,

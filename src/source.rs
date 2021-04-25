@@ -10,7 +10,7 @@ pub type Tile = Vec<u8>;
 pub type Query = HashMap<String, String>;
 
 #[derive(Copy, Clone)]
-pub struct XYZ {
+pub struct Xyz {
     pub z: u32,
     pub x: u32,
     pub y: u32,
@@ -24,9 +24,7 @@ pub trait Source: Debug {
     fn get_tile(
         &self,
         conn: &mut Connection,
-        xyz: &XYZ,
+        xyz: &Xyz,
         query: &Option<Query>,
     ) -> Result<Tile, io::Error>;
 }
-
-// pub type Sources = HashMap<String, Box<dyn Source>>;
