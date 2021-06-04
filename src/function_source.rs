@@ -1,3 +1,4 @@
+use postgres::types::{Json, Type};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
@@ -43,18 +44,30 @@ impl Source for FunctionSource {
         let query_json_string = query_to_json_string(&query)
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
-        let query = format!(
+        // Query preparation : the schema and function can't be part of a prepared query, so they need to be escaped by hand
+        // The query expects the following arguments :
+        // $1 : x
+        // $2 : y
+        // $3 : z
+        // $4 : query_json
+        let escaped_schema = self.schema.replace("\"", "\"\"");
+        let escaped_function = self.function.replace("\"", "\"\"");
+        let raw_query = format!(
             include_str!("scripts/call_rpc.sql"),
-            schema = self.schema,
-            function = self.function,
-            z = xyz.z,
-            x = xyz.x,
-            y = xyz.y,
-            query_params = query_json_string
+            schema = escaped_schema,
+            function = escaped_function
         );
 
-        let tile: Tile = conn
-            .query_one(query.as_str(), &[])
+        let query = conn
+            .prepare_typed(
+                &raw_query,
+                &[Type::INT4, Type::INT4, Type::INT4, Type::JSON],
+            )
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+
+        let json = Json(query_json_string);
+        let tile = conn
+            .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &json])
             .map(|row| row.get(self.function.as_str()))
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 

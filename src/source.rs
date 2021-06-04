@@ -11,9 +11,9 @@ pub type Query = HashMap<String, String>;
 
 #[derive(Copy, Clone)]
 pub struct Xyz {
-    pub z: u32,
-    pub x: u32,
-    pub y: u32,
+    pub z: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 pub trait Source: Debug {

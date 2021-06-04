@@ -42,9 +42,9 @@ struct CompositeSourceRequest {
 #[derive(Deserialize)]
 struct TileRequest {
     source_id: String,
-    z: u32,
-    x: u32,
-    y: u32,
+    z: i32,
+    x: i32,
+    y: i32,
     #[allow(dead_code)]
     format: String,
 }
@@ -52,9 +52,9 @@ struct TileRequest {
 #[derive(Deserialize)]
 struct CompositeTileRequest {
     source_ids: String,
-    z: u32,
-    x: u32,
-    y: u32,
+    z: i32,
+    x: i32,
+    y: i32,
     #[allow(dead_code)]
     format: String,
 }
