@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
 use tilejson::{TileJSON, TileJSONBuilder};
+use postgres_protocol::escape::escape_identifier;
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
@@ -44,14 +45,17 @@ impl Source for FunctionSource {
         let query_json_string = query_to_json_string(&query)
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
-        // Query preparation : the schema and function can't be part of a prepared query, so they need to be escaped by hand
+        // Query preparation : the schema and function can't be part of a prepared query, so they
+        // need to be escaped by hand.
+        // However schema and function comes from database introspection so they shall be safe.
         // The query expects the following arguments :
         // $1 : x
         // $2 : y
         // $3 : z
         // $4 : query_json
-        let escaped_schema = self.schema.replace("\"", "\"\"");
-        let escaped_function = self.function.replace("\"", "\"\"");
+
+        let escaped_schema = escape_identifier(&self.schema);
+        let escaped_function = escape_identifier(&self.function);
         let raw_query = format!(
             include_str!("scripts/call_rpc.sql"),
             schema = escaped_schema,
