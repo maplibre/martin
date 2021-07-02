@@ -1,9 +1,9 @@
 use postgres::types::{Json, Type};
+use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
 use tilejson::{TileJSON, TileJSONBuilder};
-use postgres_protocol::escape::escape_identifier;
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
