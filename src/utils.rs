@@ -13,7 +13,7 @@ pub fn tilebbox(xyz: &Xyz) -> String {
     let z = xyz.z;
 
     let max = 20_037_508.34;
-    let res = (max * 2.0) / f64::from(2_i32.pow(z));
+    let res = (max * 2.0) / f64::from(2_i32.pow(z as u32));
 
     let xmin = -max + (f64::from(x) * res);
     let ymin = max - (f64::from(y) * res);

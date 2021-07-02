@@ -1248,6 +1248,7 @@ dependencies = [
  "num_cpus",
  "postgres",
  "postgres-native-tls",
+ "postgres-protocol",
  "r2d2",
  "r2d2_postgres",
  "semver 1.0.3",

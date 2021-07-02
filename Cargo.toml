@@ -25,6 +25,7 @@ native-tls = "0.2"
 num_cpus = "1.13"
 postgres = { version = "0.19.1", features = ["with-time-0_2", "with-uuid-0_8", "with-serde_json-1"] }
 postgres-native-tls = "0.5.0"
+postgres-protocol = "0.6.1"
 r2d2 = "0.8"
 r2d2_postgres = "0.18"
 semver = "1.0"
