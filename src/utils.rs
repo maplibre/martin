@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use crate::source::{Query, Xyz};
+use postgres::types::Json;
+use serde_json::Value;
 
 pub fn prettify_error<E: std::fmt::Display>(message: &'static str) -> impl Fn(E) -> std::io::Error {
     move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
@@ -38,16 +40,16 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
     hashmap
 }
 
-pub fn query_to_json_string(query: &Query) -> Result<String, serde_json::Error> {
+pub fn query_to_json(query: &Query) -> Json<HashMap<String, Value>> {
     let mut query_as_json = HashMap::new();
     for (k, v) in query.iter() {
         let json_value: serde_json::Value =
             serde_json::from_str(v).unwrap_or_else(|_| serde_json::Value::String(v.clone()));
 
-        query_as_json.insert(k, json_value);
+        query_as_json.insert(k.clone(), json_value);
     }
 
-    serde_json::to_string(&query_as_json)
+    Json(query_as_json)
 }
 
 pub fn get_bounds_cte(srid_bounds: String) -> String {
