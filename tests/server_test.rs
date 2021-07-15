@@ -201,6 +201,29 @@ async fn test_get_function_source_tile_ok() {
 }
 
 #[actix_rt::test]
+async fn test_get_function_source_query_params_ok() {
+    init();
+
+    let state = mock_state(None, mock_function_sources(), false);
+    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/rpc/public.function_source_query_params/0/0/0.pbf")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    println!("response.status = {:?}", response.status());
+    assert!(response.status().is_server_error());
+
+    let req = test::TestRequest::get()
+        .uri("/rpc/public.function_source_query_params/0/0/0.pbf?token=martin")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+}
+
+#[actix_rt::test]
 async fn test_get_health_returns_ok() {
     init();
 
