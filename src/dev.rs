@@ -63,15 +63,26 @@ pub fn mock_table_sources() -> Option<TableSources> {
 }
 
 pub fn mock_function_sources() -> Option<FunctionSources> {
-    let id = "public.function_source";
-    let source = FunctionSource {
-        id: id.to_owned(),
-        schema: "public".to_owned(),
-        function: "function_source".to_owned(),
-    };
-
     let mut function_sources: FunctionSources = HashMap::new();
-    function_sources.insert(id.to_owned(), Box::new(source));
+
+    function_sources.insert(
+        "public.function_source".to_owned(),
+        Box::new(FunctionSource {
+            id: "public.function_source".to_owned(),
+            schema: "public".to_owned(),
+            function: "function_source".to_owned(),
+        }),
+    );
+
+    function_sources.insert(
+        "public.function_source_query_params".to_owned(),
+        Box::new(FunctionSource {
+            id: "public.function_source_query_params".to_owned(),
+            schema: "public".to_owned(),
+            function: "function_source_query_params".to_owned(),
+        }),
+    );
+
     Some(function_sources)
 }
 

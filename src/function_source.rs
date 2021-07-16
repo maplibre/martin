@@ -1,4 +1,4 @@
-use postgres::types::{Json, Type};
+use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils::query_to_json_string;
+use crate::utils::query_to_json;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {
@@ -42,8 +42,7 @@ impl Source for FunctionSource {
         let empty_query = HashMap::new();
         let query = query.as_ref().unwrap_or(&empty_query);
 
-        let query_json_string = query_to_json_string(&query)
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+        let query_json = query_to_json(query);
 
         // Query preparation : the schema and function can't be part of a prepared query, so they
         // need to be escaped by hand.
@@ -69,9 +68,8 @@ impl Source for FunctionSource {
             )
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
-        let json = Json(query_json_string);
         let tile = conn
-            .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &json])
+            .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
             .map(|row| row.get(self.function.as_str()))
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
