@@ -616,3 +616,11 @@ Make your changes, and check if all the tests are running
 ```shell
 DATABASE_URL=postgres://postgres@localhost/db cargo test
 ```
+
+You can also run benchmarks with
+
+```shell
+DATABASE_URL=postgres://postgres@localhost/db cargo bench
+```
+
+An HTML report displaying the results of the benchmark will be generated under `target/criterion/report/index.html`

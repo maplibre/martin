@@ -6,7 +6,7 @@ use std::rc::Rc;
 use actix::{Actor, Addr, SyncArbiter};
 
 use crate::coordinator_actor::CoordinatorActor;
-use crate::db::setup_connection_pool;
+use crate::db::{setup_connection_pool, Pool};
 use crate::db_actor::DbActor;
 use crate::function_source::{FunctionSource, FunctionSources};
 use crate::server::AppState;
@@ -86,16 +86,22 @@ pub fn mock_function_sources() -> Option<FunctionSources> {
     Some(function_sources)
 }
 
-pub fn mock_state(
-    table_sources: Option<TableSources>,
-    function_sources: Option<FunctionSources>,
-    watch_mode: bool,
-) -> AppState {
+pub fn make_pool() -> Pool {
     let connection_string: String = env::var("DATABASE_URL").unwrap();
     info!("Connecting to {}", connection_string);
 
     let pool = setup_connection_pool(&connection_string, Some(1), false).unwrap();
     info!("Connected to {}", connection_string);
+
+    pool
+}
+
+pub fn mock_state(
+    table_sources: Option<TableSources>,
+    function_sources: Option<FunctionSources>,
+    watch_mode: bool,
+) -> AppState {
+    let pool = make_pool();
 
     let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
     let coordinator: Addr<_> = CoordinatorActor::default().start();

@@ -35,8 +35,9 @@ serde_json = "1.0"
 serde_yaml = "0.8"
 tilejson = "0.2"
 
-[dev-dependencies]
-criterion = "0.3"
+[dev-dependencies.criterion]
+version = "0.3.4"
+features = ["async_futures", "async_tokio", "html_reports"]
 
 [dev-dependencies.cargo-husky]
 version = "1"
@@ -44,5 +45,5 @@ default-features = false
 features = ["run-for-all", "prepush-hook", "run-cargo-fmt", "run-cargo-clippy", "run-cargo-test"]
 
 [[bench]]
-name = "server"
+name = "sources"
 harness = false
