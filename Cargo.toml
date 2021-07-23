@@ -45,5 +45,5 @@ default-features = false
 features = ["run-for-all", "prepush-hook", "run-cargo-fmt", "run-cargo-clippy", "run-cargo-test"]
 
 [[bench]]
-name = "server"
+name = "sources"
 harness = false
