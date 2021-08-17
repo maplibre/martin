@@ -1765,9 +1765,9 @@ dependencies = [
 
 [[package]]
 name = "r2d2_postgres"
-version = "0.18.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7665d196d831b5c4f9ac49b3e2518e99555fe1941ccd103480817108c7c2f6e"
+checksum = "7029c56be658cb54f321e0bee597810ee16796b735fa2559d7056bf06b12230b"
 dependencies = [
  "postgres",
  "r2d2",
