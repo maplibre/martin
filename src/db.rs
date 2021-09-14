@@ -63,7 +63,7 @@ pub fn select_postgis_verion(pool: &Pool) -> io::Result<String> {
 }
 
 pub fn check_postgis_version(required_postgis_version: &str, pool: &Pool) -> io::Result<bool> {
-    let postgis_version = select_postgis_verion(&pool)?;
+    let postgis_version = select_postgis_verion(pool)?;
 
     let req = VersionReq::parse(required_postgis_version)
         .map_err(prettify_error("Can't parse required PostGIS version"))?;
