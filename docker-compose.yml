@@ -14,7 +14,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:13-3.1-alpine
+    image: postgis/postgis:14-3.1-alpine
     restart: unless-stopped
     ports:
       - 5432:5432
