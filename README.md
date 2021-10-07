@@ -14,7 +14,7 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [API](#api)
 - [Using with Mapbox GL JS](#using-with-mapbox-gl-js)
 - [Using with Leaflet](#using-with-leaflet)
-- [Using with deck.gl](#using-with-deck.gl)
+- [Using with deck.gl](#using-with-deckgl)
 - [Table Sources](#table-sources)
   - [Table Sources List](#table-sources-list)
   - [Table Source TileJSON](#table-source-tilejson)
@@ -32,6 +32,8 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Using with Docker](#using-with-docker)
 - [Using with Docker Compose](#using-with-docker-compose)
 - [Using with Nginx](#using-with-nginx)
+  - [Rewriting URLs](#rewriting-urls)
+  - [Caching tiles](#caching-tiles)
 - [Building from Source](#building-from-source)
 - [Debugging](#debugging)
 - [Development](#development)
@@ -102,45 +104,45 @@ You can add a layer to the map and specify martin TileJSON endpoint as a vector 
 
 ```js
 map.addLayer({
-  id: "public.points",
-  type: "circle",
+  id: 'public.points',
+  type: 'circle',
   source: {
-    type: "vector",
-    url: "http://localhost:3000/public.points.json",
+    type: 'vector',
+    url: 'http://localhost:3000/public.points.json'
   },
-  "source-layer": "public.points",
+  'source-layer': 'public.points',
   paint: {
-    'circle-color': 'red',
-  },
+    'circle-color': 'red'
+  }
 });
 ```
 
 You can also combine multiple tables into one source with [Composite Sources](#composite-sources). Each [Table Source](#table-sources) in Composite Source can be accessed with its `{schema_name}.{table_name}` as a `source-layer` property.
 
 ```js
-map.addSource("points", {
-  type: "vector",
-  url: `http://0.0.0.0:3000/public.points1,public.points2.json`,
+map.addSource('points', {
+  type: 'vector',
+  url: `http://0.0.0.0:3000/public.points1,public.points2.json`
 });
 
 map.addLayer({
-  id: "red_points",
-  type: "circle",
-  source: "points",
-  "source-layer": "public.points1",
+  id: 'red_points',
+  type: 'circle',
+  source: 'points',
+  'source-layer': 'public.points1',
   paint: {
-    "circle-color": "red",
-  },
+    'circle-color': 'red'
+  }
 });
 
 map.addLayer({
-  id: "blue_points",
-  type: "circle",
-  source: "points",
-  "source-layer": "public.points2",
+  id: 'blue_points',
+  type: 'circle',
+  source: 'points',
+  'source-layer': 'public.points2',
   paint: {
-    "circle-color": "blue",
-  },
+    'circle-color': 'blue'
+  }
 });
 ```
 
@@ -156,9 +158,9 @@ L.vectorGrid
     vectorTileLayerStyles: {
       'public.points': {
         color: 'red',
-        fill: true,
-      },
-    },
+        fill: true
+      }
+    }
   })
   .addTo(map);
 ```
@@ -168,9 +170,10 @@ L.vectorGrid
 [deck.gl](https://deck.gl/) is a WebGL-powered framework for visual exploratory data analysis of large datasets.
 
 You can add vector tiles using [MVTLayer](https://deck.gl/docs/api-reference/geo-layers/mvt-layer). MVTLayer `data` property defines the remote data for the MVT layer. It can be
-* `String`: Either a URL template or a [TileJSON](https://github.com/mapbox/tilejson-spec) URL.
-* `Array`: an array of URL templates. It allows to balance the requests across different tile endpoints. For example, if you define an array with 4 urls and 16 tiles need to be loaded, each endpoint is responsible to server 16/4 tiles.
-* `JSON`: A valid [TileJSON object](https://github.com/mapbox/tilejson-spec/tree/master/2.2.0).
+
+- `String`: Either a URL template or a [TileJSON](https://github.com/mapbox/tilejson-spec) URL.
+- `Array`: an array of URL templates. It allows to balance the requests across different tile endpoints. For example, if you define an array with 4 urls and 16 tiles need to be loaded, each endpoint is responsible to server 16/4 tiles.
+- `JSON`: A valid [TileJSON object](https://github.com/mapbox/tilejson-spec/tree/master/2.2.0).
 
 ```js
 const pointsLayer = new MVTLayer({
@@ -388,7 +391,7 @@ You can find an example of a configuration file [here](https://github.com/urbica
 
 ```yaml
 # Database connection string
-connection_string: "postgres://postgres@localhost/db"
+connection_string: 'postgres://postgres@localhost/db'
 
 # Maximum connections pool size [default: 20]
 pool_size: 20
@@ -400,7 +403,7 @@ keep_alive: 75
 worker_processes: 8
 
 # The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: "0.0.0.0:3000"
+listen_addresses: '0.0.0.0:3000'
 
 # Enable watch mode
 watch: true
@@ -501,7 +504,7 @@ docker run \
 You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/urbica/martin/master/docker-compose.yml) file as a reference
 
 ```yml
-version: "3"
+version: '3'
 
 services:
   martin:
@@ -510,13 +513,12 @@ services:
     ports:
       - 3000:3000
     environment:
-      - WATCH_MODE=true
       - DATABASE_URL=postgres://postgres:password@db/db
     depends_on:
       - db
 
   db:
-    image: postgis/postgis:13-3.1-alpine
+    image: postgis/postgis:14-3.1-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
@@ -542,16 +544,98 @@ By default, martin will be available at [localhost:3000](http://localhost:3000/i
 
 ## Using with Nginx
 
-If you are running martin behind nginx proxy, you may want to rewrite request URL, to properly handle tile urls in [TileJSON](#table-source-tilejson) [endpoints](#function-source-tilejson).
+You can run martin behind Nginx proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database.
+
+```yml
+version: '3'
+
+services:
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - 80:80
+    volumes:
+      - ./cache:/var/cache/nginx
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - martin
+
+  martin:
+    image: urbica/martin
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://postgres:password@db/db
+    depends_on:
+      - db
+
+  db:
+    image: postgis/postgis:14-3.1-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+```
+
+You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/master/nginx.conf).
+
+### Rewriting URLs
+
+If you are running martin behind Nginx proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](#table-source-tilejson) [endpoints](#function-source-tilejson).
 
 ```nginx
 location ~ /tiles/(?<fwd_path>.*) {
     proxy_set_header  X-Rewrite-URL $request_uri;
     proxy_set_header  X-Forwarded-Host $host:$server_port;
-    proxy_set_header  X-Forwarded-Proto $scheme; # or $http_x_forwarded_proto
+    proxy_set_header  X-Forwarded-Proto $scheme;
+    proxy_redirect    off;
+
     proxy_pass        http://martin:3000/$fwd_path$is_args$args;
 }
 ```
+
+### Caching tiles
+
+You can also use Nginx to cache tiles. In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
+
+```nginx
+http {
+  ...
+  proxy_cache_path  /var/cache/nginx/
+                    levels=1:2
+                    max_size=10g
+                    use_temp_path=off
+                    keys_zone=tiles_cache:10m;
+
+  server {
+    ...
+    location ~ /tiles/(?<fwd_path>.*) {
+        proxy_set_header        X-Rewrite-URL $request_uri;
+        proxy_set_header        X-Forwarded-Host $host:$server_port;
+        proxy_set_header        X-Forwarded-Proto $scheme;
+        proxy_redirect          off;
+
+        proxy_cache             tiles_cache;
+        proxy_cache_lock        on;
+        proxy_cache_revalidate  on;
+
+        # Set caching time for responses
+        proxy_cache_valid       200 204 302 1h;
+        proxy_cache_valid       404 1m;
+
+        proxy_cache_use_stale   error timeout http_500 http_502 http_503 http_504;
+        add_header              X-Cache-Status $upstream_cache_status;
+
+        proxy_pass              http://martin:3000/$fwd_path$is_args$args;
+    }
+  }
+}
+```
+
+You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/master/nginx.conf).
 
 ## Building from Source
 
