@@ -3,9 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <title>Martin Debug Page</title>
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
     <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.js"></script>
-    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css" rel="stylesheet" />
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css"
+      rel="stylesheet"
+    />
 
     <style>
       body {
@@ -19,10 +25,57 @@
         bottom: 0;
         width: 100%;
       }
+
+      #menu {
+        background: #fff;
+        position: absolute;
+        z-index: 1;
+        top: 10px;
+        right: 10px;
+        bottom: 10px;
+        border-radius: 3px;
+        width: 120px;
+        font-family: 'Open Sans', sans-serif;
+        overflow: scroll;
+      }
+
+      #menu a {
+        font-size: 13px;
+        color: #404040;
+        display: block;
+        margin: 0;
+        padding: 0;
+        padding: 10px;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+        text-align: center;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      #menu a:last-child {
+        border: none;
+      }
+
+      #menu a:hover {
+        background-color: #f8f8f8;
+        color: #404040;
+      }
+
+      #menu a.active {
+        background-color: #3887be;
+        color: #ffffff;
+      }
+
+      #menu a.active:hover {
+        background: #3074a4;
+      }
     </style>
   </head>
 
   <body>
+    <nav id="menu"></nav>
     <div id="map"></div>
 
     <script>
@@ -40,27 +93,91 @@
         style: 'mapbox://styles/mapbox/light-v9',
         zoom: 0,
         center: [0, 0],
+        hash: true
       });
 
-      const sourceId = 'public.points1';
+      function geometryTypeToLayerType(geometryType) {
+        switch (geometryType) {
+          case 'POINT':
+          case 'GEOMETRY':
+            return 'circle';
+          case 'LINESTRING':
+          case 'MULTILINESTRING':
+          case 'COMPOUNDCURVE':
+            return 'line';
+          case 'POLYGON':
+          case 'MULTIPOLYGON':
+          case 'CURVEPOLYGON':
+          case 'SURFACE':
+          case 'MULTISURFACE':
+            return 'fill';
+          default:
+            throw new Error(`Unknown geometry_type ${source.geometry_type}`);
+        }
+      }
 
       map.on('load', function () {
-        map.addLayer({
-          id: sourceId,
-          type: 'circle',
-          source: {
-            type: 'vector',
-            url: `http://0.0.0.0:3000/${sourceId}.json`,
-          },
-          'source-layer': sourceId,
-          paint: {
-            'circle-color': 'red',
-          },
-        });
+        fetch('http://0.0.0.0:3000/index.json')
+          .then((r) => r.json())
+          .then((sources) => {
+            // Set up the corresponding toggle button for each layer.
+            for (const sourceId of Object.keys(sources).sort()) {
+              // Skip layers that already have a button set up.
+              if (document.getElementById(sourceId)) {
+                continue;
+              }
 
-        map.on('click', sourceId, function (event) {
-          console.log(event.features);
-        });
+              const source = sources[sourceId];
+              const layerType = geometryTypeToLayerType(source.geometry_type);
+
+              map.addLayer({
+                id: sourceId,
+                type: layerType,
+                source: {
+                  type: 'vector',
+                  url: `http://0.0.0.0:3000/${sourceId}.json`
+                },
+                'source-layer': sourceId,
+                layout: {
+                  visibility: 'none'
+                },
+                paint: {
+                  [`${layerType}-color`]: 'red'
+                }
+              });
+
+              // Create a link.
+              const link = document.createElement('a');
+              link.id = sourceId;
+              link.href = '#';
+              link.textContent = sourceId;
+              link.title = sourceId;
+
+              // Show or hide layer when the toggle is clicked.
+              link.onclick = function (e) {
+                const clickedLayer = this.textContent;
+                e.preventDefault();
+                e.stopPropagation();
+
+                const visibility = map.getLayoutProperty(
+                  clickedLayer,
+                  'visibility'
+                );
+
+                // Toggle layer visibility by changing the layout object's visibility property.
+                if (visibility === 'visible') {
+                  map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+                  this.className = '';
+                } else {
+                  this.className = 'active';
+                  map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+                }
+              };
+
+              const layers = document.getElementById('menu');
+              layers.appendChild(link);
+            }
+          });
       });
     </script>
   </body>
