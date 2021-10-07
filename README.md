@@ -108,12 +108,12 @@ map.addLayer({
   type: 'circle',
   source: {
     type: 'vector',
-    url: 'http://localhost:3000/public.points.json',
+    url: 'http://localhost:3000/public.points.json'
   },
   'source-layer': 'public.points',
   paint: {
-    'circle-color': 'red',
-  },
+    'circle-color': 'red'
+  }
 });
 ```
 
@@ -122,7 +122,7 @@ You can also combine multiple tables into one source with [Composite Sources](#c
 ```js
 map.addSource('points', {
   type: 'vector',
-  url: `http://0.0.0.0:3000/public.points1,public.points2.json`,
+  url: `http://0.0.0.0:3000/public.points1,public.points2.json`
 });
 
 map.addLayer({
@@ -131,8 +131,8 @@ map.addLayer({
   source: 'points',
   'source-layer': 'public.points1',
   paint: {
-    'circle-color': 'red',
-  },
+    'circle-color': 'red'
+  }
 });
 
 map.addLayer({
@@ -141,8 +141,8 @@ map.addLayer({
   source: 'points',
   'source-layer': 'public.points2',
   paint: {
-    'circle-color': 'blue',
-  },
+    'circle-color': 'blue'
+  }
 });
 ```
 
@@ -158,9 +158,9 @@ L.vectorGrid
     vectorTileLayerStyles: {
       'public.points': {
         color: 'red',
-        fill: true,
-      },
-    },
+        fill: true
+      }
+    }
   })
   .addTo(map);
 ```
@@ -180,7 +180,7 @@ const pointsLayer = new MVTLayer({
   data: 'http://localhost:3000/public.points.json', // 'http://localhost:3000/public.table_source/{z}/{x}/{y}.pbf'
   pointRadiusUnits: 'pixels',
   getRadius: 5,
-  getFillColor: [230, 0, 0],
+  getFillColor: [230, 0, 0]
 });
 
 const deckgl = new DeckGL({
@@ -189,9 +189,9 @@ const deckgl = new DeckGL({
   initialViewState: {
     latitude: 0,
     longitude: 0,
-    zoom: 1,
+    zoom: 1
   },
-  layers: [pointsLayer],
+  layers: [pointsLayer]
 });
 ```
 
