@@ -104,15 +104,15 @@ You can add a layer to the map and specify martin TileJSON endpoint as a vector 
 
 ```js
 map.addLayer({
-  id: "public.points",
-  type: "circle",
+  id: 'public.points',
+  type: 'circle',
   source: {
-    type: "vector",
-    url: "http://localhost:3000/public.points.json",
+    type: 'vector',
+    url: 'http://localhost:3000/public.points.json',
   },
-  "source-layer": "public.points",
+  'source-layer': 'public.points',
   paint: {
-    "circle-color": "red",
+    'circle-color': 'red',
   },
 });
 ```
@@ -120,28 +120,28 @@ map.addLayer({
 You can also combine multiple tables into one source with [Composite Sources](#composite-sources). Each [Table Source](#table-sources) in Composite Source can be accessed with its `{schema_name}.{table_name}` as a `source-layer` property.
 
 ```js
-map.addSource("points", {
-  type: "vector",
+map.addSource('points', {
+  type: 'vector',
   url: `http://0.0.0.0:3000/public.points1,public.points2.json`,
 });
 
 map.addLayer({
-  id: "red_points",
-  type: "circle",
-  source: "points",
-  "source-layer": "public.points1",
+  id: 'red_points',
+  type: 'circle',
+  source: 'points',
+  'source-layer': 'public.points1',
   paint: {
-    "circle-color": "red",
+    'circle-color': 'red',
   },
 });
 
 map.addLayer({
-  id: "blue_points",
-  type: "circle",
-  source: "points",
-  "source-layer": "public.points2",
+  id: 'blue_points',
+  type: 'circle',
+  source: 'points',
+  'source-layer': 'public.points2',
   paint: {
-    "circle-color": "blue",
+    'circle-color': 'blue',
   },
 });
 ```
@@ -154,10 +154,10 @@ You can add vector tiles using [Leaflet.VectorGrid](https://github.com/Leaflet/L
 
 ```js
 L.vectorGrid
-  .protobuf("http://localhost:3000/public.points/{z}/{x}/{y}.pbf", {
+  .protobuf('http://localhost:3000/public.points/{z}/{x}/{y}.pbf', {
     vectorTileLayerStyles: {
-      "public.points": {
-        color: "red",
+      'public.points': {
+        color: 'red',
         fill: true,
       },
     },
@@ -177,15 +177,15 @@ You can add vector tiles using [MVTLayer](https://deck.gl/docs/api-reference/geo
 
 ```js
 const pointsLayer = new MVTLayer({
-  data: "http://localhost:3000/public.points.json", // 'http://localhost:3000/public.table_source/{z}/{x}/{y}.pbf'
-  pointRadiusUnits: "pixels",
+  data: 'http://localhost:3000/public.points.json', // 'http://localhost:3000/public.table_source/{z}/{x}/{y}.pbf'
+  pointRadiusUnits: 'pixels',
   getRadius: 5,
   getFillColor: [230, 0, 0],
 });
 
 const deckgl = new DeckGL({
-  container: "map",
-  mapStyle: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  container: 'map',
+  mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   initialViewState: {
     latitude: 0,
     longitude: 0,
@@ -391,7 +391,7 @@ You can find an example of a configuration file [here](https://github.com/urbica
 
 ```yaml
 # Database connection string
-connection_string: "postgres://postgres@localhost/db"
+connection_string: 'postgres://postgres@localhost/db'
 
 # Maximum connections pool size [default: 20]
 pool_size: 20
@@ -403,7 +403,7 @@ keep_alive: 75
 worker_processes: 8
 
 # The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: "0.0.0.0:3000"
+listen_addresses: '0.0.0.0:3000'
 
 # Enable watch mode
 watch: true
@@ -504,7 +504,7 @@ docker run \
 You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/urbica/martin/master/docker-compose.yml) file as a reference
 
 ```yml
-version: "3"
+version: '3'
 
 services:
   martin:
@@ -547,7 +547,7 @@ By default, martin will be available at [localhost:3000](http://localhost:3000/i
 You can run martin behind Nginx proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database.
 
 ```yml
-version: "3"
+version: '3'
 
 services:
   nginx:
