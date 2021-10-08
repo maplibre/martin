@@ -5,6 +5,7 @@ use std::io::prelude::*;
 
 use crate::function_source::FunctionSources;
 use crate::table_source::TableSources;
+use crate::utils::prettify_error;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Config {
@@ -56,7 +57,7 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
     file.read_to_string(&mut contents)?;
 
     let config_builder: ConfigBuilder = serde_yaml::from_str(contents.as_str())
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+        .map_err(prettify_error("Can't read config file"))?;
 
     Ok(config_builder.finalize())
 }

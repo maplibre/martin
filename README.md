@@ -693,7 +693,7 @@ Then, after `db` service is ready to accept connections, you can start `martin` 
 DATABASE_URL=postgres://postgres@localhost/db cargo run
 ```
 
-By default, martin will be available at [localhost:3000](http://localhost:3000/index.json)
+Open `tests/debug.html` for debugging. By default, martin will be available at [localhost:3000](http://localhost:3000/index.json)
 
 Make your changes, and check if all the tests are running
 

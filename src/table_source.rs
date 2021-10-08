@@ -6,7 +6,7 @@ use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils;
+use crate::utils::{get_bounds_cte, get_srid_bounds, json_to_hashmap, prettify_error, tilebbox};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableSource {
@@ -27,7 +27,7 @@ pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl TableSource {
     pub fn get_geom_query(&self, xyz: &Xyz) -> String {
-        let mercator_bounds = utils::tilebbox(xyz);
+        let mercator_bounds = tilebbox(xyz);
 
         let properties = if self.properties.is_empty() {
             "".to_string()
@@ -73,8 +73,8 @@ impl TableSource {
     }
 
     pub fn build_tile_query(&self, xyz: &Xyz) -> String {
-        let srid_bounds = utils::get_srid_bounds(self.srid, xyz);
-        let bounds_cte = utils::get_bounds_cte(srid_bounds);
+        let srid_bounds = get_srid_bounds(self.srid, xyz);
+        let bounds_cte = get_bounds_cte(srid_bounds);
         let tile_query = self.get_tile_query(xyz);
 
         format!("{} {}", bounds_cte, tile_query)
@@ -106,7 +106,7 @@ impl Source for TableSource {
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])
             .map(|row| row.get("st_asmvt"))
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+            .map_err(prettify_error("Can't get table source tile"))?;
 
         Ok(tile)
     }
@@ -121,7 +121,7 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
 
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+        .map_err(prettify_error("Can't get table sources"))?;
 
     for row in &rows {
         let schema: String = row.get("f_table_schema");
@@ -130,15 +130,19 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
 
         let geometry_column: String = row.get("f_geometry_column");
         let srid: i32 = row.get("srid");
+        let geometry_type: String = row.get("type");
 
-        info!("Found {} table source", id);
+        info!(
+            "Found \"{}\" table source with \"{}\" column ({}, SRID={})",
+            id, geometry_column, geometry_type, srid
+        );
 
         if srid == 0 {
             warn!("{} has SRID 0, skipping", id);
             continue;
         }
 
-        let properties = utils::json_to_hashmap(&row.get("properties"));
+        let properties = json_to_hashmap(&row.get("properties"));
 
         let source = TableSource {
             id: id.to_string(),

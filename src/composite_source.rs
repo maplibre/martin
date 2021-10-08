@@ -6,7 +6,7 @@ use tilejson::{TileJSON, TileJSONBuilder};
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
 use crate::table_source::TableSource;
-use crate::utils;
+use crate::utils::{get_bounds_cte, get_srid_bounds, prettify_error};
 
 #[derive(Clone, Debug)]
 pub struct CompositeSource {
@@ -22,11 +22,11 @@ impl CompositeSource {
             .into_iter()
             .map(|source| source.srid)
             .unique()
-            .map(|srid| utils::get_srid_bounds(srid, xyz))
+            .map(|srid| get_srid_bounds(srid, xyz))
             .collect::<Vec<String>>()
             .join(", ");
 
-        utils::get_bounds_cte(srid_bounds)
+        get_bounds_cte(srid_bounds)
     }
 
     fn get_tile_query(&self, xyz: &Xyz) -> String {
@@ -74,7 +74,7 @@ impl Source for CompositeSource {
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])
             .map(|row| row.get("tile"))
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+            .map_err(prettify_error("Can't get composite source tile"))?;
 
         Ok(tile)
     }
