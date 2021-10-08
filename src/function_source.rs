@@ -7,7 +7,7 @@ use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils::{query_to_json, prettify_error};
+use crate::utils::{prettify_error, query_to_json};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {
@@ -66,7 +66,9 @@ impl Source for FunctionSource {
                 &raw_query,
                 &[Type::INT4, Type::INT4, Type::INT4, Type::JSON],
             )
-            .map_err(prettify_error("Can't create prepared statement for the tile"))?;
+            .map_err(prettify_error(
+                "Can't create prepared statement for the tile",
+            ))?;
 
         let tile = conn
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])

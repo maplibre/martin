@@ -6,7 +6,7 @@ use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils::{tilebbox, get_bounds_cte, get_srid_bounds, json_to_hashmap, prettify_error};
+use crate::utils::{get_bounds_cte, get_srid_bounds, json_to_hashmap, prettify_error, tilebbox};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableSource {
