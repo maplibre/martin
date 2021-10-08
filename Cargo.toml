@@ -1,8 +1,11 @@
 [package]
 name = "martin"
 version = "0.5.0"
-authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 edition = "2018"
+authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
+description = "Blazing fast and lightweight PostGIS vector tiles server"
+repository = "https://github.com/urbica/martin/"
+license-file = "LICENSE"
 
 [lib]
 name = "martin"

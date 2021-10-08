@@ -7,7 +7,7 @@ use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils::query_to_json;
+use crate::utils::{query_to_json, prettify_error};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {
@@ -66,12 +66,12 @@ impl Source for FunctionSource {
                 &raw_query,
                 &[Type::INT4, Type::INT4, Type::INT4, Type::JSON],
             )
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+            .map_err(prettify_error("Can't create prepared statement for the tile"))?;
 
         let tile = conn
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
             .map(|row| row.get(self.function.as_str()))
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+            .map_err(prettify_error("Can't get function source tile"))?;
 
         Ok(tile)
     }
@@ -82,7 +82,7 @@ pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io
 
     let rows = conn
         .query(include_str!("scripts/get_function_sources.sql"), &[])
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+        .map_err(prettify_error("Can't get function sources"))?;
 
     for row in &rows {
         let schema: String = row.get("specific_schema");
