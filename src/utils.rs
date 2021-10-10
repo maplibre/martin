@@ -68,7 +68,7 @@ pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
     )
 }
 
-pub fn get_source_bounds(id: &String, srid: u32, geometry_column: &String) -> String {
+pub fn get_source_bounds(id: &str, srid: u32, geometry_column: &str) -> String {
     format!(
         include_str!("scripts/get_bounds.sql"),
         id = id,
@@ -80,7 +80,7 @@ pub fn get_source_bounds(id: &String, srid: u32, geometry_column: &String) -> St
 pub fn polygon_to_bbox(polygon: ewkb::Polygon) -> Option<Vec<f32>> {
     polygon.rings().next().and_then(|linestring| {
         let mut points = linestring.points();
-        if let (Some(bottom_left), Some(top_right)) = (points.nth(0), points.nth(1)) {
+        if let (Some(bottom_left), Some(top_right)) = (points.next(), points.nth(1)) {
             Some(vec![
                 bottom_left.x() as f32,
                 bottom_left.y() as f32,
