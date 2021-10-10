@@ -102,7 +102,7 @@ async fn test_get_composite_source_ok() {
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
-        .uri("/public.points1,public.points2.json")
+        .uri("/public.points1,public.points2,public.points3857.json")
         .to_request();
 
     let response = test::call_service(&mut app, req).await;
@@ -124,7 +124,7 @@ async fn test_get_composite_source_tile_ok() {
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
-        .uri("/public.points1,public.points2/0/0/0.pbf")
+        .uri("/public.points1,public.points2,public.points3857/0/0/0.pbf")
         .to_request();
 
     let response = test::call_service(&mut app, req).await;

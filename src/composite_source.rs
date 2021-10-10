@@ -47,6 +47,21 @@ impl CompositeSource {
 
         format!("{} {}", bounds_cte, tile_query)
     }
+
+    pub fn get_bounds(&self) -> Option<Vec<f32>> {
+        self.table_sources
+            .iter()
+            .filter_map(|table_source| table_source.bounds.as_ref())
+            .map(|bounds| bounds.to_vec())
+            .reduce(|a, b| {
+                vec![
+                    if a[0] < b[0] { a[0] } else { b[0] },
+                    if a[1] < b[1] { a[1] } else { b[1] },
+                    if a[2] > b[2] { a[2] } else { b[2] },
+                    if a[3] > b[3] { a[3] } else { b[3] },
+                ]
+            })
+    }
 }
 
 impl Source for CompositeSource {
@@ -59,6 +74,10 @@ impl Source for CompositeSource {
 
         tilejson_builder.scheme("xyz");
         tilejson_builder.name(&self.id);
+
+        if let Some(bounds) = self.get_bounds() {
+            tilejson_builder.bounds(bounds);
+        };
 
         Ok(tilejson_builder.finalize())
     }

@@ -14,3 +14,4 @@ psql --dbname="$POSTGRES_DB" -f /fixtures/function_source_query_params.sql
 
 psql --dbname="$POSTGRES_DB" -f /fixtures/points1_source.sql
 psql --dbname="$POSTGRES_DB" -f /fixtures/points2_source.sql
+psql --dbname="$POSTGRES_DB" -f /fixtures/points3857_source.sql
