@@ -19,7 +19,8 @@ pub fn mock_table_sources() -> Option<TableSources> {
         table: "table_source".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        srid: 3857,
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
+        srid: 4326,
         extent: Some(4096),
         buffer: Some(64),
         clip_geom: Some(true),
@@ -33,7 +34,8 @@ pub fn mock_table_sources() -> Option<TableSources> {
         table: "points1".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        srid: 3857,
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
+        srid: 4326,
         extent: Some(4096),
         buffer: Some(64),
         clip_geom: Some(true),
@@ -47,6 +49,22 @@ pub fn mock_table_sources() -> Option<TableSources> {
         table: "points2".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
+        srid: 4326,
+        extent: Some(4096),
+        buffer: Some(64),
+        clip_geom: Some(true),
+        geometry_type: None,
+        properties: HashMap::new(),
+    };
+
+    let table_source3857 = TableSource {
+        id: "public.points3857".to_owned(),
+        schema: "public".to_owned(),
+        table: "points3857".to_owned(),
+        id_column: None,
+        geometry_column: "geom".to_owned(),
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
         srid: 3857,
         extent: Some(4096),
         buffer: Some(64),
@@ -59,6 +77,7 @@ pub fn mock_table_sources() -> Option<TableSources> {
     table_sources.insert("public.table_source".to_owned(), Box::new(source));
     table_sources.insert("public.points1".to_owned(), Box::new(table_source1));
     table_sources.insert("public.points2".to_owned(), Box::new(table_source2));
+    table_sources.insert("public.points3857".to_owned(), Box::new(table_source3857));
     Some(table_sources)
 }
 

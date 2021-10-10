@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::source::{Query, Xyz};
+use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
 
@@ -65,4 +66,29 @@ pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
         srid = srid,
         mercator_bounds = tilebbox(xyz),
     )
+}
+
+pub fn get_source_bounds(id: &str, srid: u32, geometry_column: &str) -> String {
+    format!(
+        include_str!("scripts/get_bounds.sql"),
+        id = id,
+        srid = srid,
+        geometry_column = geometry_column,
+    )
+}
+
+pub fn polygon_to_bbox(polygon: ewkb::Polygon) -> Option<Vec<f32>> {
+    polygon.rings().next().and_then(|linestring| {
+        let mut points = linestring.points();
+        if let (Some(bottom_left), Some(top_right)) = (points.next(), points.nth(1)) {
+            Some(vec![
+                bottom_left.x() as f32,
+                bottom_left.y() as f32,
+                top_right.x() as f32,
+                top_right.y() as f32,
+            ])
+        } else {
+            None
+        }
+    })
 }

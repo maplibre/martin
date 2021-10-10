@@ -16,6 +16,7 @@ fn mock_table_source(schema: &str, table: &str) -> TableSource {
         table: table.to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
+        bounds: None,
         srid: 3857,
         extent: Some(4096),
         buffer: Some(64),

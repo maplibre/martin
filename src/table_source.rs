@@ -6,7 +6,7 @@ use tilejson::{TileJSON, TileJSONBuilder};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils::{get_bounds_cte, get_srid_bounds, json_to_hashmap, prettify_error, tilebbox};
+use crate::utils;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableSource {
@@ -16,6 +16,7 @@ pub struct TableSource {
     pub id_column: Option<String>,
     pub geometry_column: String,
     pub srid: u32,
+    pub bounds: Option<Vec<f32>>,
     pub extent: Option<u32>,
     pub buffer: Option<u32>,
     pub clip_geom: Option<bool>,
@@ -27,7 +28,7 @@ pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl TableSource {
     pub fn get_geom_query(&self, xyz: &Xyz) -> String {
-        let mercator_bounds = tilebbox(xyz);
+        let mercator_bounds = utils::tilebbox(xyz);
 
         let properties = if self.properties.is_empty() {
             "".to_string()
@@ -73,8 +74,8 @@ impl TableSource {
     }
 
     pub fn build_tile_query(&self, xyz: &Xyz) -> String {
-        let srid_bounds = get_srid_bounds(self.srid, xyz);
-        let bounds_cte = get_bounds_cte(srid_bounds);
+        let srid_bounds = utils::get_srid_bounds(self.srid, xyz);
+        let bounds_cte = utils::get_bounds_cte(srid_bounds);
         let tile_query = self.get_tile_query(xyz);
 
         format!("{} {}", bounds_cte, tile_query)
@@ -92,6 +93,10 @@ impl Source for TableSource {
         tilejson_builder.scheme("xyz");
         tilejson_builder.name(&self.id);
 
+        if let Some(bounds) = &self.bounds {
+            tilejson_builder.bounds(bounds.to_vec());
+        };
+
         Ok(tilejson_builder.finalize())
     }
 
@@ -106,7 +111,7 @@ impl Source for TableSource {
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])
             .map(|row| row.get("st_asmvt"))
-            .map_err(prettify_error("Can't get table source tile"))?;
+            .map_err(utils::prettify_error("Can't get table source tile"))?;
 
         Ok(tile)
     }
@@ -121,7 +126,7 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
 
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
-        .map_err(prettify_error("Can't get table sources"))?;
+        .map_err(utils::prettify_error("Can't get table sources"))?;
 
     for row in &rows {
         let schema: String = row.get("f_table_schema");
@@ -142,7 +147,16 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
             continue;
         }
 
-        let properties = json_to_hashmap(&row.get("properties"));
+        let bounds_query = utils::get_source_bounds(&id, srid as u32, &geometry_column);
+
+        let bounds: Option<Vec<f32>> = conn
+            .query_one(bounds_query.as_str(), &[])
+            .map(|row| row.get("bounds"))
+            .ok()
+            .flatten()
+            .and_then(utils::polygon_to_bbox);
+
+        let properties = utils::json_to_hashmap(&row.get("properties"));
 
         let source = TableSource {
             id: id.to_string(),
@@ -150,6 +164,7 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
             table,
             id_column: None,
             geometry_column,
+            bounds,
             srid: srid as u32,
             extent: Some(DEFAULT_EXTENT),
             buffer: Some(DEFAULT_BUFFER),
