@@ -76,9 +76,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgis/postgis:13-3.1-alpine
+        image: postgis/postgis:14-3.1-alpine
         env:
-          POSTGRES_DB: test
+          POSTGRES_DB: db
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
@@ -93,13 +93,13 @@ jobs:
       - name: Setup database
         run: |
           sudo apt-get install postgresql-client
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/TileBBox.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/table_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points1_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points2_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points3857_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source_query_params.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -f tests/fixtures/TileBBox.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -f tests/fixtures/table_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -f tests/fixtures/points1_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -f tests/fixtures/points2_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -f tests/fixtures/points3857_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -f tests/fixtures/function_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -f tests/fixtures/function_source_query_params.sql
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
@@ -116,7 +116,7 @@ jobs:
           command: test
           args: --all
         env:
-          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
+          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
       - name: Run build
         uses: actions-rs/cargo@v1
@@ -126,19 +126,104 @@ jobs:
       - name: Run server
         run: ./target/debug/martin &
         env:
-          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
+          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
+
+      - name: Test server response for table source
+        run: |
+          curl "localhost:3000/public.table_source/0/0/0.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.table_source/6/38/20.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.table_source/12/2476/1280.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.table_source/13/4952/2560.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.table_source/14/9904/5121.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.table_source/20/633856/327787.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.table_source/21/1267712/655574.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+
+      - name: Test server response for composite source
+        run: |
+          curl "localhost:3000/public.points1,public.points2/0/0/0.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
+          ./tests/vtzero-show composite_source.pbf
+          curl "localhost:3000/public.points1,public.points2/6/38/20.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
+          ./tests/vtzero-show composite_source.pbf
+          curl "localhost:3000/public.points1,public.points2/12/2476/1280.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
+          ./tests/vtzero-show composite_source.pbf
+          curl "localhost:3000/public.points1,public.points2/13/4952/2560.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
+          ./tests/vtzero-show composite_source.pbf
+          curl "localhost:3000/public.points1,public.points2/14/9904/5121.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
+          ./tests/vtzero-show composite_source.pbf
+          curl "localhost:3000/public.points1,public.points2/20/633856/327787.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
+          ./tests/vtzero-show composite_source.pbf
+          curl "localhost:3000/public.points1,public.points2/21/1267712/655574.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
+          ./tests/vtzero-show composite_source.pbf
+
+      - name: Test server response for function source
+        run: |
+          curl "localhost:3000/public.function_source/0/0/0.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/public.function_source/6/38/20.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/public.function_source/12/2476/1280.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/public.function_source/13/4952/2560.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/public.function_source/14/9904/5121.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/public.function_source/20/633856/327787.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/public.function_source/21/1267712/655574.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
+          ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin" > function_source_query_params.pbf
+          ./tests/vtzero-check function_source_query_params.pbf
+          ./tests/vtzero-show function_source_query_params.pbf
+
+      - name: Prepare config
+        run: sed -i 's/5432/${{ job.services.postgres.ports[5432] }}/g' config.yml
+
+      - name: Run server with config
+        run: pkill martin && ./target/debug/martin --config config.yml &
 
       - name: Test server response
         run: |
+          curl "localhost:3000/index.json" | jq -e
           curl "localhost:3000/public.table_source/0/0/0.pbf" > table_source.pbf
-          curl "localhost:3000/public.points1,public.points2/0/0/0.pbf" > composite_source.pbf
-          curl "localhost:3000/rpc/public.function_source/0/0/0.pbf" > function_source.pbf
           ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-check function_source.pbf
           ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points1,public.points2/0/0/0.pbf" > composite_source.pbf
+          ./tests/vtzero-check composite_source.pbf
           ./tests/vtzero-show composite_source.pbf
+          curl "localhost:3000/public.function_source/0/0/0.pbf" > function_source.pbf
+          ./tests/vtzero-check function_source.pbf
           ./tests/vtzero-show function_source.pbf
+          curl "localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin" > function_source_query_params.pbf
+          ./tests/vtzero-check function_source_query_params.pbf
+          ./tests/vtzero-show function_source_query_params.pbf
 
   docker:
     needs: [test]
@@ -225,7 +310,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          files: "martin*"
+          files: 'martin*'
           body_path: CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
