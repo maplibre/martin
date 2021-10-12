@@ -59,6 +59,11 @@ struct CompositeTileRequest {
     format: String,
 }
 
+fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
+    error!("{}", e.to_string());
+    error::ErrorInternalServerError(e.to_string())
+}
+
 async fn get_health() -> Result<HttpResponse, Error> {
     let response = HttpResponse::Ok().body("OK");
     Ok(response)
@@ -77,8 +82,8 @@ async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, E
         .db
         .send(messages::GetTableSources {})
         .await
-        .map_err(|_| HttpResponse::InternalServerError())?
-        .map_err(|_| HttpResponse::InternalServerError())?;
+        .map_err(map_internal_error)?
+        .map_err(map_internal_error)?;
 
     state.coordinator.do_send(messages::RefreshTableSources {
         table_sources: Some(table_sources.clone()),
@@ -192,8 +197,8 @@ async fn get_composite_source_tile(
         .db
         .send(message)
         .await
-        .map_err(|_| HttpResponse::InternalServerError())?
-        .map_err(|_| HttpResponse::InternalServerError())?;
+        .map_err(map_internal_error)?
+        .map_err(map_internal_error)?;
 
     match tile.len() {
         0 => Ok(HttpResponse::NoContent()
@@ -218,8 +223,8 @@ async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse
         .db
         .send(messages::GetFunctionSources {})
         .await
-        .map_err(|_| HttpResponse::InternalServerError())?
-        .map_err(|_| HttpResponse::InternalServerError())?;
+        .map_err(map_internal_error)?
+        .map_err(map_internal_error)?;
 
     state.coordinator.do_send(messages::RefreshFunctionSources {
         function_sources: Some(function_sources.clone()),
@@ -310,8 +315,8 @@ async fn get_function_source_tile(
         .db
         .send(message)
         .await
-        .map_err(|_| HttpResponse::InternalServerError())?
-        .map_err(|_| HttpResponse::InternalServerError())?;
+        .map_err(map_internal_error)?
+        .map_err(map_internal_error)?;
 
     match tile.len() {
         0 => Ok(HttpResponse::NoContent()
