@@ -87,6 +87,27 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     )
     .map_err(prettify_error("Can't setup connection pool"))?;
 
+    if let Some(table_sources) = &config.table_sources {
+        for table_source in table_sources.values() {
+            info!(
+                "Found \"{}\" table source with \"{}\" column ({}, SRID={})",
+                table_source.id,
+                table_source.geometry_column,
+                table_source
+                    .geometry_type
+                    .as_ref()
+                    .unwrap_or(&"null".to_string()),
+                table_source.srid
+            );
+        }
+    }
+
+    if let Some(function_sources) = &config.function_sources {
+        for function_source in function_sources.values() {
+            info!("Found {} function source", function_source.id);
+        }
+    }
+
     info!("Connected to {}", config.connection_string);
 
     Ok((config, pool))
