@@ -204,10 +204,10 @@ jobs:
           ./tests/vtzero-show function_source_query_params.pbf
 
       - name: Prepare config
-        run: sed -i 's/5432/${{ job.services.postgres.ports[5432] }}/g' config.yml
+        run: sed -i 's/5432/${{ job.services.postgres.ports[5432] }}/g' ./tests/config.yaml
 
       - name: Run server with config
-        run: pkill martin && ./target/debug/martin --config config.yml &
+        run: pkill martin && ./target/debug/martin --config ./tests/config.yaml &
 
       - name: Test server response
         run: |
