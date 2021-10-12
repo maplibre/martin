@@ -5,7 +5,7 @@ use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
 
-pub fn prettify_error<E: std::fmt::Display>(message: &'static str) -> impl Fn(E) -> std::io::Error {
+pub fn prettify_error<E: std::fmt::Display>(message: String) -> impl Fn(E) -> std::io::Error {
     move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
 }
 
@@ -35,7 +35,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
     let object = value.as_object().unwrap();
     for (key, value) in object {
         let string_value = value.as_str().unwrap();
-        hashmap.insert(key.to_string(), string_value.to_string());
+        hashmap.insert(key.to_owned(), string_value.to_owned());
     }
 
     hashmap

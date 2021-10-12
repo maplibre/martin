@@ -31,7 +31,7 @@ impl TableSource {
         let mercator_bounds = utils::tilebbox(xyz);
 
         let properties = if self.properties.is_empty() {
-            "".to_string()
+            String::new()
         } else {
             let properties = self
                 .properties
@@ -111,7 +111,10 @@ impl Source for TableSource {
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])
             .map(|row| row.get("st_asmvt"))
-            .map_err(utils::prettify_error("Can't get table source tile"))?;
+            .map_err(utils::prettify_error(format!(
+                "Can't get \"{}\" tile at /{}/{}/{}",
+                self.id, &xyz.z, &xyz.x, &xyz.z
+            )))?;
 
         Ok(tile)
     }
@@ -126,7 +129,7 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
 
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
-        .map_err(utils::prettify_error("Can't get table sources"))?;
+        .map_err(utils::prettify_error("Can't get table sources".to_owned()))?;
 
     for row in &rows {
         let schema: String = row.get("f_table_schema");
@@ -159,7 +162,7 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
         let properties = utils::json_to_hashmap(&row.get("properties"));
 
         let source = TableSource {
-            id: id.to_string(),
+            id: id.to_owned(),
             schema,
             table,
             id_column: None,
