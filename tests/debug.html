@@ -31,8 +31,8 @@
         position: absolute;
         z-index: 1;
         top: 10px;
-        right: 10px;
         bottom: 10px;
+        left: 10px;
         border-radius: 3px;
         width: 120px;
         font-family: 'Open Sans', sans-serif;
@@ -112,72 +112,81 @@
           case 'MULTISURFACE':
             return 'fill';
           default:
-            throw new Error(`Unknown geometry_type ${source.geometry_type}`);
+            return 'circle';
         }
       }
 
-      map.on('load', function () {
-        fetch('http://0.0.0.0:3000/index.json')
-          .then((r) => r.json())
-          .then((sources) => {
-            // Set up the corresponding toggle button for each layer.
-            for (const sourceId of Object.keys(sources).sort()) {
-              // Skip layers that already have a button set up.
-              if (document.getElementById(sourceId)) {
-                continue;
-              }
+      map.on('load', async function () {
+        const table_sources = await fetch(
+          'http://0.0.0.0:3000/index.json'
+        ).then((r) => r.json());
 
-              const source = sources[sourceId];
-              const layerType = geometryTypeToLayerType(source.geometry_type);
+        const function_sources = await fetch(
+          'http://0.0.0.0:3000/rpc/index.json'
+        ).then((r) => r.json());
 
-              map.addLayer({
-                id: sourceId,
-                type: layerType,
-                source: {
-                  type: 'vector',
-                  url: `http://0.0.0.0:3000/${sourceId}.json`
-                },
-                'source-layer': sourceId,
-                layout: {
-                  visibility: 'none'
-                },
-                paint: {
-                  [`${layerType}-color`]: 'red'
-                }
-              });
+        const sources = Object.values(table_sources).concat(
+          Object.values(function_sources)
+        );
 
-              // Create a link.
-              const link = document.createElement('a');
-              link.id = sourceId;
-              link.href = '#';
-              link.textContent = sourceId;
-              link.title = sourceId;
+        // Set up the corresponding toggle button for each layer.
+        for (const source of sources) {
+          // Skip layers that already have a button set up.
+          if (document.getElementById(source.id)) {
+            continue;
+          }
 
-              // Show or hide layer when the toggle is clicked.
-              link.onclick = function (e) {
-                const clickedLayer = this.textContent;
-                e.preventDefault();
-                e.stopPropagation();
+          const layerType = geometryTypeToLayerType(source.geometry_type);
 
-                const visibility = map.getLayoutProperty(
-                  clickedLayer,
-                  'visibility'
-                );
-
-                // Toggle layer visibility by changing the layout object's visibility property.
-                if (visibility === 'visible') {
-                  map.setLayoutProperty(clickedLayer, 'visibility', 'none');
-                  this.className = '';
-                } else {
-                  this.className = 'active';
-                  map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
-                }
-              };
-
-              const layers = document.getElementById('menu');
-              layers.appendChild(link);
+          map.addLayer({
+            id: source.id,
+            type: layerType,
+            source: {
+              type: 'vector',
+              url: source.hasOwnProperty('table')
+                ? `http://0.0.0.0:3000/${source.id}.json`
+                : `http://0.0.0.0:3000/rpc/${source.id}.json`
+            },
+            'source-layer': source.id,
+            layout: {
+              visibility: 'none'
+            },
+            paint: {
+              [`${layerType}-color`]: 'red'
             }
           });
+
+          // Create a link.
+          const link = document.createElement('a');
+          link.id = source.id;
+          link.href = '#';
+          link.textContent = source.id;
+          link.title = source.id;
+
+          // Show or hide layer when the toggle is clicked.
+          link.onclick = function (e) {
+            const clickedLayer = this.textContent;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const visibility = map.getLayoutProperty(
+              clickedLayer,
+              'visibility'
+            );
+
+            // Toggle layer visibility by changing the layout object's visibility property.
+            if (visibility === 'visible') {
+              map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+              this.className = '';
+            } else {
+              this.className = 'active';
+              map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+            }
+          };
+
+          const layers = document.getElementById('menu');
+          layers.appendChild(link);
+        }
       });
     </script>
   </body>

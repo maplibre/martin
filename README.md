@@ -390,8 +390,11 @@ martin --config config.yaml
 You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
 
 ```yaml
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: '0.0.0.0:3000'
+
 # Database connection string
-connection_string: 'postgres://postgres@localhost/db'
+connection_string: 'postgres://postgres@localhost:5432/db'
 
 # Maximum connections pool size [default: 20]
 pool_size: 20
@@ -402,60 +405,84 @@ keep_alive: 75
 # Number of web server workers
 worker_processes: 8
 
-# The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
-
 # Enable watch mode
-watch: true
+watch: false
 
 # Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
 danger_accept_invalid_certs: false
 
-# associative arrays of table sources
+# Associative arrays of table sources
 table_sources:
   public.table_source:
-    # table source id
+    # Table source id (required)
     id: public.table_source
 
-    # table schema
+    # Table schema (required)
     schema: public
 
-    # table name
+    # Table name (required)
     table: table_source
 
-    # geometry column name
-    geometry_column: geom
-
-    # geometry srid
+    # Geometry SRID (required)
     srid: 4326
 
-    # tile extent in tile coordinate space
+    # Geometry column name (required)
+    geometry_column: geom
+
+    # Feature id column name
+    id_column: ~
+
+    # An integer specifying the minimum zoom level
+    minzoom: 0
+
+    # An integer specifying the maximum zoom level. MUST be >= minzoom
+    maxzoom: 30
+
+    # The maximum extent of available map tiles. Bounds MUST define an area
+    # covered by all zoom levels. The bounds are represented in WGS:84
+    # latitude and longitude values, in the order left, bottom, right, top.
+    # Values may be integers or floating point numbers.
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+
+    # Tile extent in tile coordinate space
     extent: 4096
 
-    # buffer distance in tile coordinate space to optionally clip geometries
+    # Buffer distance in tile coordinate space to optionally clip geometries
     buffer: 64
 
-    # boolean to control if geometries should be clipped or encoded as is
+    # Boolean to control if geometries should be clipped or encoded as is
     clip_geom: true
 
-    # geometry type
+    # Geometry type
     geometry_type: GEOMETRY
 
-    # list of columns, that should be encoded as a tile properties
+    # List of columns, that should be encoded as tile properties (required)
     properties:
       gid: int4
 
-# associative arrays of function sources
+# Associative arrays of function sources
 function_sources:
   public.function_source:
-    # function source id
+    # Function source id (required)
     id: public.function_source
 
-    # schema name
+    # Schema name (required)
     schema: public
 
-    # function name
+    # Function name (required)
     function: function_source
+
+    # An integer specifying the minimum zoom level
+    minzoom: 0
+
+    # An integer specifying the maximum zoom level. MUST be >= minzoom
+    maxzoom: 30
+
+    # The maximum extent of available map tiles. Bounds MUST define an area
+    # covered by all zoom levels. The bounds are represented in WGS:84
+    # latitude and longitude values, in the order left, bottom, right, top.
+    # Values may be integers or floating point numbers.
+    bounds: [-180.0, -90.0, 180.0, 90.0]
 ```
 
 ## Using with Docker
