@@ -33,6 +33,9 @@ fn mock_function_source(schema: &str, function: &str) -> FunctionSource {
         id: format!("{}.{}", schema, function),
         schema: schema.to_owned(),
         function: function.to_owned(),
+        minzoom: None,
+        maxzoom: None,
+        bounds: None,
     }
 }
 
