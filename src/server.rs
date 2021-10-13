@@ -170,6 +170,17 @@ async fn get_composite_source_tile(
         .split(',')
         .filter_map(|source_id| table_sources.get(source_id))
         .map(|source| source.deref().clone())
+        .filter(|source| {
+            let gte_minzoom = source
+                .minzoom
+                .map_or(true, |minzoom| path.z >= minzoom.into());
+
+            let lte_maxzoom = source
+                .maxzoom
+                .map_or(true, |maxzoom| path.z <= maxzoom.into());
+
+            gte_minzoom && lte_maxzoom
+        })
         .collect();
 
     if sources.is_empty() {
@@ -295,9 +306,22 @@ async fn get_function_source_tile(
         .clone()
         .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
-    let source = function_sources.get(&path.source_id).ok_or_else(|| {
-        error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
-    })?;
+    let source = function_sources
+        .get(&path.source_id)
+        .filter(|source| {
+            let gte_minzoom = source
+                .minzoom
+                .map_or(true, |minzoom| path.z >= minzoom.into());
+
+            let lte_maxzoom = source
+                .maxzoom
+                .map_or(true, |maxzoom| path.z <= maxzoom.into());
+
+            gte_minzoom && lte_maxzoom
+        })
+        .ok_or_else(|| {
+            error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
+        })?;
 
     let xyz = Xyz {
         z: path.z,

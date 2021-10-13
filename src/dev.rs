@@ -12,13 +12,24 @@ use crate::function_source::{FunctionSource, FunctionSources};
 use crate::server::AppState;
 use crate::table_source::{TableSource, TableSources};
 
-pub fn mock_table_sources() -> Option<TableSources> {
+pub fn mock_table_sources(sources: Vec<TableSource>) -> TableSources {
+    let mut table_sources: TableSources = HashMap::new();
+    for source in sources {
+        table_sources.insert(source.id.to_owned(), Box::new(source));
+    }
+
+    table_sources
+}
+
+pub fn mock_default_table_sources() -> TableSources {
     let source = TableSource {
         id: "public.table_source".to_owned(),
         schema: "public".to_owned(),
         table: "table_source".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
         bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
         srid: 4326,
         extent: Some(4096),
@@ -34,6 +45,8 @@ pub fn mock_table_sources() -> Option<TableSources> {
         table: "points1".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
         bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
         srid: 4326,
         extent: Some(4096),
@@ -49,6 +62,8 @@ pub fn mock_table_sources() -> Option<TableSources> {
         table: "points2".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
         bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
         srid: 4326,
         extent: Some(4096),
@@ -64,6 +79,8 @@ pub fn mock_table_sources() -> Option<TableSources> {
         table: "points3857".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
         bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
         srid: 3857,
         extent: Some(4096),
@@ -73,36 +90,38 @@ pub fn mock_table_sources() -> Option<TableSources> {
         properties: HashMap::new(),
     };
 
-    let mut table_sources: TableSources = HashMap::new();
-    table_sources.insert("public.table_source".to_owned(), Box::new(source));
-    table_sources.insert("public.points1".to_owned(), Box::new(table_source1));
-    table_sources.insert("public.points2".to_owned(), Box::new(table_source2));
-    table_sources.insert("public.points3857".to_owned(), Box::new(table_source3857));
-    Some(table_sources)
+    mock_table_sources(vec![source, table_source1, table_source2, table_source3857])
 }
 
-pub fn mock_function_sources() -> Option<FunctionSources> {
+pub fn mock_function_sources(sources: Vec<FunctionSource>) -> FunctionSources {
     let mut function_sources: FunctionSources = HashMap::new();
+    for source in sources {
+        function_sources.insert(source.id.to_owned(), Box::new(source));
+    }
 
-    function_sources.insert(
-        "public.function_source".to_owned(),
-        Box::new(FunctionSource {
-            id: "public.function_source".to_owned(),
-            schema: "public".to_owned(),
-            function: "function_source".to_owned(),
-        }),
-    );
+    function_sources
+}
 
-    function_sources.insert(
-        "public.function_source_query_params".to_owned(),
-        Box::new(FunctionSource {
-            id: "public.function_source_query_params".to_owned(),
-            schema: "public".to_owned(),
-            function: "function_source_query_params".to_owned(),
-        }),
-    );
+pub fn mock_default_function_sources() -> FunctionSources {
+    let function_source = FunctionSource {
+        id: "public.function_source".to_owned(),
+        schema: "public".to_owned(),
+        function: "function_source".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
+    };
 
-    Some(function_sources)
+    let function_source_query_params = FunctionSource {
+        id: "public.function_source_query_params".to_owned(),
+        schema: "public".to_owned(),
+        function: "function_source_query_params".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
+    };
+
+    mock_function_sources(vec![function_source, function_source_query_params])
 }
 
 pub fn make_pool() -> Pool {

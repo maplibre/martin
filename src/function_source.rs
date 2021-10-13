@@ -11,9 +11,28 @@ use crate::utils::{prettify_error, query_to_json};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {
+    // Function source id
     pub id: String,
+    // Schema name
     pub schema: String,
+
+    // Function name
     pub function: String,
+
+    // An integer specifying the minimum zoom level
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minzoom: Option<u8>,
+
+    // An integer specifying the maximum zoom level. MUST be >= minzoom
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maxzoom: Option<u8>,
+
+    // The maximum extent of available map tiles. Bounds MUST define an area
+    // covered by all zoom levels. The bounds are represented in WGS:84
+    // latitude and longitude values, in the order left, bottom, right, top.
+    // Values may be integers or floating point numbers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<Vec<f32>>,
 }
 
 pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
@@ -29,6 +48,18 @@ impl Source for FunctionSource {
         tilejson_builder.scheme("xyz");
         tilejson_builder.name(&self.id);
         tilejson_builder.tiles(vec![]);
+
+        if let Some(minzoom) = &self.minzoom {
+            tilejson_builder.minzoom(*minzoom);
+        };
+
+        if let Some(maxzoom) = &self.maxzoom {
+            tilejson_builder.maxzoom(*maxzoom);
+        };
+
+        if let Some(bounds) = &self.bounds {
+            tilejson_builder.bounds(bounds.to_vec());
+        };
 
         Ok(tilejson_builder.finalize())
     }
@@ -100,6 +131,9 @@ pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io
             id: id.clone(),
             schema,
             function,
+            minzoom: None,
+            maxzoom: None,
+            bounds: None,
         };
 
         sources.insert(id, Box::new(source));

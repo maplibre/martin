@@ -48,6 +48,20 @@ impl CompositeSource {
         format!("{} {}", bounds_cte, tile_query)
     }
 
+    pub fn get_minzoom(&self) -> Option<u8> {
+        self.table_sources
+            .iter()
+            .filter_map(|table_source| table_source.minzoom)
+            .min()
+    }
+
+    pub fn get_maxzoom(&self) -> Option<u8> {
+        self.table_sources
+            .iter()
+            .filter_map(|table_source| table_source.maxzoom)
+            .max()
+    }
+
     pub fn get_bounds(&self) -> Option<Vec<f32>> {
         self.table_sources
             .iter()
@@ -74,6 +88,14 @@ impl Source for CompositeSource {
 
         tilejson_builder.scheme("xyz");
         tilejson_builder.name(&self.id);
+
+        if let Some(minzoom) = self.get_minzoom() {
+            tilejson_builder.minzoom(minzoom);
+        };
+
+        if let Some(maxzoom) = self.get_maxzoom() {
+            tilejson_builder.maxzoom(maxzoom);
+        };
 
         if let Some(bounds) = self.get_bounds() {
             tilejson_builder.bounds(bounds);

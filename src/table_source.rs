@@ -10,17 +10,57 @@ use crate::utils;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableSource {
+    // Table source id
     pub id: String,
+
+    // Table schema
     pub schema: String,
+
+    // Table name
     pub table: String,
-    pub id_column: Option<String>,
-    pub geometry_column: String,
+
+    // Geometry SRID
     pub srid: u32,
+
+    // Geometry column name
+    pub geometry_column: String,
+
+    // Feature id column name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_column: Option<String>,
+
+    // An integer specifying the minimum zoom level
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minzoom: Option<u8>,
+
+    // An integer specifying the maximum zoom level. MUST be >= minzoom
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maxzoom: Option<u8>,
+
+    // The maximum extent of available map tiles. Bounds MUST define an area
+    // covered by all zoom levels. The bounds are represented in WGS:84
+    // latitude and longitude values, in the order left, bottom, right, top.
+    // Values may be integers or floating point numbers.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Vec<f32>>,
+
+    // Tile extent in tile coordinate space
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub extent: Option<u32>,
+
+    // Buffer distance in tile coordinate space to optionally clip geometries
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
+
+    // Boolean to control if geometries should be clipped or encoded as is
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
+
+    // Geometry type
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub geometry_type: Option<String>,
+
+    // List of columns, that should be encoded as tile properties
     pub properties: HashMap<String, String>,
 }
 
@@ -92,6 +132,14 @@ impl Source for TableSource {
 
         tilejson_builder.scheme("xyz");
         tilejson_builder.name(&self.id);
+
+        if let Some(minzoom) = &self.minzoom {
+            tilejson_builder.minzoom(*minzoom);
+        };
+
+        if let Some(maxzoom) = &self.maxzoom {
+            tilejson_builder.maxzoom(*maxzoom);
+        };
 
         if let Some(bounds) = &self.bounds {
             tilejson_builder.bounds(bounds.to_vec());
@@ -168,6 +216,8 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
             id_column: None,
             geometry_column,
             bounds,
+            minzoom: None,
+            maxzoom: None,
             srid: srid as u32,
             extent: Some(DEFAULT_EXTENT),
             buffer: Some(DEFAULT_BUFFER),
