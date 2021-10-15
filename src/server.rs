@@ -129,7 +129,7 @@ async fn get_composite_source(
         .headers()
         .get("x-rewrite-url")
         .and_then(parse_x_rewrite_url)
-        .unwrap_or(req.path().trim_end_matches(".json").to_owned());
+        .unwrap_or_else(|| req.path().trim_end_matches(".json").to_owned());
 
     let connection_info = req.connection_info();
 
@@ -267,7 +267,7 @@ async fn get_function_source(
         .headers()
         .get("x-rewrite-url")
         .and_then(parse_x_rewrite_url)
-        .unwrap_or(req.path().trim_end_matches(".json").to_owned());
+        .unwrap_or_else(|| req.path().trim_end_matches(".json").to_owned());
 
     let connection_info = req.connection_info();
 
