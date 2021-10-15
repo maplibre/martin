@@ -615,7 +615,7 @@ If you are running martin behind Nginx proxy, you may want to rewrite the reques
 
 ```nginx
 location ~ /tiles/(?<fwd_path>.*) {
-    proxy_set_header  X-Rewrite-URL $request_uri;
+    proxy_set_header  X-Rewrite-URL $uri;
     proxy_set_header  X-Forwarded-Host $host:$server_port;
     proxy_set_header  X-Forwarded-Proto $scheme;
     proxy_redirect    off;
@@ -640,7 +640,7 @@ http {
   server {
     ...
     location ~ /tiles/(?<fwd_path>.*) {
-        proxy_set_header        X-Rewrite-URL $request_uri;
+        proxy_set_header        X-Rewrite-URL $uri;
         proxy_set_header        X-Forwarded-Host $host:$server_port;
         proxy_set_header        X-Forwarded-Proto $scheme;
         proxy_redirect          off;

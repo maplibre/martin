@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -6,9 +5,11 @@ use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 use actix_cors::Cors;
+use actix_web::http::Uri;
 use actix_web::{
-    error, http, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
+    error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
+use serde::Deserialize;
 
 use crate::composite_source::CompositeSource;
 use crate::config::Config;
@@ -19,6 +20,7 @@ use crate::function_source::FunctionSources;
 use crate::messages;
 use crate::source::{Source, Xyz};
 use crate::table_source::{TableSource, TableSources};
+use crate::utils::parse_x_rewrite_url;
 use crate::worker_actor::WorkerActor;
 
 pub struct AppState {
@@ -126,30 +128,28 @@ async fn get_composite_source(
     let tiles_path = req
         .headers()
         .get("x-rewrite-url")
-        .map_or(Ok(req.path().trim_end_matches(".json")), |header| {
-            let header_str = header.to_str()?;
-            Ok(header_str.trim_end_matches(".json"))
-        })
-        .map_err(|e: http::header::ToStrError| {
-            error::ErrorBadRequest(format!("Can't build TileJSON: {}", e))
-        })?;
-
-    let (sep, query) = if req.query_string().is_empty() {
-        ("", "")
-    } else {
-        ("?", req.query_string())
-    };
+        .and_then(parse_x_rewrite_url)
+        .unwrap_or_else(|| req.path().trim_end_matches(".json").to_owned());
 
     let connection_info = req.connection_info();
 
-    let tiles_url = format!(
-        "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf{}{}",
-        connection_info.scheme(),
-        connection_info.host(),
-        tiles_path,
-        sep,
-        query
-    );
+    let path_and_query = if req.query_string().is_empty() {
+        format!("{}/{{z}}/{{x}}/{{y}}.pbf", tiles_path)
+    } else {
+        format!(
+            "{}/{{z}}/{{x}}/{{y}}.pbf?{}",
+            tiles_path,
+            req.query_string()
+        )
+    };
+
+    let tiles_url = Uri::builder()
+        .scheme(connection_info.scheme())
+        .authority(connection_info.host())
+        .path_and_query(path_and_query)
+        .build()
+        .map(|tiles_url| tiles_url.to_string())
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {}", e)))?;
 
     tilejson.tiles = vec![tiles_url];
     Ok(HttpResponse::Ok().json(tilejson))
@@ -266,30 +266,28 @@ async fn get_function_source(
     let tiles_path = req
         .headers()
         .get("x-rewrite-url")
-        .map_or(Ok(req.path().trim_end_matches(".json")), |header| {
-            let header_str = header.to_str()?;
-            Ok(header_str.trim_end_matches(".json"))
-        })
-        .map_err(|e: http::header::ToStrError| {
-            error::ErrorBadRequest(format!("Can't build TileJSON: {}", e))
-        })?;
-
-    let (sep, query) = if req.query_string().is_empty() {
-        ("", "")
-    } else {
-        ("?", req.query_string())
-    };
+        .and_then(parse_x_rewrite_url)
+        .unwrap_or_else(|| req.path().trim_end_matches(".json").to_owned());
 
     let connection_info = req.connection_info();
 
-    let tiles_url = format!(
-        "{}://{}{}/{{z}}/{{x}}/{{y}}.pbf{}{}",
-        connection_info.scheme(),
-        connection_info.host(),
-        tiles_path,
-        sep,
-        query
-    );
+    let path_and_query = if req.query_string().is_empty() {
+        format!("{}/{{z}}/{{x}}/{{y}}.pbf", tiles_path)
+    } else {
+        format!(
+            "{}/{{z}}/{{x}}/{{y}}.pbf?{}",
+            tiles_path,
+            req.query_string()
+        )
+    };
+
+    let tiles_url = Uri::builder()
+        .scheme(connection_info.scheme())
+        .authority(connection_info.host())
+        .path_and_query(path_and_query)
+        .build()
+        .map(|tiles_url| tiles_url.to_string())
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {}", e)))?;
 
     tilejson.tiles = vec![tiles_url];
     Ok(HttpResponse::Ok().json(tilejson))
