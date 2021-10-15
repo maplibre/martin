@@ -82,17 +82,19 @@ async fn test_get_table_source_ok() {
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
-        .uri("/public.table_source.json")
+        .uri("/public.table_source.json?token=martin")
+        .header(
+            "x-rewrite-url",
+            "/tiles/public.table_source.json?token=martin",
+        )
         .to_request();
 
     let result: TileJSON = test::read_response_json(&mut app, req).await;
 
-    println!("{:?}", result);
-
     assert_eq!(result.name, Some(String::from("public.table_source")));
     assert_eq!(
         result.tiles,
-        vec!["http://localhost:8080/public.table_source/{z}/{x}/{y}.pbf"]
+        vec!["http://localhost:8080/tiles/public.table_source/{z}/{x}/{y}.pbf?token=martin"]
     );
     assert_eq!(result.minzoom, Some(0));
     assert_eq!(result.maxzoom, Some(30));
@@ -504,6 +506,21 @@ async fn test_get_function_source_ok() {
 
     let response = test::call_service(&mut app, req).await;
     assert!(response.status().is_success());
+
+    let req = test::TestRequest::get()
+        .uri("/rpc/public.function_source.json?token=martin")
+        .header(
+            "x-rewrite-url",
+            "/tiles/rpc/public.function_source.json?token=martin",
+        )
+        .to_request();
+
+    let result: TileJSON = test::read_response_json(&mut app, req).await;
+
+    assert_eq!(
+        result.tiles,
+        vec!["http://localhost:8080/tiles/rpc/public.function_source/{z}/{x}/{y}.pbf?token=martin"]
+    );
 }
 
 #[actix_rt::test]

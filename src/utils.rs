@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::source::{Query, Xyz};
+use actix_web::http;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
@@ -91,4 +92,12 @@ pub fn polygon_to_bbox(polygon: ewkb::Polygon) -> Option<Vec<f32>> {
             None
         }
     })
+}
+
+pub fn parse_x_rewrite_url(header: &http::HeaderValue) -> Option<String> {
+    header
+        .to_str()
+        .ok()
+        .and_then(|header| header.parse::<http::Uri>().ok())
+        .map(|uri| uri.path().trim_end_matches(".json").to_owned())
 }
