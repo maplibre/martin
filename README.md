@@ -735,3 +735,25 @@ DATABASE_URL=postgres://postgres@localhost/db cargo bench
 ```
 
 An HTML report displaying the results of the benchmark will be generated under `target/criterion/report/index.html`
+
+## Recipes
+
+### Using with Heroku Postgres
+
+You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
+
+```
+heroku pg:psql -a APP_NAME -c 'create extension postgis'
+```
+
+In order to trust the Heroku certificate, you can disable certificate validation with either `DANGER_ACCEPT_INVALID_CERTS` environment variable
+
+```
+DATABASE_URL=$(heroku config:get DATABASE_URL -a APP_NAME) DANGER_ACCEPT_INVALID_CERTS=true martin
+```
+
+or `--danger-accept-invalid-certs` command-line argument
+
+```
+martin --danger-accept-invalid-certs $(heroku config:get DATABASE_URL -a APP_NAME)
+```
