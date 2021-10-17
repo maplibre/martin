@@ -32,6 +32,7 @@ Options:
   --pool-size=<n>                   Maximum connections pool size [default: 20].
   --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
+  --ca-root-file=<path>             Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
   --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
 ";
 
@@ -46,6 +47,7 @@ pub struct Args {
     pub flag_watch: bool,
     pub flag_version: bool,
     pub flag_workers: Option<usize>,
+    pub flag_ca_root_file: Option<String>,
     pub flag_danger_accept_invalid_certs: bool,
 }
 
@@ -70,6 +72,7 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
         worker_processes: args.flag_workers,
         table_sources: Some(table_sources),
         function_sources: Some(function_sources),
+        ca_root_file: None,
         danger_accept_invalid_certs: Some(args.flag_danger_accept_invalid_certs),
     };
 
@@ -82,6 +85,7 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
 
     let pool = setup_connection_pool(
         &config.connection_string,
+        &config.ca_root_file,
         Some(config.pool_size),
         config.danger_accept_invalid_certs,
     )
@@ -124,6 +128,7 @@ fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
     info!("Connecting to database");
     let pool = setup_connection_pool(
         &connection_string,
+        &args.flag_ca_root_file,
         args.flag_pool_size,
         args.flag_danger_accept_invalid_certs,
     )
@@ -141,6 +146,10 @@ fn parse_env(args: Args) -> Args {
         env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
     });
 
+    let flag_ca_root_file = args.flag_ca_root_file.or_else(|| {
+        env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
+    });
+
     let flag_danger_accept_invalid_certs = args.flag_danger_accept_invalid_certs
         || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some();
 
@@ -149,6 +158,7 @@ fn parse_env(args: Args) -> Args {
     Args {
         arg_connection,
         flag_watch,
+        flag_ca_root_file,
         flag_danger_accept_invalid_certs,
         ..args
     }

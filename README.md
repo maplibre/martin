@@ -366,6 +366,7 @@ Options:
   --pool-size=<n>                   Maximum connections pool size [default: 20].
   --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
+  --ca-root-file=<path>             Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
   --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
 ```
 
@@ -373,11 +374,12 @@ Options:
 
 You can also configure martin using environment variables
 
-| Environment variable        | Example                          | Description                  |
-| --------------------------- | -------------------------------- | ---------------------------- |
-| DATABASE_URL                | postgres://postgres@localhost/db | postgres database connection |
-| WATCH_MODE                  | true                             | scan for new sources         |
-| DANGER_ACCEPT_INVALID_CERTS | false                            | Trust invalid certificates   |
+| Environment variable          | Example                            | Description                                   |
+| ----------------------------- | ---------------------------------- | --------------------------------------------- |
+| `DATABASE_URL`                | `postgres://postgres@localhost/db` | Postgres database connection                  |
+| `WATCH_MODE`                  | `true`                             | Scan for new sources on sources list requests |
+| `CA_ROOT_FILE`                | `./ca-certificate.crt`             | Loads trusted root certificates from a file   |
+| `DANGER_ACCEPT_INVALID_CERTS` | `false`                            | Trust invalid certificates                    |
 
 ## Configuration File
 
