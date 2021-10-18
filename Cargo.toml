@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.5.0"
+version = "1.0.0-alpha.0"
 edition = "2018"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 description = "Blazing fast and lightweight PostGIS vector tiles server"
