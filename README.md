@@ -37,6 +37,9 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Building from Source](#building-from-source)
 - [Debugging](#debugging)
 - [Development](#development)
+- [Recipes](#recipes)
+  - [Using with DigitalOcean PostgreSQL](#using-with-digitalocean-postgresql)
+  - [Using with Heroku PostgreSQL](#using-with-heroku-postgresql)
 
 ## Requirements
 
@@ -740,7 +743,18 @@ An HTML report displaying the results of the benchmark will be generated under `
 
 ## Recipes
 
-### Using with Heroku Postgres
+
+### Using with DigitalOcean PostgreSQL
+
+You can use Martin with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with PostGIS extension
+
+First, you need to download the CA certificate and get your cluster connection string from the [dashboard](https://cloud.digitalocean.com/databases). After that, you can use the connection string and the CA certificate to connect to the database
+
+```
+martin --ca-root-file ./ca-certificate.crt postgres://user:password@host:port/db?sslmode=require
+```
+
+### Using with Heroku PostgreSQL
 
 You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
 
