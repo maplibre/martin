@@ -1,6 +1,29 @@
 # Changelog
 
-All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+<!-- next-header -->
+
+## [Unreleased] - ReleaseDate
+
+### ⚠ BREAKING CHANGES
+
+* drop null serialization in tilejson endpoints ([#261](https://github.com/urbica/martin/issues/261)) ([cee9b2b](https://github.com/urbica/martin/commit/cee9b2bd8ca5e7303a416ada766616d864ec1f6a))
+
+### Features
+
+* add bounds to tilejson endpoints ([#260](https://github.com/urbica/martin/issues/260)) (h/t [@jaspervercnocke](https://github.com/jaspervercnocke)) ([40b0a0c](https://github.com/urbica/martin/commit/40b0a0c26aa93549fc1497faaf848049e1015070))
+* add composite sources support ([#184](https://github.com/urbica/martin/issues/184)) ([3c01125](https://github.com/urbica/martin/commit/3c01125fc5ddb9c52aece570ae043e651c7a397c))
+* add minzoom and maxzoom support ([#265](https://github.com/urbica/martin/issues/265)) ([194a83e](https://github.com/urbica/martin/commit/194a83e63f763323865a7f59e410e2931ce46e0a))
+* add server heartbeat for monitoring the service health ([#168](https://github.com/urbica/martin/issues/168)) (h/t [@yamaszone](https://github.com/yamaszone)) ([fce1a9e](https://github.com/urbica/martin/commit/fce1a9e722692b24294c3766055602768112d392))
+* add support for complex geometries ([#218](https://github.com/urbica/martin/issues/218)) (h/t [@christianversloot](https://github.com/christianversloot)) ([8b5fbf9](https://github.com/urbica/martin/commit/8b5fbf956545746d0f28e66fb73275ad46945259))
+* add ssl/tls support ([#268](https://github.com/urbica/martin/issues/268)) (h/t [@kapcsandi](https://github.com/kapcsandi)) ([7ad7f1a](https://github.com/urbica/martin/commit/7ad7f1ab8b8fec856ca8f6f50d2ca7f897a10274))
+
+### Bug Fixes
+
+* fix invalid json escaping ([#224](https://github.com/urbica/martin/issues/224)) (h/t [@gbip](https://github.com/gbip)) ([4994273](https://github.com/urbica/martin/commit/49942734af5fcaffa4b4430e48600a0e4183d1bc))
+* fix tiles attribute in tilejson when using x-rewrite-url ([#266](https://github.com/urbica/martin/issues/266)) ([f2d56c2](https://github.com/urbica/martin/commit/f2d56c2f7d28d858c09cab90ff13789d595ba6da))
+
+<!-- next-url -->
+[Unreleased]: https://github.com/urbica/martin/compare/v0.5.0...HEAD
 
 ## [0.5.0](https://github.com/urbica/martin/compare/v0.4.1...v0.5.0) (2019-10-26)
 
