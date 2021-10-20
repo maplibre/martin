@@ -190,7 +190,7 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
         let geometry_type: String = row.get("type");
 
         let id = format!("{}.{}", schema, table);
-        let alias_id = format!("{}.{}.{}", schema, table, geometry_column);
+        let explicit_id = format!("{}.{}.{}", schema, table, geometry_column);
 
         if srid == 0 {
             warn!("\"{}\" has SRID 0, skipping", id);
@@ -234,14 +234,11 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
             properties,
         };
 
-        let mut source_alias = source.clone();
-        source_alias.id = alias_id.to_owned();
+        let mut explicit_source = source.clone();
+        explicit_source.id = explicit_id.to_owned();
 
-        if !sources.contains_key(&id) {
-            sources.insert(id, Box::new(source));
-        }
-
-        sources.insert(alias_id, Box::new(source_alias));
+        sources.entry(id).or_insert_with(|| Box::new(source));
+        sources.insert(explicit_id, Box::new(explicit_source));
     }
 
     if sources.is_empty() {
