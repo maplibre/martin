@@ -22,12 +22,46 @@ pub fn mock_table_sources(sources: Vec<TableSource>) -> TableSources {
 }
 
 pub fn mock_default_table_sources() -> TableSources {
-    let source = TableSource {
+    let table_source = TableSource {
         id: "public.table_source".to_owned(),
         schema: "public".to_owned(),
         table: "table_source".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
+        srid: 4326,
+        extent: Some(4096),
+        buffer: Some(64),
+        clip_geom: Some(true),
+        geometry_type: None,
+        properties: HashMap::new(),
+    };
+
+    let table_source_multiple_geom1 = TableSource {
+        id: "public.table_source_multiple_geom.geom1".to_owned(),
+        schema: "public".to_owned(),
+        table: "table_source_multiple_geom".to_owned(),
+        id_column: None,
+        geometry_column: "geom1".to_owned(),
+        minzoom: Some(0),
+        maxzoom: Some(30),
+        bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
+        srid: 4326,
+        extent: Some(4096),
+        buffer: Some(64),
+        clip_geom: Some(true),
+        geometry_type: None,
+        properties: HashMap::new(),
+    };
+
+    let table_source_multiple_geom2 = TableSource {
+        id: "public.table_source_multiple_geom.geom2".to_owned(),
+        schema: "public".to_owned(),
+        table: "table_source_multiple_geom".to_owned(),
+        id_column: None,
+        geometry_column: "geom2".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
         bounds: Some(vec![-180.0, -90.0, 180.0, 90.0]),
@@ -90,7 +124,14 @@ pub fn mock_default_table_sources() -> TableSources {
         properties: HashMap::new(),
     };
 
-    mock_table_sources(vec![source, table_source1, table_source2, table_source3857])
+    mock_table_sources(vec![
+        table_source,
+        table_source_multiple_geom1,
+        table_source_multiple_geom2,
+        table_source1,
+        table_source2,
+        table_source3857,
+    ])
 }
 
 pub fn mock_function_sources(sources: Vec<FunctionSource>) -> FunctionSources {

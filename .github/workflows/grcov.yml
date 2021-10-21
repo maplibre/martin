@@ -30,11 +30,12 @@ jobs:
           sudo apt-get install postgresql-client
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/TileBBox.sql
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/table_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/table_source_multiple_geom.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source.sql
+          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source_query_params.sql
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points1_source.sql
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points2_source.sql
           psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points3857_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source_query_params.sql
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}

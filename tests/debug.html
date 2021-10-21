@@ -156,6 +156,10 @@
             }
           });
 
+          map.on('click', source.id, (e) => {
+            console.log(e.features);
+          });
+
           // Create a link.
           const link = document.createElement('a');
           link.id = source.id;

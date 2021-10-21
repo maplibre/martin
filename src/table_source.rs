@@ -257,7 +257,7 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
         );
 
         warn!(
-            "You can specify the geometry column in the table source name to access particular geometry in vector tile, eg. \"schema_name.table_name.geometry_column_name\"",
+            "You can specify the geometry column in the table source name to access particular geometry in vector tile, eg. \"schema_name.table_name.geometry_column\"",
         );
     }
 

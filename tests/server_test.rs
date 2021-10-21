@@ -124,6 +124,28 @@ async fn test_get_table_source_tile_ok() {
 }
 
 #[actix_rt::test]
+async fn test_get_table_source_multiple_geom_tile_ok() {
+    init();
+
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, false);
+    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/public.table_source_multiple_geom.geom1/0/0/0.pbf")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+
+    let req = test::TestRequest::get()
+        .uri("/public.table_source_multiple_geom.geom2/0/0/0.pbf")
+        .to_request();
+
+    let response = test::call_service(&mut app, req).await;
+    assert!(response.status().is_success());
+}
+
+#[actix_rt::test]
 async fn test_get_table_source_tile_minmax_zoom_ok() {
     init();
 
