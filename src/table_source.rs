@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 
 use tilejson::{TileJSON, TileJSONBuilder};
@@ -85,7 +85,8 @@ impl TableSource {
 
         format!(
             include_str!("scripts/get_geom.sql"),
-            id = self.id,
+            schema = self.schema,
+            table = self.table,
             srid = self.srid,
             geometry_column = self.geometry_column,
             mercator_bounds = mercator_bounds,
@@ -174,6 +175,7 @@ static DEFAULT_CLIP_GEOM: bool = true;
 
 pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Error> {
     let mut sources = HashMap::new();
+    let mut duplicate_source_ids = HashSet::new();
 
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
@@ -182,20 +184,26 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
     for row in &rows {
         let schema: String = row.get("f_table_schema");
         let table: String = row.get("f_table_name");
-        let id = format!("{}.{}", schema, table);
-
         let geometry_column: String = row.get("f_geometry_column");
+
         let srid: i32 = row.get("srid");
         let geometry_type: String = row.get("type");
 
-        info!(
-            "Found \"{}\" table source with \"{}\" column ({}, SRID={})",
-            id, geometry_column, geometry_type, srid
-        );
+        let id = format!("{}.{}", schema, table);
+        let explicit_id = format!("{}.{}.{}", schema, table, geometry_column);
 
         if srid == 0 {
-            warn!("{} has SRID 0, skipping", id);
+            warn!("\"{}\" has SRID 0, skipping", id);
             continue;
+        }
+
+        if sources.contains_key(&id) {
+            duplicate_source_ids.insert(id.to_owned());
+        } else {
+            info!(
+                "Found \"{}\" table source with \"{}\" column ({}, SRID={})",
+                id, geometry_column, geometry_type, srid
+            );
         }
 
         let bounds_query = utils::get_source_bounds(&id, srid as u32, &geometry_column);
@@ -226,11 +234,31 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
             properties,
         };
 
-        sources.insert(id, Box::new(source));
+        let mut explicit_source = source.clone();
+        explicit_source.id = explicit_id.to_owned();
+
+        sources.entry(id).or_insert_with(|| Box::new(source));
+        sources.insert(explicit_id, Box::new(explicit_source));
     }
 
     if sources.is_empty() {
         info!("No table sources found");
+    }
+
+    if !duplicate_source_ids.is_empty() {
+        let sources = duplicate_source_ids
+            .into_iter()
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        warn!(
+            "These table sources have multiple geometry columns: {}",
+            sources
+        );
+
+        warn!(
+            "You can specify the geometry column in the table source name to access particular geometry in vector tile, eg. \"schema_name.table_name.geometry_column\"",
+        );
     }
 
     Ok(sources)

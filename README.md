@@ -84,6 +84,8 @@ Martin provides [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint for
 
 ## API
 
+When started, martin will go through all spatial tables and functions with an appropriate signature in the database. These tables and functions will be available as the HTTP endpoints, which you can use to query Mapbox vector tiles.
+
 | Method | URL                                                                              | Description                                             |
 | ------ | -------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `GET`  | `/index.json`                                                                    | [Table Sources List](#table-sources-list)               |
@@ -202,6 +204,8 @@ const deckgl = new DeckGL({
 
 Table Source is a database table which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as properties of a vector tile feature.
 
+**Note**: In case if there are multiple geometry columns in the table, you can specify the geometry column name in the table source name to access particular geometry in vector tile, e.g. `schema_name.table_name.geometry_column`.
+
 ### Table Sources List
 
 Table Sources list endpoint is available at `/index.json`
@@ -222,6 +226,12 @@ For example, `points` table in `public` schema will be available at `/public.poi
 curl localhost:3000/public.points.json
 ```
 
+In case if you have multiple geometry columns in that table and want to access a particular geometry column in vector tile, you should also specify the geometry column in the table source name
+
+```shell
+curl localhost:3000/public.points.geom.json
+```
+
 ### Table Source Tiles
 
 Table Source tiles endpoint is available at `/{schema_name}.{table_name}/{z}/{x}/{y}.pbf`
@@ -230,6 +240,12 @@ For example, `points` table in `public` schema will be available at `/public.poi
 
 ```shell
 curl localhost:3000/public.points/0/0/0.pbf
+```
+
+In case if you have multiple geometry columns in that table and want to access a particular geometry column in vector tile, you should also specify the geometry column in the table source name
+
+```shell
+curl localhost:3000/public.points.geom/0/0/0.pbf
 ```
 
 ## Composite Sources
@@ -746,7 +762,7 @@ An HTML report displaying the results of the benchmark will be generated under `
 
 ### Using with DigitalOcean PostgreSQL
 
-You can use Martin with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with PostGIS extension
+You can use martin with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with PostGIS extension
 
 First, you need to download the CA certificate and get your cluster connection string from the [dashboard](https://cloud.digitalocean.com/databases). After that, you can use the connection string and the CA certificate to connect to the database
 
@@ -756,7 +772,7 @@ martin --ca-root-file ./ca-certificate.crt postgres://user:password@host:port/db
 
 ### Using with Heroku PostgreSQL
 
-You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
+You can use martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
 
 ```
 heroku pg:psql -a APP_NAME -c 'create extension postgis'
