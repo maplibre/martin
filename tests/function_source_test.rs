@@ -1,8 +1,8 @@
 extern crate log;
 
 use martin::dev;
-use martin::source::{Source, Xyz};
 use martin::function_source::get_function_sources;
+use martin::source::{Source, Xyz};
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
