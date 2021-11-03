@@ -11,7 +11,7 @@ pub fn prettify_error<E: std::fmt::Display>(message: String) -> impl Fn(E) -> st
 }
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
-pub fn tilebbox(xyz: &Xyz) -> String {
+pub fn tilebbox(xyz: &Xyz, buffering_factor: f64) -> String {
     let x = xyz.x;
     let y = xyz.y;
     let z = xyz.z;
@@ -19,10 +19,12 @@ pub fn tilebbox(xyz: &Xyz) -> String {
     let max = 20_037_508.34;
     let res = (max * 2.0) / f64::from(2_i32.pow(z as u32));
 
-    let xmin = -max + (f64::from(x) * res);
-    let ymin = max - (f64::from(y) * res);
-    let xmax = -max + (f64::from(x) * res) + res;
-    let ymax = max - (f64::from(y) * res) - res;
+    let buffer = res * buffering_factor;
+
+    let xmin = -max + (f64::from(x) * res) - buffer;
+    let ymin = max - (f64::from(y) * res) + buffer;
+    let xmax = -max + (f64::from(x) * res) + res + buffer;
+    let ymax = max - (f64::from(y) * res) - res - buffer;
 
     format!(
         "ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)",
@@ -61,11 +63,11 @@ pub fn get_bounds_cte(srid_bounds: String) -> String {
     )
 }
 
-pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
+pub fn get_srid_bounds(srid: u32, xyz: &Xyz, buffering_factor: f64) -> String {
     format!(
         include_str!("scripts/get_srid_bounds.sql"),
         srid = srid,
-        mercator_bounds = tilebbox(xyz),
+        mercator_bounds = tilebbox(xyz,buffering_factor),
     )
 }
 

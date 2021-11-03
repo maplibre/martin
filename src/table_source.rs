@@ -68,7 +68,7 @@ pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl TableSource {
     pub fn get_geom_query(&self, xyz: &Xyz) -> String {
-        let mercator_bounds = utils::tilebbox(xyz);
+        let mercator_bounds = utils::tilebbox(xyz,0.0);
 
         let properties = if self.properties.is_empty() {
             String::new()
@@ -114,8 +114,14 @@ impl TableSource {
         )
     }
 
+    pub fn buffering_factor(&self) -> f64 {
+        let extent = self.extent.unwrap_or(DEFAULT_EXTENT) as f64;
+        let buffer = self.buffer.unwrap_or(DEFAULT_BUFFER) as f64;
+        return buffer / extent;
+    }
+
     pub fn build_tile_query(&self, xyz: &Xyz) -> String {
-        let srid_bounds = utils::get_srid_bounds(self.srid, xyz);
+        let srid_bounds = utils::get_srid_bounds(self.srid, xyz, self.buffering_factor());
         let bounds_cte = utils::get_bounds_cte(srid_bounds);
         let tile_query = self.get_tile_query(xyz);
 

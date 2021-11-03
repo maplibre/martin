@@ -22,7 +22,7 @@ impl CompositeSource {
             .into_iter()
             .map(|source| source.srid)
             .unique()
-            .map(|srid| get_srid_bounds(srid, xyz))
+            .map(|srid| get_srid_bounds(srid, xyz, 64.0/4096.0))
             .collect::<Vec<String>>()
             .join(", ");
 
