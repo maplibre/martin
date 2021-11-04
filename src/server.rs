@@ -407,7 +407,7 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .allowed_methods(vec!["GET"]);
-        
+
         App::new()
             .data(state)
             .wrap(cors_middleware)
