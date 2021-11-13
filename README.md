@@ -6,7 +6,7 @@
 
 Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
-![Martin](https://raw.githubusercontent.com/urbica/martin/master/logo.png)
+![Martin](https://raw.githubusercontent.com/urbica/martin/main/logo.png)
 
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -408,7 +408,7 @@ If you don't want to expose all of your tables and functions, you can list your 
 martin --config config.yaml
 ```
 
-You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/master/tests/config.yaml).
+You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/main/tests/config.yaml).
 
 ```yaml
 # The socket address to bind [default: 0.0.0.0:3000]
@@ -549,7 +549,7 @@ docker run \
 
 ## Using with Docker Compose
 
-You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/urbica/martin/master/docker-compose.yml) file as a reference
+You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/urbica/martin/main/docker-compose.yml) file as a reference
 
 ```yml
 version: '3'
@@ -628,7 +628,7 @@ services:
       - ./pg_data:/var/lib/postgresql/data
 ```
 
-You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/master/nginx.conf).
+You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/main/nginx.conf).
 
 ### Rewriting URLs
 
@@ -683,7 +683,7 @@ http {
 }
 ```
 
-You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/master/nginx.conf).
+You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/main/nginx.conf).
 
 ## Building from Source
 
