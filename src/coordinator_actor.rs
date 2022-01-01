@@ -3,15 +3,16 @@ use actix::{Actor, Addr, Context, Handler};
 use crate::messages;
 use crate::worker_actor::WorkerActor;
 
+#[derive(Default)]
 pub struct CoordinatorActor {
     workers: Vec<Addr<WorkerActor>>,
 }
 
-impl Default for CoordinatorActor {
-    fn default() -> CoordinatorActor {
-        CoordinatorActor { workers: vec![] }
-    }
-}
+// impl Default for CoordinatorActor {
+//     fn default() -> CoordinatorActor {
+//         CoordinatorActor { workers: vec![] }
+//     }
+// }
 
 impl Actor for CoordinatorActor {
     type Context = Context<Self>;
