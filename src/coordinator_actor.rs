@@ -8,12 +8,6 @@ pub struct CoordinatorActor {
     workers: Vec<Addr<WorkerActor>>,
 }
 
-// impl Default for CoordinatorActor {
-//     fn default() -> CoordinatorActor {
-//         CoordinatorActor { workers: vec![] }
-//     }
-// }
-
 impl Actor for CoordinatorActor {
     type Context = Context<Self>;
 }
