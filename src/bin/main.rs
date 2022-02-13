@@ -29,6 +29,7 @@ Options:
   --config=<path>                   Path to config file.
   --keep-alive=<n>                  Connection keep alive timeout [default: 75].
   --listen-addresses=<n>            The socket address to bind [default: 0.0.0.0:3000].
+  --default-srid=<n>                If a spatial table has SRID 0, then this default SRID will be used as a fallback.
   --pool-size=<n>                   Maximum connections pool size [default: 20].
   --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
@@ -47,6 +48,7 @@ pub struct Args {
     pub flag_watch: bool,
     pub flag_version: bool,
     pub flag_workers: Option<usize>,
+    pub flag_default_srid: Option<i32>,
     pub flag_ca_root_file: Option<String>,
     pub flag_danger_accept_invalid_certs: bool,
 }
@@ -60,7 +62,7 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
     })?;
 
     let mut connection = get_connection(pool)?;
-    let table_sources = get_table_sources(&mut connection)?;
+    let table_sources = get_table_sources(&mut connection, &args.flag_default_srid)?;
     let function_sources = get_function_sources(&mut connection)?;
 
     let config = ConfigBuilder {
@@ -68,6 +70,7 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
         watch: Some(args.flag_watch),
         keep_alive: args.flag_keep_alive,
         listen_addresses: args.flag_listen_addresses,
+        default_srid: args.flag_default_srid,
         pool_size: args.flag_pool_size,
         worker_processes: args.flag_workers,
         table_sources: Some(table_sources),
@@ -146,6 +149,14 @@ fn parse_env(args: Args) -> Args {
         env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
     });
 
+    let flag_default_srid = args.flag_default_srid.or_else(|| {
+        env::var_os("DEFAULT_SRID").and_then(|srid| {
+            srid.into_string()
+                .ok()
+                .and_then(|srid| srid.parse::<i32>().ok())
+        })
+    });
+
     let flag_ca_root_file = args.flag_ca_root_file.or_else(|| {
         env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
     });
@@ -158,6 +169,7 @@ fn parse_env(args: Args) -> Args {
     Args {
         arg_connection,
         flag_watch,
+        flag_default_srid,
         flag_ca_root_file,
         flag_danger_accept_invalid_certs,
         ..args
@@ -197,7 +209,7 @@ fn main() -> io::Result<()> {
     env_logger::Builder::from_env(env).init();
 
     let args = Docopt::new(USAGE)
-        .and_then(|d| d.deserialize::<Args>())
+        .and_then(|d| d.help(false).deserialize::<Args>())
         .map_err(prettify_error("Can't parse CLI arguments".to_owned()))?;
 
     let args = parse_env(args);

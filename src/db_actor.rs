@@ -16,9 +16,9 @@ impl Actor for DbActor {
 impl Handler<messages::GetTableSources> for DbActor {
     type Result = Result<TableSources, io::Error>;
 
-    fn handle(&mut self, _msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
         let mut connection = get_connection(&self.0)?;
-        let table_sources = get_table_sources(&mut connection)?;
+        let table_sources = get_table_sources(&mut connection, &msg.default_srid)?;
         Ok(table_sources)
     }
 }

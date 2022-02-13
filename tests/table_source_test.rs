@@ -15,7 +15,7 @@ async fn test_get_table_sources_ok() {
     init();
 
     let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection).unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).unwrap();
 
     log::info!("table_sources = {:#?}", table_sources);
 
@@ -46,7 +46,7 @@ async fn test_table_source_tilejson_ok() {
     init();
 
     let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection).unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
     let tilejson = table_source.get_tilejson().unwrap();
@@ -68,7 +68,7 @@ async fn test_table_source_tile_ok() {
     init();
 
     let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection).unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
     let tile = table_source
@@ -83,7 +83,7 @@ async fn test_table_source_srid_ok() {
     init();
 
     let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection).unwrap();
+    let table_sources = get_table_sources(&mut connection, &Some(900913)).unwrap();
 
     assert!(table_sources.contains_key("public.points1"));
     let points1 = table_sources.get("public.points1").unwrap();
@@ -96,6 +96,10 @@ async fn test_table_source_srid_ok() {
     assert!(table_sources.contains_key("public.points3857"));
     let points3857 = table_sources.get("public.points3857").unwrap();
     assert_eq!(points3857.srid, 3857);
+
+    assert!(table_sources.contains_key("public.points_empty_srid"));
+    let points_empty_srid = table_sources.get("public.points_empty_srid").unwrap();
+    assert_eq!(points_empty_srid.srid, 900913);
 }
 
 #[actix_rt::test]
@@ -103,7 +107,7 @@ async fn test_table_source_multiple_geom_ok() {
     init();
 
     let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection).unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).unwrap();
 
     assert!(table_sources.contains_key("public.table_source_multiple_geom"));
     let table_source_multiple_geom = table_sources

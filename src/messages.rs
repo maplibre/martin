@@ -24,7 +24,9 @@ impl Message for GetTile {
     type Result = Result<Tile, io::Error>;
 }
 
-pub struct GetTableSources {}
+pub struct GetTableSources {
+    pub default_srid: Option<i32>,
+}
 impl Message for GetTableSources {
     type Result = Result<TableSources, io::Error>;
 }

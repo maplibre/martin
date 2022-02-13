@@ -12,6 +12,7 @@ pub struct Config {
     pub watch: bool,
     pub pool_size: u32,
     pub keep_alive: usize,
+    pub default_srid: Option<i32>,
     pub worker_processes: usize,
     pub listen_addresses: String,
     pub connection_string: String,
@@ -26,6 +27,7 @@ pub struct ConfigBuilder {
     pub watch: Option<bool>,
     pub pool_size: Option<u32>,
     pub keep_alive: Option<usize>,
+    pub default_srid: Option<i32>,
     pub worker_processes: Option<usize>,
     pub listen_addresses: Option<String>,
     pub connection_string: String,
@@ -41,6 +43,7 @@ impl ConfigBuilder {
             watch: self.watch.unwrap_or(false),
             pool_size: self.pool_size.unwrap_or(20),
             keep_alive: self.keep_alive.unwrap_or(75),
+            default_srid: self.default_srid,
             worker_processes: self.worker_processes.unwrap_or_else(num_cpus::get),
             listen_addresses: self
                 .listen_addresses
