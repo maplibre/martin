@@ -83,7 +83,9 @@ async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, E
 
     let table_sources = state
         .db
-        .send(messages::GetTableSources { default_srid: state.default_srid })
+        .send(messages::GetTableSources {
+            default_srid: state.default_srid,
+        })
         .await
         .map_err(map_internal_error)?
         .map_err(map_internal_error)?;

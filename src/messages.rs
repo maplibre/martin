@@ -25,7 +25,7 @@ impl Message for GetTile {
 }
 
 pub struct GetTableSources {
-    pub default_srid: Option<i32>
+    pub default_srid: Option<i32>,
 }
 impl Message for GetTableSources {
     type Result = Result<TableSources, io::Error>;

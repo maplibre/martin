@@ -151,7 +151,8 @@ fn parse_env(args: Args) -> Args {
 
     let flag_default_srid = args.flag_default_srid.or_else(|| {
         env::var_os("DEFAULT_SRID").and_then(|srid| {
-            srid.into_string().ok()
+            srid.into_string()
+                .ok()
                 .and_then(|srid| srid.parse::<i32>().ok())
         })
     });
