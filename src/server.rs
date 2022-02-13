@@ -29,6 +29,7 @@ pub struct AppState {
     pub table_sources: Rc<RefCell<Option<TableSources>>>,
     pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
     pub watch_mode: bool,
+    pub default_srid: Option<i32>,
 }
 
 #[derive(Deserialize)]
@@ -82,7 +83,7 @@ async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, E
 
     let table_sources = state
         .db
-        .send(messages::GetTableSources {})
+        .send(messages::GetTableSources { default_srid: state.default_srid })
         .await
         .map_err(map_internal_error)?
         .map_err(map_internal_error)?;
@@ -388,6 +389,7 @@ fn create_state(
         table_sources,
         function_sources,
         watch_mode: config.watch,
+        default_srid: config.default_srid,
     }
 }
 

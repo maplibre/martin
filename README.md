@@ -382,6 +382,7 @@ Options:
   --config=<path>                   Path to config file.
   --keep-alive=<n>                  Connection keep alive timeout [default: 75].
   --listen-addresses=<n>            The socket address to bind [default: 0.0.0.0:3000].
+  --default-srid=<n>                If a spatial table has SRID 0, then this default SRID will be used as a fallback.
   --pool-size=<n>                   Maximum connections pool size [default: 20].
   --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
@@ -398,6 +399,7 @@ You can also configure martin using environment variables
 | `DATABASE_URL`                | `postgres://postgres@localhost/db` | Postgres database connection                  |
 | `WATCH_MODE`                  | `true`                             | Scan for new sources on sources list requests |
 | `CA_ROOT_FILE`                | `./ca-certificate.crt`             | Loads trusted root certificates from a file   |
+| `DEFAULT_SRID`                | `4326`                             | Fallback SRID                                 |
 | `DANGER_ACCEPT_INVALID_CERTS` | `false`                            | Trust invalid certificates                    |
 
 ## Configuration File
@@ -425,6 +427,9 @@ keep_alive: 75
 
 # Number of web server workers
 worker_processes: 8
+
+# If a spatial table has SRID 0, then this default SRID will be used as a fallback
+default_srid: 4326
 
 # Enable watch mode
 watch: false

@@ -173,7 +173,10 @@ static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Error> {
+pub fn get_table_sources(
+    conn: &mut Connection,
+    default_srid: &Option<i32>,
+) -> Result<TableSources, io::Error> {
     let mut sources = HashMap::new();
     let mut duplicate_source_ids = HashSet::new();
 
@@ -186,16 +189,11 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
         let table: String = row.get("f_table_name");
         let geometry_column: String = row.get("f_geometry_column");
 
-        let srid: i32 = row.get("srid");
+        let mut srid: i32 = row.get("srid");
         let geometry_type: String = row.get("type");
 
         let id = format!("{}.{}", schema, table);
         let explicit_id = format!("{}.{}.{}", schema, table, geometry_column);
-
-        if srid == 0 {
-            warn!("\"{}\" has SRID 0, skipping", id);
-            continue;
-        }
 
         if sources.contains_key(&id) {
             duplicate_source_ids.insert(id.to_owned());
@@ -204,6 +202,22 @@ pub fn get_table_sources(conn: &mut Connection) -> Result<TableSources, io::Erro
                 "Found \"{}\" table source with \"{}\" column ({}, SRID={})",
                 id, geometry_column, geometry_type, srid
             );
+        }
+
+        if srid == 0 {
+            match default_srid {
+                Some(default_srid) => {
+                    warn!(
+                        "\"{}\" has SRID 0, using the provided default SRID {}",
+                        id, default_srid
+                    );
+                    srid = *default_srid;
+                }
+                None => {
+                    warn!("\"{}\" has SRID 0, skipping. To use this table source, you must specify the SRID using the config file or provide the default SRID", id);
+                    continue;
+                }
+            }
         }
 
         let bounds_query = utils::get_source_bounds(&id, srid as u32, &geometry_column);
