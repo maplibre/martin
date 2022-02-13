@@ -126,12 +126,13 @@ jobs:
           command: build
 
       - name: Run server
-        run: ./target/debug/martin &
+        run: ./target/debug/martin --watch --default-srid 900913 &
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
       - name: Test server response for table source
         run: |
+          curl "localhost:3000/index.json" | jq -e
           curl "localhost:3000/public.table_source/0/0/0.pbf" > table_source.pbf
           ./tests/vtzero-check table_source.pbf
           ./tests/vtzero-show table_source.pbf
@@ -151,6 +152,54 @@ jobs:
           ./tests/vtzero-check table_source.pbf
           ./tests/vtzero-show table_source.pbf
           curl "localhost:3000/public.table_source/21/1267712/655574.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+
+      - name: Test server response for table source with different SRID
+        run: |
+          curl "localhost:3000/public.points3857/0/0/0.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points3857/6/38/20.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points3857/12/2476/1280.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points3857/13/4952/2560.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points3857/14/9904/5121.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points3857/20/633856/327787.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points3857/21/1267712/655574.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+
+      - name: Test server response for table source with empty SRID
+        run: |
+          curl "localhost:3000/public.points_empty_srid/0/0/0.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points_empty_srid/6/38/20.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points_empty_srid/12/2476/1280.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points_empty_srid/13/4952/2560.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points_empty_srid/14/9904/5121.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points_empty_srid/20/633856/327787.pbf" > table_source.pbf
+          ./tests/vtzero-check table_source.pbf
+          ./tests/vtzero-show table_source.pbf
+          curl "localhost:3000/public.points_empty_srid/21/1267712/655574.pbf" > table_source.pbf
           ./tests/vtzero-check table_source.pbf
           ./tests/vtzero-show table_source.pbf
 

@@ -209,7 +209,7 @@ fn main() -> io::Result<()> {
     env_logger::Builder::from_env(env).init();
 
     let args = Docopt::new(USAGE)
-        .and_then(|d| d.deserialize::<Args>())
+        .and_then(|d| d.help(false).deserialize::<Args>())
         .map_err(prettify_error("Can't parse CLI arguments".to_owned()))?;
 
     let args = parse_env(args);
