@@ -17,7 +17,7 @@ path = "src/bin/main.rs"
 
 [dependencies]
 actix = "0.10"
-actix-cors = "0.5"
+actix-cors = "0.6"
 actix-rt = "1"
 actix-web = "3"
 docopt = "1"
