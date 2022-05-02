@@ -1265,7 +1265,7 @@ dependencies = [
  "postgres-protocol",
  "r2d2",
  "r2d2_postgres",
- "semver 1.0.7",
+ "semver 1.0.8",
  "serde",
  "serde_derive",
  "serde_json",
@@ -1911,7 +1911,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.7",
+ "semver 1.0.8",
 ]
 
 [[package]]
@@ -1955,9 +1955,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.7"
+version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d65bd28f48be7196d222d95b9243287f48d27aca604e08497513019ff0502cc4"
+checksum = "d0257c2e1a8cf2eb6f9f7a09c90654775791560be5811600de43f185eb5e541d"
 
 [[package]]
 name = "semver-parser"
