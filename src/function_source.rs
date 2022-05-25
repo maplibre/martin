@@ -123,9 +123,9 @@ pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io
     for row in &rows {
         let schema: String = row.get("specific_schema");
         let function: String = row.get("routine_name");
-        let id = format!("{}.{}", schema, function);
+        let id = format!("{schema}.{function}");
 
-        info!("Found {} function source", id);
+        info!("Found {id} function source");
 
         let source = FunctionSource {
             id: id.clone(),

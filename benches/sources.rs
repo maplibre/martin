@@ -11,7 +11,7 @@ use martin::table_source::TableSource;
 
 fn mock_table_source(schema: &str, table: &str) -> TableSource {
     TableSource {
-        id: format!("{}.{}", schema, table),
+        id: format!("{schema}.{table}"),
         schema: schema.to_owned(),
         table: table.to_owned(),
         id_column: None,
@@ -30,7 +30,7 @@ fn mock_table_source(schema: &str, table: &str) -> TableSource {
 
 fn mock_function_source(schema: &str, function: &str) -> FunctionSource {
     FunctionSource {
-        id: format!("{}.{}", schema, function),
+        id: format!("{schema}.{function}"),
         schema: schema.to_owned(),
         function: function.to_owned(),
         minzoom: None,

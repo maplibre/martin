@@ -25,7 +25,7 @@ fn make_tls_connector(
     }
 
     if let Some(ca_root_file) = ca_root_file {
-        info!("Using {} as trusted root certificate", ca_root_file);
+        info!("Using {ca_root_file} as trusted root certificate");
         builder.set_ca_file(ca_root_file)?;
     }
 
@@ -88,10 +88,7 @@ pub fn check_postgis_version(required_postgis_version: &str, pool: &Pool) -> io:
     let matches = req.matches(&version);
 
     if !matches {
-        error!(
-            "Martin requires PostGIS {}, current version is {}",
-            required_postgis_version, postgis_version
-        );
+        error!("Martin requires PostGIS {required_postgis_version}, current version is {postgis_version}");
     }
 
     Ok(matches)

@@ -15,7 +15,7 @@ async fn test_get_function_sources_ok() {
     let mut connection = dev::make_pool().get().unwrap();
     let function_sources = get_function_sources(&mut connection).unwrap();
 
-    log::info!("function_sources = {:#?}", function_sources);
+    log::info!("function_sources = {function_sources:#?}");
 
     assert!(!function_sources.is_empty());
     assert!(function_sources.contains_key("public.function_source"));
@@ -38,7 +38,7 @@ async fn test_function_source_tilejson_ok() {
     let function_source = function_sources.get("public.function_source").unwrap();
     let tilejson = function_source.get_tilejson().unwrap();
 
-    log::info!("tilejson = {:#?}", tilejson);
+    log::info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, Some("1.0.0".to_owned()));

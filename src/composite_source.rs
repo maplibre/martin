@@ -38,14 +38,14 @@ impl CompositeSource {
             .collect::<Vec<String>>()
             .join(" || ");
 
-        format!("SELECT {} AS tile", tile_query)
+        format!("SELECT {tile_query} AS tile")
     }
 
     pub fn build_tile_query(&self, xyz: &Xyz) -> String {
         let bounds_cte = self.get_bounds_cte(xyz);
         let tile_query = self.get_tile_query(xyz);
 
-        format!("{} {}", bounds_cte, tile_query)
+        format!("{bounds_cte} {tile_query}")
     }
 
     pub fn get_minzoom(&self) -> Option<u8> {
