@@ -6,11 +6,14 @@ use std::rc::Rc;
 use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 use actix_cors::Cors;
 use actix_web::http::Uri;
+use actix_web::middleware::TrailingSlash;
+use actix_web::web::Data;
 use actix_web::{
     error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
 use log::{error, info};
 use serde::Deserialize;
+use std::time::Duration;
 
 use crate::composite_source::CompositeSource;
 use crate::config::Config;
@@ -390,8 +393,7 @@ fn create_state(
 }
 
 pub fn new(pool: Pool, config: Config) -> SystemRunner {
-    let sys = actix::System::new("server");
-
+    let sys = actix::System::new();
     let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
     let coordinator: Addr<_> = CoordinatorActor::default().start();
 
@@ -407,10 +409,10 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
             .allowed_methods(vec!["GET"]);
 
         App::new()
-            .data(state)
+            .app_data(Data::new(state))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(
-                middleware::normalize::TrailingSlash::MergeOnly,
+                TrailingSlash::MergeOnly,
             ))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
@@ -418,10 +420,12 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
     })
     .bind(listen_addresses.clone())
     .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
-    .keep_alive(keep_alive)
+    .keep_alive(Duration::from_secs(keep_alive as u64))
     .shutdown_timeout(0)
     .workers(worker_processes)
-    .run();
+    .run()
+    // FIXME: must call .await here
+    ;
 
     sys
 }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use actix_web::web::Data;
 use actix_web::{http, test, App};
 use tilejson::{Bounds, TileJSON};
 
@@ -17,7 +18,7 @@ async fn test_get_table_sources_ok() {
     init();
 
     let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/index.json").to_request();
     let response = test::call_service(&mut app, req).await;
@@ -33,7 +34,7 @@ async fn test_get_table_sources_watch_mode_ok() {
     init();
 
     let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, true);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/index.json").to_request();
     let response = test::call_service(&mut app, req).await;
@@ -71,7 +72,7 @@ async fn test_get_table_source_ok() {
         None,
         false,
     );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant.json")
@@ -82,13 +83,13 @@ async fn test_get_table_source_ok() {
 
     let req = test::TestRequest::get()
         .uri("/public.table_source.json?token=martin")
-        .header(
+        .insert_header((
             "x-rewrite-url",
             "/tiles/public.table_source.json?token=martin",
-        )
+        ))
         .to_request();
 
-    let result: TileJSON = test::read_response_json(&mut app, req).await;
+    let result: TileJSON = test::call_and_read_body_json(&mut app, req).await;
 
     assert_eq!(result.name, Some(String::from("public.table_source")));
     assert_eq!(
@@ -105,7 +106,7 @@ async fn test_get_table_source_tile_ok() {
     init();
 
     let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant/0/0/0.pbf")
@@ -127,7 +128,7 @@ async fn test_get_table_source_multiple_geom_tile_ok() {
     init();
 
     let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.table_source_multiple_geom.geom1/0/0/0.pbf")
@@ -228,7 +229,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         false,
     );
 
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     // zoom = 0 (nothing)
     let req = test::TestRequest::get()
@@ -332,7 +333,7 @@ async fn test_get_composite_source_ok() {
     init();
 
     let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant1,public.non_existant2.json")
@@ -354,7 +355,7 @@ async fn test_get_composite_source_tile_ok() {
     init();
 
     let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant1,public.non_existant2/0/0/0.pbf")
@@ -418,7 +419,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         None,
         false,
     );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     // zoom = 0 (nothing)
     let req = test::TestRequest::get()
@@ -487,7 +488,7 @@ async fn test_get_function_sources_ok() {
         None,
         false,
     );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
     let response = test::call_service(&mut app, req).await;
@@ -503,7 +504,7 @@ async fn test_get_function_sources_watch_mode_ok() {
     init();
 
     let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None, true);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
     let response = test::call_service(&mut app, req).await;
@@ -524,7 +525,7 @@ async fn test_get_function_source_ok() {
         None,
         false,
     );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.non_existant.json")
@@ -542,13 +543,13 @@ async fn test_get_function_source_ok() {
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source.json?token=martin")
-        .header(
+        .insert_header((
             "x-rewrite-url",
             "/tiles/rpc/public.function_source.json?token=martin",
-        )
+        ))
         .to_request();
 
-    let result: TileJSON = test::read_response_json(&mut app, req).await;
+    let result: TileJSON = test::call_and_read_body_json(&mut app, req).await;
 
     assert_eq!(
         result.tiles,
@@ -566,7 +567,7 @@ async fn test_get_function_source_tile_ok() {
         None,
         false,
     );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source/0/0/0.pbf")
@@ -608,7 +609,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         false,
     );
 
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     // zoom = 0 (public.function_source1)
     let req = test::TestRequest::get()
@@ -685,7 +686,7 @@ async fn test_get_function_source_query_params_ok() {
         None,
         false,
     );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source_query_params/0/0/0.pbf")
@@ -713,7 +714,7 @@ async fn test_get_health_returns_ok() {
         None,
         false,
     );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/healthz").to_request();
     let response = test::call_service(&mut app, req).await;

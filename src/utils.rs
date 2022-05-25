@@ -1,3 +1,4 @@
+use actix_http::header::HeaderValue;
 use std::collections::HashMap;
 
 use actix_web::http;
@@ -93,7 +94,7 @@ pub fn polygon_to_bbox(polygon: ewkb::Polygon) -> Option<Bounds> {
     })
 }
 
-pub fn parse_x_rewrite_url(header: &http::HeaderValue) -> Option<String> {
+pub fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
     header
         .to_str()
         .ok()
