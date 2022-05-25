@@ -5,6 +5,7 @@ use actix_web::http;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
+use tilejson::Bounds;
 
 pub fn prettify_error<E: std::fmt::Display>(message: String) -> impl Fn(E) -> std::io::Error {
     move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", message, error))
@@ -78,16 +79,16 @@ pub fn get_source_bounds(id: &str, srid: u32, geometry_column: &str) -> String {
     )
 }
 
-pub fn polygon_to_bbox(polygon: ewkb::Polygon) -> Option<Vec<f32>> {
+pub fn polygon_to_bbox(polygon: ewkb::Polygon) -> Option<Bounds> {
     polygon.rings().next().and_then(|linestring| {
         let mut points = linestring.points();
         if let (Some(bottom_left), Some(top_right)) = (points.next(), points.nth(1)) {
-            Some(vec![
-                bottom_left.x() as f32,
-                bottom_left.y() as f32,
-                top_right.x() as f32,
-                top_right.y() as f32,
-            ])
+            Some(Bounds::new(
+                bottom_left.x(),
+                bottom_left.y(),
+                top_right.x(),
+                top_right.y(),
+            ))
         } else {
             None
         }
@@ -100,4 +101,8 @@ pub fn parse_x_rewrite_url(header: &http::HeaderValue) -> Option<String> {
         .ok()
         .and_then(|header| header.parse::<http::Uri>().ok())
         .map(|uri| uri.path().trim_end_matches(".json").to_owned())
+}
+
+pub fn max_bounds() -> Bounds {
+    Bounds::new(-180.0, -90.0, 180.0, 90.0)
 }
