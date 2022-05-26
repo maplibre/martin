@@ -2031,6 +2031,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_tuple"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f025b91216f15a2a32aa39669329a475733590a015835d1783549a56d09427"
+dependencies = [
+ "serde",
+ "serde_tuple_macros",
+]
+
+[[package]]
+name = "serde_tuple_macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4076151d1a2b688e25aaf236997933c66e18b870d0369f8b248b8ab2be630d7e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2281,12 +2302,13 @@ dependencies = [
 
 [[package]]
 name = "tilejson"
-version = "0.2.4"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1b13f37202f3dfa3d0a775b20ccbff170b702b60603480b4fb2b05851cf4e97"
+checksum = "1eeb0af84b43a1056a3c4768c91174f2daa12aa152853fc70719cd2a4832cb4e"
 dependencies = [
  "serde",
  "serde_json",
+ "serde_tuple",
 ]
 
 [[package]]
