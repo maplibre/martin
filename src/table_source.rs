@@ -103,7 +103,7 @@ impl TableSource {
         let id_column = self
             .id_column
             .clone()
-            .map_or("".to_string(), |id_column| format!(", '{}'", id_column));
+            .map_or("".to_string(), |id_column| format!(", '{id_column}'"));
 
         format!(
             include_str!("scripts/get_tile.sql"),
@@ -119,7 +119,7 @@ impl TableSource {
         let bounds_cte = utils::get_bounds_cte(srid_bounds);
         let tile_query = self.get_tile_query(xyz);
 
-        format!("{} {}", bounds_cte, tile_query)
+        format!("{bounds_cte} {tile_query}")
     }
 }
 
@@ -192,29 +192,26 @@ pub fn get_table_sources(
         let mut srid: i32 = row.get("srid");
         let geometry_type: String = row.get("type");
 
-        let id = format!("{}.{}", schema, table);
-        let explicit_id = format!("{}.{}.{}", schema, table, geometry_column);
+        let id = format!("{schema}.{table}");
+        let explicit_id = format!("{schema}.{table}.{geometry_column}");
 
         if sources.contains_key(&id) {
             duplicate_source_ids.insert(id.to_owned());
         } else {
             info!(
-                "Found \"{}\" table source with \"{}\" column ({}, SRID={})",
-                id, geometry_column, geometry_type, srid
+                "Found \"{id}\" table source with \"{geometry_column}\" column ({geometry_type}, SRID={srid})"
+
             );
         }
 
         if srid == 0 {
             match default_srid {
                 Some(default_srid) => {
-                    warn!(
-                        "\"{}\" has SRID 0, using the provided default SRID {}",
-                        id, default_srid
-                    );
+                    warn!("\"{id}\" has SRID 0, using the provided default SRID {default_srid}");
                     srid = *default_srid;
                 }
                 None => {
-                    warn!("\"{}\" has SRID 0, skipping. To use this table source, you must specify the SRID using the config file or provide the default SRID", id);
+                    warn!("\"{id}\" has SRID 0, skipping. To use this table source, you must specify the SRID using the config file or provide the default SRID");
                     continue;
                 }
             }
@@ -265,10 +262,7 @@ pub fn get_table_sources(
             .collect::<Vec<String>>()
             .join(", ");
 
-        warn!(
-            "These table sources have multiple geometry columns: {}",
-            sources
-        );
+        warn!("These table sources have multiple geometry columns: {sources}");
 
         warn!(
             "You can specify the geometry column in the table source name to access particular geometry in vector tile, eg. \"schema_name.table_name.geometry_column\"",

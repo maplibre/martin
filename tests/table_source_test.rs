@@ -17,7 +17,7 @@ async fn test_get_table_sources_ok() {
     let mut connection = dev::make_pool().get().unwrap();
     let table_sources = get_table_sources(&mut connection, &None).unwrap();
 
-    log::info!("table_sources = {:#?}", table_sources);
+    log::info!("table_sources = {table_sources:#?}");
 
     assert!(!table_sources.is_empty());
     assert!(table_sources.contains_key("public.table_source"));
@@ -51,7 +51,7 @@ async fn test_table_source_tilejson_ok() {
     let table_source = table_sources.get("public.table_source").unwrap();
     let tilejson = table_source.get_tilejson().unwrap();
 
-    log::info!("tilejson = {:#?}", tilejson);
+    log::info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, Some("1.0.0".to_owned()));

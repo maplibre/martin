@@ -63,6 +63,7 @@ struct CompositeTileRequest {
 }
 
 fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
+    // FIXME: is e.to_string() needed here, or can it just be error!("{e}")  ?
     error!("{}", e.to_string());
     error::ErrorInternalServerError(e.to_string())
 }
@@ -126,7 +127,7 @@ async fn get_composite_source(
 
     let mut tilejson = source
         .get_tilejson()
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
 
     let tiles_path = req
         .headers()
@@ -137,13 +138,9 @@ async fn get_composite_source(
     let connection_info = req.connection_info();
 
     let path_and_query = if req.query_string().is_empty() {
-        format!("{}/{{z}}/{{x}}/{{y}}.pbf", tiles_path)
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf")
     } else {
-        format!(
-            "{}/{{z}}/{{x}}/{{y}}.pbf?{}",
-            tiles_path,
-            req.query_string()
-        )
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf?{}", req.query_string())
     };
 
     let tiles_url = Uri::builder()
@@ -152,7 +149,7 @@ async fn get_composite_source(
         .path_and_query(path_and_query)
         .build()
         .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {}", e)))?;
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
 
     tilejson.tiles = vec![tiles_url];
     Ok(HttpResponse::Ok().json(tilejson))
@@ -264,7 +261,7 @@ async fn get_function_source(
 
     let mut tilejson = source
         .get_tilejson()
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {}", e)))?;
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
 
     let tiles_path = req
         .headers()
@@ -275,13 +272,9 @@ async fn get_function_source(
     let connection_info = req.connection_info();
 
     let path_and_query = if req.query_string().is_empty() {
-        format!("{}/{{z}}/{{x}}/{{y}}.pbf", tiles_path)
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf")
     } else {
-        format!(
-            "{}/{{z}}/{{x}}/{{y}}.pbf?{}",
-            tiles_path,
-            req.query_string()
-        )
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf?{}", req.query_string())
     };
 
     let tiles_url = Uri::builder()
@@ -290,7 +283,7 @@ async fn get_function_source(
         .path_and_query(path_and_query)
         .build()
         .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {}", e)))?;
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
 
     tilejson.tiles = vec![tiles_url];
     Ok(HttpResponse::Ok().json(tilejson))
@@ -423,7 +416,7 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
             .configure(router)
     })
     .bind(listen_addresses.clone())
-    .unwrap_or_else(|_| panic!("Can't bind to {}", listen_addresses))
+    .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
     .keep_alive(keep_alive)
     .shutdown_timeout(0)
     .workers(worker_processes)

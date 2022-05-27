@@ -177,11 +177,11 @@ fn parse_env(args: Args) -> Args {
 }
 
 fn start(args: Args) -> io::Result<actix::SystemRunner> {
-    info!("Starting martin v{}", VERSION);
+    info!("Starting martin v{VERSION}");
 
     let (config, pool) = match args.flag_config {
         Some(config_file_name) => {
-            info!("Using {}", config_file_name);
+            info!("Using {config_file_name}");
             setup_from_config(config_file_name)?
         }
         None => {
@@ -199,7 +199,7 @@ fn start(args: Args) -> io::Result<actix::SystemRunner> {
 
     let listen_addresses = config.listen_addresses.clone();
     let server = server::new(pool, config);
-    info!("Martin has been started on {}.", listen_addresses);
+    info!("Martin has been started on {listen_addresses}.");
 
     Ok(server)
 }
@@ -215,12 +215,12 @@ fn main() -> io::Result<()> {
     let args = parse_env(args);
 
     if args.flag_help {
-        println!("{}", USAGE);
+        println!("{USAGE}");
         std::process::exit(0);
     }
 
     if args.flag_version {
-        println!("v{}", VERSION);
+        println!("v{VERSION}");
         std::process::exit(0);
     }
 
@@ -235,7 +235,7 @@ fn main() -> io::Result<()> {
     let server = match start(args) {
         Ok(server) => server,
         Err(error) => {
-            error!("{}", error);
+            error!("{error}");
             std::process::exit(-1);
         }
     };
