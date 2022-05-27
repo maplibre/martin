@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use std::io;
 
-use tilejson::{TileJSON, TileJSONBuilder};
+use tilejson::{tilejson, Bounds, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
@@ -62,18 +62,21 @@ impl CompositeSource {
             .max()
     }
 
-    pub fn get_bounds(&self) -> Option<Vec<f32>> {
+    pub fn get_bounds(&self) -> Option<Bounds> {
         self.table_sources
             .iter()
-            .filter_map(|table_source| table_source.bounds.as_ref())
-            .map(|bounds| bounds.to_vec())
-            .reduce(|a, b| {
-                vec![
-                    if a[0] < b[0] { a[0] } else { b[0] },
-                    if a[1] < b[1] { a[1] } else { b[1] },
-                    if a[2] > b[2] { a[2] } else { b[2] },
-                    if a[3] > b[3] { a[3] } else { b[3] },
-                ]
+            .filter_map(|table_source| table_source.bounds)
+            .reduce(|a: Bounds, b: Bounds| -> Bounds {
+                Bounds::new(
+                    if a.left < b.left { a.left } else { b.left },
+                    if a.bottom < b.bottom {
+                        a.bottom
+                    } else {
+                        b.bottom
+                    },
+                    if a.right > b.right { a.right } else { b.right },
+                    if a.top > b.top { a.top } else { b.top },
+                )
             })
     }
 }
@@ -84,24 +87,27 @@ impl Source for CompositeSource {
     }
 
     fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
-        let mut tilejson_builder = TileJSONBuilder::new();
-
-        tilejson_builder.scheme("xyz");
-        tilejson_builder.name(&self.id);
+        let mut tilejson = tilejson! {
+            tilejson: "2.2.0".to_string(),
+            tiles: vec![],  // tile source is required, but not yet known
+            name: self.id.to_string(),
+        };
 
         if let Some(minzoom) = self.get_minzoom() {
-            tilejson_builder.minzoom(minzoom);
+            tilejson.minzoom = Some(minzoom);
         };
 
         if let Some(maxzoom) = self.get_maxzoom() {
-            tilejson_builder.maxzoom(maxzoom);
+            tilejson.maxzoom = Some(maxzoom);
         };
 
         if let Some(bounds) = self.get_bounds() {
-            tilejson_builder.bounds(bounds);
+            tilejson.bounds = Some(bounds);
         };
 
-        Ok(tilejson_builder.finalize())
+        // TODO: consider removing - this is not needed per TileJSON spec
+        tilejson.set_missing_defaults();
+        Ok(tilejson)
     }
 
     fn get_tile(

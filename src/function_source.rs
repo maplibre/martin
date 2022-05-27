@@ -3,7 +3,7 @@ use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
-use tilejson::{TileJSON, TileJSONBuilder};
+use tilejson::{tilejson, Bounds, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
@@ -32,7 +32,7 @@ pub struct FunctionSource {
     // latitude and longitude values, in the order left, bottom, right, top.
     // Values may be integers or floating point numbers.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub bounds: Option<Vec<f32>>,
+    pub bounds: Option<Bounds>,
 }
 
 pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
@@ -43,25 +43,27 @@ impl Source for FunctionSource {
     }
 
     fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
-        let mut tilejson_builder = TileJSONBuilder::new();
-
-        tilejson_builder.scheme("xyz");
-        tilejson_builder.name(&self.id);
-        tilejson_builder.tiles(vec![]);
+        let mut tilejson = tilejson! {
+            tilejson: "2.2.0".to_string(),
+            tiles: vec![],  // tile source is required, but not yet known
+            name: self.id.to_string(),
+        };
 
         if let Some(minzoom) = &self.minzoom {
-            tilejson_builder.minzoom(*minzoom);
+            tilejson.minzoom = Some(*minzoom);
         };
 
         if let Some(maxzoom) = &self.maxzoom {
-            tilejson_builder.maxzoom(*maxzoom);
+            tilejson.maxzoom = Some(*maxzoom);
         };
 
         if let Some(bounds) = &self.bounds {
-            tilejson_builder.bounds(bounds.to_vec());
+            tilejson.bounds = Some(*bounds);
         };
 
-        Ok(tilejson_builder.finalize())
+        // TODO: consider removing - this is not needed per TileJSON spec
+        tilejson.set_missing_defaults();
+        Ok(tilejson)
     }
 
     fn get_tile(
