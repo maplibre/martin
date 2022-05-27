@@ -9,6 +9,7 @@ use actix_web::http::Uri;
 use actix_web::{
     error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
+use log::{error, info};
 use serde::Deserialize;
 
 use crate::composite_source::CompositeSource;

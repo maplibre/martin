@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate log;
-
 pub mod composite_source;
 pub mod config;
 pub mod coordinator_actor;

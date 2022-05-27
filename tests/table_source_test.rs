@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-extern crate log;
-
 use martin::dev;
 use martin::source::{Source, Xyz};
 use martin::table_source::get_table_sources;

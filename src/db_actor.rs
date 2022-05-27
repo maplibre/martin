@@ -1,5 +1,6 @@
-use actix::{Actor, Handler, SyncContext};
 use std::io;
+
+use actix::{Actor, Handler, SyncContext};
 
 use crate::db::{get_connection, Pool};
 use crate::function_source::{get_function_sources, FunctionSources};

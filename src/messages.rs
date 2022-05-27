@@ -1,5 +1,6 @@
-use actix::{Addr, Message};
 use std::io;
+
+use actix::{Addr, Message};
 
 use crate::function_source::FunctionSources;
 use crate::source::{Query, Source, Tile, Xyz};

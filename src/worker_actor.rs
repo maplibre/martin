@@ -1,6 +1,7 @@
-use actix::{Actor, Context, Handler};
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use actix::{Actor, Context, Handler};
 
 use crate::function_source::FunctionSources;
 use crate::messages;

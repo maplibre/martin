@@ -1,9 +1,8 @@
-#[macro_use]
-extern crate log;
+use std::{env, io};
 
 use docopt::Docopt;
+use log::{error, info, warn};
 use serde::Deserialize;
-use std::{env, io};
 
 use martin::config::{read_config, Config, ConfigBuilder};
 use martin::db::{check_postgis_version, get_connection, setup_connection_pool, Pool};
@@ -97,7 +96,7 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     if let Some(table_sources) = &config.table_sources {
         for table_source in table_sources.values() {
             info!(
-                "Found \"{}\" table source with \"{}\" column ({}, SRID={})",
+                r#"Found "{}" table source with "{}" column ({}, SRID={})"#,
                 table_source.id,
                 table_source.geometry_column,
                 table_source

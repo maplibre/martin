@@ -1,6 +1,6 @@
-use itertools::Itertools;
 use std::io;
 
+use itertools::Itertools;
 use tilejson::{tilejson, Bounds, TileJSON};
 
 use crate::db::Connection;
