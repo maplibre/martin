@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter};
 use log::info;
+use tilejson::Bounds;
 
 use crate::coordinator_actor::CoordinatorActor;
 use crate::db::{setup_connection_pool, Pool};
@@ -12,7 +13,6 @@ use crate::db_actor::DbActor;
 use crate::function_source::{FunctionSource, FunctionSources};
 use crate::server::AppState;
 use crate::table_source::{TableSource, TableSources};
-use crate::utils::max_bounds;
 
 pub fn mock_table_sources(sources: Vec<TableSource>) -> TableSources {
     let mut table_sources: TableSources = HashMap::new();
@@ -32,7 +32,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         srid: 4326,
         extent: Some(4096),
         buffer: Some(64),
@@ -49,7 +49,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom1".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         srid: 4326,
         extent: Some(4096),
         buffer: Some(64),
@@ -66,7 +66,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom2".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         srid: 4326,
         extent: Some(4096),
         buffer: Some(64),
@@ -83,7 +83,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         srid: 4326,
         extent: Some(4096),
         buffer: Some(64),
@@ -100,7 +100,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         srid: 4326,
         extent: Some(4096),
         buffer: Some(64),
@@ -117,7 +117,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         srid: 3857,
         extent: Some(4096),
         buffer: Some(64),
@@ -152,7 +152,7 @@ pub fn mock_default_function_sources() -> FunctionSources {
         function: "function_source".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
     };
 
     let function_source_query_params = FunctionSource {
@@ -161,7 +161,7 @@ pub fn mock_default_function_sources() -> FunctionSources {
         function: "function_source_query_params".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
     };
 
     mock_function_sources(vec![function_source, function_source_query_params])

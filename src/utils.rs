@@ -100,7 +100,3 @@ pub fn parse_x_rewrite_url(header: &http::HeaderValue) -> Option<String> {
         .and_then(|header| header.parse::<http::Uri>().ok())
         .map(|uri| uri.path().trim_end_matches(".json").to_owned())
 }
-
-pub fn max_bounds() -> Bounds {
-    Bounds::new(-180.0, -90.0, 180.0, 90.0)
-}

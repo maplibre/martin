@@ -66,18 +66,7 @@ impl CompositeSource {
         self.table_sources
             .iter()
             .filter_map(|table_source| table_source.bounds)
-            .reduce(|a: Bounds, b: Bounds| -> Bounds {
-                Bounds::new(
-                    if a.left < b.left { a.left } else { b.left },
-                    if a.bottom < b.bottom {
-                        a.bottom
-                    } else {
-                        b.bottom
-                    },
-                    if a.right > b.right { a.right } else { b.right },
-                    if a.top > b.top { a.top } else { b.top },
-                )
-            })
+            .reduce(|a: Bounds, b: Bounds| -> Bounds { a + b })
     }
 }
 
