@@ -151,6 +151,26 @@ map.addLayer({
 });
 ```
 
+## Using with MapLibre
+[MapLibre](https://maplibre.org/projects/maplibre-gl-js/) is an Open-source JavaScript library for publishing maps on your websites. Originated as an open-source fork of [mapbox-gl-js](https://www.mapbox.com/mapbox-gljs), [MapLibre](https://maplibre.org/projects/maplibre-gl-js/) is intended to be a drop-in replacement for the Mapbox’s version with additional functionality.
+Generally There is no big difference between MapLibre and [mapbox-gl-js](https://www.mapbox.com/mapbox-gljs) when coperating with Martin.
+
+```js
+map.addSource('rpc', {
+  type: 'vector',
+  url: `http://localhost:3000/rpc/public.function_source.json`
+});
+map.addLayer({
+  id: 'points',
+  type: 'circle',
+  source: 'rpc',
+  'source-layer': 'public.function_source',
+  paint: {
+    'circle-color': 'blue'
+  }
+});
+```
+
 ## Using with Leaflet
 
 [Leaflet](https://github.com/Leaflet/Leaflet) is the leading open-source JavaScript library for mobile-friendly interactive maps.
