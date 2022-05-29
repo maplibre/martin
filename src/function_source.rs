@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+use std::io;
+
+use log::info;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
 
 use crate::db::Connection;
@@ -107,7 +109,7 @@ impl Source for FunctionSource {
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
             .map(|row| row.get(self.function.as_str()))
             .map_err(prettify_error(format!(
-                "Can't get \"{}\" tile at /{}/{}/{} with {:?} params",
+                r#"Can't get "{}" tile at /{}/{}/{} with {:?} params"#,
                 self.id, &xyz.z, &xyz.x, &xyz.z, &query_json
             )))?;
 

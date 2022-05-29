@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-extern crate log;
-
 use actix_web::{http, test, App};
 use tilejson::TileJSON;
 

@@ -4,6 +4,7 @@ use std::env;
 use std::rc::Rc;
 
 use actix::{Actor, Addr, SyncArbiter};
+use log::info;
 
 use crate::coordinator_actor::CoordinatorActor;
 use crate::db::{setup_connection_pool, Pool};

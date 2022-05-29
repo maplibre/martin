@@ -1,5 +1,3 @@
-extern crate log;
-
 use martin::dev;
 use martin::function_source::get_function_sources;
 use martin::source::{Source, Xyz};

@@ -1,6 +1,7 @@
 use std::io;
 use std::str::FromStr;
 
+use log::{error, info};
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use r2d2::PooledConnection;

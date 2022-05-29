@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use crate::source::{Query, Xyz};
 use actix_web::http;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
 use tilejson::Bounds;
+
+use crate::source::{Query, Xyz};
 
 pub fn prettify_error<E: std::fmt::Display>(message: String) -> impl Fn(E) -> std::io::Error {
     move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{message}: {error}"))
@@ -25,10 +26,7 @@ pub fn tilebbox(xyz: &Xyz) -> String {
     let xmax = -max + (f64::from(x) * res) + res;
     let ymax = max - (f64::from(y) * res) - res;
 
-    format!(
-        "ST_MakeEnvelope({0}, {1}, {2}, {3}, 3857)",
-        xmin, ymin, xmax, ymax
-    )
+    format!("ST_MakeEnvelope({xmin}, {ymin}, {xmax}, {ymax}, 3857)")
 }
 
 pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
