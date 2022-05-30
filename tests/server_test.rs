@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
 use actix_web::{http, test, App};
-use tilejson::TileJSON;
+use tilejson::{Bounds, TileJSON};
 
 use martin::dev;
 use martin::function_source::{FunctionSource, FunctionSources};
 use martin::server::router;
 use martin::table_source::{TableSource, TableSources};
-use martin::utils::max_bounds;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -55,7 +54,7 @@ async fn test_get_table_source_ok() {
         table: "table_source".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         minzoom: Some(0),
         maxzoom: Some(30),
         srid: 4326,
@@ -98,7 +97,7 @@ async fn test_get_table_source_ok() {
     );
     assert_eq!(result.minzoom, Some(0));
     assert_eq!(result.maxzoom, Some(30));
-    assert_eq!(result.bounds, Some(max_bounds()));
+    assert_eq!(result.bounds, Some(Bounds::MAX));
 }
 
 #[actix_rt::test]
@@ -155,7 +154,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         table: "points1".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         minzoom: Some(6),
         maxzoom: Some(12),
         srid: 4326,
@@ -172,7 +171,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         table: "points2".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         minzoom: None,
         maxzoom: None,
         srid: 4326,
@@ -189,7 +188,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         table: "points3857".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         minzoom: Some(6),
         maxzoom: None,
         srid: 4326,
@@ -206,7 +205,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         table: "table_source".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         minzoom: None,
         maxzoom: Some(6),
         srid: 4326,
@@ -382,7 +381,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         table: "points1".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         minzoom: Some(6),
         maxzoom: Some(13),
         srid: 4326,
@@ -399,7 +398,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         table: "points2".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
         minzoom: Some(13),
         maxzoom: Some(20),
         srid: 4326,
@@ -587,7 +586,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         function: "function_source".to_owned(),
         minzoom: None,
         maxzoom: None,
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
     };
 
     let function_source2 = FunctionSource {
@@ -596,7 +595,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         function: "function_source".to_owned(),
         minzoom: Some(6),
         maxzoom: Some(12),
-        bounds: Some(max_bounds()),
+        bounds: Some(Bounds::MAX),
     };
 
     let state = dev::mock_state(

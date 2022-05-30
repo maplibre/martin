@@ -37,7 +37,7 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 serde_yaml = "0.8"
-tilejson = "0.3"
+tilejson = "0.3.1"
 
 [dev-dependencies.criterion]
 version = "0.3.4"

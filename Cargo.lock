@@ -2282,9 +2282,9 @@ dependencies = [
 
 [[package]]
 name = "tilejson"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1eeb0af84b43a1056a3c4768c91174f2daa12aa152853fc70719cd2a4832cb4e"
+checksum = "0e88626ef18a7978cabd1e2f2020c25919ccf95513b47c1291587b3b4633deb3"
 dependencies = [
  "serde",
  "serde_json",
