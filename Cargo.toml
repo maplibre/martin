@@ -4,7 +4,7 @@ version = "1.0.0-alpha.0"
 edition = "2021"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
 description = "Blazing fast and lightweight PostGIS vector tiles server"
-repository = "https://github.com/urbica/martin/"
+repository = "https://github.com/maplibre/martin/"
 license-file = "LICENSE"
 
 [lib]
