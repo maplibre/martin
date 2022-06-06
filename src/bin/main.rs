@@ -1,3 +1,4 @@
+use actix_web::dev::Server;
 use std::{env, io};
 
 use docopt::Docopt;
@@ -175,7 +176,7 @@ fn parse_env(args: Args) -> Args {
     }
 }
 
-fn start(args: Args) -> io::Result<actix::SystemRunner> {
+fn start(args: Args) -> io::Result<Server> {
     info!("Starting martin v{VERSION}");
 
     let (config, pool) = match args.flag_config {
@@ -203,7 +204,8 @@ fn start(args: Args) -> io::Result<actix::SystemRunner> {
     Ok(server)
 }
 
-fn main() -> io::Result<()> {
+#[actix_web::main]
+async fn main() -> io::Result<()> {
     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
     env_logger::Builder::from_env(env).init();
 
@@ -231,13 +233,11 @@ fn main() -> io::Result<()> {
         info!("Watch mode enabled");
     }
 
-    let server = match start(args) {
-        Ok(server) => server,
+    match start(args) {
+        Ok(server) => server.await,
         Err(error) => {
             error!("{error}");
             std::process::exit(-1);
         }
-    };
-
-    server.run()
+    }
 }
