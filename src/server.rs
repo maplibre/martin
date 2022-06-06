@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
-use actix::{Actor, Addr, SyncArbiter, SystemRunner};
+use actix::{Actor, Addr, SyncArbiter};
 use actix_cors::Cors;
+use actix_web::dev::Server;
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::Data;
@@ -366,8 +367,7 @@ fn create_state(
     }
 }
 
-pub fn new(pool: Pool, config: Config) -> SystemRunner {
-    let sys = actix::System::new();
+pub fn new(pool: Pool, config: Config) -> Server {
     let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
     let coordinator: Addr<_> = CoordinatorActor::default().start();
 
@@ -385,9 +385,7 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
         App::new()
             .app_data(Data::new(state))
             .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath::new(
-                TrailingSlash::MergeOnly,
-            ))
+            .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
             .configure(router)
@@ -398,8 +396,4 @@ pub fn new(pool: Pool, config: Config) -> SystemRunner {
     .shutdown_timeout(0)
     .workers(worker_processes)
     .run()
-    // FIXME: must call .await here
-    ;
-
-    sys
 }
