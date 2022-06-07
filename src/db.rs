@@ -4,16 +4,16 @@ use std::str::FromStr;
 use log::{error, info};
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
-use r2d2::PooledConnection;
-use r2d2_postgres::PostgresConnectionManager;
+use bb8::PooledConnection;
+use bb8_postgres::{PostgresConnectionManager, tokio_postgres};
 use semver::Version;
 use semver::VersionReq;
 
 use crate::utils::prettify_error;
 
 pub type ConnectionManager = PostgresConnectionManager<MakeTlsConnector>;
-pub type Pool = r2d2::Pool<ConnectionManager>;
-pub type Connection = PooledConnection<ConnectionManager>;
+pub type Pool = bb8::Pool<ConnectionManager>;
+pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
 
 fn make_tls_connector(
     ca_root_file: &Option<String>,
@@ -34,13 +34,13 @@ fn make_tls_connector(
     Ok(tls_connector)
 }
 
-pub fn setup_connection_pool(
+pub async fn setup_connection_pool(
     connection_string: &str,
     ca_root_file: &Option<String>,
     pool_size: Option<u32>,
     danger_accept_invalid_certs: bool,
 ) -> io::Result<Pool> {
-    let config = postgres::config::Config::from_str(connection_string)
+    let config = tokio_postgres::config::Config::from_str(connection_string)
         .map_err(prettify_error("Can't parse connection string".to_owned()))?;
 
     let tls_connector = make_tls_connector(ca_root_file, danger_accept_invalid_certs)
@@ -48,35 +48,37 @@ pub fn setup_connection_pool(
 
     let manager = PostgresConnectionManager::new(config, tls_connector);
 
-    let pool = r2d2::Pool::builder()
+    let pool = bb8::Pool::builder()
         .max_size(pool_size.unwrap_or(20))
         .build(manager)
+        .await
         .map_err(prettify_error("Can't build connection pool".to_owned()))?;
 
     Ok(pool)
 }
 
-pub fn get_connection(pool: &Pool) -> io::Result<Connection> {
-    let connection = pool.get().map_err(prettify_error(
+pub async fn get_connection(pool: &Pool) -> io::Result<Connection<'_>> {
+    let connection = pool.get().await.map_err(prettify_error(
         "Can't retrieve connection from the pool".to_owned(),
     ))?;
 
     Ok(connection)
 }
 
-pub fn select_postgis_verion(pool: &Pool) -> io::Result<String> {
-    let mut connection = get_connection(pool)?;
+pub async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
+    let mut connection = get_connection(pool).await?;
 
     let version = connection
         .query_one(include_str!("scripts/get_postgis_version.sql"), &[])
+        .await
         .map(|row| row.get::<_, String>("postgis_version"))
         .map_err(prettify_error("Can't get PostGIS version".to_owned()))?;
 
     Ok(version)
 }
 
-pub fn check_postgis_version(required_postgis_version: &str, pool: &Pool) -> io::Result<bool> {
-    let postgis_version = select_postgis_verion(pool)?;
+pub async fn check_postgis_version(required_postgis_version: &str, pool: &Pool) -> io::Result<bool> {
+    let postgis_version = select_postgis_version(pool).await?;
 
     let req = VersionReq::parse(required_postgis_version).map_err(prettify_error(
         "Can't parse required PostGIS version".to_owned(),

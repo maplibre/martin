@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::io;
 
 use tilejson::TileJSON;
+use async_trait::async_trait;
 
 use crate::db::Connection;
 
@@ -16,12 +17,13 @@ pub struct Xyz {
     pub y: i32,
 }
 
+#[async_trait]
 pub trait Source: Debug {
-    fn get_id(&self) -> &str;
+    async fn get_id(&self) -> &str;
 
-    fn get_tilejson(&self) -> Result<TileJSON, io::Error>;
+    async fn get_tilejson(&self) -> Result<TileJSON, io::Error>;
 
-    fn get_tile(
+    async fn get_tile(
         &self,
         conn: &mut Connection,
         xyz: &Xyz,

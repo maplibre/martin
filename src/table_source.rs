@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::io;
 
+use async_trait::async_trait;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use tilejson::{tilejson, Bounds, TileJSON};
+use tilejson::{Bounds, tilejson, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
@@ -124,12 +125,13 @@ impl TableSource {
     }
 }
 
+#[async_trait]
 impl Source for TableSource {
-    fn get_id(&self) -> &str {
+    async fn get_id(&self) -> &str {
         self.id.as_str()
     }
 
-    fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
+    async fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
         let mut tilejson = tilejson! {
             tilejson: "2.2.0".to_string(),
             tiles: vec![],  // tile source is required, but not yet known
@@ -153,7 +155,7 @@ impl Source for TableSource {
         Ok(tilejson)
     }
 
-    fn get_tile(
+    async fn get_tile(
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
@@ -163,7 +165,9 @@ impl Source for TableSource {
 
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])
+            .await
             .map(|row| row.get("st_asmvt"))
+            .await
             .map_err(utils::prettify_error(format!(
                 r#"Can't get "{}" tile at /{}/{}/{}"#,
                 self.id, &xyz.z, &xyz.x, &xyz.z
@@ -177,8 +181,8 @@ static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-pub fn get_table_sources(
-    conn: &mut Connection,
+pub async fn get_table_sources(
+    conn: &mut Connection<'_>,
     default_srid: &Option<i32>,
 ) -> Result<TableSources, io::Error> {
     let mut sources = HashMap::new();
@@ -186,6 +190,7 @@ pub fn get_table_sources(
 
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
+        .await
         .map_err(utils::prettify_error("Can't get table sources".to_owned()))?;
 
     for row in &rows {
@@ -226,6 +231,7 @@ pub fn get_table_sources(
 
         let bounds: Option<Bounds> = conn
             .query_one(bounds_query.as_str(), &[])
+            .await
             .map(|row| row.get("bounds"))
             .ok()
             .flatten()

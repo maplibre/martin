@@ -1,7 +1,8 @@
 use std::io;
 
+use async_trait::async_trait;
 use itertools::Itertools;
-use tilejson::{tilejson, Bounds, TileJSON};
+use tilejson::{Bounds, tilejson, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
@@ -70,12 +71,13 @@ impl CompositeSource {
     }
 }
 
+#[async_trait]
 impl Source for CompositeSource {
-    fn get_id(&self) -> &str {
+    async fn get_id(&self) -> &str {
         self.id.as_str()
     }
 
-    fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
+    async fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
         let mut tilejson = tilejson! {
             tilejson: "2.2.0".to_string(),
             tiles: vec![],  // tile source is required, but not yet known
@@ -99,7 +101,7 @@ impl Source for CompositeSource {
         Ok(tilejson)
     }
 
-    fn get_tile(
+    async fn get_tile(
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
