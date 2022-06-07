@@ -18,8 +18,8 @@ impl Handler<messages::GetTableSources> for DbActor {
     type Result = Result<TableSources, io::Error>;
 
     fn handle(&mut self, msg: messages::GetTableSources, _: &mut Self::Context) -> Self::Result {
-        let mut connection = get_connection(&self.0)?;
-        let table_sources = get_table_sources(&mut connection, &msg.default_srid)?;
+        let mut connection = get_connection(&self.0).await?;
+        let table_sources = get_table_sources(&mut connection, &msg.default_srid).await?;
         Ok(table_sources)
     }
 }
@@ -32,7 +32,7 @@ impl Handler<messages::GetFunctionSources> for DbActor {
         _msg: messages::GetFunctionSources,
         _: &mut Self::Context,
     ) -> Self::Result {
-        let mut connection = get_connection(&self.0)?;
+        let mut connection = get_connection(&self.0).await?;
         let function_sources = get_function_sources(&mut connection)?;
         Ok(function_sources)
     }
@@ -42,8 +42,8 @@ impl Handler<messages::GetTile> for DbActor {
     type Result = Result<Tile, io::Error>;
 
     fn handle(&mut self, msg: messages::GetTile, _: &mut Self::Context) -> Self::Result {
-        let mut connection = get_connection(&self.0)?;
-        let tile = msg.source.get_tile(&mut connection, &msg.xyz, &msg.query)?;
+        let mut connection = get_connection(&self.0).await?;
+        let tile = msg.source.get_tile(&mut connection, &msg.xyz, &msg.query).await?;
 
         Ok(tile)
     }

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::io;
 
+use async_trait::async_trait;
 use log::info;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
-use tilejson::{tilejson, Bounds, TileJSON};
+use tilejson::{Bounds, tilejson, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
@@ -39,12 +40,13 @@ pub struct FunctionSource {
 
 pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
 
+#[async_trait]
 impl Source for FunctionSource {
-    fn get_id(&self) -> &str {
+    async fn get_id(&self) -> &str {
         self.id.as_str()
     }
 
-    fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
+    async fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
         let mut tilejson = tilejson! {
             tilejson: "2.2.0".to_string(),
             tiles: vec![],  // tile source is required, but not yet known
@@ -68,7 +70,7 @@ impl Source for FunctionSource {
         Ok(tilejson)
     }
 
-    fn get_tile(
+    async fn get_tile(
         &self,
         conn: &mut Connection,
         xyz: &Xyz,

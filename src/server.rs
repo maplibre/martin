@@ -132,6 +132,7 @@ async fn get_composite_source(
 
     let mut tilejson = source
         .get_tilejson()
+        .await
         .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
 
     let tiles_path = req
@@ -230,6 +231,7 @@ async fn get_function_source(
 
     let mut tilejson = source
         .get_tilejson()
+        .await
         .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
 
     let tiles_path = req
