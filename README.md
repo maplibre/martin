@@ -1,12 +1,12 @@
 # Martin
 
-[![CI](https://github.com/urbica/martin/workflows/CI/badge.svg)](https://github.com/urbica/martin/actions)
-![Security audit](https://github.com/urbica/martin/workflows/Security%20audit/badge.svg)
+[![CI](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
+![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)
 [![Docker pulls](https://img.shields.io/docker/pulls/urbica/martin.svg)](https://hub.docker.com/r/urbica/martin)
 
 Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
-![Martin](https://raw.githubusercontent.com/urbica/martin/main/logo.png)
+![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -47,7 +47,7 @@ Martin requires PostGIS >= 2.4.0.
 
 ## Installation
 
-You can download martin from [Github releases page](https://github.com/urbica/martin/releases).
+You can download martin from [Github releases page](https://github.com/maplibre/martin/releases).
 
 | Platform | Downloads (latest)      |
 | -------- | ----------------------- |
@@ -55,9 +55,9 @@ You can download martin from [Github releases page](https://github.com/urbica/ma
 | macOS    | [64-bit][rl-macos-tar]  |
 | Windows  | [64-bit][rl-winx64-zip] |
 
-[rl-linux-tar]: https://github.com/urbica/martin/releases/latest/download/martin-Linux-x86_64.tar.gz
-[rl-macos-tar]: https://github.com/urbica/martin/releases/latest/download/martin-Darwin-x86_64.tar.gz
-[rl-winx64-zip]: https://github.com/urbica/martin/releases/latest/download/martin-Windows-x86_64.zip
+[rl-linux-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-Linux-x86_64.tar.gz
+[rl-macos-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-Darwin-x86_64.tar.gz
+[rl-winx64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-Windows-x86_64.zip
 
 If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
 
@@ -430,7 +430,7 @@ If you don't want to expose all of your tables and functions, you can list your 
 martin --config config.yaml
 ```
 
-You can find an example of a configuration file [here](https://github.com/urbica/martin/blob/main/tests/config.yaml).
+You can find an example of a configuration file [here](https://github.com/maplibre/martin/blob/main/tests/config.yaml).
 
 ```yaml
 # The socket address to bind [default: 0.0.0.0:3000]
@@ -574,7 +574,7 @@ docker run \
 
 ## Using with Docker Compose
 
-You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/urbica/martin/main/docker-compose.yml) file as a reference
+You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml) file as a reference
 
 ```yml
 version: '3'
@@ -653,7 +653,7 @@ services:
       - ./pg_data:/var/lib/postgresql/data
 ```
 
-You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/main/nginx.conf).
+You can find an example Nginx configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
 
 ### Rewriting URLs
 
@@ -708,14 +708,14 @@ http {
 }
 ```
 
-You can find an example Nginx configuration file [here](https://github.com/urbica/martin/blob/main/nginx.conf).
+You can find an example Nginx configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
 
 ## Building from Source
 
 You can clone the repository and build martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
 
 ```shell
-git clone git@github.com:urbica/martin.git
+git clone git@github.com:maplibre/martin.git
 cd martin
 cargo build --release
 ```
@@ -750,7 +750,7 @@ martin postgres://postgres@localhost/db
 Clone project
 
 ```shell
-git clone git@github.com:urbica/martin.git
+git clone git@github.com:maplibre/martin.git
 cd martin
 ```
 
