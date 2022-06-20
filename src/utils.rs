@@ -8,9 +8,18 @@ use tilejson::Bounds;
 
 use crate::source::{Query, Xyz};
 
-pub fn prettify_error<E: std::fmt::Display>(message: String) -> impl Fn(E) -> std::io::Error {
-    move |error| std::io::Error::new(std::io::ErrorKind::Other, format!("{message}: {error}"))
+#[macro_export]
+macro_rules! prettify_error {
+    ($error:ident, $info:literal) => {
+        ::std::io::Error::new(::std::io::ErrorKind::Other, format!(concat!($info, ": {}"), $error))
+    };
+    ($error:ident, $($arg:tt)+) => {
+        ::std::io::Error::new(::std::io::ErrorKind::Other,
+            format!("{}: {}", format_args!($($arg)+), $error))
+    };
 }
+
+pub(crate) use prettify_error;
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
 pub fn tilebbox(xyz: &Xyz) -> String {

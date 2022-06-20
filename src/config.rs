@@ -64,7 +64,7 @@ pub fn read_config(file_name: &str) -> io::Result<Config> {
     file.read_to_string(&mut contents)?;
 
     let config_builder: ConfigBuilder = serde_yaml::from_str(contents.as_str())
-        .map_err(prettify_error("Can't read config file".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't read config file"))?;
 
     Ok(config_builder.finalize())
 }
