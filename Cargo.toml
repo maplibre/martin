@@ -2,10 +2,10 @@
 name = "martin"
 version = "1.0.0-alpha.0"
 edition = "2021"
-authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>"]
+authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight PostGIS vector tiles server"
 repository = "https://github.com/maplibre/martin/"
-license-file = "LICENSE"
+license = "MIT OR Apache-2.0"
 
 [lib]
 name = "martin"
