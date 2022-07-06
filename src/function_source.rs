@@ -101,17 +101,22 @@ impl Source for FunctionSource {
                 &raw_query,
                 &[Type::INT4, Type::INT4, Type::INT4, Type::JSON],
             )
-            .map_err(prettify_error(
-                "Can't create prepared statement for the tile".to_owned(),
-            ))?;
+            .map_err(|e| prettify_error!(e, "Can't create prepared statement for the tile"))?;
 
         let tile = conn
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
             .map(|row| row.get(self.function.as_str()))
-            .map_err(prettify_error(format!(
-                r#"Can't get "{}" tile at /{}/{}/{} with {:?} params"#,
-                self.id, &xyz.z, &xyz.x, &xyz.z, &query_json
-            )))?;
+            .map_err(|error| {
+                prettify_error!(
+                    error,
+                    r#"Can't get "{}" tile at /{}/{}/{} with {:?} params"#,
+                    self.id,
+                    xyz.z,
+                    xyz.x,
+                    xyz.z,
+                    query_json
+                )
+            })?;
 
         Ok(tile)
     }
@@ -122,7 +127,7 @@ pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io
 
     let rows = conn
         .query(include_str!("scripts/get_function_sources.sql"), &[])
-        .map_err(prettify_error("Can't get function sources".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't get function sources"))?;
 
     for row in &rows {
         let schema: String = row.get("specific_schema");

@@ -41,25 +41,25 @@ pub fn setup_connection_pool(
     danger_accept_invalid_certs: bool,
 ) -> io::Result<Pool> {
     let config = postgres::config::Config::from_str(connection_string)
-        .map_err(prettify_error("Can't parse connection string".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't parse connection string"))?;
 
     let tls_connector = make_tls_connector(ca_root_file, danger_accept_invalid_certs)
-        .map_err(prettify_error("Can't build TLS connection".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't build TLS connection"))?;
 
     let manager = PostgresConnectionManager::new(config, tls_connector);
 
     let pool = r2d2::Pool::builder()
         .max_size(pool_size.unwrap_or(20))
         .build(manager)
-        .map_err(prettify_error("Can't build connection pool".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't build connection pool"))?;
 
     Ok(pool)
 }
 
 pub fn get_connection(pool: &Pool) -> io::Result<Connection> {
-    let connection = pool.get().map_err(prettify_error(
-        "Can't retrieve connection from the pool".to_owned(),
-    ))?;
+    let connection = pool
+        .get()
+        .map_err(|e| prettify_error!(e, "Can't retrieve connection from the pool"))?;
 
     Ok(connection)
 }
@@ -70,7 +70,7 @@ pub fn select_postgis_verion(pool: &Pool) -> io::Result<String> {
     let version = connection
         .query_one(include_str!("scripts/get_postgis_version.sql"), &[])
         .map(|row| row.get::<_, String>("postgis_version"))
-        .map_err(prettify_error("Can't get PostGIS version".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't get PostGIS version"))?;
 
     Ok(version)
 }
@@ -78,13 +78,11 @@ pub fn select_postgis_verion(pool: &Pool) -> io::Result<String> {
 pub fn check_postgis_version(required_postgis_version: &str, pool: &Pool) -> io::Result<bool> {
     let postgis_version = select_postgis_verion(pool)?;
 
-    let req = VersionReq::parse(required_postgis_version).map_err(prettify_error(
-        "Can't parse required PostGIS version".to_owned(),
-    ))?;
+    let req = VersionReq::parse(required_postgis_version)
+        .map_err(|e| prettify_error!(e, "Can't parse required PostGIS version"))?;
 
-    let version = Version::parse(postgis_version.as_str()).map_err(prettify_error(
-        "Can't parse database PostGIS version".to_owned(),
-    ))?;
+    let version = Version::parse(postgis_version.as_str())
+        .map_err(|e| prettify_error!(e, "Can't parse database PostGIS version"))?;
 
     let matches = req.matches(&version);
 

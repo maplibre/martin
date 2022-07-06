@@ -164,10 +164,16 @@ impl Source for TableSource {
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])
             .map(|row| row.get("st_asmvt"))
-            .map_err(utils::prettify_error(format!(
-                r#"Can't get "{}" tile at /{}/{}/{}"#,
-                self.id, &xyz.z, &xyz.x, &xyz.z
-            )))?;
+            .map_err(|error| {
+                utils::prettify_error!(
+                    error,
+                    r#"Can't get "{}" tile at /{}/{}/{}"#,
+                    self.id,
+                    xyz.z,
+                    xyz.x,
+                    xyz.z
+                )
+            })?;
 
         Ok(tile)
     }
@@ -186,7 +192,7 @@ pub fn get_table_sources(
 
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
-        .map_err(utils::prettify_error("Can't get table sources".to_owned()))?;
+        .map_err(|e| utils::prettify_error!(e, "Can't get table sources"))?;
 
     for row in &rows {
         let schema: String = row.get("f_table_schema");

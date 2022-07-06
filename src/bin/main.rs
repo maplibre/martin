@@ -7,9 +7,8 @@ use serde::Deserialize;
 use martin::config::{read_config, Config, ConfigBuilder};
 use martin::db::{check_postgis_version, get_connection, setup_connection_pool, Pool};
 use martin::function_source::get_function_sources;
-use martin::server;
 use martin::table_source::get_table_sources;
-use martin::utils::prettify_error;
+use martin::{prettify_error, server};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
@@ -83,7 +82,7 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
 }
 
 fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
-    let config = read_config(&file_name).map_err(prettify_error("Can't read config".to_owned()))?;
+    let config = read_config(&file_name).map_err(|e| prettify_error!(e, "Can't read config"))?;
 
     let pool = setup_connection_pool(
         &config.connection_string,
@@ -91,7 +90,7 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
         Some(config.pool_size),
         config.danger_accept_invalid_certs,
     )
-    .map_err(prettify_error("Can't setup connection pool".to_owned()))?;
+    .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     if let Some(table_sources) = &config.table_sources {
         for table_source in table_sources.values() {
@@ -134,11 +133,11 @@ fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
         args.flag_pool_size,
         args.flag_danger_accept_invalid_certs,
     )
-    .map_err(prettify_error("Can't setup connection pool".to_owned()))?;
+    .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     info!("Scanning database");
     let config =
-        generate_config(args, &pool).map_err(prettify_error("Can't generate config".to_owned()))?;
+        generate_config(args, &pool).map_err(|e| prettify_error!(e, "Can't generate config"))?;
 
     Ok((config, pool))
 }
@@ -190,7 +189,7 @@ fn start(args: Args) -> io::Result<actix::SystemRunner> {
     };
 
     let matches = check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool)
-        .map_err(prettify_error("Can't check PostGIS version".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't check PostGIS version"))?;
 
     if !matches {
         std::process::exit(-1);
@@ -209,7 +208,7 @@ fn main() -> io::Result<()> {
 
     let args = Docopt::new(USAGE)
         .and_then(|d| d.help(false).deserialize::<Args>())
-        .map_err(prettify_error("Can't parse CLI arguments".to_owned()))?;
+        .map_err(|e| prettify_error!(e, "Can't parse CLI arguments"))?;
 
     let args = parse_env(args);
 
