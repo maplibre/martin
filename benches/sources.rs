@@ -98,25 +98,21 @@ async fn get_function_source_tile() {
 }
 
 fn table_source(c: &mut Criterion) {
-    c.bench_function("get_table_source", |b| b.iter(|| get_table_source()));
-    c.bench_function("get_table_source_tile", |b| {
-        b.iter(|| get_table_source_tile())
-    });
+    c.bench_function("get_table_source", |b| b.iter(get_table_source));
+    c.bench_function("get_table_source_tile", |b| b.iter(get_table_source_tile));
 }
 
 fn composite_source(c: &mut Criterion) {
-    c.bench_function("get_composite_source", |b| {
-        b.iter(|| get_composite_source())
-    });
+    c.bench_function("get_composite_source", |b| b.iter(get_composite_source));
     c.bench_function("get_composite_source_tile", |b| {
-        b.iter(|| get_composite_source_tile())
+        b.iter(get_composite_source_tile)
     });
 }
 
 fn function_source(c: &mut Criterion) {
-    c.bench_function("get_function_source", |b| b.iter(|| get_function_source()));
+    c.bench_function("get_function_source", |b| b.iter(get_function_source));
     c.bench_function("get_function_source_tile", |b| {
-        b.iter(|| get_function_source_tile())
+        b.iter(get_function_source_tile)
     });
 }
 
