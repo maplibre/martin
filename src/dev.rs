@@ -9,7 +9,7 @@ use tilejson::Bounds;
 
 use crate::coordinator_actor::CoordinatorActor;
 use crate::db::{setup_connection_pool, Pool};
-use crate::db_actor::DbActor;
+// use crate::db_actor::DbActor;
 use crate::function_source::{FunctionSource, FunctionSources};
 use crate::server::AppState;
 use crate::table_source::{TableSource, TableSources};
@@ -177,6 +177,7 @@ pub fn make_pool() -> Pool {
     pool
 }
 
+#[cfg(test)]
 pub fn mock_state(
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,

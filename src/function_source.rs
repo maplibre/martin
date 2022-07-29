@@ -103,10 +103,12 @@ impl Source for FunctionSource {
                 &raw_query,
                 &[Type::INT4, Type::INT4, Type::INT4, Type::JSON],
             )
+            .await
             .map_err(|e| prettify_error!(e, "Can't create prepared statement for the tile"))?;
 
         let tile = conn
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
+            .await
             .map(|row| row.get(self.function.as_str()))
             .map_err(|error| {
                 prettify_error!(
@@ -129,6 +131,7 @@ pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io
 
     let rows = conn
         .query(include_str!("scripts/get_function_sources.sql"), &[])
+        .await
         .map_err(|e| prettify_error!(e, "Can't get function sources"))?;
 
     for row in &rows {

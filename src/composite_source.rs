@@ -111,6 +111,7 @@ impl Source for CompositeSource {
 
         let tile: Tile = conn
             .query_one(tile_query.as_str(), &[])
+            .await
             .map(|row| row.get("tile"))
             .map_err(|e| prettify_error!(e, "Can't get composite source tile"))?;
 

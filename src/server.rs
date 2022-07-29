@@ -20,7 +20,7 @@ use crate::composite_source::CompositeSource;
 use crate::config::Config;
 use crate::coordinator_actor::CoordinatorActor;
 use crate::db::Pool;
-use crate::db_actor::DbActor;
+// use crate::db_actor::DbActor;
 use crate::function_source::FunctionSources;
 use crate::messages;
 use crate::source::{Query, Source, Xyz};
