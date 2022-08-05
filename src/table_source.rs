@@ -4,7 +4,7 @@ use std::io;
 use async_trait::async_trait;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use tilejson::{Bounds, tilejson, TileJSON};
+use tilejson::{tilejson, Bounds, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};

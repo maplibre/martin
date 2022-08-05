@@ -2,7 +2,7 @@ use std::io;
 
 use async_trait::async_trait;
 use itertools::Itertools;
-use tilejson::{Bounds, tilejson, TileJSON};
+use tilejson::{tilejson, Bounds, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};

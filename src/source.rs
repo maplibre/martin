@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
 
-use tilejson::TileJSON;
 use async_trait::async_trait;
+use tilejson::TileJSON;
 
 use crate::db::Connection;
 

@@ -10,8 +10,9 @@ fn init() {
 async fn test_get_function_sources_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let function_sources = get_function_sources(&mut connection).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let function_sources = get_function_sources(&mut connection).await.unwrap();
 
     log::info!("function_sources = {function_sources:#?}");
 
@@ -30,11 +31,12 @@ async fn test_get_function_sources_ok() {
 async fn test_function_source_tilejson_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let function_sources = get_function_sources(&mut connection).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let function_sources = get_function_sources(&mut connection).await.unwrap();
 
     let function_source = function_sources.get("public.function_source").unwrap();
-    let tilejson = function_source.get_tilejson().unwrap();
+    let tilejson = function_source.get_tilejson().await.unwrap();
 
     log::info!("tilejson = {tilejson:#?}");
 
@@ -52,12 +54,14 @@ async fn test_function_source_tilejson_ok() {
 async fn test_function_source_tile_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let function_sources = get_function_sources(&mut connection).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let function_sources = get_function_sources(&mut connection).await.unwrap();
 
     let function_source = function_sources.get("public.function_source").unwrap();
     let tile = function_source
         .get_tile(&mut connection, &Xyz { x: 0, y: 0, z: 0 }, &None)
+        .await
         .unwrap();
 
     assert!(!tile.is_empty());

@@ -12,8 +12,9 @@ fn init() {
 async fn test_get_table_sources_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
 
     log::info!("table_sources = {table_sources:#?}");
 
@@ -43,11 +44,12 @@ async fn test_get_table_sources_ok() {
 async fn test_table_source_tilejson_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
-    let tilejson = table_source.get_tilejson().unwrap();
+    let tilejson = table_source.get_tilejson().await.unwrap();
 
     log::info!("tilejson = {tilejson:#?}");
 
@@ -65,12 +67,14 @@ async fn test_table_source_tilejson_ok() {
 async fn test_table_source_tile_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
     let tile = table_source
         .get_tile(&mut connection, &Xyz { x: 0, y: 0, z: 0 }, &None)
+        .await
         .unwrap();
 
     assert!(!tile.is_empty());
@@ -80,8 +84,11 @@ async fn test_table_source_tile_ok() {
 async fn test_table_source_srid_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection, &Some(900913)).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let table_sources = get_table_sources(&mut connection, &Some(900913))
+        .await
+        .unwrap();
 
     assert!(table_sources.contains_key("public.points1"));
     let points1 = table_sources.get("public.points1").unwrap();
@@ -104,8 +111,9 @@ async fn test_table_source_srid_ok() {
 async fn test_table_source_multiple_geom_ok() {
     init();
 
-    let mut connection = dev::make_pool().get().unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).unwrap();
+    let pool = dev::make_pool().await;
+    let mut connection = pool.get().await.unwrap();
+    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
 
     assert!(table_sources.contains_key("public.table_source_multiple_geom"));
     let table_source_multiple_geom = table_sources

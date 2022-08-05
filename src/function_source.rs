@@ -6,7 +6,7 @@ use log::info;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
-use tilejson::{Bounds, tilejson, TileJSON};
+use tilejson::{tilejson, Bounds, TileJSON};
 
 use crate::db::Connection;
 use crate::source::{Query, Source, Tile, Xyz};
@@ -126,7 +126,9 @@ impl Source for FunctionSource {
     }
 }
 
-pub async fn get_function_sources<'a>(conn: &mut Connection<'a>) -> Result<FunctionSources, io::Error> {
+pub async fn get_function_sources<'a>(
+    conn: &mut Connection<'a>,
+) -> Result<FunctionSources, io::Error> {
     let mut sources = HashMap::new();
 
     let rows = conn

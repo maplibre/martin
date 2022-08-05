@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::env;
 use std::rc::Rc;
 
-use actix::{Actor, Addr, SyncArbiter};
+// use actix::{Actor, Addr, SyncArbiter};
 use log::info;
 use tilejson::Bounds;
 
@@ -171,32 +171,35 @@ pub async fn make_pool() -> Pool {
     let connection_string: String = env::var("DATABASE_URL").unwrap();
     info!("Connecting to {connection_string}");
 
-    let pool = setup_connection_pool(&connection_string, &None, Some(1), false).await.unwrap();
+    let pool = setup_connection_pool(&connection_string, &None, Some(1), false)
+        .await
+        .unwrap();
     info!("Connected to {connection_string}");
 
     pool
 }
 
-// pub fn mock_state(
-//     table_sources: Option<TableSources>,
-//     function_sources: Option<FunctionSources>,
-//     default_srid: Option<i32>,
-//     watch_mode: bool,
-// ) -> AppState {
-//     let pool = make_pool();
-//
-//     let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
-//     let coordinator: Addr<_> = CoordinatorActor::default().start();
-//
-//     let table_sources = Rc::new(RefCell::new(table_sources));
-//     let function_sources = Rc::new(RefCell::new(function_sources));
-//
-//     AppState {
-//         db,
-//         coordinator,
-//         table_sources,
-//         function_sources,
-//         default_srid,
-//         watch_mode,
-//     }
-// }
+pub async fn mock_state(
+    table_sources: Option<TableSources>,
+    function_sources: Option<FunctionSources>,
+    default_srid: Option<i32>,
+    watch_mode: bool,
+) -> AppState {
+    let pool = make_pool().await;
+
+    // let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
+    // let coordinator: Addr<_> = CoordinatorActor::default().start();
+
+    let table_sources = Rc::new(RefCell::new(table_sources));
+    let function_sources = Rc::new(RefCell::new(function_sources));
+
+    AppState {
+        // db,
+        // coordinator,
+        pool,
+        table_sources,
+        function_sources,
+        default_srid,
+        watch_mode,
+    }
+}

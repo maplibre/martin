@@ -1,11 +1,11 @@
 use std::io;
 use std::str::FromStr;
 
+use bb8::PooledConnection;
+use bb8_postgres::{tokio_postgres, PostgresConnectionManager};
 use log::{error, info};
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
-use bb8::PooledConnection;
-use bb8_postgres::{PostgresConnectionManager, tokio_postgres};
 use semver::Version;
 use semver::VersionReq;
 
@@ -60,7 +60,8 @@ pub async fn setup_connection_pool(
 pub async fn get_connection(pool: &Pool) -> io::Result<Connection<'_>> {
     let connection = pool
         .get()
-        .await.map_err(|e| prettify_error!(e, "Can't retrieve connection from the pool"))?;
+        .await
+        .map_err(|e| prettify_error!(e, "Can't retrieve connection from the pool"))?;
 
     Ok(connection)
 }
@@ -77,7 +78,10 @@ pub async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
     Ok(version)
 }
 
-pub async fn check_postgis_version(required_postgis_version: &str, pool: &Pool) -> io::Result<bool> {
+pub async fn check_postgis_version(
+    required_postgis_version: &str,
+    pool: &Pool,
+) -> io::Result<bool> {
     let postgis_version = select_postgis_version(pool).await?;
 
     let req = VersionReq::parse(required_postgis_version)

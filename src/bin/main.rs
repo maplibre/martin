@@ -52,7 +52,7 @@ pub struct Args {
     pub flag_danger_accept_invalid_certs: bool,
 }
 
-pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
+pub async fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
     let connection_string = args.arg_connection.clone().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::Other,
@@ -60,9 +60,9 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
         )
     })?;
 
-    let mut connection = get_connection(pool)?;
-    let table_sources = get_table_sources(&mut connection, &args.flag_default_srid)?;
-    let function_sources = get_function_sources(&mut connection)?;
+    let mut connection = get_connection(pool).await?;
+    let table_sources = get_table_sources(&mut connection, &args.flag_default_srid).await?;
+    let function_sources = get_function_sources(&mut connection).await?;
 
     let config = ConfigBuilder {
         connection_string,
@@ -139,8 +139,9 @@ async fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
     .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     info!("Scanning database");
-    let config =
-        generate_config(args, &pool).map_err(|e| prettify_error!(e, "Can't generate config"))?;
+    let config = generate_config(args, &pool)
+        .await
+        .map_err(|e| prettify_error!(e, "Can't generate config"))?;
 
     Ok((config, pool))
 }
@@ -183,11 +184,11 @@ async fn start(args: Args) -> io::Result<Server> {
     let (config, pool) = match args.flag_config {
         Some(config_file_name) => {
             info!("Using {config_file_name}");
-            setup_from_config(config_file_name)?
+            setup_from_config(config_file_name).await?
         }
         None => {
             info!("Config is not set");
-            setup_from_args(args)?
+            setup_from_args(args).await?
         }
     };
 

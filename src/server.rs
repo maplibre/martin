@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
-use actix::{Actor, Addr, SyncArbiter};
+// use actix::{Actor, Addr, SyncArbiter};
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::Uri;
@@ -22,8 +22,9 @@ use crate::config::Config;
 use crate::db::{get_connection, Pool};
 // use crate::db_actor::DbActor;
 use crate::function_source::FunctionSources;
-use crate::{messages, table_source};
+// use crate::messages;
 use crate::source::{Query, Source, Xyz};
+use crate::table_source;
 use crate::table_source::{TableSource, TableSources};
 use crate::utils::parse_x_rewrite_url;
 // use crate::worker_actor::WorkerActor;
@@ -186,7 +187,7 @@ async fn get_composite_source_tile(
         table_sources: sources,
     };
 
-    get_tile(&state.db, path.z, path.x, path.y, None, Box::new(source)).await
+    get_tile(&state, path.z, path.x, path.y, None, Box::new(source)).await
 }
 
 async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
@@ -275,7 +276,7 @@ async fn get_function_source_tile(
         })?;
 
     get_tile(
-        &state.db,
+        &state,
         path.z,
         path.x,
         path.y,
@@ -294,7 +295,7 @@ fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
 }
 
 async fn get_tile(
-    db: &Addr<DbActor>,
+    state: &web::Data<AppState>,
     z: i32,
     x: i32,
     y: i32,
@@ -303,27 +304,7 @@ async fn get_tile(
 ) -> Result<HttpResponse, Error> {
     let mut connection = get_connection(&state.pool).await?;
     let tile = source
-        .get_tile(&mut connection, &xyz, &None)
-        .await
-        .map_err(map_internal_error)?;
-
-    match tile.len() {
-        0 => Ok(HttpResponse::NoContent()
-            .content_type("application/x-protobuf")
-            .body(tile)),
-        _ => Ok(HttpResponse::Ok()
-            .content_type("application/x-protobuf")
-            .body(tile)),
-    }
-
-    let message = messages::GetTile {
-        xyz: Xyz { z, x, y },
-        query,
-        source,
-    };
-
-    let tile = db
-        .send(message)
+        .get_tile(&mut connection, &Xyz { z, x, y }, &query)
         .await
         .map_err(map_internal_error)?;
 
@@ -362,10 +343,10 @@ fn create_state(
     let table_sources = Rc::new(RefCell::new(config.table_sources));
     let function_sources = Rc::new(RefCell::new(config.function_sources));
 
-    let worker_actor = WorkerActor {
-        table_sources: table_sources.clone(),
-        function_sources: function_sources.clone(),
-    };
+    // let worker_actor = WorkerActor {
+    //     table_sources: table_sources.clone(),
+    //     function_sources: function_sources.clone(),
+    // };
 
     // let worker: Addr<_> = worker_actor.start();
     // coordinator.do_send(messages::Connect { addr: worker });
@@ -393,7 +374,9 @@ pub fn new(pool: Pool, config: Config) -> Server {
         let state = create_state(
             // db.clone(),
             // coordinator.clone(),
-            config.clone());
+            pool.clone(),
+            config.clone(),
+        );
 
         let cors_middleware = Cors::default()
             .allow_any_origin()
@@ -407,10 +390,10 @@ pub fn new(pool: Pool, config: Config) -> Server {
             .wrap(middleware::Compress::default())
             .configure(router)
     })
-        .bind(listen_addresses.clone())
-        .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
-        .keep_alive(Duration::from_secs(keep_alive as u64))
-        .shutdown_timeout(0)
-        .workers(worker_processes)
-        .run()
+    .bind(listen_addresses.clone())
+    .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
+    .keep_alive(Duration::from_secs(keep_alive as u64))
+    .shutdown_timeout(0)
+    .workers(worker_processes)
+    .run()
 }
