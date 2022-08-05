@@ -6,8 +6,7 @@ use bb8_postgres::{tokio_postgres, PostgresConnectionManager};
 use log::{error, info};
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
-use semver::Version;
-use semver::VersionReq;
+use semver::{Version, VersionReq};
 
 use crate::utils::prettify_error;
 

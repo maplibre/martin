@@ -1,6 +1,6 @@
-use actix_http::header::HeaderValue;
 use std::collections::HashMap;
 
+use actix_http::header::HeaderValue;
 use actix_web::http;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;

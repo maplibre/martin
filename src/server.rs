@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::time::Duration;
 
-// use actix::{Actor, Addr, SyncArbiter};
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::Uri;
@@ -14,24 +14,17 @@ use actix_web::{
 };
 use log::{error, info};
 use serde::Deserialize;
-use std::time::Duration;
 
 use crate::composite_source::CompositeSource;
 use crate::config::Config;
-// use crate::coordinator_actor::CoordinatorActor;
 use crate::db::{get_connection, Pool};
-// use crate::db_actor::DbActor;
 use crate::function_source::FunctionSources;
-// use crate::messages;
 use crate::source::{Query, Source, Xyz};
 use crate::table_source;
 use crate::table_source::{TableSource, TableSources};
 use crate::utils::parse_x_rewrite_url;
-// use crate::worker_actor::WorkerActor;
 
 pub struct AppState {
-    // pub db: Addr<DbActor>,
-    // pub coordinator: Addr<CoordinatorActor>,
     pub pool: Pool,
     pub table_sources: Rc<RefCell<Option<TableSources>>>,
     pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
@@ -334,26 +327,11 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         );
 }
 
-fn create_state(
-    // db: Addr<DbActor>,
-    // coordinator: Addr<CoordinatorActor>,
-    pool: Pool,
-    config: Config,
-) -> AppState {
+fn create_state(pool: Pool, config: Config) -> AppState {
     let table_sources = Rc::new(RefCell::new(config.table_sources));
     let function_sources = Rc::new(RefCell::new(config.function_sources));
 
-    // let worker_actor = WorkerActor {
-    //     table_sources: table_sources.clone(),
-    //     function_sources: function_sources.clone(),
-    // };
-
-    // let worker: Addr<_> = worker_actor.start();
-    // coordinator.do_send(messages::Connect { addr: worker });
-
     AppState {
-        // db,
-        // coordinator,
         pool,
         table_sources,
         function_sources,
@@ -363,20 +341,12 @@ fn create_state(
 }
 
 pub fn new(pool: Pool, config: Config) -> Server {
-    // let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
-    // let coordinator: Addr<_> = CoordinatorActor::default().start();
-
     let keep_alive = config.keep_alive;
     let worker_processes = config.worker_processes;
     let listen_addresses = config.listen_addresses.clone();
 
     HttpServer::new(move || {
-        let state = create_state(
-            // db.clone(),
-            // coordinator.clone(),
-            pool.clone(),
-            config.clone(),
-        );
+        let state = create_state(pool.clone(), config.clone());
 
         let cors_middleware = Cors::default()
             .allow_any_origin()

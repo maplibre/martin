@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use criterion::Criterion;
-use criterion::{criterion_group, criterion_main};
-
+use criterion::{criterion_group, criterion_main, Criterion};
 use martin::composite_source::CompositeSource;
 use martin::dev::make_pool;
 use martin::function_source::FunctionSource;
@@ -45,13 +43,13 @@ async fn get_table_source() {
 }
 
 async fn get_table_source_tile() {
-    let pool = make_pool();
-    let mut connection = pool.get().unwrap();
+    let pool = make_pool().await;
+    let mut connection = pool.get().await.unwrap();
 
     let source = mock_table_source("public", "table_source");
     let xyz = Xyz { z: 0, x: 0, y: 0 };
 
-    let _tile = source.get_tile(&mut connection, &xyz, &None).unwrap();
+    let _tile = source.get_tile(&mut connection, &xyz, &None).await.unwrap();
 }
 
 async fn get_composite_source() {
@@ -67,8 +65,8 @@ async fn get_composite_source() {
 }
 
 async fn get_composite_source_tile() {
-    let pool = make_pool();
-    let mut connection = pool.get().unwrap();
+    let pool = make_pool().await;
+    let mut connection = pool.get().await.unwrap();
 
     let points1 = mock_table_source("public", "points1");
     let points2 = mock_table_source("public", "points2");
@@ -79,7 +77,7 @@ async fn get_composite_source_tile() {
     };
 
     let xyz = Xyz { z: 0, x: 0, y: 0 };
-    let _tile = source.get_tile(&mut connection, &xyz, &None).unwrap();
+    let _tile = source.get_tile(&mut connection, &xyz, &None).await.unwrap();
 }
 
 async fn get_function_source() {
@@ -88,13 +86,13 @@ async fn get_function_source() {
 }
 
 async fn get_function_source_tile() {
-    let pool = make_pool();
-    let mut connection = pool.get().unwrap();
+    let pool = make_pool().await;
+    let mut connection = pool.get().await.unwrap();
 
     let source = mock_function_source("public", "function_source");
     let xyz = Xyz { z: 0, x: 0, y: 0 };
 
-    let _tile = source.get_tile(&mut connection, &xyz, &None).unwrap();
+    let _tile = source.get_tile(&mut connection, &xyz, &None).await.unwrap();
 }
 
 fn table_source(c: &mut Criterion) {

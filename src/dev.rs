@@ -3,13 +3,10 @@ use std::collections::HashMap;
 use std::env;
 use std::rc::Rc;
 
-// use actix::{Actor, Addr, SyncArbiter};
 use log::info;
 use tilejson::Bounds;
 
-// use crate::coordinator_actor::CoordinatorActor;
 use crate::db::{setup_connection_pool, Pool};
-// use crate::db_actor::DbActor;
 use crate::function_source::{FunctionSource, FunctionSources};
 use crate::server::AppState;
 use crate::table_source::{TableSource, TableSources};
@@ -187,15 +184,10 @@ pub async fn mock_state(
 ) -> AppState {
     let pool = make_pool().await;
 
-    // let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
-    // let coordinator: Addr<_> = CoordinatorActor::default().start();
-
     let table_sources = Rc::new(RefCell::new(table_sources));
     let function_sources = Rc::new(RefCell::new(function_sources));
 
     AppState {
-        // db,
-        // coordinator,
         pool,
         table_sources,
         function_sources,

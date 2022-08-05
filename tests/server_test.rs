@@ -2,12 +2,11 @@ use std::collections::HashMap;
 
 use actix_web::web::Data;
 use actix_web::{http, test, App};
-use tilejson::{Bounds, TileJSON};
-
 use martin::dev;
 use martin::function_source::{FunctionSource, FunctionSources};
 use martin::server::router;
 use martin::table_source::{TableSource, TableSources};
+use tilejson::{Bounds, TileJSON};
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -17,7 +16,7 @@ fn init() {
 async fn test_get_table_sources_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false).await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/index.json").to_request();
@@ -33,7 +32,7 @@ async fn test_get_table_sources_ok() {
 async fn test_get_table_sources_watch_mode_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, true);
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, true).await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/index.json").to_request();
@@ -71,7 +70,8 @@ async fn test_get_table_source_ok() {
         None,
         None,
         false,
-    );
+    )
+    .await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -105,7 +105,7 @@ async fn test_get_table_source_ok() {
 async fn test_get_table_source_tile_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false).await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -127,7 +127,7 @@ async fn test_get_table_source_tile_ok() {
 async fn test_get_table_source_multiple_geom_tile_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false).await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -227,7 +227,8 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         None,
         None,
         false,
-    );
+    )
+    .await;
 
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
@@ -332,7 +333,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
 async fn test_get_composite_source_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false).await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -354,7 +355,7 @@ async fn test_get_composite_source_ok() {
 async fn test_get_composite_source_tile_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false);
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None, false).await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -418,7 +419,8 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         None,
         None,
         false,
-    );
+    )
+    .await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     // zoom = 0 (nothing)
@@ -487,7 +489,8 @@ async fn test_get_function_sources_ok() {
         Some(dev::mock_default_function_sources()),
         None,
         false,
-    );
+    )
+    .await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
@@ -503,7 +506,7 @@ async fn test_get_function_sources_ok() {
 async fn test_get_function_sources_watch_mode_ok() {
     init();
 
-    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None, true);
+    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None, true).await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
@@ -524,7 +527,8 @@ async fn test_get_function_source_ok() {
         Some(dev::mock_default_function_sources()),
         None,
         false,
-    );
+    )
+    .await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -566,7 +570,8 @@ async fn test_get_function_source_tile_ok() {
         Some(dev::mock_default_function_sources()),
         None,
         false,
-    );
+    )
+    .await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -607,7 +612,8 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         ])),
         None,
         false,
-    );
+    )
+    .await;
 
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
@@ -685,7 +691,8 @@ async fn test_get_function_source_query_params_ok() {
         Some(dev::mock_default_function_sources()),
         None,
         false,
-    );
+    )
+    .await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
@@ -713,7 +720,8 @@ async fn test_get_health_returns_ok() {
         Some(dev::mock_default_function_sources()),
         None,
         false,
-    );
+    )
+    .await;
     let mut app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/healthz").to_request();
