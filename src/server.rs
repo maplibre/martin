@@ -19,7 +19,7 @@ use crate::db::Pool;
 use crate::db_actor::DbActor;
 use crate::function_source::FunctionSources;
 use crate::messages;
-use crate::source::{Source, Xyz};
+use crate::source::{Query, Source, Xyz};
 use crate::table_source::{TableSource, TableSources};
 use crate::utils::parse_x_rewrite_url;
 use crate::worker_actor::WorkerActor;
@@ -171,17 +171,7 @@ async fn get_composite_source_tile(
         .split(',')
         .filter_map(|source_id| table_sources.get(source_id))
         .map(|source| source.deref().clone())
-        .filter(|source| {
-            let gte_minzoom = source
-                .minzoom
-                .map_or(true, |minzoom| path.z >= minzoom.into());
-
-            let lte_maxzoom = source
-                .maxzoom
-                .map_or(true, |maxzoom| path.z <= maxzoom.into());
-
-            gte_minzoom && lte_maxzoom
-        })
+        .filter(|src| is_valid_zoom(path.z, src.minzoom, src.maxzoom))
         .collect();
 
     if sources.is_empty() {
@@ -193,33 +183,7 @@ async fn get_composite_source_tile(
         table_sources: sources,
     };
 
-    let xyz = Xyz {
-        z: path.z,
-        x: path.x,
-        y: path.y,
-    };
-
-    let message = messages::GetTile {
-        xyz,
-        query: None,
-        source: Box::new(source),
-    };
-
-    let tile = state
-        .db
-        .send(message)
-        .await
-        .map_err(map_internal_error)?
-        .map_err(map_internal_error)?;
-
-    match tile.len() {
-        0 => Ok(HttpResponse::NoContent()
-            .content_type("application/x-protobuf")
-            .body(tile)),
-        _ => Ok(HttpResponse::Ok()
-            .content_type("application/x-protobuf")
-            .body(tile)),
-    }
+    get_tile(&state.db, path.z, path.x, path.y, None, Box::new(source)).await
 }
 
 async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
@@ -303,35 +267,45 @@ async fn get_function_source_tile(
 
     let source = function_sources
         .get(&path.source_id)
-        .filter(|source| {
-            let gte_minzoom = source
-                .minzoom
-                .map_or(true, |minzoom| path.z >= minzoom.into());
-
-            let lte_maxzoom = source
-                .maxzoom
-                .map_or(true, |maxzoom| path.z <= maxzoom.into());
-
-            gte_minzoom && lte_maxzoom
-        })
+        .filter(|src| is_valid_zoom(path.z, src.minzoom, src.maxzoom))
         .ok_or_else(|| {
             error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
         })?;
 
-    let xyz = Xyz {
-        z: path.z,
-        x: path.x,
-        y: path.y,
-    };
+    get_tile(
+        &state.db,
+        path.z,
+        path.x,
+        path.y,
+        Some(query.into_inner()),
+        source.clone(),
+    )
+    .await
+}
 
+fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
+    let gte_minzoom = minzoom.map_or(true, |minzoom| zoom >= minzoom.into());
+
+    let lte_maxzoom = maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into());
+
+    gte_minzoom && lte_maxzoom
+}
+
+async fn get_tile(
+    db: &Addr<DbActor>,
+    z: i32,
+    x: i32,
+    y: i32,
+    query: Option<Query>,
+    source: Box<dyn Source + Send>,
+) -> Result<HttpResponse, Error> {
     let message = messages::GetTile {
-        xyz,
-        query: Some(query.into_inner()),
-        source: source.clone(),
+        xyz: Xyz { z, x, y },
+        query,
+        source,
     };
 
-    let tile = state
-        .db
+    let tile = db
         .send(message)
         .await
         .map_err(map_internal_error)?
