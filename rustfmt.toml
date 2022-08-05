@@ -1,0 +1,4 @@
+## These should be enabled in the future, but for now its a manual step to simplify usage.
+## Use cargo nightly for these:    cargo +nightly fmt
+#imports_granularity = "Module"
+#group_imports = "StdExternalCrate"
