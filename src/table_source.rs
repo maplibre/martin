@@ -167,7 +167,6 @@ impl Source for TableSource {
             .query_one(tile_query.as_str(), &[])
             .await
             .map(|row| row.get("st_asmvt"))
-            .await
             .map_err(|error| {
                 utils::prettify_error!(
                     error,

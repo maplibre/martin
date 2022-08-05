@@ -7,7 +7,7 @@ use actix::{Actor, Addr, SyncArbiter};
 use log::info;
 use tilejson::Bounds;
 
-use crate::coordinator_actor::CoordinatorActor;
+// use crate::coordinator_actor::CoordinatorActor;
 use crate::db::{setup_connection_pool, Pool};
 // use crate::db_actor::DbActor;
 use crate::function_source::{FunctionSource, FunctionSources};
@@ -167,37 +167,36 @@ pub fn mock_default_function_sources() -> FunctionSources {
     mock_function_sources(vec![function_source, function_source_query_params])
 }
 
-pub fn make_pool() -> Pool {
+pub async fn make_pool() -> Pool {
     let connection_string: String = env::var("DATABASE_URL").unwrap();
     info!("Connecting to {connection_string}");
 
-    let pool = setup_connection_pool(&connection_string, &None, Some(1), false).unwrap();
+    let pool = setup_connection_pool(&connection_string, &None, Some(1), false).await.unwrap();
     info!("Connected to {connection_string}");
 
     pool
 }
 
-#[cfg(test)]
-pub fn mock_state(
-    table_sources: Option<TableSources>,
-    function_sources: Option<FunctionSources>,
-    default_srid: Option<i32>,
-    watch_mode: bool,
-) -> AppState {
-    let pool = make_pool();
-
-    let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
-    let coordinator: Addr<_> = CoordinatorActor::default().start();
-
-    let table_sources = Rc::new(RefCell::new(table_sources));
-    let function_sources = Rc::new(RefCell::new(function_sources));
-
-    AppState {
-        db,
-        coordinator,
-        table_sources,
-        function_sources,
-        default_srid,
-        watch_mode,
-    }
-}
+// pub fn mock_state(
+//     table_sources: Option<TableSources>,
+//     function_sources: Option<FunctionSources>,
+//     default_srid: Option<i32>,
+//     watch_mode: bool,
+// ) -> AppState {
+//     let pool = make_pool();
+//
+//     let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
+//     let coordinator: Addr<_> = CoordinatorActor::default().start();
+//
+//     let table_sources = Rc::new(RefCell::new(table_sources));
+//     let function_sources = Rc::new(RefCell::new(function_sources));
+//
+//     AppState {
+//         db,
+//         coordinator,
+//         table_sources,
+//         function_sources,
+//         default_srid,
+//         watch_mode,
+//     }
+// }

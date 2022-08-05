@@ -126,7 +126,7 @@ impl Source for FunctionSource {
     }
 }
 
-pub fn get_function_sources(conn: &mut Connection) -> Result<FunctionSources, io::Error> {
+pub async fn get_function_sources<'a>(conn: &mut Connection<'a>) -> Result<FunctionSources, io::Error> {
     let mut sources = HashMap::new();
 
     let rows = conn

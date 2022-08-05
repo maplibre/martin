@@ -48,7 +48,7 @@ pub async fn setup_connection_pool(
 
     let manager = PostgresConnectionManager::new(config, tls_connector);
 
-    let pool = bb8::Pool::builder()
+    let pool = Pool::builder()
         .max_size(pool_size.unwrap_or(20))
         .build(manager)
         .await
@@ -66,7 +66,7 @@ pub async fn get_connection(pool: &Pool) -> io::Result<Connection<'_>> {
 }
 
 pub async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
-    let mut connection = get_connection(pool).await?;
+    let connection = get_connection(pool).await?;
 
     let version = connection
         .query_one(include_str!("scripts/get_postgis_version.sql"), &[])

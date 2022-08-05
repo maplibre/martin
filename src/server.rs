@@ -18,19 +18,20 @@ use std::time::Duration;
 
 use crate::composite_source::CompositeSource;
 use crate::config::Config;
-use crate::coordinator_actor::CoordinatorActor;
-use crate::db::Pool;
+// use crate::coordinator_actor::CoordinatorActor;
+use crate::db::{get_connection, Pool};
 // use crate::db_actor::DbActor;
 use crate::function_source::FunctionSources;
-use crate::messages;
+use crate::{messages, table_source};
 use crate::source::{Query, Source, Xyz};
 use crate::table_source::{TableSource, TableSources};
 use crate::utils::parse_x_rewrite_url;
-use crate::worker_actor::WorkerActor;
+// use crate::worker_actor::WorkerActor;
 
 pub struct AppState {
-    pub db: Addr<DbActor>,
-    pub coordinator: Addr<CoordinatorActor>,
+    // pub db: Addr<DbActor>,
+    // pub coordinator: Addr<CoordinatorActor>,
+    pub pool: Pool,
     pub table_sources: Rc<RefCell<Option<TableSources>>>,
     pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
     pub watch_mode: bool,
@@ -87,18 +88,15 @@ async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, E
 
     info!("Scanning database for table sources");
 
-    let table_sources = state
-        .db
-        .send(messages::GetTableSources {
-            default_srid: state.default_srid,
-        })
+    let mut connection = get_connection(&state.pool).await?;
+
+    let table_sources = table_source::get_table_sources(&mut connection, &state.default_srid)
         .await
-        .map_err(map_internal_error)?
         .map_err(map_internal_error)?;
 
-    state.coordinator.do_send(messages::RefreshTableSources {
-        table_sources: Some(table_sources.clone()),
-    });
+    // state.coordinator.do_send(messages::RefreshTableSources {
+    //     table_sources: Some(table_sources.clone()),
+    // });
 
     Ok(HttpResponse::Ok().json(table_sources))
 }
@@ -200,16 +198,14 @@ async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse
 
     info!("Scanning database for function sources");
 
-    let function_sources = state
-        .db
-        .send(messages::GetFunctionSources {})
+    let mut connection = get_connection(&state.pool).await?;
+    let function_sources = crate::function_source::get_function_sources(&mut connection)
         .await
-        .map_err(map_internal_error)?
         .map_err(map_internal_error)?;
 
-    state.coordinator.do_send(messages::RefreshFunctionSources {
-        function_sources: Some(function_sources.clone()),
-    });
+    // state.coordinator.do_send(messages::RefreshFunctionSources {
+    //     function_sources: Some(function_sources.clone()),
+    // });
 
     Ok(HttpResponse::Ok().json(function_sources))
 }
@@ -305,6 +301,21 @@ async fn get_tile(
     query: Option<Query>,
     source: Box<dyn Source + Send>,
 ) -> Result<HttpResponse, Error> {
+    let mut connection = get_connection(&state.pool).await?;
+    let tile = source
+        .get_tile(&mut connection, &xyz, &None)
+        .await
+        .map_err(map_internal_error)?;
+
+    match tile.len() {
+        0 => Ok(HttpResponse::NoContent()
+            .content_type("application/x-protobuf")
+            .body(tile)),
+        _ => Ok(HttpResponse::Ok()
+            .content_type("application/x-protobuf")
+            .body(tile)),
+    }
+
     let message = messages::GetTile {
         xyz: Xyz { z, x, y },
         query,
@@ -314,7 +325,6 @@ async fn get_tile(
     let tile = db
         .send(message)
         .await
-        .map_err(map_internal_error)?
         .map_err(map_internal_error)?;
 
     match tile.len() {
@@ -344,8 +354,9 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 fn create_state(
-    db: Addr<DbActor>,
-    coordinator: Addr<CoordinatorActor>,
+    // db: Addr<DbActor>,
+    // coordinator: Addr<CoordinatorActor>,
+    pool: Pool,
     config: Config,
 ) -> AppState {
     let table_sources = Rc::new(RefCell::new(config.table_sources));
@@ -356,12 +367,13 @@ fn create_state(
         function_sources: function_sources.clone(),
     };
 
-    let worker: Addr<_> = worker_actor.start();
-    coordinator.do_send(messages::Connect { addr: worker });
+    // let worker: Addr<_> = worker_actor.start();
+    // coordinator.do_send(messages::Connect { addr: worker });
 
     AppState {
-        db,
-        coordinator,
+        // db,
+        // coordinator,
+        pool,
         table_sources,
         function_sources,
         watch_mode: config.watch,
@@ -370,15 +382,18 @@ fn create_state(
 }
 
 pub fn new(pool: Pool, config: Config) -> Server {
-    let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
-    let coordinator: Addr<_> = CoordinatorActor::default().start();
+    // let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
+    // let coordinator: Addr<_> = CoordinatorActor::default().start();
 
     let keep_alive = config.keep_alive;
     let worker_processes = config.worker_processes;
     let listen_addresses = config.listen_addresses.clone();
 
     HttpServer::new(move || {
-        let state = create_state(db.clone(), coordinator.clone(), config.clone());
+        let state = create_state(
+            // db.clone(),
+            // coordinator.clone(),
+            config.clone());
 
         let cors_middleware = Cors::default()
             .allow_any_origin()
@@ -392,10 +407,10 @@ pub fn new(pool: Pool, config: Config) -> Server {
             .wrap(middleware::Compress::default())
             .configure(router)
     })
-    .bind(listen_addresses.clone())
-    .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
-    .keep_alive(Duration::from_secs(keep_alive as u64))
-    .shutdown_timeout(0)
-    .workers(worker_processes)
-    .run()
+        .bind(listen_addresses.clone())
+        .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
+        .keep_alive(Duration::from_secs(keep_alive as u64))
+        .shutdown_timeout(0)
+        .workers(worker_processes)
+        .run()
 }

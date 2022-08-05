@@ -7,35 +7,35 @@ use crate::function_source::FunctionSources;
 use crate::messages;
 use crate::table_source::TableSources;
 
-pub struct WorkerActor {
-    pub table_sources: Rc<RefCell<Option<TableSources>>>,
-    pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
-}
+// pub struct WorkerActor {
+//     pub table_sources: Rc<RefCell<Option<TableSources>>>,
+//     pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
+// }
 
-impl Actor for WorkerActor {
-    type Context = Context<Self>;
-}
-
-impl Handler<messages::RefreshTableSources> for WorkerActor {
-    type Result = ();
-
-    fn handle(
-        &mut self,
-        msg: messages::RefreshTableSources,
-        _: &mut Context<Self>,
-    ) -> Self::Result {
-        *self.table_sources.borrow_mut() = msg.table_sources;
-    }
-}
-
-impl Handler<messages::RefreshFunctionSources> for WorkerActor {
-    type Result = ();
-
-    fn handle(
-        &mut self,
-        msg: messages::RefreshFunctionSources,
-        _: &mut Context<Self>,
-    ) -> Self::Result {
-        *self.function_sources.borrow_mut() = msg.function_sources;
-    }
-}
+// impl Actor for WorkerActor {
+//     type Context = Context<Self>;
+// }
+//
+// impl Handler<messages::RefreshTableSources> for WorkerActor {
+//     type Result = ();
+//
+//     fn handle(
+//         &mut self,
+//         msg: messages::RefreshTableSources,
+//         _: &mut Context<Self>,
+//     ) -> Self::Result {
+//         *self.table_sources.borrow_mut() = msg.table_sources;
+//     }
+// }
+//
+// impl Handler<messages::RefreshFunctionSources> for WorkerActor {
+//     type Result = ();
+//
+//     fn handle(
+//         &mut self,
+//         msg: messages::RefreshFunctionSources,
+//         _: &mut Context<Self>,
+//     ) -> Self::Result {
+//         *self.function_sources.borrow_mut() = msg.function_sources;
+//     }
+// }

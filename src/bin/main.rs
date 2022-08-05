@@ -82,7 +82,7 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
     Ok(config)
 }
 
-fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
+async fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     let config = read_config(&file_name).map_err(|e| prettify_error!(e, "Can't read config"))?;
 
     let pool = setup_connection_pool(
@@ -91,6 +91,7 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
         Some(config.pool_size),
         config.danger_accept_invalid_certs,
     )
+    .await
     .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     if let Some(table_sources) = &config.table_sources {
@@ -119,7 +120,7 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     Ok((config, pool))
 }
 
-fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
+async fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
     let connection_string = args.arg_connection.clone().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::Other,
@@ -134,6 +135,7 @@ fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
         args.flag_pool_size,
         args.flag_danger_accept_invalid_certs,
     )
+    .await
     .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     info!("Scanning database");
@@ -175,7 +177,7 @@ fn parse_env(args: Args) -> Args {
     }
 }
 
-fn start(args: Args) -> io::Result<Server> {
+async fn start(args: Args) -> io::Result<Server> {
     info!("Starting martin v{VERSION}");
 
     let (config, pool) = match args.flag_config {
@@ -190,6 +192,7 @@ fn start(args: Args) -> io::Result<Server> {
     };
 
     let matches = check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool)
+        .await
         .map_err(|e| prettify_error!(e, "Can't check PostGIS version"))?;
 
     if !matches {
@@ -232,7 +235,7 @@ async fn main() -> io::Result<()> {
         info!("Watch mode enabled");
     }
 
-    match start(args) {
+    match start(args).await {
         Ok(server) => server.await,
         Err(error) => {
             error!("{error}");
