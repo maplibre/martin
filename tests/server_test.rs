@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use actix_web::{http, test, App};
-use tilejson::{Bounds, TileJSON};
-
 use martin::dev;
 use martin::function_source::{FunctionSource, FunctionSources};
 use martin::server::router;
 use martin::table_source::{TableSource, TableSources};
+use tilejson::{Bounds, TileJSON};
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();

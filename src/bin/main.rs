@@ -2,13 +2,12 @@ use std::{env, io};
 
 use docopt::Docopt;
 use log::{error, info, warn};
-use serde::Deserialize;
-
 use martin::config::{read_config, Config, ConfigBuilder};
 use martin::db::{check_postgis_version, get_connection, setup_connection_pool, Pool};
 use martin::function_source::get_function_sources;
 use martin::table_source::get_table_sources;
 use martin::{prettify_error, server};
+use serde::Deserialize;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";

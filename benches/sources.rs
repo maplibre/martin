@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use criterion::Criterion;
-use criterion::{criterion_group, criterion_main};
-
+use criterion::{criterion_group, criterion_main, Criterion};
 use martin::composite_source::CompositeSource;
 use martin::dev::make_pool;
 use martin::function_source::FunctionSource;

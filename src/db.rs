@@ -6,8 +6,7 @@ use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use r2d2::PooledConnection;
 use r2d2_postgres::PostgresConnectionManager;
-use semver::Version;
-use semver::VersionReq;
+use semver::{Version, VersionReq};
 
 use crate::utils::prettify_error;
 
