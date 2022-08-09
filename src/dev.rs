@@ -1,7 +1,5 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;
-use std::rc::Rc;
 
 use log::info;
 use tilejson::Bounds;
@@ -183,9 +181,6 @@ pub async fn mock_state(
     watch_mode: bool,
 ) -> AppState {
     let pool = make_pool().await;
-
-    let table_sources = Rc::new(RefCell::new(table_sources));
-    let function_sources = Rc::new(RefCell::new(function_sources));
 
     AppState {
         pool,

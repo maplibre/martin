@@ -1,14 +1,11 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::time::Duration;
 
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
-use actix_web::web::Data;
 use actix_web::{
     error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
@@ -26,8 +23,8 @@ use crate::utils::parse_x_rewrite_url;
 
 pub struct AppState {
     pub pool: Pool,
-    pub table_sources: Rc<RefCell<Option<TableSources>>>,
-    pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
+    pub table_sources: Option<TableSources>,
+    pub function_sources: Option<FunctionSources>,
     pub watch_mode: bool,
     pub default_srid: Option<i32>,
 }
@@ -75,8 +72,7 @@ async fn get_health() -> Result<HttpResponse, Error> {
 
 async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     if !state.watch_mode {
-        let table_sources = state.table_sources.borrow().clone();
-        let response = HttpResponse::Ok().json(table_sources);
+        let response = HttpResponse::Ok().json(state.table_sources.as_ref());
         return Ok(response);
     }
 
@@ -102,8 +98,7 @@ async fn get_composite_source(
 ) -> Result<HttpResponse> {
     let table_sources = state
         .table_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let sources: Vec<TableSource> = path
@@ -159,8 +154,7 @@ async fn get_composite_source_tile(
 ) -> Result<HttpResponse, Error> {
     let table_sources = state
         .table_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let sources: Vec<TableSource> = path
@@ -185,7 +179,7 @@ async fn get_composite_source_tile(
 
 async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     if !state.watch_mode {
-        let function_sources = state.function_sources.borrow().clone();
+        let function_sources = state.function_sources.as_ref();
         let response = HttpResponse::Ok().json(function_sources);
         return Ok(response);
     }
@@ -211,8 +205,7 @@ async fn get_function_source(
 ) -> Result<HttpResponse> {
     let function_sources = state
         .function_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
     let source = function_sources.get(&path.source_id).ok_or_else(|| {
@@ -257,8 +250,7 @@ async fn get_function_source_tile(
 ) -> Result<HttpResponse, Error> {
     let function_sources = state
         .function_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
     let source = function_sources
@@ -328,13 +320,10 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 fn create_state(pool: Pool, config: Config) -> AppState {
-    let table_sources = Rc::new(RefCell::new(config.table_sources));
-    let function_sources = Rc::new(RefCell::new(config.function_sources));
-
     AppState {
         pool,
-        table_sources,
-        function_sources,
+        table_sources: config.table_sources,
+        function_sources: config.function_sources,
         watch_mode: config.watch,
         default_srid: config.default_srid,
     }
@@ -353,7 +342,7 @@ pub fn new(pool: Pool, config: Config) -> Server {
             .allowed_methods(vec!["GET"]);
 
         App::new()
-            .app_data(Data::new(state))
+            .app_data(web::Data::new(state))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
