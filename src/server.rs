@@ -9,7 +9,7 @@ use actix_web::http::Uri;
 use actix_web::{
     error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
-use log::{error, info};
+use log::error;
 use serde::Deserialize;
 
 use crate::composite_source::CompositeSource;
@@ -29,7 +29,6 @@ pub struct AppState {
     pub coordinator: Addr<CoordinatorActor>,
     pub table_sources: Rc<RefCell<Option<TableSources>>>,
     pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
-    pub watch_mode: bool,
     pub default_srid: Option<i32>,
 }
 
@@ -75,27 +74,7 @@ async fn get_health() -> Result<HttpResponse, Error> {
 }
 
 async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    if !state.watch_mode {
-        let table_sources = state.table_sources.borrow().clone();
-        let response = HttpResponse::Ok().json(table_sources);
-        return Ok(response);
-    }
-
-    info!("Scanning database for table sources");
-
-    let table_sources = state
-        .db
-        .send(messages::GetTableSources {
-            default_srid: state.default_srid,
-        })
-        .await
-        .map_err(map_internal_error)?
-        .map_err(map_internal_error)?;
-
-    state.coordinator.do_send(messages::RefreshTableSources {
-        table_sources: Some(table_sources.clone()),
-    });
-
+    let table_sources = state.table_sources.borrow().clone();
     Ok(HttpResponse::Ok().json(table_sources))
 }
 
@@ -187,25 +166,7 @@ async fn get_composite_source_tile(
 }
 
 async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    if !state.watch_mode {
-        let function_sources = state.function_sources.borrow().clone();
-        let response = HttpResponse::Ok().json(function_sources);
-        return Ok(response);
-    }
-
-    info!("Scanning database for function sources");
-
-    let function_sources = state
-        .db
-        .send(messages::GetFunctionSources {})
-        .await
-        .map_err(map_internal_error)?
-        .map_err(map_internal_error)?;
-
-    state.coordinator.do_send(messages::RefreshFunctionSources {
-        function_sources: Some(function_sources.clone()),
-    });
-
+    let function_sources = state.function_sources.borrow().clone();
     Ok(HttpResponse::Ok().json(function_sources))
 }
 
@@ -358,7 +319,6 @@ fn create_state(
         coordinator,
         table_sources,
         function_sources,
-        watch_mode: config.watch,
         default_srid: config.default_srid,
     }
 }
