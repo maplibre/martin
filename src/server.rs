@@ -9,7 +9,7 @@ use actix_web::middleware::TrailingSlash;
 use actix_web::{
     error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
-use log::{error, info};
+use log::error;
 use serde::Deserialize;
 
 use crate::composite_source::CompositeSource;
@@ -17,7 +17,6 @@ use crate::config::Config;
 use crate::db::{get_connection, Pool};
 use crate::function_source::FunctionSources;
 use crate::source::{Query, Source, Xyz};
-use crate::table_source;
 use crate::table_source::{TableSource, TableSources};
 use crate::utils::parse_x_rewrite_url;
 
@@ -25,7 +24,6 @@ pub struct AppState {
     pub pool: Pool,
     pub table_sources: Option<TableSources>,
     pub function_sources: Option<FunctionSources>,
-    pub watch_mode: bool,
     pub default_srid: Option<i32>,
 }
 
@@ -71,24 +69,7 @@ async fn get_health() -> Result<HttpResponse, Error> {
 }
 
 async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    if !state.watch_mode {
-        let response = HttpResponse::Ok().json(state.table_sources.as_ref());
-        return Ok(response);
-    }
-
-    info!("Scanning database for table sources");
-
-    let mut connection = get_connection(&state.pool).await?;
-
-    let table_sources = table_source::get_table_sources(&mut connection, &state.default_srid)
-        .await
-        .map_err(map_internal_error)?;
-
-    // state.coordinator.do_send(messages::RefreshTableSources {
-    //     table_sources: Some(table_sources.clone()),
-    // });
-
-    Ok(HttpResponse::Ok().json(table_sources))
+    Ok(HttpResponse::Ok().json(state.table_sources.as_ref()))
 }
 
 async fn get_composite_source(
@@ -178,23 +159,7 @@ async fn get_composite_source_tile(
 }
 
 async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    if !state.watch_mode {
-        let function_sources = state.function_sources.as_ref();
-        let response = HttpResponse::Ok().json(function_sources);
-        return Ok(response);
-    }
-
-    info!("Scanning database for function sources");
-
-    let mut connection = get_connection(&state.pool).await?;
-    let function_sources = crate::function_source::get_function_sources(&mut connection)
-        .await
-        .map_err(map_internal_error)?;
-
-    // state.coordinator.do_send(messages::RefreshFunctionSources {
-    //     function_sources: Some(function_sources.clone()),
-    // });
-
+    let function_sources = state.function_sources.as_ref();
     Ok(HttpResponse::Ok().json(function_sources))
 }
 
@@ -324,7 +289,6 @@ fn create_state(pool: Pool, config: Config) -> AppState {
         pool,
         table_sources: config.table_sources,
         function_sources: config.function_sources,
-        watch_mode: config.watch,
         default_srid: config.default_srid,
     }
 }

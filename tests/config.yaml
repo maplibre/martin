@@ -17,9 +17,6 @@ worker_processes: 8
 # If a spatial table has SRID 0, then this SRID will be used as a fallback
 default_srid: 4326
 
-# Enable watch mode
-watch: false
-
 # Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
 danger_accept_invalid_certs: false
 
