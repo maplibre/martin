@@ -181,7 +181,6 @@ pub fn mock_state(
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,
     default_srid: Option<i32>,
-    watch_mode: bool,
 ) -> AppState {
     let pool = make_pool();
 
@@ -197,6 +196,5 @@ pub fn mock_state(
         table_sources,
         function_sources,
         default_srid,
-        watch_mode,
     }
 }

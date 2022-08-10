@@ -126,7 +126,7 @@ jobs:
           command: build
 
       - name: Run server
-        run: ./target/debug/martin --watch --default-srid 900913 &
+        run: ./target/debug/martin --default-srid 900913 &
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
