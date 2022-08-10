@@ -234,6 +234,8 @@ Table Sources list endpoint is available at `/index.json`
 curl localhost:3000/index.json
 ```
 
+**Note**: if in `watch` mode, this will rescan database for table sources.
+
 ### Table Source TileJSON
 
 Table Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{schema_name}.{table_name}.json`.
@@ -362,6 +364,8 @@ Function Sources list endpoint is available at `/rpc/index.json`
 curl localhost:3000/rpc/index.json
 ```
 
+**Note**: if in `watch` mode, this will rescan database for function sources.
+
 ### Function Source TileJSON
 
 Function Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/rpc/{schema_name}.{function_name}.json`
@@ -400,6 +404,7 @@ Options:
   --listen-addresses=<n>            The socket address to bind [default: 0.0.0.0:3000].
   --default-srid=<n>                If a spatial table has SRID 0, then this default SRID will be used as a fallback.
   --pool-size=<n>                   Maximum connections pool size [default: 20].
+  --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
   --ca-root-file=<path>             Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
   --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
@@ -412,6 +417,7 @@ You can also configure martin using environment variables
 | Environment variable          | Example                            | Description                                   |
 | ----------------------------- | ---------------------------------- | --------------------------------------------- |
 | `DATABASE_URL`                | `postgres://postgres@localhost/db` | Postgres database connection                  |
+| `WATCH_MODE`                  | `true`                             | Scan for new sources on sources list requests |
 | `CA_ROOT_FILE`                | `./ca-certificate.crt`             | Loads trusted root certificates from a file   |
 | `DEFAULT_SRID`                | `4326`                             | Fallback SRID                                 |
 | `DANGER_ACCEPT_INVALID_CERTS` | `false`                            | Trust invalid certificates                    |
@@ -444,6 +450,9 @@ worker_processes: 8
 
 # If a spatial table has SRID 0, then this default SRID will be used as a fallback
 default_srid: 4326
+
+# Enable watch mode
+watch: false
 
 # Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
 danger_accept_invalid_certs: false

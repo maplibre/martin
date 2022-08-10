@@ -29,10 +29,10 @@ Options:
   --listen-addresses=<n>            The socket address to bind [default: 0.0.0.0:3000].
   --default-srid=<n>                If a spatial table has SRID 0, then this default SRID will be used as a fallback.
   --pool-size=<n>                   Maximum connections pool size [default: 20].
+  --watch                           Scan for new sources on sources list requests.
   --workers=<n>                     Number of web server workers.
   --ca-root-file=<path>             Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
   --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
-  --watch                           [IGNORED] This flag is no longer supported, and will be ignored.
 ";
 
 #[derive(Debug, Deserialize)]
@@ -65,6 +65,7 @@ pub async fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
 
     let config = ConfigBuilder {
         connection_string,
+        watch: Some(args.flag_watch),
         keep_alive: args.flag_keep_alive,
         listen_addresses: args.flag_listen_addresses,
         default_srid: args.flag_default_srid,
@@ -164,15 +165,11 @@ fn parse_env(args: Args) -> Args {
     let flag_danger_accept_invalid_certs = args.flag_danger_accept_invalid_certs
         || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some();
 
-    if args.flag_watch {
-        warn!("The --watch flag is no longer supported, and will be ignored");
-    }
-    if env::var_os("WATCH_MODE").is_some() {
-        warn!("The WATCH_MODE environment variable is no longer supported, and will be ignored");
-    }
+    let flag_watch = args.flag_watch || env::var_os("WATCH_MODE").is_some();
 
     Args {
         arg_connection,
+        flag_watch,
         flag_default_srid,
         flag_ca_root_file,
         flag_danger_accept_invalid_certs,
@@ -232,6 +229,10 @@ async fn main() -> io::Result<()> {
 
     if args.flag_danger_accept_invalid_certs {
         warn!("Danger accept invalid certs enabled. You should think very carefully before using this option. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort.");
+    }
+
+    if args.flag_watch {
+        info!("Watch mode enabled");
     }
 
     match start(args).await {
