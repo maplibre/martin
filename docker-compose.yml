@@ -7,7 +7,6 @@ services:
     ports:
       - 3000:3000
     environment:
-      - WATCH_MODE=true
       - DATABASE_URL=postgres://postgres@db/db
       - RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
     depends_on:

@@ -10,7 +10,6 @@ use crate::utils::prettify_error;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Config {
-    pub watch: bool,
     pub pool_size: u32,
     pub keep_alive: usize,
     pub default_srid: Option<i32>,
@@ -25,7 +24,6 @@ pub struct Config {
 
 #[derive(Deserialize)]
 pub struct ConfigBuilder {
-    pub watch: Option<bool>,
     pub pool_size: Option<u32>,
     pub keep_alive: Option<usize>,
     pub default_srid: Option<i32>,
@@ -41,7 +39,6 @@ pub struct ConfigBuilder {
 impl ConfigBuilder {
     pub fn finalize(self) -> Config {
         Config {
-            watch: self.watch.unwrap_or(false),
             pool_size: self.pool_size.unwrap_or(20),
             keep_alive: self.keep_alive.unwrap_or(75),
             default_srid: self.default_srid,
