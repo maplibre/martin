@@ -50,7 +50,7 @@ Martin requires PostGIS >= 2.4.0.
 You can download martin from [Github releases page](https://github.com/maplibre/martin/releases).
 
 | Platform | Downloads (latest)      |
-| -------- | ----------------------- |
+|----------|-------------------------|
 | Linux    | [64-bit][rl-linux-tar]  |
 | macOS    | [64-bit][rl-macos-tar]  |
 | Windows  | [64-bit][rl-winx64-zip] |
@@ -87,7 +87,7 @@ Martin provides [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint for
 When started, martin will go through all spatial tables and functions with an appropriate signature in the database. These tables and functions will be available as the HTTP endpoints, which you can use to query Mapbox vector tiles.
 
 | Method | URL                                                                              | Description                                             |
-| ------ | -------------------------------------------------------------------------------- | ------------------------------------------------------- |
+|--------|----------------------------------------------------------------------------------|---------------------------------------------------------|
 | `GET`  | `/index.json`                                                                    | [Table Sources List](#table-sources-list)               |
 | `GET`  | `/{schema_name}.{table_name}.json`                                               | [Table Source TileJSON](#table-source-tilejson)         |
 | `GET`  | `/{schema_name}.{table_name}/{z}/{x}/{y}.pbf`                                    | [Table Source Tiles](#table-source-tiles)               |
@@ -409,12 +409,12 @@ Options:
 
 You can also configure martin using environment variables
 
-| Environment variable          | Example                            | Description                                   |
-| ----------------------------- | ---------------------------------- | --------------------------------------------- |
-| `DATABASE_URL`                | `postgres://postgres@localhost/db` | Postgres database connection                  |
-| `CA_ROOT_FILE`                | `./ca-certificate.crt`             | Loads trusted root certificates from a file   |
-| `DEFAULT_SRID`                | `4326`                             | Fallback SRID                                 |
-| `DANGER_ACCEPT_INVALID_CERTS` | `false`                            | Trust invalid certificates                    |
+| Environment variable          | Example                            | Description                                 |
+|-------------------------------|------------------------------------|---------------------------------------------|
+| `DATABASE_URL`                | `postgres://postgres@localhost/db` | Postgres database connection                |
+| `CA_ROOT_FILE`                | `./ca-certificate.crt`             | Loads trusted root certificates from a file |
+| `DEFAULT_SRID`                | `4326`                             | Fallback SRID                               |
+| `DANGER_ACCEPT_INVALID_CERTS` | `false`                            | Trust invalid certificates                  |
 
 ## Configuration File
 
@@ -575,7 +575,7 @@ services:
     image: urbica/martin
     restart: unless-stopped
     ports:
-      - 3000:3000
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres:password@db/db
     depends_on:
@@ -618,7 +618,7 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - 80:80
+      - "80:80"
     volumes:
       - ./cache:/var/cache/nginx
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
@@ -782,7 +782,7 @@ You can use martin with [Managed PostgreSQL from DigitalOcean](https://www.digit
 
 First, you need to download the CA certificate and get your cluster connection string from the [dashboard](https://cloud.digitalocean.com/databases). After that, you can use the connection string and the CA certificate to connect to the database
 
-```
+```shell
 martin --ca-root-file ./ca-certificate.crt postgres://user:password@host:port/db?sslmode=require
 ```
 
@@ -790,18 +790,18 @@ martin --ca-root-file ./ca-certificate.crt postgres://user:password@host:port/db
 
 You can use martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
 
-```
+```shell
 heroku pg:psql -a APP_NAME -c 'create extension postgis'
 ```
 
 In order to trust the Heroku certificate, you can disable certificate validation with either `DANGER_ACCEPT_INVALID_CERTS` environment variable
 
-```
+```shell
 DATABASE_URL=$(heroku config:get DATABASE_URL -a APP_NAME) DANGER_ACCEPT_INVALID_CERTS=true martin
 ```
 
 or `--danger-accept-invalid-certs` command-line argument
 
-```
+```shell
 martin --danger-accept-invalid-certs $(heroku config:get DATABASE_URL -a APP_NAME)
 ```
