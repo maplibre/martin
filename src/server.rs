@@ -1,11 +1,11 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::rc::Rc;
+use std::time::Duration;
 
-use actix::{Actor, Addr, SyncArbiter, SystemRunner};
 use actix_cors::Cors;
+use actix_web::dev::Server;
 use actix_web::http::Uri;
+use actix_web::middleware::TrailingSlash;
 use actix_web::{
     error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
 };
@@ -14,21 +14,16 @@ use serde::Deserialize;
 
 use crate::composite_source::CompositeSource;
 use crate::config::Config;
-use crate::coordinator_actor::CoordinatorActor;
-use crate::db::Pool;
-use crate::db_actor::DbActor;
+use crate::db::{get_connection, Pool};
 use crate::function_source::FunctionSources;
-use crate::messages;
 use crate::source::{Query, Source, Xyz};
 use crate::table_source::{TableSource, TableSources};
 use crate::utils::parse_x_rewrite_url;
-use crate::worker_actor::WorkerActor;
 
 pub struct AppState {
-    pub db: Addr<DbActor>,
-    pub coordinator: Addr<CoordinatorActor>,
-    pub table_sources: Rc<RefCell<Option<TableSources>>>,
-    pub function_sources: Rc<RefCell<Option<FunctionSources>>>,
+    pub pool: Pool,
+    pub table_sources: Option<TableSources>,
+    pub function_sources: Option<FunctionSources>,
     pub default_srid: Option<i32>,
 }
 
@@ -74,8 +69,7 @@ async fn get_health() -> Result<HttpResponse, Error> {
 }
 
 async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    let table_sources = state.table_sources.borrow().clone();
-    Ok(HttpResponse::Ok().json(table_sources))
+    Ok(HttpResponse::Ok().json(state.table_sources.as_ref()))
 }
 
 async fn get_composite_source(
@@ -85,8 +79,7 @@ async fn get_composite_source(
 ) -> Result<HttpResponse> {
     let table_sources = state
         .table_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let sources: Vec<TableSource> = path
@@ -107,6 +100,7 @@ async fn get_composite_source(
 
     let mut tilejson = source
         .get_tilejson()
+        .await
         .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
 
     let tiles_path = req
@@ -141,8 +135,7 @@ async fn get_composite_source_tile(
 ) -> Result<HttpResponse, Error> {
     let table_sources = state
         .table_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
 
     let sources: Vec<TableSource> = path
@@ -162,11 +155,11 @@ async fn get_composite_source_tile(
         table_sources: sources,
     };
 
-    get_tile(&state.db, path.z, path.x, path.y, None, Box::new(source)).await
+    get_tile(&state, path.z, path.x, path.y, None, Box::new(source)).await
 }
 
 async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    let function_sources = state.function_sources.borrow().clone();
+    let function_sources = state.function_sources.as_ref();
     Ok(HttpResponse::Ok().json(function_sources))
 }
 
@@ -177,8 +170,7 @@ async fn get_function_source(
 ) -> Result<HttpResponse> {
     let function_sources = state
         .function_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
     let source = function_sources.get(&path.source_id).ok_or_else(|| {
@@ -187,6 +179,7 @@ async fn get_function_source(
 
     let mut tilejson = source
         .get_tilejson()
+        .await
         .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
 
     let tiles_path = req
@@ -222,8 +215,7 @@ async fn get_function_source_tile(
 ) -> Result<HttpResponse, Error> {
     let function_sources = state
         .function_sources
-        .borrow()
-        .clone()
+        .as_ref()
         .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
 
     let source = function_sources
@@ -234,7 +226,7 @@ async fn get_function_source_tile(
         })?;
 
     get_tile(
-        &state.db,
+        &state,
         path.z,
         path.x,
         path.y,
@@ -253,23 +245,17 @@ fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
 }
 
 async fn get_tile(
-    db: &Addr<DbActor>,
+    state: &web::Data<AppState>,
     z: i32,
     x: i32,
     y: i32,
     query: Option<Query>,
     source: Box<dyn Source + Send>,
 ) -> Result<HttpResponse, Error> {
-    let message = messages::GetTile {
-        xyz: Xyz { z, x, y },
-        query,
-        source,
-    };
-
-    let tile = db
-        .send(message)
+    let mut connection = get_connection(&state.pool).await?;
+    let tile = source
+        .get_tile(&mut connection, &Xyz { z, x, y }, &query)
         .await
-        .map_err(map_internal_error)?
         .map_err(map_internal_error)?;
 
     match tile.len() {
@@ -298,64 +284,39 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         );
 }
 
-fn create_state(
-    db: Addr<DbActor>,
-    coordinator: Addr<CoordinatorActor>,
-    config: Config,
-) -> AppState {
-    let table_sources = Rc::new(RefCell::new(config.table_sources));
-    let function_sources = Rc::new(RefCell::new(config.function_sources));
-
-    let worker_actor = WorkerActor {
-        table_sources: table_sources.clone(),
-        function_sources: function_sources.clone(),
-    };
-
-    let worker: Addr<_> = worker_actor.start();
-    coordinator.do_send(messages::Connect { addr: worker });
-
+fn create_state(pool: Pool, config: Config) -> AppState {
     AppState {
-        db,
-        coordinator,
-        table_sources,
-        function_sources,
+        pool,
+        table_sources: config.table_sources,
+        function_sources: config.function_sources,
         default_srid: config.default_srid,
     }
 }
 
-pub fn new(pool: Pool, config: Config) -> SystemRunner {
-    let sys = actix::System::new("server");
-
-    let db = SyncArbiter::start(3, move || DbActor(pool.clone()));
-    let coordinator: Addr<_> = CoordinatorActor::default().start();
-
+pub fn new(pool: Pool, config: Config) -> Server {
     let keep_alive = config.keep_alive;
     let worker_processes = config.worker_processes;
     let listen_addresses = config.listen_addresses.clone();
 
     HttpServer::new(move || {
-        let state = create_state(db.clone(), coordinator.clone(), config.clone());
+        let state = create_state(pool.clone(), config.clone());
 
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .allowed_methods(vec!["GET"]);
 
         App::new()
-            .data(state)
+            .app_data(web::Data::new(state))
             .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath::new(
-                middleware::normalize::TrailingSlash::MergeOnly,
-            ))
+            .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
             .configure(router)
     })
     .bind(listen_addresses.clone())
     .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
-    .keep_alive(keep_alive)
+    .keep_alive(Duration::from_secs(keep_alive as u64))
     .shutdown_timeout(0)
     .workers(worker_processes)
-    .run();
-
-    sys
+    .run()
 }

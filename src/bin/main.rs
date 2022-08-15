@@ -1,5 +1,6 @@
 use std::{env, io};
 
+use actix_web::dev::Server;
 use docopt::Docopt;
 use log::{error, info, warn};
 use martin::config::{read_config, Config, ConfigBuilder};
@@ -50,7 +51,7 @@ pub struct Args {
     pub flag_danger_accept_invalid_certs: bool,
 }
 
-pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
+pub async fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
     let connection_string = args.arg_connection.clone().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::Other,
@@ -58,9 +59,9 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
         )
     })?;
 
-    let mut connection = get_connection(pool)?;
-    let table_sources = get_table_sources(&mut connection, &args.flag_default_srid)?;
-    let function_sources = get_function_sources(&mut connection)?;
+    let mut connection = get_connection(pool).await?;
+    let table_sources = get_table_sources(&mut connection, &args.flag_default_srid).await?;
+    let function_sources = get_function_sources(&mut connection).await?;
 
     let config = ConfigBuilder {
         connection_string,
@@ -79,7 +80,7 @@ pub fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
     Ok(config)
 }
 
-fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
+async fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     let config = read_config(&file_name).map_err(|e| prettify_error!(e, "Can't read config"))?;
 
     let pool = setup_connection_pool(
@@ -88,6 +89,7 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
         Some(config.pool_size),
         config.danger_accept_invalid_certs,
     )
+    .await
     .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     if let Some(table_sources) = &config.table_sources {
@@ -116,7 +118,7 @@ fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     Ok((config, pool))
 }
 
-fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
+async fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
     let connection_string = args.arg_connection.clone().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::Other,
@@ -131,11 +133,13 @@ fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
         args.flag_pool_size,
         args.flag_danger_accept_invalid_certs,
     )
+    .await
     .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     info!("Scanning database");
-    let config =
-        generate_config(args, &pool).map_err(|e| prettify_error!(e, "Can't generate config"))?;
+    let config = generate_config(args, &pool)
+        .await
+        .map_err(|e| prettify_error!(e, "Can't generate config"))?;
 
     Ok((config, pool))
 }
@@ -176,21 +180,22 @@ fn parse_env(args: Args) -> Args {
     }
 }
 
-fn start(args: Args) -> io::Result<actix::SystemRunner> {
+async fn start(args: Args) -> io::Result<Server> {
     info!("Starting martin v{VERSION}");
 
     let (config, pool) = match args.flag_config {
         Some(config_file_name) => {
             info!("Using {config_file_name}");
-            setup_from_config(config_file_name)?
+            setup_from_config(config_file_name).await?
         }
         None => {
             info!("Config is not set");
-            setup_from_args(args)?
+            setup_from_args(args).await?
         }
     };
 
     let matches = check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool)
+        .await
         .map_err(|e| prettify_error!(e, "Can't check PostGIS version"))?;
 
     if !matches {
@@ -204,7 +209,8 @@ fn start(args: Args) -> io::Result<actix::SystemRunner> {
     Ok(server)
 }
 
-fn main() -> io::Result<()> {
+#[actix_web::main]
+async fn main() -> io::Result<()> {
     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
     env_logger::Builder::from_env(env).init();
 
@@ -228,13 +234,11 @@ fn main() -> io::Result<()> {
         warn!("Danger accept invalid certs enabled. You should think very carefully before using this option. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort.");
     }
 
-    let server = match start(args) {
-        Ok(server) => server,
+    match start(args).await {
+        Ok(server) => server.await,
         Err(error) => {
             error!("{error}");
             std::process::exit(-1);
         }
-    };
-
-    server.run()
+    }
 }

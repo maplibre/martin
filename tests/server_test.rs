@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use actix_web::web::Data;
 use actix_web::{http, test, App};
 use martin::dev;
 use martin::function_source::{FunctionSource, FunctionSources};
@@ -15,11 +16,11 @@ fn init() {
 async fn test_get_table_sources_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/index.json").to_request();
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let body = test::read_body(response).await;
@@ -31,11 +32,11 @@ async fn test_get_table_sources_ok() {
 async fn test_get_table_sources_watch_mode_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/index.json").to_request();
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let body = test::read_body(response).await;
@@ -68,25 +69,26 @@ async fn test_get_table_source_ok() {
         Some(dev::mock_table_sources(vec![table_source])),
         None,
         None,
-    );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    )
+    .await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant.json")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
         .uri("/public.table_source.json?token=martin")
-        .header(
+        .insert_header((
             "x-rewrite-url",
             "/tiles/public.table_source.json?token=martin",
-        )
+        ))
         .to_request();
 
-    let result: TileJSON = test::read_response_json(&mut app, req).await;
+    let result: TileJSON = test::call_and_read_body_json(&app, req).await;
 
     assert_eq!(result.name, Some(String::from("public.table_source")));
     assert_eq!(
@@ -102,21 +104,21 @@ async fn test_get_table_source_ok() {
 async fn test_get_table_source_tile_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
         .uri("/public.table_source/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
@@ -124,21 +126,21 @@ async fn test_get_table_source_tile_ok() {
 async fn test_get_table_source_multiple_geom_tile_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.table_source_multiple_geom.geom1/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let req = test::TestRequest::get()
         .uri("/public.table_source_multiple_geom.geom2/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
@@ -223,16 +225,17 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         ])),
         None,
         None,
-    );
+    )
+    .await;
 
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     // zoom = 0 (nothing)
     let req = test::TestRequest::get()
         .uri("/public.points1/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     // zoom = 6 (public.points1)
@@ -240,7 +243,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points1/6/38/20.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.points1)
@@ -248,7 +251,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points1/12/2476/1280.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (nothing)
@@ -256,7 +259,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points1/13/4952/2560.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     // zoom = 0 (public.points2)
@@ -264,7 +267,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points2/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 6 (public.points2)
@@ -272,7 +275,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points2/6/38/20.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.points2)
@@ -280,7 +283,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points2/12/2476/1280.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (public.points2)
@@ -288,7 +291,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points2/13/4952/2560.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 0 (nothing)
@@ -296,7 +299,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points3857/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     // zoom = 12 (public.points3857)
@@ -304,7 +307,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.points3857/12/2476/1280.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 0 (public.table_source)
@@ -312,7 +315,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.table_source/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (nothing)
@@ -320,7 +323,7 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
         .uri("/public.table_source/12/2476/1280.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 }
 
@@ -328,21 +331,21 @@ async fn test_get_table_source_tile_minmax_zoom_ok() {
 async fn test_get_composite_source_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant1,public.non_existant2.json")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
         .uri("/public.points1,public.points2,public.points3857.json")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
@@ -350,21 +353,21 @@ async fn test_get_composite_source_ok() {
 async fn test_get_composite_source_tile_ok() {
     init();
 
-    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(Some(dev::mock_default_table_sources()), None, None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/public.non_existant1,public.non_existant2/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
         .uri("/public.points1,public.points2,public.points3857/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
@@ -413,15 +416,16 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         ])),
         None,
         None,
-    );
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    )
+    .await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     // zoom = 0 (nothing)
     let req = test::TestRequest::get()
         .uri("/public.points1,public.points2/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     // zoom = 6 (public.points1)
@@ -429,7 +433,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         .uri("/public.points1,public.points2/6/38/20.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.points1)
@@ -437,7 +441,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         .uri("/public.points1,public.points2/12/2476/1280.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (public.points1, public.points2)
@@ -445,7 +449,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         .uri("/public.points1,public.points2/13/4952/2560.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 14 (public.points2)
@@ -453,7 +457,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         .uri("/public.points1,public.points2/14/9904/5121.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 20 (public.points2)
@@ -461,7 +465,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         .uri("/public.points1,public.points2/20/633856/327787.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 21 (nothing)
@@ -469,7 +473,7 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
         .uri("/public.points1,public.points2/21/1267712/655574.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 }
 
@@ -477,11 +481,11 @@ async fn test_get_composite_source_tile_minmax_zoom_ok() {
 async fn test_get_function_sources_ok() {
     init();
 
-    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let body = test::read_body(response).await;
@@ -493,11 +497,11 @@ async fn test_get_function_sources_ok() {
 async fn test_get_function_sources_watch_mode_ok() {
     init();
 
-    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/rpc/index.json").to_request();
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let body = test::read_body(response).await;
@@ -509,32 +513,32 @@ async fn test_get_function_sources_watch_mode_ok() {
 async fn test_get_function_source_ok() {
     init();
 
-    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.non_existant.json")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source.json")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source.json?token=martin")
-        .header(
+        .insert_header((
             "x-rewrite-url",
             "/tiles/rpc/public.function_source.json?token=martin",
-        )
+        ))
         .to_request();
 
-    let result: TileJSON = test::read_response_json(&mut app, req).await;
+    let result: TileJSON = test::call_and_read_body_json(&app, req).await;
 
     assert_eq!(
         result.tiles,
@@ -546,14 +550,14 @@ async fn test_get_function_source_ok() {
 async fn test_get_function_source_tile_ok() {
     init();
 
-    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
@@ -586,16 +590,17 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
             function_source2,
         ])),
         None,
-    );
+    )
+    .await;
 
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     // zoom = 0 (public.function_source1)
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source1/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 6 (public.function_source1)
@@ -603,7 +608,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         .uri("/rpc/public.function_source1/6/38/20.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.function_source1)
@@ -611,7 +616,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         .uri("/rpc/public.function_source1/12/2476/1280.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (public.function_source1)
@@ -619,7 +624,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         .uri("/rpc/public.function_source1/13/4952/2560.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 0 (nothing)
@@ -627,7 +632,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         .uri("/rpc/public.function_source2/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 
     // zoom = 6 (public.function_source2)
@@ -635,7 +640,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         .uri("/rpc/public.function_source2/6/38/20.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.function_source2)
@@ -643,7 +648,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         .uri("/rpc/public.function_source2/12/2476/1280.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (nothing)
@@ -651,7 +656,7 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
         .uri("/rpc/public.function_source2/13/4952/2560.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
 }
 
@@ -659,14 +664,14 @@ async fn test_get_function_source_tile_minmax_zoom_ok() {
 async fn test_get_function_source_query_params_ok() {
     init();
 
-    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get()
         .uri("/rpc/public.function_source_query_params/0/0/0.pbf")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     println!("response.status = {:?}", response.status());
     assert!(response.status().is_server_error());
 
@@ -674,7 +679,7 @@ async fn test_get_function_source_query_params_ok() {
         .uri("/rpc/public.function_source_query_params/0/0/0.pbf?token=martin")
         .to_request();
 
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
@@ -682,10 +687,10 @@ async fn test_get_function_source_query_params_ok() {
 async fn test_get_health_returns_ok() {
     init();
 
-    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None);
-    let mut app = test::init_service(App::new().data(state).configure(router)).await;
+    let state = dev::mock_state(None, Some(dev::mock_default_function_sources()), None).await;
+    let app = test::init_service(App::new().app_data(Data::new(state)).configure(router)).await;
 
     let req = test::TestRequest::get().uri("/healthz").to_request();
-    let response = test::call_service(&mut app, req).await;
+    let response = test::call_service(&app, req).await;
     assert!(response.status().is_success());
 }
