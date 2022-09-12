@@ -42,7 +42,7 @@ serde_yaml = "0.9"
 tilejson = "0.3"
 
 [dev-dependencies.criterion]
-version = "0.3.4"
+version = "0.4.0"
 features = ["async_futures", "async_tokio", "html_reports"]
 
 [dev-dependencies.cargo-husky]
