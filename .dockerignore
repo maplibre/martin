@@ -1,0 +1,7 @@
+.DS_Store
+/target/
+**/*.rs.bk
+.idea/
+
+pg_data/
+config.yml
