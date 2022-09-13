@@ -1,5 +1,7 @@
 # Extras that are not part of .gitignore
 .git/
+# Having Dockerfile in .dockerignore lets us develop docker images without full rebuild on each change
+Dockerfile
 
 #### COPIED FROM .gitignore ####
 .DS_Store
