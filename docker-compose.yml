@@ -5,7 +5,7 @@ services:
     image: urbica/martin
     restart: unless-stopped
     ports:
-      - 3000:3000
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres@db/db
       - RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
@@ -16,7 +16,7 @@ services:
     image: postgis/postgis:14-3.1-alpine
     restart: unless-stopped
     ports:
-      - 5432:5432
+      - "5432:5432"
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
@@ -30,7 +30,7 @@ services:
     image: postgis/postgis:9.6-2.5-alpine
     restart: unless-stopped
     ports:
-      - 5432:5432
+      - "5432:5432"
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
