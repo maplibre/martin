@@ -1,3 +1,7 @@
+# Extras that are not part of .gitignore
+.git/
+
+#### COPIED FROM .gitignore ####
 .DS_Store
 /target/
 **/*.rs.bk
