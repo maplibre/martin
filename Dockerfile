@@ -1,13 +1,17 @@
-FROM ekidd/rust-musl-builder:stable as builder
+FROM rust:alpine as builder
 
+RUN apk update
+RUN apk add --no-cache openssl-dev musl-dev
+
+WORKDIR /usr/src/martin
 ADD . .
-RUN sudo chmod -R 0777 *
 RUN cargo build --release
+
 
 FROM alpine:latest
 
 COPY --from=builder \
-  /home/rust/src/target/x86_64-unknown-linux-musl/release/martin \
+  /usr/src/martin/target/release/martin \
   /usr/local/bin/
 
 EXPOSE 3000
