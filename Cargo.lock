@@ -1222,18 +1222,18 @@ checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 
 [[package]]
 name = "phf"
-version = "0.10.1"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabbf1ead8a5bcbc20f5f8b939ee3f5b0f6f281b6ad3468b84656b658b455259"
+checksum = "928c6535de93548188ef63bb7c4036bd415cd8f36ad25af44b9789b2ee72a48c"
 dependencies = [
  "phf_shared",
 ]
 
 [[package]]
 name = "phf_shared"
-version = "0.10.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6796ad771acdc0123d2a88dc428b5e38ef24456743ddb1744ed628f9815c096"
+checksum = "e1fb5f6f826b772a8d4c0394209441e7d37cbbb967ae9c7e0e8134365c9ee676"
 dependencies = [
  "siphasher",
 ]
@@ -1297,13 +1297,13 @@ dependencies = [
 
 [[package]]
 name = "postgres"
-version = "0.19.3"
+version = "0.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8bbcd5f6deb39585a0d9f4ef34c4a41c25b7ad26d23c75d837d78c8e7adc85f"
+checksum = "960c214283ef8f0027974c03e9014517ced5db12f021a9abb66185a5751fab0a"
 dependencies = [
  "bytes",
  "fallible-iterator",
- "futures",
+ "futures-util",
  "log",
  "tokio",
  "tokio-postgres",
@@ -1769,15 +1769,16 @@ dependencies = [
 
 [[package]]
 name = "tokio-postgres"
-version = "0.7.6"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19c88a47a23c5d2dc9ecd28fb38fba5fc7e5ddc1fe64488ec145076b0c71c8ae"
+checksum = "29a12c1b3e0704ae7dfc25562629798b29c72e6b1d0a681b6f29ab4ae5e7f7bf"
 dependencies = [
  "async-trait",
  "byteorder",
  "bytes",
  "fallible-iterator",
- "futures",
+ "futures-channel",
+ "futures-util",
  "log",
  "parking_lot",
  "percent-encoding",
