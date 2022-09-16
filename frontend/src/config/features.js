@@ -2,7 +2,7 @@ export default [
   {
     id: 1,
     title: 'Turning Data into Vector Tiles',
-    description: 'Martin creates Mapbox Vector Tiles from any PostGIS table or view'
+    description: 'Martin creates MVT vector tiles from any PostGIS table or view'
   },
   {
     id: 2,
