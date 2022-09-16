@@ -12,14 +12,18 @@ import Filters from './Filters';
 const mapStyle = { height: '585px' };
 
 class Map extends PureComponent {
-  state = {
-    visibleLayer: 'trips',
-    range: {
-      from: new Date(2017, 0, 1),
-      to: new Date(2017, 4, 4)
-    },
-    hour: 9
-  };
+
+  constructor(props) {
+    super(props)
+    this.state = {
+      visibleLayer: 'trips',
+      range: {
+        from: new Date(2017, 0, 1),
+        to: new Date(2017, 4, 4)
+      },
+      hour: 9
+    };
+  }
 
   componentDidMount() {
     mapboxgl.accessToken = MAPBOX_TOKEN;

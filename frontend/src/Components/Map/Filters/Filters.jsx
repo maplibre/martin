@@ -17,9 +17,13 @@ import AvgTime from './AvgTime';
 import Input from './Input';
 
 class Filters extends PureComponent {
-  state = {
-    isDayPickerEnabled: false
-  };
+  
+  constructor(props) {
+    super(props)
+    this.state = {
+      isDayPickerEnabled: false
+    };
+  }
 
   handleDayClick = (day) => {
     const range = DateUtils.addDayToRange(day, this.props.range);
