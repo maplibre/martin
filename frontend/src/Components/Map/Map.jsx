@@ -57,8 +57,8 @@ class Map extends PureComponent {
       type: 'vector',
       url: `/tiles/rpc/public.get_trips.json?${queryParams}`
     });
-    layers.forEach(({ layer }) => {
-      this.map.addLayer(layer, 'place_town');
+    layers.forEach(({ mapboxLayer }) => {
+      this.map.addLayer(mapboxLayer, 'place_town');
     });
   };
 
