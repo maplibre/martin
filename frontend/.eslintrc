@@ -19,6 +19,7 @@
       }
     ],
     "no-return-assign": "warn",
+    "no-restricted-exports": "warn",
     "quotes": ["error", "single"],
     "react/button-has-type": "off",
     "react/destructuring-assignment": "off",
@@ -40,6 +41,7 @@
         "extensions": [".js", ".jsx"]
       }
     ],
+    "react/function-component-definition": "warn",
     "react/jsx-no-bind": "error",
     "react/sort-comp": [
       1,

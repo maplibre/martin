@@ -18,9 +18,7 @@ class Layers extends PureComponent {
     return (
       layers.map((layer) => {
         const isLayerVisible = visibleLayer === layer.id;
-        const [fromColor, toColor] = getColorsFromLayer(
-          layer.mapboxLayer, 'fill-extrusion-color'
-        );
+        const [fromColor, toColor] = getColorsFromLayer(layer.mapboxLayer, 'fill-extrusion-color');
 
         return (
           <Layer
