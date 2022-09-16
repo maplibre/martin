@@ -1,8 +1,8 @@
 import React, { PureComponent } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { MAPBOX_STYLE, MAPBOX_TOKEN } from '../../config/constants';
+import { MAP_STYLE } from '../../config/constants';
 import layers from '../../config/layers';
 import dateConverter from '../../utils/dateConverter';
 
@@ -25,17 +25,16 @@ class Map extends PureComponent {
   }
 
   componentDidMount() {
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-    this.map = new mapboxgl.Map({
+    this.map = new maplibregl.Map({
       container: 'map',
-      style: MAPBOX_STYLE,
+      style: MAP_STYLE,
       center: [-74.005308, 40.713370],
       pitch: 45,
       zoom: 10,
       minZoom: 8,
       maxZoom: 16
     });
-    this.nav = new mapboxgl.NavigationControl();
+    this.nav = new maplibregl.NavigationControl();
 
     this.map.scrollZoom.disable();
     this.map.addControl(this.nav, 'top-right');
