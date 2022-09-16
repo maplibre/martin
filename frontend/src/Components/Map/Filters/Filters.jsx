@@ -17,9 +17,8 @@ import AvgTime from './AvgTime';
 import Input from './Input';
 
 class Filters extends PureComponent {
-  
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
       isDayPickerEnabled: false
     };

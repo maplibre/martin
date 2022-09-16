@@ -12,9 +12,8 @@ import Filters from './Filters';
 const mapStyle = { height: '585px' };
 
 class Map extends PureComponent {
-
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
       visibleLayer: 'trips',
       range: {
