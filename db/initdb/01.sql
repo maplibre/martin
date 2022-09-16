@@ -19,7 +19,9 @@ create table trips
   tip_amount            numeric,
   tolls_amount          numeric,
   improvement_surcharge numeric,
-  total_amount          numeric
+  total_amount          numeric,
+  congestion_surcharge  numeric,
+  airport_fee           numeric
 );
 
 create function tilebbox(z integer, x integer, y integer, srid integer DEFAULT 3857) returns geometry
