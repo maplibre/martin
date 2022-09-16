@@ -9,7 +9,9 @@ services:
     depends_on:
       - tiles
     ports:
-      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/ssl/certs
 
   tiles:
     image: urbica/martin
