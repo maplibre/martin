@@ -9,7 +9,7 @@ services:
     depends_on:
       - tiles
     ports:
-      - "443:80"
+      - "80:80"
 
   tiles:
     image: urbica/martin
