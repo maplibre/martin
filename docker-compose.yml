@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     depends_on:
       - tiles
+    ports:
+      - "80:80"
 
   tiles:
     image: urbica/martin
@@ -25,6 +27,7 @@ services:
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
       - ./db/db:/var/lib/postgresql/data
       - ./db/initdb:/docker-entrypoint-initdb.d
