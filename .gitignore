@@ -9,6 +9,9 @@ frontend/coverage
 # production
 frontend/build
 
+db/initdb/taxi_zones
+db/initdb/taxi_trips
+
 # misc
 .DS_Store
 .env.local
