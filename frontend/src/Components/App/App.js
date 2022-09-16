@@ -16,7 +16,7 @@ const App = () => (
     <GlobalStyle />
     <Intro />
     <Description>
-      Martin is an Open Source PostGIS vector tile server created by Urbica
+      Martin is an Open Source PostGIS vector tile server
     </Description>
     <Features />
     <TryIt>

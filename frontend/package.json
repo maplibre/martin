@@ -32,5 +32,5 @@
     "not ie <= 11",
     "not op_mini all"
   ],
-  "proxy": "https://martin.urbica.co"
+  "proxy": "https://maplibre.org"
 }
