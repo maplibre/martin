@@ -2,8 +2,8 @@ import styled from 'styled-components';
 
 export default styled.footer`
   display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
 
   padding: 23px;
   
@@ -15,9 +15,9 @@ export default styled.footer`
     transition: .4s;
   }
 
-  a:hover img:last-child {
-    transform: translateX(10px);
+  // a:hover img:last-child {
+  //   transform: translateX(10px);
 
-    transition: .4s;
-  }
+  //   transition: .4s;
+  // }
 `;

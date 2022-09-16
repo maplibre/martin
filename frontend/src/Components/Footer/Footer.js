@@ -1,19 +1,14 @@
 import React from 'react';
 
-import urbica from './urbica.svg';
-import arrow from './arrow.svg';
+import maplibre from './maplibre-logo-big.svg';
 
 import Container from './Container';
-import Description from './Description';
+// import Description from './Description';
 
 const Footer = () => (
   <Container>
-    <Description>
-      MADE BY
-    </Description>
-    <a href='https://urbica.co'>
-      <img src={urbica} alt='urbica' />
-      <img src={arrow} alt='arrow' />
+    <a href='https://maplibre.org'>
+      <img src={maplibre} alt='MapLibre' />
     </a>
   </Container>
 );
