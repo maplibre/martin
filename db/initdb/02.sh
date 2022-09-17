@@ -8,7 +8,7 @@ ogr2ogr -f PostgreSQL PG:dbname=db -nln taxi_zones -nlt MULTIPOLYGON -lco GEOMET
 psql -U postgres -d db -c "alter table taxi_zones alter column ${geomColumn} type geometry(multipolygon, 3857) using st_transform(${geomColumn}, 3857); \
   create index idx_taxi_zones_geom on taxi_zones using gist(${geomColumn});"
 
-for i in 01
+for i in 01 # 02 03 04 05 06
 do
     fileName=yellow_tripdata_2017-${i}.csv
     filePath=${HOME}/${fileName}
