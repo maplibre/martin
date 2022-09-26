@@ -5,8 +5,8 @@ use clap::Parser;
 use log::{error, info, warn};
 use martin::config::{read_config, Config, ConfigBuilder};
 use martin::db::{check_postgis_version, get_connection, setup_connection_pool, Pool};
-use martin::function_source::get_function_sources;
-use martin::table_source::get_table_sources;
+use martin::function_source::{get_function_sources, FunctionSources};
+use martin::table_source::{get_table_sources, TableSource, TableSources};
 use martin::{prettify_error, server};
 use serde::Deserialize;
 
@@ -14,37 +14,34 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
 
 #[derive(Parser, Debug, Deserialize)]
-#[clap(about, version)]
+#[command(about, version)]
 pub struct Args {
     /// Path to config file.
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub config: Option<String>,
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
-    #[clap(long)]
+    #[arg(long)]
     pub ca_root_file: Option<String>,
     /// Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
-    #[clap(long)]
+    #[arg(long)]
     pub danger_accept_invalid_certs: bool,
     /// If a spatial table has SRID 0, then this default SRID will be used as a fallback.
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub default_srid: Option<i32>,
-    // Must match ConfigBuilder::KEEP_ALIVE_DEFAULT
-    /// Connection keep alive timeout. [DEFAULT: 75]
-    #[clap(short, long)]
+    #[arg(short, long,
+    help = format ! ("Connection keep alive timeout. [DEFAULT: {}]", ConfigBuilder::KEEP_ALIVE_DEFAULT))]
     pub keep_alive: Option<usize>,
-    // Must match ConfigBuilder::LISTEN_ADDRESSES_DEFAULT
-    /// The socket address to bind. [DEFAULT: 0.0.0.0:3000]
-    #[clap(short, long)]
+    #[arg(short, long,
+    help = format ! ("The socket address to bind. [DEFAULT: {}]", ConfigBuilder::LISTEN_ADDRESSES_DEFAULT))]
     pub listen_addresses: Option<String>,
-    // Must match ConfigBuilder::POOL_SIZE_DEFAULT
-    /// Maximum connections pool size [DEFAULT: 20]
-    #[clap(short, long)]
+    #[arg(short, long,
+    help = format ! ("Maximum connections pool size [DEFAULT: {}]", ConfigBuilder::POOL_SIZE_DEFAULT))]
     pub pool_size: Option<u32>,
     /// Scan for new sources on sources list requests
-    #[clap(short, long, hide = true)]
+    #[arg(short, long, hide = true)]
     pub watch: bool,
     /// Number of web server workers
-    #[clap(short = 'W', long)]
+    #[arg(short = 'W', long)]
     pub workers: Option<usize>,
     /// Database connection string
     pub connection: Option<String>,
@@ -71,36 +68,6 @@ impl Args {
     }
 }
 
-pub async fn generate_config(args: Args, pool: &Pool) -> io::Result<Config> {
-    // let connection_string = args.arg_connection.clone().ok_or_else(|| {
-    //     io::Error::new(
-    //         io::ErrorKind::Other,
-    //         "Database connection string is not set",
-    //     )
-    // })?;
-    let connection_string = args.connection.clone();
-
-    let mut connection = get_connection(pool).await?;
-    let table_sources = get_table_sources(&mut connection, &args.default_srid).await?;
-    let function_sources = get_function_sources(&mut connection).await?;
-
-    let config = ConfigBuilder {
-        ca_root_file: None,
-        danger_accept_invalid_certs: if args.danger_accept_invalid_certs { Some(true) } else { None },
-        default_srid: args.default_srid,
-        keep_alive: args.keep_alive,
-        listen_addresses: args.listen_addresses,
-        pool_size: args.pool_size,
-        worker_processes: args.workers,
-        connection_string,
-        table_sources: Some(table_sources),
-        function_sources: Some(function_sources),
-    };
-
-    let config = config.finalize();
-    Ok(config)
-}
-
 async fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     let config = read_config(&file_name).map_err(|e| prettify_error!(e, "Can't read config"))?;
 
@@ -110,8 +77,8 @@ async fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
         Some(config.pool_size),
         config.danger_accept_invalid_certs,
     )
-        .await
-        .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
+    .await
+    .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
     if let Some(table_sources) = &config.table_sources {
         for table_source in table_sources.values() {
@@ -154,14 +121,18 @@ async fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
         args.pool_size,
         args.danger_accept_invalid_certs,
     )
-        .await
-        .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
+    .await
+    .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
 
-    info!("Scanning database");
-    let config = generate_config(args, &pool)
-        .await
-        .map_err(|e| prettify_error!(e, "Can't generate config"))?;
-
+    let mut config = args.to_config();
+    config.ca_root_file = None;
+    {
+        info!("Scanning database");
+        let mut connection = get_connection(&pool).await?;
+        config.table_sources = Some(get_table_sources(&mut connection, config.default_srid).await?);
+        config.function_sources = Some(get_function_sources(&mut connection).await?);
+    }
+    let config = config.finalize();
     Ok((config, pool))
 }
 
@@ -202,7 +173,7 @@ fn parse_env(args: Args) -> Args {
 }
 
 async fn start(args: Args) -> io::Result<Server> {
-    info!("Starting martin v{VERSION}");
+    info!("Starting Martin v{VERSION}");
 
     let (config, pool) = match args.config {
         Some(config_file_name) => {

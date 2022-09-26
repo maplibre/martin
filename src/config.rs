@@ -50,7 +50,10 @@ impl ConfigBuilder {
 
     pub fn merge(&mut self, other: ConfigBuilder) -> &mut Self {
         set_option(&mut self.ca_root_file, other.ca_root_file);
-        set_option(&mut self.danger_accept_invalid_certs, other.danger_accept_invalid_certs);
+        set_option(
+            &mut self.danger_accept_invalid_certs,
+            other.danger_accept_invalid_certs,
+        );
         set_option(&mut self.default_srid, other.default_srid);
         set_option(&mut self.keep_alive, other.keep_alive);
         set_option(&mut self.listen_addresses, other.listen_addresses);

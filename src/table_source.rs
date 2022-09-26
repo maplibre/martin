@@ -188,7 +188,7 @@ static DEFAULT_CLIP_GEOM: bool = true;
 
 pub async fn get_table_sources(
     conn: &mut Connection<'_>,
-    default_srid: &Option<i32>,
+    default_srid: Option<i32>,
 ) -> Result<TableSources, io::Error> {
     let mut sources = HashMap::new();
     let mut duplicate_source_ids = HashSet::new();
@@ -221,7 +221,7 @@ pub async fn get_table_sources(
             match default_srid {
                 Some(default_srid) => {
                     warn!(r#""{id}" has SRID 0, using the provided default SRID {default_srid}"#);
-                    srid = *default_srid;
+                    srid = default_srid;
                 }
                 None => {
                     warn!(
