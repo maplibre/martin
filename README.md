@@ -427,26 +427,26 @@ martin --config config.yaml
 You can find an example of a configuration file [here](https://github.com/maplibre/martin/blob/main/tests/config.yaml).
 
 ```yaml
-# The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
-
 # Database connection string
 connection_string: 'postgres://postgres@localhost:5432/db'
 
-# Maximum connections pool size [default: 20]
-pool_size: 20
+# Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
+danger_accept_invalid_certs: false
+
+# If a spatial table has SRID 0, then this SRID will be used as a fallback
+default_srid: 4326
 
 # Connection keep alive timeout [default: 75]
 keep_alive: 75
 
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: '0.0.0.0:3000'
+
+# Maximum connections pool size [default: 20]
+pool_size: 20
+
 # Number of web server workers
 worker_processes: 8
-
-# If a spatial table has SRID 0, then this default SRID will be used as a fallback
-default_srid: 4326
-
-# Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
-danger_accept_invalid_certs: false
 
 # Associative arrays of table sources
 table_sources:

@@ -10,6 +10,7 @@ use crate::utils::prettify_error;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Config {
+    pub connection_string: String,
     pub ca_root_file: Option<String>,
     pub danger_accept_invalid_certs: bool,
     pub default_srid: Option<i32>,
@@ -17,13 +18,13 @@ pub struct Config {
     pub listen_addresses: String,
     pub pool_size: u32,
     pub worker_processes: usize,
-    pub connection_string: String,
     pub table_sources: Option<TableSources>,
     pub function_sources: Option<FunctionSources>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigBuilder {
+    pub connection_string: Option<String>,
     pub ca_root_file: Option<String>,
     pub danger_accept_invalid_certs: Option<bool>,
     pub default_srid: Option<i32>,
@@ -31,7 +32,6 @@ pub struct ConfigBuilder {
     pub listen_addresses: Option<String>,
     pub pool_size: Option<u32>,
     pub worker_processes: Option<usize>,
-    pub connection_string: Option<String>,
     pub table_sources: Option<TableSources>,
     pub function_sources: Option<FunctionSources>,
 }
@@ -49,6 +49,7 @@ impl ConfigBuilder {
     pub const POOL_SIZE_DEFAULT: u32 = 20;
 
     pub fn merge(&mut self, other: ConfigBuilder) -> &mut Self {
+        set_option(&mut self.connection_string, other.connection_string);
         set_option(&mut self.ca_root_file, other.ca_root_file);
         set_option(
             &mut self.danger_accept_invalid_certs,
@@ -59,7 +60,6 @@ impl ConfigBuilder {
         set_option(&mut self.listen_addresses, other.listen_addresses);
         set_option(&mut self.pool_size, other.pool_size);
         set_option(&mut self.worker_processes, other.worker_processes);
-        set_option(&mut self.connection_string, other.connection_string);
         set_option(&mut self.table_sources, other.table_sources);
         set_option(&mut self.function_sources, other.function_sources);
         self
@@ -67,6 +67,7 @@ impl ConfigBuilder {
 
     pub fn finalize(self) -> Config {
         Config {
+            connection_string: self.connection_string.unwrap(),
             ca_root_file: self.ca_root_file,
             danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or(false),
             default_srid: self.default_srid,
@@ -76,7 +77,6 @@ impl ConfigBuilder {
                 .unwrap_or_else(|| Self::LISTEN_ADDRESSES_DEFAULT.to_owned()),
             pool_size: self.pool_size.unwrap_or(Self::POOL_SIZE_DEFAULT),
             worker_processes: self.worker_processes.unwrap_or_else(num_cpus::get),
-            connection_string: self.connection_string.unwrap(),
             table_sources: self.table_sources,
             function_sources: self.function_sources,
         }
