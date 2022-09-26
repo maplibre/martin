@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use bb8::PooledConnection;
 use bb8_postgres::{tokio_postgres, PostgresConnectionManager};
-use log::{error, info};
+use log::info;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use semver::{Version, VersionReq};
@@ -77,23 +77,15 @@ pub async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
     Ok(version)
 }
 
-pub async fn check_postgis_version(
-    required_postgis_version: &str,
-    pool: &Pool,
-) -> io::Result<bool> {
+pub async fn assert_postgis_version(required_postgis_version: &str, pool: &Pool) -> io::Result<()> {
     let postgis_version = select_postgis_version(pool).await?;
-
     let req = VersionReq::parse(required_postgis_version)
         .map_err(|e| prettify_error!(e, "Can't parse required PostGIS version"))?;
-
     let version = Version::parse(postgis_version.as_str())
         .map_err(|e| prettify_error!(e, "Can't parse database PostGIS version"))?;
-
-    let matches = req.matches(&version);
-
-    if !matches {
-        error!("Martin requires PostGIS {required_postgis_version}, current version is {postgis_version}");
+    if !req.matches(&version) {
+        Err(io::Error::new(io::ErrorKind::Other, format!("Martin requires PostGIS {required_postgis_version}, current version is {postgis_version}")))
+    } else {
+        Ok(())
     }
-
-    Ok(matches)
 }

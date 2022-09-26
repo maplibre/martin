@@ -4,7 +4,7 @@ use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
 use martin::config::{read_config, Config, ConfigBuilder};
-use martin::db::{check_postgis_version, get_connection, setup_connection_pool, Pool};
+use martin::db::{assert_postgis_version, get_connection, setup_connection_pool, Pool};
 use martin::function_source::get_function_sources;
 use martin::table_source::get_table_sources;
 use martin::{prettify_error, server};
@@ -91,7 +91,6 @@ impl From<Args> for ConfigBuilder {
 
 async fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
     let config = read_config(&file_name).map_err(|e| prettify_error!(e, "Can't read config"))?;
-
     let pool = setup_connection_pool(
         &config.connection_string,
         &config.ca_root_file,
@@ -115,15 +114,12 @@ async fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
             );
         }
     }
-
     if let Some(function_sources) = &config.function_sources {
         for function_source in function_sources.values() {
             info!("Found {} function source", function_source.id);
         }
     }
-
     info!("Connected to {}", config.connection_string);
-
     Ok((config, pool))
 }
 
@@ -158,7 +154,6 @@ async fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
 
 async fn start(args: Args) -> io::Result<Server> {
     info!("Starting Martin v{VERSION}");
-
     let (config, pool) = match args.config {
         Some(config_file_name) => {
             info!("Using {config_file_name}");
@@ -169,19 +164,10 @@ async fn start(args: Args) -> io::Result<Server> {
             setup_from_args(args).await?
         }
     };
-
-    let matches = check_postgis_version(REQUIRED_POSTGIS_VERSION, &pool)
-        .await
-        .map_err(|e| prettify_error!(e, "Can't check PostGIS version"))?;
-
-    if !matches {
-        std::process::exit(-1);
-    }
-
+    assert_postgis_version(REQUIRED_POSTGIS_VERSION, &pool).await?;
     let listen_addresses = config.listen_addresses.clone();
     let server = server::new(pool, config);
     info!("Martin has been started on {listen_addresses}.");
-
     Ok(server)
 }
 
@@ -189,9 +175,7 @@ async fn start(args: Args) -> io::Result<Server> {
 async fn main() -> io::Result<()> {
     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
     env_logger::Builder::from_env(env).init();
-
-    let args: Args = Args::parse();
-    match start(args).await {
+    match start(Args::parse()).await {
         Ok(server) => server.await,
         Err(error) => {
             error!("{error}");
