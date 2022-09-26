@@ -17,26 +17,22 @@ pub struct CompositeSource {
 
 impl CompositeSource {
     fn get_bounds_cte(&self, xyz: &Xyz) -> String {
-        let srid_bounds: String = self
+        let srid_bounds = self
             .table_sources
-            .clone()
-            .into_iter()
+            .iter()
             .map(|source| source.srid)
             .unique()
             .map(|srid| get_srid_bounds(srid, xyz))
-            .collect::<Vec<String>>()
             .join(", ");
 
-        get_bounds_cte(srid_bounds)
+        get_bounds_cte(&srid_bounds)
     }
 
     fn get_tile_query(&self, xyz: &Xyz) -> String {
         let tile_query: String = self
             .table_sources
-            .clone()
-            .into_iter()
+            .iter()
             .map(|source| format!("({})", source.get_tile_query(xyz)))
-            .collect::<Vec<String>>()
             .join(" || ");
 
         format!("SELECT {tile_query} AS tile")

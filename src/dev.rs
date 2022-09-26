@@ -12,7 +12,7 @@ use crate::table_source::{TableSource, TableSources};
 pub fn mock_table_sources(sources: Vec<TableSource>) -> TableSources {
     let mut table_sources: TableSources = HashMap::new();
     for source in sources {
-        table_sources.insert(source.id.to_owned(), Box::new(source));
+        table_sources.insert(source.id.clone(), Box::new(source));
     }
 
     table_sources
@@ -134,7 +134,7 @@ pub fn mock_default_table_sources() -> TableSources {
 pub fn mock_function_sources(sources: Vec<FunctionSource>) -> FunctionSources {
     let mut function_sources: FunctionSources = HashMap::new();
     for source in sources {
-        function_sources.insert(source.id.to_owned(), Box::new(source));
+        function_sources.insert(source.id.clone(), Box::new(source));
     }
 
     function_sources
