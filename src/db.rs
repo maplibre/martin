@@ -88,10 +88,10 @@ async fn validate_postgis_version(pool: &Pool) -> io::Result<()> {
         .map_err(|e| prettify_error!(e, "Can't parse required PostGIS version"))?;
     let version = Version::parse(postgis_version.as_str())
         .map_err(|e| prettify_error!(e, "Can't parse database PostGIS version"))?;
-    if !req.matches(&version) {
-        Err(io::Error::new(io::ErrorKind::Other, format!("Martin requires PostGIS {REQUIRED_POSTGIS_VERSION}, current version is {postgis_version}")))
-    } else {
+    if req.matches(&version) {
         Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::Other, format!("Martin requires PostGIS {REQUIRED_POSTGIS_VERSION}, current version is {postgis_version}")))
     }
 }
 

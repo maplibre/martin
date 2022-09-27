@@ -66,6 +66,7 @@ impl ConfigBuilder {
         self
     }
 
+    /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(self) -> io::Result<Config> {
         let connection_string = self.connection_string.ok_or_else(|| {
             io::Error::new(
@@ -91,6 +92,7 @@ impl ConfigBuilder {
     }
 }
 
+/// Read config from a file
 pub fn read_config(file_name: &str) -> io::Result<ConfigBuilder> {
     let mut file = File::open(file_name)
         .map_err(|e| prettify_error!(e, "Unable to open config file '{}'", file_name))?;

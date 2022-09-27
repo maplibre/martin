@@ -206,22 +206,19 @@ pub async fn get_table_sources(
         let explicit_id = format!("{schema}.{table}.{geometry_column}");
 
         if sources.contains_key(&id) {
-            duplicate_source_ids.insert(id.to_owned());
+            duplicate_source_ids.insert(id.clone());
         }
 
         let mut srid: i32 = row.get("srid");
         if srid == 0 {
-            match default_srid {
-                Some(default_srid) => {
-                    warn!(r#""{id}" has SRID 0, using the provided default SRID {default_srid}"#);
-                    srid = default_srid;
-                }
-                None => {
-                    warn!(
-                        r#""{id}" has SRID 0, skipping. To use this table source, you must specify the SRID using the config file or provide the default SRID"#
-                    );
-                    continue;
-                }
+            if let Some(default_srid) = default_srid {
+                warn!(r#""{id}" has SRID 0, using the provided default SRID {default_srid}"#);
+                srid = default_srid;
+            } else {
+                warn!(
+                    r#""{id}" has SRID 0, skipping. To use this table source, you must specify the SRID using the config file or provide the default SRID"#
+                );
+                continue;
             }
         }
 
