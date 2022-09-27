@@ -1,7 +1,7 @@
 FROM rust:alpine as builder
 
 RUN apk update
-RUN apk add --no-cache openssl-dev musl-dev libc6-compat
+RUN apk add --no-cache openssl-dev musl-dev
 
 WORKDIR /usr/src/martin
 ADD . .
@@ -9,6 +9,9 @@ RUN cargo build --release
 
 
 FROM alpine:latest
+
+RUN apk update
+RUN apk add --no-cache libc6-compat
 
 COPY --from=builder \
   /usr/src/martin/target/release/martin \
