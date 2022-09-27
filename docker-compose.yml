@@ -2,7 +2,7 @@ version: "3"
 
 services:
   martin:
-    image: urbica/martin
+    image: maplibre/martin
     restart: unless-stopped
     ports:
       - "3000:3000"

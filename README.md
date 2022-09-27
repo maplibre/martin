@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
 ![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)
-[![Docker pulls](https://img.shields.io/docker/pulls/urbica/martin.svg)](https://hub.docker.com/r/urbica/martin)
+[![Docker pulls](https://img.shields.io/docker/pulls/maplibre/martin.svg)](https://hub.docker.com/r/maplibre/martin)
 
 Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
@@ -49,15 +49,15 @@ Martin requires PostGIS >= 2.4.0.
 
 You can download martin from [Github releases page](https://github.com/maplibre/martin/releases).
 
-| Platform | Downloads (latest)      |
-|----------|-------------------------|
-| Linux    | [64-bit][rl-linux-tar]  |
-| macOS    | [64-bit][rl-macos-tar]  |
-| Windows  | [64-bit][rl-winx64-zip] |
+| Platform | Downloads (latest)     |
+|----------|------------------------|
+| Linux    | [64-bit][rl-linux-tar] |
+| macOS    | [64-bit][rl-macos-tar] |
+| Windows  | [64-bit][rl-win64-zip] |
 
 [rl-linux-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-Linux-x86_64.tar.gz
 [rl-macos-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-Darwin-x86_64.tar.gz
-[rl-winx64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-Windows-x86_64.zip
+[rl-win64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-Windows-x86_64.zip
 
 If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
 
@@ -66,10 +66,10 @@ brew tap urbica/tap
 brew install martin
 ```
 
-You can also use [official Docker image](https://hub.docker.com/r/urbica/martin)
+You can also use [official Docker image](https://hub.docker.com/r/maplibre/martin)
 
 ```shell
-docker run -p 3000:3000 -e DATABASE_URL=postgres://postgres@localhost/db urbica/martin
+docker run -p 3000:3000 -e DATABASE_URL=postgres://postgres@localhost/db maplibre/martin
 ```
 
 ## Usage
@@ -524,13 +524,13 @@ function_sources:
 
 ## Using with Docker
 
-You can use official Docker image [`urbica/martin`](https://hub.docker.com/r/urbica/martin)
+You can use official Docker image [`maplibre/martin`](https://hub.docker.com/r/maplibre/martin)
 
 ```shell
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@localhost/db \
-  urbica/martin
+  maplibre/martin
 ```
 
 If you are running PostgreSQL instance on `localhost`, you have to change network settings to allow the Docker container to access the `localhost` network.
@@ -542,7 +542,7 @@ docker run \
   --net=host \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@localhost/db \
-  urbica/martin
+  maplibre/martin
 ```
 
 For macOS, use `host.docker.internal` as hostname to access the `localhost` PostgreSQL service.
@@ -551,7 +551,7 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
-  urbica/martin
+  maplibre/martin
 ```
 
 For Windows, use `docker.for.win.localhost` as hostname to access the `localhost` PostgreSQL service.
@@ -560,7 +560,7 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
-  urbica/martin
+  maplibre/martin
 ```
 
 ## Using with Docker Compose
@@ -572,7 +572,7 @@ version: '3'
 
 services:
   martin:
-    image: urbica/martin
+    image: maplibre/martin
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -626,7 +626,7 @@ services:
       - martin
 
   martin:
-    image: urbica/martin
+    image: maplibre/martin
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgres://postgres:password@db/db
