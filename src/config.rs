@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::function_source::FunctionSources;
+use crate::prettify_error;
 use crate::table_source::TableSources;
 
 #[derive(Clone, Debug, Serialize)]
@@ -17,6 +18,7 @@ pub struct Config {
     pub listen_addresses: String,
     pub pool_size: u32,
     pub worker_processes: usize,
+    pub use_dynamic_sources: bool,
     pub table_sources: Option<TableSources>,
     pub function_sources: Option<FunctionSources>,
 }
@@ -64,11 +66,17 @@ impl ConfigBuilder {
         self
     }
 
-    pub fn finalize(self) -> Config {
-        Config {
-            connection_string: self.connection_string.unwrap(),
+    pub fn finalize(self) -> io::Result<Config> {
+        let connection_string = self.connection_string.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "Database connection string is not set",
+            )
+        })?;
+        Ok(Config {
+            connection_string,
             ca_root_file: self.ca_root_file,
-            danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or(false),
+            danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or_default(),
             default_srid: self.default_srid,
             keep_alive: self.keep_alive.unwrap_or(Self::KEEP_ALIVE_DEFAULT),
             listen_addresses: self
@@ -76,18 +84,19 @@ impl ConfigBuilder {
                 .unwrap_or_else(|| Self::LISTEN_ADDRESSES_DEFAULT.to_owned()),
             pool_size: self.pool_size.unwrap_or(Self::POOL_SIZE_DEFAULT),
             worker_processes: self.worker_processes.unwrap_or_else(num_cpus::get),
+            use_dynamic_sources: self.table_sources.is_none() && self.function_sources.is_none(),
             table_sources: self.table_sources,
             function_sources: self.function_sources,
-        }
+        })
     }
 }
 
-pub fn read_config(file_name: &str) -> io::Result<Config> {
-    let mut file = File::open(file_name)?;
+pub fn read_config(file_name: &str) -> io::Result<ConfigBuilder> {
+    let mut file = File::open(file_name)
+        .map_err(|e| prettify_error!(e, "Unable to open config file '{}'", file_name))?;
     let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let config_builder: ConfigBuilder = serde_yaml::from_str(contents.as_str())
-        .map_err(|e| ::std::io::Error::new(::std::io::ErrorKind::Other, e))?;
-
-    Ok(config_builder.finalize())
+    file.read_to_string(&mut contents)
+        .map_err(|e| prettify_error!(e, "Unable to read config file '{}'", file_name))?;
+    serde_yaml::from_str(contents.as_str())
+        .map_err(|e| prettify_error!(e, "Error parsing config file '{}'", file_name))
 }

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 
 use async_trait::async_trait;
-use log::{info, warn};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use tilejson::{tilejson, Bounds, TileJSON};
 
@@ -202,21 +202,14 @@ pub async fn get_table_sources(
         let schema: String = row.get("f_table_schema");
         let table: String = row.get("f_table_name");
         let geometry_column: String = row.get("f_geometry_column");
-
-        let mut srid: i32 = row.get("srid");
-        let geometry_type: String = row.get("type");
-
         let id = format!("{schema}.{table}");
         let explicit_id = format!("{schema}.{table}.{geometry_column}");
 
         if sources.contains_key(&id) {
             duplicate_source_ids.insert(id.to_owned());
-        } else {
-            info!(
-                r#"Found "{id}" table source with "{geometry_column}" column ({geometry_type}, SRID={srid})"#
-            );
         }
 
+        let mut srid: i32 = row.get("srid");
         if srid == 0 {
             match default_srid {
                 Some(default_srid) => {
@@ -264,10 +257,6 @@ pub async fn get_table_sources(
 
         sources.entry(id).or_insert_with(|| Box::new(source));
         sources.insert(explicit_id, Box::new(explicit_source));
-    }
-
-    if sources.is_empty() {
-        info!("No table sources found");
     }
 
     if !duplicate_source_ids.is_empty() {

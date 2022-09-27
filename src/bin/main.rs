@@ -3,15 +3,12 @@ use std::{env, io};
 use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
-use martin::config::{read_config, Config, ConfigBuilder};
-use martin::db::{assert_postgis_version, get_connection, setup_connection_pool, Pool};
-use martin::function_source::get_function_sources;
-use martin::table_source::get_table_sources;
-use martin::{prettify_error, server};
+use martin::config::{read_config, ConfigBuilder};
+use martin::db::configure_db_source;
+use martin::server;
 use serde::Deserialize;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
 
 #[derive(Parser, Debug, Deserialize)]
 #[command(about, version)]
@@ -89,84 +86,24 @@ impl From<Args> for ConfigBuilder {
     }
 }
 
-async fn setup_from_config(file_name: String) -> io::Result<(Config, Pool)> {
-    let config = read_config(&file_name).map_err(|e| prettify_error!(e, "Can't read config"))?;
-    let pool = setup_connection_pool(
-        &config.connection_string,
-        &config.ca_root_file,
-        Some(config.pool_size),
-        config.danger_accept_invalid_certs,
-    )
-    .await
-    .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
-
-    if let Some(table_sources) = &config.table_sources {
-        for table_source in table_sources.values() {
-            info!(
-                r#"Found "{}" table source with "{}" column ({}, SRID={})"#,
-                table_source.id,
-                table_source.geometry_column,
-                table_source
-                    .geometry_type
-                    .as_ref()
-                    .unwrap_or(&"null".to_string()),
-                table_source.srid
-            );
-        }
-    }
-    if let Some(function_sources) = &config.function_sources {
-        for function_source in function_sources.values() {
-            info!("Found {} function source", function_source.id);
-        }
-    }
-    info!("Connected to {}", config.connection_string);
-    Ok((config, pool))
-}
-
-async fn setup_from_args(args: Args) -> io::Result<(Config, Pool)> {
-    let connection_string = args.connection.clone().ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            "Database connection string is not set",
-        )
-    })?;
-
-    info!("Connecting to database");
-    let pool = setup_connection_pool(
-        &connection_string,
-        &args.ca_root_file,
-        args.pool_size,
-        args.danger_accept_invalid_certs,
-    )
-    .await
-    .map_err(|e| prettify_error!(e, "Can't setup connection pool"))?;
-
-    let mut config = ConfigBuilder::from(args);
-    {
-        info!("Scanning database");
-        let mut connection = get_connection(&pool).await?;
-        config.table_sources = Some(get_table_sources(&mut connection, config.default_srid).await?);
-        config.function_sources = Some(get_function_sources(&mut connection).await?);
-    }
-    let config = config.finalize();
-    Ok((config, pool))
-}
-
 async fn start(args: Args) -> io::Result<Server> {
     info!("Starting Martin v{VERSION}");
-    let (config, pool) = match args.config {
-        Some(config_file_name) => {
-            info!("Using {config_file_name}");
-            setup_from_config(config_file_name).await?
-        }
-        None => {
-            info!("Config file is not specified");
-            setup_from_args(args).await?
-        }
+
+    let mut config = if let Some(ref config_file_name) = args.config {
+        info!("Using {config_file_name}");
+        let cfg = read_config(config_file_name)?;
+        let mut builder = ConfigBuilder::from(args);
+        builder.merge(cfg);
+        builder.finalize()?
+    } else {
+        info!("Config file is not specified");
+        ConfigBuilder::from(args).finalize()?
     };
-    assert_postgis_version(REQUIRED_POSTGIS_VERSION, &pool).await?;
+
+    let pool = configure_db_source(&mut config).await?;
     let listen_addresses = config.listen_addresses.clone();
     let server = server::new(pool, config);
+
     info!("Martin has been started on {listen_addresses}.");
     Ok(server)
 }
