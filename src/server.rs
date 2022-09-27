@@ -58,20 +58,18 @@ struct CompositeTileRequest {
 }
 
 fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
-    // FIXME: is e.to_string() needed here, or can it just be error!("{e}")  ?
-    error!("{}", e.to_string());
+    error!("{e}");
     error::ErrorInternalServerError(e.to_string())
 }
 
 #[route("/healthz", method = "GET", method = "HEAD")]
-async fn get_health() -> Result<HttpResponse, Error> {
-    let response = HttpResponse::Ok().body("OK");
-    Ok(response)
+async fn get_health() -> &'static str {
+    "OK"
 }
 
 #[route("/index.json", method = "GET", method = "HEAD")]
-async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    Ok(HttpResponse::Ok().json(state.table_sources.as_ref()))
+async fn get_table_sources(state: web::Data<AppState>) -> HttpResponse {
+    HttpResponse::Ok().json(state.table_sources.as_ref())
 }
 
 #[route("/{source_ids}.json", method = "GET", method = "HEAD")]
