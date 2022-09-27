@@ -10,6 +10,8 @@ RUN cargo build --release
 
 FROM alpine:latest
 
+RUN apk add --no-cache libc6-compat
+
 COPY --from=builder \
   /usr/src/martin/target/release/martin \
   /usr/local/bin/
