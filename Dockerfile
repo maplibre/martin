@@ -1,7 +1,7 @@
 FROM rust:alpine as builder
 
 RUN apk update
-RUN apk add --no-cache openssl-dev musl-dev
+RUN apk add --no-cache openssl-dev musl-dev libc6-compat
 
 WORKDIR /usr/src/martin
 ADD . .
