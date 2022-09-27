@@ -7,7 +7,8 @@ use actix_web::dev::Server;
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::{
-    error, middleware, route, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
+    error, middleware, route, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+    Result,
 };
 use log::error;
 use serde::Deserialize;
@@ -68,7 +69,7 @@ async fn get_health() -> &'static str {
 }
 
 #[route("/index.json", method = "GET", method = "HEAD")]
-async fn get_table_sources(state: web::Data<AppState>) -> HttpResponse {
+async fn get_table_sources(state: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(state.table_sources.as_ref())
 }
 
@@ -77,7 +78,7 @@ async fn get_composite_source(
     req: HttpRequest,
     path: web::Path<CompositeSourceRequest>,
     state: web::Data<AppState>,
-) -> Result<HttpResponse> {
+) -> impl Responder {
     let table_sources = state
         .table_sources
         .as_ref()
@@ -134,7 +135,7 @@ async fn get_composite_source(
 async fn get_composite_source_tile(
     path: web::Path<CompositeTileRequest>,
     state: web::Data<AppState>,
-) -> Result<HttpResponse, Error> {
+) -> impl Responder {
     let table_sources = state
         .table_sources
         .as_ref()
@@ -161,9 +162,8 @@ async fn get_composite_source_tile(
 }
 
 #[route("/rpc/index.json", method = "GET", method = "HEAD")]
-async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    let function_sources = state.function_sources.as_ref();
-    Ok(HttpResponse::Ok().json(function_sources))
+async fn get_function_sources(state: web::Data<AppState>) -> impl Responder {
+    HttpResponse::Ok().json(state.function_sources.as_ref())
 }
 
 #[route("/rpc/{source_id}.json", method = "GET", method = "HEAD")]
@@ -221,7 +221,7 @@ async fn get_function_source_tile(
     path: web::Path<TileRequest>,
     query: web::Query<HashMap<String, String>>,
     state: web::Data<AppState>,
-) -> Result<HttpResponse, Error> {
+) -> impl Responder {
     let function_sources = state
         .function_sources
         .as_ref()
