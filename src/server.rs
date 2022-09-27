@@ -7,7 +7,8 @@ use actix_web::dev::Server;
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::{
-    error, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
+    error, middleware, route, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+    Result,
 };
 use log::error;
 use serde::Deserialize;
@@ -58,25 +59,26 @@ struct CompositeTileRequest {
 }
 
 fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
-    // FIXME: is e.to_string() needed here, or can it just be error!("{e}")  ?
-    error!("{}", e.to_string());
+    error!("{e}");
     error::ErrorInternalServerError(e.to_string())
 }
 
-async fn get_health() -> Result<HttpResponse, Error> {
-    let response = HttpResponse::Ok().body("OK");
-    Ok(response)
+#[route("/healthz", method = "GET", method = "HEAD")]
+async fn get_health() -> &'static str {
+    "OK"
 }
 
-async fn get_table_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    Ok(HttpResponse::Ok().json(state.table_sources.as_ref()))
+#[route("/index.json", method = "GET", method = "HEAD")]
+async fn get_table_sources(state: web::Data<AppState>) -> impl Responder {
+    HttpResponse::Ok().json(state.table_sources.as_ref())
 }
 
+#[route("/{source_ids}.json", method = "GET", method = "HEAD")]
 async fn get_composite_source(
     req: HttpRequest,
     path: web::Path<CompositeSourceRequest>,
     state: web::Data<AppState>,
-) -> Result<HttpResponse> {
+) -> impl Responder {
     let table_sources = state
         .table_sources
         .as_ref()
@@ -129,10 +131,11 @@ async fn get_composite_source(
     Ok(HttpResponse::Ok().json(tilejson))
 }
 
+#[route("/{source_ids}/{z}/{x}/{y}.{format}", method = "GET", method = "HEAD")]
 async fn get_composite_source_tile(
     path: web::Path<CompositeTileRequest>,
     state: web::Data<AppState>,
-) -> Result<HttpResponse, Error> {
+) -> impl Responder {
     let table_sources = state
         .table_sources
         .as_ref()
@@ -158,11 +161,12 @@ async fn get_composite_source_tile(
     get_tile(&state, path.z, path.x, path.y, None, Box::new(source)).await
 }
 
-async fn get_function_sources(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    let function_sources = state.function_sources.as_ref();
-    Ok(HttpResponse::Ok().json(function_sources))
+#[route("/rpc/index.json", method = "GET", method = "HEAD")]
+async fn get_function_sources(state: web::Data<AppState>) -> impl Responder {
+    HttpResponse::Ok().json(state.function_sources.as_ref())
 }
 
+#[route("/rpc/{source_id}.json", method = "GET", method = "HEAD")]
 async fn get_function_source(
     req: HttpRequest,
     path: web::Path<SourceRequest>,
@@ -208,11 +212,16 @@ async fn get_function_source(
     Ok(HttpResponse::Ok().json(tilejson))
 }
 
+#[route(
+    "/rpc/{source_id}/{z}/{x}/{y}.{format}",
+    method = "GET",
+    method = "HEAD"
+)]
 async fn get_function_source_tile(
     path: web::Path<TileRequest>,
     query: web::Query<HashMap<String, String>>,
     state: web::Data<AppState>,
-) -> Result<HttpResponse, Error> {
+) -> impl Responder {
     let function_sources = state
         .function_sources
         .as_ref()
@@ -269,19 +278,13 @@ async fn get_tile(
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
-    cfg.route("/healthz", web::get().to(get_health))
-        .route("/index.json", web::get().to(get_table_sources))
-        .route("/{source_ids}.json", web::get().to(get_composite_source))
-        .route(
-            "/{source_ids}/{z}/{x}/{y}.{format}",
-            web::get().to(get_composite_source_tile),
-        )
-        .route("/rpc/index.json", web::get().to(get_function_sources))
-        .route("/rpc/{source_id}.json", web::get().to(get_function_source))
-        .route(
-            "/rpc/{source_id}/{z}/{x}/{y}.{format}",
-            web::get().to(get_function_source_tile),
-        );
+    cfg.service(get_health)
+        .service(get_table_sources)
+        .service(get_composite_source)
+        .service(get_composite_source_tile)
+        .service(get_function_sources)
+        .service(get_function_source)
+        .service(get_function_source_tile);
 }
 
 fn create_state(pool: Pool, config: Config) -> AppState {
