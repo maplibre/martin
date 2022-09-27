@@ -12,11 +12,14 @@ use crate::source::{Query, Xyz};
 #[macro_export]
 macro_rules! prettify_error {
     ($error:ident, $info:literal) => {
-        ::std::io::Error::new(::std::io::ErrorKind::Other, format!(concat!($info, ": {}"), $error))
+        ::std::io::Error::new(
+            ::std::io::ErrorKind::Other,
+            ::std::format!(::std::concat!($info, ": {}"), $error))
     };
     ($error:ident, $($arg:tt)+) => {
-        ::std::io::Error::new(::std::io::ErrorKind::Other,
-            format!("{}: {}", format_args!($($arg)+), $error))
+        ::std::io::Error::new(
+            ::std::io::ErrorKind::Other,
+            ::std::format!("{}: {}", ::std::format_args!($($arg)+), $error))
     };
 }
 
@@ -31,12 +34,12 @@ pub fn tilebbox(xyz: &Xyz) -> String {
     let max = 20_037_508.34;
     let res = (max * 2.0) / f64::from(2_i32.pow(z as u32));
 
-    let xmin = -max + (f64::from(x) * res);
-    let ymin = max - (f64::from(y) * res);
-    let xmax = -max + (f64::from(x) * res) + res;
-    let ymax = max - (f64::from(y) * res) - res;
+    let x_min = -max + (f64::from(x) * res);
+    let y_min = max - (f64::from(y) * res);
+    let x_max = -max + (f64::from(x) * res) + res;
+    let y_max = max - (f64::from(y) * res) - res;
 
-    format!("ST_MakeEnvelope({xmin}, {ymin}, {xmax}, {ymax}, 3857)")
+    format!("ST_MakeEnvelope({x_min}, {y_min}, {x_max}, {y_max}, 3857)")
 }
 
 pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
@@ -44,8 +47,8 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
 
     let object = value.as_object().unwrap();
     for (key, value) in object {
-        let string_value = value.as_str().unwrap();
-        hashmap.insert(key.to_owned(), string_value.to_owned());
+        let string_value = value.as_str().unwrap().to_string();
+        hashmap.insert(key.clone(), string_value);
     }
 
     hashmap
@@ -63,7 +66,7 @@ pub fn query_to_json(query: &Query) -> Json<HashMap<String, Value>> {
     Json(query_as_json)
 }
 
-pub fn get_bounds_cte(srid_bounds: String) -> String {
+pub fn get_bounds_cte(srid_bounds: &str) -> String {
     format!(
         include_str!("scripts/get_bounds_cte.sql"),
         srid_bounds = srid_bounds

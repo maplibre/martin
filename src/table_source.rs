@@ -118,7 +118,7 @@ impl TableSource {
 
     pub fn build_tile_query(&self, xyz: &Xyz) -> String {
         let srid_bounds = utils::get_srid_bounds(self.srid, xyz);
-        let bounds_cte = utils::get_bounds_cte(srid_bounds);
+        let bounds_cte = utils::get_bounds_cte(&srid_bounds);
         let tile_query = self.get_tile_query(xyz);
 
         format!("{bounds_cte} {tile_query}")
@@ -242,10 +242,8 @@ pub async fn get_table_sources(
             .flatten()
             .and_then(utils::polygon_to_bbox);
 
-        let properties = utils::json_to_hashmap(&row.get("properties"));
-
         let source = TableSource {
-            id: id.to_owned(),
+            id: id.clone(),
             schema,
             table,
             id_column: None,
@@ -258,11 +256,11 @@ pub async fn get_table_sources(
             buffer: Some(DEFAULT_BUFFER),
             clip_geom: Some(DEFAULT_CLIP_GEOM),
             geometry_type: row.get("type"),
-            properties,
+            properties: utils::json_to_hashmap(&row.get("properties")),
         };
 
         let mut explicit_source = source.clone();
-        explicit_source.id = explicit_id.to_owned();
+        explicit_source.id = explicit_id.clone();
 
         sources.entry(id).or_insert_with(|| Box::new(source));
         sources.insert(explicit_id, Box::new(explicit_source));
