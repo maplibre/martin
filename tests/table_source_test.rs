@@ -14,7 +14,7 @@ async fn test_get_table_sources_ok() {
 
     let pool = dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
+    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     log::info!("table_sources = {table_sources:#?}");
 
@@ -46,7 +46,7 @@ async fn test_table_source_tilejson_ok() {
 
     let pool = dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
+    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
     let tilejson = table_source.get_tilejson().await.unwrap();
@@ -69,7 +69,7 @@ async fn test_table_source_tile_ok() {
 
     let pool = dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
+    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
     let tile = table_source
@@ -86,7 +86,7 @@ async fn test_table_source_srid_ok() {
 
     let pool = dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
-    let table_sources = get_table_sources(&mut connection, &Some(900913))
+    let table_sources = get_table_sources(&mut connection, Some(900913))
         .await
         .unwrap();
 
@@ -113,7 +113,7 @@ async fn test_table_source_multiple_geom_ok() {
 
     let pool = dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
-    let table_sources = get_table_sources(&mut connection, &None).await.unwrap();
+    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     assert!(table_sources.contains_key("public.table_source_multiple_geom"));
     let table_source_multiple_geom = table_sources

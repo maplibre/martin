@@ -166,7 +166,7 @@ pub async fn make_pool() -> Pool {
     let connection_string: String = env::var("DATABASE_URL").unwrap();
     info!("Connecting to {connection_string}");
 
-    let pool = setup_connection_pool(&connection_string, &None, Some(1), false)
+    let pool = setup_connection_pool(&connection_string, &None, 1, false)
         .await
         .unwrap();
     info!("Connected to {connection_string}");

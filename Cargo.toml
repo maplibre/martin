@@ -24,7 +24,7 @@ actix-web = "4"
 async-trait = "0.1"
 bb8 = "0.8"
 bb8-postgres = "0.8"
-docopt = "1"
+clap = { version = "4.0.0-rc", features = ["derive"] }
 env_logger = "0.9"
 itertools = "0.10"
 log = "0.4"

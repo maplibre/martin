@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::io;
 
 use async_trait::async_trait;
-use log::info;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
@@ -139,8 +138,6 @@ pub async fn get_function_sources(conn: &mut Connection<'_>) -> Result<FunctionS
         let function: String = row.get("routine_name");
         let id = format!("{schema}.{function}");
 
-        info!("Found {id} function source");
-
         let source = FunctionSource {
             id: id.clone(),
             schema,
@@ -151,10 +148,6 @@ pub async fn get_function_sources(conn: &mut Connection<'_>) -> Result<FunctionS
         };
 
         sources.insert(id, Box::new(source));
-    }
-
-    if sources.is_empty() {
-        info!("No function sources found");
     }
 
     Ok(sources)
