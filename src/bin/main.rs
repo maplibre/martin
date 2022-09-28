@@ -6,11 +6,10 @@ use log::{error, info, warn};
 use martin::config::{read_config, ConfigBuilder};
 use martin::db::configure_db_source;
 use martin::server;
-use serde::Deserialize;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Parser, Debug, Deserialize)]
+#[derive(Parser, Debug)]
 #[command(about, version)]
 pub struct Args {
     /// Database connection string
@@ -27,14 +26,14 @@ pub struct Args {
     /// If a spatial table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
-    #[arg(short, long,
-    help = format!("Connection keep alive timeout. [DEFAULT: {}]", ConfigBuilder::KEEP_ALIVE_DEFAULT))]
+    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {}]", ConfigBuilder::KEEP_ALIVE_DEFAULT),
+              short, long)]
     pub keep_alive: Option<usize>,
-    #[arg(short, long,
-    help = format!("The socket address to bind. [DEFAULT: {}]", ConfigBuilder::LISTEN_ADDRESSES_DEFAULT))]
+    #[arg(help = format!("The socket address to bind. [DEFAULT: {}]", ConfigBuilder::LISTEN_ADDRESSES_DEFAULT),
+          short, long)]
     pub listen_addresses: Option<String>,
-    #[arg(short, long,
-    help = format!("Maximum connections pool size [DEFAULT: {}]", ConfigBuilder::POOL_SIZE_DEFAULT))]
+    #[arg(help = format!("Maximum connections pool size [DEFAULT: {}]", ConfigBuilder::POOL_SIZE_DEFAULT),
+          short, long)]
     pub pool_size: Option<u32>,
     /// Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
