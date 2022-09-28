@@ -28,13 +28,13 @@ pub struct Args {
     #[arg(short, long)]
     pub default_srid: Option<i32>,
     #[arg(short, long,
-    help = format ! ("Connection keep alive timeout. [DEFAULT: {}]", ConfigBuilder::KEEP_ALIVE_DEFAULT))]
+    help = format!("Connection keep alive timeout. [DEFAULT: {}]", ConfigBuilder::KEEP_ALIVE_DEFAULT))]
     pub keep_alive: Option<usize>,
     #[arg(short, long,
-    help = format ! ("The socket address to bind. [DEFAULT: {}]", ConfigBuilder::LISTEN_ADDRESSES_DEFAULT))]
+    help = format!("The socket address to bind. [DEFAULT: {}]", ConfigBuilder::LISTEN_ADDRESSES_DEFAULT))]
     pub listen_addresses: Option<String>,
     #[arg(short, long,
-    help = format ! ("Maximum connections pool size [DEFAULT: {}]", ConfigBuilder::POOL_SIZE_DEFAULT))]
+    help = format!("Maximum connections pool size [DEFAULT: {}]", ConfigBuilder::POOL_SIZE_DEFAULT))]
     pub pool_size: Option<u32>,
     /// Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
