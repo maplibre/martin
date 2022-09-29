@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use martin::dev;
+use martin::pg::dev;
+use martin::pg::table_source::get_table_sources;
 use martin::source::{Source, Xyz};
-use martin::table_source::get_table_sources;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();

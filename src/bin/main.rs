@@ -1,11 +1,12 @@
-use std::{env, io};
-
 use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
 use martin::config::{read_config, ConfigBuilder};
-use martin::db::configure_db_source;
-use martin::server;
+use martin::pg::config as pg_config;
+use martin::pg::db::configure_db_source;
+use martin::srv::config as srv_config;
+use martin::srv::server;
+use std::{env, io};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -17,30 +18,13 @@ pub struct Args {
     /// Path to config file.
     #[arg(short, long)]
     pub config: Option<String>,
-    /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
-    #[arg(long)]
-    pub ca_root_file: Option<String>,
-    /// Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
-    #[arg(long)]
-    pub danger_accept_invalid_certs: bool,
-    /// If a spatial table has SRID 0, then this default SRID will be used as a fallback.
-    #[arg(short, long)]
-    pub default_srid: Option<i32>,
-    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {}]", ConfigBuilder::KEEP_ALIVE_DEFAULT),
-              short, long)]
-    pub keep_alive: Option<usize>,
-    #[arg(help = format!("The socket address to bind. [DEFAULT: {}]", ConfigBuilder::LISTEN_ADDRESSES_DEFAULT),
-          short, long)]
-    pub listen_addresses: Option<String>,
-    #[arg(help = format!("Maximum connections pool size [DEFAULT: {}]", ConfigBuilder::POOL_SIZE_DEFAULT),
-          short, long)]
-    pub pool_size: Option<u32>,
-    /// Scan for new sources on sources list requests
+    /// [Deprecated] Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
-    /// Number of web server workers
-    #[arg(short = 'W', long)]
-    pub workers: Option<usize>,
+    #[command(flatten)]
+    srv: srv_config::WebServerArgs,
+    #[command(flatten)]
+    pg: pg_config::PostgreSqlArgs,
 }
 
 impl From<Args> for ConfigBuilder {
@@ -55,32 +39,8 @@ impl From<Args> for ConfigBuilder {
         }
 
         ConfigBuilder {
-            connection_string: args.connection.or_else(|| {
-                env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
-            }),
-            ca_root_file: args.ca_root_file.or_else(|| {
-                env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
-            }),
-            danger_accept_invalid_certs: if args.danger_accept_invalid_certs
-                || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some()
-            {
-                Some(true)
-            } else {
-                None
-            },
-            default_srid: args.default_srid.or_else(|| {
-                env::var_os("DEFAULT_SRID").and_then(|srid| {
-                    srid.into_string()
-                        .ok()
-                        .and_then(|srid| srid.parse::<i32>().ok())
-                })
-            }),
-            keep_alive: args.keep_alive,
-            listen_addresses: args.listen_addresses,
-            pool_size: args.pool_size,
-            worker_processes: args.workers,
-            table_sources: None,
-            function_sources: None,
+            srv: srv_config::ConfigBuilder::from(args.srv),
+            pg: pg_config::ConfigBuilder::from((args.pg, args.connection)),
         }
     }
 }
@@ -100,7 +60,7 @@ async fn start(args: Args) -> io::Result<Server> {
     };
 
     let pool = configure_db_source(&mut config).await?;
-    let listen_addresses = config.listen_addresses.clone();
+    let listen_addresses = config.srv.listen_addresses.clone();
     let server = server::new(pool, config);
 
     info!("Martin has been started on {listen_addresses}.");

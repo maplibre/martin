@@ -1,15 +1,13 @@
-use std::collections::HashMap;
-use std::io;
-
+use crate::pg::db::Connection;
+use crate::pg::utils::{prettify_error, query_to_json};
+use crate::source::{Query, Source, Tile, Xyz};
 use async_trait::async_trait;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
-
-use crate::db::Connection;
-use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils::{prettify_error, query_to_json};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionSource {

@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use actix_web::web::Data;
 use actix_web::{http, test, App};
-use martin::dev;
-use martin::function_source::{FunctionSource, FunctionSources};
-use martin::server::router;
-use martin::table_source::{TableSource, TableSources};
+use martin::pg::dev;
+use martin::pg::function_source::{FunctionSource, FunctionSources};
+use martin::pg::table_source::{TableSource, TableSources};
+use martin::srv::server::router;
 use tilejson::{Bounds, TileJSON};
 
 fn init() {

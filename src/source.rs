@@ -1,11 +1,9 @@
+use crate::pg::db::Connection;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
-
-use async_trait::async_trait;
 use tilejson::TileJSON;
-
-use crate::db::Connection;
 
 pub type Tile = Vec<u8>;
 pub type Query = HashMap<String, String>;
