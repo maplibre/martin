@@ -21,7 +21,7 @@ pub struct ConfigBuilder {
 }
 
 /// Update empty option in place with a non-empty value from the second option.
-pub(crate) fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
+pub fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
     if first.is_none() && second.is_some() {
         *first = second;
     }
