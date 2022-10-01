@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-
+use crate::source::{Query, Xyz};
 use actix_http::header::HeaderValue;
 use actix_web::http;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
+use std::collections::HashMap;
 use tilejson::Bounds;
-
-use crate::source::{Query, Xyz};
 
 #[macro_export]
 macro_rules! prettify_error {
@@ -26,7 +24,7 @@ macro_rules! prettify_error {
 pub(crate) use prettify_error;
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
-pub fn tilebbox(xyz: &Xyz) -> String {
+pub fn tile_bbox(xyz: &Xyz) -> String {
     let x = xyz.x;
     let y = xyz.y;
     let z = xyz.z;
@@ -77,7 +75,7 @@ pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
     format!(
         include_str!("scripts/get_srid_bounds.sql"),
         srid = srid,
-        mercator_bounds = tilebbox(xyz),
+        mercator_bounds = tile_bbox(xyz),
     )
 }
 

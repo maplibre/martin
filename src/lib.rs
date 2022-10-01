@@ -1,12 +1,7 @@
-pub mod composite_source;
 pub mod config;
-pub mod db;
-pub mod dev;
-pub mod function_source;
-pub mod server;
+pub mod pg;
 pub mod source;
-pub mod table_source;
-pub mod utils;
+pub mod srv;
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]

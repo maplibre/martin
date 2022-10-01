@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use martin::composite_source::CompositeSource;
-use martin::dev;
-use martin::function_source::FunctionSource;
+use martin::pg;
+use martin::pg::composite_source::CompositeSource;
+use martin::pg::function_source::FunctionSource;
+use martin::pg::table_source::TableSource;
 use martin::source::{Source, Xyz};
-use martin::table_source::TableSource;
 
 fn mock_table_source(schema: &str, table: &str) -> TableSource {
     TableSource {
@@ -43,7 +43,7 @@ async fn get_table_source() {
 }
 
 async fn get_table_source_tile() {
-    let pool = dev::make_pool().await;
+    let pool = pg::dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
 
     let source = mock_table_source("public", "table_source");
@@ -65,7 +65,7 @@ async fn get_composite_source() {
 }
 
 async fn get_composite_source_tile() {
-    let pool = dev::make_pool().await;
+    let pool = pg::dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
 
     let points1 = mock_table_source("public", "points1");
@@ -86,7 +86,7 @@ async fn get_function_source() {
 }
 
 async fn get_function_source_tile() {
-    let pool = dev::make_pool().await;
+    let pool = pg::dev::make_pool().await;
     let mut connection = pool.get().await.unwrap();
 
     let source = mock_function_source("public", "function_source");

@@ -1,7 +1,10 @@
-use std::collections::HashMap;
-use std::ops::Deref;
-use std::time::Duration;
-
+use crate::config::Config;
+use crate::pg::composite_source::CompositeSource;
+use crate::pg::db::{get_connection, Pool};
+use crate::pg::function_source::FunctionSources;
+use crate::pg::table_source::{TableSource, TableSources};
+use crate::pg::utils::parse_x_rewrite_url;
+use crate::source::{Query, Source, Xyz};
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::Uri;
@@ -12,14 +15,9 @@ use actix_web::{
 };
 use log::error;
 use serde::Deserialize;
-
-use crate::composite_source::CompositeSource;
-use crate::config::Config;
-use crate::db::{get_connection, Pool};
-use crate::function_source::FunctionSources;
-use crate::source::{Query, Source, Xyz};
-use crate::table_source::{TableSource, TableSources};
-use crate::utils::parse_x_rewrite_url;
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::time::Duration;
 
 pub struct AppState {
     pub pool: Pool,
@@ -290,16 +288,16 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 fn create_state(pool: Pool, config: Config) -> AppState {
     AppState {
         pool,
-        table_sources: config.table_sources,
-        function_sources: config.function_sources,
-        default_srid: config.default_srid,
+        table_sources: config.pg.table_sources,
+        function_sources: config.pg.function_sources,
+        default_srid: config.pg.default_srid,
     }
 }
 
 pub fn new(pool: Pool, config: Config) -> Server {
-    let keep_alive = config.keep_alive;
-    let worker_processes = config.worker_processes;
-    let listen_addresses = config.listen_addresses.clone();
+    let keep_alive = config.srv.keep_alive;
+    let worker_processes = config.srv.worker_processes;
+    let listen_addresses = config.srv.listen_addresses.clone();
 
     HttpServer::new(move || {
         let state = create_state(pool.clone(), config.clone());

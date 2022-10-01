@@ -1,17 +1,15 @@
-use std::io;
-use std::str::FromStr;
-
 use crate::config::Config;
-use crate::function_source::get_function_sources;
-use crate::table_source::get_table_sources;
+use crate::pg::function_source::get_function_sources;
+use crate::pg::table_source::get_table_sources;
+use crate::pg::utils::prettify_error;
 use bb8::PooledConnection;
 use bb8_postgres::{tokio_postgres, PostgresConnectionManager};
 use log::info;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use semver::{Version, VersionReq};
-
-use crate::utils::prettify_error;
+use std::io;
+use std::str::FromStr;
 
 pub type ConnectionManager = PostgresConnectionManager<MakeTlsConnector>;
 pub type Pool = bb8::Pool<ConnectionManager>;
@@ -98,31 +96,31 @@ async fn validate_postgis_version(pool: &Pool) -> io::Result<()> {
 pub async fn configure_db_source(mut config: &mut Config) -> io::Result<Pool> {
     info!("Connecting to database");
     let pool = setup_connection_pool(
-        &config.connection_string,
-        &config.ca_root_file,
-        config.pool_size,
-        config.danger_accept_invalid_certs,
+        &config.pg.connection_string,
+        &config.pg.ca_root_file,
+        config.pg.pool_size,
+        config.pg.danger_accept_invalid_certs,
     )
     .await?;
 
     validate_postgis_version(&pool).await?;
 
-    let info_prefix = if config.use_dynamic_sources {
+    let info_prefix = if config.pg.use_dynamic_sources {
         info!("Automatically detecting table and function sources");
         let mut connection = get_connection(&pool).await?;
 
-        let sources = get_table_sources(&mut connection, config.default_srid).await?;
+        let sources = get_table_sources(&mut connection, config.pg.default_srid).await?;
         if sources.is_empty() {
             info!("No table sources found");
         } else {
-            config.table_sources = Some(sources);
+            config.pg.table_sources = Some(sources);
         }
 
         let sources = get_function_sources(&mut connection).await?;
         if sources.is_empty() {
             info!("No function sources found");
         } else {
-            config.function_sources = Some(sources);
+            config.pg.function_sources = Some(sources);
         }
 
         "Found"
@@ -130,7 +128,7 @@ pub async fn configure_db_source(mut config: &mut Config) -> io::Result<Pool> {
         "Loaded"
     };
 
-    if let Some(table_sources) = &config.table_sources {
+    if let Some(table_sources) = &config.pg.table_sources {
         for table_source in table_sources.values() {
             info!(
                 r#"{info_prefix} "{}" table source with "{}" column ({}, SRID={})"#,
@@ -141,7 +139,7 @@ pub async fn configure_db_source(mut config: &mut Config) -> io::Result<Pool> {
             );
         }
     }
-    if let Some(function_sources) = &config.function_sources {
+    if let Some(function_sources) = &config.pg.function_sources {
         for function_source in function_sources.values() {
             info!("{info_prefix} {} function source", function_source.id);
         }

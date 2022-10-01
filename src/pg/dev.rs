@@ -1,13 +1,11 @@
+use crate::pg::db::{setup_connection_pool, Pool};
+use crate::pg::function_source::{FunctionSource, FunctionSources};
+use crate::pg::table_source::{TableSource, TableSources};
+use crate::srv::server::AppState;
+use log::info;
 use std::collections::HashMap;
 use std::env;
-
-use log::info;
 use tilejson::Bounds;
-
-use crate::db::{setup_connection_pool, Pool};
-use crate::function_source::{FunctionSource, FunctionSources};
-use crate::server::AppState;
-use crate::table_source::{TableSource, TableSources};
 
 pub fn mock_table_sources(sources: Vec<TableSource>) -> TableSources {
     let mut table_sources: TableSources = HashMap::new();

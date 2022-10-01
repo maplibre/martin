@@ -1,5 +1,5 @@
-use martin::dev;
-use martin::function_source::get_function_sources;
+use martin::pg::dev;
+use martin::pg::function_source::get_function_sources;
 use martin::source::{Source, Xyz};
 
 fn init() {

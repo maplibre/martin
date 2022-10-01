@@ -1,14 +1,12 @@
-use std::collections::{HashMap, HashSet};
-use std::io;
-
+use crate::pg::db::Connection;
+use crate::pg::utils;
+use crate::source::{Query, Source, Tile, Xyz};
 use async_trait::async_trait;
 use log::warn;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
-
-use crate::db::Connection;
-use crate::source::{Query, Source, Tile, Xyz};
-use crate::utils;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableSource {
@@ -70,7 +68,7 @@ pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl TableSource {
     pub fn get_geom_query(&self, xyz: &Xyz) -> String {
-        let mercator_bounds = utils::tilebbox(xyz);
+        let mercator_bounds = utils::tile_bbox(xyz);
 
         let properties = if self.properties.is_empty() {
             String::new()
