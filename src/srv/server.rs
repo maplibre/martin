@@ -23,7 +23,6 @@ pub struct AppState {
     pub pool: Pool,
     pub table_sources: Option<TableSources>,
     pub function_sources: Option<FunctionSources>,
-    pub default_srid: Option<i32>,
 }
 
 #[derive(Deserialize)]
@@ -290,7 +289,6 @@ fn create_state(pool: Pool, config: Config) -> AppState {
         pool,
         table_sources: config.pg.table_sources,
         function_sources: config.pg.function_sources,
-        default_srid: config.pg.default_srid,
     }
 }
 
