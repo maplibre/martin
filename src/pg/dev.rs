@@ -180,7 +180,7 @@ pub async fn mock_state(
 
     AppState {
         pool,
-        table_sources,
-        function_sources,
+        table_sources: table_sources.unwrap_or_default(),
+        function_sources: function_sources.unwrap_or_default(),
     }
 }

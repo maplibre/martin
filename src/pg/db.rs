@@ -113,14 +113,14 @@ pub async fn configure_db_source(mut config: &mut Config) -> io::Result<Pool> {
         if sources.is_empty() {
             info!("No table sources found");
         } else {
-            config.pg.table_sources = Some(sources);
+            config.pg.table_sources = sources;
         }
 
         let sources = get_function_sources(&mut connection).await?;
         if sources.is_empty() {
             info!("No function sources found");
         } else {
-            config.pg.function_sources = Some(sources);
+            config.pg.function_sources = sources;
         }
 
         "Found"
@@ -128,21 +128,17 @@ pub async fn configure_db_source(mut config: &mut Config) -> io::Result<Pool> {
         "Loaded"
     };
 
-    if let Some(table_sources) = &config.pg.table_sources {
-        for table_source in table_sources.values() {
-            info!(
-                r#"{info_prefix} "{}" table source with "{}" column ({}, SRID={})"#,
-                table_source.id,
-                table_source.geometry_column,
-                table_source.geometry_type.as_deref().unwrap_or("null"),
-                table_source.srid
-            );
-        }
+    for table_source in config.pg.table_sources.values() {
+        info!(
+            r#"{info_prefix} "{}" table source with "{}" column ({}, SRID={})"#,
+            table_source.id,
+            table_source.geometry_column,
+            table_source.geometry_type.as_deref().unwrap_or("null"),
+            table_source.srid
+        );
     }
-    if let Some(function_sources) = &config.pg.function_sources {
-        for function_source in function_sources.values() {
-            info!("{info_prefix} {} function source", function_source.id);
-        }
+    for function_source in config.pg.function_sources.values() {
+        info!("{info_prefix} {} function source", function_source.id);
     }
     Ok(pool)
 }

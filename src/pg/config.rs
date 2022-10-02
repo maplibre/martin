@@ -30,8 +30,8 @@ pub struct Config {
     pub default_srid: Option<i32>,
     pub pool_size: u32,
     pub use_dynamic_sources: bool,
-    pub table_sources: Option<TableSources>,
-    pub function_sources: Option<FunctionSources>,
+    pub table_sources: TableSources,
+    pub function_sources: FunctionSources,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,8 +75,8 @@ impl ConfigBuilder {
             default_srid: self.default_srid,
             pool_size: self.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
             use_dynamic_sources: self.table_sources.is_none() && self.function_sources.is_none(),
-            table_sources: self.table_sources,
-            function_sources: self.function_sources,
+            table_sources: self.table_sources.unwrap_or_default(),
+            function_sources: self.function_sources.unwrap_or_default(),
         })
     }
 }

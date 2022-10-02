@@ -21,8 +21,8 @@ use std::time::Duration;
 
 pub struct AppState {
     pub pool: Pool,
-    pub table_sources: Option<TableSources>,
-    pub function_sources: Option<FunctionSources>,
+    pub table_sources: TableSources,
+    pub function_sources: FunctionSources,
 }
 
 #[derive(Deserialize)]
@@ -67,7 +67,7 @@ async fn get_health() -> &'static str {
 
 #[route("/index.json", method = "GET", method = "HEAD")]
 async fn get_table_sources(state: web::Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().json(state.table_sources.as_ref())
+    HttpResponse::Ok().json(&state.table_sources)
 }
 
 #[route("/{source_ids}.json", method = "GET", method = "HEAD")]
@@ -76,15 +76,14 @@ async fn get_composite_source(
     path: web::Path<CompositeSourceRequest>,
     state: web::Data<AppState>,
 ) -> impl Responder {
-    let table_sources = state
-        .table_sources
-        .as_ref()
-        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
+    if state.table_sources.is_empty() {
+        return Err(error::ErrorNotFound("There is no table sources"));
+    }
 
     let sources: Vec<TableSource> = path
         .source_ids
         .split(',')
-        .filter_map(|source_id| table_sources.get(source_id))
+        .filter_map(|source_id| state.table_sources.get(source_id))
         .map(|source| source.deref().clone())
         .collect();
 
@@ -133,15 +132,14 @@ async fn get_composite_source_tile(
     path: web::Path<CompositeTileRequest>,
     state: web::Data<AppState>,
 ) -> impl Responder {
-    let table_sources = state
-        .table_sources
-        .as_ref()
-        .ok_or_else(|| error::ErrorNotFound("There is no table sources"))?;
+    if state.table_sources.is_empty() {
+        return Err(error::ErrorNotFound("There is no table sources"));
+    }
 
     let sources: Vec<TableSource> = path
         .source_ids
         .split(',')
-        .filter_map(|source_id| table_sources.get(source_id))
+        .filter_map(|source_id| state.table_sources.get(source_id))
         .map(|source| source.deref().clone())
         .filter(|src| is_valid_zoom(path.z, src.minzoom, src.maxzoom))
         .collect();
@@ -160,7 +158,7 @@ async fn get_composite_source_tile(
 
 #[route("/rpc/index.json", method = "GET", method = "HEAD")]
 async fn get_function_sources(state: web::Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().json(state.function_sources.as_ref())
+    HttpResponse::Ok().json(&state.function_sources)
 }
 
 #[route("/rpc/{source_id}.json", method = "GET", method = "HEAD")]
@@ -169,12 +167,11 @@ async fn get_function_source(
     path: web::Path<SourceRequest>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse> {
-    let function_sources = state
-        .function_sources
-        .as_ref()
-        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
+    if state.function_sources.is_empty() {
+        return Err(error::ErrorNotFound("There is no function sources"));
+    }
 
-    let source = function_sources.get(&path.source_id).ok_or_else(|| {
+    let source = state.function_sources.get(&path.source_id).ok_or_else(|| {
         error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
     })?;
 
@@ -219,12 +216,12 @@ async fn get_function_source_tile(
     query: web::Query<HashMap<String, String>>,
     state: web::Data<AppState>,
 ) -> impl Responder {
-    let function_sources = state
-        .function_sources
-        .as_ref()
-        .ok_or_else(|| error::ErrorNotFound("There is no function sources"))?;
+    if state.function_sources.is_empty() {
+        return Err(error::ErrorNotFound("There is no function sources"));
+    }
 
-    let source = function_sources
+    let source = state
+        .function_sources
         .get(&path.source_id)
         .filter(|src| is_valid_zoom(path.z, src.minzoom, src.maxzoom))
         .ok_or_else(|| {
