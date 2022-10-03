@@ -264,7 +264,7 @@ async fn get_tile(
     match tile.len() {
         0 => Ok(HttpResponse::NoContent()
             .content_type("application/x-protobuf")
-            .body(tile)),
+            .finish()),
         _ => Ok(HttpResponse::Ok()
             .content_type("application/x-protobuf")
             .body(tile)),
