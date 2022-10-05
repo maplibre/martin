@@ -8,7 +8,7 @@ pub const POOL_SIZE_DEFAULT: u32 = 20;
 
 #[derive(clap::Args, Debug)]
 #[command(about, version)]
-pub struct PostgreSqlArgs {
+pub struct PgArgs {
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
     #[arg(long)]
     pub ca_root_file: Option<String>,
@@ -22,20 +22,20 @@ pub struct PostgreSqlArgs {
     pub pool_size: Option<u32>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct Config {
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct PgConfig {
     pub connection_string: String,
     pub ca_root_file: Option<String>,
     pub danger_accept_invalid_certs: bool,
     pub default_srid: Option<i32>,
     pub pool_size: u32,
     pub use_dynamic_sources: bool,
-    pub table_sources: Option<TableSources>,
-    pub function_sources: Option<FunctionSources>,
+    pub table_sources: TableSources,
+    pub function_sources: FunctionSources,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ConfigBuilder {
+pub struct PgConfigBuilder {
     pub connection_string: Option<String>,
     pub ca_root_file: Option<String>,
     pub danger_accept_invalid_certs: Option<bool>,
@@ -45,8 +45,8 @@ pub struct ConfigBuilder {
     pub function_sources: Option<FunctionSources>,
 }
 
-impl ConfigBuilder {
-    pub fn merge(&mut self, other: ConfigBuilder) -> &mut Self {
+impl PgConfigBuilder {
+    pub fn merge(&mut self, other: PgConfigBuilder) -> &mut Self {
         set_option(&mut self.connection_string, other.connection_string);
         set_option(&mut self.ca_root_file, other.ca_root_file);
         set_option(
@@ -61,29 +61,29 @@ impl ConfigBuilder {
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(self) -> io::Result<Config> {
+    pub fn finalize(self) -> io::Result<PgConfig> {
         let connection_string = self.connection_string.ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
                 "Database connection string is not set",
             )
         })?;
-        Ok(Config {
+        Ok(PgConfig {
             connection_string,
             ca_root_file: self.ca_root_file,
             danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or_default(),
             default_srid: self.default_srid,
             pool_size: self.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
             use_dynamic_sources: self.table_sources.is_none() && self.function_sources.is_none(),
-            table_sources: self.table_sources,
-            function_sources: self.function_sources,
+            table_sources: self.table_sources.unwrap_or_default(),
+            function_sources: self.function_sources.unwrap_or_default(),
         })
     }
 }
 
-impl From<(PostgreSqlArgs, Option<String>)> for ConfigBuilder {
-    fn from((args, connection): (PostgreSqlArgs, Option<String>)) -> Self {
-        ConfigBuilder {
+impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
+    fn from((args, connection): (PgArgs, Option<String>)) -> Self {
+        PgConfigBuilder {
             connection_string: connection.or_else(|| {
                 env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
             }),

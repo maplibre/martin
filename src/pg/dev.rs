@@ -175,14 +175,12 @@ pub async fn make_pool() -> Pool {
 pub async fn mock_state(
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,
-    default_srid: Option<i32>,
 ) -> AppState {
     let pool = make_pool().await;
 
     AppState {
         pool,
-        table_sources,
-        function_sources,
-        default_srid,
+        table_sources: table_sources.unwrap_or_default(),
+        function_sources: function_sources.unwrap_or_default(),
     }
 }

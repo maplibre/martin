@@ -2,9 +2,9 @@ use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
 use martin::config::{read_config, ConfigBuilder};
-use martin::pg::config as pg_config;
+use martin::pg::config::{PgArgs, PgConfigBuilder};
 use martin::pg::db::configure_db_source;
-use martin::srv::config as srv_config;
+use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
 use std::{env, io};
 
@@ -22,9 +22,9 @@ pub struct Args {
     #[arg(short, long, hide = true)]
     pub watch: bool,
     #[command(flatten)]
-    srv: srv_config::WebServerArgs,
+    srv: SrvArgs,
     #[command(flatten)]
-    pg: pg_config::PostgreSqlArgs,
+    pg: PgArgs,
 }
 
 impl From<Args> for ConfigBuilder {
@@ -39,8 +39,8 @@ impl From<Args> for ConfigBuilder {
         }
 
         ConfigBuilder {
-            srv: srv_config::ConfigBuilder::from(args.srv),
-            pg: pg_config::ConfigBuilder::from((args.pg, args.connection)),
+            srv: SrvConfigBuilder::from(args.srv),
+            pg: PgConfigBuilder::from((args.pg, args.connection)),
         }
     }
 }

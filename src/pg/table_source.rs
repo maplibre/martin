@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TableSource {
     // Table source id
     pub id: String,
