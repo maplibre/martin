@@ -73,10 +73,7 @@ jobs:
 
   test:
     name: Test Suite
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgis/postgis:14-3.1-alpine
