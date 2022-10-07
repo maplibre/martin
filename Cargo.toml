@@ -1,10 +1,10 @@
 [package]
 name = "martin"
-version = "1.0.0-alpha.0"
+version = "0.6.0-rc.1"
 edition = "2021"
-authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "MapLibre contributors"]
-description = "Blazing fast and lightweight PostGIS vector tiles server"
-repository = "https://github.com/maplibre/martin/"
+authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Blazing fast and lightweight PostGIS vector tile server"
+repository = "https://github.com/maplibre/martin"
 license = "MIT OR Apache-2.0"
 
 [lib]
