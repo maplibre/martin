@@ -213,6 +213,27 @@ const deckgl = new DeckGL({
 });
 ```
 
+## Using with Mapbox
+
+[Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a proprietary JS and native libraries for interactive, customizable vector maps on the web. The MapBox GL JS v1.x was open source, and it was forked as MapLibre (see [above](#using-with-maplibre)), so using Martin with MapBox is similar to MapLibre.
+
+You can add a layer to the map and specify martin TileJSON endpoint as a vector source URL. You should also specify a `source-layer` property. For [Table Sources](#table-sources) it is `{schema_name}.{table_name}` by default.
+
+```js
+map.addLayer({
+  id: 'public.points',
+  type: 'circle',
+  source: {
+    type: 'vector',
+    url: 'http://localhost:3000/public.points.json'
+  },
+  'source-layer': 'public.points',
+  paint: {
+    'circle-color': 'red'
+  }
+});
+```
+
 ## Table Sources
 
 Table Source is a database table which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as properties of a vector tile feature.
@@ -380,22 +401,32 @@ curl localhost:3000/rpc/public.points/0/0/0.pbf
 You can configure martin using command-line interface
 
 ```shell
-Usage:
-  martin [options] [<connection>]
-  martin -h | --help
-  martin -v | --version
+Usage: martin [OPTIONS] [CONNECTION]
+
+Arguments:
+  [CONNECTION]  Database connection string
 
 Options:
-  -h --help                         Show this screen.
-  -v --version                      Show version.
-  --config=<path>                   Path to config file.
-  --keep-alive=<n>                  Connection keep alive timeout [default: 75].
-  --listen-addresses=<n>            The socket address to bind [default: 0.0.0.0:3000].
-  --default-srid=<n>                If a spatial table has SRID 0, then this default SRID will be used as a fallback.
-  --pool-size=<n>                   Maximum connections pool size [default: 20].
-  --workers=<n>                     Number of web server workers.
-  --ca-root-file=<path>             Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
-  --danger-accept-invalid-certs     Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
+  -c, --config <CONFIG>
+          Path to config file
+  -k, --keep-alive <KEEP_ALIVE>
+          Connection keep alive timeout. [DEFAULT: 75]
+  -l, --listen-addresses <LISTEN_ADDRESSES>
+          The socket address to bind. [DEFAULT: 0.0.0.0:3000]
+  -W, --workers <WORKERS>
+          Number of web server workers
+      --ca-root-file <CA_ROOT_FILE>
+          Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates
+      --danger-accept-invalid-certs
+          Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort
+  -d, --default-srid <DEFAULT_SRID>
+          If a spatial table has SRID 0, then this default SRID will be used as a fallback
+  -p, --pool-size <POOL_SIZE>
+          Maximum connections pool size [DEFAULT: 20]
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 ```
 
 ## Environment Variables
