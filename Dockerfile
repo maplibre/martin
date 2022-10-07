@@ -1,11 +1,11 @@
 FROM rust:alpine as builder
 
 RUN apk update
-RUN apk add --no-cache openssl-dev musl-dev
+RUN apk add --no-cache openssl-dev musl-dev perl build-base
 
 WORKDIR /usr/src/martin
 ADD . .
-RUN cargo build --release
+RUN cargo build --release --features=vendored-openssl
 
 
 FROM alpine:latest
