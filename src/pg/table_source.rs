@@ -1,5 +1,8 @@
 use crate::pg::db::Connection;
-use crate::pg::utils;
+use crate::pg::utils::{
+    get_bounds_cte, get_source_bounds, get_srid_bounds, json_to_hashmap, polygon_to_bbox,
+    prettify_error, tile_bbox,
+};
 use crate::source::{Query, Source, Tile, Xyz};
 use async_trait::async_trait;
 use log::warn;
@@ -10,57 +13,57 @@ use tilejson::{tilejson, Bounds, TileJSON};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TableSource {
-    // Table source id
+    /// Table source id
     pub id: String,
 
-    // Table schema
+    /// Table schema
     pub schema: String,
 
-    // Table name
+    /// Table name
     pub table: String,
 
-    // Geometry SRID
+    /// Geometry SRID
     pub srid: u32,
 
-    // Geometry column name
+    /// Geometry column name
     pub geometry_column: String,
 
-    // Feature id column name
+    /// Feature id column name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id_column: Option<String>,
 
-    // An integer specifying the minimum zoom level
+    /// An integer specifying the minimum zoom level
     #[serde(skip_serializing_if = "Option::is_none")]
     pub minzoom: Option<u8>,
 
-    // An integer specifying the maximum zoom level. MUST be >= minzoom
+    /// An integer specifying the maximum zoom level. MUST be >= minzoom
     #[serde(skip_serializing_if = "Option::is_none")]
     pub maxzoom: Option<u8>,
 
-    // The maximum extent of available map tiles. Bounds MUST define an area
-    // covered by all zoom levels. The bounds are represented in WGS:84
-    // latitude and longitude values, in the order left, bottom, right, top.
-    // Values may be integers or floating point numbers.
+    /// The maximum extent of available map tiles. Bounds MUST define an area
+    /// covered by all zoom levels. The bounds are represented in WGS:84
+    /// latitude and longitude values, in the order left, bottom, right, top.
+    /// Values may be integers or floating point numbers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Bounds>,
 
-    // Tile extent in tile coordinate space
+    /// Tile extent in tile coordinate space
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extent: Option<u32>,
 
-    // Buffer distance in tile coordinate space to optionally clip geometries
+    /// Buffer distance in tile coordinate space to optionally clip geometries
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
 
-    // Boolean to control if geometries should be clipped or encoded as is
+    /// Boolean to control if geometries should be clipped or encoded as is
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
 
-    // Geometry type
+    /// Geometry type
     #[serde(skip_serializing_if = "Option::is_none")]
     pub geometry_type: Option<String>,
 
-    // List of columns, that should be encoded as tile properties
+    /// List of columns, that should be encoded as tile properties
     pub properties: HashMap<String, String>,
 }
 
@@ -68,7 +71,7 @@ pub type TableSources = HashMap<String, Box<TableSource>>;
 
 impl TableSource {
     pub fn get_geom_query(&self, xyz: &Xyz) -> String {
-        let mercator_bounds = utils::tile_bbox(xyz);
+        let mercator_bounds = tile_bbox(xyz);
 
         let properties = if self.properties.is_empty() {
             String::new()
@@ -103,7 +106,7 @@ impl TableSource {
         let id_column = self
             .id_column
             .clone()
-            .map_or("".to_string(), |id_column| format!(", '{id_column}'"));
+            .map_or(String::new(), |id_column| format!(", '{id_column}'"));
 
         format!(
             include_str!("scripts/get_tile.sql"),
@@ -115,8 +118,8 @@ impl TableSource {
     }
 
     pub fn build_tile_query(&self, xyz: &Xyz) -> String {
-        let srid_bounds = utils::get_srid_bounds(self.srid, xyz);
-        let bounds_cte = utils::get_bounds_cte(&srid_bounds);
+        let srid_bounds = get_srid_bounds(self.srid, xyz);
+        let bounds_cte = get_bounds_cte(&srid_bounds);
         let tile_query = self.get_tile_query(xyz);
 
         format!("{bounds_cte} {tile_query}")
@@ -166,7 +169,7 @@ impl Source for TableSource {
             .await
             .map(|row| row.get("st_asmvt"))
             .map_err(|error| {
-                utils::prettify_error!(
+                prettify_error!(
                     error,
                     r#"Can't get "{}" tile at /{}/{}/{}"#,
                     self.id,
@@ -194,7 +197,7 @@ pub async fn get_table_sources(
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
         .await
-        .map_err(|e| utils::prettify_error!(e, "Can't get table sources"))?;
+        .map_err(|e| prettify_error!(e, "Can't get table sources"))?;
 
     for row in &rows {
         let schema: String = row.get("f_table_schema");
@@ -220,7 +223,7 @@ pub async fn get_table_sources(
             }
         }
 
-        let bounds_query = utils::get_source_bounds(&id, srid as u32, &geometry_column);
+        let bounds_query = get_source_bounds(&id, srid as u32, &geometry_column);
 
         let bounds: Option<Bounds> = conn
             .query_one(bounds_query.as_str(), &[])
@@ -228,7 +231,7 @@ pub async fn get_table_sources(
             .map(|row| row.get("bounds"))
             .ok()
             .flatten()
-            .and_then(utils::polygon_to_bbox);
+            .and_then(|v| polygon_to_bbox(&v));
 
         let source = TableSource {
             id: id.clone(),
@@ -244,7 +247,7 @@ pub async fn get_table_sources(
             buffer: Some(DEFAULT_BUFFER),
             clip_geom: Some(DEFAULT_CLIP_GEOM),
             geometry_type: row.get("type"),
-            properties: utils::json_to_hashmap(&row.get("properties")),
+            properties: json_to_hashmap(&row.get("properties")),
         };
 
         let mut explicit_source = source.clone();
