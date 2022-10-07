@@ -12,7 +12,6 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser, Debug)]
 #[command(about, version)]
-#[clap(disable_colored_help = false)]
 pub struct Args {
     /// Database connection string
     pub connection: Option<String>,
