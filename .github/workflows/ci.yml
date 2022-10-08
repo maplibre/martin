@@ -361,7 +361,14 @@ jobs:
         run: |
           choco install openssl
           refreshenv
+          echo "C:\Program Files\OpenSSL-Win64\" >> $GITHUB_PATH
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64\" >> $GITHUB_ENV
+      - name: Debug Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo $PATH
+          echo $OPENSSL_DIR
+          ls C:\Program Files\OpenSSL-Win64\
       - name: Run build
         uses: actions-rs/cargo@v1
         with:
