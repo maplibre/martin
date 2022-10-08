@@ -353,6 +353,9 @@ jobs:
           target: ${{ matrix.target }}
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Install OpenSSL
+        if: matrix.os == 'windows-latest'
+        run: choco install openssl
       - name: Run build
         uses: actions-rs/cargo@v1
         with:
