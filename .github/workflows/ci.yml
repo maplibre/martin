@@ -243,6 +243,46 @@ jobs:
           ./tests/vtzero-check function_source_query_params.pbf
           ./tests/vtzero-show function_source_query_params.pbf
 
+  build:
+    needs: [test]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            bin: martin
+            name: martin-Linux-x86_64.tar.gz
+          - os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+            bin: martin.exe
+            name: martin-Windows-x86_64.zip
+          - os: macOS-latest
+            rust: stable
+            target: x86_64-apple-darwin
+            bin: martin
+            name: martin-Darwin-x86_64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          target: ${{ matrix.target }}
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install OpenSSL
+        if: matrix.os == 'windows-latest'
+        run: choco install openssl
+      - name: Run build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+
   docker:
     needs: [test]
     runs-on: ubuntu-latest
