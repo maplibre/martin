@@ -278,14 +278,17 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           choco install openssl
-          refreshenv
+          $env:OPENSSL_DIR = 'C:\Program Files\OpenSSL-Win64\'
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64\" >> $GITHUB_ENV
+          refreshenv
+          dir env:
       - name: Debug Windows
         if: matrix.os == 'windows-latest'
         run: |
           echo $PATH
           echo $OPENSSL_DIR
-          ls C:\Program Files\OpenSSL-Win64\
+          dir env:
+          ls 'C:\Program Files\OpenSSL-Win64\'
       - name: Run build
         uses: actions-rs/cargo@v1
         with:
