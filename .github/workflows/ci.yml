@@ -294,7 +294,7 @@ jobs:
         with:
           command: build
           args: --release --target ${{ matrix.target }}
-          use-cross: true
+          use-cross: matrix.os == 'windows-latest'
 
   docker:
     needs: [test]
