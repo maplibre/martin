@@ -279,10 +279,10 @@ jobs:
         run: |
           choco install openssl
           refreshenv
-          echo "OPENSSL_DIR="C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_LIB_DIR="C:\Program Files\OpenSSL-Win64\lib" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_INCLUDE_DIR="C:\Program Files\OpenSSL-Win64\include" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_CONF="C:\Program Files\OpenSSL-Win64\bin\openssl.cfg" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+          echo 'OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"' | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+          echo 'OPENSSL_LIB_DIR="C:\Program Files\OpenSSL-Win64\lib"' | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+          echo 'OPENSSL_INCLUDE_DIR="C:\Program Files\OpenSSL-Win64\include"' | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+          echo 'OPENSSL_CONF="C:\Program Files\OpenSSL-Win64\bin\openssl.cfg"' | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
           dir env:
       - name: Debug Windows
         if: matrix.os == 'windows-latest'
