@@ -278,15 +278,11 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           choco install openssl
-          $env:OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"
-          $env:OPENSSL_LIB_DIR="C:\Program Files\OpenSSL-Win64\lib"
-          $env:OPENSSL_INCLUDE_DIR="C:\Program Files\OpenSSL-Win64\include"
-          $env:OPENSSL_CONF="C:\Program Files\OpenSSL-Win64\bin\openssl.cfg"
-          echo 'OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"' >> $GITHUB_ENV
-          echo 'OPENSSL_LIB_DIR="C:\Program Files\OpenSSL-Win64\lib"' >> $GITHUB_ENV
-          echo 'OPENSSL_INCLUDE_DIR="C:\Program Files\OpenSSL-Win64\include"' >> $GITHUB_ENV
-          echo 'OPENSSL_CONF="C:\Program Files\OpenSSL-Win64\bin\openssl.cfg"' >> $GITHUB_ENV
           refreshenv
+          echo "OPENSSL_DIR="C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_LIB_DIR="C:\Program Files\OpenSSL-Win64\lib" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_INCLUDE_DIR="C:\Program Files\OpenSSL-Win64\include" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_CONF="C:\Program Files\OpenSSL-Win64\bin\openssl.cfg" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
           dir env:
       - name: Debug Windows
         if: matrix.os == 'windows-latest'
