@@ -278,23 +278,29 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           choco install openssl
-          $env:OPENSSL_DIR = 'C:\Program Files\OpenSSL-Win64\'
-          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64\" >> $GITHUB_ENV
+          $env:OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"
+          $env:OPENSSL_LIB_DIR="C:\Program Files\OpenSSL-Win64\lib"
+          $env:OPENSSL_INCLUDE_DIR="C:\Program Files\OpenSSL-Win64\include"
+          $env:OPENSSL_CONF="C:\Program Files\OpenSSL-Win64\bin\openssl.cfg"
+          echo 'OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"' >> $GITHUB_ENV
+          echo 'OPENSSL_LIB_DIR="C:\Program Files\OpenSSL-Win64\lib"' >> $GITHUB_ENV
+          echo 'OPENSSL_INCLUDE_DIR="C:\Program Files\OpenSSL-Win64\include"' >> $GITHUB_ENV
+          echo 'OPENSSL_CONF="C:\Program Files\OpenSSL-Win64\bin\openssl.cfg"' >> $GITHUB_ENV
           refreshenv
           dir env:
       - name: Debug Windows
         if: matrix.os == 'windows-latest'
         run: |
-          echo $PATH
-          echo $OPENSSL_DIR
+          $env:OPENSSL_DIR
+          $env:OPENSSL_LIB_DIR
+          $env:OPENSSL_INCLUDE_DIR
+          $env:OPENSSL_CONF
           dir env:
-          ls 'C:\Program Files\OpenSSL-Win64\'
       - name: Run build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target ${{ matrix.target }}
-          use-cross: matrix.os == 'windows-latest'
 
   docker:
     needs: [test]
