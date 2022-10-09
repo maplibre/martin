@@ -1,7 +1,7 @@
 use crate::pg::db::Connection;
 use crate::pg::table_source::TableSource;
 use crate::pg::utils::{get_bounds_cte, get_srid_bounds, prettify_error};
-use crate::source::{Query, Source, Tile, Xyz};
+use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
 use itertools::Itertools;
 use std::io;
@@ -99,7 +99,7 @@ impl Source for CompositeSource {
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
-        _query: &Option<Query>,
+        _query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error> {
         let tile_query = self.build_tile_query(xyz);
 

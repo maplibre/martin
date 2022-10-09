@@ -4,14 +4,14 @@ use crate::pg::db::{get_connection, Pool};
 use crate::pg::function_source::FunctionSources;
 use crate::pg::table_source::{TableSource, TableSources};
 use crate::pg::utils::parse_x_rewrite_url;
-use crate::source::{Query, Source, Xyz};
+use crate::source::{Source, UrlQuery, Xyz};
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
+use actix_web::web::{Data, Path, Query, ServiceConfig};
 use actix_web::{
-    error, middleware, route, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
-    Result,
+    error, middleware, route, App, Error, HttpRequest, HttpResponse, HttpServer, Responder, Result,
 };
 use log::error;
 use serde::Deserialize;
@@ -66,15 +66,15 @@ async fn get_health() -> &'static str {
 }
 
 #[route("/index.json", method = "GET", method = "HEAD")]
-async fn get_table_sources(state: web::Data<AppState>) -> impl Responder {
+async fn get_table_sources(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(&state.table_sources)
 }
 
 #[route("/{source_ids}.json", method = "GET", method = "HEAD")]
 async fn get_composite_source(
     req: HttpRequest,
-    path: web::Path<CompositeSourceRequest>,
-    state: web::Data<AppState>,
+    path: Path<CompositeSourceRequest>,
+    state: Data<AppState>,
 ) -> impl Responder {
     if state.table_sources.is_empty() {
         return Err(error::ErrorNotFound("There is no table sources"));
@@ -129,8 +129,8 @@ async fn get_composite_source(
 
 #[route("/{source_ids}/{z}/{x}/{y}.{format}", method = "GET", method = "HEAD")]
 async fn get_composite_source_tile(
-    path: web::Path<CompositeTileRequest>,
-    state: web::Data<AppState>,
+    path: Path<CompositeTileRequest>,
+    state: Data<AppState>,
 ) -> impl Responder {
     if state.table_sources.is_empty() {
         return Err(error::ErrorNotFound("There is no table sources"));
@@ -157,15 +157,15 @@ async fn get_composite_source_tile(
 }
 
 #[route("/rpc/index.json", method = "GET", method = "HEAD")]
-async fn get_function_sources(state: web::Data<AppState>) -> impl Responder {
+async fn get_function_sources(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(&state.function_sources)
 }
 
 #[route("/rpc/{source_id}.json", method = "GET", method = "HEAD")]
 async fn get_function_source(
     req: HttpRequest,
-    path: web::Path<SourceRequest>,
-    state: web::Data<AppState>,
+    path: Path<SourceRequest>,
+    state: Data<AppState>,
 ) -> Result<HttpResponse> {
     if state.function_sources.is_empty() {
         return Err(error::ErrorNotFound("There is no function sources"));
@@ -212,9 +212,9 @@ async fn get_function_source(
     method = "HEAD"
 )]
 async fn get_function_source_tile(
-    path: web::Path<TileRequest>,
-    query: web::Query<HashMap<String, String>>,
-    state: web::Data<AppState>,
+    path: Path<TileRequest>,
+    query: Query<HashMap<String, String>>,
+    state: Data<AppState>,
 ) -> impl Responder {
     if state.function_sources.is_empty() {
         return Err(error::ErrorNotFound("There is no function sources"));
@@ -248,11 +248,11 @@ fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
 }
 
 async fn get_tile(
-    state: &web::Data<AppState>,
+    state: &Data<AppState>,
     z: i32,
     x: i32,
     y: i32,
-    query: Option<Query>,
+    query: Option<UrlQuery>,
     source: Box<dyn Source + Send>,
 ) -> Result<HttpResponse, Error> {
     let mut connection = get_connection(&state.pool).await?;
@@ -271,7 +271,7 @@ async fn get_tile(
     }
 }
 
-pub fn router(cfg: &mut web::ServiceConfig) {
+pub fn router(cfg: &mut ServiceConfig) {
     cfg.service(get_health)
         .service(get_table_sources)
         .service(get_composite_source)
@@ -302,7 +302,7 @@ pub fn new(pool: Pool, config: Config) -> Server {
             .allowed_methods(vec!["GET"]);
 
         App::new()
-            .app_data(web::Data::new(state))
+            .app_data(Data::new(state))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())

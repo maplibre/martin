@@ -1,6 +1,6 @@
 use crate::pg::db::Connection;
 use crate::pg::utils::{prettify_error, query_to_json};
-use crate::source::{Query, Source, Tile, Xyz};
+use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
@@ -71,7 +71,7 @@ impl Source for FunctionSource {
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
-        query: &Option<Query>,
+        query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error> {
         let empty_query = HashMap::new();
         let query = query.as_ref().unwrap_or(&empty_query);

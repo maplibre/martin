@@ -3,7 +3,7 @@ use crate::pg::utils::{
     get_bounds_cte, get_source_bounds, get_srid_bounds, json_to_hashmap, polygon_to_bbox,
     prettify_error, tile_bbox,
 };
-use crate::source::{Query, Source, Tile, Xyz};
+use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -160,7 +160,7 @@ impl Source for TableSource {
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
-        _query: &Option<Query>,
+        _query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error> {
         let tile_query = self.build_tile_query(xyz);
 
