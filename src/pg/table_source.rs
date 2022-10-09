@@ -258,12 +258,12 @@ pub async fn get_table_sources(
     }
 
     if !duplicate_source_ids.is_empty() {
-        let sources = duplicate_source_ids
+        let source_list = duplicate_source_ids
             .into_iter()
             .collect::<Vec<String>>()
             .join(", ");
 
-        warn!("These table sources have multiple geometry columns: {sources}");
+        warn!("These table sources have multiple geometry columns: {source_list}");
         warn!(
             r#"You can specify the geometry column in the table source name to access particular geometry in vector tile, eg. "schema_name.table_name.geometry_column""#,
         );
