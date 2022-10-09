@@ -6,6 +6,8 @@ use martin::pg::config::{PgArgs, PgConfigBuilder};
 use martin::pg::db::configure_db_sources;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
+use std::fs::File;
+use std::io::Write;
 use std::{env, io};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -18,6 +20,10 @@ pub struct Args {
     /// Path to config file.
     #[arg(short, long)]
     pub config: Option<String>,
+    /// Save resulting config to a file or use "-" to print to stdout.
+    /// By default, only print if sources are auto-detected.
+    #[arg(long)]
+    pub save_config: Option<String>,
     /// [Deprecated] Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
@@ -48,21 +54,36 @@ impl From<Args> for ConfigBuilder {
 async fn start(args: Args) -> io::Result<Server> {
     info!("Starting Martin v{VERSION}");
 
-    let mut config = if let Some(ref config_file_name) = args.config {
-        info!("Using {config_file_name}");
-        let cfg = read_config(config_file_name)?;
-        let mut builder = ConfigBuilder::from(args);
-        builder.merge(cfg);
-        builder.finalize()?
+    let save_config = args.save_config.clone();
+    let file_cfg = if let Some(ref cfg_filename) = args.config {
+        info!("Using {cfg_filename}");
+        Some(read_config(cfg_filename)?)
     } else {
-        info!("Config file is not specified");
-        ConfigBuilder::from(args).finalize()?
+        info!("Config file is not specified, auto-detecting sources");
+        None
     };
+    let mut builder = ConfigBuilder::from(args);
+    if let Some(file_cfg) = file_cfg {
+        builder.merge(file_cfg);
+    }
+    let mut config = builder.finalize()?;
 
-    let pool = configure_db_sources(&mut config).await?;
+    let (sources, _) = configure_db_sources(&mut config).await?;
+    if save_config.is_some() || config.pg.use_dynamic_sources {
+        let yaml = serde_yaml::to_string(&config).expect("Unable to serialize config");
+        let file_name = save_config.as_deref().unwrap_or("-");
+        if file_name == "-" {
+            info!("Martin has been configured with these settings.");
+            info!("You can copy/paste it into a config file, and use --config.");
+            println!("\n\n{yaml}\n");
+        } else {
+            info!("Saving config to {file_name}");
+            File::create(file_name)?.write_all(yaml.as_bytes())?;
+        }
+    }
+
     let listen_addresses = config.srv.listen_addresses.clone();
-    let server = server::new(pool, config);
-
+    let server = server::new(config, sources);
     info!("Martin has been started on {listen_addresses}.");
     Ok(server)
 }

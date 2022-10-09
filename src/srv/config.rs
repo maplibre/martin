@@ -17,7 +17,7 @@ pub struct SrvArgs {
     pub workers: Option<usize>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SrvConfig {
     pub keep_alive: usize,
     pub listen_addresses: String,

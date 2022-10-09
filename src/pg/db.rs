@@ -1,13 +1,17 @@
 use crate::config::Config;
-use crate::pg::function_source::get_function_sources;
-use crate::pg::table_source::get_table_sources;
+use crate::pg::function_source::{get_function_sources, FunctionSource};
+use crate::pg::table_source::{get_table_sources, TableSource};
 use crate::pg::utils::prettify_error;
+use crate::source::Source;
+use crate::srv::server::Sources;
 use bb8::PooledConnection;
 use bb8_postgres::{tokio_postgres, PostgresConnectionManager};
+use itertools::sorted;
 use log::info;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use semver::{Version, VersionReq};
+use std::collections::HashMap;
 use std::io;
 use std::str::FromStr;
 
@@ -93,7 +97,7 @@ async fn validate_postgis_version(pool: &Pool) -> io::Result<()> {
     }
 }
 
-pub async fn configure_db_sources(mut config: &mut Config) -> io::Result<Pool> {
+pub async fn configure_db_sources(mut config: &mut Config) -> io::Result<(Sources, Pool)> {
     info!("Connecting to database");
     let pool = setup_connection_pool(
         &config.pg.connection_string,
@@ -107,16 +111,14 @@ pub async fn configure_db_sources(mut config: &mut Config) -> io::Result<Pool> {
 
     let info_prefix = if config.pg.use_dynamic_sources {
         info!("Automatically detecting table and function sources");
-        let mut connection = get_connection(&pool).await?;
-
-        let sources = get_table_sources(&mut connection, config.pg.default_srid).await?;
+        let sources = get_table_sources(&pool, config.pg.default_srid).await?;
         if sources.is_empty() {
             info!("No table sources found");
         } else {
             config.pg.table_sources = sources;
         }
 
-        let sources = get_function_sources(&mut connection).await?;
+        let sources = get_function_sources(&pool).await?;
         if sources.is_empty() {
             info!("No function sources found");
         } else {
@@ -128,17 +130,35 @@ pub async fn configure_db_sources(mut config: &mut Config) -> io::Result<Pool> {
         "Loaded"
     };
 
-    for table_source in config.pg.table_sources.values() {
+    let mut sources: HashMap<String, Box<dyn Source>> = HashMap::new();
+    for id in sorted(config.pg.table_sources.keys()) {
+        let table_source = config.pg.table_sources.get(id).unwrap();
         info!(
-            r#"{info_prefix} "{}" table source with "{}" column ({}, SRID={})"#,
-            table_source.id,
+            r#"{info_prefix} table source "{id}" with "{}" column ({}, SRID={})"#,
             table_source.geometry_column,
             table_source.geometry_type.as_deref().unwrap_or("null"),
             table_source.srid
         );
+        sources.insert(
+            id.to_string(),
+            Box::new(TableSource::new(
+                id.to_string(),
+                table_source.clone(),
+                pool.clone(),
+            )),
+        );
     }
-    for function_source in config.pg.function_sources.values() {
-        info!("{info_prefix} {} function source", function_source.id);
+    for id in sorted(config.pg.function_sources.keys()) {
+        let function_source = config.pg.function_sources.get(id).unwrap();
+        info!(r#"{info_prefix} function source "{id}""#);
+        sources.insert(
+            id.to_string(),
+            Box::new(FunctionSource::new(
+                id.to_string(),
+                function_source.clone(),
+                pool.clone(),
+            )),
+        );
     }
-    Ok(pool)
+    Ok((sources, pool))
 }

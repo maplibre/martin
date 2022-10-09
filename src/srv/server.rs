@@ -1,58 +1,94 @@
 use crate::config::Config;
-use crate::pg::composite_source::CompositeSource;
-use crate::pg::db::{get_connection, Pool};
-use crate::pg::function_source::FunctionSources;
-use crate::pg::table_source::{TableSource, TableSources};
 use crate::pg::utils::parse_x_rewrite_url;
-use crate::source::{Source, UrlQuery, Xyz};
+use crate::source::{Source, Xyz};
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
-use actix_web::web::{Data, Path, Query, ServiceConfig};
+use actix_web::web::{Data, Path, Query};
 use actix_web::{
-    error, middleware, route, App, Error, HttpRequest, HttpResponse, HttpServer, Responder, Result,
+    error, middleware, route, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+    Result,
 };
-use log::error;
-use serde::Deserialize;
+use futures::future::try_join_all;
+use log::{debug, error};
+use martin_tile_utils::DataFormat;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::time::Duration;
+use tilejson::TileJSON;
+
+pub type Sources = HashMap<String, Box<dyn Source>>;
 
 pub struct AppState {
-    pub pool: Pool,
-    pub table_sources: TableSources,
-    pub function_sources: FunctionSources,
+    pub sources: Sources,
+}
+
+impl AppState {
+    pub fn get_source(&self, id: &str) -> Result<&dyn Source> {
+        Ok(self
+            .sources
+            .get(id)
+            .ok_or_else(|| error::ErrorNotFound(format!("Source {id} does not exist")))?
+            .as_ref())
+    }
+
+    fn get_sources(
+        &self,
+        source_ids: &str,
+        zoom: Option<i32>,
+    ) -> Result<(Vec<&dyn Source>, DataFormat)> {
+        // TODO?: optimize by pre-allocating max allowed layer count on stack
+        let mut sources = Vec::new();
+        let mut format: Option<DataFormat> = None;
+        for id in source_ids.split(',') {
+            let src = self
+                .sources
+                .get(id)
+                .ok_or_else(|| error::ErrorNotFound(format!("Source {id} does not exist")))?
+                .as_ref();
+            if let Some(z) = zoom {
+                if !src.is_valid_zoom(z) {
+                    debug!("Zoom {z} is not valid for source {id}");
+                    continue;
+                }
+            }
+            let src_fmt = src.get_format();
+            match format {
+                Some(fmt) if fmt == src_fmt => {}
+                Some(fmt) => Err(error::ErrorNotFound(format!(
+                    "Cannot merge sources with {fmt:?} with {src_fmt:?}"
+                )))?,
+                None => format = Some(src_fmt),
+            }
+            sources.push(src);
+        }
+        let format = format.ok_or_else(|| error::ErrorNotFound("No valid sources found"))?;
+        Ok((sources, format))
+    }
 }
 
 #[derive(Deserialize)]
-struct SourceRequest {
-    source_id: String,
-}
-
-#[derive(Deserialize)]
-struct CompositeSourceRequest {
+struct TileJsonRequest {
     source_ids: String,
 }
 
 #[derive(Deserialize)]
 struct TileRequest {
-    source_id: String,
-    z: i32,
-    x: i32,
-    y: i32,
-    #[allow(dead_code)]
-    format: String,
-}
-
-#[derive(Deserialize)]
-struct CompositeTileRequest {
     source_ids: String,
     z: i32,
     x: i32,
     y: i32,
-    #[allow(dead_code)]
-    format: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IndexEntry {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attribution: Option<String>,
 }
 
 fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
@@ -65,237 +101,152 @@ async fn get_health() -> &'static str {
     "OK"
 }
 
-#[route("/index.json", method = "GET", method = "HEAD")]
-async fn get_table_sources(state: Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().json(&state.table_sources)
-}
-
-#[route("/{source_ids}.json", method = "GET", method = "HEAD")]
-async fn get_composite_source(
-    req: HttpRequest,
-    path: Path<CompositeSourceRequest>,
-    state: Data<AppState>,
-) -> impl Responder {
-    if state.table_sources.is_empty() {
-        return Err(error::ErrorNotFound("There is no table sources"));
-    }
-
-    let sources: Vec<TableSource> = path
-        .source_ids
-        .split(',')
-        .filter_map(|source_id| state.table_sources.get(source_id))
-        .map(|source| source.deref().clone())
+#[route("/", method = "GET", method = "HEAD")]
+async fn get_index(state: Data<AppState>) -> impl Responder {
+    let info: HashMap<String, _> = state
+        .sources
+        .iter()
+        .map(|(id, src)| {
+            let tilejson = src.get_tilejson();
+            (
+                id.clone(),
+                IndexEntry {
+                    name: tilejson.name,
+                    description: tilejson.description,
+                    attribution: tilejson.attribution,
+                },
+            )
+        })
         .collect();
-
-    if sources.is_empty() {
-        return Err(error::ErrorNotFound("There is no such table sources"));
-    }
-
-    let source = CompositeSource {
-        id: path.source_ids.clone(),
-        table_sources: sources,
-    };
-
-    let mut tilejson = source
-        .get_tilejson()
-        .await
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
-
-    let tiles_path = req
-        .headers()
-        .get("x-rewrite-url")
-        .and_then(parse_x_rewrite_url)
-        .unwrap_or_else(|| req.path().trim_end_matches(".json").to_owned());
-
-    let connection_info = req.connection_info();
-
-    let path_and_query = if req.query_string().is_empty() {
-        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf")
-    } else {
-        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf?{}", req.query_string())
-    };
-
-    let tiles_url = Uri::builder()
-        .scheme(connection_info.scheme())
-        .authority(connection_info.host())
-        .path_and_query(path_and_query)
-        .build()
-        .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
-
-    tilejson.tiles = vec![tiles_url];
-    Ok(HttpResponse::Ok().json(tilejson))
+    HttpResponse::Ok().json(info)
 }
 
-#[route("/{source_ids}/{z}/{x}/{y}.{format}", method = "GET", method = "HEAD")]
-async fn get_composite_source_tile(
-    path: Path<CompositeTileRequest>,
-    state: Data<AppState>,
-) -> impl Responder {
-    if state.table_sources.is_empty() {
-        return Err(error::ErrorNotFound("There is no table sources"));
-    }
-
-    let sources: Vec<TableSource> = path
-        .source_ids
-        .split(',')
-        .filter_map(|source_id| state.table_sources.get(source_id))
-        .map(|source| source.deref().clone())
-        .filter(|src| is_valid_zoom(path.z, src.minzoom, src.maxzoom))
-        .collect();
-
-    if sources.is_empty() {
-        return Err(error::ErrorNotFound("There is no such table sources"));
-    }
-
-    let source = CompositeSource {
-        id: path.source_ids.clone(),
-        table_sources: sources,
-    };
-
-    get_tile(&state, path.z, path.x, path.y, None, Box::new(source)).await
-}
-
-#[route("/rpc/index.json", method = "GET", method = "HEAD")]
-async fn get_function_sources(state: Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().json(&state.function_sources)
-}
-
-#[route("/rpc/{source_id}.json", method = "GET", method = "HEAD")]
-async fn get_function_source(
+#[route("/{source_ids}", method = "GET", method = "HEAD")]
+async fn git_source_info(
     req: HttpRequest,
-    path: Path<SourceRequest>,
+    path: Path<TileJsonRequest>,
     state: Data<AppState>,
 ) -> Result<HttpResponse> {
-    if state.function_sources.is_empty() {
-        return Err(error::ErrorNotFound("There is no function sources"));
-    }
-
-    let source = state.function_sources.get(&path.source_id).ok_or_else(|| {
-        error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
-    })?;
-
-    let mut tilejson = source
-        .get_tilejson()
-        .await
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build TileJSON: {e}")))?;
+    let sources = state.get_sources(&path.source_ids, None)?.0;
 
     let tiles_path = req
         .headers()
         .get("x-rewrite-url")
         .and_then(parse_x_rewrite_url)
-        .unwrap_or_else(|| req.path().trim_end_matches(".json").to_owned());
+        .unwrap_or_else(|| req.path().to_owned());
 
-    let connection_info = req.connection_info();
+    let info = req.connection_info();
+    let tiles_url = get_tiles_url(info.scheme(), info.host(), req.query_string(), tiles_path)?;
 
-    let path_and_query = if req.query_string().is_empty() {
-        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf")
+    Ok(HttpResponse::Ok().json(merge_tilejson(sources, tiles_url)))
+}
+
+fn get_tiles_url(
+    scheme: &str,
+    host: &str,
+    query_string: &str,
+    tiles_path: String,
+) -> Result<String> {
+    let path_and_query = if query_string.is_empty() {
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
-        format!("{tiles_path}/{{z}}/{{x}}/{{y}}.pbf?{}", req.query_string())
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query_string}",)
     };
 
-    let tiles_url = Uri::builder()
-        .scheme(connection_info.scheme())
-        .authority(connection_info.host())
+    Uri::builder()
+        .scheme(scheme)
+        .authority(host)
         .path_and_query(path_and_query)
         .build()
         .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
-
-    tilejson.tiles = vec![tiles_url];
-    Ok(HttpResponse::Ok().json(tilejson))
+        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {e}")))
 }
 
-#[route(
-    "/rpc/{source_id}/{z}/{x}/{y}.{format}",
-    method = "GET",
-    method = "HEAD"
-)]
-async fn get_function_source_tile(
+fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
+    let mut tilejson = sources
+        .into_iter()
+        .map(|s| s.get_tilejson())
+        .reduce(|mut accum, tj| {
+            if let Some(minzoom) = tj.minzoom {
+                if let Some(a) = accum.minzoom {
+                    if a > minzoom {
+                        accum.minzoom = tj.minzoom;
+                    }
+                } else {
+                    accum.minzoom = tj.minzoom;
+                }
+            }
+            if let Some(maxzoom) = tj.maxzoom {
+                if let Some(a) = accum.maxzoom {
+                    if a < maxzoom {
+                        accum.maxzoom = tj.maxzoom;
+                    }
+                } else {
+                    accum.maxzoom = tj.maxzoom;
+                }
+            }
+            if let Some(bounds) = tj.bounds {
+                if let Some(a) = accum.bounds {
+                    accum.bounds = Some(a + bounds);
+                } else {
+                    accum.bounds = tj.bounds;
+                }
+            }
+
+            accum
+        })
+        .expect("nonempty sources iter");
+
+    tilejson.tiles.push(tiles_url);
+    tilejson
+}
+
+#[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
+async fn get_tile(
     path: Path<TileRequest>,
     query: Query<HashMap<String, String>>,
     state: Data<AppState>,
-) -> impl Responder {
-    if state.function_sources.is_empty() {
-        return Err(error::ErrorNotFound("There is no function sources"));
-    }
+) -> Result<HttpResponse> {
+    let (sources, format) = state.get_sources(&path.source_ids, Some(path.z))?;
 
-    let source = state
-        .function_sources
-        .get(&path.source_id)
-        .filter(|src| is_valid_zoom(path.z, src.minzoom, src.maxzoom))
-        .ok_or_else(|| {
-            error::ErrorNotFound(format!("Function source '{}' not found", path.source_id))
-        })?;
+    let query = Some(query.into_inner());
+    let xyz = Xyz {
+        z: path.z,
+        x: path.x,
+        y: path.y,
+    };
 
-    get_tile(
-        &state,
-        path.z,
-        path.x,
-        path.y,
-        Some(query.into_inner()),
-        source.clone(),
-    )
-    .await
-}
-
-fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
-    let gte_minzoom = minzoom.map_or(true, |minzoom| zoom >= minzoom.into());
-
-    let lte_maxzoom = maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into());
-
-    gte_minzoom && lte_maxzoom
-}
-
-async fn get_tile(
-    state: &Data<AppState>,
-    z: i32,
-    x: i32,
-    y: i32,
-    query: Option<UrlQuery>,
-    source: Box<dyn Source + Send>,
-) -> Result<HttpResponse, Error> {
-    let mut connection = get_connection(&state.pool).await?;
-    let tile = source
-        .get_tile(&mut connection, &Xyz { z, x, y }, &query)
+    let tile = try_join_all(sources.into_iter().map(|s| s.get_tile(&xyz, &query)))
         .await
-        .map_err(map_internal_error)?;
+        .map_err(map_internal_error)?
+        .concat();
 
     match tile.len() {
         0 => Ok(HttpResponse::NoContent()
-            .content_type("application/x-protobuf")
+            .content_type(format.content_type())
             .finish()),
         _ => Ok(HttpResponse::Ok()
-            .content_type("application/x-protobuf")
+            .content_type(format.content_type())
             .body(tile)),
     }
 }
 
-pub fn router(cfg: &mut ServiceConfig) {
+pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_health)
-        .service(get_table_sources)
-        .service(get_composite_source)
-        .service(get_composite_source_tile)
-        .service(get_function_sources)
-        .service(get_function_source)
-        .service(get_function_source_tile);
+        .service(get_index)
+        .service(git_source_info)
+        .service(get_tile);
 }
 
-fn create_state(pool: Pool, config: Config) -> AppState {
-    AppState {
-        pool,
-        table_sources: config.pg.table_sources,
-        function_sources: config.pg.function_sources,
-    }
-}
-
-pub fn new(pool: Pool, config: Config) -> Server {
+pub fn new(config: Config, sources: Sources) -> Server {
     let keep_alive = config.srv.keep_alive;
     let worker_processes = config.srv.worker_processes;
-    let listen_addresses = config.srv.listen_addresses.clone();
+    let listen_addresses = config.srv.listen_addresses;
 
     HttpServer::new(move || {
-        let state = create_state(pool.clone(), config.clone());
+        let state = AppState {
+            sources: sources.clone(),
+        };
 
         let cors_middleware = Cors::default()
             .allow_any_origin()

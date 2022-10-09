@@ -1,27 +1,27 @@
 use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
-use martin::pg::dev::{
-    mock_default_function_sources, mock_default_table_sources, mock_function_sources, mock_state,
-    mock_table_sources,
-};
-use martin::pg::function_source::{FunctionSource, FunctionSources};
-use martin::pg::table_source::{TableSource, TableSources};
+use ctor::ctor;
+use martin::pg::config::{FunctionInfo, TableInfo};
+use martin::srv::server::IndexEntry;
 use std::collections::HashMap;
 use tilejson::{Bounds, TileJSON};
 
+#[path = "utils.rs"]
+mod utils;
+use utils::*;
+
+#[ctor]
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
 macro_rules! create_app {
-    ($tables:expr, $functions:expr) => {{
-        init();
-        let state = mock_state($tables, $functions).await;
-        let data = ::actix_web::web::Data::new(state);
+    ($sources:expr) => {{
+        let state = crate::utils::mock_app_data($sources.await).await;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
-                .app_data(data)
+                .app_data(state)
                 .configure(::martin::srv::server::router),
         )
         .await
@@ -34,34 +34,33 @@ fn test_get(path: &str) -> Request {
 
 #[actix_rt::test]
 async fn get_table_sources_ok() {
-    let app = create_app!(Some(mock_default_table_sources()), None);
+    let app = create_app!(mock_default_table_sources());
 
-    let req = test_get("/index.json");
+    let req = test_get("/");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let body = read_body(response).await;
-    let table_sources: TableSources = serde_json::from_slice(&body).unwrap();
-    assert!(table_sources.contains_key("public.table_source"));
+    let sources: HashMap<String, IndexEntry> = serde_json::from_slice(&body).unwrap();
+    assert!(sources.contains_key("public.table_source"));
 }
 
 #[actix_rt::test]
-async fn get_table_sources_watch_mode_ok() {
-    let app = create_app!(Some(mock_default_table_sources()), None);
+async fn get_function_sources_ok() {
+    let app = create_app!(mock_default_function_sources());
 
-    let req = test_get("/index.json");
+    let req = test_get("/");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let body = read_body(response).await;
-    let table_sources: TableSources = serde_json::from_slice(&body).unwrap();
-    assert!(table_sources.contains_key("public.table_source"));
+    let sources: HashMap<String, IndexEntry> = serde_json::from_slice(&body).unwrap();
+    assert!(sources.contains_key("public.function_source"));
 }
 
 #[actix_rt::test]
 async fn get_table_source_ok() {
-    let table_source = TableSource {
-        id: "public.table_source".to_owned(),
+    let table_source = TableInfo {
         schema: "public".to_owned(),
         table: "table_source".to_owned(),
         id_column: None,
@@ -77,24 +76,24 @@ async fn get_table_source_ok() {
         properties: HashMap::new(),
     };
 
-    let app = create_app!(Some(mock_table_sources(&[table_source])), None);
+    let app = create_app!(mock_sources(
+        None,
+        Some(&[("public.table_source", table_source)])
+    ));
 
-    let req = test_get("/public.non_existent.json");
+    let req = test_get("/public.non_existent");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     let req = TestRequest::get()
-        .uri("/public.table_source.json?token=martin")
-        .insert_header((
-            "x-rewrite-url",
-            "/tiles/public.table_source.json?token=martin",
-        ))
+        .uri("/public.table_source?token=martin")
+        .insert_header(("x-rewrite-url", "/tiles/public.table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(result.name, Some(String::from("public.table_source")));
     assert_eq!(
         result.tiles,
-        vec!["http://localhost:8080/tiles/public.table_source/{z}/{x}/{y}.pbf?token=martin"]
+        &["http://localhost:8080/tiles/public.table_source/{z}/{x}/{y}?token=martin"]
     );
     assert_eq!(result.minzoom, Some(0));
     assert_eq!(result.maxzoom, Some(30));
@@ -103,36 +102,33 @@ async fn get_table_source_ok() {
 
 #[actix_rt::test]
 async fn get_table_source_tile_ok() {
-    let app = create_app!(Some(mock_default_table_sources()), None);
+    let app = create_app!(mock_default_table_sources());
 
-    let req = test_get("/public.non_existent/0/0/0.pbf");
+    let req = test_get("/public.non_existent/0/0/0");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    let req = test_get("/public.table_source/0/0/0.pbf");
+    let req = test_get("/public.table_source/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
 #[actix_rt::test]
 async fn get_table_source_multiple_geom_tile_ok() {
-    let app = create_app!(Some(mock_default_table_sources()), None);
+    let app = create_app!(mock_default_table_sources());
 
-    let req = test_get("/public.table_source_multiple_geom.geom1/0/0/0.pbf");
+    let req = test_get("/public.table_source_multiple_geom.geom1/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
-    let req = test_get("/public.table_source_multiple_geom.geom2/0/0/0.pbf");
+    let req = test_get("/public.table_source_multiple_geom.geom2/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
 #[actix_rt::test]
 async fn get_table_source_tile_minmax_zoom_ok() {
-    init();
-
-    let table_source = TableSource {
-        id: "public.table_source".to_owned(),
+    let table_source = TableInfo {
         schema: "public".to_owned(),
         table: "table_source".to_owned(),
         id_column: None,
@@ -148,8 +144,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         properties: HashMap::new(),
     };
 
-    let points1 = TableSource {
-        id: "public.points1".to_owned(),
+    let points1 = TableInfo {
         schema: "public".to_owned(),
         table: "points1".to_owned(),
         id_column: None,
@@ -161,8 +156,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         ..table_source
     };
 
-    let points2 = TableSource {
-        id: "public.points2".to_owned(),
+    let points2 = TableInfo {
         schema: "public".to_owned(),
         table: "points2".to_owned(),
         id_column: None,
@@ -174,8 +168,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         ..table_source
     };
 
-    let points3857 = TableSource {
-        id: "public.points3857".to_owned(),
+    let points3857 = TableInfo {
         schema: "public".to_owned(),
         table: "points3857".to_owned(),
         id_column: None,
@@ -187,102 +180,104 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         ..table_source
     };
 
-    let tables = &[points1, points2, points3857, table_source];
-    let app = create_app!(Some(mock_table_sources(tables)), None);
+    let tables = &[
+        ("public.points1", points1),
+        ("public.points2", points2),
+        ("public.points3857", points3857),
+        ("public.table_source", table_source),
+    ];
+    let app = create_app!(mock_sources(None, Some(tables)));
 
     // zoom = 0 (nothing)
-    let req = test_get("/public.points1/0/0/0.pbf");
+    let req = test_get("/public.points1/0/0/0");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     // zoom = 6 (public.points1)
-    let req = test_get("/public.points1/6/38/20.pbf");
+    let req = test_get("/public.points1/6/38/20");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.points1)
-    let req = test_get("/public.points1/12/2476/1280.pbf");
+    let req = test_get("/public.points1/12/2476/1280");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (nothing)
-    let req = test_get("/public.points1/13/4952/2560.pbf");
+    let req = test_get("/public.points1/13/4952/2560");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     // zoom = 0 (public.points2)
-    let req = test_get("/public.points2/0/0/0.pbf");
+    let req = test_get("/public.points2/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 6 (public.points2)
-    let req = test_get("/public.points2/6/38/20.pbf");
+    let req = test_get("/public.points2/6/38/20");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.points2)
-    let req = test_get("/public.points2/12/2476/1280.pbf");
+    let req = test_get("/public.points2/12/2476/1280");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (public.points2)
-    let req = test_get("/public.points2/13/4952/2560.pbf");
+    let req = test_get("/public.points2/13/4952/2560");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 0 (nothing)
-    let req = test_get("/public.points3857/0/0/0.pbf");
+    let req = test_get("/public.points3857/0/0/0");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     // zoom = 12 (public.points3857)
-    let req = test_get("/public.points3857/12/2476/1280.pbf");
+    let req = test_get("/public.points3857/12/2476/1280");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 0 (public.table_source)
-    let req = test_get("/public.table_source/0/0/0.pbf");
+    let req = test_get("/public.table_source/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (nothing)
-    let req = test_get("/public.table_source/12/2476/1280.pbf");
+    let req = test_get("/public.table_source/12/2476/1280");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[actix_rt::test]
 async fn get_composite_source_ok() {
-    let app = create_app!(Some(mock_default_table_sources()), None);
+    let app = create_app!(mock_default_table_sources());
 
-    let req = test_get("/public.non_existent1,public.non_existent2.json");
+    let req = test_get("/public.non_existent1,public.non_existent2");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    let req = test_get("/public.points1,public.points2,public.points3857.json");
+    let req = test_get("/public.points1,public.points2,public.points3857");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
 #[actix_rt::test]
 async fn get_composite_source_tile_ok() {
-    let app = create_app!(Some(mock_default_table_sources()), None);
+    let app = create_app!(mock_default_table_sources());
 
-    let req = test_get("/public.non_existent1,public.non_existent2/0/0/0.pbf");
+    let req = test_get("/public.non_existent1,public.non_existent2/0/0/0");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    let req = test_get("/public.points1,public.points2,public.points3857/0/0/0.pbf");
+    let req = test_get("/public.points1,public.points2,public.points3857/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
 #[actix_rt::test]
 async fn get_composite_source_tile_minmax_zoom_ok() {
-    init();
-
-    let public_points1 = TableSource {
-        id: "public.points1".to_owned(),
+    let public_points1 = TableInfo {
         schema: "public".to_owned(),
         table: "points1".to_owned(),
         id_column: None,
@@ -298,8 +293,7 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
         properties: HashMap::new(),
     };
 
-    let public_points2 = TableSource {
-        id: "public.points2".to_owned(),
+    let public_points2 = TableInfo {
         schema: "public".to_owned(),
         table: "points2".to_owned(),
         id_column: None,
@@ -315,110 +309,86 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
         properties: HashMap::new(),
     };
 
-    let tables = &[public_points1, public_points2];
-    let app = create_app!(Some(mock_table_sources(tables)), None);
+    let tables = &[
+        ("public.points1", public_points1),
+        ("public.points2", public_points2),
+    ];
+    let app = create_app!(mock_sources(None, Some(tables)));
 
     // zoom = 0 (nothing)
-    let req = test_get("/public.points1,public.points2/0/0/0.pbf");
+    let req = test_get("/public.points1,public.points2/0/0/0");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     // zoom = 6 (public.points1)
-    let req = test_get("/public.points1,public.points2/6/38/20.pbf");
+    let req = test_get("/public.points1,public.points2/6/38/20");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.points1)
-    let req = test_get("/public.points1,public.points2/12/2476/1280.pbf");
+    let req = test_get("/public.points1,public.points2/12/2476/1280");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (public.points1, public.points2)
-    let req = test_get("/public.points1,public.points2/13/4952/2560.pbf");
+    let req = test_get("/public.points1,public.points2/13/4952/2560");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 14 (public.points2)
-    let req = test_get("/public.points1,public.points2/14/9904/5121.pbf");
+    let req = test_get("/public.points1,public.points2/14/9904/5121");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 20 (public.points2)
-    let req = test_get("/public.points1,public.points2/20/633856/327787.pbf");
+    let req = test_get("/public.points1,public.points2/20/633856/327787");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 21 (nothing)
-    let req = test_get("/public.points1,public.points2/21/1267712/655574.pbf");
+    let req = test_get("/public.points1,public.points2/21/1267712/655574");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
-}
-
-#[actix_rt::test]
-async fn get_function_sources_ok() {
-    let app = create_app!(None, Some(mock_default_function_sources()));
-
-    let req = test_get("/rpc/index.json");
-    let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
-
-    let body = read_body(response).await;
-    let function_sources: FunctionSources = serde_json::from_slice(&body).unwrap();
-    assert!(function_sources.contains_key("public.function_source"));
-}
-
-#[actix_rt::test]
-async fn get_function_sources_watch_mode_ok() {
-    let app = create_app!(None, Some(mock_default_function_sources()));
-
-    let req = test_get("/rpc/index.json");
-    let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
-
-    let body = read_body(response).await;
-    let function_sources: FunctionSources = serde_json::from_slice(&body).unwrap();
-    assert!(function_sources.contains_key("public.function_source"));
 }
 
 #[actix_rt::test]
 async fn get_function_source_ok() {
-    let app = create_app!(None, Some(mock_default_function_sources()));
+    let app = create_app!(mock_default_function_sources());
 
-    let req = test_get("/rpc/public.non_existent.json");
+    let req = test_get("/public.non_existent");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    let req = test_get("/rpc/public.function_source.json");
+    let req = test_get("/public.function_source");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let req = TestRequest::get()
-        .uri("/rpc/public.function_source.json?token=martin")
+        .uri("/public.function_source?token=martin")
         .insert_header((
             "x-rewrite-url",
-            "/tiles/rpc/public.function_source.json?token=martin",
+            "/tiles/public.function_source?token=martin",
         ))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
         result.tiles,
-        vec!["http://localhost:8080/tiles/rpc/public.function_source/{z}/{x}/{y}.pbf?token=martin"]
+        &["http://localhost:8080/tiles/public.function_source/{z}/{x}/{y}?token=martin"]
     );
 }
 
 #[actix_rt::test]
 async fn get_function_source_tile_ok() {
-    let app = create_app!(None, Some(mock_default_function_sources()));
+    let app = create_app!(mock_default_function_sources());
 
-    let req = test_get("/rpc/public.function_source/0/0/0.pbf");
+    let req = test_get("/public.function_source/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
 #[actix_rt::test]
 async fn get_function_source_tile_minmax_zoom_ok() {
-    let function_source1 = FunctionSource {
-        id: "public.function_source1".to_owned(),
+    let function_source1 = FunctionInfo {
         schema: "public".to_owned(),
         function: "function_source".to_owned(),
         minzoom: None,
@@ -426,8 +396,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
         bounds: Some(Bounds::MAX),
     };
 
-    let function_source2 = FunctionSource {
-        id: "public.function_source2".to_owned(),
+    let function_source2 = FunctionInfo {
         schema: "public".to_owned(),
         function: "function_source".to_owned(),
         minzoom: Some(6),
@@ -435,67 +404,70 @@ async fn get_function_source_tile_minmax_zoom_ok() {
         bounds: Some(Bounds::MAX),
     };
 
-    let funcs = &[function_source1, function_source2];
-    let app = create_app!(None, Some(mock_function_sources(funcs)));
+    let funcs = &[
+        ("public.function_source1", function_source1),
+        ("public.function_source2", function_source2),
+    ];
+    let app = create_app!(mock_sources(Some(funcs), None));
 
     // zoom = 0 (public.function_source1)
-    let req = test_get("/rpc/public.function_source1/0/0/0.pbf");
+    let req = test_get("/public.function_source1/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 6 (public.function_source1)
-    let req = test_get("/rpc/public.function_source1/6/38/20.pbf");
+    let req = test_get("/public.function_source1/6/38/20");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.function_source1)
-    let req = test_get("/rpc/public.function_source1/12/2476/1280.pbf");
+    let req = test_get("/public.function_source1/12/2476/1280");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (public.function_source1)
-    let req = test_get("/rpc/public.function_source1/13/4952/2560.pbf");
+    let req = test_get("/public.function_source1/13/4952/2560");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 0 (nothing)
-    let req = test_get("/rpc/public.function_source2/0/0/0.pbf");
+    let req = test_get("/public.function_source2/0/0/0");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     // zoom = 6 (public.function_source2)
-    let req = test_get("/rpc/public.function_source2/6/38/20.pbf");
+    let req = test_get("/public.function_source2/6/38/20");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 12 (public.function_source2)
-    let req = test_get("/rpc/public.function_source2/12/2476/1280.pbf");
+    let req = test_get("/public.function_source2/12/2476/1280");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     // zoom = 13 (nothing)
-    let req = test_get("/rpc/public.function_source2/13/4952/2560.pbf");
+    let req = test_get("/public.function_source2/13/4952/2560");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[actix_rt::test]
 async fn get_function_source_query_params_ok() {
-    let app = create_app!(None, Some(mock_default_function_sources()));
+    let app = create_app!(mock_default_function_sources());
 
-    let req = test_get("/rpc/public.function_source_query_params/0/0/0.pbf");
+    let req = test_get("/public.function_source_query_params/0/0/0");
     let response = call_service(&app, req).await;
     println!("response.status = {:?}", response.status());
     assert!(response.status().is_server_error());
 
-    let req = test_get("/rpc/public.function_source_query_params/0/0/0.pbf?token=martin");
+    let req = test_get("/public.function_source_query_params/0/0/0?token=martin");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
 
 #[actix_rt::test]
 async fn get_health_returns_ok() {
-    let app = create_app!(None, Some(mock_default_function_sources()));
+    let app = create_app!(mock_default_function_sources());
 
     let req = test_get("/healthz");
     let response = call_service(&app, req).await;

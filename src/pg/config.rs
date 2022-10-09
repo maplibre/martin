@@ -1,8 +1,8 @@
 use crate::config::set_option;
-use crate::pg::function_source::FunctionSources;
-use crate::pg::table_source::TableSources;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{env, io};
+use tilejson::Bounds;
 
 pub const POOL_SIZE_DEFAULT: u32 = 20;
 
@@ -22,6 +22,86 @@ pub struct PgArgs {
     pub pool_size: Option<u32>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TableInfo {
+    /// Table schema
+    pub schema: String,
+
+    /// Table name
+    pub table: String,
+
+    /// Geometry SRID
+    pub srid: u32,
+
+    /// Geometry column name
+    pub geometry_column: String,
+
+    /// Feature id column name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_column: Option<String>,
+
+    /// An integer specifying the minimum zoom level
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minzoom: Option<u8>,
+
+    /// An integer specifying the maximum zoom level. MUST be >= minzoom
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maxzoom: Option<u8>,
+
+    /// The maximum extent of available map tiles. Bounds MUST define an area
+    /// covered by all zoom levels. The bounds are represented in WGS:84
+    /// latitude and longitude values, in the order left, bottom, right, top.
+    /// Values may be integers or floating point numbers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<Bounds>,
+
+    /// Tile extent in tile coordinate space
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extent: Option<u32>,
+
+    /// Buffer distance in tile coordinate space to optionally clip geometries
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buffer: Option<u32>,
+
+    /// Boolean to control if geometries should be clipped or encoded as is
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clip_geom: Option<bool>,
+
+    /// Geometry type
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geometry_type: Option<String>,
+
+    /// List of columns, that should be encoded as tile properties
+    pub properties: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FunctionInfo {
+    /// Schema name
+    pub schema: String,
+
+    /// Function name
+    pub function: String,
+
+    /// An integer specifying the minimum zoom level
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minzoom: Option<u8>,
+
+    /// An integer specifying the maximum zoom level. MUST be >= minzoom
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maxzoom: Option<u8>,
+
+    /// The maximum extent of available map tiles. Bounds MUST define an area
+    /// covered by all zoom levels. The bounds are represented in WGS:84
+    /// latitude and longitude values, in the order left, bottom, right, top.
+    /// Values may be integers or floating point numbers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<Bounds>,
+}
+
+pub type TableInfoSources = HashMap<String, TableInfo>;
+pub type FunctionInfoSources = HashMap<String, FunctionInfo>;
+
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct PgConfig {
     pub connection_string: String,
@@ -30,19 +110,19 @@ pub struct PgConfig {
     pub default_srid: Option<i32>,
     pub pool_size: u32,
     pub use_dynamic_sources: bool,
-    pub table_sources: TableSources,
-    pub function_sources: FunctionSources,
+    pub table_sources: TableInfoSources,
+    pub function_sources: FunctionInfoSources,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct PgConfigBuilder {
     pub connection_string: Option<String>,
     pub ca_root_file: Option<String>,
     pub danger_accept_invalid_certs: Option<bool>,
     pub default_srid: Option<i32>,
     pub pool_size: Option<u32>,
-    pub table_sources: Option<TableSources>,
-    pub function_sources: Option<FunctionSources>,
+    pub table_sources: Option<TableInfoSources>,
+    pub function_sources: Option<FunctionInfoSources>,
 }
 
 impl PgConfigBuilder {

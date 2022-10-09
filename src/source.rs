@@ -1,5 +1,5 @@
-use crate::pg::db::Connection;
 use async_trait::async_trait;
+use martin_tile_utils::DataFormat;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
@@ -16,15 +16,20 @@ pub struct Xyz {
 }
 
 #[async_trait]
-pub trait Source: Debug {
-    async fn get_id(&self) -> &str;
+pub trait Source: Send + Debug {
+    fn get_tilejson(&self) -> TileJSON;
 
-    async fn get_tilejson(&self) -> Result<TileJSON, io::Error>;
+    fn get_format(&self) -> DataFormat;
 
-    async fn get_tile(
-        &self,
-        conn: &mut Connection,
-        xyz: &Xyz,
-        query: &Option<UrlQuery>,
-    ) -> Result<Tile, io::Error>;
+    fn clone_source(&self) -> Box<dyn Source>;
+
+    fn is_valid_zoom(&self, zoom: i32) -> bool;
+
+    async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile, io::Error>;
+}
+
+impl Clone for Box<dyn Source> {
+    fn clone(&self) -> Self {
+        self.clone_source()
+    }
 }

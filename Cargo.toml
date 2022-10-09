@@ -1,3 +1,6 @@
+[workspace]
+members = ["martin-tile-utils"]
+
 [package]
 name = "martin"
 version = "0.6.0-rc.1"
@@ -29,8 +32,10 @@ bb8 = "0.8"
 bb8-postgres = "0.8"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.9"
+futures = "0.3"
 itertools = "0.10"
 log = "0.4"
+martin-tile-utils = { path = "martin-tile-utils" }
 num_cpus = "1"
 openssl = "0.10"
 postgis = "0.9"
@@ -45,6 +50,7 @@ serde_yaml = "0.9"
 tilejson = "0.3"
 
 [dev-dependencies]
+ctor = "0.1"
 indoc = "1"
 
 [dev-dependencies.criterion]
