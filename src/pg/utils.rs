@@ -1,6 +1,6 @@
-use crate::source::{Query, Xyz};
+use crate::source::{UrlQuery, Xyz};
 use actix_http::header::HeaderValue;
-use actix_web::http;
+use actix_web::http::Uri;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
@@ -52,7 +52,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
     hashmap
 }
 
-pub fn query_to_json(query: &Query) -> Json<HashMap<String, Value>> {
+pub fn query_to_json(query: &UrlQuery) -> Json<HashMap<String, Value>> {
     let mut query_as_json = HashMap::new();
     for (k, v) in query.iter() {
         let json_value: serde_json::Value =
@@ -88,7 +88,7 @@ pub fn get_source_bounds(id: &str, srid: u32, geometry_column: &str) -> String {
     )
 }
 
-pub fn polygon_to_bbox(polygon: ewkb::Polygon) -> Option<Bounds> {
+pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     polygon.rings().next().and_then(|linestring| {
         let mut points = linestring.points();
         if let (Some(bottom_left), Some(top_right)) = (points.next(), points.nth(1)) {
@@ -108,6 +108,6 @@ pub fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
     header
         .to_str()
         .ok()
-        .and_then(|header| header.parse::<http::Uri>().ok())
+        .and_then(|header| header.parse::<Uri>().ok())
         .map(|uri| uri.path().trim_end_matches(".json").to_owned())
 }

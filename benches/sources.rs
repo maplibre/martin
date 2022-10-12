@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-
 use criterion::{criterion_group, criterion_main, Criterion};
-use martin::pg;
 use martin::pg::composite_source::CompositeSource;
+use martin::pg::dev::make_pool;
 use martin::pg::function_source::FunctionSource;
 use martin::pg::table_source::TableSource;
 use martin::source::{Source, Xyz};
+use std::collections::HashMap;
 
 fn mock_table_source(schema: &str, table: &str) -> TableSource {
     TableSource {
@@ -43,7 +42,7 @@ async fn get_table_source() {
 }
 
 async fn get_table_source_tile() {
-    let pool = pg::dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
 
     let source = mock_table_source("public", "table_source");
@@ -65,7 +64,7 @@ async fn get_composite_source() {
 }
 
 async fn get_composite_source_tile() {
-    let pool = pg::dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
 
     let points1 = mock_table_source("public", "points1");
@@ -86,7 +85,7 @@ async fn get_function_source() {
 }
 
 async fn get_function_source_tile() {
-    let pool = pg::dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
 
     let source = mock_function_source("public", "function_source");
@@ -103,14 +102,14 @@ fn table_source(c: &mut Criterion) {
 fn composite_source(c: &mut Criterion) {
     c.bench_function("get_composite_source", |b| b.iter(get_composite_source));
     c.bench_function("get_composite_source_tile", |b| {
-        b.iter(get_composite_source_tile)
+        b.iter(get_composite_source_tile);
     });
 }
 
 fn function_source(c: &mut Criterion) {
     c.bench_function("get_function_source", |b| b.iter(get_function_source));
     c.bench_function("get_function_source_tile", |b| {
-        b.iter(get_function_source_tile)
+        b.iter(get_function_source_tile);
     });
 }
 

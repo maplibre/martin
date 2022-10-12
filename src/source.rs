@@ -6,7 +6,7 @@ use std::io;
 use tilejson::TileJSON;
 
 pub type Tile = Vec<u8>;
-pub type Query = HashMap<String, String>;
+pub type UrlQuery = HashMap<String, String>;
 
 #[derive(Copy, Clone)]
 pub struct Xyz {
@@ -25,6 +25,6 @@ pub trait Source: Debug {
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
-        query: &Option<Query>,
+        query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error>;
 }

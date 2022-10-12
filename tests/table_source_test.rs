@@ -1,22 +1,22 @@
-use std::collections::HashMap;
-
-use martin::pg::dev;
+use log::info;
+use martin::pg::dev::make_pool;
 use martin::pg::table_source::get_table_sources;
 use martin::source::{Source, Xyz};
+use std::collections::HashMap;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
 #[actix_rt::test]
-async fn test_get_table_sources_ok() {
+async fn get_table_sources_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
-    log::info!("table_sources = {table_sources:#?}");
+    info!("table_sources = {table_sources:#?}");
 
     assert!(!table_sources.is_empty());
     assert!(table_sources.contains_key("public.table_source"));
@@ -41,17 +41,17 @@ async fn test_get_table_sources_ok() {
 }
 
 #[actix_rt::test]
-async fn test_table_source_tilejson_ok() {
+async fn table_source_tilejson_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
     let tilejson = table_source.get_tilejson().await.unwrap();
 
-    log::info!("tilejson = {tilejson:#?}");
+    info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, Some("1.0.0".to_owned()));
@@ -64,10 +64,10 @@ async fn test_table_source_tilejson_ok() {
 }
 
 #[actix_rt::test]
-async fn test_table_source_tile_ok() {
+async fn table_source_tile_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
@@ -81,12 +81,12 @@ async fn test_table_source_tile_ok() {
 }
 
 #[actix_rt::test]
-async fn test_table_source_srid_ok() {
+async fn table_source_srid_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
-    let table_sources = get_table_sources(&mut connection, Some(900913))
+    let table_sources = get_table_sources(&mut connection, Some(900_913))
         .await
         .unwrap();
 
@@ -104,14 +104,14 @@ async fn test_table_source_srid_ok() {
 
     assert!(table_sources.contains_key("public.points_empty_srid"));
     let points_empty_srid = table_sources.get("public.points_empty_srid").unwrap();
-    assert_eq!(points_empty_srid.srid, 900913);
+    assert_eq!(points_empty_srid.srid, 900_913);
 }
 
 #[actix_rt::test]
-async fn test_table_source_multiple_geom_ok() {
+async fn table_source_multiple_geom_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 

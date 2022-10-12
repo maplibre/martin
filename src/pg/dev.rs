@@ -7,10 +7,10 @@ use std::collections::HashMap;
 use std::env;
 use tilejson::Bounds;
 
-pub fn mock_table_sources(sources: Vec<TableSource>) -> TableSources {
+pub fn mock_table_sources(sources: &[TableSource]) -> TableSources {
     let mut table_sources: TableSources = HashMap::new();
     for source in sources {
-        table_sources.insert(source.id.clone(), Box::new(source));
+        table_sources.insert(source.id.clone(), Box::new(source.clone()));
     }
 
     table_sources
@@ -40,15 +40,9 @@ pub fn mock_default_table_sources() -> TableSources {
         table: "table_source_multiple_geom".to_owned(),
         id_column: None,
         geometry_column: "geom1".to_owned(),
-        minzoom: Some(0),
-        maxzoom: Some(30),
-        bounds: Some(Bounds::MAX),
-        srid: 4326,
-        extent: Some(4096),
-        buffer: Some(64),
-        clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        ..table_source
     };
 
     let table_source_multiple_geom2 = TableSource {
@@ -57,15 +51,9 @@ pub fn mock_default_table_sources() -> TableSources {
         table: "table_source_multiple_geom".to_owned(),
         id_column: None,
         geometry_column: "geom2".to_owned(),
-        minzoom: Some(0),
-        maxzoom: Some(30),
-        bounds: Some(Bounds::MAX),
-        srid: 4326,
-        extent: Some(4096),
-        buffer: Some(64),
-        clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        ..table_source
     };
 
     let table_source1 = TableSource {
@@ -74,15 +62,9 @@ pub fn mock_default_table_sources() -> TableSources {
         table: "points1".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        minzoom: Some(0),
-        maxzoom: Some(30),
-        bounds: Some(Bounds::MAX),
-        srid: 4326,
-        extent: Some(4096),
-        buffer: Some(64),
-        clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        ..table_source
     };
 
     let table_source2 = TableSource {
@@ -91,15 +73,9 @@ pub fn mock_default_table_sources() -> TableSources {
         table: "points2".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        minzoom: Some(0),
-        maxzoom: Some(30),
-        bounds: Some(Bounds::MAX),
-        srid: 4326,
-        extent: Some(4096),
-        buffer: Some(64),
-        clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        ..table_source
     };
 
     let table_source3857 = TableSource {
@@ -108,18 +84,13 @@ pub fn mock_default_table_sources() -> TableSources {
         table: "points3857".to_owned(),
         id_column: None,
         geometry_column: "geom".to_owned(),
-        minzoom: Some(0),
-        maxzoom: Some(30),
-        bounds: Some(Bounds::MAX),
         srid: 3857,
-        extent: Some(4096),
-        buffer: Some(64),
-        clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        ..table_source
     };
 
-    mock_table_sources(vec![
+    mock_table_sources(&[
         table_source,
         table_source_multiple_geom1,
         table_source_multiple_geom2,
@@ -129,10 +100,10 @@ pub fn mock_default_table_sources() -> TableSources {
     ])
 }
 
-pub fn mock_function_sources(sources: Vec<FunctionSource>) -> FunctionSources {
+pub fn mock_function_sources(sources: &[FunctionSource]) -> FunctionSources {
     let mut function_sources: FunctionSources = HashMap::new();
     for source in sources {
-        function_sources.insert(source.id.clone(), Box::new(source));
+        function_sources.insert(source.id.clone(), Box::new(source.clone()));
     }
 
     function_sources
@@ -152,12 +123,10 @@ pub fn mock_default_function_sources() -> FunctionSources {
         id: "public.function_source_query_params".to_owned(),
         schema: "public".to_owned(),
         function: "function_source_query_params".to_owned(),
-        minzoom: Some(0),
-        maxzoom: Some(30),
-        bounds: Some(Bounds::MAX),
+        ..function_source
     };
 
-    mock_function_sources(vec![function_source, function_source_query_params])
+    mock_function_sources(&[function_source, function_source_query_params])
 }
 
 pub async fn make_pool() -> Pool {

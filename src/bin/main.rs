@@ -3,7 +3,7 @@ use clap::Parser;
 use log::{error, info, warn};
 use martin::config::{read_config, ConfigBuilder};
 use martin::pg::config::{PgArgs, PgConfigBuilder};
-use martin::pg::db::configure_db_source;
+use martin::pg::db::configure_db_sources;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
 use std::{env, io};
@@ -59,7 +59,7 @@ async fn start(args: Args) -> io::Result<Server> {
         ConfigBuilder::from(args).finalize()?
     };
 
-    let pool = configure_db_source(&mut config).await?;
+    let pool = configure_db_sources(&mut config).await?;
     let listen_addresses = config.srv.listen_addresses.clone();
     let server = server::new(pool, config);
 

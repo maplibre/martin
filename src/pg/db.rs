@@ -93,7 +93,7 @@ async fn validate_postgis_version(pool: &Pool) -> io::Result<()> {
     }
 }
 
-pub async fn configure_db_source(mut config: &mut Config) -> io::Result<Pool> {
+pub async fn configure_db_sources(mut config: &mut Config) -> io::Result<Pool> {
     info!("Connecting to database");
     let pool = setup_connection_pool(
         &config.pg.connection_string,

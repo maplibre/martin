@@ -1,4 +1,5 @@
-use martin::pg::dev;
+use log::info;
+use martin::pg::dev::make_pool;
 use martin::pg::function_source::get_function_sources;
 use martin::source::{Source, Xyz};
 
@@ -7,14 +8,14 @@ fn init() {
 }
 
 #[actix_rt::test]
-async fn test_get_function_sources_ok() {
+async fn get_function_sources_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
     let function_sources = get_function_sources(&mut connection).await.unwrap();
 
-    log::info!("function_sources = {function_sources:#?}");
+    info!("function_sources = {function_sources:#?}");
 
     assert!(!function_sources.is_empty());
     assert!(function_sources.contains_key("public.function_source"));
@@ -28,17 +29,17 @@ async fn test_get_function_sources_ok() {
 }
 
 #[actix_rt::test]
-async fn test_function_source_tilejson_ok() {
+async fn function_source_tilejson_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
     let function_sources = get_function_sources(&mut connection).await.unwrap();
 
     let function_source = function_sources.get("public.function_source").unwrap();
     let tilejson = function_source.get_tilejson().await.unwrap();
 
-    log::info!("tilejson = {tilejson:#?}");
+    info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, Some("1.0.0".to_owned()));
@@ -51,10 +52,10 @@ async fn test_function_source_tilejson_ok() {
 }
 
 #[actix_rt::test]
-async fn test_function_source_tile_ok() {
+async fn function_source_tile_ok() {
     init();
 
-    let pool = dev::make_pool().await;
+    let pool = make_pool().await;
     let mut connection = pool.get().await.unwrap();
     let function_sources = get_function_sources(&mut connection).await.unwrap();
 

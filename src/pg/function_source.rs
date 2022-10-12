@@ -1,6 +1,6 @@
 use crate::pg::db::Connection;
 use crate::pg::utils::{prettify_error, query_to_json};
-use crate::source::{Query, Source, Tile, Xyz};
+use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
@@ -11,26 +11,26 @@ use tilejson::{tilejson, Bounds, TileJSON};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FunctionSource {
-    // Function source id
+    /// Function source id
     pub id: String,
-    // Schema name
+    /// Schema name
     pub schema: String,
 
-    // Function name
+    /// Function name
     pub function: String,
 
-    // An integer specifying the minimum zoom level
+    /// An integer specifying the minimum zoom level
     #[serde(skip_serializing_if = "Option::is_none")]
     pub minzoom: Option<u8>,
 
-    // An integer specifying the maximum zoom level. MUST be >= minzoom
+    /// An integer specifying the maximum zoom level. MUST be >= minzoom
     #[serde(skip_serializing_if = "Option::is_none")]
     pub maxzoom: Option<u8>,
 
-    // The maximum extent of available map tiles. Bounds MUST define an area
-    // covered by all zoom levels. The bounds are represented in WGS:84
-    // latitude and longitude values, in the order left, bottom, right, top.
-    // Values may be integers or floating point numbers.
+    /// The maximum extent of available map tiles. Bounds MUST define an area
+    /// covered by all zoom levels. The bounds are represented in WGS:84
+    /// latitude and longitude values, in the order left, bottom, right, top.
+    /// Values may be integers or floating point numbers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Bounds>,
 }
@@ -71,11 +71,10 @@ impl Source for FunctionSource {
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
-        query: &Option<Query>,
+        query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error> {
         let empty_query = HashMap::new();
         let query = query.as_ref().unwrap_or(&empty_query);
-
         let query_json = query_to_json(query);
 
         // Query preparation : the schema and function can't be part of a prepared query, so they
