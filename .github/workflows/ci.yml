@@ -240,6 +240,29 @@ jobs:
           ./tests/vtzero-check function_source_query_params.pbf
           ./tests/vtzero-show function_source_query_params.pbf
 
+  test-docker:
+    name: Test docker image
+    runs-on: ubuntu-latest
+#    services :
+#      postgres:
+#        image: postgis/postgis:14-3.1-alpine
+#        environment:
+#          - POSTGRES_DB=db
+#          - POSTGRES_USER=postgres
+#        # Set health checks to wait until postgres has started
+#        options: >-
+#          --health-cmd pg_isready  - POSTGRES_HOST_AUTH_METHOD=trust
+#        ports:
+#            - 5432:5432
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Build docker image
+        run: |
+          docker-compose -f .github/docker-compose.ci.yml build
+          docker-compose -f .github/docker-compose.ci.yml up -d
+          curl "localhost:3000/rpc"
   docker:
     needs: [test]
     runs-on: ubuntu-latest

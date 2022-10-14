@@ -1,0 +1,27 @@
+version: "3"
+
+services:
+  martin:
+    image: maplibre/martin
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres@db/db
+      - RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
+    depends_on:
+      - db
+
+  db:
+    image: postgis/postgis:14-3.1-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - ./tests/fixtures:/fixtures
+      - ./pg_data:/var/lib/postgresql/data
+      - ./tests/initdb-martin.sh:/docker-entrypoint-initdb.d/20_martin.sh
