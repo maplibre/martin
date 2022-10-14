@@ -169,15 +169,16 @@ jobs:
 
       - name: Setup database
         run: |
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/TileBBox.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/table_source.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/table_source_multiple_geom.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/function_source.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/function_source_query_params.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/points1_source.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/points2_source.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/points3857_source.sql
-          docker-compose -f .github/docker-compose.ci.yml exec db psql -U postgres -f /fixtures/points_empty_srid_source.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db ls -la /fixtures
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/TileBBox.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/table_source.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/table_source_multiple_geom.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/function_source.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/function_source_query_params.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/points1_source.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/points2_source.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/points3857_source.sql
+          docker-compose -f .github/docker-compose.ci.yml exec -T db psql -U postgres -f /fixtures/points_empty_srid_source.sql
 
       - name: Test server response for table source
         run: .github/test_server_response_table_source.sh http://localhost:3000
