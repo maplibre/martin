@@ -131,92 +131,19 @@ jobs:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
       - name: Test server response for table source
-        run: |
-          curl "localhost:3000/index.json" | jq -e
-          curl "localhost:3000/public.table_source/0/0/0.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
-          curl "localhost:3000/public.table_source/6/38/20.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
-          curl "localhost:3000/public.table_source/12/2476/1280.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
-          curl "localhost:3000/public.table_source/13/4952/2560.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
-          curl "localhost:3000/public.table_source/14/9904/5121.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
-          curl "localhost:3000/public.table_source/20/633856/327787.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
-          curl "localhost:3000/public.table_source/21/1267712/655574.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
+        run: .github/test_server_response_table_source.sh http://localhost:3000
 
       - name: Test server response for composite source
-        run: |
-          curl "localhost:3000/public.table_source,public.points1,public.points2/0/0/0.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
-          curl "localhost:3000/public.table_source,public.points1,public.points2/6/38/20.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
-          curl "localhost:3000/public.table_source,public.points1,public.points2/12/2476/1280.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
-          curl "localhost:3000/public.table_source,public.points1,public.points2/13/4952/2560.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
-          curl "localhost:3000/public.table_source,public.points1,public.points2/14/9904/5121.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
-          curl "localhost:3000/public.table_source,public.points1,public.points2/20/633856/327787.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
-          curl "localhost:3000/public.table_source,public.points1,public.points2/21/1267712/655574.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
+        run: .github/test_server_response_composite_source.sh http://localhost:3000
 
       - name: Test server response for function source
-        run: |
-          curl "localhost:3000/rpc/public.function_source/0/0/0.pbf" > function_source0.pbf
-          ./tests/vtzero-check function_source0.pbf
-          ./tests/vtzero-show function_source0.pbf
-          curl "localhost:3000/rpc/public.function_source/6/38/20.pbf" > function_source6.pbf
-          ./tests/vtzero-check function_source6.pbf
-          ./tests/vtzero-show function_source6.pbf
-          curl "localhost:3000/rpc/public.function_source/12/2476/1280.pbf" > function_source12.pbf
-          ./tests/vtzero-check function_source12.pbf
-          ./tests/vtzero-show function_source12.pbf
-          curl "localhost:3000/rpc/public.function_source/13/4952/2560.pbf" > function_source13.pbf
-          ./tests/vtzero-check function_source13.pbf
-          ./tests/vtzero-show function_source13.pbf
-          curl "localhost:3000/rpc/public.function_source/14/9904/5121.pbf" > function_source14.pbf
-          ./tests/vtzero-check function_source14.pbf
-          ./tests/vtzero-show function_source14.pbf
-          curl "localhost:3000/rpc/public.function_source/20/633856/327787.pbf" > function_source20.pbf
-          ./tests/vtzero-check function_source20.pbf
-          ./tests/vtzero-show function_source20.pbf
-          curl "localhost:3000/rpc/public.function_source/21/1267712/655574.pbf" > function_source21.pbf
-          ./tests/vtzero-check function_source21.pbf
-          ./tests/vtzero-show function_source21.pbf
-          curl "localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin" > function_source_query_params.pbf
-          ./tests/vtzero-check function_source_query_params.pbf
-          ./tests/vtzero-show function_source_query_params.pbf
+        run: .github/test_server_response_function_source.sh http://localhost:3000
 
       - name: Test server response for table source with different SRID
-        run: |
-          curl "localhost:3000/public.points3857/0/0/0.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
+        run: .github/test_server_response_table_source_different_srid.sh http://localhost:3000
 
       - name: Test server response for table source with empty SRID
-        run: |
-          curl "localhost:3000/public.points_empty_srid/0/0/0.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
+        run: .github/test_server_response_table_source_empty_srid.sh http://localhost:3000
 
       - name: Prepare config
         run: sed -i 's/5432/${{ job.services.postgres.ports[5432] }}/g' ./tests/config.yaml
@@ -225,44 +152,39 @@ jobs:
         run: pkill martin && ./target/debug/martin --config ./tests/config.yaml &
 
       - name: Test server response
-        run: |
-          curl "localhost:3000/index.json" | jq -e
-          curl "localhost:3000/public.table_source/0/0/0.pbf" > table_source.pbf
-          ./tests/vtzero-check table_source.pbf
-          ./tests/vtzero-show table_source.pbf
-          curl "localhost:3000/public.points1,public.points2/0/0/0.pbf" > composite_source.pbf
-          ./tests/vtzero-check composite_source.pbf
-          ./tests/vtzero-show composite_source.pbf
-          curl "localhost:3000/rpc/public.function_source/0/0/0.pbf" > function_source.pbf
-          ./tests/vtzero-check function_source.pbf
-          ./tests/vtzero-show function_source.pbf
-          curl "localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin" > function_source_query_params.pbf
-          ./tests/vtzero-check function_source_query_params.pbf
-          ./tests/vtzero-show function_source_query_params.pbf
+        run: .github/test_server_response.sh http://localhost:3000
 
   test-docker:
     name: Test docker image
     runs-on: ubuntu-latest
-#    services :
-#      postgres:
-#        image: postgis/postgis:14-3.1-alpine
-#        environment:
-#          - POSTGRES_DB=db
-#          - POSTGRES_USER=postgres
-#        # Set health checks to wait until postgres has started
-#        options: >-
-#          --health-cmd pg_isready  - POSTGRES_HOST_AUTH_METHOD=trust
-#        ports:
-#            - 5432:5432
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
 
       - name: Build docker image
-        run: |
-          docker-compose -f .github/docker-compose.ci.yml build
-          docker-compose -f .github/docker-compose.ci.yml up -d
-          curl "localhost:3000/rpc"
+        run: docker-compose -f .github/docker-compose.ci.yml build
+          
+      - name : Start docker-compose stack
+        run: docker-compose -f .github/docker-compose.ci.yml up -d
+
+      - name: Test server response for table source
+        run: .github/test_server_response_table_source.sh http://localhost:3000
+
+      - name: Test server response for composite source
+        run: .github/test_server_response_composite_source.sh http://localhost:3000
+
+      - name: Test server response for function source
+        run: .github/test_server_response_function_source.sh http://localhost:3000
+
+      - name: Test server response for table source with different SRID
+        run: .github/test_server_response_table_source_different_srid.sh http://localhost:3000
+
+      - name: Test server response for table source with empty SRID
+        run: .github/test_server_response_table_source_empty_srid.sh http://localhost:3000
+        
+      - name: Test server response
+        run: .github/test_server_response.sh http://localhost:3000
+
   docker:
     needs: [test]
     runs-on: ubuntu-latest
