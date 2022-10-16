@@ -8,8 +8,8 @@
       content="initial-scale=1,maximum-scale=1,user-scalable=no"
     />
     <script src="https://unpkg.com/deck.gl@^8.4.0/dist.min.js"></script>
-    <script src="https://libs.cartocdn.com/mapbox-gl/v1.13.0/mapbox-gl.js"></script>
-    <link href="https://libs.cartocdn.com/mapbox-gl/v1.13.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" rel="stylesheet" />
 
     <style>
       body {
@@ -30,6 +30,7 @@
     <script>
       const deckgl = new deck.DeckGL({
         container: 'map',
+        map: maplibregl,
         mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
         initialViewState: {
           latitude: 0,
