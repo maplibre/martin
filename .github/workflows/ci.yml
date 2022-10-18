@@ -277,7 +277,7 @@ jobs:
       - name: Build and push the Docker image
         uses: docker/build-push-action@v3
         with:
-          push: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
+          push: ${{ github.actor != 'dependabot[bot]' && github.event_name != 'pull_request' }}
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
 
