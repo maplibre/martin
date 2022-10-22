@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,

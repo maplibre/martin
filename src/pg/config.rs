@@ -22,7 +22,7 @@ pub struct PgArgs {
     pub pool_size: Option<u32>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct PgConfig {
     pub connection_string: String,
     pub ca_root_file: Option<String>,
