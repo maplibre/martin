@@ -24,11 +24,6 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-
       - name: Install fmt & clippy
         run: rustup component add clippy rustfmt
 
