@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct FunctionSource {
     /// Function source id
     pub id: String,
