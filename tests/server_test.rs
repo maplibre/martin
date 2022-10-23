@@ -75,6 +75,7 @@ async fn get_table_source_ok() {
         clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
     };
 
     let app = create_app!(Some(mock_table_sources(&[table_source])), None);
@@ -146,6 +147,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
     };
 
     let points1 = TableSource {
@@ -158,6 +160,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         maxzoom: Some(12),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -171,6 +174,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         maxzoom: None,
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -184,6 +188,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
         maxzoom: None,
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -296,6 +301,7 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
         clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
     };
 
     let public_points2 = TableSource {
@@ -313,6 +319,7 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
         clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
     };
 
     let tables = &[public_points1, public_points2];
@@ -424,6 +431,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
         minzoom: None,
         maxzoom: None,
         bounds: Some(Bounds::MAX),
+        unrecognized: HashMap::new(),
     };
 
     let function_source2 = FunctionSource {
@@ -433,6 +441,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
         minzoom: Some(6),
         maxzoom: Some(12),
         bounds: Some(Bounds::MAX),
+        unrecognized: HashMap::new(),
     };
 
     let funcs = &[function_source1, function_source2];

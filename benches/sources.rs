@@ -22,6 +22,7 @@ fn mock_table_source(schema: &str, table: &str) -> TableSource {
         clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
     }
 }
 
@@ -33,6 +34,7 @@ fn mock_function_source(schema: &str, function: &str) -> FunctionSource {
         minzoom: None,
         maxzoom: None,
         bounds: None,
+        unrecognized: HashMap::new(),
     }
 }
 

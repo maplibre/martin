@@ -7,6 +7,7 @@ use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
 use log::warn;
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
 use std::collections::{HashMap, HashSet};
 use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
@@ -65,6 +66,9 @@ pub struct TableSource {
 
     /// List of columns, that should be encoded as tile properties
     pub properties: HashMap<String, String>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: HashMap<String, Value>,
 }
 
 pub type TableSources = HashMap<String, Box<TableSource>>;
@@ -248,6 +252,7 @@ pub async fn get_table_sources(
             clip_geom: Some(DEFAULT_CLIP_GEOM),
             geometry_type: row.get("type"),
             properties: json_to_hashmap(&row.get("properties")),
+            unrecognized: HashMap::new(),
         };
 
         let mut explicit_source = source.clone();

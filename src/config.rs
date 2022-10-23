@@ -1,7 +1,10 @@
 use crate::pg::config::{PgConfig, PgConfigBuilder};
 use crate::prettify_error;
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
+use log::warn;
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -20,6 +23,8 @@ pub struct ConfigBuilder {
     pub srv: SrvConfigBuilder,
     #[serde(flatten)]
     pub pg: PgConfigBuilder,
+    #[serde(flatten)]
+    pub unrecognized: HashMap<String, Value>,
 }
 
 /// Update empty option in place with a non-empty value from the second option.
@@ -33,15 +38,23 @@ impl ConfigBuilder {
     pub fn merge(&mut self, other: ConfigBuilder) -> &mut Self {
         self.srv.merge(other.srv);
         self.pg.merge(other.pg);
+        self.unrecognized.extend(other.unrecognized);
         self
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(self) -> io::Result<Config> {
+        report_unrecognized_config("", &self.unrecognized);
         Ok(Config {
             srv: self.srv.finalize()?,
             pg: self.pg.finalize()?,
         })
+    }
+}
+
+pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, Value>) {
+    for key in unrecognized.keys() {
+        warn!("Unrecognized config key: {prefix}{key}");
     }
 }
 
@@ -142,6 +155,7 @@ mod tests {
                         clip_geom: Some(true),
                         geometry_type: Some("GEOMETRY".to_string()),
                         properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
+                        unrecognized: HashMap::new(),
                     }),
                 )]),
                 function_sources: HashMap::from([(
@@ -158,6 +172,7 @@ mod tests {
                             right: 180.0,
                             top: 90.0,
                         }),
+                        unrecognized: HashMap::new(),
                     }),
                 )]),
             },
