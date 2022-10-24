@@ -32,6 +32,7 @@ pub fn mock_default_table_sources() -> TableSources {
         clip_geom: Some(true),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
     };
 
     let table_source_multiple_geom1 = TableSource {
@@ -42,6 +43,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom1".to_owned(),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -53,6 +55,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom2".to_owned(),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -64,6 +67,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom".to_owned(),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -75,6 +79,7 @@ pub fn mock_default_table_sources() -> TableSources {
         geometry_column: "geom".to_owned(),
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -87,6 +92,7 @@ pub fn mock_default_table_sources() -> TableSources {
         srid: 3857,
         geometry_type: None,
         properties: HashMap::new(),
+        unrecognized: HashMap::new(),
         ..table_source
     };
 
@@ -117,12 +123,14 @@ pub fn mock_default_function_sources() -> FunctionSources {
         minzoom: Some(0),
         maxzoom: Some(30),
         bounds: Some(Bounds::MAX),
+        unrecognized: HashMap::new(),
     };
 
     let function_source_query_params = FunctionSource {
         id: "public.function_source_query_params".to_owned(),
         schema: "public".to_owned(),
         function: "function_source_query_params".to_owned(),
+        unrecognized: HashMap::new(),
         ..function_source
     };
 

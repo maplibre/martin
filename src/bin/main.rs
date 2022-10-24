@@ -6,6 +6,7 @@ use martin::pg::config::{PgArgs, PgConfigBuilder};
 use martin::pg::db::configure_db_sources;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
+use std::collections::HashMap;
 use std::{env, io};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -41,6 +42,7 @@ impl From<Args> for ConfigBuilder {
         ConfigBuilder {
             srv: SrvConfigBuilder::from(args.srv),
             pg: PgConfigBuilder::from((args.pg, args.connection)),
+            unrecognized: HashMap::new(),
         }
     }
 }

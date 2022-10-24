@@ -26,8 +26,11 @@ pub struct SrvConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SrvConfigBuilder {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_alive: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub listen_addresses: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub worker_processes: Option<usize>,
 }
 

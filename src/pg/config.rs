@@ -1,4 +1,4 @@
-use crate::config::set_option;
+use crate::config::{report_unrecognized_config, set_option};
 use crate::pg::function_source::FunctionSources;
 use crate::pg::table_source::TableSources;
 use serde::{Deserialize, Serialize};
@@ -25,8 +25,10 @@ pub struct PgArgs {
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct PgConfig {
     pub connection_string: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ca_root_file: Option<String>,
     pub danger_accept_invalid_certs: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
     pub pool_size: u32,
     pub use_dynamic_sources: bool,
@@ -62,6 +64,16 @@ impl PgConfigBuilder {
 
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(self) -> io::Result<PgConfig> {
+        if let Some(ref ts) = self.table_sources {
+            for (k, v) in ts {
+                report_unrecognized_config(&format!("table_sources.{}.", k), &v.unrecognized);
+            }
+        }
+        if let Some(ref fs) = self.function_sources {
+            for (k, v) in fs {
+                report_unrecognized_config(&format!("function_sources.{}.", k), &v.unrecognized);
+            }
+        }
         let connection_string = self.connection_string.ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,

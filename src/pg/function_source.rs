@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
 use std::collections::HashMap;
 use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
@@ -33,6 +34,9 @@ pub struct FunctionSource {
     /// Values may be integers or floating point numbers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Bounds>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: HashMap<String, Value>,
 }
 
 pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
@@ -109,7 +113,7 @@ impl Source for FunctionSource {
             .map_err(|error| {
                 prettify_error!(
                     error,
-                    r#"Can't get "{}" tile at /{}/{}/{} with {:?} params"#,
+                    r#"Can't get "{}" tile at {}/{}/{} with {:?} params"#,
                     self.id,
                     xyz.z,
                     xyz.x,
@@ -142,6 +146,7 @@ pub async fn get_function_sources(conn: &mut Connection<'_>) -> Result<FunctionS
             minzoom: None,
             maxzoom: None,
             bounds: None,
+            unrecognized: HashMap::new(),
         };
 
         sources.insert(id, Box::new(source));
