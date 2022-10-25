@@ -13,18 +13,21 @@ services:
       - db
 
   db:
-    image: postgis/postgis:14-3.1-alpine
+    image: postgis/postgis:14-3.3-alpine
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
+      # POSTGRES_* variables are used by the postgis/postgres image
+      # PG_* variables are used by psql
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
       - POSTGRES_HOST_AUTH_METHOD=trust
+      - PGDATABASE=db
+      - PGUSER=postgres
     volumes:
       - ./tests/fixtures:/fixtures
-      - ./pg_data:/var/lib/postgresql/data
-      - ./tests/initdb-martin.sh:/docker-entrypoint-initdb.d/20_martin.sh
+      - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
 
   db-legacy:
     image: postgis/postgis:9.6-2.5-alpine
@@ -35,7 +38,8 @@ services:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
       - POSTGRES_HOST_AUTH_METHOD=trust
+      - PGDATABASE=db
+      - PGUSER=postgres
     volumes:
       - ./tests/fixtures:/fixtures
-      - ./pg_data:/var/lib/postgresql/data
-      - ./tests/initdb-martin.sh:/docker-entrypoint-initdb.d/20_martin.sh
+      - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
