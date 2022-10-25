@@ -90,12 +90,12 @@ jobs:
         with:
           command: build
 
-      - name: Run server
+      - name: Run martin with pg auto-discovery
         run: ./target/debug/martin --default-srid 900913 &
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
-      - name: Test server responses
+      - name: Test auto-discovered source responses
         run: tests/test-auto-sources.sh
 
       - name: Run server with config, overriding connection
@@ -103,7 +103,7 @@ jobs:
         env:
           CONNECTION: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
-      - name: Test server response
+      - name: Test pre-configured source responses
         run: tests/test-configured-sources.sh
 
   build:
