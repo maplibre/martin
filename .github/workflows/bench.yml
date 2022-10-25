@@ -15,13 +15,5 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
       - name: Check benchmark
-        uses: actions-rs/cargo@v1
-        with:
-          command: bench
+        run: cargo bench
