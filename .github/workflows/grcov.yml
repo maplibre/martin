@@ -11,15 +11,23 @@ name: Code coverage
 jobs:
   grcov:
     runs-on: ubuntu-latest
+    env:
+      # PG_* variables are used by psql
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
     services:
       postgres:
-        image: postgis/postgis:13-3.1-alpine
+        image: postgis/postgis:14-3.3-alpine
         env:
-          POSTGRES_DB: test
-          POSTGRES_USER: postgres
+          # POSTGRES_* variables are used by the postgis/postgres image
+          POSTGRES_DB: ${{ env.PGDATABASE }}
+          POSTGRES_USER: ${{ env.PGUSER }}
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
+          # will assign a random free host port
           - 5432/tcp
+        # needed because the postgres container does not provide a healthcheck
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout sources
@@ -28,18 +36,9 @@ jobs:
       - name: Setup database
         run: |
           sudo apt-get install postgresql-client
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/TileBBox.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/table_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/table_source_multiple_geom.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/function_source_query_params.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points1_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points2_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points3857_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d test -f tests/fixtures/points_empty_srid_source.sql
+          tests/fixtures/initdb.sh
         env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
 
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@master
@@ -53,7 +52,7 @@ jobs:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/test
+          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
 
       - name: Gather coverage data
         id: coverage
