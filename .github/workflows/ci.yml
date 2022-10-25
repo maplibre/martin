@@ -45,6 +45,7 @@ jobs:
     env:
       # PG_* variables are used by psql
       PGDATABASE: db
+      PGHOST: localhost
       PGUSER: postgres
     services:
       postgres:
