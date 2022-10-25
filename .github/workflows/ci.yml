@@ -42,12 +42,17 @@ jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
+    env:
+      # PG_* variables are used by psql
+      PGDATABASE: db
+      PGUSER: postgres
     services:
       postgres:
         image: postgis/postgis:14-3.1-alpine
         env:
-          POSTGRES_DB: db
-          POSTGRES_USER: postgres
+          # POSTGRES_* variables are used by the postgis/postgres image
+          POSTGRES_DB: ${{ env.PGDATABASE }}
+          POSTGRES_USER: ${{ env.PGUSER }}
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           # will assign a random free host port
@@ -61,18 +66,9 @@ jobs:
       - name: Setup database
         run: |
           sudo apt-get install postgresql-client
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/TileBBox.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/table_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/table_source_multiple_geom.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/function_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/function_source_query_params.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/points1_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/points2_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/points3857_source.sql
-          psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U postgres -d db -v ON_ERROR_STOP=1 -f tests/fixtures/points_empty_srid_source.sql
+          tests/fixtures/initdb.sh
         env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -98,115 +94,16 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
-      - name: Test server response for table source
-        run: |
-          curl -sS "localhost:3000/index.json" | jq -e
-          curl -sS "localhost:3000/public.table_source/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source/6/38/20.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source/12/2476/1280.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source/13/4952/2560.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source/14/9904/5121.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source/20/633856/327787.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source/21/1267712/655574.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
+      - name: Test server responses
+        run: tests/test-auto-sources.sh
 
-      - name: Test server response for composite source
-        run: |
-          curl -sS "localhost:3000/public.table_source,public.points1,public.points2/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source,public.points1,public.points2/6/38/20.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source,public.points1,public.points2/12/2476/1280.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source,public.points1,public.points2/13/4952/2560.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source,public.points1,public.points2/14/9904/5121.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source,public.points1,public.points2/20/633856/327787.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.table_source,public.points1,public.points2/21/1267712/655574.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-
-      - name: Test server response for function source
-        run: |
-          curl -sS "localhost:3000/rpc/public.function_source/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source/6/38/20.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source/12/2476/1280.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source/13/4952/2560.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source/14/9904/5121.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source/20/633856/327787.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source/21/1267712/655574.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-
-      - name: Test server response for table source with different SRID
-        run: |
-          curl -sS "localhost:3000/public.points3857/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-
-      - name: Test server response for table source with empty SRID
-        run: |
-          curl -sS "localhost:3000/public.points_empty_srid/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-
-      - name: Prepare config
-        run: sed -i 's/5432/${{ job.services.postgres.ports[5432] }}/g' ./tests/config.yaml
-
-      - name: Run server with config
-        run: pkill martin && ./target/debug/martin --config ./tests/config.yaml &
+      - name: Run server with config, overriding connection
+        run: pkill martin && ./target/debug/martin --config ./tests/config.yaml "$CONNECTION" &
+        env:
+          CONNECTION: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
 
       - name: Test server response
-        run: |
-          curl -sS "localhost:3000/index.json" | jq -e
-          curl -sS "localhost:3000/public.table_source/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/public.points1,public.points2/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source/0/0/0.pbf" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
-          curl -sS "localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin" > tmp.pbf
-          ./tests/vtzero-check tmp.pbf
-          ./tests/vtzero-show tmp.pbf
+        run: tests/test-configured-sources.sh
 
   build:
     needs: [test]
