@@ -18,13 +18,10 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-
       - name: Install fmt & clippy
         run: rustup component add clippy rustfmt
-
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
-
       - name: Run cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -38,7 +35,7 @@ jobs:
       PGUSER: postgres
     services:
       postgres:
-        image: postgis/postgis:14-3.1-alpine
+        image: postgis/postgis:14-3.3-alpine
         env:
           # POSTGRES_* variables are used by the postgis/postgres image
           POSTGRES_DB: ${{ env.PGDATABASE }}
@@ -63,26 +60,31 @@ jobs:
       - name: Run tests
         run: cargo test --all
         env:
-          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
+          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
 
       - name: Run build
         run: cargo build
 
-      - name: Run martin with pg auto-discovery
-        run: ./target/debug/martin --default-srid 900913 &
+      - name: Run martin tests
+        run: ./tests/test.sh
         env:
-          DATABASE_URL: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
+          MARTIN_BIN: ./target/debug/martin
+          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
 
-      - name: Test auto-discovered source responses
-        run: tests/test-auto-sources.sh
+      - name: Compare test output results (TODO)
+        if: false
+        run: |
+          # TODO: this test is currently broken because the output of the tests is not deterministic
+          diff --brief --recursive --new-file tests/output tests/expected
 
-      - name: Run server with config, overriding connection
-        run: pkill martin && ./target/debug/martin --config ./tests/config.yaml "$CONNECTION" &
-        env:
-          CONNECTION: postgres://postgres@localhost:${{ job.services.postgres.ports[5432] }}/db
+      - name: 'Save test output on failure'
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-output
+          path: tests/output/*
+          retention-days: 5
 
-      - name: Test pre-configured source responses
-        run: tests/test-configured-sources.sh
 
   build:
     needs: [test]

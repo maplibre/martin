@@ -1,0 +1,12 @@
+=============================================================
+layer: 0
+  name: public.table_source
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(412,1562)
+    properties:
+      gid=19

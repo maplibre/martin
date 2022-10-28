@@ -762,22 +762,35 @@ martin postgres://postgres@localhost/db
 
 ## Development
 
-Clone project
+* Clone Martin
+* Install [docker](https://docs.docker.com/get-docker/), [docker-compose](https://docs.docker.com/compose/), and [Just](https://github.com/casey/just#readme) (improved makefile processor)
+* Run `just` to see available commands:
 
-```shell
-git clone git@github.com:maplibre/martin.git
-cd martin
+```shell, ignore
+❯ git clone git@github.com:maplibre/martin.git
+❯ cd martin
+❯ just
+Available recipes:
+    bench      # Run benchmark tests
+    clean      # Perform  cargo clean  to delete all build files
+    clean-test # Delete test output files
+    run        # Start Martin server and a test database
+    start-db   # Start a test database
+    stop       # Stop the test database
+    test       # Run all tests using a test database
+    test-bless # Run integration tests and save its output as the new expected output
+    test-int   # Run integration tests
+    test-unit  # Run Rust unit tests (cargo test)
 ```
 
-Start `db` service using [docker-compose](https://docs.docker.com/compose/)
+### Other useful commands
+
 
 ```shell
+# Start db service
 docker-compose up -d db
-```
 
-Then, after `db` service is ready to accept connections, you can start `martin` with
-
-```shell
+# Run Martin server
 DATABASE_URL=postgres://postgres@localhost/db cargo run
 ```
 
