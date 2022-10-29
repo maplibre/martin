@@ -17,9 +17,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Install postgres
-        uses: ikalnytskyi/action-setup-postgres@v3
-        id: pg
 
       - name: Decide Postgis version
         # Download the list of available Postgis versions, and decide which one to use
@@ -78,9 +75,13 @@ jobs:
           & pg_isready
           & psql -P pager=off -v ON_ERROR_STOP=1 -c "CREATE EXTENSION postgis;"
 
-#      - name: Run tests
-#        run: |
-#          cargo test --all
-#          ./tests/test.sh
-#        env:
-#          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}/${{ env.PGDATABASE }}
+      - name: Start postgres
+        uses: ikalnytskyi/action-setup-postgres@v3
+        id: pg
+
+      - name: Run tests
+        run: |
+          & cargo test --all
+          & bash ./tests/test.sh
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}

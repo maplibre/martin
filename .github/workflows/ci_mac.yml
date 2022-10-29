@@ -12,31 +12,25 @@ jobs:
   test:
     name: Test on MacOS
     runs-on: macos-latest
-    env:
-      # PG_* variables are used by psql
-      PGDATABASE: db
-      PGHOST: localhost
-      PGUSER: postgres
     steps:
+      - name: Install postgis
+        run: brew install postgis
+
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Install postgres
+
+      - name: Start postgres
         uses: ikalnytskyi/action-setup-postgres@v3
         id: pg
 
-      - name: Install postgis
+      - name: Run tests
         run: |
-          brew install postgis
           echo "Recreating postgres user as a superuser"
           dropuser postgres
           createuser -s postgres
-          psql -P pager=off -v ON_ERROR_STOP=1 -c "CREATE EXTENSION postgis;" "$CONNECTION_URI"
+          echo "**************************** Cargo tests"
+          cargo test --all
+          echo "**************************** Integration tests"
+          ./tests/test.sh
         env:
-          CONNECTION_URI: ${{ steps.pg.outputs.connection-uri }}
-
-#      - name: Run tests
-#        run: |
-#          cargo test --all
-#          ./tests/test.sh
-#        env:
-#          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}/${{ env.PGDATABASE }}
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
