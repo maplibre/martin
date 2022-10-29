@@ -47,27 +47,34 @@ layer: 0
       gid=24
 =============================================================
 layer: 1
-  name: public.points2
+  name: public.points1
   version: 2
   extent: 4096
   feature: 0
     id: (none)
     geomtype: point
     geometry:
-      POINT(3878,367)
+      POINT(463,989)
     properties:
-      gid=1611
+      gid=2553
   feature: 1
     id: (none)
     geomtype: point
     geometry:
-      POINT(3935,900)
+      POINT(1822,2709)
     properties:
-      gid=6611
+      gid=4790
   feature: 2
     id: (none)
     geomtype: point
     geometry:
-      POINT(521,3142)
+      POINT(2955,1230)
     properties:
-      gid=7409
+      gid=8036
+  feature: 3
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2730,3022)
+    properties:
+      gid=9790

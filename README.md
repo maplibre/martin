@@ -771,17 +771,17 @@ martin postgres://postgres@localhost/db
 ❯ cd martin
 ❯ just
 Available recipes:
-    bench      # Run benchmark tests
-    clean      # Perform  cargo clean  to delete all build files
-    clean-test # Delete test output files
-    run        # Start Martin server and a test database
-    start-db   # Start a test database
-    stop       # Stop the test database
-    test       # Run all tests using a test database
-    test-bless # Run integration tests and save its output as the new expected output
-    test-int   # Run integration tests
-    test-unit  # Run Rust unit tests (cargo test)
-```
+    run            # Start Martin server and a test database
+    clean          # Perform  cargo clean  to delete all build files
+    clean-test     # Delete test output files
+    start-db       # Start a test database
+    stop           # Stop the test database
+    bench          # Run benchmark tests
+    test           # Run all tests using a test database
+    test-unit      # Run Rust unit tests (cargo test)
+    test-int       # Run integration tests
+    bless          # Run integration tests and save its output as the new expected output
+    git-push *ARGS # Do a git push, ensuring that it can run tests first. Accepts the same arguments as git push.
 
 ### Other useful commands
 

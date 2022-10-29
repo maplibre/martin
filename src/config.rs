@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
@@ -144,6 +144,7 @@ mod tests {
                         id_column: None,
                         minzoom: Some(0),
                         maxzoom: Some(30),
+                        // todo:  bounds: Some([-180, -90, 180, 90].into()),
                         bounds: Some(Bounds {
                             left: -180.0,
                             bottom: -90.0,
@@ -166,6 +167,7 @@ mod tests {
                         function: "function_source".to_string(),
                         minzoom: Some(0),
                         maxzoom: Some(30),
+                        // todo:  bounds: Some([-180, -90, 180, 90].into()),
                         bounds: Some(Bounds {
                             left: -180.0,
                             bottom: -90.0,

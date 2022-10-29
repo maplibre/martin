@@ -4,8 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   check_benchmark:

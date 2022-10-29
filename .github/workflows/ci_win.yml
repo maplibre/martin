@@ -1,0 +1,86 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test on Windows
+    runs-on: windows-latest
+    env:
+      CACHED_DOWNLOADS: downloads
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install postgres
+        uses: ikalnytskyi/action-setup-postgres@v3
+        id: pg
+
+      - name: Decide Postgis version
+        # Download the list of available Postgis versions, and decide which one to use
+        id: postgis-ver
+        run: |
+          $PG_VERSION = Split-Path $env:PGROOT -Leaf
+          $postgis_page = "https://download.osgeo.org/postgis/windows/pg$PG_VERSION"
+          echo "Detecting PostGIS version from $postgis_page for PostgreSQL $PG_VERSION"
+          $pgis_bundle = (Invoke-WebRequest -Uri $postgis_page -ErrorAction Stop).Links.Where({$_.href -match "^postgis.*zip$"}).href
+          if (!$pgis_bundle) {
+            Write-Error "Could not find latest PostGIS version in $postgis_page that would match  ^postgis.*zip$  pattern"
+            exit 1
+          }
+          $pgis_bundle = [IO.Path]::ChangeExtension($pgis_bundle, [NullString]::Value)          
+          $pgis_bundle_url = "$postgis_page/$pgis_bundle.zip"
+          Add-Content $env:GITHUB_OUTPUT "pgis_bundle=$pgis_bundle"
+          Add-Content $env:GITHUB_OUTPUT "pgis_bundle_url=$pgis_bundle_url"
+
+      - uses: actions/cache@v3
+        id: cache-downloads
+        with:
+          path: ${{ env.CACHED_DOWNLOADS }}
+          key: ${{ runner.os }}-${{ steps.postgis-ver.outputs.pgis_bundle_url }}
+
+      - name: Download Postgis
+        if: steps.postgis-ver.outputs.cache-hit != 'true'
+        # Download Postgis bundle if not in cache
+        env:
+          PGIS_BUNDLE: ${{ steps.postgis-ver.outputs.pgis_bundle }}
+          PGIS_BUNDLE_URL: ${{ steps.postgis-ver.outputs.pgis_bundle_url }}
+        run: |
+          echo "Downloading $env:PGIS_BUNDLE from $env:PGIS_BUNDLE_URL"
+          $postgis_zip = "postgis.zip"
+          Invoke-WebRequest $env:PGIS_BUNDLE_URL -OutFile $postgis_zip -ErrorAction Stop
+          
+          echo "Extracting $env:CACHED_DOWNLOADS\$env:PGIS_BUNDLE\*"
+          Remove-Item $env:CACHED_DOWNLOADS -Recurse -Force -ErrorAction Ignore
+          echo "Expanded $((Expand-Archive $postgis_zip -DestinationPath $env:CACHED_DOWNLOADS -PassThru).count) files from $postgis_zip"
+          echo "Moved $((Move-Item -Path "$env:CACHED_DOWNLOADS\$env:PGIS_BUNDLE\*" -Destination $env:CACHED_DOWNLOADS -Force -PassThru).count) files to $env:CACHED_DOWNLOADS"
+          Remove-Item $postgis_zip
+          if (!(Test-Path "$env:CACHED_DOWNLOADS\*")) {
+            Write-Error "Could not find PostGIS files in $env:CACHED_DOWNLOADS"
+            exit 1
+          }
+
+      - name: Install Postgis
+        run: |
+          if (!(Test-Path "$env:CACHED_DOWNLOADS\*")) {
+            Write-Error "Could not find PostGIS files in $env:CACHED_DOWNLOADS"
+            exit 1
+          }
+          echo "Copied $((Copy-Item -Path "$env:CACHED_DOWNLOADS\*" -Destination $env:PGROOT -Force -Recurse -PassThru).count) PostGIS files to $env:PGROOT"
+          echo "Starting PostgreSQL and adding postgis extension"
+          $env:Path = "$env:PGBIN;" + $env:Path
+          & pg_ctl restart -D "$env:PGDATA"
+          & pg_isready
+          & psql -P pager=off -v ON_ERROR_STOP=1 -c "CREATE EXTENSION postgis;"
+
+#      - name: Run tests
+#        run: |
+#          cargo test --all
+#          ./tests/test.sh
+#        env:
+#          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}/${{ env.PGDATABASE }}
