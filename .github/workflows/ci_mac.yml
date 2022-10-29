@@ -28,9 +28,11 @@ jobs:
           echo "Recreating postgres user as a superuser"
           dropuser postgres
           createuser -s postgres
+          echo "**************************** Init database"
+          tests/fixtures/initdb.sh
           echo "**************************** Cargo tests"
           cargo test --all
           echo "**************************** Integration tests"
-          ./tests/test.sh
+          tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}

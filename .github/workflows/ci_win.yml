@@ -73,7 +73,6 @@ jobs:
           $env:Path = "$env:PGBIN;" + $env:Path
           & pg_ctl restart -D "$env:PGDATA"
           & pg_isready
-          & psql -P pager=off -v ON_ERROR_STOP=1 -c "CREATE EXTENSION postgis;"
 
       - name: Start postgres
         uses: ikalnytskyi/action-setup-postgres@v3
@@ -81,7 +80,8 @@ jobs:
 
       - name: Run tests
         run: |
+          & bash tests/fixtures/initdb.sh
           & cargo test --all
-          & bash ./tests/test.sh
+          & bash tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
