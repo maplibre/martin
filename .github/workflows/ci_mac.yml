@@ -23,11 +23,14 @@ jobs:
         uses: ikalnytskyi/action-setup-postgres@v3
         id: pg
 
-      - name: Run tests
+      - name: Recreating postgres user as a superuser
+        # See https://github.com/ikalnytskyi/action-setup-postgres/issues/7
         run: |
-          echo "Recreating postgres user as a superuser"
           dropuser postgres
           createuser -s postgres
+
+      - name: Run tests
+        run: |
           echo "**************************** Init database"
           tests/fixtures/initdb.sh
           echo "**************************** Cargo tests"
@@ -36,3 +39,4 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          PGDATABASE: ${{ steps.pg.outputs.connection-uri }}

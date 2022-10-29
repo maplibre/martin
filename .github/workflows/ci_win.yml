@@ -85,3 +85,4 @@ jobs:
           & bash tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          PGDATABASE: ${{ steps.pg.outputs.connection-uri }}
