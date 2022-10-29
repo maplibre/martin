@@ -7,6 +7,7 @@ on:
     branches: [main]
   release:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -75,8 +76,13 @@ jobs:
           & pg_isready
 
       - name: Start postgres
-        uses: ikalnytskyi/action-setup-postgres@v3
+        uses: nyurik/action-setup-postgres@master
         id: pg
+        with:
+          username: test
+          password: test
+          database: test
+          rights: --superuser
 
       - name: Run tests
         run: |

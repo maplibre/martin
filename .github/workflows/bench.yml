@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   check_benchmark:
