@@ -93,8 +93,8 @@ jobs:
       - name: Init DB
         run: |
           tests/fixtures/initdb.sh
-        env:
-          PGDATABASE: ${{ steps.pg.outputs.connection-uri }}
+#        env:
+#          PGDATABASE: ${{ steps.pg.outputs.connection-uri }}
         shell: bash
 
       - name: Cargo tests

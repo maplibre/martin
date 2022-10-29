@@ -58,6 +58,6 @@ bless: stop start-db clean-test
     rm -rf tests/expected
     mv tests/output tests/expected
 
-# Do a git push, ensuring that it can run tests first. Accepts the same arguments as git push.
-git-push *ARGS: start-db
-    git push {{ARGS}}
+# Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+git *ARGS: start-db
+    git {{ARGS}}
