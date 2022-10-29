@@ -19,6 +19,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      - name: Install OpenSSL
+        if: runner.os == 'windows-latest'
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
+
       - name: Decide Postgis version
         # Download the list of available Postgis versions, and decide which one to use
         id: postgis-ver
@@ -84,11 +90,23 @@ jobs:
           database: test
           rights: --superuser
 
-      - name: Run tests
+      - name: Init DB
         run: |
-          & bash tests/fixtures/initdb.sh
-          & cargo test --all
-          & bash tests/test.sh
+          tests/fixtures/initdb.sh
+        env:
+          PGDATABASE: ${{ steps.pg.outputs.connection-uri }}
+        shell: bash
+
+      - name: Cargo tests
+        run: |
+          cargo test --all
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-          PGDATABASE: ${{ steps.pg.outputs.connection-uri }}
+        shell: bash
+
+      - name: Integration tests
+        run: |
+          tests/test.sh
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+        shell: bash
