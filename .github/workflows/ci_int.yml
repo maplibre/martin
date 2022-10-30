@@ -12,14 +12,15 @@ on:
 jobs:
   test:
     name: Test on non-container PostGIS
-    runs-on: windows-latest
-    matrix:
-      runner: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Install OpenSSL
+      - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append

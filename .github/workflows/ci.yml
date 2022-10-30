@@ -114,7 +114,7 @@ jobs:
           target: ${{ matrix.target }}
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install OpenSSL
+      - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -192,7 +192,7 @@ jobs:
           target: ${{ matrix.target }}
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install OpenSSL
+      - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append

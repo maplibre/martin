@@ -76,7 +76,6 @@ mod tests {
     use crate::pg::table_source::TableSource;
     use indoc::indoc;
     use std::collections::HashMap;
-    use tilejson::Bounds;
 
     #[test]
     fn parse_config() {
