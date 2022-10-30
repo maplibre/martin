@@ -6,7 +6,7 @@ mkdir -p "$TEST_OUT_DIR"
 
 test_pbf()
 {
-  FILENAME="$TEST_OUT_DIR/$1.pbf
+  FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL=$2
 
   echo "Testing $(basename "$FILENAME") from $URL"
