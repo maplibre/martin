@@ -2,6 +2,7 @@
 set -euo pipefail
 
 DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
+MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
 MARTIN_BIN="${MARTIN_BIN:-cargo run --}"
 
 function wait_for_martin {
@@ -9,7 +10,7 @@ function wait_for_martin {
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/healthz
 
     echo "Waiting for Martin to start..."
-    for i in {1..10}; do
+    for i in {1..300}; do
         if timeout -k 5s 5s curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
             echo "Martin is up!"
             curl -s http://localhost:3000/healthz
@@ -23,6 +24,9 @@ function wait_for_martin {
 }
 
 curl --version
+
+# Make sure martin is built - this way it won't timeout while waiting for it to start
+$MARTIN_BUILD
 
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
