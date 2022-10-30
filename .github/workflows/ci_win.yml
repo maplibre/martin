@@ -29,6 +29,7 @@ jobs:
         # Download the list of available Postgis versions, and decide which one to use
         id: postgis-ver
         run: |
+          echo "PowerShell version: ${PSVersionTable.PSVersion}"
           $PG_VERSION = Split-Path $env:PGROOT -Leaf
           $postgis_page = "https://download.osgeo.org/postgis/windows/pg$PG_VERSION"
           echo "Detecting PostGIS version from $postgis_page for PostgreSQL $PG_VERSION"
