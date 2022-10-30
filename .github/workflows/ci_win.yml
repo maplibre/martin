@@ -91,22 +91,17 @@ jobs:
           rights: --superuser
 
       - name: Init DB
-        run: |
-          tests/fixtures/initdb.sh
-#        env:
-#          PGDATABASE: ${{ steps.pg.outputs.connection-uri }}
+        run: tests/fixtures/initdb.sh
         shell: bash
 
       - name: Cargo tests
-        run: |
-          cargo test --all
+        run: cargo test --all
+        shell: bash
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-        shell: bash
 
       - name: Integration tests
-        run: |
-          tests/test.sh
+        run: tests/test.sh
+        shell: bash
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-        shell: bash

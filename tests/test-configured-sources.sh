@@ -16,6 +16,7 @@ test_pbf()
 }
 
 curl -sS --fail-with-body http://localhost:3000/index.json | jq --sort-keys -e > "$TEST_OUT_DIR/catalog.json"
+curl -sS --fail-with-body http://localhost:3000/rpc/index.json | jq --sort-keys -e > "$TEST_OUT_DIR/rpc_catalog.json"
 
 test_pbf tbl_0_0_0  http://localhost:3000/public.table_source/0/0/0.pbf
 test_pbf cmp_0_0_0  http://localhost:3000/public.points1,public.points2/0/0/0.pbf

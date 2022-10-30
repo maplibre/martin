@@ -11,7 +11,7 @@ function wait_for_martin {
 
     echo "Waiting for Martin to start..."
     for i in {1..300}; do
-        if timeout -k 5s 5s curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
+        if curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
             echo "Martin is up!"
             curl -s http://localhost:3000/healthz
             return
@@ -20,6 +20,8 @@ function wait_for_martin {
     done
 
     echo "Martin did not start in time"
+    ps au
+    lsof -i
     exit 1
 }
 
