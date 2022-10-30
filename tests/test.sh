@@ -24,6 +24,7 @@ $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
 trap "kill $PROCESS_ID || true" EXIT
 wait_for_martin
+echo "Test auto configured Martin"
 tests/test-auto-sources.sh
 kill $PROCESS_ID
 
@@ -31,5 +32,6 @@ $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
 trap "kill $PROCESS_ID || true" EXIT
 wait_for_martin
+echo "Test pre-configured Martin"
 tests/test-configured-sources.sh
 kill $PROCESS_ID

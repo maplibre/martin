@@ -1,4 +1,4 @@
-name: Windows CI
+name: CI Windows
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install OpenSSL
-        if: runner.os == 'windows-latest'
+        if: runner.os == 'Windows'
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
