@@ -1,4 +1,4 @@
-name: CI MacOS
+name: CI Integration
 
 on:
   push:
@@ -11,17 +11,22 @@ on:
 
 jobs:
   test:
-    name: Test on MacOS
-    runs-on: macos-latest
+    name: Test on non-container PostGIS
+    runs-on: windows-latest
+    matrix:
+      runner: [windows-latest, macos-latest, ubuntu-latest]
     steps:
-      - name: Install postgis
-        run: brew install postgis
-
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      - name: Install OpenSSL
+        if: runner.os == 'Windows'
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
+
       - name: Start postgres
-        uses: nyurik/action-setup-postgres@master
+        uses: nyurik/action-setup-postgis@main
         id: pg
         with:
           username: test
