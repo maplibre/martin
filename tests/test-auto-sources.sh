@@ -16,6 +16,7 @@ test_pbf()
 }
 
 >&2 echo "Test catalog"
+curl http://localhost:3000/index.json
 curl -sS --fail-with-body http://localhost:3000/index.json | jq --sort-keys -e > "$TEST_OUT_DIR/catalog.json"
 
 >&2 echo "Test server response for table source"

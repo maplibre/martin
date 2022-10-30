@@ -9,13 +9,17 @@ function wait_for_martin {
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/healthz
 
     echo "Waiting for Martin to start..."
-    n=0
-    until [ "$n" -ge 100 ]; do
-       timeout -k 20s 20s curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null && break
-       n=$((n+1))
-       sleep 0.2
+    for i in {1..10}; do
+        if timeout -k 5s 5s curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
+            echo "Martin is up!"
+            curl -s http://localhost:3000/healthz
+            return
+        fi
+        sleep 0.2
     done
-    echo "Martin has started."
+
+    echo "Martin did not start in time"
+    exit 1
 }
 
 curl --version
