@@ -8,3 +8,4 @@
 pg_data/
 config.yml
 tests/output/
+tests/expected/
