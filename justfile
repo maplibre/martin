@@ -46,11 +46,12 @@ test-unit: start-db
 test-int: start-db clean-test
     #!/usr/bin/env sh
     tests/test.sh
-    if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
-        echo "** Expected output does not match actual output"
-        echo "** If this is expected, run 'just bless' to update expected output"
-        echo "** Note that this error is not fatal because we don't have a stable output yet"
-    fi
+    echo "** Skipping comparison with the expected values - not yet stable"
+    # if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
+    #     echo "** Expected output does not match actual output"
+    #     echo "** If this is expected, run 'just bless' to update expected output"
+    #     echo "** Note that this error is not fatal because we don't have a stable output yet"
+    # fi
 
 # Run integration tests and save its output as the new expected output
 bless: start-db clean-test
