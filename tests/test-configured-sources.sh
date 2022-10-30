@@ -6,17 +6,21 @@ mkdir -p "$TEST_OUT_DIR"
 
 test_pbf()
 {
-  FILENAME="$TEST_OUT_DIR/$1"
+  FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL=$2
 
   echo "Testing $(basename "$FILENAME") from $URL"
   curl -sS --fail-with-body "$URL" > "$FILENAME"
-  ./tests/vtzero-check "$FILENAME"
-  ./tests/vtzero-show "$FILENAME" > "$FILENAME.txt"
+
+  if [[ $OSTYPE == linux* ]]; then
+    ./tests/vtzero-check "$FILENAME"
+    ./tests/vtzero-show "$FILENAME" > "$FILENAME.txt"
+  fi
 }
 
-curl -sS --fail-with-body http://localhost:3000/index.json | jq --sort-keys -e > "$TEST_OUT_DIR/catalog.json"
-curl -sS --fail-with-body http://localhost:3000/rpc/index.json | jq --sort-keys -e > "$TEST_OUT_DIR/rpc_catalog.json"
+>&2 echo "Test catalog"
+curl -sS --fail-with-body http://localhost:3000/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
+curl -sS --fail-with-body http://localhost:3000/rpc/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/rpc_catalog.json"
 
 test_pbf tbl_0_0_0  http://localhost:3000/public.table_source/0/0/0.pbf
 test_pbf cmp_0_0_0  http://localhost:3000/public.points1,public.points2/0/0/0.pbf

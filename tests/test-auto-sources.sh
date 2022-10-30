@@ -19,9 +19,8 @@ test_pbf()
 }
 
 >&2 echo "Test catalog"
-curl http://localhost:3000/index.json
-curl -sS --fail-with-body http://localhost:3000/index.json | jq --sort-keys -e > "$TEST_OUT_DIR/catalog.json"
-curl -sS --fail-with-body http://localhost:3000/rpc/index.json | jq --sort-keys -e > "$TEST_OUT_DIR/rpc_catalog.json"
+curl -sS --fail-with-body http://localhost:3000/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
+curl -sS --fail-with-body http://localhost:3000/rpc/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/rpc_catalog.json"
 
 >&2 echo "Test server response for table source"
 test_pbf tbl_0_0_0              http://localhost:3000/public.table_source/0/0/0.pbf
