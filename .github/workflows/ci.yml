@@ -52,13 +52,13 @@ jobs:
           else
             mv target/${{ matrix.target }}/release/martin target_releases
           fi
-      - name: 'Save build artifacts'
+      - name: Save build artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-${{ runner.os }}
           path: target_releases/*
 
-  test-all:
+  test:
     name: Test builds on ${{ matrix.os }}
     needs: [build]
     runs-on: ${{ matrix.os }}
@@ -78,10 +78,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: build-${{ runner.os }}
-          path: target/
       - name: Start postgres
         uses: nyurik/action-setup-postgis@v1
         id: pg
@@ -90,19 +86,30 @@ jobs:
           password: test
           database: test
           rights: --superuser
+      - name: Init database
+        shell: bash
+        run: tests/fixtures/initdb.sh
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Unit Tests (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: cargo test --all
+        run: |
+          cargo test --all
+          rm -rf target
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-${{ runner.os }}
+          path: target/
       - name: Compare test output results (TODO)
         if: false && runner.os == 'Linux'
         run: |
           # TODO: this test is currently broken
           # the output of the tests is not deterministic
           diff --brief --recursive --new-file tests/output tests/expected
-      - name: 'Save test output on failure (Linux)'
+      - name: Save test output on failure (Linux)
         if: failure() && runner.os == 'Linux'
         uses: actions/upload-artifact@v3
         with:
@@ -115,7 +122,6 @@ jobs:
           if [[ "${{ runner.os }}" != "Windows" ]]; then
             chmod +x target/${{ matrix.bin }}
           fi
-          tests/fixtures/initdb.sh
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
