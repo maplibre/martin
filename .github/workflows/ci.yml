@@ -76,12 +76,20 @@ jobs:
           vcpkg install openssl:x64-windows-static-md
       - name: Run build
         shell: bash
-        run: cargo build --release --target ${{ matrix.target }}
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+          mkdir target_releases
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            mv target/${{ matrix.target }}/release/martin.exe target_releases
+          else
+            mv target/${{ matrix.target }}/release/martin target_releases
+          fi
+
       - name: 'Save build artifacts'
         uses: actions/upload-artifact@v3
         with:
           name: build-${{ runner.os }}
-          path: target/${{ matrix.target }}/release/martin*
+          path: target_releases/*
 
   test-all:
     name: Test build results on ${{ matrix.os }}
@@ -120,12 +128,15 @@ jobs:
       - name: Test
         shell: bash
         run: |
+          if [[ "${{ runner.os }}" != "Windows" ]]; then
+            chmod +x target/${{ matrix.bin }}
+          fi
           tests/fixtures/initdb.sh
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
           MARTIN_BUILD: "-"
-          MARTIN_BIN: "target/martin"
+          MARTIN_BIN: target/${{ matrix.bin }}
       - name: Package
         shell: bash
         run: |
