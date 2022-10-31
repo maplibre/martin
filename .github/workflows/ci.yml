@@ -50,7 +50,7 @@ jobs:
 
   build:
     strategy:
-      # fail-fast: true
+      fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest
@@ -61,12 +61,12 @@ jobs:
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      #      - name: Install stable toolchain
-      #        uses: dtolnay/rust-toolchain@master
-      #        with:
-      #          toolchain: ${{ matrix.rust }}
-      #          override: true
-      #          target: ${{ matrix.target }}
+      # - name: Install stable toolchain
+      #   uses: dtolnay/rust-toolchain@master
+      #   with:
+      #     toolchain: ${{ matrix.rust }}
+      #     override: true
+      #     target: ${{ matrix.target }}
       - name: Checkout
         uses: actions/checkout@v3
       - name: Install OpenSSL (Windows)
@@ -92,11 +92,11 @@ jobs:
           path: target_releases/*
 
   test-all:
-    name: Test build results on ${{ matrix.os }}
+    name: Test builds on ${{ matrix.os }}
     needs: [build]
     runs-on: ${{ matrix.os }}
     strategy:
-      # fail-fast: true
+      fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest
@@ -115,8 +115,6 @@ jobs:
         with:
           name: build-${{ runner.os }}
           path: target/
-      - run: ls -ahl target/
-        shell: bash
       - name: Start postgres
         uses: nyurik/action-setup-postgis@v1
         id: pg
