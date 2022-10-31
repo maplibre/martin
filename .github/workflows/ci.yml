@@ -2,222 +2,147 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   release:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  lints:
-    name: Run format and clippy tests
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macOS-latest
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout sources
+      # - name: Install stable toolchain
+      #   uses: dtolnay/rust-toolchain@master
+      #   with:
+      #     toolchain: ${{ matrix.rust }}
+      #     override: true
+      #     target: ${{ matrix.target }}
+      - name: Checkout
         uses: actions/checkout@v3
-      - name: Install fmt & clippy
-        run: rustup component add clippy rustfmt
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
-      - name: Run cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Lint
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+            cargo fmt --all -- --check
+            cargo clippy --all-targets --all-features -- -D warnings
+      - name: Install OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
+      - name: Run build
+        shell: bash
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+          mkdir target_releases
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            mv target/${{ matrix.target }}/release/martin.exe target_releases
+          else
+            mv target/${{ matrix.target }}/release/martin target_releases
+          fi
+      - name: Save build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-${{ runner.os }}
+          path: target_releases/*
 
   test:
-    name: Test Suite
-    runs-on: ubuntu-latest
-    env:
-      # PG_* variables are used by psql
-      PGDATABASE: db
-      PGHOST: localhost
-      PGUSER: postgres
-    services:
-      postgres:
-        image: postgis/postgis:14-3.3-alpine
-        env:
-          # POSTGRES_* variables are used by the postgis/postgres image
-          POSTGRES_DB: ${{ env.PGDATABASE }}
-          POSTGRES_USER: ${{ env.PGUSER }}
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          # will assign a random free host port
-          - 5432/tcp
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    name: Test builds on ${{ matrix.os }}
+    needs: [build]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bin: martin
+            name: martin-Linux-x86_64.tar.gz
+          - os: windows-latest
+            bin: martin.exe
+            name: martin-Windows-x86_64.zip
+          - os: macOS-latest
+            bin: martin
+            name: martin-Darwin-x86_64.tar.gz
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-
-      - name: Setup database
+      - name: Start postgres
+        uses: nyurik/action-setup-postgis@v1
+        id: pg
+        with:
+          username: test
+          password: test
+          database: test
+          rights: --superuser
+      - name: Init database
+        shell: bash
+        run: tests/fixtures/initdb.sh
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+      - name: Unit Tests (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
-          sudo apt-get install postgresql-client
-          tests/fixtures/initdb.sh
+          cargo test --all
+          rm -rf target
         env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
-
-      - name: Run tests
-        run: cargo test --all
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-
-      - name: Run build
-        run: cargo build
-
-      - name: Run martin tests
-        run: ./tests/test.sh
-        env:
-          MARTIN_BIN: ./target/debug/martin
-          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-${{ runner.os }}
+          path: target/
       - name: Compare test output results (TODO)
-        if: false
+        if: false && runner.os == 'Linux'
         run: |
-          # TODO: this test is currently broken because the output of the tests is not deterministic
+          # TODO: this test is currently broken
+          # the output of the tests is not deterministic
           diff --brief --recursive --new-file tests/output tests/expected
-
-      - name: 'Save test output on failure'
-        if: failure()
+      - name: Save test output on failure (Linux)
+        if: failure() && runner.os == 'Linux'
         uses: actions/upload-artifact@v3
         with:
           name: test-output
           path: tests/output/*
           retention-days: 5
-
-
-  build:
-    needs: [test]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-gnu
-            bin: martin
-            name: martin-Linux-x86_64.tar.gz
-          - os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
-            bin: martin.exe
-            name: martin-Windows-x86_64.zip
-          - os: macOS-latest
-            rust: stable
-            target: x86_64-apple-darwin
-            bin: martin
-            name: martin-Darwin-x86_64.tar.gz
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-          target: ${{ matrix.target }}
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install OpenSSL
-        if: matrix.os == 'windows-latest'
+      - name: Test
+        shell: bash
         run: |
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          vcpkg install openssl:x64-windows-static-md
-      - name: Run build
-        run: cargo build --release --target ${{ matrix.target }}
-
-  docker:
-    needs: [test]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      # https://github.com/docker/metadata-action
-      - name: Docker meta
-        id: docker_meta
-        uses: docker/metadata-action@v4
-        with:
-          images: maplibre/martin
-
-      # https://github.com/docker/setup-qemu-action
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      # https://github.com/docker/setup-buildx-action
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          install: true
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
-        if: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      - name: Build and push the Docker image
-        uses: docker/build-push-action@v3
-        with:
-          push: ${{ github.actor != 'dependabot[bot]' && github.event_name != 'pull_request' }}
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [test]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-gnu
-            bin: martin
-            name: martin-Linux-x86_64.tar.gz
-          - os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
-            bin: martin.exe
-            name: martin-Windows-x86_64.zip
-          - os: macOS-latest
-            rust: stable
-            target: x86_64-apple-darwin
-            bin: martin
-            name: martin-Darwin-x86_64.tar.gz
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-          target: ${{ matrix.target }}
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install OpenSSL
-        if: matrix.os == 'windows-latest'
-        run: |
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          vcpkg install openssl:x64-windows-static-md
-      - name: Run build
-        run: cargo build --release --target ${{ matrix.target }}
+          if [[ "${{ runner.os }}" != "Windows" ]]; then
+            chmod +x target/${{ matrix.bin }}
+          fi
+          tests/test.sh
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          MARTIN_BUILD: "-"
+          MARTIN_BIN: target/${{ matrix.bin }}
       - name: Package
         shell: bash
         run: |
-          strip target/${{ matrix.target }}/release/${{ matrix.bin }}
-          cd target/${{ matrix.target }}/release
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]
-          then
-            7z a ../../../${{ matrix.name }} ${{ matrix.bin }}
+          cd target/
+          strip ${{ matrix.bin }}
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            7z a ../${{ matrix.name }} ${{ matrix.bin }}
           else
-            tar czvf ../../../${{ matrix.name }} ${{ matrix.bin }}
+            tar czvf ../${{ matrix.name }} ${{ matrix.bin }}
           fi
           cd -
-      - name: Generate SHA-256
-        if: matrix.os == 'macOS-latest'
+      - name: Generate SHA-256 (MacOS)
+        if: runner.os == 'macOS'
         run: shasum -a 256 ${{ matrix.name }}
       - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           draft: true
@@ -225,3 +150,36 @@ jobs:
           body_path: CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      # https://github.com/docker/metadata-action
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v4
+        with:
+          images: maplibre/martin
+      # https://github.com/docker/setup-qemu-action
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      # https://github.com/docker/setup-buildx-action
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        if: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      - name: Build and push the Docker image
+        uses: docker/build-push-action@v3
+        with:
+          push: ${{ github.actor != 'dependabot[bot]' && github.event_name != 'pull_request' }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}

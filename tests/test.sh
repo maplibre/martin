@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# TODO: use  --fail-with-body  to get the response body on failure
+CURL=${CURL:-curl -sSf}
 DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
+MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
 MARTIN_BIN="${MARTIN_BIN:-cargo run --}"
 
 function wait_for_martin {
@@ -9,27 +12,111 @@ function wait_for_martin {
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/healthz
 
     echo "Waiting for Martin to start..."
-    n=0
-    until [ "$n" -ge 100 ]; do
-       timeout -k 20s 20s curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null && break
-       n=$((n+1))
-       sleep 0.2
+    for i in {1..300}; do
+        if curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
+            echo "Martin is up!"
+            curl -s http://localhost:3000/healthz
+            return
+        fi
+        sleep 0.2
     done
-    echo "Martin has started."
+
+    echo "Martin did not start in time"
+    ps au
+    lsof -i
+    exit 1
+}
+
+test_pbf()
+{
+  FILENAME="$TEST_OUT_DIR/$1.pbf"
+  URL=$2
+
+  echo "Testing $(basename "$FILENAME") from $URL"
+  $CURL "$URL" > "$FILENAME"
+
+  if [[ $OSTYPE == linux* ]]; then
+    ./tests/vtzero-check "$FILENAME"
+    ./tests/vtzero-show "$FILENAME" > "$FILENAME.txt"
+  fi
 }
 
 curl --version
+
+# Make sure martin is built - this way it won't timeout while waiting for it to start
+# If MARTIN_BUILD is set to "-", don't build
+if [[ "$MARTIN_BUILD" != "-" ]]; then
+  $MARTIN_BUILD
+fi
 
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
 trap "kill $PROCESS_ID || true" EXIT
 wait_for_martin
-tests/test-auto-sources.sh
+echo "Test auto configured Martin"
+
+TEST_OUT_DIR="$(dirname "$0")/output/auto"
+mkdir -p "$TEST_OUT_DIR"
+
+>&2 echo "Test catalog"
+$CURL http://localhost:3000/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
+$CURL http://localhost:3000/rpc/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/rpc_catalog.json"
+
+>&2 echo "Test server response for table source"
+test_pbf tbl_0_0_0              http://localhost:3000/public.table_source/0/0/0.pbf
+test_pbf tbl_6_38_20            http://localhost:3000/public.table_source/6/38/20.pbf
+test_pbf tbl_12_2476_1280       http://localhost:3000/public.table_source/12/2476/1280.pbf
+test_pbf tbl_13_4952_2560       http://localhost:3000/public.table_source/13/4952/2560.pbf
+test_pbf tbl_14_9904_5121       http://localhost:3000/public.table_source/14/9904/5121.pbf
+test_pbf tbl_20_633856_327787   http://localhost:3000/public.table_source/20/633856/327787.pbf
+test_pbf tbl_21_1267712_655574  http://localhost:3000/public.table_source/21/1267712/655574.pbf
+
+>&2 echo "Test server response for composite source"
+test_pbf cmp_0_0_0              http://localhost:3000/public.table_source,public.points1,public.points2/0/0/0.pbf
+test_pbf cmp_6_38_20            http://localhost:3000/public.table_source,public.points1,public.points2/6/38/20.pbf
+test_pbf cmp_12_2476_1280       http://localhost:3000/public.table_source,public.points1,public.points2/12/2476/1280.pbf
+test_pbf cmp_13_4952_2560       http://localhost:3000/public.table_source,public.points1,public.points2/13/4952/2560.pbf
+test_pbf cmp_14_9904_5121       http://localhost:3000/public.table_source,public.points1,public.points2/14/9904/5121.pbf
+test_pbf cmp_20_633856_327787   http://localhost:3000/public.table_source,public.points1,public.points2/20/633856/327787.pbf
+test_pbf cmp_21_1267712_655574  http://localhost:3000/public.table_source,public.points1,public.points2/21/1267712/655574.pbf
+
+>&2 echo "Test server response for function source"
+test_pbf fnc_0_0_0              http://localhost:3000/rpc/public.function_source/0/0/0.pbf
+test_pbf fnc_6_38_20            http://localhost:3000/rpc/public.function_source/6/38/20.pbf
+test_pbf fnc_12_2476_1280       http://localhost:3000/rpc/public.function_source/12/2476/1280.pbf
+test_pbf fnc_13_4952_2560       http://localhost:3000/rpc/public.function_source/13/4952/2560.pbf
+test_pbf fnc_14_9904_5121       http://localhost:3000/rpc/public.function_source/14/9904/5121.pbf
+test_pbf fnc_20_633856_327787   http://localhost:3000/rpc/public.function_source/20/633856/327787.pbf
+test_pbf fnc_21_1267712_655574  http://localhost:3000/rpc/public.function_source/21/1267712/655574.pbf
+test_pbf fnc_0_0_0_token        http://localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin
+
+>&2 echo "Test server response for table source with different SRID"
+test_pbf points3857_srid_0_0_0  http://localhost:3000/public.points3857/0/0/0.pbf
+
+>&2 echo "Test server response for table source with empty SRID"
+echo "IGNORING: This test is currently failing, and has been failing for a while"
+echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  http://localhost:3000/public.points_empty_srid/0/0/0.pbf
+
 kill $PROCESS_ID
+
+# ------------------------------------------------------------------------------------------------------------------------
 
 $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
 trap "kill $PROCESS_ID || true" EXIT
 wait_for_martin
-tests/test-configured-sources.sh
+echo "Test pre-configured Martin"
+
+TEST_OUT_DIR="$(dirname "$0")/output/configured"
+mkdir -p "$TEST_OUT_DIR"
+
+>&2 echo "Test catalog"
+$CURL http://localhost:3000/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
+$CURL http://localhost:3000/rpc/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/rpc_catalog.json"
+
+test_pbf tbl_0_0_0  http://localhost:3000/public.table_source/0/0/0.pbf
+test_pbf cmp_0_0_0  http://localhost:3000/public.points1,public.points2/0/0/0.pbf
+test_pbf fnc_0_0_0  http://localhost:3000/rpc/public.function_source/0/0/0.pbf
+test_pbf fnc2_0_0_0 http://localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin
+
 kill $PROCESS_ID

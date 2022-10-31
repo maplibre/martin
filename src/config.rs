@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
@@ -76,7 +76,6 @@ mod tests {
     use crate::pg::table_source::TableSource;
     use indoc::indoc;
     use std::collections::HashMap;
-    use tilejson::Bounds;
 
     #[test]
     fn parse_config() {
@@ -144,12 +143,7 @@ mod tests {
                         id_column: None,
                         minzoom: Some(0),
                         maxzoom: Some(30),
-                        bounds: Some(Bounds {
-                            left: -180.0,
-                            bottom: -90.0,
-                            right: 180.0,
-                            top: 90.0,
-                        }),
+                        bounds: Some([-180, -90, 180, 90].into()),
                         extent: Some(4096),
                         buffer: Some(64),
                         clip_geom: Some(true),
@@ -166,12 +160,7 @@ mod tests {
                         function: "function_source".to_string(),
                         minzoom: Some(0),
                         maxzoom: Some(30),
-                        bounds: Some(Bounds {
-                            left: -180.0,
-                            bottom: -90.0,
-                            right: 180.0,
-                            top: 90.0,
-                        }),
+                        bounds: Some([-180, -90, 180, 90].into()),
                         unrecognized: HashMap::new(),
                     }),
                 )]),

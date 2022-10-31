@@ -7,6 +7,7 @@ use crate::pg::utils::parse_x_rewrite_url;
 use crate::source::{Source, UrlQuery, Xyz};
 use actix_cors::Cors;
 use actix_web::dev::Server;
+use actix_web::http::header::CACHE_CONTROL;
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::{Data, Path, Query, ServiceConfig};
@@ -60,9 +61,12 @@ fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
     error::ErrorInternalServerError(e.to_string())
 }
 
+/// Return 200 OK if healthy. Used for readiness and liveness probes.
 #[route("/healthz", method = "GET", method = "HEAD")]
-async fn get_health() -> &'static str {
-    "OK"
+async fn get_health() -> impl Responder {
+    HttpResponse::Ok()
+        .insert_header((CACHE_CONTROL, "no-cache"))
+        .message_body("OK")
 }
 
 #[route("/index.json", method = "GET", method = "HEAD")]
