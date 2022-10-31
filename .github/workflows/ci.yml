@@ -152,7 +152,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker:
-    needs: [test-all]
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
