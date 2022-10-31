@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Install fmt & clippy
-        run: rustup component add clippy rustfmt
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
       - name: Run cargo clippy
@@ -29,6 +27,7 @@ jobs:
           username: test
           password: test
           database: test
+          rights: --superuser
       - name: Test
         run: |
           tests/fixtures/initdb.sh
@@ -51,7 +50,7 @@ jobs:
 
   build:
     strategy:
-      fail-fast: true
+      # fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest
@@ -89,7 +88,7 @@ jobs:
     needs: [build]
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      # fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest
@@ -117,6 +116,7 @@ jobs:
           username: test
           password: test
           database: test
+          rights: --superuser
       - name: Test
         shell: bash
         run: |
