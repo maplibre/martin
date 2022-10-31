@@ -10,44 +10,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    name: Run format and clippy tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
-      - name: Run cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-      - name: Start postgres
-        uses: nyurik/action-setup-postgis@v1
-        id: pg
-        with:
-          username: test
-          password: test
-          database: test
-          rights: --superuser
-      - name: Test
-        run: |
-          tests/fixtures/initdb.sh
-          cargo test --all
-          tests/test.sh
-        env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Compare test output results (TODO)
-        if: false
-        run: |
-          # TODO: this test is currently broken because the output of the tests is not deterministic
-          diff --brief --recursive --new-file tests/output tests/expected
-      - name: 'Save test output on failure'
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-output
-          path: tests/output/*
-          retention-days: 5
-
   build:
     strategy:
       fail-fast: true
@@ -69,6 +31,12 @@ jobs:
       #     target: ${{ matrix.target }}
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Lint
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+            cargo fmt --all -- --check
+            cargo clippy --all-targets --all-features -- -D warnings
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -84,7 +52,6 @@ jobs:
           else
             mv target/${{ matrix.target }}/release/martin target_releases
           fi
-
       - name: 'Save build artifacts'
         uses: actions/upload-artifact@v3
         with:
@@ -123,6 +90,25 @@ jobs:
           password: test
           database: test
           rights: --superuser
+      - name: Unit Tests (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: cargo test --all
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+      - name: Compare test output results (TODO)
+        if: false && runner.os == 'Linux'
+        run: |
+          # TODO: this test is currently broken
+          # the output of the tests is not deterministic
+          diff --brief --recursive --new-file tests/output tests/expected
+      - name: 'Save test output on failure (Linux)'
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-output
+          path: tests/output/*
+          retention-days: 5
       - name: Test
         shell: bash
         run: |
