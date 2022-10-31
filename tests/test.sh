@@ -44,7 +44,10 @@ test_pbf()
 curl --version
 
 # Make sure martin is built - this way it won't timeout while waiting for it to start
-$MARTIN_BUILD
+# If MARTIN_BUILD is set to "-", don't build
+if [[ "$MARTIN_BUILD" != "-" ]]; then
+  $MARTIN_BUILD
+fi
 
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
