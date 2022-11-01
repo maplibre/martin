@@ -42,6 +42,10 @@ jobs:
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install openssl@3
       - name: Run build
         shell: bash
         run: |

@@ -8,6 +8,7 @@ use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
 use std::collections::HashMap;
 use std::{env, io};
+use openssl::version::version;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -72,6 +73,8 @@ async fn start(args: Args) -> io::Result<Server> {
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
+    println!("{}", version());
+
     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
     env_logger::Builder::from_env(env).init();
     match start(Args::parse()).await {
