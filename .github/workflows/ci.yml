@@ -70,12 +70,12 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - os: ubuntu-latest
-            bin: martin
-            name: martin-Linux-x86_64.tar.gz
-          - os: windows-latest
-            bin: martin.exe
-            name: martin-Windows-x86_64.zip
+          # - os: ubuntu-latest
+          #   bin: martin
+          #   name: martin-Linux-x86_64.tar.gz
+          # - os: windows-latest
+          #   bin: martin.exe
+          #   name: martin-Windows-x86_64.zip
           - os: macOS-latest
             bin: martin
             name: martin-Darwin-x86_64.tar.gz
