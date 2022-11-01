@@ -120,6 +120,11 @@ jobs:
           name: test-output
           path: tests/output/*
           retention-days: 5
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install openssl@3
+          otool -L target/${{ matrix.bin }}
       - name: Test
         shell: bash
         run: |
