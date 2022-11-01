@@ -5,7 +5,7 @@ use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use serde_json::Value;
 use std::collections::HashMap;
-use tilejson::Bounds;
+use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
 
 #[macro_export]
 macro_rules! prettify_error {
@@ -109,5 +109,32 @@ pub fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
         .to_str()
         .ok()
         .and_then(|header| header.parse::<Uri>().ok())
-        .map(|uri| uri.path().trim_end_matches(".json").to_owned())
+        .map(|uri| uri.path().to_owned())
+}
+
+pub fn creat_tilejson(
+    name: String,
+    minzoom: Option<u8>,
+    maxzoom: Option<u8>,
+    bounds: Option<Bounds>,
+    vector_layers: Option<Vec<VectorLayer>>,
+) -> TileJSON {
+    let mut tilejson = tilejson! {
+        tilejson: "2.2.0".to_string(),
+        tiles: vec![],  // tile source is required, but not yet known
+        name: name,
+    };
+    tilejson.minzoom = minzoom;
+    tilejson.maxzoom = maxzoom;
+    tilejson.bounds = bounds;
+    tilejson.vector_layers = vector_layers;
+
+    // TODO: consider removing - this is not needed per TileJSON spec
+    tilejson.set_missing_defaults();
+    tilejson
+}
+
+pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
+    minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
+        && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
 }

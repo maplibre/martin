@@ -105,17 +105,9 @@
       }
 
       map.on('load', async function () {
-        const table_sources = await fetch(
-          'http://0.0.0.0:3000/index.json'
-        ).then((r) => r.json());
-
-        const function_sources = await fetch(
-          'http://0.0.0.0:3000/rpc/index.json'
-        ).then((r) => r.json());
-
-        const sources = Object.values(table_sources).concat(
-          Object.values(function_sources)
-        );
+        const sources = Object.values(await fetch(
+                'http://0.0.0.0:3000/'
+        ).then((r) => r.json()));
 
         // Set up the corresponding toggle button for each layer.
         for (const source of sources) {
@@ -131,9 +123,7 @@
             type: layerType,
             source: {
               type: 'vector',
-              url: source.hasOwnProperty('table')
-                ? `http://0.0.0.0:3000/${source.id}.json`
-                : `http://0.0.0.0:3000/rpc/${source.id}.json`
+              url: `http://0.0.0.0:3000/${source.id}`
             },
             'source-layer': source.id,
             layout: {

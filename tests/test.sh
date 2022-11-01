@@ -9,13 +9,13 @@ MARTIN_BIN="${MARTIN_BIN:-cargo run --}"
 
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
-    # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/healthz
+    # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/health
     PROCESS_ID=$1
     echo "Waiting for Martin ($PROCESS_ID) to start..."
     for i in {1..30}; do
-        if curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
+        if curl -sSf http://localhost:3000/health 2>/dev/null >/dev/null; then
             echo "Martin is up!"
-            curl -s http://localhost:3000/healthz
+            curl -s http://localhost:3000/health
             return
         fi
         if ps -p $PROCESS_ID > /dev/null ; then
@@ -88,43 +88,42 @@ TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
 >&2 echo "Test catalog"
-$CURL http://localhost:3000/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
-$CURL http://localhost:3000/rpc/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/rpc_catalog.json"
+$CURL http://localhost:3000/catalog | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
 
 >&2 echo "Test server response for table source"
-test_pbf tbl_0_0_0              http://localhost:3000/public.table_source/0/0/0.pbf
-test_pbf tbl_6_38_20            http://localhost:3000/public.table_source/6/38/20.pbf
-test_pbf tbl_12_2476_1280       http://localhost:3000/public.table_source/12/2476/1280.pbf
-test_pbf tbl_13_4952_2560       http://localhost:3000/public.table_source/13/4952/2560.pbf
-test_pbf tbl_14_9904_5121       http://localhost:3000/public.table_source/14/9904/5121.pbf
-test_pbf tbl_20_633856_327787   http://localhost:3000/public.table_source/20/633856/327787.pbf
-test_pbf tbl_21_1267712_655574  http://localhost:3000/public.table_source/21/1267712/655574.pbf
+test_pbf tbl_0_0_0              http://localhost:3000/table_source/0/0/0
+test_pbf tbl_6_38_20            http://localhost:3000/table_source/6/38/20
+test_pbf tbl_12_2476_1280       http://localhost:3000/table_source/12/2476/1280
+test_pbf tbl_13_4952_2560       http://localhost:3000/table_source/13/4952/2560
+test_pbf tbl_14_9904_5121       http://localhost:3000/table_source/14/9904/5121
+test_pbf tbl_20_633856_327787   http://localhost:3000/table_source/20/633856/327787
+test_pbf tbl_21_1267712_655574  http://localhost:3000/table_source/21/1267712/655574
 
 >&2 echo "Test server response for composite source"
-test_pbf cmp_0_0_0              http://localhost:3000/public.table_source,public.points1,public.points2/0/0/0.pbf
-test_pbf cmp_6_38_20            http://localhost:3000/public.table_source,public.points1,public.points2/6/38/20.pbf
-test_pbf cmp_12_2476_1280       http://localhost:3000/public.table_source,public.points1,public.points2/12/2476/1280.pbf
-test_pbf cmp_13_4952_2560       http://localhost:3000/public.table_source,public.points1,public.points2/13/4952/2560.pbf
-test_pbf cmp_14_9904_5121       http://localhost:3000/public.table_source,public.points1,public.points2/14/9904/5121.pbf
-test_pbf cmp_20_633856_327787   http://localhost:3000/public.table_source,public.points1,public.points2/20/633856/327787.pbf
-test_pbf cmp_21_1267712_655574  http://localhost:3000/public.table_source,public.points1,public.points2/21/1267712/655574.pbf
+test_pbf cmp_0_0_0              http://localhost:3000/table_source,points1,points2/0/0/0
+test_pbf cmp_6_38_20            http://localhost:3000/table_source,points1,points2/6/38/20
+test_pbf cmp_12_2476_1280       http://localhost:3000/table_source,points1,points2/12/2476/1280
+test_pbf cmp_13_4952_2560       http://localhost:3000/table_source,points1,points2/13/4952/2560
+test_pbf cmp_14_9904_5121       http://localhost:3000/table_source,points1,points2/14/9904/5121
+test_pbf cmp_20_633856_327787   http://localhost:3000/table_source,points1,points2/20/633856/327787
+test_pbf cmp_21_1267712_655574  http://localhost:3000/table_source,points1,points2/21/1267712/655574
 
 >&2 echo "Test server response for function source"
-test_pbf fnc_0_0_0              http://localhost:3000/rpc/public.function_source/0/0/0.pbf
-test_pbf fnc_6_38_20            http://localhost:3000/rpc/public.function_source/6/38/20.pbf
-test_pbf fnc_12_2476_1280       http://localhost:3000/rpc/public.function_source/12/2476/1280.pbf
-test_pbf fnc_13_4952_2560       http://localhost:3000/rpc/public.function_source/13/4952/2560.pbf
-test_pbf fnc_14_9904_5121       http://localhost:3000/rpc/public.function_source/14/9904/5121.pbf
-test_pbf fnc_20_633856_327787   http://localhost:3000/rpc/public.function_source/20/633856/327787.pbf
-test_pbf fnc_21_1267712_655574  http://localhost:3000/rpc/public.function_source/21/1267712/655574.pbf
-test_pbf fnc_0_0_0_token        http://localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin
+test_pbf fnc_0_0_0              http://localhost:3000/function_source/0/0/0
+test_pbf fnc_6_38_20            http://localhost:3000/function_source/6/38/20
+test_pbf fnc_12_2476_1280       http://localhost:3000/function_source/12/2476/1280
+test_pbf fnc_13_4952_2560       http://localhost:3000/function_source/13/4952/2560
+test_pbf fnc_14_9904_5121       http://localhost:3000/function_source/14/9904/5121
+test_pbf fnc_20_633856_327787   http://localhost:3000/function_source/20/633856/327787
+test_pbf fnc_21_1267712_655574  http://localhost:3000/function_source/21/1267712/655574
+test_pbf fnc_0_0_0_token        http://localhost:3000/function_source_query_params/0/0/0?token=martin
 
 >&2 echo "Test server response for table source with different SRID"
-test_pbf points3857_srid_0_0_0  http://localhost:3000/public.points3857/0/0/0.pbf
+test_pbf points3857_srid_0_0_0  http://localhost:3000/points3857/0/0/0
 
 >&2 echo "Test server response for table source with empty SRID"
 echo "IGNORING: This test is currently failing, and has been failing for a while"
-echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  http://localhost:3000/public.points_empty_srid/0/0/0.pbf
+echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  http://localhost:3000/points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
 
@@ -142,12 +141,11 @@ TEST_OUT_DIR="$(dirname "$0")/output/configured"
 mkdir -p "$TEST_OUT_DIR"
 
 >&2 echo "Test catalog"
-$CURL http://localhost:3000/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
-$CURL http://localhost:3000/rpc/index.json | jq --sort-keys -e | tee "$TEST_OUT_DIR/rpc_catalog.json"
+$CURL http://localhost:3000/catalog | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
 
-test_pbf tbl_0_0_0  http://localhost:3000/public.table_source/0/0/0.pbf
-test_pbf cmp_0_0_0  http://localhost:3000/public.points1,public.points2/0/0/0.pbf
-test_pbf fnc_0_0_0  http://localhost:3000/rpc/public.function_source/0/0/0.pbf
-test_pbf fnc2_0_0_0 http://localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin
+test_pbf tbl_0_0_0  http://localhost:3000/table_source/0/0/0
+test_pbf cmp_0_0_0  http://localhost:3000/points1,points2/0/0/0
+test_pbf fnc_0_0_0  http://localhost:3000/function_source/0/0/0
+test_pbf fnc2_0_0_0 http://localhost:3000/function_source_query_params/0/0/0?token=martin
 
 kill_process $PROCESS_ID

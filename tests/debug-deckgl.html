@@ -41,7 +41,7 @@
         controller: true,
         layers: [
           new deck.MVTLayer({
-            data: 'http://localhost:3000/public.points.json',
+            data: 'http://localhost:3000/points',
             uniqueIdProperty: 'gid',
             getFillColor: f => {
               const alpha = f.geometry.coordinates[1] * 255;

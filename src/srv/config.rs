@@ -17,14 +17,14 @@ pub struct SrvArgs {
     pub workers: Option<usize>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct SrvConfig {
     pub keep_alive: usize,
     pub listen_addresses: String,
     pub worker_processes: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct SrvConfigBuilder {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_alive: Option<usize>,

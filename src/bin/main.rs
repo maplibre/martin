@@ -3,10 +3,14 @@ use clap::Parser;
 use log::{error, info, warn};
 use martin::config::{read_config, ConfigBuilder};
 use martin::pg::config::{PgArgs, PgConfigBuilder};
-use martin::pg::db::configure_db_sources;
+use martin::pg::db::PgConfigurator;
+use martin::source::IdResolver;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
+use martin::srv::server::RESERVED_KEYWORDS;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use std::{env, io};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -19,6 +23,10 @@ pub struct Args {
     /// Path to config file.
     #[arg(short, long)]
     pub config: Option<String>,
+    /// Save resulting config to a file or use "-" to print to stdout.
+    /// By default, only print if sources are auto-detected.
+    #[arg(long)]
+    pub save_config: Option<String>,
     /// [Deprecated] Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
@@ -50,23 +58,45 @@ impl From<Args> for ConfigBuilder {
 async fn start(args: Args) -> io::Result<Server> {
     info!("Starting Martin v{VERSION}");
 
-    let mut config = if let Some(ref config_file_name) = args.config {
-        info!("Using {config_file_name}");
-        let cfg = read_config(config_file_name)?;
-        let mut builder = ConfigBuilder::from(args);
-        builder.merge(cfg);
-        builder.finalize()?
+    let save_config = args.save_config.clone();
+    let file_cfg = if let Some(ref cfg_filename) = args.config {
+        info!("Using {cfg_filename}");
+        Some(read_config(cfg_filename)?)
     } else {
-        info!("Config file is not specified");
-        ConfigBuilder::from(args).finalize()?
+        info!("Config file is not specified, auto-detecting sources");
+        None
     };
+    let mut builder = ConfigBuilder::from(args);
+    if let Some(file_cfg) = file_cfg {
+        builder.merge(file_cfg);
+    }
+    let mut config = builder.finalize()?;
 
-    let pool = configure_db_sources(&mut config).await?;
+    let id_resolver = IdResolver::new(RESERVED_KEYWORDS);
+    let mut pg_config = PgConfigurator::new(&config.pg, id_resolver).await?;
+    let sources = pg_config.discover_db_sources().await?;
+    config.pg.table_sources = pg_config.table_sources;
+    config.pg.function_sources = pg_config.function_sources;
+
+    if save_config.is_some() {
+        let yaml = serde_yaml::to_string(&config).expect("Unable to serialize config");
+        let file_name = save_config.as_deref().unwrap_or("-");
+        if file_name == "-" {
+            info!("Current system configuration:");
+            println!("\n\n{yaml}\n");
+        } else {
+            info!("Saving config to {file_name}, use --config to load it");
+            File::create(file_name)?.write_all(yaml.as_bytes())?;
+        }
+    } else if config.pg.discover_functions || config.pg.discover_tables {
+        info!("Martin has been configured with automatic settings.");
+        info!("Use --save-config to save or print Martin configuration.");
+    }
+
     let listen_addresses = config.srv.listen_addresses.clone();
-    let server = server::new(pool, config);
-
+    let server = server::new(config, sources);
     info!("Martin has been started on {listen_addresses}.");
-    info!("Use http://{listen_addresses}/index.json to get the list of available sources.");
+    info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
     Ok(server)
 }
 

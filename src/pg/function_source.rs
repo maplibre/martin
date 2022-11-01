@@ -1,82 +1,61 @@
-use crate::pg::db::Connection;
-use crate::pg::utils::{prettify_error, query_to_json};
+use crate::pg::config::{FormatId, FunctionInfo, FunctionInfoSources, FunctionInfoVec};
+use crate::pg::db::get_connection;
+use crate::pg::db::Pool;
+use crate::pg::utils::{creat_tilejson, is_valid_zoom, prettify_error, query_to_json};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
+use log::info;
+use martin_tile_utils::DataFormat;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
-use tilejson::{tilejson, Bounds, TileJSON};
+use tilejson::TileJSON;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct FunctionSource {
-    /// Function source id
     pub id: String,
-    /// Schema name
-    pub schema: String,
-
-    /// Function name
-    pub function: String,
-
-    /// An integer specifying the minimum zoom level
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub minzoom: Option<u8>,
-
-    /// An integer specifying the maximum zoom level. MUST be >= minzoom
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub maxzoom: Option<u8>,
-
-    /// The maximum extent of available map tiles. Bounds MUST define an area
-    /// covered by all zoom levels. The bounds are represented in WGS:84
-    /// latitude and longitude values, in the order left, bottom, right, top.
-    /// Values may be integers or floating point numbers.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bounds: Option<Bounds>,
-
-    #[serde(flatten, skip_serializing)]
-    pub unrecognized: HashMap<String, Value>,
+    pub info: FunctionInfo,
+    pool: Pool,
+    tilejson: TileJSON,
 }
 
-pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
+impl FunctionSource {
+    pub fn new(id: String, info: FunctionInfo, pool: Pool) -> Self {
+        Self {
+            tilejson: creat_tilejson(
+                format!("{}.{}", info.schema, info.function),
+                info.minzoom,
+                info.maxzoom,
+                info.bounds,
+                None,
+            ),
+            id,
+            info,
+            pool,
+        }
+    }
+}
 
 #[async_trait]
 impl Source for FunctionSource {
-    async fn get_id(&self) -> &str {
-        self.id.as_str()
+    fn get_tilejson(&self) -> TileJSON {
+        self.tilejson.clone()
     }
 
-    async fn get_tilejson(&self) -> Result<TileJSON, io::Error> {
-        let mut tilejson = tilejson! {
-            tilejson: "2.2.0".to_string(),
-            tiles: vec![],  // tile source is required, but not yet known
-            name: self.id.to_string(),
-        };
-
-        if let Some(minzoom) = &self.minzoom {
-            tilejson.minzoom = Some(*minzoom);
-        };
-
-        if let Some(maxzoom) = &self.maxzoom {
-            tilejson.maxzoom = Some(*maxzoom);
-        };
-
-        if let Some(bounds) = &self.bounds {
-            tilejson.bounds = Some(*bounds);
-        };
-
-        // TODO: consider removing - this is not needed per TileJSON spec
-        tilejson.set_missing_defaults();
-        Ok(tilejson)
+    fn get_format(&self) -> DataFormat {
+        DataFormat::Mvt
     }
 
-    async fn get_tile(
-        &self,
-        conn: &mut Connection,
-        xyz: &Xyz,
-        query: &Option<UrlQuery>,
-    ) -> Result<Tile, io::Error> {
+    fn clone_source(&self) -> Box<dyn Source> {
+        Box::new(self.clone())
+    }
+
+    fn is_valid_zoom(&self, zoom: i32) -> bool {
+        is_valid_zoom(zoom, self.info.minzoom, self.info.maxzoom)
+    }
+
+    async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile, io::Error> {
         let empty_query = HashMap::new();
         let query = query.as_ref().unwrap_or(&empty_query);
         let query_json = query_to_json(query);
@@ -90,14 +69,15 @@ impl Source for FunctionSource {
         // $3 : z
         // $4 : query_json
 
-        let escaped_schema = escape_identifier(&self.schema);
-        let escaped_function = escape_identifier(&self.function);
+        let escaped_schema = escape_identifier(&self.info.schema);
+        let escaped_function = escape_identifier(&self.info.function);
         let raw_query = format!(
             include_str!("scripts/call_rpc.sql"),
             schema = escaped_schema,
             function = escaped_function
         );
 
+        let conn = get_connection(&self.pool).await?;
         let query = conn
             .prepare_typed(
                 &raw_query,
@@ -109,7 +89,7 @@ impl Source for FunctionSource {
         let tile = conn
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
             .await
-            .map(|row| row.get(self.function.as_str()))
+            .map(|row| row.get(self.info.function.as_str()))
             .map_err(|error| {
                 prettify_error!(
                     error,
@@ -126,31 +106,36 @@ impl Source for FunctionSource {
     }
 }
 
-pub async fn get_function_sources(conn: &mut Connection<'_>) -> Result<FunctionSources, io::Error> {
-    let mut sources = HashMap::new();
-
+pub async fn get_function_sources(
+    pool: &Pool,
+    explicit_funcs: &FunctionInfoSources,
+) -> Result<FunctionInfoVec, io::Error> {
+    let skip_funcs: HashSet<String> = explicit_funcs.values().map(|v| v.format_id("")).collect();
+    let conn = get_connection(pool).await?;
     let rows = conn
         .query(include_str!("scripts/get_function_sources.sql"), &[])
         .await
         .map_err(|e| prettify_error!(e, "Can't get function sources"))?;
 
+    let mut result = FunctionInfoVec::default();
     for row in &rows {
-        let schema: String = row.get("specific_schema");
-        let function: String = row.get("routine_name");
-        let id = format!("{schema}.{function}");
-
-        let source = FunctionSource {
-            id: id.clone(),
-            schema,
-            function,
+        let info = FunctionInfo {
+            schema: row.get("specific_schema"),
+            function: row.get("routine_name"),
             minzoom: None,
             maxzoom: None,
             bounds: None,
             unrecognized: HashMap::new(),
         };
+        if !skip_funcs.contains(&info.format_id("")) {
+            result.push(info);
+        }
+    }
+    result.sort_by_key(|v| v.function.clone());
 
-        sources.insert(id, Box::new(source));
+    if result.is_empty() {
+        info!("No function sources found");
     }
 
-    Ok(sources)
+    Ok(result)
 }

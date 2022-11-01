@@ -1,0 +1,10 @@
+[package]
+name = "martin-tile-utils"
+description = "Some basic utilites to work with map tiles, such as type detection"
+version = "0.1.0"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/maplibre/martin"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
