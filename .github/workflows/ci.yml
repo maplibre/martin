@@ -46,6 +46,8 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           push: false
+          # context: .
+          load: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
       - run: docker images
