@@ -1,11 +1,11 @@
+name: Code coverage
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
-
-name: Code coverage
 
 jobs:
   grcov:
