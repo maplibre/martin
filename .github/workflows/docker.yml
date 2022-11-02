@@ -34,10 +34,6 @@ jobs:
         with:
           install: true
 
-      - run: |
-          export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ${{ steps.docker_meta.outputs.tags }}"
-          echo "$MARTIN_BIN"
-
       - name: Build the Docker image
         id: docker_build
         uses: docker/build-push-action@v3
