@@ -64,8 +64,8 @@ docker-build:
     docker build -t martin .
 
 # Build and run martin docker image
-docker-run *ARGS: docker-build
-    docker run --rm -it -e DATABASE_URL --net host martin {{ARGS}}
+docker-run *ARGS:
+    docker run -it --rm --net host -e DATABASE_URL martin {{ARGS}}
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 git *ARGS: start-db
