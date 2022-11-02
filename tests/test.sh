@@ -10,21 +10,46 @@ MARTIN_BIN="${MARTIN_BIN:-cargo run --}"
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/healthz
-
-    echo "Waiting for Martin to start..."
-    for i in {1..300}; do
+    PROCESS_ID=$1
+    echo "Waiting for Martin ($PROCESS_ID) to start..."
+    for i in {1..30}; do
         if curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
             echo "Martin is up!"
             curl -s http://localhost:3000/healthz
             return
         fi
-        sleep 0.2
+        if ps -p $PROCESS_ID > /dev/null ; then
+            echo "Martin is not up yet, waiting..."
+            sleep 1
+        else
+            echo "Martin died!"
+            ps au
+            lsof -i
+            exit 1
+        fi
     done
-
     echo "Martin did not start in time"
     ps au
     lsof -i
     exit 1
+}
+
+function kill_process {
+    PROCESS_ID=$1
+    echo "Waiting for Martin ($PROCESS_ID) to stop..."
+    kill $PROCESS_ID
+    for i in {1..50}; do
+        if ps -p $PROCESS_ID > /dev/null ; then
+            sleep 0.1
+        else
+            echo "Martin ($PROCESS_ID) has stopped"
+            return
+        fi
+    done
+    echo "Martin did not stop in time, killing it"
+    kill -9 $PROCESS_ID
+    # wait for it to die using timeout and wait
+    timeout -k 1s 1s wait $PROCESS_ID || true
 }
 
 test_pbf()
@@ -49,11 +74,15 @@ if [[ "$MARTIN_BUILD" != "-" ]]; then
   $MARTIN_BUILD
 fi
 
+
+echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Test auto configured Martin"
+set -x
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
-trap "kill $PROCESS_ID || true" EXIT
-wait_for_martin
-echo "Test auto configured Martin"
+{ set +x; } 2> /dev/null
+trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
+wait_for_martin $PROCESS_ID
 
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
@@ -97,15 +126,17 @@ test_pbf points3857_srid_0_0_0  http://localhost:3000/public.points3857/0/0/0.pb
 echo "IGNORING: This test is currently failing, and has been failing for a while"
 echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  http://localhost:3000/public.points_empty_srid/0/0/0.pbf
 
-kill $PROCESS_ID
+kill_process $PROCESS_ID
 
-# ------------------------------------------------------------------------------------------------------------------------
 
+echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Test pre-configured Martin"
+set -x
 $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
-trap "kill $PROCESS_ID || true" EXIT
-wait_for_martin
-echo "Test pre-configured Martin"
+{ set +x; } 2> /dev/null
+trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
+wait_for_martin $PROCESS_ID
 
 TEST_OUT_DIR="$(dirname "$0")/output/configured"
 mkdir -p "$TEST_OUT_DIR"
@@ -119,4 +150,4 @@ test_pbf cmp_0_0_0  http://localhost:3000/public.points1,public.points2/0/0/0.pb
 test_pbf fnc_0_0_0  http://localhost:3000/rpc/public.function_source/0/0/0.pbf
 test_pbf fnc2_0_0_0 http://localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin
 
-kill $PROCESS_ID
+kill_process $PROCESS_ID

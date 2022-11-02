@@ -17,4 +17,4 @@ COPY --from=builder \
   /usr/local/bin/
 
 EXPOSE 3000
-CMD /usr/local/bin/martin
+ENTRYPOINT ["/usr/local/bin/martin"]
