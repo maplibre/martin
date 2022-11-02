@@ -34,6 +34,22 @@ function wait_for_martin {
     exit 1
 }
 
+function kill_process {
+    PROCESS_ID=$1
+    echo "Waiting for Martin ($PROCESS_ID) to stop..."
+    kill $PROCESS_ID
+    for i in {1..50}; do
+        if ps -p $PROCESS_ID > /dev/null ; then
+            sleep 0.1
+        else
+            echo "Martin ($PROCESS_ID) has stopped"
+            return
+        fi
+    done
+    echo "Martin did not stop in time, killing it"
+    kill -9 $PROCESS_ID
+}
+
 test_pbf()
 {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
@@ -59,7 +75,7 @@ fi
 set -x
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
-trap "kill $PROCESS_ID || true" EXIT
+trap "kill -9 $PROCESS_ID || true" EXIT
 wait_for_martin $PROCESS_ID
 echo "Test auto configured Martin"
 
@@ -105,14 +121,14 @@ test_pbf points3857_srid_0_0_0  http://localhost:3000/public.points3857/0/0/0.pb
 echo "IGNORING: This test is currently failing, and has been failing for a while"
 echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  http://localhost:3000/public.points_empty_srid/0/0/0.pbf
 
-kill $PROCESS_ID
+kill_process $PROCESS_ID
 
 # ------------------------------------------------------------------------------------------------------------------------
 
 set -x
 $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
-trap "kill $PROCESS_ID || true" EXIT
+trap "kill -9 $PROCESS_ID || true" EXIT
 wait_for_martin $PROCESS_ID
 echo "Test pre-configured Martin"
 
@@ -128,4 +144,4 @@ test_pbf cmp_0_0_0  http://localhost:3000/public.points1,public.points2/0/0/0.pb
 test_pbf fnc_0_0_0  http://localhost:3000/rpc/public.function_source/0/0/0.pbf
 test_pbf fnc2_0_0_0 http://localhost:3000/rpc/public.function_source_query_params/0/0/0.pbf?token=martin
 
-kill $PROCESS_ID
+kill_process $PROCESS_ID
