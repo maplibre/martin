@@ -75,6 +75,7 @@ if [[ "$MARTIN_BUILD" != "-" ]]; then
 fi
 
 
+echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test auto configured Martin"
 set -x
 $MARTIN_BIN --default-srid 900913 &
