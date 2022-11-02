@@ -74,11 +74,14 @@ if [[ "$MARTIN_BUILD" != "-" ]]; then
   $MARTIN_BUILD
 fi
 
+
+echo "Test auto configured Martin"
+set -x
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
+{ set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
-echo "Test auto configured Martin"
 
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
@@ -124,13 +127,15 @@ echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  http://localhost:3000/publ
 
 kill_process $PROCESS_ID
 
-# ------------------------------------------------------------------------------------------------------------------------
 
+echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Test pre-configured Martin"
+set -x
 $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
+{ set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
-echo "Test pre-configured Martin"
 
 TEST_OUT_DIR="$(dirname "$0")/output/configured"
 mkdir -p "$TEST_OUT_DIR"
