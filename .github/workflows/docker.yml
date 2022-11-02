@@ -34,9 +34,9 @@ jobs:
         with:
           install: true
 
-      - run: echo "$MARTIN_BIN"
-        env:
-          MARTIN_BIN: "docker run --rm --net host -e DATABASE_URL -v $GITHUB_WORKSPACE/tests:/usr/local/bin/tests ${{ steps.docker_meta.outputs.tags }}"
+      - run: |
+          export MARTIN_BIN=docker run --rm --net host -e DATABASE_URL -v "$GITHUB_WORKSPACE/tests:/usr/local/bin/tests" ${{ steps.docker_meta.outputs.tags }}
+          echo "$MARTIN_BIN"
 
       - name: Build the Docker image
         id: docker_build
@@ -63,11 +63,12 @@ jobs:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
 
       - name: Test Docker image
-        run: tests/test.sh
+        run: |
+          export MARTIN_BUILD=-
+          export MARTIN_BIN=docker run --rm --net host -e DATABASE_URL -v "$GITHUB_WORKSPACE/tests:/usr/local/bin/tests" ${{ steps.docker_meta.outputs.tags }}
+          tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-          MARTIN_BUILD: "-"
-          MARTIN_BIN: "docker run --rm --net host -e DATABASE_URL -v $GITHUB_WORKSPACE/tests:/usr/local/bin/tests ${{ steps.docker_meta.outputs.tags }}"
 
       - name: Login to DockerHub
         uses: docker/login-action@v2
