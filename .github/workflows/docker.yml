@@ -1,4 +1,4 @@
-name: Docker
+name: Build and test docker
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
 
       - run: echo "$MARTIN_BIN"
         env:
-          MARTIN_BIN: "docker run --rm --net host -e DATABASE_URL -v '${{ env.GITHUB_WORKSPACE }}/tests:/usr/local/bin/tests' ${{ steps.docker_meta.outputs.tags }}"
+          MARTIN_BIN: "docker run --rm --net host -e DATABASE_URL -v $GITHUB_WORKSPACE/tests:/usr/local/bin/tests ${{ steps.docker_meta.outputs.tags }}"
 
       - name: Build the Docker image
         id: docker_build
@@ -67,7 +67,7 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
           MARTIN_BUILD: "-"
-          MARTIN_BIN: "docker run --rm --net host -e DATABASE_URL -v '${{ env.GITHUB_WORKSPACE }}/tests:/usr/local/bin/tests' ${{ steps.docker_meta.outputs.tags }}"
+          MARTIN_BIN: "docker run --rm --net host -e DATABASE_URL -v $GITHUB_WORKSPACE/tests:/usr/local/bin/tests ${{ steps.docker_meta.outputs.tags }}"
 
       - name: Login to DockerHub
         uses: docker/login-action@v2
