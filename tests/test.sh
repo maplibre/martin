@@ -10,17 +10,24 @@ MARTIN_BIN="${MARTIN_BIN:-cargo run --}"
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/healthz
-
-    echo "Waiting for Martin to start..."
-    for i in {1..300}; do
+    PROCESS_ID=$1
+    echo "Waiting for Martin ($PROCESS_ID) to start..."
+    for i in {1..50}; do
         if curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
             echo "Martin is up!"
             curl -s http://localhost:3000/healthz
             return
         fi
-        sleep 0.2
+        if ps -p $PROCESS_ID > /dev/null ; then
+            echo "Martin is not up yet, waiting..."
+            sleep 0.5
+        else
+            echo "Martin died!"
+            ps au
+            lsof -i
+            exit 1
+        fi
     done
-
     echo "Martin did not start in time"
     ps au
     lsof -i
@@ -53,7 +60,7 @@ set -x
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
 trap "kill $PROCESS_ID || true" EXIT
-wait_for_martin
+wait_for_martin $PROCESS_ID
 echo "Test auto configured Martin"
 
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
@@ -106,7 +113,7 @@ set -x
 $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
 trap "kill $PROCESS_ID || true" EXIT
-wait_for_martin
+wait_for_martin $PROCESS_ID
 echo "Test pre-configured Martin"
 
 TEST_OUT_DIR="$(dirname "$0")/output/configured"
