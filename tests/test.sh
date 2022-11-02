@@ -12,7 +12,7 @@ function wait_for_martin {
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS http://localhost:3000/healthz
     PROCESS_ID=$1
     echo "Waiting for Martin ($PROCESS_ID) to start..."
-    for i in {1..50}; do
+    for i in {1..30}; do
         if curl -sSf http://localhost:3000/healthz 2>/dev/null >/dev/null; then
             echo "Martin is up!"
             curl -s http://localhost:3000/healthz
@@ -20,7 +20,7 @@ function wait_for_martin {
         fi
         if ps -p $PROCESS_ID > /dev/null ; then
             echo "Martin is not up yet, waiting..."
-            sleep 0.5
+            sleep 1
         else
             echo "Martin died!"
             ps au
@@ -72,7 +72,6 @@ if [[ "$MARTIN_BUILD" != "-" ]]; then
   $MARTIN_BUILD
 fi
 
-set -x
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
 trap "kill -9 $PROCESS_ID || true" EXIT
@@ -125,7 +124,6 @@ kill_process $PROCESS_ID
 
 # ------------------------------------------------------------------------------------------------------------------------
 
-set -x
 $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
 trap "kill -9 $PROCESS_ID || true" EXIT
