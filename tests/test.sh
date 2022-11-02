@@ -48,6 +48,8 @@ function kill_process {
     done
     echo "Martin did not stop in time, killing it"
     kill -9 $PROCESS_ID
+    # wait for it to die using timeout and wait
+    timeout -k 1s 1s wait $PROCESS_ID || true
 }
 
 test_pbf()
@@ -74,7 +76,7 @@ fi
 
 $MARTIN_BIN --default-srid 900913 &
 PROCESS_ID=$!
-trap "kill -9 $PROCESS_ID || true" EXIT
+trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
 echo "Test auto configured Martin"
 
@@ -126,7 +128,7 @@ kill_process $PROCESS_ID
 
 $MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
 PROCESS_ID=$!
-trap "kill -9 $PROCESS_ID || true" EXIT
+trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
 echo "Test pre-configured Martin"
 
