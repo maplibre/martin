@@ -35,7 +35,7 @@ jobs:
           install: true
 
       - run: |
-          export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/usr/local/bin/tests ${{ steps.docker_meta.outputs.tags }}"
+          export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ${{ steps.docker_meta.outputs.tags }}"
           echo "$MARTIN_BIN"
 
       - name: Build the Docker image
@@ -65,7 +65,7 @@ jobs:
       - name: Test Docker image
         run: |
           export MARTIN_BUILD=-
-          export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/usr/local/bin/tests ${{ steps.docker_meta.outputs.tags }}"
+          export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ${{ steps.docker_meta.outputs.tags }}"
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
