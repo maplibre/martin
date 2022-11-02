@@ -2,6 +2,10 @@
 .git/
 # Having Dockerfile in .dockerignore lets us develop docker images without full rebuild on each change
 Dockerfile
+# Justfile is not needed in the image
+justfile
+# Remove self from the image too
+.dockerignore
 
 #### COPIED FROM .gitignore ####
 .DS_Store
@@ -12,3 +16,4 @@ Dockerfile
 pg_data/
 config.yml
 tests/output/
+tests/expected/

@@ -59,6 +59,14 @@ bless: start-db clean-test
     rm -rf tests/expected
     mv tests/output tests/expected
 
+# Build martin docker image
+docker-build:
+    docker build -t martin .
+
+# Build and run martin docker image
+docker-run *ARGS: docker-build
+    docker run --rm -it -e DATABASE_URL --net host martin {{ARGS}}
+
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 git *ARGS: start-db
     git {{ARGS}}

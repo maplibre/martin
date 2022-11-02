@@ -73,7 +73,7 @@ jobs:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
           MARTIN_BUILD: "-"
-          MARTIN_BIN: docker run --rm --net=host -p 3000:3000 -e DATABASE_URL ${{ steps.docker_meta.outputs.tags }}
+          MARTIN_BIN: docker run --rm --net=host -e DATABASE_URL "${{ steps.docker_meta.outputs.tags }}"
       - name: Login to DockerHub
         uses: docker/login-action@v2
         if: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
