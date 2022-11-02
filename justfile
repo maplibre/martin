@@ -9,8 +9,8 @@ export CARGO_TERM_COLOR := "always"
   just --list --unsorted
 
 # Start Martin server and a test database
-run: start-db
-    cargo run
+run *ARGS: start-db
+    cargo run -- {{ARGS}}
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test
