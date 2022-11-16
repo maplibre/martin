@@ -109,7 +109,9 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
-          cargo test --all
+          cargo test --all-targets
+          cargo test --doc
+          cargo test --all-targets --all-features
           rm -rf target
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
