@@ -157,7 +157,7 @@ async fn get_composite_source_tile(
         table_sources: sources,
     };
 
-    get_tile(&state, path.z, path.x, path.y, None, Box::new(source)).await
+    get_tile(&state, path.z, path.x, path.y, None, &source).await
 }
 
 #[route("/rpc/index.json", method = "GET", method = "HEAD")]
@@ -238,7 +238,7 @@ async fn get_function_source_tile(
         path.x,
         path.y,
         Some(query.into_inner()),
-        source.clone(),
+        source.as_ref(),
     )
     .await
 }
@@ -257,7 +257,7 @@ async fn get_tile(
     x: i32,
     y: i32,
     query: Option<UrlQuery>,
-    source: Box<dyn Source + Send>,
+    source: &impl Source,
 ) -> Result<HttpResponse, Error> {
     let mut connection = get_connection(&state.pool).await?;
     let tile = source

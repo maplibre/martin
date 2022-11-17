@@ -10,7 +10,7 @@ export CARGO_TERM_COLOR := "always"
 
 # Start Martin server and a test database
 run *ARGS: start-db
-    cargo run -- {{ARGS}}
+    cargo +nightly run -- {{ARGS}}
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test
@@ -33,14 +33,14 @@ stop:
 
 # Run benchmark tests
 bench: start-db
-    cargo bench
+    cargo +nightly bench
 
 # Run all tests using a test database
 test: test-unit test-int
 
 # Run Rust unit tests (cargo test)
 test-unit: start-db
-    cargo test
+    cargo +nightly test
 
 # Run integration tests
 test-int: start-db clean-test

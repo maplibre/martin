@@ -4,8 +4,8 @@ set -euo pipefail
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl -sSf}
 DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
-MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
-MARTIN_BIN="${MARTIN_BIN:-cargo run --}"
+MARTIN_BUILD="${MARTIN_BUILD:-cargo +nightly build}"
+MARTIN_BIN="${MARTIN_BIN:-cargo +nightly run --}"
 
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:

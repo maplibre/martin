@@ -4,7 +4,6 @@ use crate::pg::utils::{
     prettify_error, tile_bbox,
 };
 use crate::source::{Source, Tile, UrlQuery, Xyz};
-use async_trait::async_trait;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -130,7 +129,6 @@ impl TableSource {
     }
 }
 
-#[async_trait]
 impl Source for TableSource {
     async fn get_id(&self) -> &str {
         self.id.as_str()
@@ -162,7 +160,7 @@ impl Source for TableSource {
 
     async fn get_tile(
         &self,
-        conn: &mut Connection,
+        conn: &mut Connection<'_>,
         xyz: &Xyz,
         _query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error> {

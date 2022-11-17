@@ -1,5 +1,4 @@
 use crate::pg::db::Connection;
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
@@ -15,16 +14,16 @@ pub struct Xyz {
     pub y: i32,
 }
 
-#[async_trait]
 pub trait Source: Debug {
-    async fn get_id(&self) -> &str;
+    fn get_id(&self) -> impl std::future::Future<Output = &str> + Send;
 
-    async fn get_tilejson(&self) -> Result<TileJSON, io::Error>;
+    fn get_tilejson(&self)
+        -> impl std::future::Future<Output = Result<TileJSON, io::Error>> + Send;
 
-    async fn get_tile(
+    fn get_tile(
         &self,
         conn: &mut Connection,
         xyz: &Xyz,
         query: &Option<UrlQuery>,
-    ) -> Result<Tile, io::Error>;
+    ) -> impl std::future::Future<Output = Result<Tile, io::Error>> + Send;
 }

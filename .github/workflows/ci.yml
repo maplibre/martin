@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
             cargo fmt --all -- --check
-            cargo clippy --all-targets --all-features -- -D warnings
+            cargo +nightly clippy --all-targets --all-features -- -D warnings
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -45,7 +45,7 @@ jobs:
       - name: Run build
         shell: bash
         run: |
-          cargo build --release --target ${{ matrix.target }}
+          cargo +nightly build --release --target ${{ matrix.target }}
           mkdir target_releases
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             mv target/${{ matrix.target }}/release/martin.exe target_releases
@@ -95,7 +95,7 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          cargo test --all
+          cargo +nightly test --all
           rm -rf target
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}

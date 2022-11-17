@@ -1,7 +1,6 @@
 use crate::pg::db::Connection;
 use crate::pg::utils::{prettify_error, query_to_json};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
-use async_trait::async_trait;
 use postgres::types::Type;
 use postgres_protocol::escape::escape_identifier;
 use serde::{Deserialize, Serialize};
@@ -41,7 +40,6 @@ pub struct FunctionSource {
 
 pub type FunctionSources = HashMap<String, Box<FunctionSource>>;
 
-#[async_trait]
 impl Source for FunctionSource {
     async fn get_id(&self) -> &str {
         self.id.as_str()
@@ -73,7 +71,7 @@ impl Source for FunctionSource {
 
     async fn get_tile(
         &self,
-        conn: &mut Connection,
+        conn: &mut Connection<'_>,
         xyz: &Xyz,
         query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error> {

@@ -2,7 +2,6 @@ use crate::pg::db::Connection;
 use crate::pg::table_source::TableSource;
 use crate::pg::utils::{get_bounds_cte, get_srid_bounds, prettify_error};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
-use async_trait::async_trait;
 use itertools::Itertools;
 use std::io;
 use tilejson::{tilejson, Bounds, TileJSON};
@@ -65,7 +64,6 @@ impl CompositeSource {
     }
 }
 
-#[async_trait]
 impl Source for CompositeSource {
     async fn get_id(&self) -> &str {
         self.id.as_str()
@@ -97,7 +95,7 @@ impl Source for CompositeSource {
 
     async fn get_tile(
         &self,
-        conn: &mut Connection,
+        conn: &mut Connection<'_>,
         xyz: &Xyz,
         _query: &Option<UrlQuery>,
     ) -> Result<Tile, io::Error> {
