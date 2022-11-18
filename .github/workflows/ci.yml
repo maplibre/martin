@@ -43,8 +43,10 @@ jobs:
         run: |
           if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
             rustup target add aarch64-apple-darwin
+            cargo build --release --target ${{ matrix.target }} --features=vendored-openssl
+          else
+            cargo build --release --target ${{ matrix.target }}
           fi
-          cargo build --release --target ${{ matrix.target }}
           mkdir target_releases
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             mv target/${{ matrix.target }}/release/martin.exe target_releases
