@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Build for ${{ matrix.target }}
+    name: Build ${{ matrix.target }}
     strategy:
       fail-fast: true
       matrix:
@@ -44,7 +44,8 @@ jobs:
         run: |
           if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
             rustup target add aarch64-apple-darwin
-            cargo build --release --target ${{ matrix.target }} --features=vendored-openssl
+            # compile without debug symbols
+            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=vendored-openssl
           else
             cargo build --release --target ${{ matrix.target }}
           fi
@@ -61,7 +62,7 @@ jobs:
           path: target_releases/*
 
   test:
-    name: Test build for ${{ matrix.target }}
+    name: Test & package ${{ matrix.target }}
     needs: [build]
     strategy:
       fail-fast: true
@@ -137,7 +138,10 @@ jobs:
         shell: bash
         run: |
           cd target/
-          strip ${{ matrix.bin }}
+          # Symbol stripping does not work cross-platform
+          if [[ "${{ matrix.target }}" != "aarch64-apple-darwin" ]]; then
+            strip ${{ matrix.bin }}
+          fi
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             7z a ../${{ matrix.name }} ${{ matrix.bin }}
           else
