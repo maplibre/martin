@@ -21,14 +21,10 @@ jobs:
             target: x86_64-pc-windows-msvc
           - os: macOS-latest
             target: x86_64-apple-darwin
+          - os: macOS-latest
+            target: aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      # - name: Install stable toolchain
-      #   uses: dtolnay/rust-toolchain@master
-      #   with:
-      #     toolchain: ${{ matrix.rust }}
-      #     override: true
-      #     target: ${{ matrix.target }}
       - name: Checkout
         uses: actions/checkout@v3
       - name: Lint
@@ -45,6 +41,9 @@ jobs:
       - name: Run build
         shell: bash
         run: |
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            rustup target add aarch64-apple-darwin
+          fi
           cargo build --release --target ${{ matrix.target }}
           mkdir target_releases
           if [[ "${{ runner.os }}" == "Windows" ]]; then
