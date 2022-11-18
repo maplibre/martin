@@ -11,6 +11,7 @@ on:
 
 jobs:
   build:
+    name: Build for ${{ matrix.target }}
     strategy:
       fail-fast: true
       matrix:
@@ -21,14 +22,14 @@ jobs:
             target: x86_64-pc-windows-msvc
           - os: macOS-latest
             target: x86_64-apple-darwin
-          - os: macOS-latest
+          - os: ubuntu-latest
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Lint
-        if: runner.os == 'Linux'
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
             cargo fmt --all -- --check
@@ -53,33 +54,41 @@ jobs:
           else
             mv target/${{ matrix.target }}/release/martin target_releases
           fi
-      - name: Save build artifacts
+      - name: Save build artifact build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
         with:
-          name: build-${{ runner.os }}
+          name: build-${{ matrix.target }}
           path: target_releases/*
 
   test:
-    name: Test builds on ${{ matrix.os }}
+    name: Test build for ${{ matrix.target }}
     needs: [build]
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest
             bin: martin
+            target: x86_64-unknown-linux-gnu
             name: martin-Linux-x86_64.tar.gz
           - os: windows-latest
             bin: martin.exe
+            target: x86_64-pc-windows-msvc
             name: martin-Windows-x86_64.zip
           - os: macOS-latest
             bin: martin
+            target: x86_64-apple-darwin
             name: martin-Darwin-x86_64.tar.gz
+          - os: ubuntu-latest
+            bin: martin
+            target: aarch64-apple-darwin
+            name: martin-Darwin-aarch64.tar.gz
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: Start postgres
+        if: matrix.target != 'aarch64-apple-darwin'
         uses: nyurik/action-setup-postgis@v1
         id: pg
         with:
@@ -88,12 +97,13 @@ jobs:
           database: test
           rights: --superuser
       - name: Init database
+        if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
         run: tests/fixtures/initdb.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Unit Tests (Linux)
-        if: runner.os == 'Linux'
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
           cargo test --all
@@ -102,22 +112,17 @@ jobs:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - uses: actions/download-artifact@v3
         with:
-          name: build-${{ runner.os }}
+          name: build-${{ matrix.target }}
           path: target/
-      - name: Compare test output results (TODO)
-        if: false && runner.os == 'Linux'
-        run: |
-          # TODO: this test is currently broken
-          # the output of the tests is not deterministic
-          diff --brief --recursive --new-file tests/output tests/expected
       - name: Save test output on failure (Linux)
-        if: failure() && runner.os == 'Linux'
+        if: failure() && matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/upload-artifact@v3
         with:
           name: test-output
           path: tests/output/*
           retention-days: 5
       - name: Test
+        if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
         run: |
           if [[ "${{ runner.os }}" != "Windows" ]]; then
@@ -140,7 +145,7 @@ jobs:
           fi
           cd -
       - name: Generate SHA-256 (MacOS)
-        if: runner.os == 'macOS'
+        if: matrix.target == 'x86_64-apple-darwin' || matrix.target == 'aarch64-apple-darwin'
         run: shasum -a 256 ${{ matrix.name }}
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
