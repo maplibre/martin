@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     # Don't change this name - it is used by the merge protection rules
-    name: Build all
+    name: Build ${{ matrix.target }}
     strategy:
       fail-fast: true
       matrix:
@@ -64,7 +64,7 @@ jobs:
 
   test:
     # Don't change this name - it is used by the merge protection rules
-    name: Test and package
+    name: Test & package ${{ matrix.target }}
     needs: [build]
     strategy:
       fail-fast: true
