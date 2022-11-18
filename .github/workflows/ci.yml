@@ -11,7 +11,8 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
+    # Don't change this name - it is used by the merge protection rules
+    name: Build all
     strategy:
       fail-fast: true
       matrix:
@@ -62,7 +63,8 @@ jobs:
           path: target_releases/*
 
   test:
-    name: Test & package ${{ matrix.target }}
+    # Don't change this name - it is used by the merge protection rules
+    name: Test and package
     needs: [build]
     strategy:
       fail-fast: true
