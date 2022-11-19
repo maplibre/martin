@@ -127,7 +127,9 @@ mod tests {
             },
             pg: PgConfig {
                 connection_string: "postgres://postgres@localhost:5432/db".to_string(),
+                #[cfg(feature = "ssl")]
                 ca_root_file: None,
+                #[cfg(feature = "ssl")]
                 danger_accept_invalid_certs: false,
                 default_srid: Some(4326),
                 pool_size: 20,

@@ -1,5 +1,5 @@
 use log::info;
-use martin::pg::dev::make_pool;
+use martin::pg::dev::{get_conn, make_pool};
 use martin::pg::function_source::get_function_sources;
 use martin::source::{Source, Xyz};
 
@@ -12,7 +12,7 @@ async fn get_function_sources_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let function_sources = get_function_sources(&mut connection).await.unwrap();
 
     info!("function_sources = {function_sources:#?}");
@@ -33,7 +33,7 @@ async fn function_source_tilejson_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let function_sources = get_function_sources(&mut connection).await.unwrap();
 
     let function_source = function_sources.get("public.function_source").unwrap();
@@ -56,7 +56,7 @@ async fn function_source_tile_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let function_sources = get_function_sources(&mut connection).await.unwrap();
 
     let function_source = function_sources.get("public.function_source").unwrap();
