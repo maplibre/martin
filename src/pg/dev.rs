@@ -1,8 +1,9 @@
-use crate::pg::db::{setup_connection_pool, Pool};
+use crate::pg::config::{PgConfig, PgConfigBuilder};
+use crate::pg::db::{setup_connection_pool, Connection, Pool};
 use crate::pg::function_source::{FunctionSource, FunctionSources};
 use crate::pg::table_source::{TableSource, TableSources};
+use crate::prettify_error;
 use crate::srv::server::AppState;
-use log::info;
 use std::collections::HashMap;
 use std::env;
 use tilejson::Bounds;
@@ -137,23 +138,42 @@ pub fn mock_default_function_sources() -> FunctionSources {
     mock_function_sources(&[function_source, function_source_query_params])
 }
 
+pub fn db_url() -> String {
+    env::var("DATABASE_URL").unwrap()
+}
+
+pub fn make_pg_config() -> PgConfig {
+    PgConfigBuilder {
+        connection_string: Some(db_url()),
+        pool_size: Some(1),
+        ..PgConfigBuilder::default()
+    }
+    .finalize()
+    .unwrap()
+}
+
 pub async fn make_pool() -> Pool {
-    let connection_string: String = env::var("DATABASE_URL").unwrap();
-    info!("Connecting to {connection_string}");
-
-    let pool = setup_connection_pool(&connection_string, &None, 1, false)
+    setup_connection_pool(&make_pg_config())
         .await
-        .unwrap();
-    info!("Connected to {connection_string}");
+        .map_err(|e| prettify_error!(e, "Unable to create a conn pool to {}", db_url()))
+        .unwrap()
+}
 
-    pool
+pub async fn get_conn(pool: &Pool) -> Connection {
+    pool.get()
+        .await
+        .map_err(|e| prettify_error!(e, "Unable to connect to {}", db_url()))
+        .unwrap()
 }
 
 pub async fn mock_state(
     table_sources: Option<TableSources>,
     function_sources: Option<FunctionSources>,
 ) -> AppState {
-    let pool = make_pool().await;
+    let pool = setup_connection_pool(&make_pg_config())
+        .await
+        .map_err(|e| prettify_error!(e, "Unable to connect to {}", db_url()))
+        .unwrap();
 
     AppState {
         pool,

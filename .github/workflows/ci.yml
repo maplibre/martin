@@ -48,7 +48,7 @@ jobs:
             # compile without debug symbols
             RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=vendored-openssl
           else
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --release --target ${{ matrix.target }} --features=ssl
           fi
           mkdir target_releases
           if [[ "${{ runner.os }}" == "Windows" ]]; then
@@ -109,7 +109,8 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
-          cargo test --all
+          cargo test --all-targets --all-features
+          cargo test --doc
           rm -rf target
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
