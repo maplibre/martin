@@ -1,4 +1,4 @@
-name: Build and test docker
+name: Docker
 
 on:
   push:
@@ -11,6 +11,8 @@ on:
 
 jobs:
   docker:
+    # Don't change this name - it is used by the merge protection rules
+    name: Build and test docker image
     runs-on: ubuntu-latest
     steps:
 
@@ -60,8 +62,9 @@ jobs:
 
       - name: Test Docker image
         run: |
+          TAG=$(echo '${{ steps.docker_meta.outputs.tags }}' | cut -d' ' -f1)
           export MARTIN_BUILD=-
-          export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ${{ steps.docker_meta.outputs.tags }}"
+          export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/tests $TAG"
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
