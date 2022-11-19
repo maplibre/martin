@@ -25,8 +25,9 @@ pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
 
 pub async fn setup_connection_pool(config: &PgConfig) -> io::Result<Pool> {
-    let cfg = pg::Config::from_str(config.connection_string.as_str())
-        .map_err(|e| prettify_error!(e, "Can't parse connection string"))?;
+    let conn_str = config.connection_string.as_str();
+    let cfg = pg::Config::from_str(conn_str)
+        .map_err(|e| prettify_error!(e, "Can't parse connection string {}", conn_str))?;
 
     #[cfg(not(feature = "ssl"))]
     let mgr = ConnectionManager::new(cfg, postgres::NoTls);

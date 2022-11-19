@@ -62,9 +62,10 @@ jobs:
 
       - name: Test Docker image
         run: |
-          TAG=$(echo '${{ steps.docker_meta.outputs.tags }}' | cut -d' ' -f1)
+          TAG=$(echo '${{ steps.docker_meta.outputs.json }}' | jq -r '.tags[0]')
           export MARTIN_BUILD=-
           export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/tests $TAG"
+          echo "MARTIN_BIN=$MARTIN_BIN"
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
