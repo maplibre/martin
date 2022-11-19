@@ -41,6 +41,7 @@ test: test-unit test-int
 # Run Rust unit and doc tests (cargo test)
 test-unit: start-db
     cargo test --all-targets
+    cargo test --all-targets --all-features
     cargo test --doc
 
 # Run integration tests
