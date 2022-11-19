@@ -1,5 +1,5 @@
 use log::info;
-use martin::pg::dev::make_pool;
+use martin::pg::dev::{get_conn, make_pool};
 use martin::pg::table_source::get_table_sources;
 use martin::source::{Source, Xyz};
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ async fn get_table_sources_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     info!("table_sources = {table_sources:#?}");
@@ -45,7 +45,7 @@ async fn table_source_tilejson_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
@@ -68,7 +68,7 @@ async fn table_source_tile_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     let table_source = table_sources.get("public.table_source").unwrap();
@@ -85,7 +85,7 @@ async fn table_source_srid_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let table_sources = get_table_sources(&mut connection, Some(900_913))
         .await
         .unwrap();
@@ -112,7 +112,7 @@ async fn table_source_multiple_geom_ok() {
     init();
 
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
     let table_sources = get_table_sources(&mut connection, None).await.unwrap();
 
     assert!(table_sources.contains_key("public.table_source_multiple_geom"));

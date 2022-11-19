@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use martin::pg::composite_source::CompositeSource;
-use martin::pg::dev::make_pool;
+use martin::pg::dev::{get_conn, make_pool};
 use martin::pg::function_source::FunctionSource;
 use martin::pg::table_source::TableSource;
 use martin::source::{Source, Xyz};
@@ -45,7 +45,7 @@ async fn get_table_source() {
 
 async fn get_table_source_tile() {
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
 
     let source = mock_table_source("public", "table_source");
     let xyz = Xyz { z: 0, x: 0, y: 0 };
@@ -67,7 +67,7 @@ async fn get_composite_source() {
 
 async fn get_composite_source_tile() {
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
 
     let points1 = mock_table_source("public", "points1");
     let points2 = mock_table_source("public", "points2");
@@ -88,7 +88,7 @@ async fn get_function_source() {
 
 async fn get_function_source_tile() {
     let pool = make_pool().await;
-    let mut connection = pool.get().await.unwrap();
+    let mut connection = get_conn(&pool).await;
 
     let source = mock_function_source("public", "function_source");
     let xyz = Xyz { z: 0, x: 0, y: 0 };
