@@ -1,83 +1,76 @@
 use crate::config::Config;
+use crate::pg::config::PgConfig;
 use crate::pg::function_source::get_function_sources;
 use crate::pg::table_source::get_table_sources;
 use crate::pg::utils::prettify_error;
 use bb8::PooledConnection;
-use bb8_postgres::{tokio_postgres, PostgresConnectionManager};
+use bb8_postgres::{tokio_postgres as pg, PostgresConnectionManager};
 use log::info;
+#[cfg(feature = "ssl")]
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+#[cfg(feature = "ssl")]
 use postgres_openssl::MakeTlsConnector;
 use semver::{Version, VersionReq};
 use std::io;
 use std::str::FromStr;
 
+#[cfg(feature = "ssl")]
 pub type ConnectionManager = PostgresConnectionManager<MakeTlsConnector>;
+#[cfg(not(feature = "ssl"))]
+pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
+
 pub type Pool = bb8::Pool<ConnectionManager>;
 pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
 
 const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
 
-fn make_tls_connector(
-    ca_root_file: &Option<String>,
-    danger_accept_invalid_certs: bool,
-) -> io::Result<MakeTlsConnector> {
-    let mut builder = SslConnector::builder(SslMethod::tls())?;
-
-    if danger_accept_invalid_certs {
-        builder.set_verify(SslVerifyMode::NONE);
-    }
-
-    if let Some(ca_root_file) = ca_root_file {
-        info!("Using {ca_root_file} as trusted root certificate");
-        builder.set_ca_file(ca_root_file)?;
-    }
-
-    let tls_connector = MakeTlsConnector::new(builder.build());
-    Ok(tls_connector)
-}
-
-pub async fn setup_connection_pool(
-    connection_string: &str,
-    ca_root_file: &Option<String>,
-    pool_size: u32,
-    danger_accept_invalid_certs: bool,
-) -> io::Result<Pool> {
-    let config = tokio_postgres::config::Config::from_str(connection_string)
+pub async fn setup_connection_pool(config: &PgConfig) -> io::Result<Pool> {
+    let cfg = pg::Config::from_str(config.connection_string.as_str())
         .map_err(|e| prettify_error!(e, "Can't parse connection string"))?;
 
-    let tls_connector = make_tls_connector(ca_root_file, danger_accept_invalid_certs)
-        .map_err(|e| prettify_error!(e, "Can't build TLS connection"))?;
+    #[cfg(not(feature = "ssl"))]
+    let mgr = ConnectionManager::new(cfg, postgres::NoTls);
 
-    let manager = PostgresConnectionManager::new(config, tls_connector);
+    #[cfg(feature = "ssl")]
+    let mgr = {
+        let mut builder = SslConnector::builder(SslMethod::tls())
+            .map_err(|e| prettify_error!(e, "Can't build TLS connection"))?;
 
-    let pool = Pool::builder()
-        .max_size(pool_size)
-        .build(manager)
+        if config.danger_accept_invalid_certs {
+            builder.set_verify(SslVerifyMode::NONE);
+        }
+
+        if let Some(ca_root_file) = &config.ca_root_file {
+            info!("Using {ca_root_file} as trusted root certificate");
+            builder.set_ca_file(ca_root_file).map_err(|e| {
+                prettify_error!(e, "Can't set trusted root certificate {}", ca_root_file)
+            })?;
+        }
+
+        ConnectionManager::new(cfg, MakeTlsConnector::new(builder.build()))
+    };
+
+    Pool::builder()
+        .max_size(config.pool_size)
+        .build(mgr)
         .await
-        .map_err(|e| prettify_error!(e, "Can't build connection pool"))?;
-
-    Ok(pool)
+        .map_err(|e| prettify_error!(e, "Can't build connection pool"))
 }
 
 pub async fn get_connection(pool: &Pool) -> io::Result<Connection<'_>> {
-    let connection = pool
-        .get()
+    pool.get()
         .await
-        .map_err(|e| prettify_error!(e, "Can't retrieve connection from the pool"))?;
-
-    Ok(connection)
+        .map_err(|e| prettify_error!(e, "Can't retrieve connection from the pool"))
 }
 
 async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
     let connection = get_connection(pool).await?;
 
-    let version = connection
+    connection
         .query_one(include_str!("scripts/get_postgis_version.sql"), &[])
         .await
         .map(|row| row.get::<_, String>("postgis_version"))
-        .map_err(|e| prettify_error!(e, "Can't get PostGIS version"))?;
-
-    Ok(version)
+        .map_err(|e| prettify_error!(e, "Can't get PostGIS version"))
 }
 
 async fn validate_postgis_version(pool: &Pool) -> io::Result<()> {
@@ -95,14 +88,8 @@ async fn validate_postgis_version(pool: &Pool) -> io::Result<()> {
 
 pub async fn configure_db_sources(mut config: &mut Config) -> io::Result<Pool> {
     info!("Connecting to database");
-    let pool = setup_connection_pool(
-        &config.pg.connection_string,
-        &config.pg.ca_root_file,
-        config.pg.pool_size,
-        config.pg.danger_accept_invalid_certs,
-    )
-    .await?;
 
+    let pool = setup_connection_pool(&config.pg).await?;
     validate_postgis_version(&pool).await?;
 
     let info_prefix = if config.pg.use_dynamic_sources {

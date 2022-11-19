@@ -10,9 +10,11 @@ pub const POOL_SIZE_DEFAULT: u32 = 20;
 #[command(about, version)]
 pub struct PgArgs {
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
+    #[cfg(feature = "ssl")]
     #[arg(long)]
     pub ca_root_file: Option<String>,
     /// Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
+    #[cfg(feature = "ssl")]
     #[arg(long)]
     pub danger_accept_invalid_certs: bool,
     /// If a spatial table has SRID 0, then this default SRID will be used as a fallback.
@@ -25,8 +27,10 @@ pub struct PgArgs {
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct PgConfig {
     pub connection_string: String,
+    #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ca_root_file: Option<String>,
+    #[cfg(feature = "ssl")]
     pub danger_accept_invalid_certs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
@@ -36,10 +40,12 @@ pub struct PgConfig {
     pub function_sources: FunctionSources,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PgConfigBuilder {
     pub connection_string: Option<String>,
+    #[cfg(feature = "ssl")]
     pub ca_root_file: Option<String>,
+    #[cfg(feature = "ssl")]
     pub danger_accept_invalid_certs: Option<bool>,
     pub default_srid: Option<i32>,
     pub pool_size: Option<u32>,
@@ -50,7 +56,9 @@ pub struct PgConfigBuilder {
 impl PgConfigBuilder {
     pub fn merge(&mut self, other: PgConfigBuilder) -> &mut Self {
         set_option(&mut self.connection_string, other.connection_string);
+        #[cfg(feature = "ssl")]
         set_option(&mut self.ca_root_file, other.ca_root_file);
+        #[cfg(feature = "ssl")]
         set_option(
             &mut self.danger_accept_invalid_certs,
             other.danger_accept_invalid_certs,
@@ -82,7 +90,9 @@ impl PgConfigBuilder {
         })?;
         Ok(PgConfig {
             connection_string,
+            #[cfg(feature = "ssl")]
             ca_root_file: self.ca_root_file,
+            #[cfg(feature = "ssl")]
             danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or_default(),
             default_srid: self.default_srid,
             pool_size: self.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
@@ -99,9 +109,11 @@ impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
             connection_string: connection.or_else(|| {
                 env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
             }),
+            #[cfg(feature = "ssl")]
             ca_root_file: args.ca_root_file.or_else(|| {
                 env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
             }),
+            #[cfg(feature = "ssl")]
             danger_accept_invalid_certs: if args.danger_accept_invalid_certs
                 || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some()
             {
