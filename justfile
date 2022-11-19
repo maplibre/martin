@@ -38,9 +38,11 @@ bench: start-db
 # Run all tests using a test database
 test: test-unit test-int
 
-# Run Rust unit tests (cargo test)
+# Run Rust unit and doc tests (cargo test)
 test-unit: start-db
-    cargo test
+    cargo test --all-targets
+    cargo test --all-targets --all-features
+    cargo test --doc
 
 # Run integration tests
 test-int: start-db clean-test

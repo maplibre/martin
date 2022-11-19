@@ -109,6 +109,7 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
+          cargo test --all-targets
           cargo test --all-targets --all-features
           cargo test --doc
           rm -rf target
