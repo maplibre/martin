@@ -39,9 +39,9 @@
       }).addTo(map);
 
       L.vectorGrid
-        .protobuf('http://localhost:3000/public.table_source/{z}/{x}/{y}.pbf', {
+        .protobuf('http://localhost:3000/table_source/{z}/{x}/{y}', {
           vectorTileLayerStyles: {
-            'public.table_source': {
+            'table_source': {
               color: 'black',
               fill: true,
               fillColor: 'black',

@@ -37,14 +37,14 @@
     map.on('load', function () {
       map.addSource('rpc', {
         type: 'vector',
-        url: `http://localhost:3000/rpc/public.function_source.json`
+        url: `http://localhost:3000/function_source`
       });
 
       map.addLayer({
         id: 'points',
         type: 'circle',
         source: 'rpc',
-        'source-layer': 'public.function_source',
+        'source-layer': 'function_source',
         paint: {
           'circle-color': 'blue'
         }

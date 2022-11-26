@@ -36,14 +36,14 @@
       map.on('load', function () {
         map.addSource('points', {
           type: 'vector',
-          url: `http://0.0.0.0:3000/public.points1,public.points2.json`
+          url: `http://0.0.0.0:3000/points1,points2`
         });
 
         map.addLayer({
           id: 'red_points',
           type: 'circle',
           source: 'points',
-          'source-layer': 'public.points1',
+          'source-layer': 'points1',
           paint: {
             'circle-color': 'red'
           }
@@ -57,7 +57,7 @@
           id: 'blue_points',
           type: 'circle',
           source: 'points',
-          'source-layer': 'public.points2',
+          'source-layer': 'points2',
           paint: {
             'circle-color': 'blue'
           }

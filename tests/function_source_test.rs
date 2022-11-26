@@ -1,26 +1,30 @@
+use ctor::ctor;
 use log::info;
-use martin::pg::dev::{get_conn, make_pool};
-use martin::pg::function_source::get_function_sources;
-use martin::source::{Source, Xyz};
+use martin::pg::config::FunctionInfoSources;
+use martin::pg::function_source::get_function_sources as get_sources;
+use martin::source::Xyz;
 
+#[path = "utils.rs"]
+mod utils;
+use utils::*;
+
+#[ctor]
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
 #[actix_rt::test]
-async fn get_function_sources_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let function_sources = get_function_sources(&mut connection).await.unwrap();
+async fn get_function_sources() {
+    let pool = mock_pool().await;
+    let function_sources = get_sources(&pool, &FunctionInfoSources::default())
+        .await
+        .unwrap();
 
     info!("function_sources = {function_sources:#?}");
 
     assert!(!function_sources.is_empty());
-    assert!(function_sources.contains_key("public.function_source"));
-
-    let function_source = function_sources.get("public.function_source").unwrap();
+    let function_source = single(&function_sources, |v| v.function == "function_source")
+        .expect("function_source not found");
     assert_eq!(function_source.schema, "public");
     assert_eq!(function_source.function, "function_source");
     assert_eq!(function_source.minzoom, None);
@@ -29,15 +33,10 @@ async fn get_function_sources_ok() {
 }
 
 #[actix_rt::test]
-async fn function_source_tilejson_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let function_sources = get_function_sources(&mut connection).await.unwrap();
-
-    let function_source = function_sources.get("public.function_source").unwrap();
-    let tilejson = function_source.get_tilejson().await.unwrap();
+async fn function_source_tilejson() {
+    let sources = mock_sources(None, None).await;
+    let source = sources.get("function_source").unwrap();
+    let tilejson = source.get_tilejson();
 
     info!("tilejson = {tilejson:#?}");
 
@@ -52,16 +51,11 @@ async fn function_source_tilejson_ok() {
 }
 
 #[actix_rt::test]
-async fn function_source_tile_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let function_sources = get_function_sources(&mut connection).await.unwrap();
-
-    let function_source = function_sources.get("public.function_source").unwrap();
-    let tile = function_source
-        .get_tile(&mut connection, &Xyz { x: 0, y: 0, z: 0 }, &None)
+async fn function_source_tile() {
+    let sources = mock_sources(None, None).await;
+    let source = sources.get("function_source").unwrap();
+    let tile = source
+        .get_tile(&Xyz { x: 0, y: 0, z: 0 }, &None)
         .await
         .unwrap();
 

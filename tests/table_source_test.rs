@@ -1,27 +1,30 @@
+use ctor::ctor;
 use log::info;
-use martin::pg::dev::{get_conn, make_pool};
+use martin::pg::config::{TableInfo, TableInfoSources, TableInfoVec};
 use martin::pg::table_source::get_table_sources;
-use martin::source::{Source, Xyz};
+use martin::source::Xyz;
 use std::collections::HashMap;
 
+#[path = "utils.rs"]
+mod utils;
+use utils::*;
+
+#[ctor]
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
 #[actix_rt::test]
 async fn get_table_sources_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
+    let pool = mock_pool().await;
+    let table_sources = get_table_sources(&pool, &TableInfoSources::default(), None)
+        .await
+        .unwrap();
 
     info!("table_sources = {table_sources:#?}");
 
     assert!(!table_sources.is_empty());
-    assert!(table_sources.contains_key("public.table_source"));
-
-    let table_source = table_sources.get("public.table_source").unwrap();
+    let table_source = get_source(&table_sources, "table_source");
     assert_eq!(table_source.schema, "public");
     assert_eq!(table_source.table, "table_source");
     assert_eq!(table_source.srid, 4326);
@@ -42,20 +45,15 @@ async fn get_table_sources_ok() {
 
 #[actix_rt::test]
 async fn table_source_tilejson_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
-
-    let table_source = table_sources.get("public.table_source").unwrap();
-    let tilejson = table_source.get_tilejson().await.unwrap();
+    let sources = mock_sources(None, None).await;
+    let source = sources.get("table_source").unwrap();
+    let tilejson = source.get_tilejson();
 
     info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, Some("1.0.0".to_owned()));
-    assert_eq!(tilejson.name, Some("public.table_source".to_owned()));
+    assert_eq!(tilejson.name, Some("public.table_source.geom".to_owned()));
     assert_eq!(tilejson.scheme, Some("xyz".to_owned()));
     assert_eq!(tilejson.minzoom, Some(0));
     assert_eq!(tilejson.maxzoom, Some(30));
@@ -65,15 +63,10 @@ async fn table_source_tilejson_ok() {
 
 #[actix_rt::test]
 async fn table_source_tile_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
-
-    let table_source = table_sources.get("public.table_source").unwrap();
-    let tile = table_source
-        .get_tile(&mut connection, &Xyz { x: 0, y: 0, z: 0 }, &None)
+    let sources = mock_sources(None, None).await;
+    let source = sources.get("table_source").unwrap();
+    let tile = source
+        .get_tile(&Xyz { x: 0, y: 0, z: 0 }, &None)
         .await
         .unwrap();
 
@@ -82,57 +75,44 @@ async fn table_source_tile_ok() {
 
 #[actix_rt::test]
 async fn table_source_srid_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let table_sources = get_table_sources(&mut connection, Some(900_913))
+    let pool = mock_pool().await;
+    let table_sources = get_table_sources(&pool, &TableInfoSources::default(), Some(900913))
         .await
         .unwrap();
 
-    assert!(table_sources.contains_key("public.points1"));
-    let points1 = table_sources.get("public.points1").unwrap();
+    let points1 = get_source(&table_sources, "points1");
     assert_eq!(points1.srid, 4326);
 
-    assert!(table_sources.contains_key("public.points2"));
-    let points2 = table_sources.get("public.points2").unwrap();
+    let points2 = get_source(&table_sources, "points2");
     assert_eq!(points2.srid, 4326);
 
-    assert!(table_sources.contains_key("public.points3857"));
-    let points3857 = table_sources.get("public.points3857").unwrap();
+    let points3857 = get_source(&table_sources, "points3857");
     assert_eq!(points3857.srid, 3857);
 
-    assert!(table_sources.contains_key("public.points_empty_srid"));
-    let points_empty_srid = table_sources.get("public.points_empty_srid").unwrap();
-    assert_eq!(points_empty_srid.srid, 900_913);
+    let points_empty_srid = get_source(&table_sources, "points_empty_srid");
+    assert_eq!(points_empty_srid.srid, 900913);
 }
 
 #[actix_rt::test]
 async fn table_source_multiple_geom_ok() {
-    init();
-
-    let pool = make_pool().await;
-    let mut connection = get_conn(&pool).await;
-    let table_sources = get_table_sources(&mut connection, None).await.unwrap();
-
-    assert!(table_sources.contains_key("public.table_source_multiple_geom"));
-    let table_source_multiple_geom = table_sources
-        .get("public.table_source_multiple_geom")
+    let pool = mock_pool().await;
+    let table_sources = get_table_sources(&pool, &TableInfoSources::default(), None)
+        .await
         .unwrap();
 
+    let table_source_multiple_geom = single(&table_sources, |v| {
+        v.table == "table_source_multiple_geom" && v.geometry_column == "geom1"
+    })
+    .expect("table_source_multiple_geom.geom1 not found");
     assert_eq!(table_source_multiple_geom.geometry_column, "geom1");
 
-    assert!(table_sources.contains_key("public.table_source_multiple_geom.geom1"));
-    let table_source_multiple_geom1 = table_sources
-        .get("public.table_source_multiple_geom.geom1")
-        .unwrap();
+    let table_source_multiple_geom = single(&table_sources, |v| {
+        v.table == "table_source_multiple_geom" && v.geometry_column == "geom2"
+    })
+    .expect("table_source_multiple_geom.geom2 not found");
+    assert_eq!(table_source_multiple_geom.geometry_column, "geom2");
+}
 
-    assert_eq!(table_source_multiple_geom1.geometry_column, "geom1");
-
-    assert!(table_sources.contains_key("public.table_source_multiple_geom.geom2"));
-    let table_source_multiple_geom2 = table_sources
-        .get("public.table_source_multiple_geom.geom2")
-        .unwrap();
-
-    assert_eq!(table_source_multiple_geom2.geometry_column, "geom2");
+fn get_source<'a>(table_sources: &'a TableInfoVec, name: &'static str) -> &'a TableInfo {
+    single(table_sources, |v| v.table == *name).unwrap_or_else(|| panic!("{name} not found"))
 }

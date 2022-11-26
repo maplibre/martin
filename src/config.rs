@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
@@ -17,7 +17,7 @@ pub struct Config {
     pub pg: PgConfig,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct ConfigBuilder {
     #[serde(flatten)]
     pub srv: SrvConfigBuilder,
@@ -72,8 +72,7 @@ pub fn read_config(file_name: &str) -> io::Result<ConfigBuilder> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pg::function_source::FunctionSource;
-    use crate::pg::table_source::TableSource;
+    use crate::pg::config::{FunctionInfo, TableInfo};
     use indoc::indoc;
     use std::collections::HashMap;
 
@@ -90,8 +89,7 @@ mod tests {
             worker_processes: 8
 
             table_sources:
-              public.table_source:
-                id: public.table_source
+              table_source:
                 schema: public
                 table: table_source
                 srid: 4326
@@ -108,8 +106,7 @@ mod tests {
                   gid: int4
 
             function_sources:
-              public.function_source:
-                id: public.function_source
+              function_source:
                 schema: public
                 function: function_source
                 minzoom: 0
@@ -133,11 +130,11 @@ mod tests {
                 danger_accept_invalid_certs: false,
                 default_srid: Some(4326),
                 pool_size: 20,
-                use_dynamic_sources: false,
+                discover_functions: false,
+                discover_tables: false,
                 table_sources: HashMap::from([(
-                    "public.table_source".to_string(),
-                    Box::new(TableSource {
-                        id: "public.table_source".to_string(),
+                    "table_source".to_string(),
+                    TableInfo {
                         schema: "public".to_string(),
                         table: "table_source".to_string(),
                         srid: 4326,
@@ -152,19 +149,18 @@ mod tests {
                         geometry_type: Some("GEOMETRY".to_string()),
                         properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
                         unrecognized: HashMap::new(),
-                    }),
+                    },
                 )]),
                 function_sources: HashMap::from([(
-                    "public.function_source".to_string(),
-                    Box::new(FunctionSource {
-                        id: "public.function_source".to_string(),
+                    "function_source".to_string(),
+                    FunctionInfo {
                         schema: "public".to_string(),
                         function: "function_source".to_string(),
                         minzoom: Some(0),
                         maxzoom: Some(30),
                         bounds: Some([-180, -90, 180, 90].into()),
                         unrecognized: HashMap::new(),
-                    }),
+                    },
                 )]),
             },
         };
