@@ -118,6 +118,15 @@ test_pbf fnc_20_633856_327787   http://localhost:3000/function_zxy_query/20/6338
 test_pbf fnc_21_1267712_655574  http://localhost:3000/function_zxy_query/21/1267712/655574
 test_pbf fnc_0_0_0_token        http://localhost:3000/function_zxy_query_test/0/0/0?token=martin
 
+>&2 echo "Test server response for different function call types"
+test_pbf fnc_zoom_xy_6_38_20        http://localhost:3000/function_zoom_xy/6/38/20
+test_pbf fnc_zxy_6_38_20            http://localhost:3000/function_zxy/6/38/20
+test_pbf fnc_zxy2_6_38_20           http://localhost:3000/function_zxy2/6/38/20
+test_pbf fnc_zxy_query_6_38_20      http://localhost:3000/function_zxy_query/6/38/20
+test_pbf fnc_zxy_row_6_38_20        http://localhost:3000/function_zxy_row/6/38/20
+test_pbf fnc_zxy_row2_6_38_20       http://localhost:3000/function_zxy_row2/6/38/20
+test_pbf fnc_zxy_row_key_6_38_20    http://localhost:3000/function_zxy_row_key/6/38/20
+
 >&2 echo "Test server response for table source with different SRID"
 test_pbf points3857_srid_0_0_0  http://localhost:3000/points3857/0/0/0
 

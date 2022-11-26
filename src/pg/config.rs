@@ -94,7 +94,28 @@ impl FormatId for TableInfo {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Debug, PartialEq, Default)]
+pub struct FunctionInfoDbInfo {
+    #[serde(skip_serializing)]
+    pub query: String,
+    #[serde(skip_serializing)]
+    pub has_query_params: bool,
+    #[serde(skip_serializing)]
+    pub signature: String,
+    #[serde(flatten)]
+    pub info: FunctionInfo,
+}
+
+impl FunctionInfoDbInfo {
+    pub fn with_info(&self, info: &FunctionInfo) -> Self {
+        Self {
+            info: info.clone(),
+            ..self.clone()
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct FunctionInfo {
     /// Schema name
     pub schema: String,
@@ -121,6 +142,33 @@ pub struct FunctionInfo {
     pub unrecognized: HashMap<String, Value>,
 }
 
+impl FunctionInfo {
+    pub fn new(schema: String, function: String) -> Self {
+        Self {
+            schema,
+            function,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_extended(
+        schema: String,
+        function: String,
+        minzoom: u8,
+        maxzoom: u8,
+        bounds: Bounds,
+    ) -> Self {
+        Self {
+            schema,
+            function,
+            minzoom: Some(minzoom),
+            maxzoom: Some(maxzoom),
+            bounds: Some(bounds),
+            ..Default::default()
+        }
+    }
+}
+
 impl FormatId for FunctionInfo {
     fn format_id(&self, db_id: &str) -> String {
         format!("{}.{}.{}", db_id, self.schema, self.function)
@@ -129,11 +177,16 @@ impl FormatId for FunctionInfo {
 
 pub type TableInfoSources = HashMap<String, TableInfo>;
 pub type TableInfoVec = Vec<TableInfo>;
-pub type FunctionInfoSources = HashMap<String, FunctionInfo>;
-pub type FunctionInfoVec = Vec<FunctionInfo>;
+pub type FuncInfoSources = HashMap<String, FunctionInfo>;
+pub type FuncInfoDbSources = HashMap<String, FunctionInfoDbInfo>;
+pub type FuncInfoDbMapMap = HashMap<String, HashMap<String, FunctionInfoDbInfo>>;
+pub type FuncInfoDbVec = Vec<FunctionInfoDbInfo>;
+
+pub type PgConfig = PgConfigRaw<TableInfoSources, FuncInfoSources>;
+pub type PgConfigDb = PgConfigRaw<TableInfoSources, FuncInfoDbSources>;
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
-pub struct PgConfig {
+pub struct PgConfigRaw<T, F> {
     pub connection_string: String,
     #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -145,8 +198,8 @@ pub struct PgConfig {
     pub pool_size: u32,
     pub discover_functions: bool,
     pub discover_tables: bool,
-    pub table_sources: TableInfoSources,
-    pub function_sources: FunctionInfoSources,
+    pub table_sources: T,
+    pub function_sources: F,
 }
 
 #[derive(Debug, Default, PartialEq, Deserialize)]
@@ -159,7 +212,7 @@ pub struct PgConfigBuilder {
     pub default_srid: Option<i32>,
     pub pool_size: Option<u32>,
     pub table_sources: Option<TableInfoSources>,
-    pub function_sources: Option<FunctionInfoSources>,
+    pub function_sources: Option<FuncInfoSources>,
 }
 
 impl PgConfigBuilder {
@@ -241,6 +294,28 @@ impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
             pool_size: args.pool_size,
             table_sources: None,
             function_sources: None,
+        }
+    }
+}
+
+impl PgConfig {
+    pub fn to_db(
+        self,
+        table_sources: TableInfoSources,
+        function_sources: FuncInfoDbSources,
+    ) -> PgConfigDb {
+        PgConfigDb {
+            connection_string: self.connection_string,
+            #[cfg(feature = "ssl")]
+            ca_root_file: self.ca_root_file,
+            #[cfg(feature = "ssl")]
+            danger_accept_invalid_certs: self.danger_accept_invalid_certs,
+            default_srid: self.default_srid,
+            pool_size: self.pool_size,
+            discover_functions: self.discover_functions,
+            discover_tables: self.discover_tables,
+            table_sources,
+            function_sources,
         }
     }
 }

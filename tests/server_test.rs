@@ -48,7 +48,7 @@ async fn get_table_catalog_ok() {
 
 #[actix_rt::test]
 async fn get_function_catalog_ok() {
-    let app = create_app!(mock_default_function_sources());
+    let app = create_app!(mock_sources(None, None));
 
     let req = test_get("/catalog");
     let response = call_service(&app, req).await;
@@ -254,6 +254,32 @@ async fn get_table_source_tile_minmax_zoom_ok() {
 }
 
 #[actix_rt::test]
+async fn get_function_tiles() {
+    let app = create_app!(mock_sources(None, None));
+
+    let req = test_get("/function_zoom_xy/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
+    let req = test_get("/function_zxy/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
+    let req = test_get("/function_zxy2/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
+    let req = test_get("/function_zxy_query/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
+    let req = test_get("/function_zxy_row/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
+    let req = test_get("/function_zxy_row2/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
+    let req = test_get("/function_zxy_row_key/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+}
+
+#[actix_rt::test]
 async fn get_composite_source_ok() {
     let app = create_app!(mock_default_table_sources());
 
@@ -356,13 +382,37 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_ok() {
-    let app = create_app!(mock_default_function_sources());
+    let app = create_app!(mock_sources(None, None));
 
     let req = test_get("/non_existent");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
+    let req = test_get("/function_zoom_xy");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
+    let req = test_get("/function_zxy");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
     let req = test_get("/function_zxy_query");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
+    let req = test_get("/function_zxy_query_test");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
+    let req = test_get("/function_zxy_row");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
+    let req = test_get("/function_zxy_row2");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
+    let req = test_get("/function_zxy_row_key");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
@@ -379,7 +429,7 @@ async fn get_function_source_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_tile_ok() {
-    let app = create_app!(mock_default_function_sources());
+    let app = create_app!(mock_sources(None, None));
 
     let req = test_get("/function_zxy_query/0/0/0");
     let response = call_service(&app, req).await;
@@ -388,23 +438,14 @@ async fn get_function_source_tile_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_tile_minmax_zoom_ok() {
-    let function_source1 = FunctionInfo {
-        schema: "public".to_owned(),
-        function: "function_zxy_query".to_owned(),
-        minzoom: None,
-        maxzoom: None,
-        bounds: Some(Bounds::MAX),
-        unrecognized: HashMap::new(),
-    };
-
-    let function_source2 = FunctionInfo {
-        schema: "public".to_owned(),
-        function: "function_zxy_query".to_owned(),
-        minzoom: Some(6),
-        maxzoom: Some(12),
-        bounds: Some(Bounds::MAX),
-        unrecognized: HashMap::new(),
-    };
+    let function_source1 = FunctionInfo::new("public".to_owned(), "function_zxy_query".to_owned());
+    let function_source2 = FunctionInfo::new_extended(
+        "public".to_owned(),
+        "function_zxy_query".to_owned(),
+        6,
+        12,
+        Bounds::MAX,
+    );
 
     let funcs = &[
         ("function_source1", function_source1),
@@ -455,7 +496,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_query_params_ok() {
-    let app = create_app!(mock_default_function_sources());
+    let app = create_app!(mock_sources(None, None));
 
     let req = test_get("/function_zxy_query_test/0/0/0");
     let response = call_service(&app, req).await;
@@ -469,7 +510,7 @@ async fn get_function_source_query_params_ok() {
 
 #[actix_rt::test]
 async fn get_health_returns_ok() {
-    let app = create_app!(mock_default_function_sources());
+    let app = create_app!(mock_sources(None, None));
 
     let req = test_get("/health");
     let response = call_service(&app, req).await;

@@ -1,4 +1,5 @@
 DROP FUNCTION IF EXISTS public.function_zxy_query_test;
+
 CREATE OR REPLACE FUNCTION public.function_zxy_query_test(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
 DECLARE
   mvt bytea;

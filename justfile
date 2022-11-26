@@ -3,6 +3,7 @@ set shell := ["bash", "-c"]
 
 export DATABASE_URL := "postgres://postgres@localhost/db"
 export CARGO_TERM_COLOR := "always"
+# export RUST_LOG := "debug"
 # export RUST_BACKTRACE := "1"
 
 @_default:

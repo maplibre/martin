@@ -1,9 +1,9 @@
 use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
-use martin::config::{read_config, ConfigBuilder};
+use martin::config::{read_config, ConfigBuilder, ConfigDb};
 use martin::pg::config::{PgArgs, PgConfigBuilder};
-use martin::pg::db::PgConfigurator;
+use martin::pg::db::resolve_pg_data;
 use martin::source::IdResolver;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
@@ -70,13 +70,14 @@ async fn start(args: Args) -> io::Result<Server> {
     if let Some(file_cfg) = file_cfg {
         builder.merge(file_cfg);
     }
-    let mut config = builder.finalize()?;
+    let config = builder.finalize()?;
 
     let id_resolver = IdResolver::new(RESERVED_KEYWORDS);
-    let mut pg_config = PgConfigurator::new(&config.pg, id_resolver).await?;
-    let sources = pg_config.discover_db_sources().await?;
-    config.pg.table_sources = pg_config.table_sources;
-    config.pg.function_sources = pg_config.function_sources;
+    let (sources, pg_config, _) = resolve_pg_data(config.pg, id_resolver).await?;
+    let config = ConfigDb {
+        srv: config.srv,
+        pg: pg_config,
+    };
 
     if save_config.is_some() {
         let yaml = serde_yaml::to_string(&config).expect("Unable to serialize config");
@@ -94,7 +95,7 @@ async fn start(args: Args) -> io::Result<Server> {
     }
 
     let listen_addresses = config.srv.listen_addresses.clone();
-    let server = server::new(config, sources);
+    let server = server::new(config.srv, sources);
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
     Ok(server)

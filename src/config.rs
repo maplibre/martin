@@ -1,5 +1,5 @@
 use crate::io_error;
-use crate::pg::config::{PgConfig, PgConfigBuilder};
+use crate::pg::config::{PgConfig, PgConfigBuilder, PgConfigDb};
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,14 @@ pub struct Config {
     pub srv: SrvConfig,
     #[serde(flatten)]
     pub pg: PgConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ConfigDb {
+    #[serde(flatten)]
+    pub srv: SrvConfig,
+    #[serde(flatten)]
+    pub pg: PgConfigDb,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -154,14 +162,13 @@ mod tests {
                 )]),
                 function_sources: HashMap::from([(
                     "function_zxy_query".to_string(),
-                    FunctionInfo {
-                        schema: "public".to_string(),
-                        function: "function_zxy_query".to_string(),
-                        minzoom: Some(0),
-                        maxzoom: Some(30),
-                        bounds: Some(Bounds::MAX),
-                        unrecognized: HashMap::new(),
-                    },
+                    FunctionInfo::new_extended(
+                        "public".to_string(),
+                        "function_zxy_query".to_string(),
+                        0,
+                        30,
+                        Bounds::MAX,
+                    ),
                 )]),
             },
         };

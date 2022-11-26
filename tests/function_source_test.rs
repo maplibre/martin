@@ -1,6 +1,5 @@
 use ctor::ctor;
 use log::info;
-use martin::pg::config::FunctionInfoSources;
 use martin::pg::function_source::get_function_sources as get_sources;
 use martin::source::Xyz;
 
@@ -16,20 +15,20 @@ fn init() {
 #[actix_rt::test]
 async fn get_function_sources() {
     let pool = mock_pool().await;
-    let sources = get_sources(&pool, &FunctionInfoSources::default())
-        .await
-        .unwrap();
+    let sources = get_sources(&pool).await.unwrap();
 
-    info!("sources = {sources:#?}");
-
+    // dbg!(&sources);
     assert!(!sources.is_empty());
-    let source = single(&sources, |v| v.function == "function_zxy_query")
+
+    let funcs = sources.get("public").expect("public schema not found");
+    let source = funcs
+        .get("function_zxy_query")
         .expect("function_zxy_query not found");
-    assert_eq!(source.schema, "public");
-    assert_eq!(source.function, "function_zxy_query");
-    assert_eq!(source.minzoom, None);
-    assert_eq!(source.maxzoom, None);
-    assert_eq!(source.bounds, None);
+    assert_eq!(source.info.schema, "public");
+    assert_eq!(source.info.function, "function_zxy_query");
+    assert_eq!(source.info.minzoom, None);
+    assert_eq!(source.info.maxzoom, None);
+    assert_eq!(source.info.bounds, None);
 }
 
 #[actix_rt::test]

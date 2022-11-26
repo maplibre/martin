@@ -1,6 +1,6 @@
-use crate::config::Config;
 use crate::pg::utils::parse_x_rewrite_url;
 use crate::source::{Source, Xyz};
+use crate::srv::config::SrvConfig;
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::header::CACHE_CONTROL;
@@ -272,10 +272,10 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         .service(get_tile);
 }
 
-pub fn new(config: Config, sources: Sources) -> Server {
-    let keep_alive = config.srv.keep_alive;
-    let worker_processes = config.srv.worker_processes;
-    let listen_addresses = config.srv.listen_addresses;
+pub fn new(config: SrvConfig, sources: Sources) -> Server {
+    let keep_alive = config.keep_alive;
+    let worker_processes = config.worker_processes;
+    let listen_addresses = config.listen_addresses;
 
     HttpServer::new(move || {
         let state = AppState {
