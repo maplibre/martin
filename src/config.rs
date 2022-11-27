@@ -1,5 +1,5 @@
+use crate::io_error;
 use crate::pg::config::{PgConfig, PgConfigBuilder};
-use crate::prettify_error;
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -61,12 +61,12 @@ pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, V
 /// Read config from a file
 pub fn read_config(file_name: &str) -> io::Result<ConfigBuilder> {
     let mut file = File::open(file_name)
-        .map_err(|e| prettify_error!(e, "Unable to open config file '{}'", file_name))?;
+        .map_err(|e| io_error!(e, "Unable to open config file '{file_name}'"))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .map_err(|e| prettify_error!(e, "Unable to read config file '{}'", file_name))?;
+        .map_err(|e| io_error!(e, "Unable to read config file '{file_name}'"))?;
     serde_yaml::from_str(contents.as_str())
-        .map_err(|e| prettify_error!(e, "Error parsing config file '{}'", file_name))
+        .map_err(|e| io_error!(e, "Error parsing config file '{file_name}'"))
 }
 
 #[cfg(test)]

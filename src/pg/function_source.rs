@@ -1,7 +1,7 @@
 use crate::pg::config::{FormatId, FunctionInfo, FunctionInfoSources, FunctionInfoVec};
 use crate::pg::db::get_connection;
 use crate::pg::db::Pool;
-use crate::pg::utils::{creat_tilejson, is_valid_zoom, prettify_error, query_to_json};
+use crate::pg::utils::{creat_tilejson, io_error, is_valid_zoom, query_to_json};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
 use log::info;
@@ -84,21 +84,17 @@ impl Source for FunctionSource {
                 &[Type::INT4, Type::INT4, Type::INT4, Type::JSON],
             )
             .await
-            .map_err(|e| prettify_error!(e, "Can't create prepared statement for the tile"))?;
+            .map_err(|e| io_error!(e, "Can't create prepared statement for the tile"))?;
 
         let tile = conn
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
             .await
             .map(|row| row.get(self.info.function.as_str()))
-            .map_err(|error| {
-                prettify_error!(
-                    error,
-                    r#"Can't get "{}" tile at {}/{}/{} with {:?} params"#,
+            .map_err(|e| {
+                io_error!(
+                    e,
+                    r#"Can't get "{}" tile at {xyz} with {query_json:?} params"#,
                     self.id,
-                    xyz.z,
-                    xyz.x,
-                    xyz.z,
-                    query_json
                 )
             })?;
 
@@ -115,7 +111,7 @@ pub async fn get_function_sources(
     let rows = conn
         .query(include_str!("scripts/get_function_sources.sql"), &[])
         .await
-        .map_err(|e| prettify_error!(e, "Can't get function sources"))?;
+        .map_err(|e| io_error!(e, "Can't get function sources"))?;
 
     let mut result = FunctionInfoVec::default();
     for row in &rows {
