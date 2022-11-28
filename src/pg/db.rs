@@ -3,7 +3,7 @@ use crate::pg::config::{
 };
 use crate::pg::function_source::{get_function_sources, FunctionSource};
 use crate::pg::table_source::{get_table_sources, TableSource};
-use crate::pg::utils::prettify_error;
+use crate::pg::utils::io_error;
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
 use bb8::PooledConnection;
@@ -45,7 +45,7 @@ impl PgConfigurator {
         let conn_str = config.connection_string.as_str();
         info!("Connecting to {conn_str}");
         let pg_cfg = pg::config::Config::from_str(conn_str)
-            .map_err(|e| prettify_error!(e, "Can't parse connection string {}", conn_str))?;
+            .map_err(|e| io_error!(e, "Can't parse connection string {conn_str}"))?;
 
         let db_id = pg_cfg
             .get_dbname()
@@ -57,7 +57,7 @@ impl PgConfigurator {
         #[cfg(feature = "ssl")]
         let manager = {
             let mut builder = SslConnector::builder(SslMethod::tls())
-                .map_err(|e| prettify_error!(e, "Can't build TLS connection"))?;
+                .map_err(|e| io_error!(e, "Can't build TLS connection"))?;
 
             if config.danger_accept_invalid_certs {
                 builder.set_verify(SslVerifyMode::NONE);
@@ -66,7 +66,7 @@ impl PgConfigurator {
             if let Some(ca_root_file) = &config.ca_root_file {
                 info!("Using {ca_root_file} as trusted root certificate");
                 builder.set_ca_file(ca_root_file).map_err(|e| {
-                    prettify_error!(e, "Can't set trusted root certificate {}", ca_root_file)
+                    io_error!(e, "Can't set trusted root certificate {ca_root_file}")
                 })?;
             }
             PostgresConnectionManager::new(pg_cfg, MakeTlsConnector::new(builder.build()))
@@ -76,13 +76,13 @@ impl PgConfigurator {
             .max_size(config.pool_size)
             .build(manager)
             .await
-            .map_err(|e| prettify_error!(e, "Can't build connection pool"))?;
+            .map_err(|e| io_error!(e, "Can't build connection pool"))?;
 
         let postgis_version = select_postgis_version(&pool).await?;
         let req = VersionReq::parse(REQUIRED_POSTGIS_VERSION)
-            .map_err(|e| prettify_error!(e, "Can't parse required PostGIS version"))?;
+            .map_err(|e| io_error!(e, "Can't parse required PostGIS version"))?;
         let version = Version::parse(postgis_version.as_str())
-            .map_err(|e| prettify_error!(e, "Can't parse database PostGIS version"))?;
+            .map_err(|e| io_error!(e, "Can't parse database PostGIS version"))?;
 
         if !req.matches(&version) {
             Err(io::Error::new(io::ErrorKind::Other, format!("Martin requires PostGIS {REQUIRED_POSTGIS_VERSION}, current version is {postgis_version}")))
@@ -231,7 +231,7 @@ impl PgConfigurator {
 pub async fn get_connection(pool: &Pool) -> io::Result<Connection<'_>> {
     pool.get()
         .await
-        .map_err(|e| prettify_error!(e, "Can't retrieve connection from the pool"))
+        .map_err(|e| io_error!(e, "Can't retrieve connection from the pool"))
 }
 
 async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
@@ -241,5 +241,5 @@ async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
         .query_one(include_str!("scripts/get_postgis_version.sql"), &[])
         .await
         .map(|row| row.get::<_, String>("postgis_version"))
-        .map_err(|e| prettify_error!(e, "Can't get PostGIS version"))
+        .map_err(|e| io_error!(e, "Can't get PostGIS version"))
 }

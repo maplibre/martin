@@ -2,8 +2,8 @@ use crate::pg::config::{FormatId, TableInfo, TableInfoSources, TableInfoVec};
 use crate::pg::db::get_connection;
 use crate::pg::db::Pool;
 use crate::pg::utils::{
-    creat_tilejson, get_bounds_cte, get_source_bounds, get_srid_bounds, is_valid_zoom,
-    json_to_hashmap, polygon_to_bbox, prettify_error, tile_bbox,
+    creat_tilejson, get_bounds_cte, get_source_bounds, get_srid_bounds, io_error, is_valid_zoom,
+    json_to_hashmap, polygon_to_bbox, tile_bbox,
 };
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
@@ -125,16 +125,7 @@ impl Source for TableSource {
             .query_one(tile_query.as_str(), &[])
             .await
             .map(|row| row.get("st_asmvt"))
-            .map_err(|error| {
-                prettify_error!(
-                    error,
-                    r#"Can't get "{}" tile at /{}/{}/{}"#,
-                    self.id,
-                    xyz.z,
-                    xyz.x,
-                    xyz.z
-                )
-            })?;
+            .map_err(|error| io_error!(error, r#"Can't get "{}" tile at {xyz}"#, self.id))?;
 
         Ok(tile)
     }
@@ -154,7 +145,7 @@ pub async fn get_table_sources(
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
         .await
-        .map_err(|e| prettify_error!(e, "Can't get table sources"))?;
+        .map_err(|e| io_error!(e, "Can't get table sources"))?;
 
     let mut result = TableInfoVec::default();
     for row in &rows {

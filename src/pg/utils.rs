@@ -8,20 +8,15 @@ use std::collections::HashMap;
 use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
 
 #[macro_export]
-macro_rules! prettify_error {
-    ($error:ident, $info:literal) => {
+macro_rules! io_error {
+    ($error:ident $(, $arg:expr)* $(,)?) => {
         ::std::io::Error::new(
             ::std::io::ErrorKind::Other,
-            ::std::format!(::std::concat!($info, ": {}"), $error))
-    };
-    ($error:ident, $($arg:tt)+) => {
-        ::std::io::Error::new(
-            ::std::io::ErrorKind::Other,
-            ::std::format!("{}: {}", ::std::format_args!($($arg)+), $error))
+            ::std::format!("{}: {}", ::std::format_args!($($arg,)+), $error))
     };
 }
 
-pub(crate) use prettify_error;
+pub(crate) use io_error;
 
 // https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
 pub fn tile_bbox(xyz: &Xyz) -> String {

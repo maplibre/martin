@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use martin_tile_utils::DataFormat;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
 use std::fmt::Write;
+use std::fmt::{Debug, Display, Formatter};
 use std::io;
 use std::sync::{Arc, Mutex};
 use tilejson::TileJSON;
@@ -13,6 +13,12 @@ pub struct Xyz {
     pub z: i32,
     pub x: i32,
     pub y: i32,
+}
+
+impl Display for Xyz {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}/{}", self.z, self.x, self.y)
+    }
 }
 
 pub type Tile = Vec<u8>;
