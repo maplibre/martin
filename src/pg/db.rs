@@ -27,7 +27,8 @@ pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
 pub type Pool = bb8::Pool<ConnectionManager>;
 pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
 
-const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
+// We require ST_TileEnvelope that was added in PostGIS 3.0.0
+const REQUIRED_POSTGIS_VERSION: &str = ">= 3.0.0";
 
 pub struct PgConfigurator {
     pool: Pool,
@@ -121,9 +122,8 @@ impl PgConfigurator {
         let mut tables = TableInfoSources::new();
         if self.discover_tables {
             info!("Automatically detecting table sources");
-            for info in
-                get_table_sources(&self.pool, &self.table_sources, self.default_srid).await?
-            {
+            let srcs = get_table_sources(&self.pool, &self.table_sources, self.default_srid).await;
+            for info in srcs? {
                 self.add_table_src(&mut sources, Some(&mut tables), info.table.clone(), info);
             }
         }
@@ -153,10 +153,8 @@ impl PgConfigurator {
             info.geometry_type.as_deref().unwrap_or("null"),
             info.srid
         );
-        sources.insert(
-            id.clone(),
-            Box::new(TableSource::new(id, info, self.pool.clone())),
-        );
+        let source = TableSource::new(id.clone(), info, self.pool.clone());
+        sources.insert(id, Box::new(source));
     }
 
     pub async fn instantiate_functions(&self) -> Result<(Sources, FunctionInfoSources), io::Error> {
@@ -235,9 +233,8 @@ pub async fn get_connection(pool: &Pool) -> io::Result<Connection<'_>> {
 }
 
 async fn select_postgis_version(pool: &Pool) -> io::Result<String> {
-    let connection = get_connection(pool).await?;
-
-    connection
+    get_connection(pool)
+        .await?
         .query_one(include_str!("scripts/get_postgis_version.sql"), &[])
         .await
         .map(|row| row.get::<_, String>("postgis_version"))

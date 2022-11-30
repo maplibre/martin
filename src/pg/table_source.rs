@@ -3,7 +3,7 @@ use crate::pg::db::get_connection;
 use crate::pg::db::Pool;
 use crate::pg::utils::{
     creat_tilejson, get_bounds_cte, get_source_bounds, get_srid_bounds, io_error, is_valid_zoom,
-    json_to_hashmap, polygon_to_bbox, tile_bbox,
+    json_to_hashmap, polygon_to_bbox,
 };
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;
@@ -43,8 +43,6 @@ impl TableSource {
     }
 
     pub fn get_geom_query(&self, xyz: &Xyz) -> String {
-        let mercator_bounds = tile_bbox(xyz);
-
         let info = &self.info;
         let properties = if info.properties.is_empty() {
             String::new()
@@ -65,7 +63,9 @@ impl TableSource {
             table = info.table,
             srid = info.srid,
             geometry_column = info.geometry_column,
-            mercator_bounds = mercator_bounds,
+            z = xyz.z,
+            x = xyz.x,
+            y = xyz.y,
             extent = info.extent.unwrap_or(DEFAULT_EXTENT),
             buffer = info.buffer.unwrap_or(DEFAULT_BUFFER),
             clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),

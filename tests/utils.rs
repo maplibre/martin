@@ -173,26 +173,26 @@ pub async fn mock_default_table_sources() -> Sources {
 
 #[allow(dead_code)]
 pub async fn mock_default_function_sources() -> Sources {
-    let function_source = FunctionInfo {
+    let function_zxy_query = FunctionInfo {
         schema: "public".to_owned(),
-        function: "function_source".to_owned(),
+        function: "function_zxy_query".to_owned(),
         minzoom: Some(0),
         maxzoom: Some(30),
         bounds: Some(Bounds::MAX),
         unrecognized: HashMap::new(),
     };
 
-    let function_source_query_params = FunctionInfo {
+    let function_zxy_query_test = FunctionInfo {
         schema: "public".to_owned(),
-        function: "function_source_query_params".to_owned(),
+        function: "function_zxy_query_test".to_owned(),
         unrecognized: HashMap::new(),
-        ..function_source
+        ..function_zxy_query
     };
 
     mock_sources(
         Some(&[
-            ("function_source", function_source),
-            ("function_source_query_params", function_source_query_params),
+            ("function_zxy_query", function_zxy_query),
+            ("function_zxy_query_test", function_zxy_query_test),
         ]),
         None,
     )

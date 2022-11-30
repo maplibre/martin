@@ -42,7 +42,7 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 
 ## Requirements
 
-Martin requires PostGIS >= 2.4.0.
+Martin requires PostGIS >= 3.0.0
 
 ## Installation
 
@@ -119,13 +119,13 @@ map.addLayer({
 ```js
 map.addSource('rpc', {
   type: 'vector',
-  url: `http://localhost:3000/function_source`
+  url: `http://localhost:3000/function_zxy_query`
 });
 map.addLayer({
   id: 'points',
   type: 'circle',
   source: 'rpc',
-  'source-layer': 'function_source',
+  'source-layer': 'function_zxy_query',
   paint: {
     'circle-color': 'blue'
   },
@@ -242,8 +242,8 @@ curl localhost:3000/catalog | jq
 ```yaml
 [
   {
-    "id": "function_source",
-    "name": "public.function_source"
+    "id": "function_zxy_query",
+    "name": "public.function_zxy_query"
   },
   {
     "id": "points1",
@@ -320,20 +320,18 @@ Function Source is a database function which can be used to query [vector tiles]
 | y            | integer | Tile y parameter        |
 | query_params | json    | Query string parameters |
 
-**Hint**: You may want to use [TileBBox](https://github.com/mapbox/postgis-vt-util#tilebbox) function to generate bounding-box geometry of the area covered by a tile.
-
 For example, if you have a table `table_source` in WGS84 (`4326` SRID), then you can use this function as a Function Source:
 
 ```sql, ignore
-CREATE OR REPLACE FUNCTION function_source(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
+CREATE OR REPLACE FUNCTION function_zxy_query(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN
-  SELECT INTO mvt ST_AsMVT(tile, 'function_source', 4096, 'geom') FROM (
+  SELECT INTO mvt ST_AsMVT(tile, 'function_zxy_query', 4096, 'geom') FROM (
     SELECT
-      ST_AsMVTGeom(ST_Transform(ST_CurveToLine(geom), 3857), TileBBox(z, x, y, 3857), 4096, 64, true) AS geom
+      ST_AsMVTGeom(ST_Transform(ST_CurveToLine(geom), 3857), ST_TileEnvelope(z, x, y), 4096, 64, true) AS geom
     FROM table_source
-    WHERE geom && TileBBox(z, x, y, 4326)
+    WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)
   ) as tile WHERE geom IS NOT NULL;
 
   RETURN mvt;
@@ -350,7 +348,7 @@ curl \
   --data-urlencode 'stringParam=value' \
   --data-urlencode 'booleanParam=true' \
   --data-urlencode 'objectParam={"answer" : 42}' \
-  --get localhost:3000/function_source/0/0/0
+  --get localhost:3000/function_zxy_query/0/0/0
 ```
 
 then `query_params` will be parsed as:
@@ -520,7 +518,7 @@ function_sources:
     schema: public
 
     # Function name (required)
-    function: function_source
+    function: function_zxy_query
 
     # An integer specifying the minimum zoom level
     minzoom: 0

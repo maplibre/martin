@@ -109,14 +109,14 @@ test_pbf cmp_20_633856_327787   http://localhost:3000/table_source,points1,point
 test_pbf cmp_21_1267712_655574  http://localhost:3000/table_source,points1,points2/21/1267712/655574
 
 >&2 echo "Test server response for function source"
-test_pbf fnc_0_0_0              http://localhost:3000/function_source/0/0/0
-test_pbf fnc_6_38_20            http://localhost:3000/function_source/6/38/20
-test_pbf fnc_12_2476_1280       http://localhost:3000/function_source/12/2476/1280
-test_pbf fnc_13_4952_2560       http://localhost:3000/function_source/13/4952/2560
-test_pbf fnc_14_9904_5121       http://localhost:3000/function_source/14/9904/5121
-test_pbf fnc_20_633856_327787   http://localhost:3000/function_source/20/633856/327787
-test_pbf fnc_21_1267712_655574  http://localhost:3000/function_source/21/1267712/655574
-test_pbf fnc_0_0_0_token        http://localhost:3000/function_source_query_params/0/0/0?token=martin
+test_pbf fnc_0_0_0              http://localhost:3000/function_zxy_query/0/0/0
+test_pbf fnc_6_38_20            http://localhost:3000/function_zxy_query/6/38/20
+test_pbf fnc_12_2476_1280       http://localhost:3000/function_zxy_query/12/2476/1280
+test_pbf fnc_13_4952_2560       http://localhost:3000/function_zxy_query/13/4952/2560
+test_pbf fnc_14_9904_5121       http://localhost:3000/function_zxy_query/14/9904/5121
+test_pbf fnc_20_633856_327787   http://localhost:3000/function_zxy_query/20/633856/327787
+test_pbf fnc_21_1267712_655574  http://localhost:3000/function_zxy_query/21/1267712/655574
+test_pbf fnc_0_0_0_token        http://localhost:3000/function_zxy_query_test/0/0/0?token=martin
 
 >&2 echo "Test server response for table source with different SRID"
 test_pbf points3857_srid_0_0_0  http://localhost:3000/points3857/0/0/0
@@ -145,7 +145,9 @@ $CURL http://localhost:3000/catalog | jq --sort-keys -e | tee "$TEST_OUT_DIR/cat
 
 test_pbf tbl_0_0_0  http://localhost:3000/table_source/0/0/0
 test_pbf cmp_0_0_0  http://localhost:3000/points1,points2/0/0/0
-test_pbf fnc_0_0_0  http://localhost:3000/function_source/0/0/0
-test_pbf fnc2_0_0_0 http://localhost:3000/function_source_query_params/0/0/0?token=martin
+test_pbf fnc_0_0_0  http://localhost:3000/function_zxy_query/0/0/0
+test_pbf fnc2_0_0_0 http://localhost:3000/function_zxy_query_test/0/0/0?token=martin
 
 kill_process $PROCESS_ID
+
+>&2 echo "All integration tests have passed"

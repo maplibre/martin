@@ -12,8 +12,12 @@ export CARGO_TERM_COLOR := "always"
 run *ARGS: start-db
     cargo run -- {{ARGS}}
 
+# Run PSQL utility against the test database
+psql *ARGS: start-db
+    psql {{ARGS}} {{DATABASE_URL}}
+
 # Perform  cargo clean  to delete all build files
-clean: clean-test
+clean: clean-test stop
     cargo clean
 
 # Delete test output files
@@ -48,7 +52,7 @@ test-unit: start-db
 test-int: start-db clean-test
     #!/usr/bin/env sh
     tests/test.sh
-    echo "** Skipping comparison with the expected values - not yet stable"
+    # echo "** Skipping comparison with the expected values - not yet stable"
     # if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
     #     echo "** Expected output does not match actual output"
     #     echo "** If this is expected, run 'just bless' to update expected output"
@@ -70,5 +74,6 @@ docker-run *ARGS:
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests martin {{ARGS}}
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+[no-exit-message]
 git *ARGS: start-db
     git {{ARGS}}

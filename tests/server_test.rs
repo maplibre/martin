@@ -56,7 +56,7 @@ async fn get_function_catalog_ok() {
 
     let body = read_body(response).await;
     let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
-    let expected = "function_source";
+    let expected = "function_zxy_query";
     assert_eq!(sources.into_iter().filter(|v| v.id == expected).count(), 1);
 }
 
@@ -362,18 +362,18 @@ async fn get_function_source_ok() {
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    let req = test_get("/function_source");
+    let req = test_get("/function_zxy_query");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
     let req = TestRequest::get()
-        .uri("/function_source?token=martin")
-        .insert_header(("x-rewrite-url", "/tiles/function_source?token=martin"))
+        .uri("/function_zxy_query?token=martin")
+        .insert_header(("x-rewrite-url", "/tiles/function_zxy_query?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
         result.tiles,
-        &["http://localhost:8080/tiles/function_source/{z}/{x}/{y}?token=martin"]
+        &["http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"]
     );
 }
 
@@ -381,7 +381,7 @@ async fn get_function_source_ok() {
 async fn get_function_source_tile_ok() {
     let app = create_app!(mock_default_function_sources());
 
-    let req = test_get("/function_source/0/0/0");
+    let req = test_get("/function_zxy_query/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
@@ -390,7 +390,7 @@ async fn get_function_source_tile_ok() {
 async fn get_function_source_tile_minmax_zoom_ok() {
     let function_source1 = FunctionInfo {
         schema: "public".to_owned(),
-        function: "function_source".to_owned(),
+        function: "function_zxy_query".to_owned(),
         minzoom: None,
         maxzoom: None,
         bounds: Some(Bounds::MAX),
@@ -399,7 +399,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
 
     let function_source2 = FunctionInfo {
         schema: "public".to_owned(),
-        function: "function_source".to_owned(),
+        function: "function_zxy_query".to_owned(),
         minzoom: Some(6),
         maxzoom: Some(12),
         bounds: Some(Bounds::MAX),
@@ -457,12 +457,12 @@ async fn get_function_source_tile_minmax_zoom_ok() {
 async fn get_function_source_query_params_ok() {
     let app = create_app!(mock_default_function_sources());
 
-    let req = test_get("/function_source_query_params/0/0/0");
+    let req = test_get("/function_zxy_query_test/0/0/0");
     let response = call_service(&app, req).await;
     println!("response.status = {:?}", response.status());
     assert!(response.status().is_server_error());
 
-    let req = test_get("/function_source_query_params/0/0/0?token=martin");
+    let req = test_get("/function_zxy_query_test/0/0/0?token=martin");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
