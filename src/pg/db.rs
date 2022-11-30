@@ -27,7 +27,8 @@ pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
 pub type Pool = bb8::Pool<ConnectionManager>;
 pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
 
-const REQUIRED_POSTGIS_VERSION: &str = ">= 2.4.0";
+// We require ST_TileEnvelope that was added in PostGIS 3.0.0
+const REQUIRED_POSTGIS_VERSION: &str = ">= 3.0.0";
 
 pub struct PgConfigurator {
     pool: Pool,

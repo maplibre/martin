@@ -37,14 +37,14 @@
     map.on('load', function () {
       map.addSource('rpc', {
         type: 'vector',
-        url: `http://localhost:3000/function_source`
+        url: `http://localhost:3000/function_zxy_query`
       });
 
       map.addLayer({
         id: 'points',
         type: 'circle',
         source: 'rpc',
-        'source-layer': 'function_source',
+        'source-layer': 'function_zxy_query',
         paint: {
           'circle-color': 'blue'
         }

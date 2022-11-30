@@ -16,33 +16,33 @@ fn init() {
 #[actix_rt::test]
 async fn get_function_sources() {
     let pool = mock_pool().await;
-    let function_sources = get_sources(&pool, &FunctionInfoSources::default())
+    let sources = get_sources(&pool, &FunctionInfoSources::default())
         .await
         .unwrap();
 
-    info!("function_sources = {function_sources:#?}");
+    info!("sources = {sources:#?}");
 
-    assert!(!function_sources.is_empty());
-    let function_source = single(&function_sources, |v| v.function == "function_source")
-        .expect("function_source not found");
-    assert_eq!(function_source.schema, "public");
-    assert_eq!(function_source.function, "function_source");
-    assert_eq!(function_source.minzoom, None);
-    assert_eq!(function_source.maxzoom, None);
-    assert_eq!(function_source.bounds, None);
+    assert!(!sources.is_empty());
+    let source = single(&sources, |v| v.function == "function_zxy_query")
+        .expect("function_zxy_query not found");
+    assert_eq!(source.schema, "public");
+    assert_eq!(source.function, "function_zxy_query");
+    assert_eq!(source.minzoom, None);
+    assert_eq!(source.maxzoom, None);
+    assert_eq!(source.bounds, None);
 }
 
 #[actix_rt::test]
 async fn function_source_tilejson() {
     let sources = mock_sources(None, None).await;
-    let source = sources.get("function_source").unwrap();
+    let source = sources.get("function_zxy_query").unwrap();
     let tilejson = source.get_tilejson();
 
     info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, Some("1.0.0".to_owned()));
-    assert_eq!(tilejson.name, Some("public.function_source".to_owned()));
+    assert_eq!(tilejson.name, Some("public.function_zxy_query".to_owned()));
     assert_eq!(tilejson.scheme, Some("xyz".to_owned()));
     assert_eq!(tilejson.minzoom, Some(0));
     assert_eq!(tilejson.maxzoom, Some(30));
@@ -53,7 +53,7 @@ async fn function_source_tilejson() {
 #[actix_rt::test]
 async fn function_source_tile() {
     let sources = mock_sources(None, None).await;
-    let source = sources.get("function_source").unwrap();
+    let source = sources.get("function_zxy_query").unwrap();
     let tile = source
         .get_tile(&Xyz { x: 0, y: 0, z: 0 }, &None)
         .await

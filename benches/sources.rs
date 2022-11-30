@@ -82,12 +82,12 @@ fn main() {}
 // }
 //
 // async fn get_function_source() {
-//     let source = mock_function_source("public", "function_source");
+//     let source = mock_function_source("public", "function_zxy_query");
 //     let _tilejson = source.get_tilejson();
 // }
 //
 // async fn get_function_source_tile() {
-//     let source = mock_function_source("public", "function_source");
+//     let source = mock_function_source("public", "function_zxy_query");
 //     let xyz = Xyz { z: 0, x: 0, y: 0 };
 //
 //     let _tile = source.get_tile(&xyz, &None).await.unwrap();

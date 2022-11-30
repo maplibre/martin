@@ -116,12 +116,12 @@ table_sources:
 
 # Associative arrays of function sources
 function_sources:
-  function_source:
+  function_zxy_query:
     # Schema name (required)
     schema: public
 
     # Function name (required)
-    function: function_source
+    function: function_zxy_query
 
     # An integer specifying the minimum zoom level
     minzoom: 0
@@ -135,9 +135,9 @@ function_sources:
     # Values may be integers or floating point numbers.
     bounds: [-180.0, -90.0, 180.0, 90.0]
 
-  function_source_query_params:
+  function_zxy_query_test:
     schema: public
-    function: function_source_query_params
+    function: function_zxy_query_test
     minzoom: 0
     maxzoom: 30
     bounds: [-180.0, -90.0, 180.0, 90.0]

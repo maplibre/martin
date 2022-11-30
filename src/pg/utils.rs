@@ -18,23 +18,6 @@ macro_rules! io_error {
 
 pub(crate) use io_error;
 
-// https://github.com/mapbox/postgis-vt-util/blob/master/src/TileBBox.sql
-pub fn tile_bbox(xyz: &Xyz) -> String {
-    let x = xyz.x;
-    let y = xyz.y;
-    let z = xyz.z;
-
-    let max = 20_037_508.34;
-    let res = (max * 2.0) / f64::from(2_i32.pow(z as u32));
-
-    let x_min = -max + (f64::from(x) * res);
-    let y_min = max - (f64::from(y) * res);
-    let x_max = -max + (f64::from(x) * res) + res;
-    let y_max = max - (f64::from(y) * res) - res;
-
-    format!("ST_MakeEnvelope({x_min}, {y_min}, {x_max}, {y_max}, 3857)")
-}
-
 pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
     let mut hashmap = HashMap::new();
 
@@ -69,8 +52,10 @@ pub fn get_bounds_cte(srid_bounds: &str) -> String {
 pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
     format!(
         include_str!("scripts/get_srid_bounds.sql"),
+        z = xyz.z,
+        x = xyz.x,
+        y = xyz.y,
         srid = srid,
-        mercator_bounds = tile_bbox(xyz),
     )
 }
 

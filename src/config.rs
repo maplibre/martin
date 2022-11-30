@@ -75,6 +75,7 @@ mod tests {
     use crate::pg::config::{FunctionInfo, TableInfo};
     use indoc::indoc;
     use std::collections::HashMap;
+    use tilejson::Bounds;
 
     #[test]
     fn parse_config() {
@@ -106,9 +107,9 @@ mod tests {
                   gid: int4
 
             function_sources:
-              function_source:
+              function_zxy_query:
                 schema: public
-                function: function_source
+                function: function_zxy_query
                 minzoom: 0
                 maxzoom: 30
                 bounds: [-180.0, -90.0, 180.0, 90.0]
@@ -152,13 +153,13 @@ mod tests {
                     },
                 )]),
                 function_sources: HashMap::from([(
-                    "function_source".to_string(),
+                    "function_zxy_query".to_string(),
                     FunctionInfo {
                         schema: "public".to_string(),
-                        function: "function_source".to_string(),
+                        function: "function_zxy_query".to_string(),
                         minzoom: Some(0),
                         maxzoom: Some(30),
-                        bounds: Some([-180, -90, 180, 90].into()),
+                        bounds: Some(Bounds::MAX),
                         unrecognized: HashMap::new(),
                     },
                 )]),
