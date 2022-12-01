@@ -25,8 +25,14 @@ clean-test:
     rm -rf tests/output
 
 # Start a test database
-start-db:
-    docker-compose up -d db
+start-db: (docker-up "db")
+
+# Start a legacy test database
+start-legacy: (docker-up "db-legacy")
+
+# Start a specific test database, e.g. db or db-legacy
+@docker-up name:
+    docker-compose up -d {{name}}
 
 alias _down := stop
 alias _stop-db := stop
@@ -49,15 +55,21 @@ test-unit: start-db
     cargo test --doc
 
 # Run integration tests
-test-int: start-db clean-test
+test-int: (test-integration "db")
+
+# Run integration tests using legacy database
+test-int-legacy: (test-integration "db-legacy")
+
+# Run integration tests with the given docker compose target
+@test-integration name: (docker-up name) clean-test
     #!/usr/bin/env sh
     tests/test.sh
-    # echo "** Skipping comparison with the expected values - not yet stable"
-    # if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
-    #     echo "** Expected output does not match actual output"
-    #     echo "** If this is expected, run 'just bless' to update expected output"
-    #     echo "** Note that this error is not fatal because we don't have a stable output yet"
-    # fi
+# echo "** Skipping comparison with the expected values - not yet stable"
+# if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
+#     echo "** Expected output does not match actual output"
+#     echo "** If this is expected, run 'just bless' to update expected output"
+#     echo "** Note that this error is not fatal because we don't have a stable output yet"
+# fi
 
 # Run integration tests and save its output as the new expected output
 bless: start-db clean-test

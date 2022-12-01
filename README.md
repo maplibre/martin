@@ -593,7 +593,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:14-3.1-alpine
+    image: postgis/postgis:14-3.3-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
@@ -645,7 +645,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:14-3.1-alpine
+    image: postgis/postgis:14-3.3-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
@@ -758,17 +758,25 @@ martin postgres://postgres@localhost/db
 ❯ cd martin
 ❯ just
 Available recipes:
-    run        # Start Martin server and a test database
-    clean      # Perform  cargo clean  to delete all build files
-    clean-test # Delete test output files
-    start-db   # Start a test database
-    stop       # Stop the test database
-    bench      # Run benchmark tests
-    test       # Run all tests using a test database
-    test-unit  # Run Rust unit tests (cargo test)
-    test-int   # Run integration tests
-    bless      # Run integration tests and save its output as the new expected output
-    git *ARGS  # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+Available recipes:
+    run *ARGS             # Start Martin server and a test database
+    psql *ARGS            # Run PSQL utility against the test database
+    clean                 # Perform  cargo clean  to delete all build files
+    clean-test            # Delete test output files
+    start-db              # Start a test database
+    start-legacy          # Start a legacy test database
+    docker-up name        # Start a specific test database, e.g. db or db-legacy
+    stop                  # Stop the test database
+    bench                 # Run benchmark tests
+    test                  # Run all tests using a test database
+    test-unit             # Run Rust unit and doc tests (cargo test)
+    test-int              # Run integration tests
+    test-int-legacy       # Run integration tests using legacy database
+    test-integration name # Run integration tests with the given docker compose target
+    bless                 # Run integration tests and save its output as the new expected output
+    docker-build          # Build martin docker image
+    docker-run *ARGS      # Build and run martin docker image
+    git *ARGS             # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 ```
 
 ### Other useful commands
