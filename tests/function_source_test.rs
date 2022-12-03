@@ -1,6 +1,6 @@
 use ctor::ctor;
 use log::info;
-use martin::pg::function_source::get_function_sources as get_sources;
+use martin::pg::function_source::get_function_sources;
 use martin::source::Xyz;
 
 #[path = "utils.rs"]
@@ -13,22 +13,21 @@ fn init() {
 }
 
 #[actix_rt::test]
-async fn get_function_sources() {
+async fn get_function_sources_ok() {
     let pool = mock_pool().await;
-    let sources = get_sources(&pool).await.unwrap();
+    let sources = get_function_sources(&pool).await.unwrap();
 
-    // dbg!(&sources);
     assert!(!sources.is_empty());
 
     let funcs = sources.get("public").expect("public schema not found");
     let source = funcs
         .get("function_zxy_query")
         .expect("function_zxy_query not found");
-    assert_eq!(source.info.schema, "public");
-    assert_eq!(source.info.function, "function_zxy_query");
-    assert_eq!(source.info.minzoom, None);
-    assert_eq!(source.info.maxzoom, None);
-    assert_eq!(source.info.bounds, None);
+    assert_eq!(source.1.schema, "public");
+    assert_eq!(source.1.function, "function_zxy_query");
+    assert_eq!(source.1.minzoom, None);
+    assert_eq!(source.1.maxzoom, None);
+    assert_eq!(source.1.bounds, None);
 }
 
 #[actix_rt::test]
@@ -53,10 +52,7 @@ async fn function_source_tilejson() {
 async fn function_source_tile() {
     let sources = mock_sources(None, None).await;
     let source = sources.get("function_zxy_query").unwrap();
-    let tile = source
-        .get_tile(&Xyz { x: 0, y: 0, z: 0 }, &None)
-        .await
-        .unwrap();
+    let tile = source.get_tile(&Xyz::new(0, 0, 0), &None).await.unwrap();
 
     assert!(!tile.is_empty());
 }

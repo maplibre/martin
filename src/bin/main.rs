@@ -1,9 +1,9 @@
 use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
-use martin::config::{read_config, ConfigBuilder, ConfigDb};
+use martin::config::{read_config, Config, ConfigBuilder};
 use martin::pg::config::{PgArgs, PgConfigBuilder};
-use martin::pg::db::resolve_pg_data;
+use martin::pg::configurator::resolve_pg_data;
 use martin::source::IdResolver;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
@@ -74,9 +74,9 @@ async fn start(args: Args) -> io::Result<Server> {
 
     let id_resolver = IdResolver::new(RESERVED_KEYWORDS);
     let (sources, pg_config, _) = resolve_pg_data(config.pg, id_resolver).await?;
-    let config = ConfigDb {
-        srv: config.srv,
+    let config = Config {
         pg: pg_config,
+        ..config
     };
 
     if save_config.is_some() {

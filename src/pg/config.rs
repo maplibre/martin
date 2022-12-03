@@ -1,9 +1,10 @@
 use crate::config::{report_unrecognized_config, set_option};
+use crate::pg::utils::create_tilejson;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::{env, io};
-use tilejson::Bounds;
+use tilejson::{Bounds, TileJSON};
 
 pub const POOL_SIZE_DEFAULT: u32 = 20;
 
@@ -25,11 +26,7 @@ pub struct PgArgs {
     pub pool_size: Option<u32>,
 }
 
-pub trait FormatId {
-    fn format_id(&self, db_id: &str) -> String;
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct TableInfo {
     /// Table schema
     pub schema: String,
@@ -85,34 +82,42 @@ pub struct TableInfo {
     pub unrecognized: HashMap<String, Value>,
 }
 
-impl FormatId for TableInfo {
-    fn format_id(&self, db_id: &str) -> String {
-        format!(
-            "{}.{}.{}.{}",
-            db_id, self.schema, self.table, self.geometry_column
+impl PgInfo for TableInfo {
+    fn format_id(&self) -> String {
+        format!("{}.{}.{}", self.schema, self.table, self.geometry_column)
+    }
+
+    fn to_tilejson(&self) -> TileJSON {
+        create_tilejson(
+            self.format_id(),
+            self.minzoom,
+            self.maxzoom,
+            self.bounds,
+            None,
         )
     }
 }
 
-#[derive(Clone, Serialize, Debug, PartialEq, Default)]
-pub struct FunctionInfoDbInfo {
-    #[serde(skip_serializing)]
+#[derive(Clone, Debug)]
+pub struct PgSqlInfo {
     pub query: String,
-    #[serde(skip_serializing)]
     pub has_query_params: bool,
-    #[serde(skip_serializing)]
     pub signature: String,
-    #[serde(flatten)]
-    pub info: FunctionInfo,
 }
 
-impl FunctionInfoDbInfo {
-    pub fn with_info(&self, info: &FunctionInfo) -> Self {
+impl PgSqlInfo {
+    pub fn new(query: String, has_query_params: bool, signature: String) -> Self {
         Self {
-            info: info.clone(),
-            ..self.clone()
+            query,
+            has_query_params,
+            signature,
         }
     }
+}
+
+pub trait PgInfo {
+    fn format_id(&self) -> String;
+    fn to_tilejson(&self) -> TileJSON;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
@@ -169,24 +174,31 @@ impl FunctionInfo {
     }
 }
 
-impl FormatId for FunctionInfo {
-    fn format_id(&self, db_id: &str) -> String {
-        format!("{}.{}.{}", db_id, self.schema, self.function)
+impl PgInfo for FunctionInfo {
+    fn format_id(&self) -> String {
+        format!("{}.{}", self.schema, self.function)
+    }
+
+    fn to_tilejson(&self) -> TileJSON {
+        create_tilejson(
+            self.format_id(),
+            self.minzoom,
+            self.maxzoom,
+            self.bounds,
+            None,
+        )
     }
 }
 
 pub type TableInfoSources = HashMap<String, TableInfo>;
-pub type TableInfoVec = Vec<TableInfo>;
 pub type FuncInfoSources = HashMap<String, FunctionInfo>;
-pub type FuncInfoDbSources = HashMap<String, FunctionInfoDbInfo>;
-pub type FuncInfoDbMapMap = HashMap<String, HashMap<String, FunctionInfoDbInfo>>;
-pub type FuncInfoDbVec = Vec<FunctionInfoDbInfo>;
-
-pub type PgConfig = PgConfigRaw<TableInfoSources, FuncInfoSources>;
-pub type PgConfigDb = PgConfigRaw<TableInfoSources, FuncInfoDbSources>;
+pub type InfoMap<T> = HashMap<String, T>;
+pub type SqlFuncInfoMapMap = HashMap<String, HashMap<String, (PgSqlInfo, FunctionInfo)>>;
+pub type SqlTableInfoMapMapMap =
+    HashMap<String, HashMap<String, HashMap<String, (PgSqlInfo, TableInfo)>>>;
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
-pub struct PgConfigRaw<T, F> {
+pub struct PgConfig {
     pub connection_string: String,
     #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -196,10 +208,12 @@ pub struct PgConfigRaw<T, F> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
     pub pool_size: u32,
+    #[serde(skip_serializing)]
     pub discover_functions: bool,
+    #[serde(skip_serializing)]
     pub discover_tables: bool,
-    pub table_sources: T,
-    pub function_sources: F,
+    pub table_sources: TableInfoSources,
+    pub function_sources: FuncInfoSources,
 }
 
 #[derive(Debug, Default, PartialEq, Deserialize)]
@@ -294,28 +308,6 @@ impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
             pool_size: args.pool_size,
             table_sources: None,
             function_sources: None,
-        }
-    }
-}
-
-impl PgConfig {
-    pub fn to_db(
-        self,
-        table_sources: TableInfoSources,
-        function_sources: FuncInfoDbSources,
-    ) -> PgConfigDb {
-        PgConfigDb {
-            connection_string: self.connection_string,
-            #[cfg(feature = "ssl")]
-            ca_root_file: self.ca_root_file,
-            #[cfg(feature = "ssl")]
-            danger_accept_invalid_certs: self.danger_accept_invalid_certs,
-            default_srid: self.default_srid,
-            pool_size: self.pool_size,
-            discover_functions: self.discover_functions,
-            discover_tables: self.discover_tables,
-            table_sources,
-            function_sources,
         }
     }
 }

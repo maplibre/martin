@@ -15,9 +15,21 @@ pub struct Xyz {
     pub y: i32,
 }
 
+impl Xyz {
+    pub fn new(z: i32, x: i32, y: i32) -> Self {
+        Self { z, x, y }
+    }
+}
+
 impl Display for Xyz {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}/{}", self.z, self.x, self.y)
+        match f.fill() {
+            ',' => write!(f, "{},{},{}", self.z, self.x, self.y),
+            '/' => write!(f, "{}/{}/{}", self.z, self.x, self.y),
+            v => {
+                panic!("Invalid fill character '{v}' -- must be either ',' or '/'.  Use {{xyz:/>}} or {{xyz:,>}}")
+            }
+        }
     }
 }
 
@@ -83,7 +95,7 @@ impl IdResolver {
         let mut new_name = String::new();
         loop {
             new_name.clear();
-            write!(&mut new_name, "{}.{}", name, index).unwrap();
+            write!(&mut new_name, "{name}.{index}").unwrap();
             index = index.checked_add(1).unwrap();
             match names.entry(new_name.clone()) {
                 Entry::Vacant(e) => {

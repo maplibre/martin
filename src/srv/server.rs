@@ -243,11 +243,7 @@ async fn get_tile(
     let (sources, format) = state.get_sources(&path.source_ids, Some(path.z))?;
 
     let query = Some(query.into_inner());
-    let xyz = Xyz {
-        z: path.z,
-        x: path.x,
-        y: path.y,
-    };
+    let xyz = Xyz::new(path.z, path.x, path.y);
 
     let tile = try_join_all(sources.into_iter().map(|s| s.get_tile(&xyz, &query)))
         .await

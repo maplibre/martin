@@ -1,108 +1,17 @@
-use crate::pg::config::{FuncInfoDbMapMap, FunctionInfo, FunctionInfoDbInfo};
-use crate::pg::db::get_connection;
-use crate::pg::db::Pool;
-use crate::pg::utils::{creat_tilejson, io_error, is_valid_zoom, query_to_json};
-use crate::source::{Source, Tile, UrlQuery, Xyz};
-use async_trait::async_trait;
-use bb8_postgres::tokio_postgres::types::ToSql;
-use log::{debug, warn};
-use martin_tile_utils::DataFormat;
-use postgres::types::Type;
+use crate::pg::config::{FunctionInfo, PgSqlInfo, SqlFuncInfoMapMap};
+use crate::pg::connection::Pool;
+use crate::pg::utils::io_error;
+use log::warn;
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::io;
 use std::iter::zip;
-use tilejson::TileJSON;
 
-#[derive(Clone, Debug)]
-pub struct FunctionSource {
-    id: String,
-    info: FunctionInfoDbInfo,
-    pool: Pool,
-    tilejson: TileJSON,
-}
-
-impl FunctionSource {
-    pub fn new(id: String, info: FunctionInfoDbInfo, pool: Pool) -> Self {
-        let func = &info.info;
-        Self {
-            tilejson: creat_tilejson(
-                format!("{}.{}", func.schema, func.function),
-                func.minzoom,
-                func.maxzoom,
-                func.bounds,
-                None,
-            ),
-            id,
-            info,
-            pool,
-        }
-    }
-}
-
-#[async_trait]
-impl Source for FunctionSource {
-    fn get_tilejson(&self) -> TileJSON {
-        self.tilejson.clone()
-    }
-
-    fn get_format(&self) -> DataFormat {
-        DataFormat::Mvt
-    }
-
-    fn clone_source(&self) -> Box<dyn Source> {
-        Box::new(self.clone())
-    }
-
-    fn is_valid_zoom(&self, zoom: i32) -> bool {
-        is_valid_zoom(zoom, self.info.info.minzoom, self.info.info.maxzoom)
-    }
-
-    async fn get_tile(&self, xyz: &Xyz, url_query: &Option<UrlQuery>) -> Result<Tile, io::Error> {
-        let empty_query = HashMap::new();
-        let url_query = url_query.as_ref().unwrap_or(&empty_query);
-        let conn = get_connection(&self.pool).await?;
-
-        let param_types: &[Type] = if self.info.has_query_params {
-            &[Type::INT4, Type::INT4, Type::INT4, Type::JSON]
-        } else {
-            &[Type::INT4, Type::INT4, Type::INT4]
-        };
-
-        let query = &self.info.query;
-        let prep_query = conn
-            .prepare_typed(query, param_types)
-            .await
-            .map_err(|e| io_error!(e, "Can't create prepared statement for the tile"))?;
-
-        let tile = if self.info.has_query_params {
-            let json = query_to_json(url_query);
-            debug!("SQL: {query} [{}, {}, {}, {json:?}]", xyz.x, xyz.y, xyz.z);
-            let params: &[&(dyn ToSql + Sync)] = &[&xyz.z, &xyz.x, &xyz.y, &json];
-            conn.query_one(&prep_query, params).await
-        } else {
-            debug!("SQL: {query} [{}, {}, {}]", xyz.x, xyz.y, xyz.z);
-            conn.query_one(&prep_query, &[&xyz.z, &xyz.x, &xyz.y]).await
-        };
-
-        let tile = tile.map(|row| row.get(0)).map_err(|e| {
-            if self.info.has_query_params {
-                let url_q = query_to_json(url_query);
-                io_error!(e, r#"Can't get {}/{xyz} with {url_q:?} params"#, self.id)
-            } else {
-                io_error!(e, r#"Can't get {}/{xyz}"#, self.id)
-            }
-        })?;
-
-        Ok(tile)
-    }
-}
-
-pub async fn get_function_sources(pool: &Pool) -> Result<FuncInfoDbMapMap, io::Error> {
-    let mut res = FuncInfoDbMapMap::new();
-    get_connection(pool)
+pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap, io::Error> {
+    let mut res = SqlFuncInfoMapMap::new();
+    pool.get()
         .await?
         .query(include_str!("scripts/get_function_sources.sql"), &[])
         .await
@@ -111,7 +20,7 @@ pub async fn get_function_sources(pool: &Pool) -> Result<FuncInfoDbMapMap, io::E
         .for_each(|row| {
             let schema: String = row.get("schema");
             let function: String = row.get("name");
-            let output_type: &str = row.get("output_type");
+            let output_type: String = row.get("output_type");
             let output_record_types = jsonb_to_vec(&row.get("output_record_types"));
             let output_record_names = jsonb_to_vec(&row.get("output_record_names"));
             let input_types = jsonb_to_vec(&row.get("input_types")).expect("Can't get input types");
@@ -148,34 +57,40 @@ pub async fn get_function_sources(pool: &Pool) -> Result<FuncInfoDbMapMap, io::E
             write!(query, ")").unwrap();
 
             // This is the same as if let-chain, but that's not yet available
-            match (output_record_names, output_type) {
+            let ret_inf = match (output_record_names, output_type.as_str()) {
                 (Some(names), "record") => {
                     // SELECT mvt FROM "public"."function_zxy_row2"(z => $1::integer, x => $2::integer, y => $3::integer);
                     query.insert_str(0, " FROM ");
                     query.insert_str(0, &escape_identifier(names[0].as_str()));
                     query.insert_str(0, "SELECT ");
+                    format!("[{}]", names.join(", "))
                 }
                 (_, _) => {
                     query.insert_str(0, "SELECT ");
                     query.push_str(" AS tile");
+                    output_type
                 }
-            }
-            warn!("SQL: {query}");
+            };
 
             if let Some(v) = res
                 .entry(schema.clone())
                 .or_insert_with(HashMap::new)
                 .insert(
                     function.clone(),
-                    FunctionInfoDbInfo {
-                        query,
-                        has_query_params: input_types.len() == 4,
-                        signature: format!("{schema}.{function}({})", input_names.join(", ")),
-                        info: FunctionInfo::new(schema, function),
-                    },
+                    (
+                        PgSqlInfo::new(
+                            query,
+                            input_types.len() == 4,
+                            format!(
+                                "{schema}.{function}({}) -> {ret_inf}",
+                                input_names.join(", ")
+                            ),
+                        ),
+                        FunctionInfo::new(schema, function),
+                    ),
                 )
             {
-                warn!("Unexpected duplicate function {}", v.signature);
+                warn!("Unexpected duplicate function {}", v.0.signature);
             }
         });
 

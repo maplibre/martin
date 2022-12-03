@@ -1,4 +1,4 @@
-use crate::source::{UrlQuery, Xyz};
+use crate::source::UrlQuery;
 use actix_http::header::HeaderValue;
 use actix_web::http::Uri;
 use postgis::{ewkb, LineString, Point, Polygon};
@@ -42,32 +42,6 @@ pub fn query_to_json(query: &UrlQuery) -> Json<HashMap<String, Value>> {
     Json(query_as_json)
 }
 
-pub fn get_bounds_cte(srid_bounds: &str) -> String {
-    format!(
-        include_str!("scripts/get_bounds_cte.sql"),
-        srid_bounds = srid_bounds
-    )
-}
-
-pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
-    format!(
-        include_str!("scripts/get_srid_bounds.sql"),
-        z = xyz.z,
-        x = xyz.x,
-        y = xyz.y,
-        srid = srid,
-    )
-}
-
-pub fn get_source_bounds(id: &str, srid: u32, geometry_column: &str) -> String {
-    format!(
-        include_str!("scripts/get_bounds.sql"),
-        id = id,
-        srid = srid,
-        geometry_column = geometry_column,
-    )
-}
-
 pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     polygon.rings().next().and_then(|linestring| {
         let mut points = linestring.points();
@@ -92,7 +66,7 @@ pub fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
         .map(|uri| uri.path().to_owned())
 }
 
-pub fn creat_tilejson(
+pub fn create_tilejson(
     name: String,
     minzoom: Option<u8>,
     maxzoom: Option<u8>,

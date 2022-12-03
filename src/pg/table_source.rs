@@ -1,49 +1,77 @@
-use crate::pg::config::{FormatId, TableInfo, TableInfoSources, TableInfoVec};
-use crate::pg::db::get_connection;
-use crate::pg::db::Pool;
-use crate::pg::utils::{
-    creat_tilejson, get_bounds_cte, get_source_bounds, get_srid_bounds, io_error, is_valid_zoom,
-    json_to_hashmap, polygon_to_bbox,
-};
-use crate::source::{Source, Tile, UrlQuery, Xyz};
-use async_trait::async_trait;
-use log::{info, warn};
-use martin_tile_utils::DataFormat;
-use std::collections::{HashMap, HashSet};
+use crate::pg::config::{PgInfo, PgSqlInfo, SqlTableInfoMapMapMap, TableInfo};
+use crate::pg::connection::Pool;
+use crate::pg::utils::{io_error, json_to_hashmap, polygon_to_bbox};
+use log::warn;
+use postgres_protocol::escape::{escape_identifier, escape_literal};
+use std::collections::HashMap;
 use std::io;
-use tilejson::{TileJSON, VectorLayer};
 
-#[derive(Clone, Debug)]
-pub struct TableSource {
-    pub id: String,
-    pub info: TableInfo,
-    pool: Pool,
-    tilejson: TileJSON,
-}
+static DEFAULT_EXTENT: u32 = 4096;
+static DEFAULT_BUFFER: u32 = 64;
+static DEFAULT_CLIP_GEOM: bool = true;
 
-pub type TableSources = HashMap<String, Box<TableSource>>;
+pub async fn get_table_sources(
+    pool: &Pool,
+    default_srid: Option<i32>,
+) -> Result<SqlTableInfoMapMapMap, io::Error> {
+    let conn = pool.get().await?;
+    let rows = conn
+        .query(include_str!("scripts/get_table_sources.sql"), &[])
+        .await
+        .map_err(|e| io_error!(e, "Can't get table sources"))?;
 
-impl TableSource {
-    pub fn new(id: String, info: TableInfo, pool: Pool) -> Self {
-        let mut layer = VectorLayer::new(id.clone(), info.properties.clone());
-        layer.minzoom = info.minzoom;
-        layer.maxzoom = info.maxzoom;
-        Self {
-            tilejson: creat_tilejson(
-                format!("{}.{}.{}", info.schema, info.table, info.geometry_column),
-                info.minzoom,
-                info.maxzoom,
-                info.bounds,
-                Some(vec![layer]),
-            ),
-            id,
-            info,
-            pool,
-        }
-    }
+    let mut res = SqlTableInfoMapMapMap::new();
+    for row in &rows {
+        let mut info = TableInfo {
+            schema: row.get("schema"),
+            table: row.get("name"),
+            geometry_column: row.get("geom"),
+            srid: 0,
+            extent: Some(DEFAULT_EXTENT),
+            buffer: Some(DEFAULT_BUFFER),
+            clip_geom: Some(DEFAULT_CLIP_GEOM),
+            geometry_type: row.get("type"),
+            properties: json_to_hashmap(&row.get("properties")),
+            unrecognized: HashMap::new(),
+            ..TableInfo::default()
+        };
 
-    pub fn get_geom_query(&self, xyz: &Xyz) -> String {
-        let info = &self.info;
+        let table_id = info.format_id();
+        let srid: i32 = row.get("srid");
+        info.srid = match (srid, default_srid) {
+            (0, Some(default_srid)) => {
+                warn!(r#""{table_id}" has SRID 0, using the provided default SRID {default_srid}"#);
+                default_srid as u32
+            }
+            (0, None) => {
+                let info = "To use this table source, you must specify the SRID using the config file or provide the default SRID";
+                warn!(r#""{table_id}" has SRID 0, skipping. {info}"#);
+                continue;
+            }
+            (srid, _) if srid < 0 => {
+                // TODO: why do we even use signed SRIDs?
+                warn!("Skipping unexpected srid {srid} for {table_id}");
+                continue;
+            }
+            (srid, _) => srid as u32,
+        };
+
+        let bounds_query = format!(
+            include_str!("scripts/get_bounds.sql"),
+            schema = info.schema,
+            table = info.table,
+            srid = info.srid,
+            geometry_column = info.geometry_column,
+        );
+
+        info.bounds = conn
+            .query_one(bounds_query.as_str(), &[])
+            .await
+            .map(|row| row.get("bounds"))
+            .ok()
+            .flatten()
+            .and_then(|v| polygon_to_bbox(&v));
+
         let properties = if info.properties.is_empty() {
             String::new()
         } else {
@@ -53,159 +81,55 @@ impl TableSource {
                 .map(|column| format!(r#""{column}""#))
                 .collect::<Vec<String>>()
                 .join(",");
-
             format!(", {properties}")
         };
 
-        format!(
-            include_str!("scripts/get_geom.sql"),
-            schema = info.schema,
-            table = info.table,
-            srid = info.srid,
-            geometry_column = info.geometry_column,
-            z = xyz.z,
-            x = xyz.x,
-            y = xyz.y,
-            extent = info.extent.unwrap_or(DEFAULT_EXTENT),
-            buffer = info.buffer.unwrap_or(DEFAULT_BUFFER),
-            clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
-            properties = properties
-        )
-    }
-
-    pub fn get_tile_query(&self, xyz: &Xyz) -> String {
-        let geom_query = self.get_geom_query(xyz);
-
-        let id_column = self
-            .info
+        let id_column = info
             .id_column
             .clone()
             .map_or(String::new(), |id_column| format!(", '{id_column}'"));
 
-        format!(
-            include_str!("scripts/get_tile.sql"),
-            id = self.id,
-            id_column = id_column,
-            geom_query = geom_query,
-            extent = self.info.extent.unwrap_or(DEFAULT_EXTENT),
-        )
-    }
+        let query = format!(
+            r#"
+SELECT
+  ST_AsMVT(tile, {table_id}, {extent}, 'geom' {id_column})
+FROM (
+  SELECT
+    ST_AsMVTGeom(
+        ST_Transform(ST_CurveToLine({geometry_column}), 3857),
+        ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+        {extent}, {buffer}, {clip_geom}
+    ) AS geom
+    {properties}
+  FROM
+    {schema}.{table}
+  WHERE
+    {geometry_column} && ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})
+) AS tile
+"#,
+            table_id = escape_literal(table_id.as_str()),
+            extent = info.extent.unwrap_or(DEFAULT_EXTENT),
+            geometry_column = escape_identifier(&info.geometry_column),
+            buffer = info.buffer.unwrap_or(DEFAULT_BUFFER),
+            clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
+            schema = escape_identifier(&info.schema),
+            table = escape_identifier(&info.table),
+            srid = info.srid,
+        ).trim().to_string();
 
-    pub fn build_tile_query(&self, xyz: &Xyz) -> String {
-        let srid_bounds = get_srid_bounds(self.info.srid, xyz);
-        let bounds_cte = get_bounds_cte(&srid_bounds);
-        let tile_query = self.get_tile_query(xyz);
-
-        format!("{bounds_cte} {tile_query}")
-    }
-}
-
-#[async_trait]
-impl Source for TableSource {
-    fn get_tilejson(&self) -> TileJSON {
-        self.tilejson.clone()
-    }
-
-    fn get_format(&self) -> DataFormat {
-        DataFormat::Mvt
-    }
-
-    fn clone_source(&self) -> Box<dyn Source> {
-        Box::new(self.clone())
-    }
-
-    fn is_valid_zoom(&self, zoom: i32) -> bool {
-        is_valid_zoom(zoom, self.info.minzoom, self.info.maxzoom)
-    }
-
-    async fn get_tile(&self, xyz: &Xyz, _query: &Option<UrlQuery>) -> Result<Tile, io::Error> {
-        let tile_query = self.build_tile_query(xyz);
-        let conn = get_connection(&self.pool).await?;
-        let tile: Tile = conn
-            .query_one(tile_query.as_str(), &[])
-            .await
-            .map(|row| row.get("st_asmvt"))
-            .map_err(|error| io_error!(error, r#"Can't get "{}" tile at {xyz}"#, self.id))?;
-
-        Ok(tile)
-    }
-}
-
-static DEFAULT_EXTENT: u32 = 4096;
-static DEFAULT_BUFFER: u32 = 64;
-static DEFAULT_CLIP_GEOM: bool = true;
-
-pub async fn get_table_sources(
-    pool: &Pool,
-    explicit_tables: &TableInfoSources,
-    default_srid: Option<i32>,
-) -> Result<TableInfoVec, io::Error> {
-    let skip_tables: HashSet<String> = explicit_tables.values().map(|v| v.format_id("")).collect();
-    let conn = get_connection(pool).await?;
-    let rows = conn
-        .query(include_str!("scripts/get_table_sources.sql"), &[])
-        .await
-        .map_err(|e| io_error!(e, "Can't get table sources"))?;
-
-    let mut result = TableInfoVec::default();
-    for row in &rows {
-        let schema: String = row.get("f_table_schema");
-        let table: String = row.get("f_table_name");
-        let geometry_column: String = row.get("f_geometry_column");
-        let srid: i32 = row.get("srid");
-
-        let mut info = TableInfo {
-            schema,
-            table,
-            id_column: None,
-            geometry_column,
-            bounds: None,
-            minzoom: None,
-            maxzoom: None,
-            srid: srid as u32,
-            extent: Some(DEFAULT_EXTENT),
-            buffer: Some(DEFAULT_BUFFER),
-            clip_geom: Some(DEFAULT_CLIP_GEOM),
-            geometry_type: row.get("type"),
-            properties: json_to_hashmap(&row.get("properties")),
-            unrecognized: HashMap::new(),
-        };
-
-        if skip_tables.contains(&info.format_id("")) {
-            continue;
+        if let Some(v) = res
+            .entry(info.schema.clone())
+            .or_insert_with(HashMap::new)
+            .entry(info.table.clone())
+            .or_insert_with(HashMap::new)
+            .insert(
+                info.geometry_column.clone(),
+                (PgSqlInfo::new(query, false, table_id), info),
+            )
+        {
+            warn!("Unexpected duplicate function {}", v.0.signature);
         }
-
-        // FIXME: in theory, schema or table can be arbitrary, and thus may cause SQL injection
-        let table_id = format!("{}.{}", info.schema, info.table);
-
-        if srid == 0 {
-            if let Some(default_srid) = default_srid {
-                warn!(r#""{table_id}" has SRID 0, using the provided default SRID {default_srid}"#);
-                info.srid = default_srid as u32;
-            } else {
-                warn!(
-                    r#""{table_id}" has SRID 0, skipping. To use this table source, you must specify the SRID using the config file or provide the default SRID"#
-                );
-                continue;
-            }
-        }
-
-        let bounds_query = get_source_bounds(&table_id, srid as u32, &info.geometry_column);
-        info.bounds = conn
-            .query_one(bounds_query.as_str(), &[])
-            .await
-            .map(|row| row.get("bounds"))
-            .ok()
-            .flatten()
-            .and_then(|v| polygon_to_bbox(&v));
-
-        result.push(info);
-    }
-    result.sort_by_key(|v| v.table.clone());
-
-    if result.is_empty() {
-        info!("No table sources found");
     }
 
-    Ok(result)
+    Ok(res)
 }

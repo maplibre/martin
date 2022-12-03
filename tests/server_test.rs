@@ -33,21 +33,7 @@ fn test_get(path: &str) -> Request {
 }
 
 #[actix_rt::test]
-async fn get_table_catalog_ok() {
-    let app = create_app!(mock_default_table_sources());
-
-    let req = test_get("/catalog");
-    let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
-
-    let body = read_body(response).await;
-    let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
-    let expected = "table_source";
-    assert_eq!(sources.into_iter().filter(|v| v.id == expected).count(), 1);
-}
-
-#[actix_rt::test]
-async fn get_function_catalog_ok() {
+async fn get_catalog_ok() {
     let app = create_app!(mock_sources(None, None));
 
     let req = test_get("/catalog");
@@ -56,8 +42,12 @@ async fn get_function_catalog_ok() {
 
     let body = read_body(response).await;
     let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
+
+    let expected = "table_source";
+    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
+
     let expected = "function_zxy_query";
-    assert_eq!(sources.into_iter().filter(|v| v.id == expected).count(), 1);
+    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
 }
 
 #[actix_rt::test]

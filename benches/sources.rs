@@ -52,7 +52,7 @@ fn main() {}
 //
 // async fn get_table_source_tile() {
 //     let source = mock_table_source("public", "table_source").await;
-//     let xyz = Xyz { z: 0, x: 0, y: 0 };
+//     let xyz = Xyz::new(0, 0, 0);
 //     let _tile = source.get_tile(&xyz, &None).await.unwrap();
 // }
 //
@@ -77,7 +77,7 @@ fn main() {}
 //         table_sources: vec![points1, points2],
 //     };
 //
-//     let xyz = Xyz { z: 0, x: 0, y: 0 };
+//     let xyz = Xyz::new(0, 0, 0);
 //     let _tile = source.get_tile(&xyz, &None).await.unwrap();
 // }
 //
@@ -88,7 +88,7 @@ fn main() {}
 //
 // async fn get_function_source_tile() {
 //     let source = mock_function_source("public", "function_zxy_query");
-//     let xyz = Xyz { z: 0, x: 0, y: 0 };
+//     let xyz = Xyz::new(0, 0, 0);
 //
 //     let _tile = source.get_tile(&xyz, &None).await.unwrap();
 // }

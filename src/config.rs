@@ -1,5 +1,5 @@
 use crate::io_error;
-use crate::pg::config::{PgConfig, PgConfigBuilder, PgConfigDb};
+use crate::pg::config::{PgConfig, PgConfigBuilder};
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -15,14 +15,6 @@ pub struct Config {
     pub srv: SrvConfig,
     #[serde(flatten)]
     pub pg: PgConfig,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ConfigDb {
-    #[serde(flatten)]
-    pub srv: SrvConfig,
-    #[serde(flatten)]
-    pub pg: PgConfigDb,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]

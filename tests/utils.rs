@@ -2,7 +2,8 @@ use actix_web::web::Data;
 use log::info;
 use martin::pg::config::{FunctionInfo, PgConfigBuilder};
 use martin::pg::config::{PgConfig, TableInfo};
-use martin::pg::db::{make_pool, resolve_pg_data, Pool};
+use martin::pg::configurator::resolve_pg_data;
+use martin::pg::connection::Pool;
 use martin::source::IdResolver;
 use martin::srv::server::{AppState, Sources};
 use std::collections::HashMap;
@@ -16,7 +17,7 @@ use tilejson::Bounds;
 
 #[allow(dead_code)]
 pub async fn mock_pool() -> Pool {
-    let res = make_pool(mock_config(None, None).await).await;
+    let res = Pool::new(&mock_config(None, None).await).await;
     res.expect("Failed to create pool")
 }
 
