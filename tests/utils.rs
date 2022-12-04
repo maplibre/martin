@@ -5,7 +5,7 @@ use log::info;
 use martin::pg::config::{FunctionInfo, PgConfigBuilder};
 use martin::pg::config::{PgConfig, TableInfo};
 use martin::pg::configurator::resolve_pg_data;
-use martin::pg::connection::Pool;
+use martin::pg::pool::Pool;
 use martin::source::{IdResolver, Source};
 use martin::srv::server::{AppState, Sources};
 use std::collections::HashMap;

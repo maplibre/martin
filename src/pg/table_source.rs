@@ -1,7 +1,7 @@
 use crate::pg::config::{PgInfo, TableInfo};
 use crate::pg::configurator::SqlTableInfoMapMapMap;
-use crate::pg::connection::Pool;
 use crate::pg::pg_source::PgSqlInfo;
+use crate::pg::pool::Pool;
 use crate::pg::utils::{io_error, json_to_hashmap, polygon_to_bbox};
 use log::warn;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -96,11 +96,25 @@ pub async fn table_to_query(
         .clone()
         .map_or(String::new(), |id_column| format!(", '{id_column}'"));
 
-    // TODO: extend ST_TileEnvelope by the buffer size. In PostGIS 3.3, this will be possible with
-    // the 5th margin parameter of the ST_TileEnvelope(z,x,y, srid, margin)
+    let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
+    let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
+
+    let bbox_search = if buffer == 0 {
+        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
+    } else if pool.supports_tile_margin() {
+        let margin = buffer as f64 / extent as f64;
+        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin={margin})")
+    } else {
+        // TODO: we should use ST_Expand here, but it may require a bit more math work,
+        // TODO: so might not be worth it as it is only used for PostGIS < 3.1
+        // let earth_circumference = 40075016.6855785;
+        // let val = earth_circumference * buffer as f64 / extent as f64;
+        // format!("ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {val}/2^$1::integer)")
+        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
+    };
 
     let query = format!(
-            r#"
+        r#"
     SELECT
       ST_AsMVT(tile, {table_id}, {extent}, 'geom' {id_column})
     FROM (
@@ -114,18 +128,18 @@ pub async fn table_to_query(
       FROM
         {schema}.{table}
       WHERE
-        {geometry_column} && ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})
+        {geometry_column} && ST_Transform({bbox_search}, {srid})
     ) AS tile
     "#,
-            table_id = escape_literal(info.format_id().as_str()),
-            extent = info.extent.unwrap_or(DEFAULT_EXTENT),
-            geometry_column = escape_identifier(&info.geometry_column),
-            buffer = info.buffer.unwrap_or(DEFAULT_BUFFER),
-            clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
-            schema = escape_identifier(&info.schema),
-            table = escape_identifier(&info.table),
-            srid = info.srid,
-        ).trim().to_string();
+        table_id = escape_literal(info.format_id().as_str()),
+        geometry_column = escape_identifier(&info.geometry_column),
+        clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
+        schema = escape_identifier(&info.schema),
+        table = escape_identifier(&info.table),
+        srid = info.srid,
+    )
+    .trim()
+    .to_string();
 
     Ok((id, PgSqlInfo::new(query, false, info.format_id()), info))
 }

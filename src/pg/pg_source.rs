@@ -1,4 +1,4 @@
-use crate::pg::connection::Pool;
+use crate::pg::pool::Pool;
 use crate::pg::utils::{io_error, is_valid_zoom, query_to_json};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use async_trait::async_trait;

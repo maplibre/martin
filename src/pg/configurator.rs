@@ -1,9 +1,9 @@
 use crate::pg::config::{
     FuncInfoSources, FunctionInfo, InfoMap, PgConfig, PgInfo, TableInfo, TableInfoSources,
 };
-use crate::pg::connection::Pool;
 use crate::pg::function_source::get_function_sources;
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
+use crate::pg::pool::Pool;
 use crate::pg::table_source::{get_table_sources, table_to_query};
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
@@ -68,6 +68,16 @@ impl PgBuilder {
         // Note that multiple configured sources could map to a single discovered one.
         // After that, add the remaining discovered sources to the pending list if auto-config is enabled.
         for (id, cfg_inf) in &self.tables {
+            // TODO: move this validation to serde somehow?
+            if let Some(extent) = cfg_inf.extent {
+                if extent == 0 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!("Configuration for source {id} has extent=0"),
+                    ));
+                }
+            }
+
             if let Some(src_inf) = discovered_sources
                 .get_mut(&cfg_inf.schema)
                 .and_then(|v| v.get_mut(&cfg_inf.table))
