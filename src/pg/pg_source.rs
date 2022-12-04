@@ -1,4 +1,3 @@
-use crate::pg::config::PgSqlInfo;
 use crate::pg::connection::Pool;
 use crate::pg::utils::{io_error, is_valid_zoom, query_to_json};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
@@ -85,5 +84,22 @@ impl Source for PgSource {
         })?;
 
         Ok(tile)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PgSqlInfo {
+    pub query: String,
+    pub has_query_params: bool,
+    pub signature: String,
+}
+
+impl PgSqlInfo {
+    pub fn new(query: String, has_query_params: bool, signature: String) -> Self {
+        Self {
+            query,
+            has_query_params,
+            signature,
+        }
     }
 }

@@ -483,7 +483,7 @@ pool_size: 20
 worker_processes: 8
 
 # Associative arrays of table sources
-table_sources:
+tables:
   table_source_id:
     # Table schema (required)
     schema: public
@@ -529,7 +529,7 @@ table_sources:
       gid: int4
 
 # Associative arrays of function sources
-function_sources:
+functions:
   function_source_id:
     # Schema name (required)
     schema: public

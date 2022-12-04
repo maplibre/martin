@@ -1,7 +1,5 @@
 use ctor::ctor;
 use log::info;
-use martin::pg::config::{PgSqlInfo, SqlTableInfoMapMapMap, TableInfo};
-use martin::pg::table_source::get_table_sources;
 use martin::source::Xyz;
 use std::collections::HashMap;
 
@@ -15,12 +13,11 @@ fn init() {
 }
 
 #[actix_rt::test]
-async fn get_table_sources_ok() {
-    let pool = mock_pool().await;
-    let sources = get_table_sources(&pool, Some(900913)).await.unwrap();
-    assert!(!sources.is_empty());
+async fn table_sources() {
+    let mock = mock_unconfigured().await;
+    assert!(!mock.0.is_empty());
 
-    let (_, source) = get_source(&sources, "table_source", "geom");
+    let source = table(&mock, "table_source");
     assert_eq!(source.schema, "public");
     assert_eq!(source.table, "table_source");
     assert_eq!(source.srid, 4326);
@@ -41,9 +38,8 @@ async fn get_table_sources_ok() {
 
 #[actix_rt::test]
 async fn table_source_tilejson_ok() {
-    let sources = mock_sources(None, None).await;
-    let source = sources.get("table_source").unwrap();
-    let tilejson = source.get_tilejson();
+    let mock = mock_unconfigured().await;
+    let tilejson = source(&mock, "table_source").get_tilejson();
 
     info!("tilejson = {tilejson:#?}");
 
@@ -59,52 +55,39 @@ async fn table_source_tilejson_ok() {
 
 #[actix_rt::test]
 async fn table_source_tile_ok() {
-    let sources = mock_sources(None, None).await;
-    let source = sources.get("table_source").unwrap();
-    let tile = source.get_tile(&Xyz::new(0, 0, 0), &None).await.unwrap();
+    let mock = mock_unconfigured().await;
+    let src = source(&mock, "table_source");
+    let tile = src.get_tile(&Xyz::new(0, 0, 0), &None).await.unwrap();
 
     assert!(!tile.is_empty());
 }
 
 #[actix_rt::test]
 async fn table_source_srid_ok() {
-    let pool = mock_pool().await;
-    let table_sources = get_table_sources(&pool, Some(900913)).await.unwrap();
+    let mock = mock_unconfigured_srid(Some(900913)).await;
 
-    let (_, source) = get_source(&table_sources, "points1", "geom");
+    dbg!(&mock);
+
+    let source = table(&mock, "points1");
     assert_eq!(source.srid, 4326);
 
-    let (_, source) = get_source(&table_sources, "points2", "geom");
+    let source = table(&mock, "points2");
     assert_eq!(source.srid, 4326);
 
-    let (_, source) = get_source(&table_sources, "points3857", "geom");
+    let source = table(&mock, "points3857");
     assert_eq!(source.srid, 3857);
 
-    let (_, source) = get_source(&table_sources, "points_empty_srid", "geom");
+    let source = table(&mock, "points_empty_srid");
     assert_eq!(source.srid, 900913);
 }
 
 #[actix_rt::test]
 async fn table_source_multiple_geom_ok() {
-    let pool = mock_pool().await;
-    let sources = get_table_sources(&pool, Some(900913)).await.unwrap();
+    let mock = mock_unconfigured().await;
 
-    let (_, source) = get_source(&sources, "table_source_multiple_geom", "geom1");
+    let source = table(&mock, "table_source_multiple_geom");
     assert_eq!(source.geometry_column, "geom1");
 
-    let (_, source) = get_source(&sources, "table_source_multiple_geom", "geom2");
+    let source = table(&mock, "table_source_multiple_geom.1");
     assert_eq!(source.geometry_column, "geom2");
-}
-
-fn get_source<'a>(
-    sources: &'a SqlTableInfoMapMapMap,
-    name: &'static str,
-    geom: &'static str,
-) -> &'a (PgSqlInfo, TableInfo) {
-    let srcs = sources.get("public").expect("public schema not found");
-    let cols = srcs
-        .get(name)
-        .unwrap_or_else(|| panic!("table {name} not found"));
-    cols.get(geom)
-        .unwrap_or_else(|| panic!("table {name}.{geom} not found"))
 }

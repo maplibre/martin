@@ -183,7 +183,7 @@ fn get_tiles_url(
     let path_and_query = if query_string.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
-        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query_string}",)
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query_string}")
     };
 
     Uri::builder()

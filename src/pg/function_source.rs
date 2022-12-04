@@ -1,5 +1,7 @@
-use crate::pg::config::{FunctionInfo, PgSqlInfo, SqlFuncInfoMapMap};
+use crate::pg::config::FunctionInfo;
+use crate::pg::configurator::SqlFuncInfoMapMap;
 use crate::pg::connection::Pool;
+use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::utils::io_error;
 use log::warn;
 use postgres_protocol::escape::escape_identifier;

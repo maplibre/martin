@@ -35,7 +35,7 @@ pub struct TableInfo {
     pub table: String,
 
     /// Geometry SRID
-    pub srid: u32,
+    pub srid: i32,
 
     /// Geometry column name
     pub geometry_column: String,
@@ -95,23 +95,6 @@ impl PgInfo for TableInfo {
             self.bounds,
             None,
         )
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct PgSqlInfo {
-    pub query: String,
-    pub has_query_params: bool,
-    pub signature: String,
-}
-
-impl PgSqlInfo {
-    pub fn new(query: String, has_query_params: bool, signature: String) -> Self {
-        Self {
-            query,
-            has_query_params,
-            signature,
-        }
     }
 }
 
@@ -190,12 +173,9 @@ impl PgInfo for FunctionInfo {
     }
 }
 
-pub type TableInfoSources = HashMap<String, TableInfo>;
-pub type FuncInfoSources = HashMap<String, FunctionInfo>;
 pub type InfoMap<T> = HashMap<String, T>;
-pub type SqlFuncInfoMapMap = HashMap<String, HashMap<String, (PgSqlInfo, FunctionInfo)>>;
-pub type SqlTableInfoMapMapMap =
-    HashMap<String, HashMap<String, HashMap<String, (PgSqlInfo, TableInfo)>>>;
+pub type TableInfoSources = InfoMap<TableInfo>;
+pub type FuncInfoSources = InfoMap<FunctionInfo>;
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct PgConfig {
@@ -212,8 +192,8 @@ pub struct PgConfig {
     pub discover_functions: bool,
     #[serde(skip_serializing)]
     pub discover_tables: bool,
-    pub table_sources: TableInfoSources,
-    pub function_sources: FuncInfoSources,
+    pub tables: TableInfoSources,
+    pub functions: FuncInfoSources,
 }
 
 #[derive(Debug, Default, PartialEq, Deserialize)]
@@ -225,8 +205,8 @@ pub struct PgConfigBuilder {
     pub danger_accept_invalid_certs: Option<bool>,
     pub default_srid: Option<i32>,
     pub pool_size: Option<u32>,
-    pub table_sources: Option<TableInfoSources>,
-    pub function_sources: Option<FuncInfoSources>,
+    pub tables: Option<TableInfoSources>,
+    pub functions: Option<FuncInfoSources>,
 }
 
 impl PgConfigBuilder {
@@ -241,21 +221,21 @@ impl PgConfigBuilder {
         );
         set_option(&mut self.default_srid, other.default_srid);
         set_option(&mut self.pool_size, other.pool_size);
-        set_option(&mut self.table_sources, other.table_sources);
-        set_option(&mut self.function_sources, other.function_sources);
+        set_option(&mut self.tables, other.tables);
+        set_option(&mut self.functions, other.functions);
         self
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(self) -> io::Result<PgConfig> {
-        if let Some(ref ts) = self.table_sources {
+        if let Some(ref ts) = self.tables {
             for (k, v) in ts {
-                report_unrecognized_config(&format!("table_sources.{}.", k), &v.unrecognized);
+                report_unrecognized_config(&format!("tables.{}.", k), &v.unrecognized);
             }
         }
-        if let Some(ref fs) = self.function_sources {
+        if let Some(ref fs) = self.functions {
             for (k, v) in fs {
-                report_unrecognized_config(&format!("function_sources.{}.", k), &v.unrecognized);
+                report_unrecognized_config(&format!("functions.{}.", k), &v.unrecognized);
             }
         }
         let connection_string = self.connection_string.ok_or_else(|| {
@@ -272,10 +252,10 @@ impl PgConfigBuilder {
             danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or_default(),
             default_srid: self.default_srid,
             pool_size: self.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
-            discover_functions: self.table_sources.is_none() && self.function_sources.is_none(),
-            discover_tables: self.table_sources.is_none() && self.function_sources.is_none(),
-            table_sources: self.table_sources.unwrap_or_default(),
-            function_sources: self.function_sources.unwrap_or_default(),
+            discover_functions: self.tables.is_none() && self.functions.is_none(),
+            discover_tables: self.tables.is_none() && self.functions.is_none(),
+            tables: self.tables.unwrap_or_default(),
+            functions: self.functions.unwrap_or_default(),
         })
     }
 }
@@ -306,8 +286,8 @@ impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
                 })
             }),
             pool_size: args.pool_size,
-            table_sources: None,
-            function_sources: None,
+            tables: None,
+            functions: None,
         }
     }
 }

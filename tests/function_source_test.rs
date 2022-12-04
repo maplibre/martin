@@ -32,9 +32,8 @@ async fn get_function_sources_ok() {
 
 #[actix_rt::test]
 async fn function_source_tilejson() {
-    let sources = mock_sources(None, None).await;
-    let source = sources.get("function_zxy_query").unwrap();
-    let tilejson = source.get_tilejson();
+    let mock = mock_unconfigured().await;
+    let tilejson = source(&mock, "function_zxy_query").get_tilejson();
 
     info!("tilejson = {tilejson:#?}");
 
@@ -50,9 +49,9 @@ async fn function_source_tilejson() {
 
 #[actix_rt::test]
 async fn function_source_tile() {
-    let sources = mock_sources(None, None).await;
-    let source = sources.get("function_zxy_query").unwrap();
-    let tile = source.get_tile(&Xyz::new(0, 0, 0), &None).await.unwrap();
+    let mock = mock_unconfigured().await;
+    let src = source(&mock, "function_zxy_query");
+    let tile = src.get_tile(&Xyz::new(0, 0, 0), &None).await.unwrap();
 
     assert!(!tile.is_empty());
 }

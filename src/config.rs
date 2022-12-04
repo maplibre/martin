@@ -89,7 +89,7 @@ mod tests {
             pool_size: 20
             worker_processes: 8
 
-            table_sources:
+            tables:
               table_source:
                 schema: public
                 table: table_source
@@ -106,7 +106,7 @@ mod tests {
                 properties:
                   gid: int4
 
-            function_sources:
+            functions:
               function_zxy_query:
                 schema: public
                 function: function_zxy_query
@@ -133,7 +133,7 @@ mod tests {
                 pool_size: 20,
                 discover_functions: false,
                 discover_tables: false,
-                table_sources: HashMap::from([(
+                tables: HashMap::from([(
                     "table_source".to_string(),
                     TableInfo {
                         schema: "public".to_string(),
@@ -152,7 +152,7 @@ mod tests {
                         unrecognized: HashMap::new(),
                     },
                 )]),
-                function_sources: HashMap::from([(
+                functions: HashMap::from([(
                     "function_zxy_query".to_string(),
                     FunctionInfo::new_extended(
                         "public".to_string(),
