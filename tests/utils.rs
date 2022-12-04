@@ -220,6 +220,18 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
             },
         ),
         (
+            "points3",
+            TableInfo {
+                schema: "public".to_string(),
+                table: "points3".to_string(),
+                geometry_column: "geom".to_string(),
+                geometry_type: Some("POINT".to_string()),
+                id_column: Some("gid".to_string()),
+                properties: props(&[("fld1", "text"), ("fld2", "text")]),
+                ..default.clone()
+            },
+        ),
+        (
             "points3857",
             TableInfo {
                 schema: "public".to_string(),
@@ -281,7 +293,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
     .collect()
 }
 
-fn props(props: &[(&'static str, &'static str)]) -> HashMap<String, String> {
+pub fn props(props: &[(&'static str, &'static str)]) -> HashMap<String, String> {
     props
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))

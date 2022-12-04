@@ -2,7 +2,7 @@ use crate::pg::config::PgConfig;
 use crate::pg::utils::io_error;
 use bb8::PooledConnection;
 use bb8_postgres::{tokio_postgres as pg, PostgresConnectionManager};
-use log::info;
+use log::{info, warn};
 #[cfg(feature = "ssl")]
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 #[cfg(feature = "ssl")]
@@ -23,7 +23,7 @@ pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
 // See https://postgis.net/docs/ST_TileEnvelope.html
 const MINIMUM_POSTGIS_VER: Version = Version::new(3, 0, 0);
 // After this version we can use margin parameter in ST_TileEnvelope
-const MARGIN_PARAM_VER: Version = Version::new(3, 1, 0);
+const RECOMMENDED_POSTGIS_VER: Version = Version::new(3, 1, 0);
 
 #[derive(Clone, Debug)]
 pub struct Pool {
@@ -89,7 +89,11 @@ impl Pool {
             ))?;
         }
 
-        let margin = version >= MARGIN_PARAM_VER;
+        if version < RECOMMENDED_POSTGIS_VER {
+            warn!("PostGIS {version} is before the recommended {RECOMMENDED_POSTGIS_VER}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
+        }
+
+        let margin = version >= RECOMMENDED_POSTGIS_VER;
         Ok(Pool { id, pool, margin })
     }
 

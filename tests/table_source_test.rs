@@ -13,7 +13,7 @@ fn init() {
 }
 
 #[actix_rt::test]
-async fn table_sources() {
+async fn table_source() {
     let mock = mock_unconfigured().await;
     assert!(!mock.0.is_empty());
 
@@ -37,7 +37,7 @@ async fn table_sources() {
 }
 
 #[actix_rt::test]
-async fn table_source_tilejson_ok() {
+async fn tables_tilejson_ok() {
     let mock = mock_unconfigured().await;
     let tilejson = source(&mock, "table_source").get_tilejson();
 
@@ -54,7 +54,7 @@ async fn table_source_tilejson_ok() {
 }
 
 #[actix_rt::test]
-async fn table_source_tile_ok() {
+async fn tables_tile_ok() {
     let mock = mock_unconfigured().await;
     let src = source(&mock, "table_source");
     let tile = src.get_tile(&Xyz::new(0, 0, 0), &None).await.unwrap();
@@ -63,10 +63,8 @@ async fn table_source_tile_ok() {
 }
 
 #[actix_rt::test]
-async fn table_source_srid_ok() {
+async fn tables_srid_ok() {
     let mock = mock_unconfigured_srid(Some(900913)).await;
-
-    dbg!(&mock);
 
     let source = table(&mock, "points1");
     assert_eq!(source.srid, 4326);
@@ -82,7 +80,7 @@ async fn table_source_srid_ok() {
 }
 
 #[actix_rt::test]
-async fn table_source_multiple_geom_ok() {
+async fn tables_multiple_geom_ok() {
     let mock = mock_unconfigured().await;
 
     let source = table(&mock, "table_source_multiple_geom");

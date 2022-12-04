@@ -451,3 +451,70 @@ async fn get_health_returns_ok() {
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 }
+
+#[actix_rt::test]
+async fn tables_feature_id() {
+    let mut tables = mock_table_config_map();
+
+    let default = tables.remove("points3").unwrap();
+
+    let no_id = TableInfo {
+        id_column: None,
+        properties: props(&[("fld1", "text"), ("fld2", "text")]),
+        ..default.clone()
+    };
+    let id_only = TableInfo {
+        id_column: Some("gid".to_string()),
+        properties: props(&[("fld1", "text"), ("fld2", "text")]),
+        ..default.clone()
+    };
+    let id_and_prop = TableInfo {
+        id_column: Some("gid".to_string()),
+        properties: props(&[("gid", "int4"), ("fld1", "text"), ("fld2", "text")]),
+        ..default.clone()
+    };
+    let prop_only = TableInfo {
+        id_column: None,
+        properties: props(&[("gid", "int4"), ("fld1", "text"), ("fld2", "text")]),
+        ..default.clone()
+    };
+
+    let tables = vec![
+        ("no_id", no_id),
+        ("id_only", id_only),
+        ("id_and_prop", id_and_prop),
+        ("prop_only", prop_only),
+    ];
+    let mock = mock_sources(None, Some(tables.clone()), None).await;
+    dbg!(&mock);
+
+    let src = table(&mock, "no_id");
+    assert_eq!(src.id_column, None);
+    assert_eq!(src.properties.len(), 2);
+    // let tj = source(&mock, "no_id").get_tilejson();
+    // tj.vector_layers.unwrap().iter().for_each(|vl| {
+    //     assert_eq!(vl.id, "no_id");
+    //     assert_eq!(vl.fields.len(), 2);
+    // });
+
+    let src = table(&mock, "id_only");
+    assert_eq!(src.id_column, Some("gid".to_string()));
+    assert_eq!(src.properties.len(), 2);
+
+    let src = table(&mock, "id_and_prop");
+    assert_eq!(src.id_column, Some("gid".to_string()));
+    assert_eq!(src.properties.len(), 3);
+
+    let src = table(&mock, "prop_only");
+    assert_eq!(src.id_column, None);
+    assert_eq!(src.properties.len(), 3);
+
+    // --------------------------------------------
+
+    let app = create_app!(mock_sources(None, Some(tables.clone()), None));
+    for (name, _) in tables.iter() {
+        let req = test_get(format!("/{name}/0/0/0").as_str());
+        let response = call_service(&app, req).await;
+        assert!(response.status().is_success());
+    }
+}

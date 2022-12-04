@@ -91,10 +91,14 @@ pub async fn table_to_query(
         format!(", {properties}")
     };
 
-    let id_column = info
-        .id_column
-        .clone()
-        .map_or(String::new(), |id_column| format!(", '{id_column}'"));
+    let (id_name, id_field) = if let Some(id_column) = &info.id_column {
+        (
+            format!(", {}", escape_literal(id_column)),
+            format!(", {}", escape_identifier(id_column)),
+        )
+    } else {
+        (String::new(), String::new())
+    };
 
     let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
@@ -103,10 +107,11 @@ pub async fn table_to_query(
         "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
     } else if pool.supports_tile_margin() {
         let margin = buffer as f64 / extent as f64;
-        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin={margin})")
+        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin})")
     } else {
         // TODO: we should use ST_Expand here, but it may require a bit more math work,
-        // TODO: so might not be worth it as it is only used for PostGIS < 3.1
+        //       so might not be worth it as it is only used for PostGIS < v3.1.
+        //       v3.1 has been out for 2+ years (december 2020)
         // let earth_circumference = 40075016.6855785;
         // let val = earth_circumference * buffer as f64 / extent as f64;
         // format!("ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {val}/2^$1::integer)")
@@ -115,22 +120,22 @@ pub async fn table_to_query(
 
     let query = format!(
         r#"
-    SELECT
-      ST_AsMVT(tile, {table_id}, {extent}, 'geom' {id_column})
-    FROM (
-      SELECT
-        ST_AsMVTGeom(
-            ST_Transform(ST_CurveToLine({geometry_column}), 3857),
-            ST_TileEnvelope($1::integer, $2::integer, $3::integer),
-            {extent}, {buffer}, {clip_geom}
-        ) AS geom
-        {properties}
-      FROM
-        {schema}.{table}
-      WHERE
-        {geometry_column} && ST_Transform({bbox_search}, {srid})
-    ) AS tile
-    "#,
+SELECT
+  ST_AsMVT(tile, {table_id}, {extent}, 'geom' {id_name})
+FROM (
+  SELECT
+    ST_AsMVTGeom(
+        ST_Transform(ST_CurveToLine({geometry_column}), 3857),
+        ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+        {extent}, {buffer}, {clip_geom}
+    ) AS geom
+    {id_field}{properties}
+  FROM
+    {schema}.{table}
+  WHERE
+    {geometry_column} && ST_Transform({bbox_search}, {srid})
+) AS tile
+"#,
         table_id = escape_literal(info.format_id().as_str()),
         geometry_column = escape_identifier(&info.geometry_column),
         clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
