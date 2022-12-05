@@ -4,6 +4,7 @@
 
 pub mod config;
 pub mod pg;
+pub mod pmtiles;
 pub mod source;
 pub mod srv;
 pub mod utils;

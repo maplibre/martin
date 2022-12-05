@@ -4,6 +4,7 @@ use log::{error, info, warn};
 use martin::config::{read_config, Config, ConfigBuilder};
 use martin::pg::config::{PgArgs, PgConfig};
 use martin::pg::configurator::resolve_pg_data;
+use martin::pmtiles::config::PmtArgs;
 use martin::source::IdResolver;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;

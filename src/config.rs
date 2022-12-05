@@ -1,5 +1,6 @@
 use crate::io_error;
 use crate::pg::config::PgConfig;
+use crate::pmtiles::config::{PmtConfig, PmtConfigBuilderEnum};
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -9,12 +10,58 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OneOrMany<T> {
+    One(T),
+    Many(Vec<T>),
+}
+
+impl<S> OneOrMany<S> {
+    fn map<T, E, F>(self, f: F) -> Result<OneOrMany<T>, E>
+    where
+        F: FnMut(S) -> Result<T, E>,
+    {
+        Ok(match self {
+            Self::One(v) => OneOrMany::One(f(v)?),
+            Self::Many(v) => OneOrMany::Many(v.into_iter().map(f).collect::<Result<_, _>>()?),
+        })
+    }
+
+    pub fn generalize(self) -> Vec<S> {
+        match self {
+            Self::One(v) => vec![v],
+            Self::Many(v) => v,
+        }
+    }
+
+    pub fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::One(a), Self::One(b)) => Self::Many(vec![a, b]),
+            (Self::One(a), Self::Many(mut b)) => {
+                b.insert(0, a);
+                Self::Many(b)
+            }
+            (Self::Many(mut a), Self::One(b)) => {
+                a.push(b);
+                Self::Many(a)
+            }
+            (Self::Many(mut a), Self::Many(b)) => {
+                a.extend(b);
+                Self::Many(a)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
     #[serde(flatten)]
     pub pg: PgConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pmtiles: Option<PmtConfig>,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -23,6 +70,7 @@ pub struct ConfigBuilder {
     pub srv: SrvConfigBuilder,
     #[serde(flatten)]
     pub pg: PgConfig,
+    pub pmtiles: Option<PmtConfigBuilderEnum>,
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
 }
@@ -31,6 +79,19 @@ pub struct ConfigBuilder {
 pub fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
     if first.is_none() && second.is_some() {
         *first = second;
+    }
+}
+
+/// Merge two options
+pub fn merge_option<T>(
+    first: Option<T>,
+    second: Option<T>,
+    merge: impl FnOnce(T, T) -> T,
+) -> Option<T> {
+    match (first, second) {
+        (Some(first), Some(second)) => Some(merge(first, second)),
+        (None, Some(second)) => Some(second),
+        (first, None) => first,
     }
 }
 
@@ -48,6 +109,7 @@ impl ConfigBuilder {
         Ok(Config {
             srv: self.srv.finalize()?,
             pg: self.pg.finalize()?,
+            pmtiles: self.pmtiles.map(|v| v.finalize()).transpose()?,
         })
     }
 }
@@ -113,6 +175,15 @@ mod tests {
                 minzoom: 0
                 maxzoom: 30
                 bounds: [-180.0, -90.0, 180.0, 90.0]
+            
+            pmtiles:
+              paths:
+                - /dir-path
+                - /path/to/pmtiles2.pmtiles
+              sources:
+                  pm-src1: /tmp/pmtiles.pmtiles
+                  pm-src2:
+                    path: /tmp/pmtiles.pmtiles
         "};
 
         let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
@@ -157,6 +228,10 @@ mod tests {
                 )])),
                 ..Default::default()
             },
+            // pmtiles: PmtConfig {
+            //     file: Default::default(),
+            // },
+            pmtiles: None,
         };
         assert_eq!(config, expected);
     }
