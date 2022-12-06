@@ -98,6 +98,17 @@ tables:
     properties:
       gid: int4
 
+  POINTS3:
+    schema: PUBLIC
+    table: pointS3
+    id_column: giD
+    geometry_column: geoM
+    srid: 4326
+    geometry_type: POINT
+    properties:
+      flD1: text
+      flD2: text
+
   points3857:
     schema: public
     table: points3857

@@ -150,6 +150,7 @@ pub fn mock_func_config_map() -> HashMap<&'static str, FunctionInfo> {
             },
         ),
         (
+            // This function is created with non-lowercase name and field names
             "function_zxy_row2",
             FunctionInfo {
                 schema: "public".to_string(),
@@ -220,14 +221,15 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
             },
         ),
         (
-            "points3",
+            // This table is created with non-lowercase name and field names
+            "POINTS3",
             TableInfo {
-                schema: "public".to_string(),
-                table: "points3".to_string(),
-                geometry_column: "geom".to_string(),
+                schema: "PUBLIC".to_string(),
+                table: "pointS3".to_string(),
+                geometry_column: "geoM".to_string(),
                 geometry_type: Some("POINT".to_string()),
-                id_column: Some("gid".to_string()),
-                properties: props(&[("fld1", "text"), ("fld2", "text")]),
+                id_column: Some("giD".to_string()),
+                properties: props(&[("flD1", "text"), ("flD2", "text")]),
                 ..default.clone()
             },
         ),

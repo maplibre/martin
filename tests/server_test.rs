@@ -456,26 +456,26 @@ async fn get_health_returns_ok() {
 async fn tables_feature_id() {
     let mut tables = mock_table_config_map();
 
-    let default = tables.remove("points3").unwrap();
+    let default = tables.remove("POINTS3").unwrap();
 
     let no_id = TableInfo {
         id_column: None,
-        properties: props(&[("fld1", "text"), ("fld2", "text")]),
+        properties: props(&[("flD1", "text"), ("flD2", "text")]),
         ..default.clone()
     };
     let id_only = TableInfo {
-        id_column: Some("gid".to_string()),
-        properties: props(&[("fld1", "text"), ("fld2", "text")]),
+        id_column: Some("giD".to_string()),
+        properties: props(&[("flD1", "text"), ("flD2", "text")]),
         ..default.clone()
     };
     let id_and_prop = TableInfo {
-        id_column: Some("gid".to_string()),
-        properties: props(&[("gid", "int4"), ("fld1", "text"), ("fld2", "text")]),
+        id_column: Some("giD".to_string()),
+        properties: props(&[("giD", "int4"), ("flD1", "text"), ("flD2", "text")]),
         ..default.clone()
     };
     let prop_only = TableInfo {
         id_column: None,
-        properties: props(&[("gid", "int4"), ("fld1", "text"), ("fld2", "text")]),
+        properties: props(&[("giD", "int4"), ("flD1", "text"), ("flD2", "text")]),
         ..default.clone()
     };
 
@@ -498,11 +498,11 @@ async fn tables_feature_id() {
     // });
 
     let src = table(&mock, "id_only");
-    assert_eq!(src.id_column, Some("gid".to_string()));
+    assert_eq!(src.id_column, Some("giD".to_string()));
     assert_eq!(src.properties.len(), 2);
 
     let src = table(&mock, "id_and_prop");
-    assert_eq!(src.id_column, Some("gid".to_string()));
+    assert_eq!(src.id_column, Some("giD".to_string()));
     assert_eq!(src.properties.len(), 3);
 
     let src = table(&mock, "prop_only");
