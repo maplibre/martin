@@ -24,7 +24,7 @@ pub struct SrvConfig {
     pub worker_processes: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct SrvConfigBuilder {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_alive: Option<usize>,

@@ -1,24 +1,27 @@
 use crate::io_error;
 use crate::pg::config::PgConfig;
 use crate::pmtiles::config::{PmtConfig, PmtConfigBuilderEnum};
+use crate::source::IdResolver;
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
+use crate::srv::server::Sources;
+use futures::future::{try_join, try_join_all};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
+use std::{io, mem};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OneOrMany<T> {
+pub enum OneOrMany<T: Clone> {
     One(T),
     Many(Vec<T>),
 }
 
-impl<S> OneOrMany<S> {
-    fn map<T, E, F>(self, f: F) -> Result<OneOrMany<T>, E>
+impl<S: Clone> OneOrMany<S> {
+    pub fn map<T: Clone, E, F>(self, mut f: F) -> Result<OneOrMany<T>, E>
     where
         F: FnMut(S) -> Result<T, E>,
     {
@@ -35,8 +38,9 @@ impl<S> OneOrMany<S> {
         }
     }
 
-    pub fn merge(self, other: Self) -> Self {
-        match (self, other) {
+    pub fn merge(&mut self, other: Self) {
+        // There is no allocation with Vec::new()
+        *self = match (mem::replace(self, Self::Many(Vec::new())), other) {
             (Self::One(a), Self::One(b)) => Self::Many(vec![a, b]),
             (Self::One(a), Self::Many(mut b)) => {
                 b.insert(0, a);
@@ -50,7 +54,7 @@ impl<S> OneOrMany<S> {
                 a.extend(b);
                 Self::Many(a)
             }
-        }
+        };
     }
 }
 
@@ -58,19 +62,44 @@ impl<S> OneOrMany<S> {
 pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
-    #[serde(flatten)]
-    pub pg: PgConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub postgres: Option<Vec<PgConfig>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pmtiles: Option<PmtConfig>,
+}
+
+impl Config {
+    pub async fn resolve(&mut self, idr: IdResolver) -> io::Result<Sources> {
+        let (pg, pmtiles) = try_join(
+            try_join_all(
+                self.postgres
+                    .iter_mut()
+                    .flatten()
+                    .map(|s| s.resolve(idr.clone())),
+            ),
+            try_join_all(self.pmtiles.iter_mut().map(|s| s.resolve(idr.clone()))),
+        )
+        .await?;
+
+        Ok(pg.into_iter().map(|s| s.0).chain(pmtiles.into_iter()).fold(
+            HashMap::new(),
+            |mut acc, hashmap| {
+                acc.extend(hashmap);
+                acc
+            },
+        ))
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct ConfigBuilder {
     #[serde(flatten)]
     pub srv: SrvConfigBuilder,
-    #[serde(flatten)]
-    pub pg: PgConfig,
+
+    pub postgres: Option<OneOrMany<PgConfig>>,
+
     pub pmtiles: Option<PmtConfigBuilderEnum>,
+
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
 }
@@ -83,6 +112,7 @@ pub fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
 }
 
 /// Merge two options
+#[must_use]
 pub fn merge_option<T>(
     first: Option<T>,
     second: Option<T>,
@@ -96,11 +126,23 @@ pub fn merge_option<T>(
 }
 
 impl ConfigBuilder {
-    pub fn merge(&mut self, other: ConfigBuilder) -> &mut Self {
-        self.srv.merge(other.srv);
-        self.pg.merge(other.pg);
+    pub fn merge(&mut self, other: Self) {
         self.unrecognized.extend(other.unrecognized);
-        self
+        self.srv.merge(other.srv);
+        if let Some(other) = other.postgres {
+            match &mut self.postgres {
+                Some(first) => {
+                    first.merge(other);
+                }
+                None => self.postgres = Some(other),
+            }
+        }
+        if let Some(other) = other.pmtiles {
+            match &mut self.pmtiles {
+                Some(first) => first.merge(other),
+                None => self.pmtiles = Some::<PmtConfigBuilderEnum>(other),
+            }
+        }
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
@@ -108,8 +150,19 @@ impl ConfigBuilder {
         report_unrecognized_config("", &self.unrecognized);
         Ok(Config {
             srv: self.srv.finalize()?,
-            pg: self.pg.finalize()?,
-            pmtiles: self.pmtiles.map(|v| v.finalize()).transpose()?,
+            postgres: self
+                .postgres
+                .map(|pg| {
+                    pg.generalize()
+                        .into_iter()
+                        .map(PgConfigBuilder::finalize)
+                        .collect::<Result<_, _>>()
+                })
+                .transpose()?,
+            pmtiles: self
+                .pmtiles
+                .map(PmtConfigBuilderEnum::finalize)
+                .transpose()?,
         })
     }
 }
@@ -142,49 +195,42 @@ mod tests {
     #[test]
     fn parse_config() {
         let yaml = indoc! {"
-            ---
-            connection_string: 'postgres://postgres@localhost:5432/db'
-            danger_accept_invalid_certs: false
-            default_srid: 4326
-            keep_alive: 75
-            listen_addresses: '0.0.0.0:3000'
-            pool_size: 20
-            worker_processes: 8
+---
+keep_alive: 75
+listen_addresses: '0.0.0.0:3000'
+worker_processes: 8
 
-            tables:
-              table_source:
-                schema: public
-                table: table_source
-                srid: 4326
-                geometry_column: geom
-                id_column: ~
-                minzoom: 0
-                maxzoom: 30
-                bounds: [-180.0, -90.0, 180.0, 90.0]
-                extent: 4096
-                buffer: 64
-                clip_geom: true
-                geometry_type: GEOMETRY
-                properties:
-                  gid: int4
+postgres:
+  connection_string: 'postgres://postgres@localhost:5432/db'
+  danger_accept_invalid_certs: false
+  default_srid: 4326
+  pool_size: 20
 
-            functions:
-              function_zxy_query:
-                schema: public
-                function: function_zxy_query
-                minzoom: 0
-                maxzoom: 30
-                bounds: [-180.0, -90.0, 180.0, 90.0]
-            
-            pmtiles:
-              paths:
-                - /dir-path
-                - /path/to/pmtiles2.pmtiles
-              sources:
-                  pm-src1: /tmp/pmtiles.pmtiles
-                  pm-src2:
-                    path: /tmp/pmtiles.pmtiles
-        "};
+  tables:
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      id_column: ~
+      minzoom: 0
+      maxzoom: 30
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+
+  functions:
+    function_zxy_query:
+      schema: public
+      function: function_zxy_query
+      minzoom: 0
+      maxzoom: 30
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+"};
 
         let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
         let config = config.finalize().expect("finalize");
@@ -194,8 +240,12 @@ mod tests {
                 listen_addresses: "0.0.0.0:3000".to_string(),
                 worker_processes: 8,
             },
-            pg: PgConfig {
-                connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
+            postgres: Some(vec![PgConfig {
+                connection_string: "postgres://postgres@localhost:5432/db".to_string(),
+                #[cfg(feature = "ssl")]
+                ca_root_file: None,
+                #[cfg(feature = "ssl")]
+                danger_accept_invalid_certs: false,
                 default_srid: Some(4326),
                 pool_size: Some(20),
                 tables: Some(HashMap::from([(
@@ -228,9 +278,6 @@ mod tests {
                 )])),
                 ..Default::default()
             },
-            // pmtiles: PmtConfig {
-            //     file: Default::default(),
-            // },
             pmtiles: None,
         };
         assert_eq!(config, expected);

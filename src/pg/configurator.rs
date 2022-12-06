@@ -8,34 +8,14 @@ use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, ta
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
 use crate::utils::{find_info, normalize_key, InfoMap, Schemas};
-use futures::future::{join_all, try_join};
+use futures::future::join_all;
 use itertools::Itertools;
 use log::{debug, error, info, warn};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::io;
 
-pub async fn resolve_pg_data(
-    config: PgConfig,
-    id_resolver: IdResolver,
-) -> io::Result<(Sources, PgConfig, Pool)> {
-    let pg = PgBuilder::new(&config, id_resolver).await?;
-    let ((mut tables, tbl_info), (funcs, func_info)) =
-        try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
-
-    tables.extend(funcs);
-    Ok((
-        tables,
-        PgConfig {
-            tables: Some(tbl_info),
-            functions: Some(func_info),
-            ..config
-        },
-        pg.pool,
-    ))
-}
-
-struct PgBuilder {
+pub struct PgBuilder {
     pool: Pool,
     default_srid: Option<i32>,
     auto_functions: Schemas,
@@ -46,7 +26,7 @@ struct PgBuilder {
 }
 
 impl PgBuilder {
-    async fn new(config: &PgConfig, id_resolver: IdResolver) -> io::Result<Self> {
+    pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> io::Result<Self> {
         let pool = Pool::new(config).await?;
         let auto = config.run_autodiscovery;
         Ok(Self {
@@ -183,6 +163,10 @@ impl PgBuilder {
         let source = PgSource::new(id.clone(), sql, info.to_tilejson(), self.pool.clone());
         sources.insert(id, Box::new(source));
     }
+
+    pub fn get_pool(self) -> Pool {
+        self.pool
+    }
 }
 
 fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
@@ -210,3 +194,23 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
+
+// pub async fn resolve_pg_data(
+//     config: PgConfig,
+//     id_resolver: IdResolver,
+// ) -> io::Result<(Sources, PgConfig, Pool)> {
+//     let pg = PgBuilder::new(&config, id_resolver).await?;
+//     let ((mut tables, tbl_info), (funcs, func_info)) =
+//         try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
+//
+//     tables.extend(funcs);
+//     Ok((
+//         tables,
+//         PgConfig {
+//             tables: Some(tbl_info),
+//             functions: Some(func_info),
+//             ..config
+//         },
+//         pg.pool,
+//     ))
+// }

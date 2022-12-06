@@ -20,7 +20,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[command(about, version)]
 pub struct Args {
     /// Database connection string
-    pub connection: Option<String>,
+    pub connection: Vec<String>,
     /// Path to config file.
     #[arg(short, long)]
     pub config: Option<String>,
@@ -50,7 +50,8 @@ impl From<Args> for ConfigBuilder {
 
         ConfigBuilder {
             srv: SrvConfigBuilder::from(args.srv),
-            pg: PgConfig::from((args.pg, args.connection)),
+            postgres: parse_pg_args(args.pg, &args.connection),
+            pmtiles: parse_pmt_args(&args.connection),
             unrecognized: HashMap::new(),
         }
     }
@@ -71,14 +72,9 @@ async fn start(args: Args) -> io::Result<Server> {
     if let Some(file_cfg) = file_cfg {
         builder.merge(file_cfg);
     }
-    let config = builder.finalize()?;
-
     let id_resolver = IdResolver::new(RESERVED_KEYWORDS);
-    let (sources, pg_config, _) = resolve_pg_data(config.pg, id_resolver).await?;
-    let config = Config {
-        pg: pg_config,
-        ..config
-    };
+    let mut config = builder.finalize()?;
+    let sources = config.resolve(id_resolver).await?;
 
     if save_config.is_some() {
         let yaml = serde_yaml::to_string(&config).expect("Unable to serialize config");
@@ -90,7 +86,11 @@ async fn start(args: Args) -> io::Result<Server> {
             info!("Saving config to {file_name}, use --config to load it");
             File::create(file_name)?.write_all(yaml.as_bytes())?;
         }
-    } else if config.pg.run_autodiscovery {
+    } else if config
+        .postgres
+        .iter()
+        .any(|v| v.iter().any(PgConfig::is_autodetect))
+    {
         info!("Martin has been configured with automatic settings.");
         info!("Use --save-config to save or print Martin configuration.");
     }
