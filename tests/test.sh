@@ -124,7 +124,7 @@ test_pbf fnc_zxy_6_38_20            http://localhost:3000/function_zxy/6/38/20
 test_pbf fnc_zxy2_6_38_20           http://localhost:3000/function_zxy2/6/38/20
 test_pbf fnc_zxy_query_6_38_20      http://localhost:3000/function_zxy_query/6/38/20
 test_pbf fnc_zxy_row_6_38_20        http://localhost:3000/function_zxy_row/6/38/20
-test_pbf fnc_zxy_row2_6_38_20       http://localhost:3000/function_zxy_row2/6/38/20
+test_pbf fnc_zxy_row2_6_38_20       http://localhost:3000/function_ZXY_row2/6/38/20
 test_pbf fnc_zxy_row_key_6_38_20    http://localhost:3000/function_zxy_row_key/6/38/20
 
 >&2 echo "Test server response for table source with different SRID"

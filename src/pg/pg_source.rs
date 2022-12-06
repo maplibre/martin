@@ -59,10 +59,15 @@ impl Source for PgSource {
         };
 
         let query = &self.info.query;
-        let prep_query = conn
-            .prepare_typed(query, param_types)
-            .await
-            .map_err(|e| io_error!(e, "Can't create prepared statement for the tile"))?;
+        let prep_query = conn.prepare_typed(query, param_types).await.map_err(|e| {
+            io_error!(
+                e,
+                "Can't create prepared statement for the tile '{}' ({}): {}",
+                self.id,
+                self.info.signature,
+                self.info.query
+            )
+        })?;
 
         let tile = if self.info.has_query_params {
             let json = query_to_json(url_query);

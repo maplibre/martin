@@ -1,18 +1,15 @@
-CREATE TABLE Points3(Gid SERIAL PRIMARY KEY, Fld1 TEXT, Fld2 TEXT, Geom GEOMETRY(POINT, 4326));
+DROP SCHEMA IF EXISTS "MixedCase" CASCADE;
+CREATE SCHEMA "MixedCase";
 
-INSERT INTO Points3
+CREATE TABLE "MixedCase"."PoiNTs3"("Gid" SERIAL PRIMARY KEY, "TABLE" TEXT, "table" INT, "Geom" GEOMETRY(POINT, 4326));
+CREATE TABLE "MixedCase"."Points3"("Gid" SERIAL PRIMARY KEY, "TABLE" TEXT, "Geom" GEOMETRY(POINT, 4326));
+
+INSERT INTO "MixedCase"."Points3"
     SELECT
         generate_series(1, 10000) as id,
-        md5(random()::text) as Fld1,
-        md5(random()::text) as Fld2,
+        md5(random()::text) as "TABLE",
         (
-            ST_DUMP(
-                ST_GENERATEPOINTS(
-                    ST_GEOMFROMTEXT('POLYGON ((-180 90, 180 90, 180 -90, -180 -90, -180 90))', 4326),
-                    10000
-                )
-            )
+            ST_DUMP(ST_GENERATEPOINTS(ST_GEOMFROMTEXT('POLYGON ((-180 90, 180 90, 180 -90, -180 -90, -180 90))', 4326), 10000))
         ).Geom;
 
-CREATE INDEX ON Points3 USING GIST(Geom);
-CLUSTER Points3_geom_idx ON Points3;
+CREATE INDEX ON "MixedCase"."Points3" USING GIST("Geom");

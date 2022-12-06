@@ -99,7 +99,7 @@ tables:
       gid: int4
 
   POINTS3:
-    schema: PUBLIC
+    schema: MIXEDCASE
     table: pointS3
     id_column: giD
     geometry_column: geoM

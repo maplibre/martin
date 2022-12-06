@@ -153,8 +153,8 @@ pub fn mock_func_config_map() -> HashMap<&'static str, FunctionInfo> {
             // This function is created with non-lowercase name and field names
             "function_zxy_row2",
             FunctionInfo {
-                schema: "public".to_string(),
-                function: "function_zxy_row2".to_string(),
+                schema: "MixedCase".to_string(),
+                function: "function_ZXY_row2".to_string(),
                 ..default.clone()
             },
         ),
@@ -224,7 +224,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
             // This table is created with non-lowercase name and field names
             "POINTS3",
             TableInfo {
-                schema: "PUBLIC".to_string(),
+                schema: "MIXEDCASE".to_string(),
                 table: "pointS3".to_string(),
                 geometry_column: "geoM".to_string(),
                 geometry_type: Some("POINT".to_string()),
