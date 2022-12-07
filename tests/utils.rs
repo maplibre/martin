@@ -45,7 +45,6 @@ pub async fn mock_config(
                 .map(|v| (v.0.to_string(), v.1.clone()))
                 .collect::<HashMap<_, _>>()
         }),
-        // unrecognized: Default::default(),
     };
     config.finalize().expect("Unable to finalize config")
 }

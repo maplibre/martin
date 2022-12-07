@@ -10,6 +10,11 @@ use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
 
 #[macro_export]
 macro_rules! io_error {
+    ($format:literal $(, $arg:expr)* $(,)?) => {
+        ::std::io::Error::new(
+            ::std::io::ErrorKind::Other,
+            ::std::format!($format, $($arg,)*))
+    };
     ($error:ident $(, $arg:expr)* $(,)?) => {
         ::std::io::Error::new(
             ::std::io::ErrorKind::Other,

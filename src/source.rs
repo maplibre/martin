@@ -23,12 +23,10 @@ impl Xyz {
 
 impl Display for Xyz {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match f.fill() {
-            ',' => write!(f, "{},{},{}", self.z, self.x, self.y),
-            '/' => write!(f, "{}/{}/{}", self.z, self.x, self.y),
-            v => {
-                panic!("Invalid fill character '{v}' -- must be either ',' or '/'.  Use {{xyz:/>}} or {{xyz:,>}}")
-            }
+        if f.alternate() {
+            write!(f, "{}/{}/{}", self.z, self.x, self.y)
+        } else {
+            write!(f, "{},{},{}", self.z, self.x, self.y)
         }
     }
 }
@@ -127,5 +125,12 @@ mod tests {
         assert_eq!(r.resolve("b".to_string(), "a".to_string()), "b");
         assert_eq!(r.resolve("a.1".to_string(), "a".to_string()), "a.1.1");
         assert_eq!(r.resolve("a.1".to_string(), "b".to_string()), "a.1");
+    }
+
+    #[test]
+    fn xyz_format() {
+        let xyz = Xyz::new(1, 2, 3);
+        assert_eq!(format!("{xyz}"), "1,2,3");
+        assert_eq!(format!("{xyz:#}"), "1/2/3");
     }
 }

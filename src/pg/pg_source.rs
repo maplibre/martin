@@ -71,20 +71,20 @@ impl Source for PgSource {
 
         let tile = if self.info.has_query_params {
             let json = query_to_json(url_query);
-            debug!("SQL: {query} [{xyz:,>}, {json:?}]");
+            debug!("SQL: {query} [{xyz}, {json:?}]");
             let params: &[&(dyn ToSql + Sync)] = &[&xyz.z, &xyz.x, &xyz.y, &json];
             conn.query_one(&prep_query, params).await
         } else {
-            debug!("SQL: {query} [{xyz:,>}]");
+            debug!("SQL: {query} [{xyz}]");
             conn.query_one(&prep_query, &[&xyz.z, &xyz.x, &xyz.y]).await
         };
 
         let tile = tile.map(|row| row.get(0)).map_err(|e| {
             if self.info.has_query_params {
                 let url_q = query_to_json(url_query);
-                io_error!(e, r#"Can't get {}/{xyz:/>} with {url_q:?} params"#, self.id)
+                io_error!(e, r#"Can't get {}/{xyz:#} with {url_q:?} params"#, self.id)
             } else {
-                io_error!(e, r#"Can't get {}/{xyz:/>}"#, self.id)
+                io_error!(e, r#"Can't get {}/{xyz:#}"#, self.id)
             }
         })?;
 

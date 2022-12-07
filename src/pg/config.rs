@@ -214,7 +214,7 @@ pub struct PgConfigBuilder {
 }
 
 impl PgConfigBuilder {
-    pub fn merge(&mut self, other: PgConfigBuilder) -> &mut Self {
+    pub fn merge(&mut self, other: Self) -> &mut Self {
         set_option(&mut self.connection_string, other.connection_string);
         #[cfg(feature = "ssl")]
         set_option(&mut self.ca_root_file, other.ca_root_file);
