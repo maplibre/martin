@@ -57,7 +57,10 @@ async fn tables_tilejson_ok() {
 async fn tables_tile_ok() {
     let mock = mock_unconfigured().await;
     let src = source(&mock, "table_source");
-    let tile = src.get_tile(&Xyz::new(0, 0, 0), &None).await.unwrap();
+    let tile = src
+        .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
+        .await
+        .unwrap();
 
     assert!(!tile.is_empty());
 }

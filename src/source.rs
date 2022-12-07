@@ -15,12 +15,6 @@ pub struct Xyz {
     pub y: i32,
 }
 
-impl Xyz {
-    pub fn new(z: i32, x: i32, y: i32) -> Self {
-        Self { z, x, y }
-    }
-}
-
 impl Display for Xyz {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
@@ -129,7 +123,7 @@ mod tests {
 
     #[test]
     fn xyz_format() {
-        let xyz = Xyz::new(1, 2, 3);
+        let xyz = Xyz { z: 1, x: 2, y: 3 };
         assert_eq!(format!("{xyz}"), "1,2,3");
         assert_eq!(format!("{xyz:#}"), "1/2/3");
     }
