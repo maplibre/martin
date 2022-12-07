@@ -62,8 +62,6 @@ impl PgBuilder {
     pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources), io::Error> {
         let all_tables = get_table_sources(&self.pool).await?;
 
-        dbg!(&all_tables);
-
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
         let mut pending = Vec::new();
@@ -131,50 +129,39 @@ impl PgBuilder {
     }
 
     pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources), io::Error> {
-        let mut discovered_sources = get_function_sources(&self.pool).await?;
+        let all_functions = get_function_sources(&self.pool).await?;
+
         let mut res: Sources = HashMap::new();
         let mut info_map = FuncInfoSources::new();
-        let mut used: HashMap<String, HashMap<String, PgSqlInfo>> = HashMap::new();
+        let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let schema = &cfg_inf.schema;
-            let name = &cfg_inf.function;
-            if let Some((pg_sql, _)) = discovered_sources
-                .get_mut(schema)
-                .and_then(|v| v.remove(name))
-            {
-                // Store it just in case another source needs the same function
-                used.entry(schema.to_string())
-                    .or_default()
-                    .insert(name.to_string(), pg_sql.clone());
-
-                let id2 = self.resolve_id(id.clone(), cfg_inf);
-                self.add_func_src(&mut res, id2.clone(), cfg_inf, pg_sql.clone());
-                warn_on_rename(id, &id2, "function");
-                info!("Configured source {id2} from function {}", pg_sql.signature);
-                debug!("{}", pg_sql.query);
-                info_map.insert(id2, cfg_inf.clone());
-            } else if let Some(pg_sql) = used.get_mut(schema).and_then(|v| v.get(name)) {
-                // This function was already used by another source
-                let id2 = self.resolve_id(id.clone(), cfg_inf);
-                self.add_func_src(&mut res, id2.clone(), cfg_inf, pg_sql.clone());
-                warn_on_rename(id, &id2, "function");
-                let sig = &pg_sql.signature;
-                info!("Configured duplicate source {id2} from function {sig}");
-                debug!("{}", pg_sql.query);
-                info_map.insert(id2, cfg_inf.clone());
-            } else {
-                warn!(
-                    "Configured function source {id} from {schema}.{name} does not exist or \
-                    does not have an expected signature like (z,x,y) -> bytea. See README.md",
-                );
+            let Some(schemas) = find_info(&all_functions, &cfg_inf.schema, "schema", id) else { continue };
+            if schemas.is_empty() {
+                warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
+                continue;
             }
+            let Some((pg_sql, _)) = find_info(schemas, &cfg_inf.function, "function", id) else { continue };
+
+            let dup = used.insert((&cfg_inf.schema, &cfg_inf.function));
+            let dup = if dup { "duplicate " } else { "" };
+
+            let id2 = self.resolve_id(id.clone(), cfg_inf);
+            self.add_func_src(&mut res, id2.clone(), cfg_inf, pg_sql.clone());
+            warn_on_rename(id, &id2, "function");
+            let signature = &pg_sql.signature;
+            info!("Configured {dup}source {id2} from function {signature}");
+            debug!("{}", pg_sql.query);
+            info_map.insert(id2, cfg_inf.clone());
         }
 
         if self.discover_functions {
             // Sort the discovered sources by schema and function name to ensure a consistent behavior
-            for (_, funcs) in discovered_sources.into_iter().sorted_by(by_key) {
+            for (schema, funcs) in all_functions.into_iter().sorted_by(by_key) {
                 for (name, (pg_sql, src_inf)) in funcs.into_iter().sorted_by(by_key) {
+                    if used.contains(&(schema.as_str(), name.as_str())) {
+                        continue;
+                    }
                     let id2 = self.resolve_id(name.clone(), &src_inf);
                     self.add_func_src(&mut res, id2.clone(), &src_inf, pg_sql.clone());
                     info!("Discovered source {id2} from function {}", pg_sql.signature);

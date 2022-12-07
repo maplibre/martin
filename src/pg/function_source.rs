@@ -50,18 +50,22 @@ pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap, io::
             query.push('.');
             query.push_str(&escape_identifier(&function));
             query.push('(');
-            for (idx, (name, typ)) in zip(input_names.iter(), input_types.iter()).enumerate() {
+            for (idx, (_name, typ)) in zip(input_names.iter(), input_types.iter()).enumerate() {
                 if idx > 0 {
                     write!(query, ", ").unwrap();
                 }
-                write!(query, "{name} => ${index}::{typ}", index = idx + 1).unwrap();
+                // This could also be done as "{name} => ${index}::{typ}"
+                // where the name must be passed through escape_identifier
+                write!(query, "${index}::{typ}", index = idx + 1).unwrap();
             }
             write!(query, ")").unwrap();
 
             // This is the same as if let-chain, but that's not yet available
             let ret_inf = match (output_record_names, output_type.as_str()) {
                 (Some(names), "record") => {
-                    // SELECT mvt FROM "public"."function_zxy_row2"(z => $1::integer, x => $2::integer, y => $3::integer);
+                    // SELECT mvt FROM "public"."function_zxy_row2"(
+                    //    "z" => $1::integer, "x" => $2::integer, "y" => $3::integer
+                    // );
                     query.insert_str(0, " FROM ");
                     query.insert_str(0, &escape_identifier(names[0].as_str()));
                     query.insert_str(0, "SELECT ");

@@ -150,10 +150,10 @@ pub fn mock_func_config_map() -> HashMap<&'static str, FunctionInfo> {
         ),
         (
             // This function is created with non-lowercase name and field names
-            "function_zxy_row2",
+            "function_mixed_name",
             FunctionInfo {
                 schema: "MixedCase".to_string(),
-                function: "function_ZXY_row2".to_string(),
+                function: "function_Mixed_Name".to_string(),
                 ..default.clone()
             },
         ),

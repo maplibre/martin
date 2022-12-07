@@ -41,9 +41,9 @@ FROM information_schema.routines
          JOIN inputs ON routines.specific_name = inputs.specific_name
          LEFT JOIN outputs ON routines.specific_name = outputs.specific_name
 WHERE jsonb_array_length(input_names) IN (3, 4)
-  AND input_names ->> 0 IN ('z', 'zoom')
-  AND input_names ->> 1 = 'x'
-  AND input_names ->> 2 = 'y'
+  AND lower(input_names ->> 0) IN ('z', 'zoom')
+  AND lower(input_names ->> 1) = 'x'
+  AND lower(input_names ->> 2) = 'y'
   -- the 4th parameter is optional, and can be any name
   AND input_types ->> 0 = 'integer'
   AND input_types ->> 1 = 'integer'

@@ -41,6 +41,7 @@ pub fn find_info_kv<'a, T>(
             }
         }
     }
+
     if multiple.is_empty() {
         if let Some(result) = result {
             info!("For source {id}, {info} '{key}' was not found, using '{result}' instead.");
