@@ -50,17 +50,10 @@ serde_yaml = "0.9"
 tilejson = "0.3"
 
 [dev-dependencies]
+cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
+criterion = { version = "0.4", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.1"
 indoc = "1"
-
-[dev-dependencies.criterion]
-version = "0.4.0"
-features = ["async_futures", "async_tokio", "html_reports"]
-
-[dev-dependencies.cargo-husky]
-version = "1"
-default-features = false
-features = ["run-for-all", "prepush-hook", "run-cargo-fmt", "run-cargo-clippy", "run-cargo-test"]
 
 [[bench]]
 name = "sources"
