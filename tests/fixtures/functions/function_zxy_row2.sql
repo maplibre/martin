@@ -9,7 +9,7 @@ RETURNS TABLE("mVt" bytea, key text) AS $$
             ST_Transform(ST_CurveToLine("Geom"), 3857),
             ST_TileEnvelope("Z", x, y),
             4096, 64, true) AS geom
-      FROM "MixedCase"."Points3"
+      FROM "MixedCase"."MixPoints"
       WHERE "Geom" && ST_Transform(ST_TileEnvelope("Z", x, y), 4326)
   ) as tile WHERE geom IS NOT NULL) src
 $$ LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;

@@ -1,17 +1,18 @@
 use crate::pg::config::{
-    FuncInfoSources, FunctionInfo, InfoMap, PgConfig, PgInfo, TableInfo, TableInfoSources,
+    FuncInfoSources, FunctionInfo, PgConfig, PgInfo, TableInfo, TableInfoSources,
 };
 use crate::pg::function_source::get_function_sources;
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::Pool;
-use crate::pg::table_source::{get_table_sources, table_to_query};
+use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
+use crate::utils::{find_info, InfoMap};
 use futures::future::{join_all, try_join};
 use itertools::Itertools;
 use log::{debug, error, info, warn};
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 
 pub async fn resolve_pg_data(
@@ -59,14 +60,13 @@ impl PgBuilder {
     }
 
     pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources), io::Error> {
-        let mut info_map = TableInfoSources::new();
-        let mut discovered_sources = get_table_sources(&self.pool).await?;
-        let mut used = SqlTableInfoMapMapMap::new();
-        let mut pending = Vec::new();
+        let all_tables = get_table_sources(&self.pool).await?;
 
-        // First match configured sources with the discovered ones and add them to the pending list.
-        // Note that multiple configured sources could map to a single discovered one.
-        // After that, add the remaining discovered sources to the pending list if auto-config is enabled.
+        dbg!(&all_tables);
+
+        // Match configured sources with the discovered ones and add them to the pending list.
+        let mut used = HashSet::<(&str, &str, &str)>::new();
+        let mut pending = Vec::new();
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
             if let Some(extent) = cfg_inf.extent {
@@ -78,58 +78,40 @@ impl PgBuilder {
                 }
             }
 
-            if let Some(src_inf) = discovered_sources
-                .get_mut(&cfg_inf.schema)
-                .and_then(|v| v.get_mut(&cfg_inf.table))
-                .and_then(|v| v.remove(&cfg_inf.geometry_column))
-            {
-                // Store it just in case another source needs the same table
-                used.entry(src_inf.schema.to_string())
-                    .or_default()
-                    .entry(src_inf.table.to_string())
-                    .or_default()
-                    .insert(src_inf.geometry_column.to_string(), src_inf.clone());
+            let Some(schemas) = find_info(&all_tables, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(tables) = find_info(schemas, &cfg_inf.table, "table", id) else { continue };
+            let Some(src_inf) = find_info(tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
 
-                let id2 = self.resolve_id(id.clone(), cfg_inf);
-                let Some(cfg_inf) = self.merge_info(&id2, cfg_inf, &src_inf) else {continue};
-                warn_on_rename(id, &id2, "table");
-                info!("Configured source {id2} from {}", summary(&cfg_inf));
-                pending.push(table_to_query(id2, cfg_inf, self.pool.clone()));
-            } else if let Some(src_inf) = used
-                .get_mut(&cfg_inf.schema)
-                .and_then(|v| v.get(&cfg_inf.table))
-                .and_then(|v| v.get(&cfg_inf.geometry_column))
-            {
-                // This table was already used by another source
-                let id2 = self.resolve_id(id.clone(), cfg_inf);
-                let Some(cfg_inf) = self.merge_info(&id2, cfg_inf, src_inf) else {continue};
-                warn_on_rename(id, &id2, "table");
-                let info = summary(&cfg_inf);
-                info!("Configured duplicate source {id2} from {info}");
-                pending.push(table_to_query(id2, cfg_inf, self.pool.clone()));
-            } else {
-                warn!(
-                    "Configured table source {id} as {}.{} with geo column {} does not exist",
-                    cfg_inf.schema, cfg_inf.table, cfg_inf.geometry_column
-                );
-            }
+            let dup = used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+            let dup = if dup { "duplicate " } else { "" };
+
+            let id2 = self.resolve_id(id.clone(), cfg_inf);
+            let Some(cfg_inf) = merge_table_info(self.default_srid,&id2, cfg_inf, src_inf) else { continue };
+            warn_on_rename(id, &id2, "table");
+            info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
+            pending.push(table_to_query(id2, cfg_inf, self.pool.clone()));
         }
 
         if self.discover_tables {
             // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
-            for (_, tables) in discovered_sources.into_iter().sorted_by(by_key) {
-                for (_, geoms) in tables.into_iter().sorted_by(by_key) {
-                    for (_, src_inf) in geoms.into_iter().sorted_by(by_key) {
-                        let id2 = self.resolve_id(src_inf.table.clone(), &src_inf);
-                        let Some(cfg_inf) = self.merge_info(&id2, &src_inf, &src_inf) else {continue};
-                        info!("Discovered source {id2} from {}", summary(&cfg_inf));
-                        pending.push(table_to_query(id2, cfg_inf, self.pool.clone()));
+            for (schema, tables) in all_tables.into_iter().sorted_by(by_key) {
+                for (table, geoms) in tables.into_iter().sorted_by(by_key) {
+                    for (geom, mut src_inf) in geoms.into_iter().sorted_by(by_key) {
+                        if used.contains(&(schema.as_str(), table.as_str(), geom.as_str())) {
+                            continue;
+                        }
+                        let id2 = self.resolve_id(table.clone(), &src_inf);
+                        let Some(srid) = calc_srid(&src_inf.format_id(), &id2,  src_inf.srid,0, self.default_srid) else {continue};
+                        src_inf.srid = srid;
+                        info!("Discovered source {id2} from {}", summary(&src_inf));
+                        pending.push(table_to_query(id2, src_inf, self.pool.clone()));
                     }
                 }
             }
         }
 
         let mut res: Sources = HashMap::new();
+        let mut info_map = TableInfoSources::new();
         let pending = join_all(pending).await;
         for src in pending {
             match src {
@@ -213,44 +195,6 @@ impl PgBuilder {
     fn add_func_src(&self, sources: &mut Sources, id: String, info: &impl PgInfo, sql: PgSqlInfo) {
         let source = PgSource::new(id.clone(), sql, info.to_tilejson(), self.pool.clone());
         sources.insert(id, Box::new(source));
-    }
-
-    fn merge_info(
-        &self,
-        new_id: &String,
-        cfg_inf: &TableInfo,
-        src_inf: &TableInfo,
-    ) -> Option<TableInfo> {
-        // Assume cfg_inf and src_inf have the same schema/table/geometry_column
-        let table_id = src_inf.format_id();
-        let mut inf = cfg_inf.clone();
-        inf.srid = match (src_inf.srid, cfg_inf.srid, self.default_srid) {
-            (0, 0, Some(default_srid)) => {
-                info!("Table {table_id} has SRID=0, using provided default SRID={default_srid}");
-                default_srid
-            }
-            (0, 0, None) => {
-                let info = "To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=...";
-                warn!("Table {table_id} has SRID=0, skipping. {info}");
-                return None;
-            }
-            (0, cfg, _) => cfg, // Use the configured SRID
-            (src, 0, _) => src, // Use the source SRID
-            (src, cfg, _) if src != cfg => {
-                warn!("Table {table_id} has SRID={src}, but source {new_id} has SRID={cfg}");
-                return None;
-            }
-            (_, cfg, _) => cfg,
-        };
-
-        match (&src_inf.geometry_type, &cfg_inf.geometry_type) {
-            (Some(src), Some(cfg)) if src != cfg => {
-                warn!(r#"Table {table_id} has geometry type={src}, but source {new_id} has {cfg}"#);
-            }
-            _ => {}
-        }
-
-        Some(inf)
     }
 }
 

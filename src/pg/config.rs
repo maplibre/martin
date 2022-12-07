@@ -1,5 +1,6 @@
 use crate::config::{report_unrecognized_config, set_option};
 use crate::pg::utils::create_tilejson;
+use crate::utils::InfoMap;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
@@ -77,6 +78,10 @@ pub struct TableInfo {
 
     /// List of columns, that should be encoded as tile properties
     pub properties: HashMap<String, String>,
+
+    /// Mapping of properties to the actual table columns
+    #[serde(skip_deserializing, skip_serializing)]
+    pub prop_mapping: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: HashMap<String, Value>,
@@ -173,7 +178,6 @@ impl PgInfo for FunctionInfo {
     }
 }
 
-pub type InfoMap<T> = HashMap<String, T>;
 pub type TableInfoSources = InfoMap<TableInfo>;
 pub type FuncInfoSources = InfoMap<FunctionInfo>;
 

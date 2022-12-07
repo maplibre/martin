@@ -456,26 +456,26 @@ async fn get_health_returns_ok() {
 async fn tables_feature_id() {
     let mut tables = mock_table_config_map();
 
-    let default = tables.remove("POINTS3").unwrap();
+    let default = tables.remove("MIXPOINTS").unwrap();
 
     let no_id = TableInfo {
         id_column: None,
-        properties: props(&[("flD1", "text"), ("flD2", "text")]),
+        properties: props(&[("TABLE", "text")]),
         ..default.clone()
     };
     let id_only = TableInfo {
         id_column: Some("giD".to_string()),
-        properties: props(&[("flD1", "text"), ("flD2", "text")]),
+        properties: props(&[("TABLE", "text")]),
         ..default.clone()
     };
     let id_and_prop = TableInfo {
         id_column: Some("giD".to_string()),
-        properties: props(&[("giD", "int4"), ("flD1", "text"), ("flD2", "text")]),
+        properties: props(&[("giD", "int4"), ("TABLE", "text")]),
         ..default.clone()
     };
     let prop_only = TableInfo {
         id_column: None,
-        properties: props(&[("giD", "int4"), ("flD1", "text"), ("flD2", "text")]),
+        properties: props(&[("giD", "int4"), ("TABLE", "text")]),
         ..default.clone()
     };
 
@@ -490,7 +490,7 @@ async fn tables_feature_id() {
 
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
-    assert_eq!(src.properties.len(), 2);
+    assert_eq!(src.properties.len(), 1);
     // let tj = source(&mock, "no_id").get_tilejson();
     // tj.vector_layers.unwrap().iter().for_each(|vl| {
     //     assert_eq!(vl.id, "no_id");
@@ -499,15 +499,15 @@ async fn tables_feature_id() {
 
     let src = table(&mock, "id_only");
     assert_eq!(src.id_column, Some("giD".to_string()));
-    assert_eq!(src.properties.len(), 2);
+    assert_eq!(src.properties.len(), 1);
 
     let src = table(&mock, "id_and_prop");
     assert_eq!(src.id_column, Some("giD".to_string()));
-    assert_eq!(src.properties.len(), 3);
+    assert_eq!(src.properties.len(), 2);
 
     let src = table(&mock, "prop_only");
     assert_eq!(src.id_column, None);
-    assert_eq!(src.properties.len(), 3);
+    assert_eq!(src.properties.len(), 2);
 
     // --------------------------------------------
 

@@ -181,20 +181,14 @@ pub fn mock_func_config_map() -> HashMap<&'static str, FunctionInfo> {
 
 pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
     let default = TableInfo {
-        schema: String::new(),
-        table: String::new(),
         srid: 4326,
-        geometry_column: String::new(),
-        id_column: None,
         minzoom: Some(0),
         maxzoom: Some(30),
         bounds: Some(Bounds::MAX),
         extent: Some(4096),
         buffer: Some(64),
         clip_geom: Some(true),
-        geometry_type: None,
-        properties: HashMap::new(),
-        unrecognized: HashMap::new(),
+        ..Default::default()
     };
 
     [
@@ -222,14 +216,14 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
         ),
         (
             // This table is created with non-lowercase name and field names
-            "POINTS3",
+            "MIXPOINTS",
             TableInfo {
                 schema: "MIXEDCASE".to_string(),
-                table: "pointS3".to_string(),
+                table: "mixPoints".to_string(),
                 geometry_column: "geoM".to_string(),
                 geometry_type: Some("POINT".to_string()),
                 id_column: Some("giD".to_string()),
-                properties: props(&[("flD1", "text"), ("flD2", "text")]),
+                properties: props(&[("tAble", "text")]),
                 ..default.clone()
             },
         ),

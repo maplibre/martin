@@ -140,7 +140,6 @@ mod tests {
                         table: "table_source".to_string(),
                         srid: 4326,
                         geometry_column: "geom".to_string(),
-                        id_column: None,
                         minzoom: Some(0),
                         maxzoom: Some(30),
                         bounds: Some([-180, -90, 180, 90].into()),
@@ -149,7 +148,7 @@ mod tests {
                         clip_geom: Some(true),
                         geometry_type: Some("GEOMETRY".to_string()),
                         properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
-                        unrecognized: HashMap::new(),
+                        ..Default::default()
                     },
                 )]),
                 functions: HashMap::from([(

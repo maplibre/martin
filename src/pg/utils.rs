@@ -1,4 +1,5 @@
 use crate::source::UrlQuery;
+use crate::utils::InfoMap;
 use actix_http::header::HeaderValue;
 use actix_web::http::Uri;
 use postgis::{ewkb, LineString, Point, Polygon};
@@ -15,10 +16,9 @@ macro_rules! io_error {
             ::std::format!("{}: {}", ::std::format_args!($($arg,)+), $error))
     };
 }
-
 pub(crate) use io_error;
 
-pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
+pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
     let mut hashmap = HashMap::new();
 
     let object = value.as_object().unwrap();
@@ -30,7 +30,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
     hashmap
 }
 
-pub fn query_to_json(query: &UrlQuery) -> Json<HashMap<String, Value>> {
+pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<Value>> {
     let mut query_as_json = HashMap::new();
     for (k, v) in query.iter() {
         let json_value: serde_json::Value =

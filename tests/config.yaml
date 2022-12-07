@@ -66,6 +66,17 @@ tables:
     properties:
       gid: int4
 
+  MixPoints:
+    schema: MIXEDCASE
+    table: MixPoints
+    id_column: giD
+    geometry_column: geoM
+    srid: 4326
+    geometry_type: POINT
+    properties:
+      flD1: text
+      flD2: text
+
   points1:
     schema: public
     table: points1
@@ -97,17 +108,6 @@ tables:
     geometry_type: POINT
     properties:
       gid: int4
-
-  POINTS3:
-    schema: MIXEDCASE
-    table: pointS3
-    id_column: giD
-    geometry_column: geoM
-    srid: 4326
-    geometry_type: POINT
-    properties:
-      flD1: text
-      flD2: text
 
   points3857:
     schema: public
