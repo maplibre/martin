@@ -2,8 +2,7 @@
 
 use actix_web::web::Data;
 use log::info;
-use martin::pg::config::{FunctionInfo, PgConfigBuilder};
-use martin::pg::config::{PgConfig, TableInfo};
+use martin::pg::config::{FunctionInfo, PgConfig, TableInfo};
 use martin::pg::configurator::resolve_pg_data;
 use martin::pg::pool::Pool;
 use martin::source::{IdResolver, Source};
@@ -27,14 +26,9 @@ pub async fn mock_config(
 ) -> PgConfig {
     let connection_string: String = env::var("DATABASE_URL").unwrap();
     info!("Connecting to {connection_string}");
-    let config = PgConfigBuilder {
+    let config = PgConfig {
         connection_string: Some(connection_string),
-        #[cfg(feature = "ssl")]
-        ca_root_file: None,
-        #[cfg(feature = "ssl")]
-        danger_accept_invalid_certs: None,
         default_srid,
-        pool_size: None,
         tables: tables.map(|s| {
             s.iter()
                 .map(|v| (v.0.to_string(), v.1.clone()))
@@ -45,24 +39,25 @@ pub async fn mock_config(
                 .map(|v| (v.0.to_string(), v.1.clone()))
                 .collect::<HashMap<_, _>>()
         }),
+        ..Default::default()
     };
     config.finalize().expect("Unable to finalize config")
 }
 
 #[allow(dead_code)]
+pub async fn mock_empty_config() -> PgConfig {
+    mock_config(None, None, None).await
+}
+
+#[allow(dead_code)]
 pub async fn mock_pool() -> Pool {
-    let res = Pool::new(&mock_config(None, None, None).await).await;
+    let res = Pool::new(&mock_empty_config().await).await;
     res.expect("Failed to create pool")
 }
 
 #[allow(dead_code)]
-pub async fn mock_sources(
-    functions: Option<Vec<(&'static str, FunctionInfo)>>,
-    tables: Option<Vec<(&'static str, TableInfo)>>,
-    default_srid: Option<i32>,
-) -> MockSource {
-    let cfg = mock_config(functions, tables, default_srid).await;
-    let res = resolve_pg_data(cfg, IdResolver::default()).await;
+pub async fn mock_sources(config: PgConfig) -> MockSource {
+    let res = resolve_pg_data(config, IdResolver::default()).await;
     let res = res.expect("Failed to resolve pg data");
     (res.0, res.1)
 }
@@ -74,27 +69,22 @@ pub async fn mock_app_data(sources: Sources) -> Data<AppState> {
 
 #[allow(dead_code)]
 pub async fn mock_unconfigured() -> MockSource {
-    mock_sources(None, None, None).await
+    mock_sources(mock_empty_config().await).await
 }
 
 #[allow(dead_code)]
 pub async fn mock_unconfigured_srid(default_srid: Option<i32>) -> MockSource {
-    mock_sources(None, None, default_srid).await
-}
-
-#[allow(dead_code)]
-pub async fn mock_configured() -> MockSource {
-    mock_sources(mock_func_config(), mock_table_config(), None).await
+    mock_sources(mock_config(None, None, default_srid).await).await
 }
 
 #[allow(dead_code)]
 pub async fn mock_configured_funcs() -> MockSource {
-    mock_sources(mock_func_config(), None, None).await
+    mock_sources(mock_config(mock_func_config(), None, None).await).await
 }
 
 #[allow(dead_code)]
-pub async fn mock_configured_tables(default_srid: Option<i32>) -> MockSource {
-    mock_sources(None, mock_table_config(), default_srid).await
+pub async fn mock_configured_tables(default_srid: Option<i32>) -> PgConfig {
+    mock_config(None, mock_table_config(), default_srid).await
 }
 
 pub fn mock_func_config() -> Option<Vec<(&'static str, FunctionInfo)>> {
@@ -298,7 +288,7 @@ pub fn props(props: &[(&'static str, &'static str)]) -> HashMap<String, String> 
 #[allow(dead_code)]
 pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     let (_, PgConfig { tables, .. }) = mock;
-    tables.get(name).unwrap()
+    tables.as_ref().map(|v| v.get(name).unwrap()).unwrap()
 }
 
 #[allow(dead_code)]

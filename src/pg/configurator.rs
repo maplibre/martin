@@ -7,7 +7,7 @@ use crate::pg::pool::Pool;
 use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
-use crate::utils::{find_info, InfoMap};
+use crate::utils::{find_info, normalize_key, InfoMap, Schemas};
 use futures::future::{join_all, try_join};
 use itertools::Itertools;
 use log::{debug, error, info, warn};
@@ -27,8 +27,8 @@ pub async fn resolve_pg_data(
     Ok((
         tables,
         PgConfig {
-            tables: tbl_info,
-            functions: func_info,
+            tables: Some(tbl_info),
+            functions: Some(func_info),
             ..config
         },
         pg.pool,
@@ -38,8 +38,8 @@ pub async fn resolve_pg_data(
 struct PgBuilder {
     pool: Pool,
     default_srid: Option<i32>,
-    discover_functions: bool,
-    discover_tables: bool,
+    auto_functions: Schemas,
+    auto_tables: Schemas,
     id_resolver: IdResolver,
     tables: TableInfoSources,
     functions: FuncInfoSources,
@@ -48,19 +48,20 @@ struct PgBuilder {
 impl PgBuilder {
     async fn new(config: &PgConfig, id_resolver: IdResolver) -> io::Result<Self> {
         let pool = Pool::new(config).await?;
+        let auto = config.run_autodiscovery;
         Ok(Self {
             pool,
             default_srid: config.default_srid,
-            discover_functions: config.discover_functions,
-            discover_tables: config.discover_tables,
+            auto_functions: config.auto_functions.clone().unwrap_or(Schemas::Bool(auto)),
+            auto_tables: config.auto_tables.clone().unwrap_or(Schemas::Bool(auto)),
             id_resolver,
-            tables: config.tables.clone(),
-            functions: config.functions.clone(),
+            tables: config.tables.clone().unwrap_or_default(),
+            functions: config.functions.clone().unwrap_or_default(),
         })
     }
 
     pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources), io::Error> {
-        let all_tables = get_table_sources(&self.pool).await?;
+        let mut all_tables = get_table_sources(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -90,20 +91,20 @@ impl PgBuilder {
             pending.push(table_to_query(id2, cfg_inf, self.pool.clone()));
         }
 
-        if self.discover_tables {
-            // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
-            for (schema, tables) in all_tables.into_iter().sorted_by(by_key) {
-                for (table, geoms) in tables.into_iter().sorted_by(by_key) {
-                    for (geom, mut src_inf) in geoms.into_iter().sorted_by(by_key) {
-                        if used.contains(&(schema.as_str(), table.as_str(), geom.as_str())) {
-                            continue;
-                        }
-                        let id2 = self.resolve_id(table.clone(), &src_inf);
-                        let Some(srid) = calc_srid(&src_inf.format_id(), &id2,  src_inf.srid,0, self.default_srid) else {continue};
-                        src_inf.srid = srid;
-                        info!("Discovered source {id2} from {}", summary(&src_inf));
-                        pending.push(table_to_query(id2, src_inf, self.pool.clone()));
+        // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
+        for schema in self.auto_tables.get(|| all_tables.keys()) {
+            let Some(schema2) = normalize_key(&all_tables, &schema, "schema", "") else { continue };
+            let tables = all_tables.remove(&schema2).unwrap();
+            for (table, geoms) in tables.into_iter().sorted_by(by_key) {
+                for (geom, mut src_inf) in geoms.into_iter().sorted_by(by_key) {
+                    if used.contains(&(schema.as_str(), table.as_str(), geom.as_str())) {
+                        continue;
                     }
+                    let id2 = self.resolve_id(table.clone(), &src_inf);
+                    let Some(srid) = calc_srid(&src_inf.format_id(), &id2,  src_inf.srid,0, self.default_srid) else {continue};
+                    src_inf.srid = srid;
+                    info!("Discovered source {id2} from {}", summary(&src_inf));
+                    pending.push(table_to_query(id2, src_inf, self.pool.clone()));
                 }
             }
         }
@@ -129,14 +130,13 @@ impl PgBuilder {
     }
 
     pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources), io::Error> {
-        let all_functions = get_function_sources(&self.pool).await?;
-
+        let mut all_funcs = get_function_sources(&self.pool).await?;
         let mut res: Sources = HashMap::new();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Some(schemas) = find_info(&all_functions, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(schemas) = find_info(&all_funcs, &cfg_inf.schema, "schema", id) else { continue };
             if schemas.is_empty() {
                 warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
@@ -155,19 +155,19 @@ impl PgBuilder {
             info_map.insert(id2, cfg_inf.clone());
         }
 
-        if self.discover_functions {
-            // Sort the discovered sources by schema and function name to ensure a consistent behavior
-            for (schema, funcs) in all_functions.into_iter().sorted_by(by_key) {
-                for (name, (pg_sql, src_inf)) in funcs.into_iter().sorted_by(by_key) {
-                    if used.contains(&(schema.as_str(), name.as_str())) {
-                        continue;
-                    }
-                    let id2 = self.resolve_id(name.clone(), &src_inf);
-                    self.add_func_src(&mut res, id2.clone(), &src_inf, pg_sql.clone());
-                    info!("Discovered source {id2} from function {}", pg_sql.signature);
-                    debug!("{}", pg_sql.query);
-                    info_map.insert(id2, src_inf);
+        // Sort the discovered sources by schema and function name to ensure a consistent behavior
+        for schema in self.auto_functions.get(|| all_funcs.keys()) {
+            let Some(schema2) = normalize_key(&all_funcs, &schema, "schema", "") else { continue };
+            let funcs = all_funcs.remove(&schema2).unwrap();
+            for (name, (pg_sql, src_inf)) in funcs.into_iter().sorted_by(by_key) {
+                if used.contains(&(schema.as_str(), name.as_str())) {
+                    continue;
                 }
+                let id2 = self.resolve_id(name.clone(), &src_inf);
+                self.add_func_src(&mut res, id2.clone(), &src_inf, pg_sql.clone());
+                info!("Discovered source {id2} from function {}", pg_sql.signature);
+                debug!("{}", pg_sql.query);
+                info_map.insert(id2, src_inf);
             }
         }
 

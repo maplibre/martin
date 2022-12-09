@@ -2,7 +2,7 @@ use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
 use martin::config::{read_config, Config, ConfigBuilder};
-use martin::pg::config::{PgArgs, PgConfigBuilder};
+use martin::pg::config::{PgArgs, PgConfig};
 use martin::pg::configurator::resolve_pg_data;
 use martin::source::IdResolver;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
@@ -49,7 +49,7 @@ impl From<Args> for ConfigBuilder {
 
         ConfigBuilder {
             srv: SrvConfigBuilder::from(args.srv),
-            pg: PgConfigBuilder::from((args.pg, args.connection)),
+            pg: PgConfig::from((args.pg, args.connection)),
             unrecognized: HashMap::new(),
         }
     }
@@ -89,7 +89,7 @@ async fn start(args: Args) -> io::Result<Server> {
             info!("Saving config to {file_name}, use --config to load it");
             File::create(file_name)?.write_all(yaml.as_bytes())?;
         }
-    } else if config.pg.discover_functions || config.pg.discover_tables {
+    } else if config.pg.run_autodiscovery {
         info!("Martin has been configured with automatic settings.");
         info!("Use --save-config to save or print Martin configuration.");
     }
