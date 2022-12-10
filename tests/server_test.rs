@@ -17,7 +17,7 @@ fn init() {
 
 macro_rules! create_app {
     ($sources:expr) => {{
-        let sources = $sources.await.0;
+        let sources = mock_sources($sources.await).await.0;
         let state = crate::utils::mock_app_data(sources).await;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
@@ -34,7 +34,7 @@ fn test_get(path: &str) -> Request {
 
 #[actix_rt::test]
 async fn get_catalog_ok() {
-    let app = create_app!(mock_unconfigured());
+    let app = create_app!(mock_empty_config());
 
     let req = test_get("/catalog");
     let response = call_service(&app, req).await;
@@ -62,7 +62,7 @@ async fn get_table_source_ok() {
         srid: 3857,
         ..table
     };
-    let app = create_app!(mock_sources(
+    let app = create_app!(mock_config(
         None,
         Some(vec![("table_source", table_source), ("bad_srid", bad_srid)]),
         None
@@ -119,7 +119,7 @@ async fn get_table_source_multiple_geom_tile_ok() {
 async fn get_table_source_tile_minmax_zoom_ok() {
     let mut tables = mock_table_config_map();
 
-    let app = create_app!(mock_sources(
+    let cfg = mock_config(
         None,
         Some(vec![
             (
@@ -146,8 +146,9 @@ async fn get_table_source_tile_minmax_zoom_ok() {
                 },
             ),
         ]),
-        None
-    ));
+        None,
+    );
+    let app = create_app!(cfg);
 
     // zoom = 0 (nothing)
     let req = test_get("/points1/0/0/0");
@@ -212,7 +213,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn get_function_tiles() {
-    let app = create_app!(mock_unconfigured());
+    let app = create_app!(mock_empty_config());
 
     let req = test_get("/function_zoom_xy/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
@@ -277,7 +278,7 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
         ..tables.remove("points2").unwrap()
     };
     let tables = vec![("points1", points1), ("points2", points2)];
-    let app = create_app!(mock_sources(None, Some(tables), None));
+    let app = create_app!(mock_config(None, Some(tables), None));
 
     // zoom = 0 (nothing)
     let req = test_get("/points1,points2/0/0/0");
@@ -317,7 +318,7 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_ok() {
-    let app = create_app!(mock_unconfigured());
+    let app = create_app!(mock_empty_config());
 
     let req = test_get("/non_existent");
     let response = call_service(&app, req).await;
@@ -364,7 +365,7 @@ async fn get_function_source_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_tile_ok() {
-    let app = create_app!(mock_unconfigured());
+    let app = create_app!(mock_empty_config());
 
     let req = test_get("/function_zxy_query/0/0/0");
     let response = call_service(&app, req).await;
@@ -386,7 +387,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
         ("function_source1", function_source1),
         ("function_source2", function_source2),
     ];
-    let app = create_app!(mock_sources(Some(funcs), None, None));
+    let app = create_app!(mock_config(Some(funcs), None, None));
 
     // zoom = 0 (function_source1)
     let req = test_get("/function_source1/0/0/0");
@@ -431,7 +432,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_query_params_ok() {
-    let app = create_app!(mock_unconfigured());
+    let app = create_app!(mock_empty_config());
 
     let req = test_get("/function_zxy_query_test/0/0/0");
     let response = call_service(&app, req).await;
@@ -445,7 +446,7 @@ async fn get_function_source_query_params_ok() {
 
 #[actix_rt::test]
 async fn get_health_returns_ok() {
-    let app = create_app!(mock_unconfigured());
+    let app = create_app!(mock_empty_config());
 
     let req = test_get("/health");
     let response = call_service(&app, req).await;
@@ -485,7 +486,7 @@ async fn tables_feature_id() {
         ("id_and_prop", id_and_prop),
         ("prop_only", prop_only),
     ];
-    let mock = mock_sources(None, Some(tables.clone()), None).await;
+    let mock = mock_sources(mock_config(None, Some(tables.clone()), None).await).await;
 
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
@@ -510,7 +511,7 @@ async fn tables_feature_id() {
 
     // --------------------------------------------
 
-    let app = create_app!(mock_sources(None, Some(tables.clone()), None));
+    let app = create_app!(mock_config(None, Some(tables.clone()), None));
     for (name, _) in tables.iter() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;

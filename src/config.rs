@@ -1,5 +1,5 @@
 use crate::io_error;
-use crate::pg::config::{PgConfig, PgConfigBuilder};
+use crate::pg::config::PgConfig;
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ pub struct ConfigBuilder {
     #[serde(flatten)]
     pub srv: SrvConfigBuilder,
     #[serde(flatten)]
-    pub pg: PgConfigBuilder,
+    pub pg: PgConfig,
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
 }
@@ -124,16 +124,10 @@ mod tests {
                 worker_processes: 8,
             },
             pg: PgConfig {
-                connection_string: "postgres://postgres@localhost:5432/db".to_string(),
-                #[cfg(feature = "ssl")]
-                ca_root_file: None,
-                #[cfg(feature = "ssl")]
-                danger_accept_invalid_certs: false,
+                connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                 default_srid: Some(4326),
-                pool_size: 20,
-                discover_functions: false,
-                discover_tables: false,
-                tables: HashMap::from([(
+                pool_size: Some(20),
+                tables: Some(HashMap::from([(
                     "table_source".to_string(),
                     TableInfo {
                         schema: "public".to_string(),
@@ -150,8 +144,8 @@ mod tests {
                         properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
                         ..Default::default()
                     },
-                )]),
-                functions: HashMap::from([(
+                )])),
+                functions: Some(HashMap::from([(
                     "function_zxy_query".to_string(),
                     FunctionInfo::new_extended(
                         "public".to_string(),
@@ -160,7 +154,8 @@ mod tests {
                         30,
                         Bounds::MAX,
                     ),
-                )]),
+                )])),
+                ..Default::default()
             },
         };
         assert_eq!(config, expected);

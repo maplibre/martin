@@ -1,4 +1,4 @@
-use crate::pg::config::PgConfig;
+use crate::pg::config::{PgConfig, POOL_SIZE_DEFAULT};
 use crate::pg::utils::io_error;
 use bb8::PooledConnection;
 use bb8_postgres::{tokio_postgres as pg, PostgresConnectionManager};
@@ -35,7 +35,7 @@ pub struct Pool {
 
 impl Pool {
     pub async fn new(config: &PgConfig) -> io::Result<Self> {
-        let conn_str = config.connection_string.as_str();
+        let conn_str = config.connection_string.as_ref().unwrap().as_str();
         info!("Connecting to {conn_str}");
         let pg_cfg = pg::config::Config::from_str(conn_str)
             .map_err(|e| io_error!(e, "Can't parse connection string {conn_str}"))?;
@@ -66,7 +66,7 @@ impl Pool {
         };
 
         let pool = InternalPool::builder()
-            .max_size(config.pool_size)
+            .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
             .build(manager)
             .await
             .map_err(|e| io_error!(e, "Can't build connection pool"))?;

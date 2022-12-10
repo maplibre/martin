@@ -1,7 +1,9 @@
 use ctor::ctor;
+use itertools::Itertools;
 use log::info;
 use martin::pg::function_source::get_function_sources;
 use martin::source::Xyz;
+use martin::utils::Schemas;
 
 #[path = "utils.rs"]
 mod utils;
@@ -57,4 +59,16 @@ async fn function_source_tile() {
         .unwrap();
 
     assert!(!tile.is_empty());
+}
+
+#[actix_rt::test]
+async fn function_source_schemas() {
+    let mut cfg = mock_empty_config().await;
+    cfg.auto_functions = Some(Schemas::List(vec!["MixedCase".to_owned()]));
+    cfg.auto_tables = Some(Schemas::Bool(false));
+    let sources = mock_sources(cfg).await.0;
+    assert_eq!(
+        sources.keys().sorted().collect::<Vec<_>>(),
+        vec!["function_Mixed_Name"],
+    );
 }

@@ -38,7 +38,7 @@ pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap, io::
                     assert_eq!(t, &["bytea", "text"]);
                 }
                 (None, None) => {}
-                _ => panic!("Invalid output record names or types"),
+                _ => panic!("Invalid output record names or types: {output_record_names:?} {output_record_types:?}"),
             }
             assert!(output_type == "bytea" || output_type == "record");
 

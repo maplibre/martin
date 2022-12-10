@@ -1,6 +1,8 @@
 use ctor::ctor;
+use itertools::Itertools;
 use log::info;
 use martin::source::Xyz;
+use martin::utils::Schemas;
 use std::collections::HashMap;
 
 #[path = "utils.rs"]
@@ -91,4 +93,16 @@ async fn tables_multiple_geom_ok() {
 
     let source = table(&mock, "table_source_multiple_geom.1");
     assert_eq!(source.geometry_column, "geom2");
+}
+
+#[actix_rt::test]
+async fn table_source_schemas() {
+    let mut cfg = mock_empty_config().await;
+    cfg.auto_functions = Some(Schemas::Bool(false));
+    cfg.auto_tables = Some(Schemas::List(vec!["MixedCase".to_owned()]));
+    let sources = mock_sources(cfg).await.0;
+    assert_eq!(
+        sources.keys().sorted().collect::<Vec<_>>(),
+        vec!["MixPoints"],
+    );
 }

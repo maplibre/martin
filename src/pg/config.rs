@@ -1,6 +1,6 @@
 use crate::config::{report_unrecognized_config, set_option};
 use crate::pg::utils::create_tilejson;
-use crate::utils::InfoMap;
+use crate::utils::{InfoMap, Schemas};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
@@ -181,50 +181,43 @@ impl PgInfo for FunctionInfo {
 pub type TableInfoSources = InfoMap<TableInfo>;
 pub type FuncInfoSources = InfoMap<FunctionInfo>;
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgConfig {
-    pub connection_string: String,
+    pub connection_string: Option<String>,
     #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ca_root_file: Option<String>,
     #[cfg(feature = "ssl")]
+    #[serde(skip_serializing_if = "Clone::clone")]
     pub danger_accept_invalid_certs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
-    pub pool_size: u32,
-    #[serde(skip_serializing)]
-    pub discover_functions: bool,
-    #[serde(skip_serializing)]
-    pub discover_tables: bool,
-    pub tables: TableInfoSources,
-    pub functions: FuncInfoSources,
-}
-
-#[derive(Debug, Default, PartialEq, Deserialize)]
-pub struct PgConfigBuilder {
-    pub connection_string: Option<String>,
-    #[cfg(feature = "ssl")]
-    pub ca_root_file: Option<String>,
-    #[cfg(feature = "ssl")]
-    pub danger_accept_invalid_certs: Option<bool>,
-    pub default_srid: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<u32>,
+    #[serde(skip)]
+    pub auto_tables: Option<Schemas>,
+    #[serde(skip)]
+    pub auto_functions: Option<Schemas>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tables: Option<TableInfoSources>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub functions: Option<FuncInfoSources>,
+    #[serde(skip)]
+    pub run_autodiscovery: bool,
 }
 
-impl PgConfigBuilder {
+impl PgConfig {
     pub fn merge(&mut self, other: Self) -> &mut Self {
         set_option(&mut self.connection_string, other.connection_string);
         #[cfg(feature = "ssl")]
-        set_option(&mut self.ca_root_file, other.ca_root_file);
-        #[cfg(feature = "ssl")]
-        set_option(
-            &mut self.danger_accept_invalid_certs,
-            other.danger_accept_invalid_certs,
-        );
+        {
+            set_option(&mut self.ca_root_file, other.ca_root_file);
+            self.danger_accept_invalid_certs |= other.danger_accept_invalid_certs;
+        }
         set_option(&mut self.default_srid, other.default_srid);
         set_option(&mut self.pool_size, other.pool_size);
+        set_option(&mut self.auto_tables, other.auto_tables);
+        set_option(&mut self.auto_functions, other.auto_functions);
         set_option(&mut self.tables, other.tables);
         set_option(&mut self.functions, other.functions);
         self
@@ -249,24 +242,16 @@ impl PgConfigBuilder {
             )
         })?;
         Ok(PgConfig {
-            connection_string,
-            #[cfg(feature = "ssl")]
-            ca_root_file: self.ca_root_file,
-            #[cfg(feature = "ssl")]
-            danger_accept_invalid_certs: self.danger_accept_invalid_certs.unwrap_or_default(),
-            default_srid: self.default_srid,
-            pool_size: self.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
-            discover_functions: self.tables.is_none() && self.functions.is_none(),
-            discover_tables: self.tables.is_none() && self.functions.is_none(),
-            tables: self.tables.unwrap_or_default(),
-            functions: self.functions.unwrap_or_default(),
+            connection_string: Some(connection_string),
+            run_autodiscovery: self.tables.is_none() && self.functions.is_none(),
+            ..self
         })
     }
 }
 
-impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
+impl From<(PgArgs, Option<String>)> for PgConfig {
     fn from((args, connection): (PgArgs, Option<String>)) -> Self {
-        PgConfigBuilder {
+        PgConfig {
             connection_string: connection.or_else(|| {
                 env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
             }),
@@ -275,13 +260,8 @@ impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
                 env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
             }),
             #[cfg(feature = "ssl")]
-            danger_accept_invalid_certs: if args.danger_accept_invalid_certs
-                || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some()
-            {
-                Some(true)
-            } else {
-                None
-            },
+            danger_accept_invalid_certs: args.danger_accept_invalid_certs
+                || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some(),
             default_srid: args.default_srid.or_else(|| {
                 env::var_os("DEFAULT_SRID").and_then(|srid| {
                     srid.into_string()
@@ -290,8 +270,7 @@ impl From<(PgArgs, Option<String>)> for PgConfigBuilder {
                 })
             }),
             pool_size: args.pool_size,
-            tables: None,
-            functions: None,
+            ..Default::default()
         }
     }
 }
