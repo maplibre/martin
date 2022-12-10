@@ -194,9 +194,9 @@ pub struct PgConfig {
     pub default_srid: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub auto_tables: Option<Schemas>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub auto_functions: Option<Schemas>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tables: Option<TableInfoSources>,
