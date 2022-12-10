@@ -194,23 +194,3 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
-
-// pub async fn resolve_pg_data(
-//     config: PgConfig,
-//     id_resolver: IdResolver,
-// ) -> io::Result<(Sources, PgConfig, Pool)> {
-//     let pg = PgBuilder::new(&config, id_resolver).await?;
-//     let ((mut tables, tbl_info), (funcs, func_info)) =
-//         try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
-//
-//     tables.extend(funcs);
-//     Ok((
-//         tables,
-//         PgConfig {
-//             tables: Some(tbl_info),
-//             functions: Some(func_info),
-//             ..config
-//         },
-//         pg.pool,
-//     ))
-// }

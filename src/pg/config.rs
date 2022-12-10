@@ -283,70 +283,83 @@ impl From<(PgArgs, Option<String>)> for PgConfig {
     }
 }
 
-// pub fn parse_pg_args(args: PgArgs, cli_strings: &[String]) -> Option<OneOrMany<PgConfigBuilder>> {
-//     let mut strings = cli_strings
-//         .iter()
-//         .filter(|s| s.starts_with("postgres://"))
-//         .map(|s| Some(s.to_string()))
-//         .unique()
-//         .collect::<BTreeSet<_>>();
-//
-//     if let Some(s) = get_env_str("DATABASE_URL") {
-//         if s.starts_with("postgres://") {
-//             strings.insert(Some(s));
-//         } else {
-//             warn!("Environment variable DATABASE_URL is not a postgres connection string");
-//         }
-//     }
-//     if strings.is_empty() {
-//         strings.insert(None);
-//     }
-//
-//     let builders: Vec<_> = strings
-//         .into_iter()
-//         .map(|s| PgConfigBuilder {
-//             connection_string: s,
-//             #[cfg(feature = "ssl")]
-//             ca_root_file: args.ca_root_file.clone().or_else(|| {
-//                 env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
-//             }),
-//             #[cfg(feature = "ssl")]
-//             danger_accept_invalid_certs: if args.danger_accept_invalid_certs
-//                 || get_env_str("DANGER_ACCEPT_INVALID_CERTS").is_some()
-//             {
-//                 Some(true)
-//             } else {
-//                 None
-//             },
-//             default_srid: args
-//                 .default_srid
-//                 .or_else(|| get_env_str("DEFAULT_SRID").and_then(|srid| srid.parse::<i32>().ok())),
-//             pool_size: args.pool_size,
-//             tables: None,
-//             functions: None,
-//         })
-//         .collect();
-//
-//     match builders.len() {
-//         0 => None,
-//         1 => Some(OneOrMany::One(builders.into_iter().next().unwrap())),
-//         _ => Some(OneOrMany::Many(builders)),
-//     }
-// }
+fn get_env_str(name: &str) -> Option<String> {
+    match env::var(name) {
+        Ok(v) => Some(v),
+        Err(VarError::NotPresent) => None,
+        Err(VarError::NotUnicode(v)) => {
+            warn!(
+                "Environment variable {name} has invalid unicode. Lossy representation: {}",
+                v.to_string_lossy()
+            );
+            None
+        }
+    }
+}
 
-// impl PgConfig {
-//     pub async fn resolve(&mut self, id_resolver: IdResolver) -> io::Result<(Sources, Pool)> {
-//         let pg = PgBuilder::new(self, id_resolver).await?;
-//         let ((mut tables, tbl_info), (funcs, func_info)) =
-//             try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
-//
-//         self.tables = tbl_info;
-//         self.functions = func_info;
-//         tables.extend(funcs);
-//         Ok((tables, pg.get_pool()))
-//     }
-//
-//     pub fn is_autodetect(&self) -> bool {
-//         self.discover_tables || self.discover_functions
-//     }
-// }
+pub fn parse_pg_args(args: PgArgs, cli_strings: &[String]) -> Option<OneOrMany<PgConfig>> {
+    let mut strings = cli_strings
+        .iter()
+        .filter(|s| s.starts_with("postgres://"))
+        .map(|s| Some(s.to_string()))
+        .unique()
+        .collect::<BTreeSet<_>>();
+
+    if let Some(s) = get_env_str("DATABASE_URL") {
+        if s.starts_with("postgres://") {
+            strings.insert(Some(s));
+        } else {
+            warn!("Environment variable DATABASE_URL is not a postgres connection string");
+        }
+    }
+    if strings.is_empty() {
+        strings.insert(None);
+    }
+
+    let builders: Vec<_> = strings
+        .into_iter()
+        .map(|s| PgConfig {
+            connection_string: s,
+            #[cfg(feature = "ssl")]
+            ca_root_file: args.ca_root_file.clone().or_else(|| {
+                env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
+            }),
+            #[cfg(feature = "ssl")]
+            danger_accept_invalid_certs: if args.danger_accept_invalid_certs
+                || get_env_str("DANGER_ACCEPT_INVALID_CERTS").is_some()
+            {
+                Some(true)
+            } else {
+                None
+            },
+            default_srid: args
+                .default_srid
+                .or_else(|| get_env_str("DEFAULT_SRID").and_then(|srid| srid.parse::<i32>().ok())),
+            pool_size: args.pool_size,
+            ..Default::default()
+        })
+        .collect();
+
+    match builders.len() {
+        0 => None,
+        1 => Some(OneOrMany::One(builders.into_iter().next().unwrap())),
+        _ => Some(OneOrMany::Many(builders)),
+    }
+}
+
+impl PgConfig {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> io::Result<(Sources, Pool)> {
+        let pg = PgBuilder::new(self, id_resolver).await?;
+        let ((mut tables, tbl_info), (funcs, func_info)) =
+            try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
+
+        self.tables = Some(tbl_info);
+        self.functions = Some(func_info);
+        tables.extend(funcs);
+        Ok((tables, pg.get_pool()))
+    }
+
+    pub fn is_autodetect(&self) -> bool {
+        self.run_autodiscovery
+    }
+}

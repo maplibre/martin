@@ -155,7 +155,7 @@ impl ConfigBuilder {
                 .map(|pg| {
                     pg.generalize()
                         .into_iter()
-                        .map(PgConfigBuilder::finalize)
+                        .map(PgConfig::finalize)
                         .collect::<Result<_, _>>()
                 })
                 .transpose()?,
@@ -241,7 +241,7 @@ postgres:
                 worker_processes: 8,
             },
             postgres: Some(vec![PgConfig {
-                connection_string: "postgres://postgres@localhost:5432/db".to_string(),
+                connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                 #[cfg(feature = "ssl")]
                 ca_root_file: None,
                 #[cfg(feature = "ssl")]
@@ -277,7 +277,7 @@ postgres:
                     ),
                 )])),
                 ..Default::default()
-            },
+            }]),
             pmtiles: None,
         };
         assert_eq!(config, expected);

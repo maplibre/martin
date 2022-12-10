@@ -1,10 +1,9 @@
 use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
-use martin::config::{read_config, Config, ConfigBuilder};
-use martin::pg::config::{PgArgs, PgConfig};
-use martin::pg::configurator::resolve_pg_data;
-use martin::pmtiles::config::PmtArgs;
+use martin::config::{read_config, ConfigBuilder};
+use martin::pg::config::{parse_pg_args, PgArgs, PgConfig};
+use martin::pmtiles::config::parse_pmt_args;
 use martin::source::IdResolver;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
