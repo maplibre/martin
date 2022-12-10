@@ -106,7 +106,7 @@
 
       map.on('load', async function () {
         const sources = Object.values(await fetch(
-                'http://0.0.0.0:3000/'
+                'http://0.0.0.0:3000/catalog'
         ).then((r) => r.json()));
 
         // Set up the corresponding toggle button for each layer.

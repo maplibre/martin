@@ -12,6 +12,11 @@ export CARGO_TERM_COLOR := "always"
 run *ARGS: start-db
     cargo run -- {{ARGS}}
 
+# Start Martin server and open a test page
+debug-page *ARGS: start-db
+    open tests/debug.html  # run will not exit, so open debug page first
+    just run {{ARGS}}
+
 # Run PSQL utility against the test database
 psql *ARGS: start-db
     psql {{ARGS}} {{DATABASE_URL}}
@@ -71,11 +76,11 @@ test-int-legacy: (test-integration "db-legacy")
 #     echo "** Note that this error is not fatal because we don't have a stable output yet"
 # fi
 
-# Run integration tests and save its output as the new expected output
-bless: start-db clean-test
-    tests/test.sh
-    rm -rf tests/expected
-    mv tests/output tests/expected
+# # Run integration tests and save its output as the new expected output
+# bless: start-db clean-test
+#     tests/test.sh
+#     rm -rf tests/expected
+#     mv tests/output tests/expected
 
 # Build martin docker image
 docker-build:
@@ -89,3 +94,12 @@ docker-run *ARGS:
 [no-exit-message]
 git *ARGS: start-db
     git {{ARGS}}
+
+# These steps automatically run before git push via a git hook
+git-pre-push: stop start-db
+    echo '+cargo clippy --all -- -D warnings'
+    cargo clippy --all -- -D warnings
+    echo '+cargo fmt --all -- --check'
+    cargo fmt --all -- --check
+    echo 'Running all tests'
+    just test
