@@ -21,7 +21,7 @@ pool_size: 20
 worker_processes: 8
 
 # Associative arrays of table sources
-table_sources:
+tables:
   table_source:
     # Table schema (required)
     schema: public
@@ -66,6 +66,16 @@ table_sources:
     properties:
       gid: int4
 
+  MixPoints:
+    schema: MIXEDCASE
+    table: MixPoints
+    id_column: giD
+    geometry_column: geoM
+    srid: 4326
+    geometry_type: POINT
+    properties:
+      taBLe: text
+
   points1:
     schema: public
     table: points1
@@ -78,7 +88,7 @@ table_sources:
     extent: 4096
     buffer: 64
     clip_geom: true
-    geometry_type: GEOMETRY
+    geometry_type: POINT
     properties:
       gid: int4
 
@@ -94,7 +104,7 @@ table_sources:
     extent: 4096
     buffer: 64
     clip_geom: true
-    geometry_type: GEOMETRY
+    geometry_type: POINT
     properties:
       gid: int4
 
@@ -110,12 +120,12 @@ table_sources:
     extent: 4096
     buffer: 64
     clip_geom: true
-    geometry_type: GEOMETRY
+    geometry_type: POINT
     properties:
       gid: int4
 
 # Associative arrays of function sources
-function_sources:
+functions:
   function_zxy_query:
     # Schema name (required)
     schema: public

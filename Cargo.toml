@@ -54,6 +54,7 @@ cargo-husky = { version = "1", features = ["user-hooks"], default-features = fal
 criterion = { version = "0.4", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.1"
 indoc = "1"
+#test-log = "0.2"
 
 [[bench]]
 name = "sources"

@@ -89,7 +89,7 @@ mod tests {
             pool_size: 20
             worker_processes: 8
 
-            table_sources:
+            tables:
               table_source:
                 schema: public
                 table: table_source
@@ -106,7 +106,7 @@ mod tests {
                 properties:
                   gid: int4
 
-            function_sources:
+            functions:
               function_zxy_query:
                 schema: public
                 function: function_zxy_query
@@ -133,14 +133,13 @@ mod tests {
                 pool_size: 20,
                 discover_functions: false,
                 discover_tables: false,
-                table_sources: HashMap::from([(
+                tables: HashMap::from([(
                     "table_source".to_string(),
                     TableInfo {
                         schema: "public".to_string(),
                         table: "table_source".to_string(),
                         srid: 4326,
                         geometry_column: "geom".to_string(),
-                        id_column: None,
                         minzoom: Some(0),
                         maxzoom: Some(30),
                         bounds: Some([-180, -90, 180, 90].into()),
@@ -149,19 +148,18 @@ mod tests {
                         clip_geom: Some(true),
                         geometry_type: Some("GEOMETRY".to_string()),
                         properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
-                        unrecognized: HashMap::new(),
+                        ..Default::default()
                     },
                 )]),
-                function_sources: HashMap::from([(
+                functions: HashMap::from([(
                     "function_zxy_query".to_string(),
-                    FunctionInfo {
-                        schema: "public".to_string(),
-                        function: "function_zxy_query".to_string(),
-                        minzoom: Some(0),
-                        maxzoom: Some(30),
-                        bounds: Some(Bounds::MAX),
-                        unrecognized: HashMap::new(),
-                    },
+                    FunctionInfo::new_extended(
+                        "public".to_string(),
+                        "function_zxy_query".to_string(),
+                        0,
+                        30,
+                        Bounds::MAX,
+                    ),
                 )]),
             },
         };

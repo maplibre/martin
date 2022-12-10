@@ -17,7 +17,11 @@ pub struct Xyz {
 
 impl Display for Xyz {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}/{}", self.z, self.x, self.y)
+        if f.alternate() {
+            write!(f, "{}/{}/{}", self.z, self.x, self.y)
+        } else {
+            write!(f, "{},{},{}", self.z, self.x, self.y)
+        }
     }
 }
 
@@ -83,7 +87,7 @@ impl IdResolver {
         let mut new_name = String::new();
         loop {
             new_name.clear();
-            write!(&mut new_name, "{}.{}", name, index).unwrap();
+            write!(&mut new_name, "{name}.{index}").unwrap();
             index = index.checked_add(1).unwrap();
             match names.entry(new_name.clone()) {
                 Entry::Vacant(e) => {
@@ -115,5 +119,12 @@ mod tests {
         assert_eq!(r.resolve("b".to_string(), "a".to_string()), "b");
         assert_eq!(r.resolve("a.1".to_string(), "a".to_string()), "a.1.1");
         assert_eq!(r.resolve("a.1".to_string(), "b".to_string()), "a.1");
+    }
+
+    #[test]
+    fn xyz_format() {
+        let xyz = Xyz { z: 1, x: 2, y: 3 };
+        assert_eq!(format!("{xyz}"), "1,2,3");
+        assert_eq!(format!("{xyz:#}"), "1/2/3");
     }
 }

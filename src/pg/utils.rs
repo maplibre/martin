@@ -1,4 +1,5 @@
-use crate::source::{UrlQuery, Xyz};
+use crate::source::UrlQuery;
+use crate::utils::InfoMap;
 use actix_http::header::HeaderValue;
 use actix_web::http::Uri;
 use postgis::{ewkb, LineString, Point, Polygon};
@@ -9,16 +10,20 @@ use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
 
 #[macro_export]
 macro_rules! io_error {
+    ($format:literal $(, $arg:expr)* $(,)?) => {
+        ::std::io::Error::new(
+            ::std::io::ErrorKind::Other,
+            ::std::format!($format, $($arg,)*))
+    };
     ($error:ident $(, $arg:expr)* $(,)?) => {
         ::std::io::Error::new(
             ::std::io::ErrorKind::Other,
             ::std::format!("{}: {}", ::std::format_args!($($arg,)+), $error))
     };
 }
-
 pub(crate) use io_error;
 
-pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
+pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
     let mut hashmap = HashMap::new();
 
     let object = value.as_object().unwrap();
@@ -30,7 +35,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> HashMap<String, String> {
     hashmap
 }
 
-pub fn query_to_json(query: &UrlQuery) -> Json<HashMap<String, Value>> {
+pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<Value>> {
     let mut query_as_json = HashMap::new();
     for (k, v) in query.iter() {
         let json_value: serde_json::Value =
@@ -40,32 +45,6 @@ pub fn query_to_json(query: &UrlQuery) -> Json<HashMap<String, Value>> {
     }
 
     Json(query_as_json)
-}
-
-pub fn get_bounds_cte(srid_bounds: &str) -> String {
-    format!(
-        include_str!("scripts/get_bounds_cte.sql"),
-        srid_bounds = srid_bounds
-    )
-}
-
-pub fn get_srid_bounds(srid: u32, xyz: &Xyz) -> String {
-    format!(
-        include_str!("scripts/get_srid_bounds.sql"),
-        z = xyz.z,
-        x = xyz.x,
-        y = xyz.y,
-        srid = srid,
-    )
-}
-
-pub fn get_source_bounds(id: &str, srid: u32, geometry_column: &str) -> String {
-    format!(
-        include_str!("scripts/get_bounds.sql"),
-        id = id,
-        srid = srid,
-        geometry_column = geometry_column,
-    )
 }
 
 pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
@@ -92,7 +71,7 @@ pub fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
         .map(|uri| uri.path().to_owned())
 }
 
-pub fn creat_tilejson(
+pub fn create_tilejson(
     name: String,
     minzoom: Option<u8>,
     maxzoom: Option<u8>,

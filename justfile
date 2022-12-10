@@ -3,6 +3,7 @@ set shell := ["bash", "-c"]
 
 export DATABASE_URL := "postgres://postgres@localhost/db"
 export CARGO_TERM_COLOR := "always"
+# export RUST_LOG := "debug"
 # export RUST_BACKTRACE := "1"
 
 @_default:
@@ -54,9 +55,9 @@ bench: start-db
 test: test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)
-test-unit: start-db
-    cargo test --all-targets
-    cargo test --all-targets --all-features
+test-unit *ARGS: start-db
+    cargo test --all-targets {{ARGS}}
+    cargo test --all-targets --all-features {{ARGS}}
     cargo test --doc
 
 # Run integration tests

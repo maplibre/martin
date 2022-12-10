@@ -1,7 +1,6 @@
 use ctor::ctor;
 use log::info;
-use martin::pg::config::FunctionInfoSources;
-use martin::pg::function_source::get_function_sources as get_sources;
+use martin::pg::function_source::get_function_sources;
 use martin::source::Xyz;
 
 #[path = "utils.rs"]
@@ -14,29 +13,27 @@ fn init() {
 }
 
 #[actix_rt::test]
-async fn get_function_sources() {
+async fn get_function_sources_ok() {
     let pool = mock_pool().await;
-    let sources = get_sources(&pool, &FunctionInfoSources::default())
-        .await
-        .unwrap();
-
-    info!("sources = {sources:#?}");
+    let sources = get_function_sources(&pool).await.unwrap();
 
     assert!(!sources.is_empty());
-    let source = single(&sources, |v| v.function == "function_zxy_query")
+
+    let funcs = sources.get("public").expect("public schema not found");
+    let source = funcs
+        .get("function_zxy_query")
         .expect("function_zxy_query not found");
-    assert_eq!(source.schema, "public");
-    assert_eq!(source.function, "function_zxy_query");
-    assert_eq!(source.minzoom, None);
-    assert_eq!(source.maxzoom, None);
-    assert_eq!(source.bounds, None);
+    assert_eq!(source.1.schema, "public");
+    assert_eq!(source.1.function, "function_zxy_query");
+    assert_eq!(source.1.minzoom, None);
+    assert_eq!(source.1.maxzoom, None);
+    assert_eq!(source.1.bounds, None);
 }
 
 #[actix_rt::test]
 async fn function_source_tilejson() {
-    let sources = mock_sources(None, None).await;
-    let source = sources.get("function_zxy_query").unwrap();
-    let tilejson = source.get_tilejson();
+    let mock = mock_unconfigured().await;
+    let tilejson = source(&mock, "function_zxy_query").get_tilejson();
 
     info!("tilejson = {tilejson:#?}");
 
@@ -52,10 +49,10 @@ async fn function_source_tilejson() {
 
 #[actix_rt::test]
 async fn function_source_tile() {
-    let sources = mock_sources(None, None).await;
-    let source = sources.get("function_zxy_query").unwrap();
-    let tile = source
-        .get_tile(&Xyz { x: 0, y: 0, z: 0 }, &None)
+    let mock = mock_unconfigured().await;
+    let src = source(&mock, "function_zxy_query");
+    let tile = src
+        .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
         .await
         .unwrap();
 
