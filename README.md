@@ -775,8 +775,8 @@ martin postgres://postgres@localhost/db
 ❯ cd martin
 ❯ just
 Available recipes:
-Available recipes:
     run *ARGS             # Start Martin server and a test database
+    debug-page *ARGS      # Start Martin server and open a test page
     psql *ARGS            # Run PSQL utility against the test database
     clean                 # Perform  cargo clean  to delete all build files
     clean-test            # Delete test output files
@@ -790,18 +790,17 @@ Available recipes:
     test-int              # Run integration tests
     test-int-legacy       # Run integration tests using legacy database
     test-integration name # Run integration tests with the given docker compose target
-    bless                 # Run integration tests and save its output as the new expected output
     docker-build          # Build martin docker image
     docker-run *ARGS      # Build and run martin docker image
     git *ARGS             # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+    git-pre-push          # These steps automatically run before git push via a git hook
 ```
 
 ### Other useful commands
 
-
 ```shell
 # Start db service
-docker-compose up -d db
+just debug-page
 
 # Run Martin server
 DATABASE_URL=postgres://postgres@localhost/db cargo run
