@@ -99,6 +99,14 @@ pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> boo
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use crate::config::{Config, ConfigBuilder};
+
+    pub fn assert_config(yaml: &str, expected: Config) {
+        let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
+        let actual = config.finalize().expect("finalize");
+        assert_eq!(actual, expected);
+    }
+
     pub fn some_str(s: &str) -> Option<String> {
         Some(s.to_string())
     }
