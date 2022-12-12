@@ -2,7 +2,7 @@ use crate::io_error;
 use crate::pg::config::PgConfig;
 use crate::pmtiles::config::{PmtConfig, PmtConfigBuilderEnum};
 use crate::source::IdResolver;
-use crate::srv::config::{SrvConfig, SrvConfigBuilder};
+use crate::srv::config::SrvConfig;
 use crate::srv::server::Sources;
 use futures::future::{try_join, try_join_all};
 use log::warn;
@@ -11,6 +11,7 @@ use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::Path;
 use std::{io, mem};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -58,7 +59,7 @@ impl<S: Clone> OneOrMany<S> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
@@ -94,7 +95,7 @@ impl Config {
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct ConfigBuilder {
     #[serde(flatten)]
-    pub srv: SrvConfigBuilder,
+    pub srv: SrvConfig,
 
     pub postgres: Option<OneOrMany<PgConfig>>,
 
@@ -149,7 +150,7 @@ impl ConfigBuilder {
     pub fn finalize(self) -> io::Result<Config> {
         report_unrecognized_config("", &self.unrecognized);
         Ok(Config {
-            srv: self.srv.finalize()?,
+            srv: self.srv,
             postgres: self
                 .postgres
                 .map(|pg| {
@@ -174,112 +175,39 @@ pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, V
 }
 
 /// Read config from a file
-pub fn read_config(file_name: &str) -> io::Result<ConfigBuilder> {
+pub fn read_config(file_name: &Path) -> io::Result<ConfigBuilder> {
     let mut file = File::open(file_name)
-        .map_err(|e| io_error!(e, "Unable to open config file '{file_name}'"))?;
+        .map_err(|e| io_error!(e, "Unable to open config file '{}'", file_name.display()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .map_err(|e| io_error!(e, "Unable to read config file '{file_name}'"))?;
+        .map_err(|e| io_error!(e, "Unable to read config file '{}'", file_name.display()))?;
     serde_yaml::from_str(contents.as_str())
-        .map_err(|e| io_error!(e, "Error parsing config file '{file_name}'"))
+        .map_err(|e| io_error!(e, "Error parsing config file '{}'", file_name.display()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pg::config::{FunctionInfo, TableInfo};
+    use crate::pg::utils::tests::{assert_config, some_str};
     use indoc::indoc;
-    use std::collections::HashMap;
-    use tilejson::Bounds;
 
     #[test]
     fn parse_config() {
-        let yaml = indoc! {"
----
-keep_alive: 75
-listen_addresses: '0.0.0.0:3000'
-worker_processes: 8
-
-postgres:
-  connection_string: 'postgres://postgres@localhost:5432/db'
-  danger_accept_invalid_certs: false
-  default_srid: 4326
-  pool_size: 20
-
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      id_column: ~
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      extent: 4096
-      buffer: 64
-      clip_geom: true
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-
-  functions:
-    function_zxy_query:
-      schema: public
-      function: function_zxy_query
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-"};
-
-        let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
-        let config = config.finalize().expect("finalize");
-        let expected = Config {
-            srv: SrvConfig {
-                keep_alive: 75,
-                listen_addresses: "0.0.0.0:3000".to_string(),
-                worker_processes: 8,
-            },
-            postgres: Some(vec![PgConfig {
-                connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
-                #[cfg(feature = "ssl")]
-                ca_root_file: None,
-                #[cfg(feature = "ssl")]
-                danger_accept_invalid_certs: false,
-                default_srid: Some(4326),
-                pool_size: Some(20),
-                tables: Some(HashMap::from([(
-                    "table_source".to_string(),
-                    TableInfo {
-                        schema: "public".to_string(),
-                        table: "table_source".to_string(),
-                        srid: 4326,
-                        geometry_column: "geom".to_string(),
-                        minzoom: Some(0),
-                        maxzoom: Some(30),
-                        bounds: Some([-180, -90, 180, 90].into()),
-                        extent: Some(4096),
-                        buffer: Some(64),
-                        clip_geom: Some(true),
-                        geometry_type: Some("GEOMETRY".to_string()),
-                        properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
-                        ..Default::default()
-                    },
-                )])),
-                functions: Some(HashMap::from([(
-                    "function_zxy_query".to_string(),
-                    FunctionInfo::new_extended(
-                        "public".to_string(),
-                        "function_zxy_query".to_string(),
-                        0,
-                        30,
-                        Bounds::MAX,
-                    ),
-                )])),
+        assert_config(
+            indoc! {"
+            ---
+            keep_alive: 75
+            listen_addresses: '0.0.0.0:3000'
+            worker_processes: 8
+        "},
+            Config {
+                srv: SrvConfig {
+                    keep_alive: Some(75),
+                    listen_addresses: some_str("0.0.0.0:3000"),
+                    worker_processes: Some(8),
+                },
                 ..Default::default()
-            }]),
-            pmtiles: None,
-        };
-        assert_eq!(config, expected);
+            },
+        );
     }
 }

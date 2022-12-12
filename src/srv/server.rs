@@ -1,6 +1,6 @@
 use crate::pg::utils::parse_x_rewrite_url;
 use crate::source::{Source, Xyz};
-use crate::srv::config::SrvConfig;
+use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use actix_cors::Cors;
 use actix_web::dev::Server;
 use actix_web::http::header::CACHE_CONTROL;
@@ -272,12 +272,14 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         .service(get_tile);
 }
 
-pub fn new(config: SrvConfig, sources: Sources) -> Server {
-    let keep_alive = config.keep_alive;
-    let worker_processes = config.worker_processes;
-    let listen_addresses = config.listen_addresses;
+pub fn new(config: SrvConfig, sources: Sources) -> (Server, String) {
+    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
+    let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
+    let listen_addresses = config
+        .listen_addresses
+        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         let state = AppState {
             sources: sources.clone(),
         };
@@ -296,8 +298,10 @@ pub fn new(config: SrvConfig, sources: Sources) -> Server {
     })
     .bind(listen_addresses.clone())
     .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
-    .keep_alive(Duration::from_secs(keep_alive as u64))
+    .keep_alive(keep_alive)
     .shutdown_timeout(0)
     .workers(worker_processes)
-    .run()
+    .run();
+
+    (server, listen_addresses)
 }

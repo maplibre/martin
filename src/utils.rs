@@ -2,6 +2,8 @@ use itertools::Itertools;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
+use std::env::VarError;
 
 pub type InfoMap<T> = HashMap<String, T>;
 
@@ -85,6 +87,18 @@ impl Schemas {
                     Vec::new()
                 }
             }
+        }
+    }
+}
+
+pub fn get_env_str(name: &str) -> Option<String> {
+    match env::var(name) {
+        Ok(v) => Some(v),
+        Err(VarError::NotPresent) => None,
+        Err(VarError::NotUnicode(v)) => {
+            let v = v.to_string_lossy();
+            warn!("Environment variable {name} has invalid unicode. Lossy representation: {v}");
+            None
         }
     }
 }

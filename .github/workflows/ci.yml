@@ -99,6 +99,14 @@ jobs:
           password: test
           database: test
           rights: --superuser
+      - name: Log DATABASE_URL string
+        shell: bash
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL"
+          echo "And in base64 to bypass Github's obfuscation:"
+          echo "$DATABASE_URL" | base64
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Init database
         if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
@@ -126,7 +134,7 @@ jobs:
           name: test-output
           path: tests/output/*
           retention-days: 5
-      - name: Test
+      - name: Integration Tests
         if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
         run: |

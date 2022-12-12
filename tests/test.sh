@@ -24,13 +24,13 @@ function wait_for_martin {
         else
             echo "Martin died!"
             ps au
-            lsof -i
+            lsof -i || true
             exit 1
         fi
     done
     echo "Martin did not start in time"
     ps au
-    lsof -i
+    lsof -i || true
     exit 1
 }
 
@@ -78,8 +78,11 @@ fi
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test auto configured Martin"
 set -x
-$MARTIN_BIN --default-srid 900913 &
-PROCESS_ID=$!
+
+ARG=(--default-srid 900913)
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
+PROCESS_ID=`jobs -p`
+
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
@@ -135,13 +138,16 @@ echo "IGNORING: This test is currently failing, and has been failing for a while
 echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  http://localhost:3000/points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
+grep -e ' ERROR ' -e ' WARN ' test_log_1.txt && exit 1
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test pre-configured Martin"
 set -x
-$MARTIN_BIN --config tests/config.yaml "$DATABASE_URL" &
-PROCESS_ID=$!
+
+ARG=(--config tests/config.yaml "$DATABASE_URL")
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_2.txt &
+PROCESS_ID=`jobs -p`
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
@@ -158,5 +164,6 @@ test_pbf fnc_0_0_0  http://localhost:3000/function_zxy_query/0/0/0
 test_pbf fnc2_0_0_0 http://localhost:3000/function_zxy_query_test/0/0/0?token=martin
 
 kill_process $PROCESS_ID
+grep -e ' ERROR ' -e ' WARN ' test_log_2.txt && exit 1
 
 >&2 echo "All integration tests have passed"

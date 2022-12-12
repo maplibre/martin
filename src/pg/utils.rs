@@ -4,7 +4,6 @@ use actix_http::header::HeaderValue;
 use actix_web::http::Uri;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
-use serde_json::Value;
 use std::collections::HashMap;
 use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
 
@@ -35,7 +34,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
     hashmap
 }
 
-pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<Value>> {
+pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<serde_json::Value>> {
     let mut query_as_json = HashMap::new();
     for (k, v) in query.iter() {
         let json_value: serde_json::Value =
@@ -96,4 +95,19 @@ pub fn create_tilejson(
 pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
     minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
         && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use crate::config::{Config, ConfigBuilder};
+
+    pub fn assert_config(yaml: &str, expected: Config) {
+        let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
+        let actual = config.finalize().expect("finalize");
+        assert_eq!(actual, expected);
+    }
+
+    pub fn some_str(s: &str) -> Option<String> {
+        Some(s.to_string())
+    }
 }

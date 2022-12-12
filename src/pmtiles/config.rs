@@ -201,7 +201,7 @@ impl PmtConfigBuilderEnum {
 mod tests {
     use super::*;
     use crate::config::{Config, ConfigBuilder};
-    use crate::srv::config::SrvConfigBuilder;
+    use crate::srv::config::SrvConfig;
     use indoc::indoc;
 
     #[test]
@@ -221,7 +221,7 @@ mod tests {
         let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
         let config = config.finalize().expect("finalize");
         let expected = Config {
-            srv: SrvConfigBuilder::default().finalize().expect("finalize"),
+            srv: SrvConfig::default(),
             postgres: None,
             pmtiles: Some(PmtConfig {
                 paths: Some(vec![
