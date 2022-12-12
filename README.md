@@ -461,90 +461,92 @@ martin --config config.yaml
 You can find an example of a configuration file [here](https://github.com/maplibre/martin/blob/main/tests/config.yaml).
 
 ```yaml
-# Database connection string
-connection_string: 'postgresql://postgres@localhost:5432/db'
-
-# If a spatial table has SRID 0, then this SRID will be used as a fallback
-default_srid: 4326
-
 # Connection keep alive timeout [default: 75]
 keep_alive: 75
 
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
-# Maximum connections pool size [default: 20]
-pool_size: 20
-
 # Number of web server workers
 worker_processes: 8
 
-# Associative arrays of table sources
-tables:
-  table_source_id:
-    # Table schema (required)
-    schema: public
-
-    # Table name (required)
-    table: table_source
-
-    # Geometry SRID (required)
-    srid: 4326
-
-    # Geometry column name (required)
-    geometry_column: geom
-
-    # Feature id column name
-    id_column: ~
-
-    # An integer specifying the minimum zoom level
-    minzoom: 0
-
-    # An integer specifying the maximum zoom level. MUST be >= minzoom
-    maxzoom: 30
-
-    # The maximum extent of available map tiles. Bounds MUST define an area
-    # covered by all zoom levels. The bounds are represented in WGS:84
-    # latitude and longitude values, in the order left, bottom, right, top.
-    # Values may be integers or floating point numbers.
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-
-    # Tile extent in tile coordinate space
-    extent: 4096
-
-    # Buffer distance in tile coordinate space to optionally clip geometries
-    buffer: 64
-
-    # Boolean to control if geometries should be clipped or encoded as is
-    clip_geom: true
-
-    # Geometry type
-    geometry_type: GEOMETRY
-
-    # List of columns, that should be encoded as tile properties (required)
-    properties:
-      gid: int4
-
-# Associative arrays of function sources
-functions:
-  function_source_id:
-    # Schema name (required)
-    schema: public
-
-    # Function name (required)
-    function: function_zxy_query
-
-    # An integer specifying the minimum zoom level
-    minzoom: 0
-
-    # An integer specifying the maximum zoom level. MUST be >= minzoom
-    maxzoom: 30
-
-    # The maximum extent of available map tiles. Bounds MUST define an area
-    # covered by all zoom levels. The bounds are represented in WGS:84
-    # latitude and longitude values, in the order left, bottom, right, top.
-    # Values may be integers or floating point numbers.
-    bounds: [-180.0, -90.0, 180.0, 90.0]
+# Database configuration. This can also be a list of PG configs.
+postgres:
+  # Database connection string
+  connection_string: 'postgresql://postgres@localhost:5432/db'
+  
+  #  If a spatial table has SRID 0, then this SRID will be used as a fallback
+  default_srid: 4326
+  
+  # Maximum connections pool size [default: 20]
+  pool_size: 20
+  
+  # Associative arrays of table sources
+  tables:
+    table_source_id:
+      # Table schema (required)
+      schema: public
+  
+      # Table name (required)
+      table: table_source
+  
+      # Geometry SRID (required)
+      srid: 4326
+  
+      # Geometry column name (required)
+      geometry_column: geom
+  
+      # Feature id column name
+      id_column: ~
+  
+      # An integer specifying the minimum zoom level
+      minzoom: 0
+  
+      # An integer specifying the maximum zoom level. MUST be >= minzoom
+      maxzoom: 30
+  
+      # The maximum extent of available map tiles. Bounds MUST define an area
+      # covered by all zoom levels. The bounds are represented in WGS:84
+      # latitude and longitude values, in the order left, bottom, right, top.
+      # Values may be integers or floating point numbers.
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+  
+      # Tile extent in tile coordinate space
+      extent: 4096
+  
+      # Buffer distance in tile coordinate space to optionally clip geometries
+      buffer: 64
+  
+      # Boolean to control if geometries should be clipped or encoded as is
+      clip_geom: true
+  
+      # Geometry type
+      geometry_type: GEOMETRY
+  
+      # List of columns, that should be encoded as tile properties (required)
+      properties:
+        gid: int4
+  
+  # Associative arrays of function sources
+  functions:
+    function_source_id:
+      # Schema name (required)
+      schema: public
+  
+      # Function name (required)
+      function: function_zxy_query
+  
+      # An integer specifying the minimum zoom level
+      minzoom: 0
+  
+      # An integer specifying the maximum zoom level. MUST be >= minzoom
+      maxzoom: 30
+  
+      # The maximum extent of available map tiles. Bounds MUST define an area
+      # covered by all zoom levels. The bounds are represented in WGS:84
+      # latitude and longitude values, in the order left, bottom, right, top.
+      # Values may be integers or floating point numbers.
+      bounds: [-180.0, -90.0, 180.0, 90.0]
 ```
 
 ## Using with Docker
