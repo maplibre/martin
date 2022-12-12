@@ -786,7 +786,7 @@ Available recipes:
     stop                  # Stop the test database
     bench                 # Run benchmark tests
     test                  # Run all tests using a test database
-    test-unit             # Run Rust unit and doc tests (cargo test)
+    test-unit *ARGS       # Run Rust unit and doc tests (cargo test)
     test-int              # Run integration tests
     test-int-legacy       # Run integration tests using legacy database
     test-integration name # Run integration tests with the given docker compose target
