@@ -1,11 +1,10 @@
 use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, warn};
-use martin::config::{read_config, Config, ConfigBuilder};
-use martin::pg::config::{PgArgs, PgConfig};
-use martin::pg::configurator::resolve_pg_data;
+use martin::config::{read_config, ConfigBuilder};
+use martin::pg::config::{parse_pg_args, PgArgs, PgConfig};
 use martin::source::IdResolver;
-use martin::srv::config::{SrvArgs, SrvConfigBuilder};
+use martin::srv::config::{SrvArgs, SrvConfig};
 use martin::srv::server;
 use martin::srv::server::RESERVED_KEYWORDS;
 use std::collections::HashMap;
@@ -21,7 +20,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[command(about, version)]
 pub struct Args {
     /// Database connection string
-    pub connection: Option<String>,
+    pub connection: Vec<String>,
     /// Path to config file.
     #[arg(short, long)]
     pub config: Option<PathBuf>,
@@ -50,8 +49,8 @@ impl From<Args> for ConfigBuilder {
         }
 
         ConfigBuilder {
-            srv: SrvConfigBuilder::from(args.srv),
-            pg: PgConfig::from((args.pg, args.connection)),
+            srv: SrvConfig::from(args.srv),
+            postgres: parse_pg_args(args.pg, &args.connection),
             unrecognized: HashMap::new(),
         }
     }
@@ -72,14 +71,9 @@ async fn start(args: Args) -> io::Result<Server> {
     if let Some(file_cfg) = file_cfg {
         builder.merge(file_cfg);
     }
-    let config = builder.finalize()?;
-
     let id_resolver = IdResolver::new(RESERVED_KEYWORDS);
-    let (sources, pg_config, _) = resolve_pg_data(config.pg, id_resolver).await?;
-    let config = Config {
-        pg: pg_config,
-        ..config
-    };
+    let mut config = builder.finalize()?;
+    let sources = config.resolve(id_resolver).await?;
 
     if let Some(file_name) = save_config {
         let yaml = serde_yaml::to_string(&config).expect("Unable to serialize config");
@@ -93,13 +87,16 @@ async fn start(args: Args) -> io::Result<Server> {
             );
             File::create(file_name)?.write_all(yaml.as_bytes())?;
         }
-    } else if config.pg.run_autodiscovery {
+    } else if config
+        .postgres
+        .iter()
+        .any(|v| v.iter().any(PgConfig::is_autodetect))
+    {
         info!("Martin has been configured with automatic settings.");
         info!("Use --save-config to save or print Martin configuration.");
     }
 
-    let listen_addresses = config.srv.listen_addresses.clone();
-    let server = server::new(config.srv, sources);
+    let (server, listen_addresses) = server::new(config.srv, sources);
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
 

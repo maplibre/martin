@@ -3,7 +3,6 @@
 use actix_web::web::Data;
 use log::info;
 use martin::pg::config::{FunctionInfo, PgConfig, TableInfo};
-use martin::pg::configurator::resolve_pg_data;
 use martin::pg::pool::Pool;
 use martin::source::{IdResolver, Source};
 use martin::srv::server::{AppState, Sources};
@@ -56,10 +55,10 @@ pub async fn mock_pool() -> Pool {
 }
 
 #[allow(dead_code)]
-pub async fn mock_sources(config: PgConfig) -> MockSource {
-    let res = resolve_pg_data(config, IdResolver::default()).await;
+pub async fn mock_sources(mut config: PgConfig) -> MockSource {
+    let res = config.resolve(IdResolver::default()).await;
     let res = res.expect("Failed to resolve pg data");
-    (res.0, res.1)
+    (res.0, config)
 }
 
 #[allow(dead_code)]

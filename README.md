@@ -68,7 +68,7 @@ brew install martin
 You can also use [official Docker image](https://hub.docker.com/r/maplibre/martin)
 
 ```shell
-docker run -p 3000:3000 -e DATABASE_URL=postgres://postgres@localhost/db maplibre/martin
+docker run -p 3000:3000 -e DATABASE_URL=postgresql://postgres@localhost/db maplibre/martin
 ```
 
 ## Usage
@@ -76,7 +76,7 @@ docker run -p 3000:3000 -e DATABASE_URL=postgres://postgres@localhost/db maplibr
 Martin requires a database connection string. It can be passed as a command-line argument or as a `DATABASE_URL` environment variable.
 
 ```shell
-martin postgres://postgres@localhost/db
+martin postgresql://postgres@localhost/db
 ```
 
 Martin provides [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint for each [geospatial-enabled](https://postgis.net/docs/postgis_usage.html#geometry_columns) table in your database.
@@ -443,12 +443,12 @@ Options:
 
 You can also configure martin using environment variables
 
-| Environment variable          | Example                            | Description                                 |
-|-------------------------------|------------------------------------|---------------------------------------------|
-| `DATABASE_URL`                | `postgres://postgres@localhost/db` | Postgres database connection                |
-| `CA_ROOT_FILE`                | `./ca-certificate.crt`             | Loads trusted root certificates from a file |
-| `DEFAULT_SRID`                | `4326`                             | Fallback SRID                               |
-| `DANGER_ACCEPT_INVALID_CERTS` | `false`                            | Trust invalid certificates                  |
+| Environment variable          | Example                              | Description                                 |
+|-------------------------------|--------------------------------------|---------------------------------------------|
+| `DATABASE_URL`                | `postgresql://postgres@localhost/db` | Postgres database connection                |
+| `CA_ROOT_FILE`                | `./ca-certificate.crt`               | Loads trusted root certificates from a file |
+| `DEFAULT_SRID`                | `4326`                               | Fallback SRID                               |
+| `DANGER_ACCEPT_INVALID_CERTS` | `false`                              | Trust invalid certificates                  |
 
 ## Configuration File
 
@@ -462,7 +462,7 @@ You can find an example of a configuration file [here](https://github.com/maplib
 
 ```yaml
 # Database connection string
-connection_string: 'postgres://postgres@localhost:5432/db'
+connection_string: 'postgresql://postgres@localhost:5432/db'
 
 # If a spatial table has SRID 0, then this SRID will be used as a fallback
 default_srid: 4326
@@ -554,7 +554,7 @@ You can use official Docker image [`maplibre/martin`](https://hub.docker.com/r/m
 ```shell
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@localhost/db \
+  -e DATABASE_URL=postgresql://postgres@localhost/db \
   maplibre/martin
 ```
 
@@ -566,7 +566,7 @@ For Linux, add the `--net=host` flag to access the `localhost` PostgreSQL servic
 docker run \
   --net=host \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@localhost/db \
+  -e DATABASE_URL=postgresql://postgres@localhost/db \
   maplibre/martin
 ```
 
@@ -575,7 +575,7 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 ```shell
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
+  -e DATABASE_URL=postgresql://postgres@host.docker.internal/db \
   maplibre/martin
 ```
 
@@ -584,7 +584,7 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 ```shell
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
+  -e DATABASE_URL=postgresql://postgres@docker.for.win.localhost/db \
   maplibre/martin
 ```
 
@@ -602,7 +602,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgres://postgres:password@db/db
+      - DATABASE_URL=postgresql://postgresql:password@db/db
     depends_on:
       - db
 
@@ -654,7 +654,7 @@ services:
     image: maplibre/martin
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgres://postgres:password@db/db
+      - DATABASE_URL=postgresql://postgresql:password@db/db
     depends_on:
       - db
 
@@ -740,7 +740,7 @@ The binary will be available at `./target/release/martin`.
 
 ```shell
 cd ./target/release/
-./martin postgres://postgres@localhost/db
+./martin postgresql://postgres@localhost/db
 ```
 
 ## Debugging
@@ -751,14 +751,14 @@ This will enable debug logging for all modules:
 
 ```shell
 export RUST_LOG=debug
-martin postgres://postgres@localhost/db
+martin postgresql://postgres@localhost/db
 ```
 
 While this will only enable verbose logging for the `actix_web` module and enable debug logging for the `martin` and `tokio_postgres` modules:
 
 ```shell
 export RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
-martin postgres://postgres@localhost/db
+martin postgresql://postgres@localhost/db
 ```
 
 ## Development
@@ -800,7 +800,7 @@ Available recipes:
 just debug-page
 
 # Run Martin server
-DATABASE_URL=postgres://postgres@localhost/db cargo run
+DATABASE_URL=postgresql://postgres@localhost/db cargo run
 ```
 
 Open `tests/debug.html` for debugging. By default, martin will be available at [localhost:3000](http://localhost:3000/)
@@ -808,13 +808,13 @@ Open `tests/debug.html` for debugging. By default, martin will be available at [
 Make your changes, and check if all the tests are running
 
 ```shell
-DATABASE_URL=postgres://postgres@localhost/db cargo test
+DATABASE_URL=postgresql://postgres@localhost/db cargo test
 ```
 
 You can also run benchmarks with
 
 ```shell
-DATABASE_URL=postgres://postgres@localhost/db cargo bench
+DATABASE_URL=postgresql://postgres@localhost/db cargo bench
 ```
 
 An HTML report displaying the results of the benchmark will be generated under `target/criterion/report/index.html`
@@ -829,7 +829,7 @@ You can use martin with [Managed PostgreSQL from DigitalOcean](https://www.digit
 First, you need to download the CA certificate and get your cluster connection string from the [dashboard](https://cloud.digitalocean.com/databases). After that, you can use the connection string and the CA certificate to connect to the database
 
 ```shell
-martin --ca-root-file ./ca-certificate.crt postgres://user:password@host:port/db?sslmode=require
+martin --ca-root-file ./ca-certificate.crt postgresql://user:password@host:port/db?sslmode=require
 ```
 
 ### Using with Heroku PostgreSQL
