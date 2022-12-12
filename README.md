@@ -464,9 +464,6 @@ You can find an example of a configuration file [here](https://github.com/maplib
 # Database connection string
 connection_string: 'postgres://postgres@localhost:5432/db'
 
-# Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
-danger_accept_invalid_certs: false
-
 # If a spatial table has SRID 0, then this SRID will be used as a fallback
 default_srid: 4326
 
