@@ -56,10 +56,10 @@ impl Pool {
                 builder.set_verify(SslVerifyMode::NONE);
             }
 
-            if let Some(ca_root_file) = &config.ca_root_file {
-                info!("Using {ca_root_file} as trusted root certificate");
-                builder.set_ca_file(ca_root_file).map_err(|e| {
-                    io_error!(e, "Can't set trusted root certificate {ca_root_file}")
+            if let Some(file) = &config.ca_root_file {
+                info!("Using {} as trusted root certificate", file.display());
+                builder.set_ca_file(file).map_err(|e| {
+                    io_error!(e, "Can't set trusted root certificate {}", file.display())
                 })?;
             }
             PostgresConnectionManager::new(pg_cfg, MakeTlsConnector::new(builder.build()))

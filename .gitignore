@@ -4,6 +4,7 @@
 /target/
 **/*.rs.bk
 .idea/
+test_log*
 
 pg_data/
 config.yml

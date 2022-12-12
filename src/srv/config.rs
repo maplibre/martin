@@ -2,14 +2,14 @@ use crate::config::set_option;
 use serde::{Deserialize, Serialize};
 use std::io;
 
-pub const KEEP_ALIVE_DEFAULT: usize = 75;
+pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
 
 #[derive(clap::Args, Debug)]
 #[command(about, version)]
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {}]", KEEP_ALIVE_DEFAULT), short, long)]
-    pub keep_alive: Option<usize>,
+    pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {}]", LISTEN_ADDRESSES_DEFAULT), short, long)]
     pub listen_addresses: Option<String>,
     /// Number of web server workers
@@ -19,7 +19,7 @@ pub struct SrvArgs {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct SrvConfig {
-    pub keep_alive: usize,
+    pub keep_alive: u64,
     pub listen_addresses: String,
     pub worker_processes: usize,
 }
@@ -27,7 +27,7 @@ pub struct SrvConfig {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct SrvConfigBuilder {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keep_alive: Option<usize>,
+    pub keep_alive: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub listen_addresses: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

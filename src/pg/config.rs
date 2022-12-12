@@ -1,10 +1,11 @@
 use crate::config::{report_unrecognized_config, set_option};
 use crate::pg::utils::create_tilejson;
-use crate::utils::{InfoMap, Schemas};
+use crate::utils::{get_env_str, InfoMap, Schemas};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
-use std::{env, io};
+use std::io;
 use tilejson::{Bounds, TileJSON};
 
 pub const POOL_SIZE_DEFAULT: u32 = 20;
@@ -15,7 +16,7 @@ pub struct PgArgs {
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
     #[cfg(feature = "ssl")]
     #[arg(long)]
-    pub ca_root_file: Option<String>,
+    pub ca_root_file: Option<std::path::PathBuf>,
     /// Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
     #[cfg(feature = "ssl")]
     #[arg(long)]
@@ -186,9 +187,9 @@ pub struct PgConfig {
     pub connection_string: Option<String>,
     #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ca_root_file: Option<String>,
+    pub ca_root_file: Option<std::path::PathBuf>,
     #[cfg(feature = "ssl")]
-    #[serde(skip_serializing_if = "Clone::clone")]
+    #[serde(default, skip_serializing_if = "Clone::clone")]
     pub danger_accept_invalid_certs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
@@ -252,21 +253,22 @@ impl PgConfig {
 impl From<(PgArgs, Option<String>)> for PgConfig {
     fn from((args, connection): (PgArgs, Option<String>)) -> Self {
         PgConfig {
-            connection_string: connection.or_else(|| {
-                env::var_os("DATABASE_URL").and_then(|connection| connection.into_string().ok())
-            }),
+            connection_string: connection.or_else(|| get_env_str("DATABASE_URL")),
             #[cfg(feature = "ssl")]
-            ca_root_file: args.ca_root_file.or_else(|| {
-                env::var_os("CA_ROOT_FILE").and_then(|connection| connection.into_string().ok())
-            }),
+            ca_root_file: args
+                .ca_root_file
+                .clone()
+                .or_else(|| std::env::var_os("CA_ROOT_FILE").map(std::path::PathBuf::from)),
             #[cfg(feature = "ssl")]
             danger_accept_invalid_certs: args.danger_accept_invalid_certs
-                || env::var_os("DANGER_ACCEPT_INVALID_CERTS").is_some(),
+                || get_env_str("DANGER_ACCEPT_INVALID_CERTS").is_some(),
             default_srid: args.default_srid.or_else(|| {
-                env::var_os("DEFAULT_SRID").and_then(|srid| {
-                    srid.into_string()
-                        .ok()
-                        .and_then(|srid| srid.parse::<i32>().ok())
+                get_env_str("DEFAULT_SRID").and_then(|srid| match srid.parse::<i32>() {
+                    Ok(v) => Some(v),
+                    Err(v) => {
+                        warn!("Env var DEFAULT_SRID is not a valid integer {srid}: {v}");
+                        None
+                    }
                 })
             }),
             pool_size: args.pool_size,
