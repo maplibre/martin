@@ -9,8 +9,10 @@ use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
 use martin::srv::server::RESERVED_KEYWORDS;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Write;
+use std::path::PathBuf;
 use std::{env, io};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -22,11 +24,11 @@ pub struct Args {
     pub connection: Option<String>,
     /// Path to config file.
     #[arg(short, long)]
-    pub config: Option<String>,
+    pub config: Option<PathBuf>,
     /// Save resulting config to a file or use "-" to print to stdout.
     /// By default, only print if sources are auto-detected.
     #[arg(long)]
-    pub save_config: Option<String>,
+    pub save_config: Option<PathBuf>,
     /// [Deprecated] Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
@@ -60,7 +62,7 @@ async fn start(args: Args) -> io::Result<Server> {
 
     let save_config = args.save_config.clone();
     let file_cfg = if let Some(ref cfg_filename) = args.config {
-        info!("Using {cfg_filename}");
+        info!("Using {}", cfg_filename.display());
         Some(read_config(cfg_filename)?)
     } else {
         info!("Config file is not specified, auto-detecting sources");
@@ -79,14 +81,16 @@ async fn start(args: Args) -> io::Result<Server> {
         ..config
     };
 
-    if save_config.is_some() {
+    if let Some(file_name) = save_config {
         let yaml = serde_yaml::to_string(&config).expect("Unable to serialize config");
-        let file_name = save_config.as_deref().unwrap_or("-");
-        if file_name == "-" {
+        if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
             println!("\n\n{yaml}\n");
         } else {
-            info!("Saving config to {file_name}, use --config to load it");
+            info!(
+                "Saving config to {}, use --config to load it",
+                file_name.display()
+            );
             File::create(file_name)?.write_all(yaml.as_bytes())?;
         }
     } else if config.pg.run_autodiscovery {
@@ -98,6 +102,7 @@ async fn start(args: Args) -> io::Result<Server> {
     let server = server::new(config.srv, sources);
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
+
     Ok(server)
 }
 

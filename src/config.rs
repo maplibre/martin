@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Config {
@@ -59,20 +60,21 @@ pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, V
 }
 
 /// Read config from a file
-pub fn read_config(file_name: &str) -> io::Result<ConfigBuilder> {
+pub fn read_config(file_name: &Path) -> io::Result<ConfigBuilder> {
     let mut file = File::open(file_name)
-        .map_err(|e| io_error!(e, "Unable to open config file '{file_name}'"))?;
+        .map_err(|e| io_error!(e, "Unable to open config file '{}'", file_name.display()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .map_err(|e| io_error!(e, "Unable to read config file '{file_name}'"))?;
+        .map_err(|e| io_error!(e, "Unable to read config file '{}'", file_name.display()))?;
     serde_yaml::from_str(contents.as_str())
-        .map_err(|e| io_error!(e, "Error parsing config file '{file_name}'"))
+        .map_err(|e| io_error!(e, "Error parsing config file '{}'", file_name.display()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::pg::config::{FunctionInfo, TableInfo};
+    use crate::pg::utils::tests::some_str;
     use indoc::indoc;
     use std::collections::HashMap;
     use tilejson::Bounds;
@@ -82,7 +84,6 @@ mod tests {
         let yaml = indoc! {"
             ---
             connection_string: 'postgres://postgres@localhost:5432/db'
-            danger_accept_invalid_certs: false
             default_srid: 4326
             keep_alive: 75
             listen_addresses: '0.0.0.0:3000'
@@ -124,7 +125,7 @@ mod tests {
                 worker_processes: 8,
             },
             pg: PgConfig {
-                connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
+                connection_string: some_str("postgres://postgres@localhost:5432/db"),
                 default_srid: Some(4326),
                 pool_size: Some(20),
                 tables: Some(HashMap::from([(
@@ -140,7 +141,7 @@ mod tests {
                         extent: Some(4096),
                         buffer: Some(64),
                         clip_geom: Some(true),
-                        geometry_type: Some("GEOMETRY".to_string()),
+                        geometry_type: some_str("GEOMETRY"),
                         properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
                         ..Default::default()
                     },

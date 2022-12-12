@@ -296,7 +296,7 @@ pub fn new(config: SrvConfig, sources: Sources) -> Server {
     })
     .bind(listen_addresses.clone())
     .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
-    .keep_alive(Duration::from_secs(keep_alive as u64))
+    .keep_alive(Duration::from_secs(keep_alive))
     .shutdown_timeout(0)
     .workers(worker_processes)
     .run()

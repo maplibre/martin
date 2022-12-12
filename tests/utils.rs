@@ -187,7 +187,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 schema: "public".to_string(),
                 table: "points1".to_string(),
                 geometry_column: "geom".to_string(),
-                geometry_type: Some("POINT".to_string()),
+                geometry_type: some_str("POINT"),
                 properties: props(&[("gid", "int4")]),
                 ..default.clone()
             },
@@ -198,7 +198,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 schema: "public".to_string(),
                 table: "points2".to_string(),
                 geometry_column: "geom".to_string(),
-                geometry_type: Some("POINT".to_string()),
+                geometry_type: some_str("POINT"),
                 properties: props(&[("gid", "int4")]),
                 ..default.clone()
             },
@@ -210,8 +210,8 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 schema: "MIXEDCASE".to_string(),
                 table: "mixPoints".to_string(),
                 geometry_column: "geoM".to_string(),
-                geometry_type: Some("POINT".to_string()),
-                id_column: Some("giD".to_string()),
+                geometry_type: some_str("POINT"),
+                id_column: some_str("giD"),
                 properties: props(&[("tAble", "text")]),
                 ..default.clone()
             },
@@ -223,7 +223,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 table: "points3857".to_string(),
                 srid: 3857,
                 geometry_column: "geom".to_string(),
-                geometry_type: Some("POINT".to_string()),
+                geometry_type: some_str("POINT"),
                 properties: props(&[("gid", "int4")]),
                 ..default.clone()
             },
@@ -235,7 +235,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 table: "points_empty_srid".to_string(),
                 srid: 900973,
                 geometry_column: "geom".to_string(),
-                geometry_type: Some("GEOMETRY".to_string()),
+                geometry_type: some_str("GEOMETRY"),
                 properties: props(&[("gid", "int4")]),
                 ..default.clone()
             },
@@ -246,7 +246,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 schema: "public".to_string(),
                 table: "table_source".to_string(),
                 geometry_column: "geom".to_string(),
-                geometry_type: Some("GEOMETRY".to_string()),
+                geometry_type: some_str("GEOMETRY"),
                 properties: props(&[("gid", "int4")]),
                 ..default.clone()
             },
@@ -257,7 +257,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 schema: "public".to_string(),
                 table: "table_source_multiple_geom".to_string(),
                 geometry_column: "geom1".to_string(),
-                geometry_type: Some("POINT".to_string()),
+                geometry_type: some_str("POINT"),
                 properties: props(&[("geom2", "geometry"), ("gid", "int4")]),
                 ..default.clone()
             },
@@ -268,7 +268,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
                 schema: "public".to_string(),
                 table: "table_source_multiple_geom".to_string(),
                 geometry_column: "geom2".to_string(),
-                geometry_type: Some("POINT".to_string()),
+                geometry_type: some_str("POINT"),
                 properties: props(&[("gid", "int4"), ("geom1", "geometry")]),
                 ..default.clone()
             },
@@ -295,4 +295,9 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
 pub fn source<'a>(mock: &'a MockSource, name: &str) -> &'a dyn Source {
     let (sources, _) = mock;
     sources.get(name).unwrap().as_ref()
+}
+
+#[allow(dead_code)]
+pub fn some_str(s: &str) -> Option<String> {
+    Some(s.to_string())
 }

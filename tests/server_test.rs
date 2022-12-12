@@ -465,12 +465,12 @@ async fn tables_feature_id() {
         ..default.clone()
     };
     let id_only = TableInfo {
-        id_column: Some("giD".to_string()),
+        id_column: some_str("giD"),
         properties: props(&[("TABLE", "text")]),
         ..default.clone()
     };
     let id_and_prop = TableInfo {
-        id_column: Some("giD".to_string()),
+        id_column: some_str("giD"),
         properties: props(&[("giD", "int4"), ("TABLE", "text")]),
         ..default.clone()
     };
@@ -498,11 +498,11 @@ async fn tables_feature_id() {
     // });
 
     let src = table(&mock, "id_only");
-    assert_eq!(src.id_column, Some("giD".to_string()));
+    assert_eq!(src.id_column, some_str("giD"));
     assert_eq!(src.properties.len(), 1);
 
     let src = table(&mock, "id_and_prop");
-    assert_eq!(src.id_column, Some("giD".to_string()));
+    assert_eq!(src.id_column, some_str("giD"));
     assert_eq!(src.properties.len(), 2);
 
     let src = table(&mock, "prop_only");

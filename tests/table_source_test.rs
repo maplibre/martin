@@ -31,7 +31,7 @@ async fn table_source() {
     assert_eq!(source.extent, Some(4096));
     assert_eq!(source.buffer, Some(64));
     assert_eq!(source.clip_geom, Some(true));
-    assert_eq!(source.geometry_type, Some("GEOMETRY".to_owned()));
+    assert_eq!(source.geometry_type, some_str("GEOMETRY"));
 
     let mut properties = HashMap::new();
     properties.insert("gid".to_owned(), "int4".to_owned());
@@ -46,9 +46,9 @@ async fn tables_tilejson_ok() {
     info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
-    assert_eq!(tilejson.version, Some("1.0.0".to_owned()));
-    assert_eq!(tilejson.name, Some("public.table_source.geom".to_owned()));
-    assert_eq!(tilejson.scheme, Some("xyz".to_owned()));
+    assert_eq!(tilejson.version, some_str("1.0.0"));
+    assert_eq!(tilejson.name, some_str("public.table_source.geom"));
+    assert_eq!(tilejson.scheme, some_str("xyz"));
     assert_eq!(tilejson.minzoom, Some(0));
     assert_eq!(tilejson.maxzoom, Some(30));
     assert!(tilejson.bounds.is_some());
