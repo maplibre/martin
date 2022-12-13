@@ -109,7 +109,7 @@ impl Source for FunctionSource {
         let tile = conn
             .query_one(&query, &[&xyz.x, &xyz.y, &xyz.z, &query_json])
             .await
-            .map(|row| row.get(self.function.as_str()))
+            .map(|row| row.get::<_, Option<Tile>>(self.function.as_str()))
             .map_err(|error| {
                 prettify_error!(
                     error,
@@ -120,7 +120,8 @@ impl Source for FunctionSource {
                     xyz.z,
                     query_json
                 )
-            })?;
+            })?
+            .unwrap_or_default();
 
         Ok(tile)
     }

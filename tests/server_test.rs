@@ -489,6 +489,24 @@ async fn get_function_source_tile_minmax_zoom_ok() {
 }
 
 #[actix_rt::test]
+async fn null_function_204() {
+    let null_function = FunctionSource {
+        id: "public.null_function".to_owned(),
+        schema: "public".to_owned(),
+        function: "null_function".to_owned(),
+        minzoom: None,
+        maxzoom: None,
+        bounds: None,
+        unrecognized: HashMap::new(),
+    };
+    let app = create_app!(None, Some(mock_function_sources(&[null_function])));
+
+    let req = test_get("/rpc/public.null_function/0/0/0.pbf");
+    let response = call_service(&app, req).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+}
+
+#[actix_rt::test]
 async fn get_function_source_query_params_ok() {
     let app = create_app!(None, Some(mock_default_function_sources()));
 

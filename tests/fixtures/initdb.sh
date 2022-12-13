@@ -20,3 +20,4 @@ psql -e -P pager=off -v ON_ERROR_STOP=1 -f $FIXTURES_DIR/points1_source.sql
 psql -e -P pager=off -v ON_ERROR_STOP=1 -f $FIXTURES_DIR/points2_source.sql
 psql -e -P pager=off -v ON_ERROR_STOP=1 -f $FIXTURES_DIR/points3857_source.sql
 psql -e -P pager=off -v ON_ERROR_STOP=1 -f $FIXTURES_DIR/points_empty_srid_source.sql
+psql -e -P pager=off -v ON_ERROR_STOP=1 -f $FIXTURES_DIR/null_function.sql
