@@ -2,22 +2,22 @@ use crate::pg::config::FunctionInfo;
 use crate::pg::configurator::SqlFuncInfoMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;
-use crate::pg::utils::io_error;
+use crate::pg::utils::PgError::PostgresError;
+use crate::pg::utils::Result;
 use log::warn;
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::io;
 use std::iter::zip;
 
-pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap, io::Error> {
+pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap> {
     let mut res = SqlFuncInfoMapMap::new();
     pool.get()
         .await?
         .query(include_str!("scripts/get_function_sources.sql"), &[])
         .await
-        .map_err(|e| io_error!(e, "Can't get function sources"))?
+        .map_err(|e| PostgresError(e, "querying available functions"))?
         .into_iter()
         .for_each(|row| {
             let schema: String = row.get("schema");

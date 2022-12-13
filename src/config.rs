@@ -1,12 +1,12 @@
-use crate::io_error;
 use crate::pg::config::PgConfig;
 use crate::srv::config::{SrvConfig, SrvConfigBuilder};
+use crate::utils::Error::{ConfigLoadError, ConfigParseError};
+use crate::utils::Result;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
@@ -44,7 +44,7 @@ impl ConfigBuilder {
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(self) -> io::Result<Config> {
+    pub fn finalize(self) -> Result<Config> {
         report_unrecognized_config("", &self.unrecognized);
         Ok(Config {
             srv: self.srv.finalize()?,
@@ -60,14 +60,12 @@ pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, V
 }
 
 /// Read config from a file
-pub fn read_config(file_name: &Path) -> io::Result<ConfigBuilder> {
-    let mut file = File::open(file_name)
-        .map_err(|e| io_error!(e, "Unable to open config file '{}'", file_name.display()))?;
+pub fn read_config(file_name: &Path) -> Result<ConfigBuilder> {
+    let mut file = File::open(file_name).map_err(|e| ConfigLoadError(e, file_name.into()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .map_err(|e| io_error!(e, "Unable to read config file '{}'", file_name.display()))?;
-    serde_yaml::from_str(contents.as_str())
-        .map_err(|e| io_error!(e, "Error parsing config file '{}'", file_name.display()))
+        .map_err(|e| ConfigLoadError(e, file_name.into()))?;
+    serde_yaml::from_str(contents.as_str()).map_err(|e| ConfigParseError(e, file_name.into()))
 }
 
 #[cfg(test)]
