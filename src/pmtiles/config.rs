@@ -1,14 +1,18 @@
 use crate::config::{merge_option, OneOrMany};
-use crate::io_error;
 use crate::pmtiles::source::PmtSource;
+use crate::pmtiles::utils::PmtError::{InvalidFilePath, InvalidSourceFilePath};
+use crate::pmtiles::utils::Result;
 use crate::source::{IdResolver, Source};
 use crate::srv::server::Sources;
+use crate::utils;
+use crate::Error::PmtilesError;
+use futures::TryFutureExt;
 use itertools::Itertools;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::path::PathBuf;
-use std::{io, mem};
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -66,7 +70,11 @@ pub fn parse_pmt_args(cli_strings: &[String]) -> Option<PmtConfigBuilderEnum> {
 }
 
 impl PmtConfig {
-    pub async fn resolve(&mut self, idr: IdResolver) -> io::Result<Sources> {
+    pub async fn resolve(&mut self, idr: IdResolver) -> utils::Result<Sources> {
+        self.resolve2(idr).map_err(PmtilesError).await
+    }
+
+    async fn resolve2(&mut self, idr: IdResolver) -> Result<Sources> {
         let PmtConfig { paths, sources } = mem::take(self);
         let mut results = Sources::new();
         let mut configs = HashMap::new();
@@ -80,7 +88,7 @@ impl PmtConfig {
                     continue;
                 }
                 if !can.is_file() {
-                    return Err(io_error!("Source {id} uses bad file: {}", can.display()));
+                    return Err(InvalidSourceFilePath(id.to_string(), can.to_path_buf()));
                 }
                 let id2 = idr.resolve(id, can.to_string_lossy().to_string());
                 info!("Configured source {id2} from {}", can.display());
@@ -101,7 +109,7 @@ impl PmtConfig {
                         .map(|f| f.path())
                         .collect()
                 } else if !path.is_file() {
-                    return Err(io_error!("Source path is not a file: {}", path.display()));
+                    return Err(InvalidFilePath(path).into());
                 } else {
                     vec![path]
                 };
@@ -132,7 +140,7 @@ impl PmtConfig {
     }
 }
 
-async fn create_source(id: String, source: PmtConfigSource) -> io::Result<Box<dyn Source>> {
+async fn create_source(id: String, source: PmtConfigSource) -> Result<Box<dyn Source>> {
     let src = PmtSource::new(id, source.path).await?;
     Ok(Box::new(src))
 }
@@ -186,7 +194,7 @@ impl PmtConfigBuilderEnum {
     }
 
     /// Apply defaults to the config, and validate if there is a file path
-    pub fn finalize(self) -> io::Result<PmtConfig> {
+    pub fn finalize(self) -> Result<PmtConfig> {
         let this = self.generalize();
         Ok(PmtConfig {
             paths: this.paths.map(|p| p.generalize()),

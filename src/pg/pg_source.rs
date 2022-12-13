@@ -1,13 +1,14 @@
 use crate::pg::pool::Pool;
-use crate::pg::utils::{io_error, is_valid_zoom, query_to_json};
+use crate::pg::utils::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
+use crate::pg::utils::{is_valid_zoom, query_to_json};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
+use crate::utils::Result;
 use async_trait::async_trait;
 use bb8_postgres::tokio_postgres::types::ToSql;
 use log::debug;
 use martin_tile_utils::DataFormat;
 use postgres::types::Type;
 use std::collections::HashMap;
-use std::io;
 use tilejson::TileJSON;
 
 #[derive(Clone, Debug)]
@@ -47,7 +48,7 @@ impl Source for PgSource {
         is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
-    async fn get_tile(&self, xyz: &Xyz, url_query: &Option<UrlQuery>) -> Result<Tile, io::Error> {
+    async fn get_tile(&self, xyz: &Xyz, url_query: &Option<UrlQuery>) -> Result<Tile> {
         let empty_query = HashMap::new();
         let url_query = url_query.as_ref().unwrap_or(&empty_query);
         let conn = self.pool.get().await?;
@@ -60,12 +61,11 @@ impl Source for PgSource {
 
         let query = &self.info.query;
         let prep_query = conn.prepare_typed(query, param_types).await.map_err(|e| {
-            io_error!(
+            PrepareQueryError(
                 e,
-                "Can't create prepared statement for the tile '{}' ({}): {}",
-                self.id,
-                self.info.signature,
-                self.info.query
+                self.id.to_string(),
+                self.info.signature.to_string(),
+                self.info.query.to_string(),
             )
         })?;
 
@@ -81,10 +81,9 @@ impl Source for PgSource {
 
         let tile = tile.map(|row| row.get(0)).map_err(|e| {
             if self.info.has_query_params {
-                let url_q = query_to_json(url_query);
-                io_error!(e, r#"Can't get {}/{xyz:#} with {url_q:?} params"#, self.id)
+                GetTileWithQueryError(e, self.id.to_string(), *xyz, url_query.clone())
             } else {
-                io_error!(e, r#"Can't get {}/{xyz:#}"#, self.id)
+                GetTileError(e, self.id.to_string(), *xyz)
             }
         })?;
 

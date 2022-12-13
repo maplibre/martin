@@ -8,6 +8,8 @@ pub mod pmtiles;
 pub mod source;
 pub mod srv;
 pub mod utils;
+pub use crate::utils::Error;
+pub use crate::utils::Result;
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]

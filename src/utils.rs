@@ -1,11 +1,34 @@
+use crate::pg::utils::PgError;
+use crate::pmtiles::utils::PmtError;
 use itertools::Itertools;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::env;
 use std::env::VarError;
+use std::path::PathBuf;
+use std::{env, io};
 
 pub type InfoMap<T> = HashMap<String, T>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Unable to load config file {}: {0}", .1.display())]
+    ConfigLoadError(io::Error, PathBuf),
+
+    #[error("Unable to parse config file {}: {0}", .1.display())]
+    ConfigParseError(serde_yaml::Error, PathBuf),
+
+    #[error("Unable to write config file {}: {0}", .1.display())]
+    ConfigWriteError(io::Error, PathBuf),
+
+    #[error("{0}")]
+    PostgresError(#[from] PgError),
+
+    #[error("{0}")]
+    PmtilesError(#[from] PmtError),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub fn normalize_key<'a, T>(
     map: &'a InfoMap<T>,

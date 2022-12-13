@@ -2,12 +2,14 @@ use crate::pg::config::{PgInfo, TableInfo};
 use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;
-use crate::pg::utils::{io_error, json_to_hashmap, polygon_to_bbox};
+use crate::pg::utils::PgError::PostgresError;
+use crate::pg::utils::Result;
+use crate::pg::utils::{json_to_hashmap, polygon_to_bbox};
 use crate::utils::normalize_key;
 use log::{info, warn};
+use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 use std::collections::HashMap;
-use std::io;
 
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
@@ -18,12 +20,12 @@ pub struct PgSqlTableInfo {
     pub info: TableInfo,
 }
 
-pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap, io::Error> {
+pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
     let conn = pool.get().await?;
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
         .await
-        .map_err(|e| io_error!(e, "Can't get table sources"))?;
+        .map_err(|e| PostgresError(e, "querying available tables"))?;
 
     let mut res = SqlTableInfoMapMapMap::new();
     for row in &rows {
@@ -72,25 +74,33 @@ pub async fn table_to_query(
     id: String,
     mut info: TableInfo,
     pool: Pool,
-) -> Result<(String, PgSqlInfo, TableInfo), io::Error> {
-    let bounds_query = format!(
-        include_str!("scripts/get_bounds.sql"),
-        schema = info.schema,
-        table = info.table,
-        srid = info.srid,
-        geometry_column = info.geometry_column,
-    );
+) -> Result<(String, PgSqlInfo, TableInfo)> {
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
+    let geometry_column = escape_identifier(&info.geometry_column);
+    let srid = info.srid;
 
     if info.bounds.is_none() {
         info.bounds = pool
             .get()
             .await?
-            .query_one(bounds_query.as_str(), &[])
+            .query_one(&format!(
+                r#"
+WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
+SELECT ST_Transform(
+            CASE
+                WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) = 'ST_Point'
+                THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}, 1)), {srid})
+                ELSE (SELECT * FROM real_bounds)
+            END,
+            4326
+        ) AS bounds
+FROM {schema}.{table};
+                "#), &[])
             .await
-            .map(|row| row.get("bounds"))
-            .ok()
-            .flatten()
-            .and_then(|v| polygon_to_bbox(&v));
+            .map_err(|e| PostgresError(e, "querying table bounds"))?
+            .get::<_, Option<ewkb::Polygon>>("bounds")
+            .and_then(|p| polygon_to_bbox(&p));
     }
 
     let properties = if info.properties.is_empty() {
@@ -145,14 +155,10 @@ FROM (
     {schema}.{table}
   WHERE
     {geometry_column} && ST_Transform({bbox_search}, {srid})
-) AS tile
+) AS tile;
 "#,
         table_id = escape_literal(info.format_id().as_str()),
-        geometry_column = escape_identifier(&info.geometry_column),
         clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
-        schema = escape_identifier(&info.schema),
-        table = escape_identifier(&info.table),
-        srid = info.srid,
     )
     .trim()
     .to_string();

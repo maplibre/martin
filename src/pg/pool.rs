@@ -1,18 +1,16 @@
 use crate::pg::config::{PgConfig, POOL_SIZE_DEFAULT};
-use crate::pg::utils::io_error;
+use crate::pg::utils::PgError::{
+    BadConnectionString, BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolConnError,
+};
+use crate::pg::utils::Result;
 use bb8::PooledConnection;
 use bb8_postgres::{tokio_postgres as pg, PostgresConnectionManager};
 use log::{info, warn};
-#[cfg(feature = "ssl")]
-use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-#[cfg(feature = "ssl")]
-use postgres_openssl::MakeTlsConnector;
 use semver::Version;
-use std::io;
 use std::str::FromStr;
 
 #[cfg(feature = "ssl")]
-pub type ConnectionManager = PostgresConnectionManager<MakeTlsConnector>;
+pub type ConnectionManager = PostgresConnectionManager<postgres_openssl::MakeTlsConnector>;
 #[cfg(not(feature = "ssl"))]
 pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
 
@@ -34,11 +32,11 @@ pub struct Pool {
 }
 
 impl Pool {
-    pub async fn new(config: &PgConfig) -> io::Result<Self> {
+    pub async fn new(config: &PgConfig) -> Result<Self> {
         let conn_str = config.connection_string.as_ref().unwrap().as_str();
         info!("Connecting to {conn_str}");
         let pg_cfg = pg::config::Config::from_str(conn_str)
-            .map_err(|e| io_error!(e, "Can't parse connection string {conn_str}"))?;
+            .map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
 
         let id = pg_cfg
             .get_dbname()
@@ -49,46 +47,58 @@ impl Pool {
 
         #[cfg(feature = "ssl")]
         let manager = {
-            let mut builder = SslConnector::builder(SslMethod::tls())
-                .map_err(|e| io_error!(e, "Can't build TLS connection"))?;
+            use crate::pg::utils::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
+            use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+
+            let tls = SslMethod::tls();
+            let mut builder = SslConnector::builder(tls).map_err(BuildSslConnectorError)?;
 
             if config.danger_accept_invalid_certs {
                 builder.set_verify(SslVerifyMode::NONE);
             }
 
             if let Some(file) = &config.ca_root_file {
+                builder
+                    .set_ca_file(file)
+                    .map_err(|e| BadTrustedRootCertError(e, file.to_path_buf()))?;
                 info!("Using {} as trusted root certificate", file.display());
-                builder.set_ca_file(file).map_err(|e| {
-                    io_error!(e, "Can't set trusted root certificate {}", file.display())
-                })?;
             }
-            PostgresConnectionManager::new(pg_cfg, MakeTlsConnector::new(builder.build()))
+
+            PostgresConnectionManager::new(
+                pg_cfg,
+                postgres_openssl::MakeTlsConnector::new(builder.build()),
+            )
         };
 
         let pool = InternalPool::builder()
             .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
             .build(manager)
             .await
-            .map_err(|e| io_error!(e, "Can't build connection pool"))?;
+            .map_err(|e| PostgresError(e, "building connection pool"))?;
 
-        let version: Version = get_connection(&pool)
-            .await?
-            .query_one(include_str!("scripts/get_postgis_version.sql"), &[])
+        let version = pool
+            .get()
             .await
-            .map(|row| row.get::<_, String>("postgis_version"))
-            .map_err(|e| io_error!(e, "Can't get PostGIS version"))?
-            .parse()
-            .map_err(|e| io_error!(e, "Can't parse database PostGIS version"))?;
+            .map_err(|e| PostgresPoolConnError(e, id.clone()))?
+            .query_one(
+                r#"
+SELECT 
+    (regexp_matches(
+           PostGIS_Lib_Version(),
+           '^(\d+\.\d+\.\d+)',
+           'g'
+    ))[1] as version;
+                "#,
+                &[],
+            )
+            .await
+            .map(|row| row.get::<_, String>("version"))
+            .map_err(|e| PostgresError(e, "querying postgis version"))?;
 
+        let version: Version = version.parse().map_err(|e| BadPostgisVersion(e, version))?;
         if version < MINIMUM_POSTGIS_VER {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "Martin requires PostGIS {MINIMUM_POSTGIS_VER}, current version is {version}"
-                ),
-            ))?;
+            return Err(PostgisTooOld(version, MINIMUM_POSTGIS_VER));
         }
-
         if version < RECOMMENDED_POSTGIS_VER {
             warn!("PostGIS {version} is before the recommended {RECOMMENDED_POSTGIS_VER}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
         }
@@ -97,8 +107,11 @@ impl Pool {
         Ok(Pool { id, pool, margin })
     }
 
-    pub async fn get(&self) -> io::Result<Connection<'_>> {
-        get_connection(&self.pool).await
+    pub async fn get(&self) -> Result<Connection<'_>> {
+        self.pool
+            .get()
+            .await
+            .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
     }
 
     pub fn get_id(&self) -> &str {
@@ -108,10 +121,4 @@ impl Pool {
     pub fn supports_tile_margin(&self) -> bool {
         self.margin
     }
-}
-
-async fn get_connection(pool: &InternalPool) -> io::Result<Connection<'_>> {
-    pool.get()
-        .await
-        .map_err(|e| io_error!(e, "Can't retrieve connection from the pool"))
 }

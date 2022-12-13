@@ -1,26 +1,12 @@
-use crate::source::UrlQuery;
+use crate::source::{UrlQuery, Xyz};
 use crate::utils::InfoMap;
 use actix_http::header::HeaderValue;
 use actix_web::http::Uri;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
+use semver::Version;
 use std::collections::HashMap;
 use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
-
-#[macro_export]
-macro_rules! io_error {
-    ($format:literal $(, $arg:expr)* $(,)?) => {
-        ::std::io::Error::new(
-            ::std::io::ErrorKind::Other,
-            ::std::format!($format, $($arg,)*))
-    };
-    ($error:ident $(, $arg:expr)* $(,)?) => {
-        ::std::io::Error::new(
-            ::std::io::ErrorKind::Other,
-            ::std::format!("{}: {}", ::std::format_args!($($arg,)+), $error))
-    };
-}
-pub(crate) use io_error;
 
 pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
     let mut hashmap = HashMap::new();
@@ -110,4 +96,60 @@ pub(crate) mod tests {
     pub fn some_str(s: &str) -> Option<String> {
         Some(s.to_string())
     }
+}
+
+pub type Result<T> = std::result::Result<T, PgError>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum PgError {
+    #[cfg(feature = "ssl")]
+    #[error("Can't build TLS connection: {0}")]
+    BuildSslConnectorError(#[from] openssl::error::ErrorStack),
+
+    #[cfg(feature = "ssl")]
+    #[error("Can't set trusted root certificate {}: {0}", .1.display())]
+    BadTrustedRootCertError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+
+    #[error("Postgres error while {1}: {0}")]
+    PostgresError(#[source] bb8_postgres::tokio_postgres::Error, &'static str),
+
+    #[error("Unable to get a Postgres connection from the pool {1}: {0}")]
+    PostgresPoolConnError(
+        #[source] bb8::RunError<bb8_postgres::tokio_postgres::Error>,
+        String,
+    ),
+
+    #[error("Unable to parse connection string {1}: {0}")]
+    BadConnectionString(#[source] postgres::Error, String),
+
+    #[error("Unable to parse PostGIS version {1}: {0}")]
+    BadPostgisVersion(#[source] semver::Error, String),
+
+    #[error("PostGIS version {0} is too old, minimum required is {1}")]
+    PostgisTooOld(Version, Version),
+
+    #[error("Database connection string is not set")]
+    NoConnectionString,
+
+    #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
+    InvalidTableExtent(String, String),
+
+    #[error("Error preparing a query for the tile '{1}' ({2}): {3} {0}")]
+    PrepareQueryError(
+        #[source] bb8_postgres::tokio_postgres::Error,
+        String,
+        String,
+        String,
+    ),
+
+    #[error(r#"Unable to get tile {1}/{2:#}: {0}"#)]
+    GetTileError(#[source] bb8_postgres::tokio_postgres::Error, String, Xyz),
+
+    #[error(r#"Unable to get tile {1}/{2:#} with {:?} params: {0}"#, query_to_json(.3))]
+    GetTileWithQueryError(
+        #[source] bb8_postgres::tokio_postgres::Error,
+        String,
+        Xyz,
+        UrlQuery,
+    ),
 }

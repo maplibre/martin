@@ -19,6 +19,7 @@ name = "martin"
 path = "src/bin/main.rs"
 
 [features]
+default = []
 ssl = ["openssl", "postgres-openssl"]
 vendored-openssl = ["ssl", "openssl/vendored"]
 
@@ -48,6 +49,7 @@ semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+thiserror = "1"
 tilejson = "0.3"
 
 [dev-dependencies]

@@ -1,5 +1,8 @@
-use crate::pg::utils::{create_tilejson, io_error, is_valid_zoom};
+use crate::pg::utils::{create_tilejson, is_valid_zoom};
+use crate::pmtiles::utils;
+use crate::pmtiles::utils::PmtError::GetTileError;
 use crate::source::{Source, Tile, UrlQuery, Xyz};
+use crate::Error;
 use async_trait::async_trait;
 use martin_tile_utils::DataFormat;
 use pmtiles::async_reader::AsyncPmTilesReader;
@@ -25,7 +28,7 @@ impl Debug for PmtSource {
 }
 
 impl PmtSource {
-    pub async fn new(id: String, path: PathBuf) -> io::Result<Self> {
+    pub async fn new(id: String, path: PathBuf) -> utils::Result<Self> {
         let backend = MmapBackend::try_from(path.as_path()).await.map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
@@ -67,12 +70,12 @@ impl Source for PmtSource {
         is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
-    async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, io::Error> {
+    async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
         Ok(self
             .pmtiles
             .get_tile(xyz.z as u8, xyz.x as u64, xyz.y as u64)
             .await
-            .ok_or_else(|| io_error!("Tile {xyz} not found"))?
+            .ok_or_else(|| GetTileError(*xyz, self.id.clone()))?
             .data)
     }
 }

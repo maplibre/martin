@@ -1,10 +1,10 @@
+use crate::utils::Result;
 use async_trait::async_trait;
 use martin_tile_utils::DataFormat;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::fmt::{Debug, Display, Formatter};
-use std::io;
 use std::sync::{Arc, Mutex};
 use tilejson::TileJSON;
 
@@ -38,7 +38,7 @@ pub trait Source: Send + Debug {
 
     fn is_valid_zoom(&self, zoom: i32) -> bool;
 
-    async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile, io::Error>;
+    async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile>;
 }
 
 impl Clone for Box<dyn Source> {
