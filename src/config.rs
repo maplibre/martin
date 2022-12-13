@@ -1,8 +1,10 @@
-use crate::io_error;
 use crate::pg::config::PgConfig;
 use crate::source::IdResolver;
 use crate::srv::config::SrvConfig;
 use crate::srv::server::Sources;
+use crate::utils;
+use crate::utils::Error::{ConfigLoadError, ConfigParseError};
+use crate::utils::Result;
 use futures::future::try_join_all;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -10,8 +12,8 @@ use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
+use std::mem;
 use std::path::Path;
-use std::{io, mem};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -21,13 +23,13 @@ pub enum OneOrMany<T: Clone> {
 }
 
 impl<S: Clone> OneOrMany<S> {
-    pub fn map<T: Clone, E, F>(self, mut f: F) -> Result<OneOrMany<T>, E>
+    pub fn map<T: Clone, F>(self, mut f: F) -> Result<OneOrMany<T>>
     where
-        F: FnMut(S) -> Result<T, E>,
+        F: FnMut(S) -> Result<T>,
     {
         Ok(match self {
             Self::One(v) => OneOrMany::One(f(v)?),
-            Self::Many(v) => OneOrMany::Many(v.into_iter().map(f).collect::<Result<_, _>>()?),
+            Self::Many(v) => OneOrMany::Many(v.into_iter().map(f).collect::<Result<_>>()?),
         })
     }
 
@@ -67,7 +69,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub async fn resolve(&mut self, idr: IdResolver) -> io::Result<Sources> {
+    pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
         let pg = try_join_all(
             self.postgres
                 .iter_mut()
@@ -133,7 +135,7 @@ impl ConfigBuilder {
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(self) -> io::Result<Config> {
+    pub fn finalize(self) -> Result<Config> {
         report_unrecognized_config("", &self.unrecognized);
         Ok(Config {
             srv: self.srv,
@@ -142,8 +144,8 @@ impl ConfigBuilder {
                 .map(|pg| {
                     pg.generalize()
                         .into_iter()
-                        .map(PgConfig::finalize)
-                        .collect::<Result<_, _>>()
+                        .map(|v| v.finalize().map_err(utils::Error::PostgresError))
+                        .collect::<Result<_>>()
                 })
                 .transpose()?,
         })
@@ -157,14 +159,12 @@ pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, V
 }
 
 /// Read config from a file
-pub fn read_config(file_name: &Path) -> io::Result<ConfigBuilder> {
-    let mut file = File::open(file_name)
-        .map_err(|e| io_error!(e, "Unable to open config file '{}'", file_name.display()))?;
+pub fn read_config(file_name: &Path) -> Result<ConfigBuilder> {
+    let mut file = File::open(file_name).map_err(|e| ConfigLoadError(e, file_name.into()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .map_err(|e| io_error!(e, "Unable to read config file '{}'", file_name.display()))?;
-    serde_yaml::from_str(contents.as_str())
-        .map_err(|e| io_error!(e, "Error parsing config file '{}'", file_name.display()))
+        .map_err(|e| ConfigLoadError(e, file_name.into()))?;
+    serde_yaml::from_str(contents.as_str()).map_err(|e| ConfigParseError(e, file_name.into()))
 }
 
 #[cfg(test)]
