@@ -1,11 +1,12 @@
 use crate::config::{report_unrecognized_config, set_option};
 use crate::pg::utils::create_tilejson;
+use crate::pg::utils::PgError::NoConnectionString;
+use crate::pg::utils::Result;
 use crate::utils::{get_env_str, InfoMap, Schemas};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
-use std::io;
 use tilejson::{Bounds, TileJSON};
 
 pub const POOL_SIZE_DEFAULT: u32 = 20;
@@ -225,7 +226,7 @@ impl PgConfig {
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(self) -> io::Result<PgConfig> {
+    pub fn finalize(self) -> Result<PgConfig> {
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
                 report_unrecognized_config(&format!("tables.{}.", k), &v.unrecognized);
@@ -236,12 +237,8 @@ impl PgConfig {
                 report_unrecognized_config(&format!("functions.{}.", k), &v.unrecognized);
             }
         }
-        let connection_string = self.connection_string.ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "Database connection string is not set",
-            )
-        })?;
+        let connection_string = self.connection_string.ok_or(NoConnectionString)?;
+
         Ok(PgConfig {
             connection_string: Some(connection_string),
             run_autodiscovery: self.tables.is_none() && self.functions.is_none(),

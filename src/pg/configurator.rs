@@ -5,6 +5,8 @@ use crate::pg::function_source::get_function_sources;
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::Pool;
 use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
+use crate::pg::utils::PgError::InvalidTableExtent;
+use crate::pg::utils::Result;
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
 use crate::utils::{find_info, normalize_key, InfoMap, Schemas};
@@ -13,12 +15,11 @@ use itertools::Itertools;
 use log::{debug, error, info, warn};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::io;
 
 pub async fn resolve_pg_data(
     config: PgConfig,
     id_resolver: IdResolver,
-) -> io::Result<(Sources, PgConfig, Pool)> {
+) -> Result<(Sources, PgConfig, Pool)> {
     let pg = PgBuilder::new(&config, id_resolver).await?;
     let ((mut tables, tbl_info), (funcs, func_info)) =
         try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
@@ -46,7 +47,7 @@ struct PgBuilder {
 }
 
 impl PgBuilder {
-    async fn new(config: &PgConfig, id_resolver: IdResolver) -> io::Result<Self> {
+    async fn new(config: &PgConfig, id_resolver: IdResolver) -> Result<Self> {
         let pool = Pool::new(config).await?;
         let auto = config.run_autodiscovery;
         Ok(Self {
@@ -60,7 +61,7 @@ impl PgBuilder {
         })
     }
 
-    pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources), io::Error> {
+    pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources)> {
         let mut all_tables = get_table_sources(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
@@ -70,10 +71,7 @@ impl PgBuilder {
             // TODO: move this validation to serde somehow?
             if let Some(extent) = cfg_inf.extent {
                 if extent == 0 {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        format!("Configuration for source {id} has extent=0"),
-                    ));
+                    return Err(InvalidTableExtent(id.to_string(), cfg_inf.format_id()));
                 }
             }
 
@@ -129,7 +127,7 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
-    pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources), io::Error> {
+    pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources)> {
         let mut all_funcs = get_function_sources(&self.pool).await?;
         let mut res: Sources = HashMap::new();
         let mut info_map = FuncInfoSources::new();

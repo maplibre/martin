@@ -1,6 +1,6 @@
 use crate::config::set_option;
+use crate::utils::Result;
 use serde::{Deserialize, Serialize};
-use std::io;
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -43,7 +43,7 @@ impl SrvConfigBuilder {
     }
 
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(self) -> io::Result<SrvConfig> {
+    pub fn finalize(self) -> Result<SrvConfig> {
         Ok(SrvConfig {
             keep_alive: self.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT),
             listen_addresses: self

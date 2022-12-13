@@ -8,6 +8,8 @@ use martin::source::IdResolver;
 use martin::srv::config::{SrvArgs, SrvConfigBuilder};
 use martin::srv::server;
 use martin::srv::server::RESERVED_KEYWORDS;
+use martin::Error::ConfigWriteError;
+use martin::Result;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -57,7 +59,7 @@ impl From<Args> for ConfigBuilder {
     }
 }
 
-async fn start(args: Args) -> io::Result<Server> {
+async fn start(args: Args) -> Result<Server> {
     info!("Starting Martin v{VERSION}");
 
     let save_config = args.save_config.clone();
@@ -91,7 +93,10 @@ async fn start(args: Args) -> io::Result<Server> {
                 "Saving config to {}, use --config to load it",
                 file_name.display()
             );
-            File::create(file_name)?.write_all(yaml.as_bytes())?;
+            File::create(file_name.clone())
+                .map_err(|e| ConfigWriteError(e, file_name.clone()))?
+                .write_all(yaml.as_bytes())
+                .map_err(|e| ConfigWriteError(e, file_name.clone()))?;
         }
     } else if config.pg.run_autodiscovery {
         info!("Martin has been configured with automatic settings.");
@@ -110,11 +115,13 @@ async fn start(args: Args) -> io::Result<Server> {
 async fn main() -> io::Result<()> {
     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
     env_logger::Builder::from_env(env).init();
-    match start(Args::parse()).await {
-        Ok(server) => server.await,
-        Err(error) => {
-            error!("{error}");
-            std::process::exit(-1);
-        }
-    }
+
+    start(Args::parse())
+        .await
+        .map(|server| async { server.await })
+        .unwrap_or_else(|e| {
+            error!("{e}");
+            std::process::exit(1);
+        })
+        .await
 }
