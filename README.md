@@ -599,7 +599,7 @@ version: '3'
 
 services:
   martin:
-    image: maplibre/martin:v0.6.1
+    image: maplibre/martin:v0.6.2
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -653,7 +653,7 @@ services:
       - martin
 
   martin:
-    image: maplibre/martin:v0.6.1
+    image: maplibre/martin:v0.6.2
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://postgresql:password@db/db

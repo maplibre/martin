@@ -1,5 +1,5 @@
 use crate::pg::utils::parse_x_rewrite_url;
-use crate::source::{Source, Xyz};
+use crate::source::{Source, UrlQuery, Xyz};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use actix_cors::Cors;
 use actix_web::dev::Server;
@@ -46,23 +46,17 @@ impl AppState {
         &self,
         source_ids: &str,
         zoom: Option<i32>,
-    ) -> Result<(Vec<&dyn Source>, DataFormat)> {
+    ) -> Result<(Vec<&dyn Source>, bool, DataFormat)> {
         // TODO?: optimize by pre-allocating max allowed layer count on stack
         let mut sources = Vec::new();
         let mut format: Option<DataFormat> = None;
+        let mut use_url_query = false;
         for id in source_ids.split(',') {
-            let src = self
-                .sources
-                .get(id)
-                .ok_or_else(|| error::ErrorNotFound(format!("Source {id} does not exist")))?
-                .as_ref();
-            if let Some(z) = zoom {
-                if !src.is_valid_zoom(z) {
-                    debug!("Zoom {z} is not valid for source {id}");
-                    continue;
-                }
-            }
+            let src = self.get_source(id)?;
             let src_fmt = src.get_format();
+            use_url_query |= src.support_url_query();
+
+            // make sure all sources have the same format
             match format {
                 Some(fmt) if fmt == src_fmt => {}
                 Some(fmt) => Err(error::ErrorNotFound(format!(
@@ -70,10 +64,18 @@ impl AppState {
                 )))?,
                 None => format = Some(src_fmt),
             }
-            sources.push(src);
+
+            // TODO: Use chained-if-let once available
+            if match zoom {
+                Some(zoom) if check_zoom(src, id, zoom) => true,
+                None => true,
+                _ => false,
+            } {
+                sources.push(src);
+            }
         }
-        let format = format.ok_or_else(|| error::ErrorNotFound("No valid sources found"))?;
-        Ok((sources, format))
+        let format = format.unwrap_or(DataFormat::Unknown);
+        Ok((sources, use_url_query, format))
     }
 }
 
@@ -236,31 +238,57 @@ fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
 
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 async fn get_tile(
+    req: HttpRequest,
     path: Path<TileRequest>,
-    query: Query<HashMap<String, String>>,
     state: Data<AppState>,
 ) -> Result<HttpResponse> {
-    let (sources, format) = state.get_sources(&path.source_ids, Some(path.z))?;
-
-    let query = Some(query.into_inner());
     let xyz = Xyz {
         z: path.z,
         x: path.x,
         y: path.y,
     };
 
-    let tile = try_join_all(sources.into_iter().map(|s| s.get_tile(&xyz, &query)))
-        .await
-        .map_err(map_internal_error)?
-        .concat();
+    // Optimization for a single-source request.
+    let (tile, format) = if path.source_ids.contains(',') {
+        let (sources, use_url_query, format) = state.get_sources(&path.source_ids, Some(path.z))?;
+        if sources.is_empty() {
+            Err(error::ErrorNotFound("No valid sources found"))?
+        }
+        let query = if use_url_query {
+            Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
+        } else {
+            None
+        };
+        let tile = try_join_all(sources.into_iter().map(|s| s.get_tile(&xyz, &query)))
+            .await
+            .map_err(map_internal_error)?
+            .concat();
+        (tile, format)
+    } else {
+        let id = &path.source_ids;
+        let zoom = xyz.z;
+        let src = state.get_source(id)?;
+        if !check_zoom(src, id, zoom) {
+            Err(error::ErrorNotFound(format!(
+                "Zoom {zoom} is not valid for source {id}",
+            )))?
+        }
+        let query = if src.support_url_query() {
+            Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
+        } else {
+            None
+        };
+        let tile = src
+            .get_tile(&xyz, &query)
+            .await
+            .map_err(map_internal_error)?;
+        (tile, src.get_format())
+    };
 
+    let content = format.content_type();
     match tile.len() {
-        0 => Ok(HttpResponse::NoContent()
-            .content_type(format.content_type())
-            .finish()),
-        _ => Ok(HttpResponse::Ok()
-            .content_type(format.content_type())
-            .body(tile)),
+        0 => Ok(HttpResponse::NoContent().content_type(content).finish()),
+        _ => Ok(HttpResponse::Ok().content_type(content).body(tile)),
     }
 }
 
@@ -304,4 +332,12 @@ pub fn new(config: SrvConfig, sources: Sources) -> (Server, String) {
     .run();
 
     (server, listen_addresses)
+}
+
+pub fn check_zoom(src: &dyn Source, id: &str, zoom: i32) -> bool {
+    let is_valid = src.is_valid_zoom(zoom);
+    if !is_valid {
+        debug!("Zoom {zoom} is not valid for source {id}");
+    }
+    is_valid
 }
