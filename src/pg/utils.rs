@@ -134,10 +134,10 @@ pub enum PgError {
         String,
     ),
 
-    #[error(r#"Unable to get tile {1}/{2:#}: {0}"#)]
+    #[error(r#"Unable to get tile {2:#} from {1}: {0}"#)]
     GetTileError(#[source] bb8_postgres::tokio_postgres::Error, String, Xyz),
 
-    #[error(r#"Unable to get tile {1}/{2:#} with {:?} params: {0}"#, query_to_json(.3))]
+    #[error(r#"Unable to get tile {2:#} with {:?} params from {1}: {0}"#, query_to_json(.3))]
     GetTileWithQueryError(
         #[source] bb8_postgres::tokio_postgres::Error,
         String,

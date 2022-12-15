@@ -317,6 +317,23 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
 }
 
 #[actix_rt::test]
+async fn null_functions() {
+    let app = create_app!(mock_empty_config());
+
+    let req = test_get("/function_null/0/0/0");
+    let response = call_service(&app, req).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+    let req = test_get("/function_null_row/0/0/0");
+    let response = call_service(&app, req).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+    let req = test_get("/function_null_row2/0/0/0");
+    let response = call_service(&app, req).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+}
+
+#[actix_rt::test]
 async fn get_function_source_ok() {
     let app = create_app!(mock_empty_config());
 
