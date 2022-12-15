@@ -77,19 +77,22 @@ impl Source for PgSource {
             let json = query_to_json(url_query);
             debug!("SQL: {query} [{xyz}, {json:?}]");
             let params: &[&(dyn ToSql + Sync)] = &[&xyz.z, &xyz.x, &xyz.y, &json];
-            conn.query_one(&prep_query, params).await
+            conn.query_opt(&prep_query, params).await
         } else {
             debug!("SQL: {query} [{xyz}]");
-            conn.query_one(&prep_query, &[&xyz.z, &xyz.x, &xyz.y]).await
+            conn.query_opt(&prep_query, &[&xyz.z, &xyz.x, &xyz.y]).await
         };
 
-        let tile = tile.map(|row| row.get(0)).map_err(|e| {
-            if self.support_url_query() {
-                GetTileWithQueryError(e, self.id.to_string(), *xyz, url_query.clone())
-            } else {
-                GetTileError(e, self.id.to_string(), *xyz)
-            }
-        })?;
+        let tile = tile
+            .map(|row| row.map_or(Default::default(), |r| r.get::<_, Option<Tile>>(0)))
+            .map_err(|e| {
+                if self.support_url_query() {
+                    GetTileWithQueryError(e, self.id.to_string(), *xyz, url_query.clone())
+                } else {
+                    GetTileError(e, self.id.to_string(), *xyz)
+                }
+            })?
+            .unwrap_or_default();
 
         Ok(tile)
     }
