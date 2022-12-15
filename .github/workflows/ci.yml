@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v0.6]
   pull_request:
-    branches: [main]
+    branches: [main, v0.6]
   release:
     types: [published]
   workflow_dispatch:

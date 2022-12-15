@@ -6,7 +6,7 @@
 set -e
 
 if ! command -v just > /dev/null; then
-    echo "`just` is not installed. See https://github.com/casey/just#readme for installation instructions, or just run"
+    echo "`just` is not installed. See https://github.com/casey/just#readme for installation instructions, or use"
     echo ""
     echo "  cargo install just"
     echo ""

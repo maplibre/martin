@@ -48,12 +48,16 @@ impl Source for PgSource {
         is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
+    fn support_url_query(&self) -> bool {
+        self.info.use_url_query
+    }
+
     async fn get_tile(&self, xyz: &Xyz, url_query: &Option<UrlQuery>) -> Result<Tile> {
         let empty_query = HashMap::new();
         let url_query = url_query.as_ref().unwrap_or(&empty_query);
         let conn = self.pool.get().await?;
 
-        let param_types: &[Type] = if self.info.has_query_params {
+        let param_types: &[Type] = if self.support_url_query() {
             &[Type::INT4, Type::INT4, Type::INT4, Type::JSON]
         } else {
             &[Type::INT4, Type::INT4, Type::INT4]
@@ -69,23 +73,26 @@ impl Source for PgSource {
             )
         })?;
 
-        let tile = if self.info.has_query_params {
+        let tile = if self.support_url_query() {
             let json = query_to_json(url_query);
             debug!("SQL: {query} [{xyz}, {json:?}]");
             let params: &[&(dyn ToSql + Sync)] = &[&xyz.z, &xyz.x, &xyz.y, &json];
-            conn.query_one(&prep_query, params).await
+            conn.query_opt(&prep_query, params).await
         } else {
             debug!("SQL: {query} [{xyz}]");
-            conn.query_one(&prep_query, &[&xyz.z, &xyz.x, &xyz.y]).await
+            conn.query_opt(&prep_query, &[&xyz.z, &xyz.x, &xyz.y]).await
         };
 
-        let tile = tile.map(|row| row.get(0)).map_err(|e| {
-            if self.info.has_query_params {
-                GetTileWithQueryError(e, self.id.to_string(), *xyz, url_query.clone())
-            } else {
-                GetTileError(e, self.id.to_string(), *xyz)
-            }
-        })?;
+        let tile = tile
+            .map(|row| row.map_or(Default::default(), |r| r.get::<_, Option<Tile>>(0)))
+            .map_err(|e| {
+                if self.support_url_query() {
+                    GetTileWithQueryError(e, self.id.to_string(), *xyz, url_query.clone())
+                } else {
+                    GetTileError(e, self.id.to_string(), *xyz)
+                }
+            })?
+            .unwrap_or_default();
 
         Ok(tile)
     }
@@ -94,7 +101,7 @@ impl Source for PgSource {
 #[derive(Clone, Debug)]
 pub struct PgSqlInfo {
     pub query: String,
-    pub has_query_params: bool,
+    pub use_url_query: bool,
     pub signature: String,
 }
 
@@ -102,7 +109,7 @@ impl PgSqlInfo {
     pub fn new(query: String, has_query_params: bool, signature: String) -> Self {
         Self {
             query,
-            has_query_params,
+            use_url_query: has_query_params,
             signature,
         }
     }

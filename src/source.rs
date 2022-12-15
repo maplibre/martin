@@ -38,6 +38,8 @@ pub trait Source: Send + Debug {
 
     fn is_valid_zoom(&self, zoom: i32) -> bool;
 
+    fn support_url_query(&self) -> bool;
+
     async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile>;
 }
 
@@ -63,8 +65,17 @@ impl IdResolver {
         }
     }
 
-    /// if name already exists in the self.names structure, but  try it with ".1", ".2", etc. until the value matches
+    /// If source name already exists in the self.names structure,
+    /// try appending it with ".1", ".2", etc. until the name is unique.
+    /// Only alphanumeric characters plus dashes/dots/underscores are allowed.
     pub fn resolve(&self, mut name: String, unique_name: String) -> String {
+        // Ensure name has no prohibited characters like spaces, commas, slashes, or non-unicode etc.
+        // Underscores, dashes, and dots are OK. All other characters will be replaced with dashes.
+        name = name.replace(
+            |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
+            "-",
+        );
+
         let mut names = self.names.lock().expect("IdResolver panicked");
         if !self.reserved.contains(name.as_str()) {
             match names.entry(name) {
@@ -119,6 +130,9 @@ mod tests {
         assert_eq!(r.resolve("b".to_string(), "a".to_string()), "b");
         assert_eq!(r.resolve("a.1".to_string(), "a".to_string()), "a.1.1");
         assert_eq!(r.resolve("a.1".to_string(), "b".to_string()), "a.1");
+
+        assert_eq!(r.resolve("a b".to_string(), "a b".to_string()), "a-b");
+        assert_eq!(r.resolve("a b".to_string(), "ab2".to_string()), "a-b.1");
     }
 
     #[test]
