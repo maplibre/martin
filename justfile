@@ -99,6 +99,8 @@ git *ARGS: start-db
 
 # These steps automatically run before git push via a git hook
 git-pre-push: stop start-db
-    cargo clippy --all -- -D warnings -W clippy::pedantic
+    rustc --version
+    cargo --version
     cargo fmt --all -- --check
+    cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
     just test

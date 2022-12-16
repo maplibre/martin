@@ -41,6 +41,7 @@ pub fn find_info<'a, T>(map: &'a InfoMap<T>, key: &'a str, info: &str, id: &str)
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
+#[must_use]
 pub fn find_info_kv<'a, T>(
     map: &'a InfoMap<T>,
     key: &'a str,
