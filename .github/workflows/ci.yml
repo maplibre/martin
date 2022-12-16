@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
             cargo fmt --all -- --check
-            cargo clippy --all-targets --all-features -- -D warnings
+            cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |

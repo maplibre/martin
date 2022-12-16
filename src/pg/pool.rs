@@ -38,9 +38,10 @@ impl Pool {
         let pg_cfg = pg::config::Config::from_str(conn_str)
             .map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
 
-        let id = pg_cfg
-            .get_dbname()
-            .map_or_else(|| format!("{:?}", pg_cfg.get_hosts()[0]), |v| v.to_string());
+        let id = pg_cfg.get_dbname().map_or_else(
+            || format!("{:?}", pg_cfg.get_hosts()[0]),
+            ToString::to_string,
+        );
 
         #[cfg(not(feature = "ssl"))]
         let manager = ConnectionManager::new(pg_cfg, postgres::NoTls);
@@ -60,7 +61,7 @@ impl Pool {
             if let Some(file) = &config.ca_root_file {
                 builder
                     .set_ca_file(file)
-                    .map_err(|e| BadTrustedRootCertError(e, file.to_path_buf()))?;
+                    .map_err(|e| BadTrustedRootCertError(e, file.clone()))?;
                 info!("Using {} as trusted root certificate", file.display());
             }
 
@@ -114,10 +115,12 @@ SELECT
             .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
     }
 
+    #[must_use]
     pub fn get_id(&self) -> &str {
         self.id.as_str()
     }
 
+    #[must_use]
     pub fn supports_tile_margin(&self) -> bool {
         self.margin
     }

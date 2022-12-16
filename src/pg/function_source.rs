@@ -11,6 +11,10 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::iter::zip;
 
+/// Get the list of functions from the database
+///
+/// # Panics
+/// Panics if the built-in query returns unexpected results.
 pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap> {
     let mut res = SqlFuncInfoMapMap::new();
     pool.get()
@@ -60,23 +64,20 @@ pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap> {
             }
             write!(query, ")").unwrap();
 
-            // This is the same as if let-chain, but that's not yet available
-            let ret_inf = match (output_record_names, output_type.as_str()) {
-                (Some(names), "record") => {
-                    // SELECT mvt FROM "public"."function_zxy_row2"(
-                    //    "z" => $1::integer, "x" => $2::integer, "y" => $3::integer
-                    // );
-                    query.insert_str(0, " FROM ");
-                    query.insert_str(0, &escape_identifier(names[0].as_str()));
-                    query.insert_str(0, "SELECT ");
-                    format!("[{}]", names.join(", "))
-                }
-                (_, _) => {
-                    query.insert_str(0, "SELECT ");
-                    query.push_str(" AS tile");
-                    output_type
-                }
-            };
+            // TODO: Rewrite as a if-let chain:  if Some(names) = output_record_names && output_type == "record" { ... }
+            let ret_inf = if let (Some(names), "record") = (output_record_names, output_type.as_str()) {
+                 // SELECT mvt FROM "public"."function_zxy_row2"(
+                 //    "z" => $1::integer, "x" => $2::integer, "y" => $3::integer
+                 // );
+                 query.insert_str(0, " FROM ");
+                 query.insert_str(0, &escape_identifier(names[0].as_str()));
+                 query.insert_str(0, "SELECT ");
+                 format!("[{}]", names.join(", "))
+             } else {
+                 query.insert_str(0, "SELECT ");
+                 query.push_str(" AS tile");
+                 output_type
+             };
 
             if let Some(v) = res
                 .entry(schema.clone())

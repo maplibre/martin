@@ -124,12 +124,14 @@ fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
 
 /// Root path will eventually have a web front. For now, just a stub.
 #[route("/", method = "GET", method = "HEAD")]
+#[allow(clippy::unused_async)]
 async fn get_index() -> &'static str {
     "Martin server is running. Eventually this will be a nice web front."
 }
 
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
 #[route("/health", method = "GET", method = "HEAD")]
+#[allow(clippy::unused_async)]
 async fn get_health() -> impl Responder {
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
@@ -137,6 +139,7 @@ async fn get_health() -> impl Responder {
 }
 
 #[route("/catalog", method = "GET", method = "HEAD")]
+#[allow(clippy::unused_async)]
 async fn get_catalog(state: Data<AppState>) -> impl Responder {
     let info: Vec<_> = state
         .sources
@@ -157,6 +160,7 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
 }
 
 #[route("/{source_ids}", method = "GET", method = "HEAD")]
+#[allow(clippy::unused_async)]
 async fn git_source_info(
     req: HttpRequest,
     path: Path<TileJsonRequest>,
@@ -171,17 +175,12 @@ async fn git_source_info(
         .unwrap_or_else(|| req.path().to_owned());
 
     let info = req.connection_info();
-    let tiles_url = get_tiles_url(info.scheme(), info.host(), req.query_string(), tiles_path)?;
+    let tiles_url = get_tiles_url(info.scheme(), info.host(), req.query_string(), &tiles_path)?;
 
     Ok(HttpResponse::Ok().json(merge_tilejson(sources, tiles_url)))
 }
 
-fn get_tiles_url(
-    scheme: &str,
-    host: &str,
-    query_string: &str,
-    tiles_path: String,
-) -> Result<String> {
+fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str) -> Result<String> {
     let path_and_query = if query_string.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
@@ -200,7 +199,7 @@ fn get_tiles_url(
 fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
     let mut tilejson = sources
         .into_iter()
-        .map(|s| s.get_tilejson())
+        .map(Source::get_tilejson)
         .reduce(|mut accum, tj| {
             if let Some(minzoom) = tj.minzoom {
                 if let Some(a) = accum.minzoom {
@@ -252,7 +251,7 @@ async fn get_tile(
     let (tile, format) = if path.source_ids.contains(',') {
         let (sources, use_url_query, format) = state.get_sources(&path.source_ids, Some(path.z))?;
         if sources.is_empty() {
-            Err(error::ErrorNotFound("No valid sources found"))?
+            return Err(error::ErrorNotFound("No valid sources found"))?;
         }
         let query = if use_url_query {
             Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
@@ -269,9 +268,9 @@ async fn get_tile(
         let zoom = xyz.z;
         let src = state.get_source(id)?;
         if !check_zoom(src, id, zoom) {
-            Err(error::ErrorNotFound(format!(
+            return Err(error::ErrorNotFound(format!(
                 "Zoom {zoom} is not valid for source {id}",
-            )))?
+            )));
         }
         let query = if src.support_url_query() {
             Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())

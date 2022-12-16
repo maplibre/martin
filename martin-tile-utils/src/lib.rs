@@ -17,20 +17,21 @@ pub enum DataFormat {
 }
 
 impl DataFormat {
+    #[must_use]
     pub fn new(format: &str) -> Self {
         match format {
             "png" => DataFormat::Png,
             "jpg" | "jpeg" => DataFormat::Jpeg,
             "webp" => DataFormat::Webp,
             "json" => DataFormat::Json,
-            "pbf" => DataFormat::Mvt,
-            "mvt" => DataFormat::Mvt,
+            "pbf" | "mvt" => DataFormat::Mvt,
             "gzip" => DataFormat::Gzip,
             "zlib" => DataFormat::Zlib,
             _ => DataFormat::Unknown,
         }
     }
 
+    #[must_use]
     pub fn detect(data: &[u8]) -> Self {
         match data {
             v if &v[0..2] == b"\x1f\x8b" => DataFormat::Gzip,
@@ -42,6 +43,7 @@ impl DataFormat {
         }
     }
 
+    #[must_use]
     pub fn format(&self) -> &str {
         match *self {
             DataFormat::Png => "png",
@@ -49,12 +51,11 @@ impl DataFormat {
             DataFormat::Webp => "webp",
             DataFormat::Json => "json",
             DataFormat::Mvt => "mvt",
-            DataFormat::Gzip => "",
-            DataFormat::Zlib => "",
-            DataFormat::Unknown => "",
+            DataFormat::Gzip | DataFormat::Zlib | DataFormat::Unknown => "",
         }
     }
 
+    #[must_use]
     pub fn content_type(&self) -> &str {
         match *self {
             DataFormat::Png => "image/png",
@@ -62,9 +63,7 @@ impl DataFormat {
             DataFormat::Webp => "image/webp",
             DataFormat::Json => "application/json",
             DataFormat::Mvt => "application/x-protobuf",
-            DataFormat::Gzip => "",
-            DataFormat::Zlib => "",
-            DataFormat::Unknown => "",
+            DataFormat::Gzip | DataFormat::Zlib | DataFormat::Unknown => "",
         }
     }
 }
