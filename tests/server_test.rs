@@ -8,6 +8,7 @@ use tilejson::{Bounds, TileJSON};
 
 #[path = "utils.rs"]
 mod utils;
+#[allow(clippy::wildcard_imports)]
 use utils::*;
 
 #[ctor]
@@ -529,7 +530,7 @@ async fn tables_feature_id() {
     // --------------------------------------------
 
     let app = create_app!(mock_config(None, Some(tables.clone()), None));
-    for (name, _) in tables.iter() {
+    for (name, _) in &tables {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;
         assert!(response.status().is_success());

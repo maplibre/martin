@@ -11,11 +11,12 @@ use martin::srv::server::RESERVED_KEYWORDS;
 use martin::Error::ConfigWriteError;
 use martin::Result;
 use std::collections::HashMap;
+use std::env;
 use std::ffi::OsStr;
+use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use std::{env, io};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -112,16 +113,18 @@ async fn start(args: Args) -> Result<Server> {
 }
 
 #[actix_web::main]
-async fn main() -> io::Result<()> {
+async fn main() {
     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
     env_logger::Builder::from_env(env).init();
 
     start(Args::parse())
         .await
-        .map(|server| async { server.await })
-        .unwrap_or_else(|e| {
-            error!("{e}");
-            std::process::exit(1);
-        })
+        .map_or_else(|e| on_error(e), |server| async { server.await })
         .await
+        .unwrap_or_else(|e| on_error(e));
+}
+
+fn on_error<E: Display>(e: E) -> ! {
+    error!("{e}");
+    std::process::exit(1);
 }

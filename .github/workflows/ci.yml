@@ -33,8 +33,10 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
+            rustc --version
+            cargo --version
             cargo fmt --all -- --check
-            cargo clippy --all-targets --all-features -- -D warnings
+            cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
