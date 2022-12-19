@@ -53,7 +53,7 @@ impl From<Args> for ConfigBuilder {
 
         ConfigBuilder {
             srv: SrvConfig::from(args.srv),
-            postgres: parse_pg_args(args.pg, &args.connection),
+            postgres: parse_pg_args(&args.pg, &args.connection),
             unrecognized: HashMap::new(),
         }
     }

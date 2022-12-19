@@ -164,7 +164,8 @@ pub fn read_config(file_name: &Path) -> Result<ConfigBuilder> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .map_err(|e| ConfigLoadError(e, file_name.into()))?;
-    serde_yaml::from_str(contents.as_str()).map_err(|e| ConfigParseError(e, file_name.into()))
+    subst::yaml::from_str(contents.as_str(), &subst::Env)
+        .map_err(|e| ConfigParseError(e, file_name.into()))
 }
 
 #[cfg(test)]
@@ -182,7 +183,7 @@ mod tests {
             listen_addresses: '0.0.0.0:3000'
             worker_processes: 8
         "},
-            Config {
+            &Config {
                 srv: SrvConfig {
                     keep_alive: Some(75),
                     listen_addresses: some_str("0.0.0.0:3000"),

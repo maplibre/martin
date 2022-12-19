@@ -15,7 +15,7 @@ pub enum Error {
     ConfigLoadError(io::Error, PathBuf),
 
     #[error("Unable to parse config file {}: {0}", .1.display())]
-    ConfigParseError(serde_yaml::Error, PathBuf),
+    ConfigParseError(subst::yaml::Error, PathBuf),
 
     #[error("Unable to write config file {}: {0}", .1.display())]
     ConfigWriteError(io::Error, PathBuf),

@@ -265,12 +265,14 @@ impl PgConfig {
         Ok((tables, pg.get_pool()))
     }
 
+    #[must_use]
     pub fn is_autodetect(&self) -> bool {
         self.run_autodiscovery
     }
 }
 
-pub fn parse_pg_args(args: PgArgs, cli_strings: &[String]) -> Option<OneOrMany<PgConfig>> {
+#[must_use]
+pub fn parse_pg_args(args: &PgArgs, cli_strings: &[String]) -> Option<OneOrMany<PgConfig>> {
     let mut strings = cli_strings
         .iter()
         .filter(|s| is_postgresql_string(s))
@@ -336,6 +338,7 @@ mod tests {
     use indoc::indoc;
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn parse_config() {
         assert_config(
             indoc! {"
@@ -343,7 +346,7 @@ mod tests {
             postgres:
               connection_string: 'postgresql://postgres@localhost/db'
         "},
-            Config {
+            &Config {
                 postgres: Some(vec![PgConfig {
                     connection_string: some_str("postgresql://postgres@localhost/db"),
                     run_autodiscovery: true,
@@ -360,7 +363,7 @@ mod tests {
               - connection_string: 'postgres://postgres@localhost:5432/db'
               - connection_string: 'postgresql://postgres@localhost:5433/db'
         "},
-            Config {
+            &Config {
                 postgres: Some(vec![
                     PgConfig {
                         connection_string: some_str("postgres://postgres@localhost:5432/db"),
@@ -410,7 +413,7 @@ mod tests {
                   maxzoom: 30
                   bounds: [-180.0, -90.0, 180.0, 90.0]
         "},
-            Config {
+            &Config {
                 postgres: Some(vec![PgConfig {
                     connection_string: some_str("postgres://postgres@localhost:5432/db"),
                     default_srid: Some(4326),

@@ -1145,6 +1145,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "subst",
  "thiserror",
  "tilejson",
 ]
@@ -1795,6 +1796,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
+name = "subst"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdf5c2f9dba86dae331c01e1d5d52750d4fe773a4d2267a0ab3c725296e5b596"
+dependencies = [
+ "memchr",
+ "serde",
+ "serde_yaml",
+ "unicode-width",
+]
+
+[[package]]
 name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2024,6 +2037,12 @@ checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]
+
+[[package]]
+name = "unicode-width"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "unsafe-libyaml"

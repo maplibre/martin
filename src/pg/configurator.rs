@@ -162,6 +162,7 @@ impl PgBuilder {
         sources.insert(id, Box::new(source));
     }
 
+    #[must_use]
     pub fn get_pool(self) -> Pool {
         self.pool
     }
