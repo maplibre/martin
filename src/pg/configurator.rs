@@ -64,7 +64,7 @@ impl PgBuilder {
 
             let id2 = self.resolve_id(id.clone(), cfg_inf);
             let Some(cfg_inf) = merge_table_info(self.default_srid,&id2, cfg_inf, src_inf) else { continue };
-            warn_on_rename(id, &id2, "table");
+            warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(id2, cfg_inf, self.pool.clone()));
         }
@@ -121,14 +121,14 @@ impl PgBuilder {
             }
             let Some((pg_sql, _)) = find_info(schemas, &cfg_inf.function, "function", id) else { continue };
 
-            let dup = used.insert((&cfg_inf.schema, &cfg_inf.function));
+            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id.clone(), cfg_inf);
             self.add_func_src(&mut res, id2.clone(), cfg_inf, pg_sql.clone());
-            warn_on_rename(id, &id2, "function");
+            warn_on_rename(id, &id2, "Function");
             let signature = &pg_sql.signature;
-            info!("Configured {dup}source {id2} from function {signature}");
+            info!("Configured {dup}source {id2} from the function {signature}");
             debug!("{}", pg_sql.query);
             info_map.insert(id2, cfg_inf.clone());
         }
@@ -169,7 +169,7 @@ impl PgBuilder {
 
 fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
     if old_id != new_id {
-        warn!("Configured {typ} source {old_id} was renamed to {new_id} due to ID conflict");
+        warn!("{typ} source {old_id} was renamed to {new_id} due to ID conflict");
     }
 }
 

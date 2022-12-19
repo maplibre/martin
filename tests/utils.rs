@@ -1,4 +1,6 @@
+#![allow(clippy::missing_panics_doc)]
 #![allow(clippy::redundant_clone)]
+#![allow(clippy::unused_async)]
 
 use actix_web::web::Data;
 use log::info;
@@ -86,14 +88,19 @@ pub async fn mock_configured_tables(default_srid: Option<i32>) -> PgConfig {
     mock_config(None, mock_table_config(), default_srid).await
 }
 
+#[must_use]
+#[allow(clippy::unnecessary_wraps)]
 pub fn mock_func_config() -> Option<Vec<(&'static str, FunctionInfo)>> {
     Some(mock_func_config_map().into_iter().collect())
 }
 
+#[must_use]
+#[allow(clippy::unnecessary_wraps)]
 pub fn mock_table_config() -> Option<Vec<(&'static str, TableInfo)>> {
     Some(mock_table_config_map().into_iter().collect())
 }
 
+#[must_use]
 pub fn mock_func_config_map() -> HashMap<&'static str, FunctionInfo> {
     let default = FunctionInfo::default();
     [
@@ -167,6 +174,8 @@ pub fn mock_func_config_map() -> HashMap<&'static str, FunctionInfo> {
     .collect()
 }
 
+#[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
     let default = TableInfo {
         srid: 4326,
@@ -232,7 +241,7 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
             TableInfo {
                 schema: "public".to_string(),
                 table: "points_empty_srid".to_string(),
-                srid: 900973,
+                srid: 900_973,
                 geometry_column: "geom".to_string(),
                 geometry_type: some_str("GEOMETRY"),
                 properties: props(&[("gid", "int4")]),
@@ -277,26 +286,30 @@ pub fn mock_table_config_map() -> HashMap<&'static str, TableInfo> {
     .collect()
 }
 
+#[must_use]
 pub fn props(props: &[(&'static str, &'static str)]) -> HashMap<String, String> {
     props
         .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
         .collect()
 }
 
 #[allow(dead_code)]
+#[must_use]
 pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     let (_, PgConfig { tables, .. }) = mock;
     tables.as_ref().map(|v| v.get(name).unwrap()).unwrap()
 }
 
 #[allow(dead_code)]
+#[must_use]
 pub fn source<'a>(mock: &'a MockSource, name: &str) -> &'a dyn Source {
     let (sources, _) = mock;
     sources.get(name).unwrap().as_ref()
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::unnecessary_wraps)]
+#[must_use]
 pub fn some_str(s: &str) -> Option<String> {
     Some(s.to_string())
 }

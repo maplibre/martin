@@ -1,6 +1,10 @@
 // Bounds struct derives PartialEq, but not Eq,
 // so all containing types must also derive PartialEq without Eq
 #![allow(clippy::derive_partial_eq_without_eq)]
+#![allow(clippy::implicit_hasher)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::module_name_repetitions)]
 
 pub mod config;
 pub mod pg;

@@ -144,6 +144,7 @@ pub struct FunctionInfo {
 }
 
 impl FunctionInfo {
+    #[must_use]
     pub fn new(schema: String, function: String) -> Self {
         Self {
             schema,
@@ -152,6 +153,7 @@ impl FunctionInfo {
         }
     }
 
+    #[must_use]
     pub fn new_extended(
         schema: String,
         function: String,
@@ -235,12 +237,12 @@ impl PgConfig {
     pub fn finalize(self) -> Result<PgConfig> {
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
-                report_unrecognized_config(&format!("tables.{}.", k), &v.unrecognized);
+                report_unrecognized_config(&format!("tables.{k}."), &v.unrecognized);
             }
         }
         if let Some(ref fs) = self.functions {
             for (k, v) in fs {
-                report_unrecognized_config(&format!("functions.{}.", k), &v.unrecognized);
+                report_unrecognized_config(&format!("functions.{k}."), &v.unrecognized);
             }
         }
         let connection_string = self.connection_string.ok_or(NoConnectionString)?;

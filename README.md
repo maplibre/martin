@@ -1,3 +1,10 @@
+# WARNING
+This documentation is for the unreleased main branch.
+
+The documentation for the latest release v0.6 is available [here](https://github.com/maplibre/martin/tree/v0.6#readme).
+
+----
+
 # Martin
 
 [![CI](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)

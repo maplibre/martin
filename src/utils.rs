@@ -26,6 +26,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[must_use]
 pub fn normalize_key<'a, T>(
     map: &'a InfoMap<T>,
     key: &str,
@@ -35,10 +36,12 @@ pub fn normalize_key<'a, T>(
     find_info_kv(map, key, info, id).map(|(k, _)| k.to_string())
 }
 
+#[must_use]
 pub fn find_info<'a, T>(map: &'a InfoMap<T>, key: &'a str, info: &str, id: &str) -> Option<&'a T> {
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
+#[must_use]
 pub fn find_info_kv<'a, T>(
     map: &'a InfoMap<T>,
     key: &'a str,
@@ -71,7 +74,7 @@ pub fn find_info_kv<'a, T>(
             Some((result.as_str(), map.get(result)?))
         } else {
             warn!("Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
-                map.keys().map(|k| k.as_str()).collect::<Vec<_>>().join(", "));
+                map.keys().map(String::as_str).collect::<Vec<_>>().join(", "));
             None
         }
     } else {
@@ -110,6 +113,7 @@ impl Schemas {
     }
 }
 
+#[must_use]
 pub fn get_env_str(name: &str) -> Option<String> {
     match env::var(name) {
         Ok(v) => Some(v),

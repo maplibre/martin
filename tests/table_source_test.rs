@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 #[path = "utils.rs"]
 mod utils;
+#[allow(clippy::wildcard_imports)]
 use utils::*;
 
 #[ctor]
@@ -69,7 +70,7 @@ async fn tables_tile_ok() {
 
 #[actix_rt::test]
 async fn tables_srid_ok() {
-    let mock = mock_unconfigured_srid(Some(900913)).await;
+    let mock = mock_unconfigured_srid(Some(900_913)).await;
 
     let source = table(&mock, "points1");
     assert_eq!(source.srid, 4326);
@@ -81,7 +82,7 @@ async fn tables_srid_ok() {
     assert_eq!(source.srid, 3857);
 
     let source = table(&mock, "points_empty_srid");
-    assert_eq!(source.srid, 900913);
+    assert_eq!(source.srid, 900_913);
 }
 
 #[actix_rt::test]
