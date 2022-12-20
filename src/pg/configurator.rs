@@ -1,6 +1,6 @@
-use crate::pg::config::{
-    FuncInfoSources, FunctionInfo, PgConfig, PgInfo, TableInfo, TableInfoSources,
-};
+use crate::pg::config::{PgConfig, PgInfo};
+use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
+use crate::pg::config_table::{TableInfo, TableInfoSources};
 use crate::pg::function_source::get_function_sources;
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::Pool;
@@ -15,6 +15,9 @@ use itertools::Itertools;
 use log::{debug, error, info, warn};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+
+pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
+pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
 pub struct PgBuilder {
     pool: Pool,
@@ -190,6 +193,3 @@ fn summary(info: &TableInfo) -> String {
 fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
 }
-
-pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
-pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;

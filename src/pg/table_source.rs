@@ -1,4 +1,5 @@
-use crate::pg::config::{PgInfo, TableInfo};
+use crate::pg::config::PgInfo;
+use crate::pg::config_table::TableInfo;
 use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;

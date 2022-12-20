@@ -97,10 +97,14 @@ docker-run *ARGS:
 git *ARGS: start-db
     git {{ARGS}}
 
+# Run cargo fmt and cargo clippy
+lint:
+    cargo fmt --all -- --check
+    cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
+
 # These steps automatically run before git push via a git hook
 git-pre-push: stop start-db
     rustc --version
     cargo --version
-    cargo fmt --all -- --check
-    cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
+    just lint
     just test

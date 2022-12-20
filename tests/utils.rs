@@ -4,7 +4,9 @@
 
 use actix_web::web::Data;
 use log::info;
-use martin::pg::config::{FunctionInfo, PgConfig, TableInfo};
+use martin::pg::config::PgConfig;
+use martin::pg::config_function::FunctionInfo;
+use martin::pg::config_table::TableInfo;
 use martin::pg::pool::Pool;
 use martin::source::{IdResolver, Source};
 use martin::srv::server::{AppState, Sources};

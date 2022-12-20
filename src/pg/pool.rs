@@ -1,4 +1,4 @@
-use crate::pg::config::{PgConfig, POOL_SIZE_DEFAULT};
+use crate::pg::config::PgConfig;
 use crate::pg::utils::PgError::{
     BadConnectionString, BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolConnError,
 };
@@ -13,6 +13,8 @@ use std::str::FromStr;
 pub type ConnectionManager = PostgresConnectionManager<postgres_openssl::MakeTlsConnector>;
 #[cfg(not(feature = "ssl"))]
 pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
+
+pub const POOL_SIZE_DEFAULT: u32 = 20;
 
 pub type InternalPool = bb8::Pool<ConnectionManager>;
 pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
