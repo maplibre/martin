@@ -8,6 +8,7 @@ use semver::Version;
 use std::collections::HashMap;
 use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
 
+#[must_use]
 pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
     let mut hashmap = HashMap::new();
 
@@ -20,6 +21,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
     hashmap
 }
 
+#[must_use]
 pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<serde_json::Value>> {
     let mut query_as_json = HashMap::new();
     for (k, v) in query.iter() {
@@ -32,6 +34,7 @@ pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<serde_json::Value>> {
     Json(query_as_json)
 }
 
+#[must_use]
 pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     polygon.rings().next().and_then(|linestring| {
         let mut points = linestring.points();
@@ -56,6 +59,7 @@ pub fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
         .map(|uri| uri.path().to_owned())
 }
 
+#[must_use]
 pub fn create_tilejson(
     name: String,
     minzoom: Option<u8>,
@@ -78,6 +82,7 @@ pub fn create_tilejson(
     tilejson
 }
 
+#[must_use]
 pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
     minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
         && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
@@ -85,14 +90,15 @@ pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> boo
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::config::{Config, ConfigBuilder};
+    use crate::config::Config;
 
-    pub fn assert_config(yaml: &str, expected: Config) {
-        let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
+    pub fn assert_config(yaml: &str, expected: &Config) {
+        let config: Config = serde_yaml::from_str(yaml).expect("parse yaml");
         let actual = config.finalize().expect("finalize");
-        assert_eq!(actual, expected);
+        assert_eq!(&actual, expected);
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn some_str(s: &str) -> Option<String> {
         Some(s.to_string())
     }

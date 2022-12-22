@@ -69,6 +69,7 @@ test-int-legacy: (test-integration "db-legacy")
 # Run integration tests with the given docker compose target
 @test-integration name: (docker-up name) clean-test
     #!/usr/bin/env sh
+    export MARTIN_PORT=3111
     tests/test.sh
 # echo "** Skipping comparison with the expected values - not yet stable"
 # if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
@@ -96,11 +97,14 @@ docker-run *ARGS:
 git *ARGS: start-db
     git {{ARGS}}
 
+# Run cargo fmt and cargo clippy
+lint:
+    cargo fmt --all -- --check
+    cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
+
 # These steps automatically run before git push via a git hook
 git-pre-push: stop start-db
-    echo '+cargo clippy --all -- -D warnings'
-    cargo clippy --all -- -D warnings
-    echo '+cargo fmt --all -- --check'
-    cargo fmt --all -- --check
-    echo 'Running all tests'
+    rustc --version
+    cargo --version
+    just lint
     just test

@@ -20,12 +20,13 @@ pub struct PgSource {
 }
 
 impl PgSource {
+    #[must_use]
     pub fn new(id: String, info: PgSqlInfo, tilejson: TileJSON, pool: Pool) -> Self {
         Self {
-            tilejson,
             id,
             info,
             pool,
+            tilejson,
         }
     }
 }
@@ -84,7 +85,7 @@ impl Source for PgSource {
         };
 
         let tile = tile
-            .map(|row| row.map_or(Default::default(), |r| r.get::<_, Option<Tile>>(0)))
+            .map(|row| row.and_then(|r| r.get::<_, Option<Tile>>(0)))
             .map_err(|e| {
                 if self.support_url_query() {
                     GetTileWithQueryError(e, self.id.to_string(), *xyz, url_query.clone())
@@ -106,6 +107,7 @@ pub struct PgSqlInfo {
 }
 
 impl PgSqlInfo {
+    #[must_use]
     pub fn new(query: String, has_query_params: bool, signature: String) -> Self {
         Self {
             query,

@@ -1,4 +1,5 @@
-use crate::pg::config::{PgInfo, TableInfo};
+use crate::pg::config::PgInfo;
+use crate::pg::config_table::TableInfo;
 use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;
@@ -59,14 +60,14 @@ pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
 
 fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     let column = mapping.get(field).map_or(field, |v| v.as_str());
-    if field != column {
+    if field == column {
+        format!(", {}", escape_identifier(column))
+    } else {
         format!(
             ", {} AS {}",
             escape_identifier(column),
             escape_identifier(field),
         )
-    } else {
-        format!(", {}", escape_identifier(column))
     }
 }
 
@@ -127,7 +128,7 @@ FROM {schema}.{table};
     let bbox_search = if buffer == 0 {
         "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
     } else if pool.supports_tile_margin() {
-        let margin = buffer as f64 / extent as f64;
+        let margin = f64::from(buffer) / f64::from(extent);
         format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin})")
     } else {
         // TODO: we should use ST_Expand here, but it may require a bit more math work,
@@ -166,6 +167,7 @@ FROM (
     Ok((id, PgSqlInfo::new(query, false, info.format_id()), info))
 }
 
+#[must_use]
 pub fn merge_table_info(
     default_srid: Option<i32>,
     new_id: &String,
@@ -204,6 +206,7 @@ pub fn merge_table_info(
     Some(inf)
 }
 
+#[must_use]
 pub fn calc_srid(
     table_id: &str,
     new_id: &str,

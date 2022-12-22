@@ -4,19 +4,21 @@ use itertools::Itertools;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::env::VarError;
+use std::io;
 use std::path::PathBuf;
-use std::{env, io};
 
 pub type InfoMap<T> = HashMap<String, T>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("The --config and the connection parameters cannot be used together")]
+    ConfigAndConnectionsError,
+
     #[error("Unable to load config file {}: {0}", .1.display())]
     ConfigLoadError(io::Error, PathBuf),
 
     #[error("Unable to parse config file {}: {0}", .1.display())]
-    ConfigParseError(serde_yaml::Error, PathBuf),
+    ConfigParseError(subst::yaml::Error, PathBuf),
 
     #[error("Unable to write config file {}: {0}", .1.display())]
     ConfigWriteError(io::Error, PathBuf),
@@ -30,6 +32,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[must_use]
 pub fn normalize_key<'a, T>(
     map: &'a InfoMap<T>,
     key: &str,
@@ -39,10 +42,12 @@ pub fn normalize_key<'a, T>(
     find_info_kv(map, key, info, id).map(|(k, _)| k.to_string())
 }
 
+#[must_use]
 pub fn find_info<'a, T>(map: &'a InfoMap<T>, key: &'a str, info: &str, id: &str) -> Option<&'a T> {
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
+#[must_use]
 pub fn find_info_kv<'a, T>(
     map: &'a InfoMap<T>,
     key: &'a str,
@@ -75,7 +80,7 @@ pub fn find_info_kv<'a, T>(
             Some((result.as_str(), map.get(result)?))
         } else {
             warn!("Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
-                map.keys().map(|k| k.as_str()).collect::<Vec<_>>().join(", "));
+                map.keys().map(String::as_str).collect::<Vec<_>>().join(", "));
             None
         }
     } else {
@@ -110,18 +115,6 @@ impl Schemas {
                     Vec::new()
                 }
             }
-        }
-    }
-}
-
-pub fn get_env_str(name: &str) -> Option<String> {
-    match env::var(name) {
-        Ok(v) => Some(v),
-        Err(VarError::NotPresent) => None,
-        Err(VarError::NotUnicode(v)) => {
-            let v = v.to_string_lossy();
-            warn!("Environment variable {name} has invalid unicode. Lossy representation: {v}");
-            None
         }
     }
 }

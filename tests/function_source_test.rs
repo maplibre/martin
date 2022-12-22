@@ -7,6 +7,7 @@ use martin::utils::Schemas;
 
 #[path = "utils.rs"]
 mod utils;
+#[allow(clippy::wildcard_imports)]
 use utils::*;
 
 #[ctor]

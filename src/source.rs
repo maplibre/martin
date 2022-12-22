@@ -58,6 +58,7 @@ pub struct IdResolver {
 }
 
 impl IdResolver {
+    #[must_use]
     pub fn new(reserved_keywords: &[&'static str]) -> Self {
         Self {
             names: Arc::new(Mutex::new(HashMap::new())),
@@ -68,6 +69,7 @@ impl IdResolver {
     /// If source name already exists in the self.names structure,
     /// try appending it with ".1", ".2", etc. until the name is unique.
     /// Only alphanumeric characters plus dashes/dots/underscores are allowed.
+    #[must_use]
     pub fn resolve(&self, mut name: String, unique_name: String) -> String {
         // Ensure name has no prohibited characters like spaces, commas, slashes, or non-unicode etc.
         // Underscores, dashes, and dots are OK. All other characters will be replaced with dashes.
