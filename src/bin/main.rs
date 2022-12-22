@@ -20,8 +20,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 async fn start(args: Args) -> Result<Server> {
     info!("Starting Martin v{VERSION}");
 
-    let save_config = args.save_config.clone();
-    let file_cfg = if let Some(ref cfg_filename) = args.config {
+    let save_config = args.meta.save_config.clone();
+    let file_cfg = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {}", cfg_filename.display());
         Some(read_config(cfg_filename)?)
     } else {

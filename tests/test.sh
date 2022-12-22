@@ -147,7 +147,7 @@ echo "--------------------------------------------------------------------------
 echo "Test pre-configured Martin"
 set -x
 
-ARG=(--config tests/config.yaml "$DATABASE_URL")
+ARG=(--config tests/config.yaml)
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_2.txt &
 PROCESS_ID=`jobs -p`
 { set +x; } 2> /dev/null

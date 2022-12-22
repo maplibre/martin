@@ -1,6 +1,6 @@
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 
-#[derive(clap::Args, Debug)]
+#[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {}]", KEEP_ALIVE_DEFAULT), short, long)]
