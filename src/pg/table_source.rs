@@ -1,4 +1,5 @@
-use crate::pg::config::{PgInfo, TableInfo};
+use crate::pg::config::PgInfo;
+use crate::pg::config_table::TableInfo;
 use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;
@@ -219,6 +220,8 @@ pub fn calc_srid(
             Some(default_srid)
         }
         (0, 0, None) => {
+            // TODO: cleanup
+            // println!("{:#?}", std::backtrace::Backtrace::force_capture());
             let info = "To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=...";
             warn!("Table {table_id} has SRID=0, skipping. {info}");
             None

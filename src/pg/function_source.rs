@@ -1,4 +1,4 @@
-use crate::pg::config::FunctionInfo;
+use crate::pg::config_function::FunctionInfo;
 use crate::pg::configurator::SqlFuncInfoMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;

@@ -3,19 +3,21 @@ use itertools::Itertools;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::env::VarError;
+use std::io;
 use std::path::PathBuf;
-use std::{env, io};
 
 pub type InfoMap<T> = HashMap<String, T>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("The --config and the connection parameters cannot be used together")]
+    ConfigAndConnectionsError,
+
     #[error("Unable to load config file {}: {0}", .1.display())]
     ConfigLoadError(io::Error, PathBuf),
 
     #[error("Unable to parse config file {}: {0}", .1.display())]
-    ConfigParseError(serde_yaml::Error, PathBuf),
+    ConfigParseError(subst::yaml::Error, PathBuf),
 
     #[error("Unable to write config file {}: {0}", .1.display())]
     ConfigWriteError(io::Error, PathBuf),
@@ -109,19 +111,6 @@ impl Schemas {
                     Vec::new()
                 }
             }
-        }
-    }
-}
-
-#[must_use]
-pub fn get_env_str(name: &str) -> Option<String> {
-    match env::var(name) {
-        Ok(v) => Some(v),
-        Err(VarError::NotPresent) => None,
-        Err(VarError::NotUnicode(v)) => {
-            let v = v.to_string_lossy();
-            warn!("Environment variable {name} has invalid unicode. Lossy representation: {v}");
-            None
         }
     }
 }

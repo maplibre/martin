@@ -1,4 +1,6 @@
 pub mod config;
+pub mod config_function;
+pub mod config_table;
 pub mod configurator;
 pub mod function_source;
 pub mod pg_source;

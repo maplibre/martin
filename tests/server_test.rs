@@ -2,7 +2,8 @@ use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
 use ctor::ctor;
-use martin::pg::config::{FunctionInfo, TableInfo};
+use martin::pg::config_function::FunctionInfo;
+use martin::pg::config_table::TableInfo;
 use martin::srv::server::IndexEntry;
 use tilejson::{Bounds, TileJSON};
 
