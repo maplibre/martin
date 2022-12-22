@@ -1,4 +1,5 @@
-use crate::config::{merge_option, OneOrMany};
+use crate::config::merge_option;
+use crate::one_or_many::OneOrMany;
 use crate::pmtiles::source::PmtSource;
 use crate::pmtiles::utils::PmtError::{InvalidFilePath, InvalidSourceFilePath};
 use crate::pmtiles::utils::Result;
@@ -208,13 +209,14 @@ impl PmtConfigBuilderEnum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, ConfigBuilder};
-    use crate::srv::config::SrvConfig;
+    use crate::config::Config;
+    use crate::pg::utils::tests::assert_config;
     use indoc::indoc;
 
     #[test]
     fn parse_config() {
-        let yaml = indoc! {"
+        assert_config(
+            indoc! {"
             ---
             pmtiles:
               paths:
@@ -224,35 +226,31 @@ mod tests {
                   pm-src1: /tmp/pmtiles.pmtiles
                   pm-src2:
                     path: /tmp/pmtiles.pmtiles
-        "};
-
-        let config: ConfigBuilder = serde_yaml::from_str(yaml).expect("parse yaml");
-        let config = config.finalize().expect("finalize");
-        let expected = Config {
-            srv: SrvConfig::default(),
-            postgres: None,
-            pmtiles: Some(PmtConfig {
-                paths: Some(vec![
-                    PathBuf::from("/dir-path"),
-                    PathBuf::from("/path/to/pmtiles2.pmtiles"),
-                ]),
-                sources: Some(
-                    [
-                        (
-                            "pm-src1".to_string(),
-                            PmtConfigSource::new("/tmp/pmtiles.pmtiles"),
-                        ),
-                        (
-                            "pm-src2".to_string(),
-                            PmtConfigSource::new("/tmp/pmtiles.pmtiles"),
-                        ),
-                    ]
-                    .iter()
-                    .cloned()
-                    .collect(),
-                ),
-            }),
-        };
-        assert_eq!(config, expected);
+        "},
+            &Config {
+                pmtiles: Some(PmtConfig {
+                    paths: Some(vec![
+                        PathBuf::from("/dir-path"),
+                        PathBuf::from("/path/to/pmtiles2.pmtiles"),
+                    ]),
+                    sources: Some(
+                        [
+                            (
+                                "pm-src1".to_string(),
+                                PmtConfigSource::new("/tmp/pmtiles.pmtiles"),
+                            ),
+                            (
+                                "pm-src2".to_string(),
+                                PmtConfigSource::new("/tmp/pmtiles.pmtiles"),
+                            ),
+                        ]
+                        .iter()
+                        .cloned()
+                        .collect(),
+                    ),
+                }),
+                ..Default::default()
+            },
+        );
     }
 }

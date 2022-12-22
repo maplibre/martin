@@ -1,6 +1,6 @@
 use crate::one_or_many::OneOrMany;
 use crate::pg::config::PgConfig;
-use crate::pmtiles::config::{PmtConfig, PmtConfigBuilderEnum};
+use crate::pmtiles::config::PmtConfig;
 use crate::source::IdResolver;
 use crate::srv::config::SrvConfig;
 use crate::srv::server::Sources;
@@ -132,6 +132,7 @@ impl Config {
                 .postgres
                 .map(|pg| pg.map(|v| v.finalize().map_err(utils::Error::PostgresError)))
                 .transpose()?,
+            pmtiles: self.pmtiles.map(|v| v.finalize()).transpose()?,
             unrecognized: self.unrecognized,
         })
     }

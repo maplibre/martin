@@ -70,6 +70,10 @@ impl Source for PmtSource {
         is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
+    fn support_url_query(&self) -> bool {
+        false
+    }
+
     async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
         Ok(self
             .pmtiles
