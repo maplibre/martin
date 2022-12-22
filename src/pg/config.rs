@@ -7,7 +7,6 @@ use crate::pg::utils::PgError::NoConnectionString;
 use crate::pg::utils::Result;
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
-use crate::utils;
 use crate::utils::Schemas;
 use futures::future::try_join;
 use serde::{Deserialize, Serialize};
@@ -81,7 +80,7 @@ impl PgConfig {
         })
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> utils::Result<(Sources, Pool)> {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> Result<(Sources, Pool)> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let ((mut tables, tbl_info), (funcs, func_info)) =
             try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;

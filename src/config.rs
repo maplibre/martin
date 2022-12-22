@@ -7,7 +7,7 @@ use crate::srv::server::Sources;
 use crate::utils;
 use crate::utils::Error::{ConfigLoadError, ConfigParseError};
 use crate::utils::Result;
-use futures::future::{try_join, try_join_all};
+use futures::future::try_join_all;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
