@@ -1,7 +1,5 @@
 use crate::pg::utils::PgError;
-use itertools::Itertools;
 use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
@@ -44,7 +42,7 @@ pub fn find_info<'a, T>(map: &'a InfoMap<T>, key: &'a str, info: &str, id: &str)
 }
 
 #[must_use]
-pub fn find_info_kv<'a, T>(
+fn find_info_kv<'a, T>(
     map: &'a InfoMap<T>,
     key: &'a str,
     info: &str,
@@ -82,35 +80,5 @@ pub fn find_info_kv<'a, T>(
     } else {
         error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}", multiple.join(", "));
         None
-    }
-}
-
-/// A list of schemas to include in the discovery process, or a boolean to
-/// indicate whether to run discovery at all.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Schemas {
-    Bool(bool),
-    List(Vec<String>),
-}
-
-impl Schemas {
-    /// Returns a list of schemas to include in the discovery process.
-    /// If self is a true, returns a list of all schemas produced by the callback.
-    pub fn get<'a, I, F>(&self, keys: F) -> Vec<String>
-    where
-        I: Iterator<Item = &'a String>,
-        F: FnOnce() -> I,
-    {
-        match self {
-            Schemas::List(lst) => lst.clone(),
-            Schemas::Bool(all) => {
-                if *all {
-                    keys().sorted().map(String::to_string).collect()
-                } else {
-                    Vec::new()
-                }
-            }
-        }
     }
 }

@@ -11,8 +11,13 @@ use martin::pg::pool::Pool;
 use martin::source::{IdResolver, Source};
 use martin::srv::server::{AppState, Sources};
 use std::collections::HashMap;
-use std::env;
 use tilejson::Bounds;
+
+pub use martin::args::environment::Env;
+#[path = "../src/utils/test_utils.rs"]
+mod test_utils;
+#[allow(clippy::wildcard_imports)]
+pub use test_utils::*;
 
 //
 // This file is used by many tests and benchmarks using the #[path] attribute.
@@ -27,10 +32,12 @@ pub async fn mock_config(
     tables: Option<Vec<(&'static str, TableInfo)>>,
     default_srid: Option<i32>,
 ) -> PgConfig {
-    let connection_string: String = env::var("DATABASE_URL").unwrap();
-    info!("Connecting to {connection_string}");
+    let Ok(db_url) = std::env::var("DATABASE_URL") else {
+        panic!("DATABASE_URL env var is not set. Unable to do integration tests");
+    };
+    info!("Connecting to {db_url}");
     let config = PgConfig {
-        connection_string: Some(connection_string),
+        connection_string: Some(db_url),
         default_srid,
         tables: tables.map(|s| {
             s.iter()
@@ -308,10 +315,4 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
 pub fn source<'a>(mock: &'a MockSource, name: &str) -> &'a dyn Source {
     let (sources, _) = mock;
     sources.get(name).unwrap().as_ref()
-}
-
-#[allow(dead_code, clippy::unnecessary_wraps)]
-#[must_use]
-pub fn some_str(s: &str) -> Option<String> {
-    Some(s.to_string())
 }

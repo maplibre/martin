@@ -84,6 +84,57 @@ test-int-legacy: (test-integration "db-legacy")
 #     rm -rf tests/expected
 #     mv tests/output tests/expected
 
+# Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
+coverage FORMAT='html':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v grcov &> /dev/null; then \
+        echo "grcov could not be found. Installing..." ;\
+        cargo install grcov ;\
+    fi
+    if ! rustup component list | grep llvm-tools-preview &> /dev/null; then \
+        echo "llvm-tools-preview could not be found. Installing..." ;\
+        rustup component add llvm-tools-preview ;\
+    fi
+
+    just clean
+    just start-db
+
+    PROF_DIR=target/prof
+    mkdir -p "$PROF_DIR"
+    PROF_DIR=$(realpath "$PROF_DIR")
+
+    OUTPUT_RESULTS_DIR=target/coverage/{{FORMAT}}
+    mkdir -p "$OUTPUT_RESULTS_DIR"
+
+    export CARGO_INCREMENTAL=0
+    export RUSTFLAGS=-Cinstrument-coverage
+    # Avoid problems with relative paths
+    export LLVM_PROFILE_FILE=$PROF_DIR/cargo-test-%p-%m.profraw
+    export MARTIN_PORT=3111
+
+    cargo test --all-targets
+    cargo test --all-targets --all-features
+    tests/test.sh
+
+    set -x
+    grcov --binary-path ./target/debug  \
+          -s .                          \
+          -t {{FORMAT}}                 \
+          --branch                      \
+          --ignore 'benches/*'          \
+          --ignore 'tests/*'            \
+          --ignore-not-existing         \
+          -o target/coverage/{{FORMAT}} \
+          --llvm                        \
+          "$PROF_DIR"
+    { set +x; } 2>/dev/null
+
+    # if this is html, open it in the browser
+    if [ "{{FORMAT}}" = "html" ]; then
+        open "$OUTPUT_RESULTS_DIR/index.html"
+    fi
+
 # Build martin docker image
 docker-build:
     docker build -t martin .

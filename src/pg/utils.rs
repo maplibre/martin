@@ -2,9 +2,11 @@ use crate::source::{UrlQuery, Xyz};
 use crate::utils::InfoMap;
 use actix_http::header::HeaderValue;
 use actix_web::http::Uri;
+use itertools::Itertools;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use semver::Version;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
 
@@ -88,22 +90,6 @@ pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> boo
         && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
 }
 
-#[cfg(test)]
-pub(crate) mod tests {
-    use crate::config::Config;
-
-    pub fn assert_config(yaml: &str, expected: &Config) {
-        let config: Config = serde_yaml::from_str(yaml).expect("parse yaml");
-        let actual = config.finalize().expect("finalize");
-        assert_eq!(&actual, expected);
-    }
-
-    #[allow(clippy::unnecessary_wraps)]
-    pub fn some_str(s: &str) -> Option<String> {
-        Some(s.to_string())
-    }
-}
-
 pub type Result<T> = std::result::Result<T, PgError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -158,4 +144,34 @@ pub enum PgError {
         Xyz,
         UrlQuery,
     ),
+}
+
+/// A list of schemas to include in the discovery process, or a boolean to
+/// indicate whether to run discovery at all.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Schemas {
+    Bool(bool),
+    List(Vec<String>),
+}
+
+impl Schemas {
+    /// Returns a list of schemas to include in the discovery process.
+    /// If self is a true, returns a list of all schemas produced by the callback.
+    pub fn get<'a, I, F>(&self, keys: F) -> Vec<String>
+    where
+        I: Iterator<Item = &'a String>,
+        F: FnOnce() -> I,
+    {
+        match self {
+            Schemas::List(lst) => lst.clone(),
+            Schemas::Bool(all) => {
+                if *all {
+                    keys().sorted().map(String::to_string).collect()
+                } else {
+                    Vec::new()
+                }
+            }
+        }
+    }
 }

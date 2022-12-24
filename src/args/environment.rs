@@ -30,14 +30,3 @@ impl Env for SystemEnv {
         std::env::var_os(key)
     }
 }
-
-#[cfg(test)]
-#[derive(Default)]
-pub struct FauxEnv(std::collections::HashMap<&'static str, &'static str>);
-
-#[cfg(test)]
-impl Env for FauxEnv {
-    fn var_os(&self, key: &str) -> Option<OsString> {
-        self.0.get(key).map(Into::into)
-    }
-}

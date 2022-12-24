@@ -14,7 +14,7 @@ function wait_for_martin {
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
     PROCESS_ID=$1
     echo "Waiting for Martin ($PROCESS_ID) to start..."
-    for i in {1..30}; do
+    for i in {1..60}; do
         if curl -sSf "$MARTIN_URL/health" 2>/dev/null >/dev/null; then
             echo "Martin is up!"
             curl -s "$MARTIN_URL/health"
@@ -148,7 +148,7 @@ echo "Test pre-configured Martin"
 set -x
 
 ARG=(--config tests/config.yaml)
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_2.txt &
+$MARTIN_BIN "${ARG[@]}" -W 1 2>&1 | tee test_log_2.txt &
 PROCESS_ID=`jobs -p`
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT

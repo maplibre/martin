@@ -15,10 +15,9 @@ pub struct SrvConfig {
 }
 
 impl SrvConfig {
-    pub fn merge(&mut self, other: Self) -> &mut Self {
+    pub fn merge(&mut self, other: Self) {
         set_option(&mut self.keep_alive, other.keep_alive);
         set_option(&mut self.listen_addresses, other.listen_addresses);
         set_option(&mut self.worker_processes, other.worker_processes);
-        self
     }
 }

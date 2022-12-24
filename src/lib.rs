@@ -8,7 +8,6 @@
 
 pub mod args;
 pub mod config;
-pub mod one_or_many;
 pub mod pg;
 pub mod source;
 pub mod srv;
@@ -16,6 +15,14 @@ pub mod utils;
 
 pub use crate::utils::Error;
 pub use crate::utils::Result;
+
+// test_utils is used from tests in other modules, and it uses this crate's object.
+// Must make it accessible as carte::Env from both places when testing.
+#[cfg(test)]
+pub use crate::args::environment::Env;
+#[cfg(test)]
+#[path = "utils/test_utils.rs"]
+mod test_utils;
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]

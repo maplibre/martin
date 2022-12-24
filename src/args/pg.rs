@@ -1,10 +1,9 @@
 use crate::args::environment::Env;
-use crate::one_or_many::OneOrMany;
-use crate::pg::config;
-use crate::pg::config::PgConfig;
+use crate::pg::config::{is_postgresql_string, PgConfig};
 use crate::pg::pool::POOL_SIZE_DEFAULT;
+use crate::utils::OneOrMany;
 use itertools::Itertools;
-use log::warn;
+use log::{info, warn};
 use std::collections::BTreeSet;
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
@@ -33,16 +32,17 @@ pub fn parse_pg_args(
 ) -> Option<OneOrMany<PgConfig>> {
     let mut strings = cli_strings
         .iter()
-        .filter(|s| config::is_postgresql_string(s))
+        .filter(|s| is_postgresql_string(s))
         .map(std::string::ToString::to_string)
         .unique()
         .collect::<BTreeSet<_>>();
 
     if let Some(s) = env.get_env_str("DATABASE_URL") {
-        if config::is_postgresql_string(&s) {
+        if is_postgresql_string(&s) {
+            info!("Using env var DATABASE_URL to connect to PostgreSQL");
             strings.insert(s);
         } else {
-            warn!("Environment variable DATABASE_URL is not a postgres connection string");
+            warn!("Environment variable DATABASE_URL is not a valid postgres connection string");
         }
     }
 

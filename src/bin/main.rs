@@ -9,7 +9,6 @@ use martin::srv::server;
 use martin::srv::server::RESERVED_KEYWORDS;
 use martin::Error::ConfigWriteError;
 use martin::Result;
-use std::env;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::fs::File;

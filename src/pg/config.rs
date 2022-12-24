@@ -1,13 +1,13 @@
-use crate::config::{report_unrecognized_config, set_option};
+use crate::config::report_unrecognized_config;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::pool::Pool;
 use crate::pg::utils::PgError::NoConnectionString;
 use crate::pg::utils::Result;
+use crate::pg::utils::Schemas;
 use crate::source::IdResolver;
 use crate::srv::server::Sources;
-use crate::utils::Schemas;
 use futures::future::try_join;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -43,22 +43,6 @@ pub struct PgConfig {
 }
 
 impl PgConfig {
-    pub fn merge(&mut self, other: Self) -> &mut Self {
-        set_option(&mut self.connection_string, other.connection_string);
-        #[cfg(feature = "ssl")]
-        {
-            set_option(&mut self.ca_root_file, other.ca_root_file);
-            self.danger_accept_invalid_certs |= other.danger_accept_invalid_certs;
-        }
-        set_option(&mut self.default_srid, other.default_srid);
-        set_option(&mut self.pool_size, other.pool_size);
-        set_option(&mut self.auto_tables, other.auto_tables);
-        set_option(&mut self.auto_functions, other.auto_functions);
-        set_option(&mut self.tables, other.tables);
-        set_option(&mut self.functions, other.functions);
-        self
-    }
-
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(self) -> Result<PgConfig> {
         if let Some(ref ts) = self.tables {
@@ -105,11 +89,12 @@ pub fn is_postgresql_string(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::tests::assert_config;
     use crate::config::Config;
-    use crate::one_or_many::OneOrMany::{Many, One};
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
-    use crate::pg::utils::tests::{assert_config, some_str};
+    use crate::test_utils::some_str;
+    use crate::utils::OneOrMany::{Many, One};
     use indoc::indoc;
     use std::collections::HashMap;
     use tilejson::Bounds;

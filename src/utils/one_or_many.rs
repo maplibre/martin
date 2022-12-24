@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::mem;
 use std::slice::Iter;
 use std::vec::IntoIter;
 
@@ -16,8 +15,6 @@ impl<T> IntoIterator for OneOrMany<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            // OneOrMany::One(s) => OneOrManyIter::One(Some(s)),
-            // OneOrMany::Many(v) => OneOrManyIter::Many(v.into_iter()),
             OneOrMany::One(v) => vec![v].into_iter(),
             OneOrMany::Many(v) => v.into_iter(),
         }
@@ -52,30 +49,27 @@ impl<T: Clone> OneOrMany<T> {
             Self::Many(v) => OneOrMany::Many(v.into_iter().map(f).collect::<crate::Result<_>>()?),
         })
     }
+}
 
-    pub fn generalize(self) -> Vec<T> {
-        match self {
-            Self::One(v) => vec![v],
-            Self::Many(v) => v,
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    pub fn merge(&mut self, other: Self) {
-        // There is no allocation with Vec::new()
-        *self = match (mem::replace(self, Self::Many(Vec::new())), other) {
-            (Self::One(a), Self::One(b)) => Self::Many(vec![a, b]),
-            (Self::One(a), Self::Many(mut b)) => {
-                b.insert(0, a);
-                Self::Many(b)
-            }
-            (Self::Many(mut a), Self::One(b)) => {
-                a.push(b);
-                Self::Many(a)
-            }
-            (Self::Many(mut a), Self::Many(b)) => {
-                a.extend(b);
-                Self::Many(a)
-            }
-        };
+    #[test]
+    fn test_one_or_many() {
+        let mut one = OneOrMany::One(1);
+        let mut many = OneOrMany::Many(vec![1, 2, 3]);
+
+        assert_eq!(one.iter().collect::<Vec<_>>(), vec![&1]);
+        assert_eq!(many.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
+
+        assert_eq!(one.iter_mut().collect::<Vec<_>>(), vec![&1]);
+        assert_eq!(many.iter_mut().collect::<Vec<_>>(), vec![&1, &2, &3]);
+
+        assert_eq!(one.as_slice(), &[1]);
+        assert_eq!(many.as_slice(), &[1, 2, 3]);
+
+        assert_eq!(one.into_iter().collect::<Vec<_>>(), vec![1]);
+        assert_eq!(many.into_iter().collect::<Vec<_>>(), vec![1, 2, 3]);
     }
 }

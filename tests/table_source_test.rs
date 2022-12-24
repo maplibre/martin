@@ -1,8 +1,8 @@
 use ctor::ctor;
 use itertools::Itertools;
 use log::info;
+use martin::pg::utils::Schemas;
 use martin::source::Xyz;
-use martin::utils::Schemas;
 use std::collections::HashMap;
 
 #[path = "utils.rs"]

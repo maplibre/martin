@@ -1,11 +1,9 @@
-use crate::one_or_many::OneOrMany;
 use crate::pg::config::PgConfig;
 use crate::source::IdResolver;
 use crate::srv::config::SrvConfig;
 use crate::srv::server::Sources;
-use crate::utils;
-use crate::utils::Error::{ConfigLoadError, ConfigParseError};
-use crate::utils::Result;
+use crate::utils::{OneOrMany, Result};
+use crate::Error::{ConfigLoadError, ConfigParseError, PostgresError};
 use futures::future::try_join_all;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -65,7 +63,7 @@ impl Config {
             srv: self.srv,
             postgres: self
                 .postgres
-                .map(|pg| pg.map(|v| v.finalize().map_err(utils::Error::PostgresError)))
+                .map(|pg| pg.map(|v| v.finalize().map_err(PostgresError)))
                 .transpose()?,
             unrecognized: self.unrecognized,
         })
@@ -76,20 +74,6 @@ impl Config {
 pub fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
     if first.is_none() && second.is_some() {
         *first = second;
-    }
-}
-
-/// Merge two options
-#[must_use]
-pub fn merge_option<T>(
-    first: Option<T>,
-    second: Option<T>,
-    merge: impl FnOnce(T, T) -> T,
-) -> Option<T> {
-    match (first, second) {
-        (Some(first), Some(second)) => Some(merge(first, second)),
-        (None, Some(second)) => Some(second),
-        (first, None) => first,
     }
 }
 
@@ -110,10 +94,17 @@ pub fn read_config(file_name: &Path) -> Result<Config> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
-    use crate::pg::utils::tests::{assert_config, some_str};
+    use crate::config::Config;
+    use crate::test_utils::some_str;
     use indoc::indoc;
+
+    pub fn assert_config(yaml: &str, expected: &Config) {
+        let config: Config = serde_yaml::from_str(yaml).expect("parse yaml");
+        let actual = config.finalize().expect("finalize");
+        assert_eq!(&actual, expected);
+    }
 
     #[test]
     fn parse_config() {
