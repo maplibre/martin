@@ -46,7 +46,12 @@ jobs:
           override: true
 
       - name: Run tests
-        run: cargo test
+        run: |
+          cargo test
+          cargo test --all-targets
+          cargo test --all-targets --all-features
+          cargo test --doc
+          # tests/test.sh
         env:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
