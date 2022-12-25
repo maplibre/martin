@@ -1,9 +1,10 @@
+use std::collections::HashMap;
+
 use ctor::ctor;
 use itertools::Itertools;
 use log::info;
-use martin::pg::utils::Schemas;
-use martin::source::Xyz;
-use std::collections::HashMap;
+use martin::pg::Schemas;
+use martin::Xyz;
 
 #[path = "utils.rs"]
 mod utils;

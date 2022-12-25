@@ -1,15 +1,17 @@
-use crate::pg::pool::Pool;
-use crate::pg::utils::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
-use crate::pg::utils::{is_valid_zoom, query_to_json};
-use crate::source::{Source, Tile, UrlQuery, Xyz};
-use crate::utils::Result;
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use bb8_postgres::tokio_postgres::types::ToSql;
 use log::debug;
 use martin_tile_utils::DataFormat;
 use postgres::types::Type;
-use std::collections::HashMap;
 use tilejson::TileJSON;
+
+use crate::pg::pool::Pool;
+use crate::pg::utils::query_to_json;
+use crate::pg::utils::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
+use crate::source::{Source, Tile, UrlQuery, Xyz};
+use crate::utils::{is_valid_zoom, Result};
 
 #[derive(Clone, Debug)]
 pub struct PgSource {

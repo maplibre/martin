@@ -70,8 +70,9 @@ impl DataFormat {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs::read;
+
+    use super::*;
 
     #[test]
     fn test_data_format_png() {

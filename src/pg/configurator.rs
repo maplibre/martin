@@ -1,3 +1,10 @@
+use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
+
+use futures::future::join_all;
+use itertools::Itertools;
+use log::{debug, error, info, warn};
+
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
@@ -7,14 +14,8 @@ use crate::pg::pool::Pool;
 use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
 use crate::pg::utils::PgError::InvalidTableExtent;
 use crate::pg::utils::{Result, Schemas};
-use crate::source::IdResolver;
-use crate::srv::server::Sources;
+use crate::source::{IdResolver, Sources};
 use crate::utils::{find_info, normalize_key, InfoMap};
-use futures::future::join_all;
-use itertools::Itertools;
-use log::{debug, error, info, warn};
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;

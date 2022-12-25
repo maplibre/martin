@@ -1,13 +1,15 @@
+use std::str::FromStr;
+
+use bb8::PooledConnection;
+use bb8_postgres::{tokio_postgres as pg, PostgresConnectionManager};
+use log::{info, warn};
+use semver::Version;
+
 use crate::pg::config::PgConfig;
 use crate::pg::utils::PgError::{
     BadConnectionString, BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolConnError,
 };
 use crate::pg::utils::Result;
-use bb8::PooledConnection;
-use bb8_postgres::{tokio_postgres as pg, PostgresConnectionManager};
-use log::{info, warn};
-use semver::Version;
-use std::str::FromStr;
 
 #[cfg(feature = "ssl")]
 pub type ConnectionManager = PostgresConnectionManager<postgres_openssl::MakeTlsConnector>;
@@ -50,8 +52,9 @@ impl Pool {
 
         #[cfg(feature = "ssl")]
         let manager = {
-            use crate::pg::utils::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
             use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+
+            use crate::pg::utils::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
 
             let tls = SslMethod::tls();
             let mut builder = SslConnector::builder(tls).map_err(BuildSslConnectorError)?;

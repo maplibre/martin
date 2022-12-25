@@ -2,9 +2,8 @@ use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
 use ctor::ctor;
-use martin::pg::config_function::FunctionInfo;
-use martin::pg::config_table::TableInfo;
-use martin::srv::server::IndexEntry;
+use martin::pg::{FunctionInfo, TableInfo};
+use martin::srv::IndexEntry;
 use tilejson::{Bounds, TileJSON};
 
 #[path = "utils.rs"]
@@ -24,7 +23,7 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(state)
-                .configure(::martin::srv::server::router),
+                .configure(::martin::srv::router),
         )
         .await
     }};

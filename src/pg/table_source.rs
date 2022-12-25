@@ -1,25 +1,21 @@
+use std::collections::HashMap;
+
+use log::{info, warn};
+use postgis::ewkb;
+use postgres_protocol::escape::{escape_identifier, escape_literal};
+
 use crate::pg::config::PgInfo;
 use crate::pg::config_table::TableInfo;
 use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;
 use crate::pg::utils::PgError::PostgresError;
-use crate::pg::utils::Result;
-use crate::pg::utils::{json_to_hashmap, polygon_to_bbox};
+use crate::pg::utils::{json_to_hashmap, polygon_to_bbox, Result};
 use crate::utils::normalize_key;
-use log::{info, warn};
-use postgis::ewkb;
-use postgres_protocol::escape::{escape_identifier, escape_literal};
-use std::collections::HashMap;
 
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
-
-#[derive(Clone, Debug)]
-pub struct PgSqlTableInfo {
-    pub info: TableInfo,
-}
 
 pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
     let conn = pool.get().await?;

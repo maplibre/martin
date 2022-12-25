@@ -1,17 +1,18 @@
-use crate::pg::config::PgConfig;
-use crate::source::IdResolver;
-use crate::srv::config::SrvConfig;
-use crate::srv::server::Sources;
-use crate::utils::{OneOrMany, Result};
-use crate::Error::{ConfigLoadError, ConfigParseError, PostgresError};
-use futures::future::try_join_all;
-use log::warn;
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+
+use futures::future::try_join_all;
+use log::warn;
+use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
+
+use crate::pg::PgConfig;
+use crate::source::{IdResolver, Sources};
+use crate::srv::SrvConfig;
+use crate::utils::{OneOrMany, Result};
+use crate::Error::{ConfigLoadError, ConfigParseError, PostgresError};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
@@ -70,13 +71,6 @@ impl Config {
     }
 }
 
-/// Update empty option in place with a non-empty value from the second option.
-pub fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
-    if first.is_none() && second.is_some() {
-        *first = second;
-    }
-}
-
 pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, Value>) {
     for key in unrecognized.keys() {
         warn!("Unrecognized config key: {prefix}{key}");
@@ -95,10 +89,11 @@ pub fn read_config(file_name: &Path) -> Result<Config> {
 
 #[cfg(test)]
 pub mod tests {
+    use indoc::indoc;
+
     use super::*;
     use crate::config::Config;
     use crate::test_utils::some_str;
-    use indoc::indoc;
 
     pub fn assert_config(yaml: &str, expected: &Config) {
         let config: Config = serde_yaml::from_str(yaml).expect("parse yaml");

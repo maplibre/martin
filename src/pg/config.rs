@@ -1,16 +1,15 @@
+use futures::future::try_join;
+use serde::{Deserialize, Serialize};
+use tilejson::TileJSON;
+
 use crate::config::report_unrecognized_config;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::pool::Pool;
 use crate::pg::utils::PgError::NoConnectionString;
-use crate::pg::utils::Result;
-use crate::pg::utils::Schemas;
-use crate::source::IdResolver;
-use crate::srv::server::Sources;
-use futures::future::try_join;
-use serde::{Deserialize, Serialize};
-use tilejson::TileJSON;
+use crate::pg::utils::{Result, Schemas};
+use crate::source::{IdResolver, Sources};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -81,13 +80,13 @@ impl PgConfig {
     }
 }
 
-#[must_use]
-pub fn is_postgresql_string(s: &str) -> bool {
-    s.starts_with("postgresql://") || s.starts_with("postgres://")
-}
-
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use indoc::indoc;
+    use tilejson::Bounds;
+
     use super::*;
     use crate::config::tests::assert_config;
     use crate::config::Config;
@@ -95,9 +94,6 @@ mod tests {
     use crate::pg::config_table::TableInfo;
     use crate::test_utils::some_str;
     use crate::utils::OneOrMany::{Many, One};
-    use indoc::indoc;
-    use std::collections::HashMap;
-    use tilejson::Bounds;
 
     #[test]
     #[allow(clippy::too_many_lines)]

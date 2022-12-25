@@ -1,6 +1,7 @@
-pub mod environment;
-pub mod pg;
-pub mod srv;
-
+mod environment;
+mod pg;
 mod root;
+mod srv;
+
+pub use environment::Env;
 pub use root::Args;

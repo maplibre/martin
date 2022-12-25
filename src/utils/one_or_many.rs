@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use std::slice::Iter;
 use std::vec::IntoIter;
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -29,10 +29,6 @@ impl<T: Clone> OneOrMany<T> {
         }
     }
 
-    pub fn iter(&self) -> Iter<T> {
-        self.as_slice().iter()
-    }
-
     pub fn as_slice(&self) -> &[T] {
         match self {
             OneOrMany::One(item) => std::slice::from_ref(item),
@@ -59,9 +55,6 @@ mod tests {
     fn test_one_or_many() {
         let mut one = OneOrMany::One(1);
         let mut many = OneOrMany::Many(vec![1, 2, 3]);
-
-        assert_eq!(one.iter().collect::<Vec<_>>(), vec![&1]);
-        assert_eq!(many.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
 
         assert_eq!(one.iter_mut().collect::<Vec<_>>(), vec![&1]);
         assert_eq!(many.iter_mut().collect::<Vec<_>>(), vec![&1, &2, &3]);

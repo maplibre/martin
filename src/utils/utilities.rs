@@ -1,8 +1,10 @@
-use crate::pg::utils::PgError;
-use log::{error, info, warn};
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
+
+use log::{error, info, warn};
+
+use crate::pg::PgError;
 
 pub type InfoMap<T> = HashMap<String, T>;
 
@@ -81,4 +83,17 @@ fn find_info_kv<'a, T>(
         error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}", multiple.join(", "));
         None
     }
+}
+
+/// Update empty option in place with a non-empty value from the second option.
+pub fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
+    if first.is_none() && second.is_some() {
+        *first = second;
+    }
+}
+
+#[must_use]
+pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
+    minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
+        && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
 }

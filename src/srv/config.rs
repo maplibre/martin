@@ -1,5 +1,6 @@
-use crate::config::set_option;
 use serde::{Deserialize, Serialize};
+
+use crate::utils::set_option;
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";

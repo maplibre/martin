@@ -1,18 +1,16 @@
-use actix_web::dev::Server;
-use clap::Parser;
-use log::info;
-use martin::args::Args;
-use martin::config::{read_config, Config};
-use martin::pg::config::PgConfig;
-use martin::source::IdResolver;
-use martin::srv::server;
-use martin::srv::server::RESERVED_KEYWORDS;
-use martin::Error::ConfigWriteError;
-use martin::Result;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
+
+use actix_web::dev::Server;
+use clap::Parser;
+use log::info;
+use martin::args::Args;
+use martin::pg::PgConfig;
+use martin::srv::{new_server, RESERVED_KEYWORDS};
+use martin::Error::ConfigWriteError;
+use martin::{read_config, Config, IdResolver, Result};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -59,7 +57,7 @@ async fn start(args: Args) -> Result<Server> {
         info!("Use --save-config to save or print Martin configuration.");
     }
 
-    let (server, listen_addresses) = server::new(config.srv, sources);
+    let (server, listen_addresses) = new_server(config.srv, sources);
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
 

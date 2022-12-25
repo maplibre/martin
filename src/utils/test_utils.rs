@@ -1,7 +1,8 @@
 // This file is included from multiple projects, so we need to make sure
 // that `crate::Env` is always available, both when it is part of the lib or external to the test.
-use crate::Env;
 use std::ffi::OsString;
+
+use crate::Env;
 
 #[allow(clippy::unnecessary_wraps)]
 #[must_use]

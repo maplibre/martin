@@ -1,9 +1,8 @@
 use ctor::ctor;
 use itertools::Itertools;
 use log::info;
-use martin::pg::function_source::get_function_sources;
-use martin::pg::utils::Schemas;
-use martin::source::Xyz;
+use martin::pg::{get_function_sources, Schemas};
+use martin::Xyz;
 
 #[path = "utils.rs"]
 mod utils;

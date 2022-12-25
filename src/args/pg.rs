@@ -1,10 +1,11 @@
-use crate::args::environment::Env;
-use crate::pg::config::{is_postgresql_string, PgConfig};
-use crate::pg::pool::POOL_SIZE_DEFAULT;
-use crate::utils::OneOrMany;
+use std::collections::BTreeSet;
+
 use itertools::Itertools;
 use log::{info, warn};
-use std::collections::BTreeSet;
+
+use crate::args::environment::Env;
+use crate::pg::{PgConfig, POOL_SIZE_DEFAULT};
+use crate::utils::OneOrMany;
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -78,4 +79,9 @@ pub fn parse_pg_args(
         1 => Some(OneOrMany::One(builders.into_iter().next().unwrap())),
         _ => Some(OneOrMany::Many(builders)),
     }
+}
+
+#[must_use]
+fn is_postgresql_string(s: &str) -> bool {
+    s.starts_with("postgresql://") || s.starts_with("postgres://")
 }

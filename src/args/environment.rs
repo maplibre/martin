@@ -1,5 +1,6 @@
-use log::warn;
 use std::ffi::OsString;
+
+use log::warn;
 
 /// A simple wrapper for the environment var access,
 /// so we can mock it in tests.

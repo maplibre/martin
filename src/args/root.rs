@@ -1,12 +1,14 @@
+use std::path::PathBuf;
+
+use clap::Parser;
+use log::warn;
+
 use crate::args::environment::{Env, SystemEnv};
 use crate::args::pg::{parse_pg_args, PgArgs};
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
-use crate::srv::config::SrvConfig;
+use crate::srv::SrvConfig;
 use crate::{Error, Result};
-use clap::Parser;
-use log::warn;
-use std::path::PathBuf;
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(about, version)]

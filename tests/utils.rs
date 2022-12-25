@@ -2,18 +2,15 @@
 #![allow(clippy::redundant_clone)]
 #![allow(clippy::unused_async)]
 
+use std::collections::HashMap;
+
 use actix_web::web::Data;
 use log::info;
-use martin::pg::config::PgConfig;
-use martin::pg::config_function::FunctionInfo;
-use martin::pg::config_table::TableInfo;
-use martin::pg::pool::Pool;
-use martin::source::{IdResolver, Source};
-use martin::srv::server::{AppState, Sources};
-use std::collections::HashMap;
+pub use martin::args::Env;
+use martin::pg::{FunctionInfo, PgConfig, Pool, TableInfo};
+use martin::srv::AppState;
+use martin::{IdResolver, Source, Sources};
 use tilejson::Bounds;
-
-pub use martin::args::environment::Env;
 #[path = "../src/utils/test_utils.rs"]
 mod test_utils;
 #[allow(clippy::wildcard_imports)]
