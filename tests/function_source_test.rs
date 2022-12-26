@@ -40,9 +40,9 @@ async fn function_source_tilejson() {
     info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
-    assert_eq!(tilejson.version, some_str("1.0.0"));
-    assert_eq!(tilejson.name, some_str("public.function_zxy_query"));
-    assert_eq!(tilejson.scheme, some_str("xyz"));
+    assert_eq!(tilejson.version, some("1.0.0"));
+    assert_eq!(tilejson.name, some("public.function_zxy_query"));
+    assert_eq!(tilejson.scheme, some("xyz"));
     assert_eq!(tilejson.minzoom, Some(0));
     assert_eq!(tilejson.maxzoom, Some(30));
     assert!(tilejson.bounds.is_some());

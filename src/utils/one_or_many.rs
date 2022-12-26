@@ -22,6 +22,13 @@ impl<T> IntoIterator for OneOrMany<T> {
 }
 
 impl<T: Clone> OneOrMany<T> {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            OneOrMany::One(_) => false,
+            OneOrMany::Many(v) => v.is_empty(),
+        }
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         match self {
             OneOrMany::Many(v) => v.iter_mut(),

@@ -7,7 +7,6 @@ use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::pool::Pool;
-use crate::pg::utils::PgError::NoConnectionString;
 use crate::pg::utils::{Result, Schemas};
 use crate::source::{IdResolver, Sources};
 
@@ -43,7 +42,7 @@ pub struct PgConfig {
 
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(self) -> Result<PgConfig> {
+    pub fn finalize(&mut self) -> Result<&Self> {
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
                 report_unrecognized_config(&format!("tables.{k}."), &v.unrecognized);
@@ -54,13 +53,9 @@ impl PgConfig {
                 report_unrecognized_config(&format!("functions.{k}."), &v.unrecognized);
             }
         }
-        let connection_string = self.connection_string.ok_or(NoConnectionString)?;
+        self.run_autodiscovery = self.tables.is_none() && self.functions.is_none();
 
-        Ok(PgConfig {
-            connection_string: Some(connection_string),
-            run_autodiscovery: self.tables.is_none() && self.functions.is_none(),
-            ..self
-        })
+        Ok(self)
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> Result<(Sources, Pool)> {
@@ -92,12 +87,11 @@ mod tests {
     use crate::config::Config;
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
-    use crate::test_utils::some_str;
+    use crate::test_utils::some;
     use crate::utils::OneOrMany::{Many, One};
 
     #[test]
-    #[allow(clippy::too_many_lines)]
-    fn parse_config() {
+    fn parse_pg_one() {
         assert_config(
             indoc! {"
             ---
@@ -106,14 +100,17 @@ mod tests {
         "},
             &Config {
                 postgres: Some(One(PgConfig {
-                    connection_string: some_str("postgresql://postgres@localhost/db"),
+                    connection_string: some("postgresql://postgres@localhost/db"),
                     run_autodiscovery: true,
                     ..Default::default()
                 })),
                 ..Default::default()
             },
         );
+    }
 
+    #[test]
+    fn parse_pg_two() {
         assert_config(
             indoc! {"
             ---
@@ -124,12 +121,12 @@ mod tests {
             &Config {
                 postgres: Some(Many(vec![
                     PgConfig {
-                        connection_string: some_str("postgres://postgres@localhost:5432/db"),
+                        connection_string: some("postgres://postgres@localhost:5432/db"),
                         run_autodiscovery: true,
                         ..Default::default()
                     },
                     PgConfig {
-                        connection_string: some_str("postgresql://postgres@localhost:5433/db"),
+                        connection_string: some("postgresql://postgres@localhost:5433/db"),
                         run_autodiscovery: true,
                         ..Default::default()
                     },
@@ -137,7 +134,10 @@ mod tests {
                 ..Default::default()
             },
         );
+    }
 
+    #[test]
+    fn parse_pg_config() {
         assert_config(
             indoc! {"
             ---
@@ -173,7 +173,7 @@ mod tests {
         "},
             &Config {
                 postgres: Some(One(PgConfig {
-                    connection_string: some_str("postgres://postgres@localhost:5432/db"),
+                    connection_string: some("postgres://postgres@localhost:5432/db"),
                     default_srid: Some(4326),
                     pool_size: Some(20),
                     tables: Some(HashMap::from([(
@@ -189,7 +189,7 @@ mod tests {
                             extent: Some(4096),
                             buffer: Some(64),
                             clip_geom: Some(true),
-                            geometry_type: some_str("GEOMETRY"),
+                            geometry_type: some("GEOMETRY"),
                             properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
                             ..Default::default()
                         },

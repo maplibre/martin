@@ -3,11 +3,10 @@ use std::path::PathBuf;
 use clap::Parser;
 use log::warn;
 
-use crate::args::environment::{Env, SystemEnv};
-use crate::args::pg::{parse_pg_args, PgArgs};
+use crate::args::environment::Env;
+use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
-use crate::srv::SrvConfig;
 use crate::{Error, Result};
 
 #[derive(Parser, Debug, PartialEq, Default)]
@@ -41,49 +40,45 @@ pub struct MetaArgs {
     pub connection: Vec<String>,
 }
 
-impl TryFrom<Args> for Config {
-    type Error = Error;
-
-    fn try_from(args: Args) -> Result<Self> {
-        parse_args(&SystemEnv::default(), args)
-    }
-}
-
-fn parse_args(env: &impl Env, args: Args) -> Result<Config> {
-    if args.meta.watch {
-        warn!("The --watch flag is no longer supported, and will be ignored");
-    }
-    if env.var_os("WATCH_MODE").is_some() {
-        warn!("The WATCH_MODE environment variable is no longer supported, and will be ignored");
-    }
-
-    if args.meta.config.is_some() {
-        if args.pg.is_some() || !args.meta.connection.is_empty() {
+impl Args {
+    pub fn merge_into_config(mut self, config: &mut Config, env: &impl Env) -> Result<()> {
+        if self.meta.watch {
+            warn!("The --watch flag is no longer supported, and will be ignored");
+        }
+        if env.var_os("WATCH_MODE").is_some() {
+            warn!("The WATCH_MODE env variable is no longer supported, and will be ignored");
+        }
+        if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(Error::ConfigAndConnectionsError);
         }
-        return Ok(Config {
-            srv: SrvConfig::from(args.srv),
-            ..Default::default()
-        });
-    }
 
-    let pg = args.pg.unwrap_or_default();
-    Ok(Config {
-        srv: SrvConfig::from(args.srv),
-        postgres: parse_pg_args(env, &pg, &args.meta.connection),
-        ..Default::default()
-    })
+        self.srv.merge_into_config(&mut config.srv);
+        self.pg
+            .unwrap_or_default()
+            .merge_into_config(&mut config.postgres, &mut self.meta, env);
+
+        if self.meta.connection.is_empty() {
+            Ok(())
+        } else {
+            let connections = self.meta.connection.clone();
+            Err(Error::UnrecognizableConnections(connections))
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::FauxEnv;
+    use crate::pg::PgConfig;
+    use crate::test_utils::{some, FauxEnv};
+    use crate::utils::OneOrMany;
 
     fn parse(args: &[&str]) -> Result<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
-        parse_args(&FauxEnv::default(), args).map(|v| (v, meta))
+        let mut config = Config::default();
+        args.merge_into_config(&mut config, &FauxEnv::default())?;
+        Ok((config, meta))
     }
 
     #[test]
@@ -110,12 +105,19 @@ mod tests {
         };
         assert_eq!(args, (Config::default(), meta));
 
-        let args = parse(&["martin", "connection"]).unwrap();
-        let meta = MetaArgs {
-            connection: vec!["connection".to_string()],
+        let args = parse(&["martin", "postgres://connection"]).unwrap();
+        let cfg = Config {
+            postgres: Some(OneOrMany::One(PgConfig {
+                connection_string: some("postgres://connection"),
+                ..Default::default()
+            })),
             ..Default::default()
         };
-        assert_eq!(args, (Config::default(), meta));
+        let meta = MetaArgs {
+            connection: vec!["postgres://connection".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(args, (cfg, meta));
     }
 
     #[test]
@@ -131,8 +133,22 @@ mod tests {
 
     #[test]
     fn cli_bad_parsed_arguments() {
-        let args = Args::parse_from(["martin", "--config", "c.toml", "connection"]);
-        let err = parse_args(&FauxEnv::default(), args).unwrap_err();
-        assert!(matches!(err, Error::ConfigAndConnectionsError));
+        let args = Args::parse_from(["martin", "--config", "c.toml", "postgres://a"]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        assert!(matches!(err, crate::Error::ConfigAndConnectionsError));
+    }
+
+    #[test]
+    fn cli_unknown_con_str() {
+        let args = Args::parse_from(["martin", "foobar"]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        let bad = vec!["foobar".to_string()];
+        assert!(matches!(err, crate::Error::UnrecognizableConnections(v) if v == bad));
     }
 }

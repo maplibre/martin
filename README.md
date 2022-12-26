@@ -448,18 +448,18 @@ Options:
 
 ## Environment Variables
 
-You can also configure martin using environment variables
+You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files.  
 
 | Environment variable          | Example                              | Description                                 |
 |-------------------------------|--------------------------------------|---------------------------------------------|
 | `DATABASE_URL`                | `postgresql://postgres@localhost/db` | Postgres database connection                |
 | `CA_ROOT_FILE`                | `./ca-certificate.crt`               | Loads trusted root certificates from a file |
 | `DEFAULT_SRID`                | `4326`                               | Fallback SRID                               |
-| `DANGER_ACCEPT_INVALID_CERTS` | `false`                              | Trust invalid certificates                  |
+| `DANGER_ACCEPT_INVALID_CERTS` | `0`                                  | Trust invalid certificates (any value)      |
 
 ## Configuration File
 
-If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a path to a file with a `--config` argument.
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your config file: `connection_string: ${MY_DATABASE_URL}`, or with a default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
 
 ```shell
 martin --config config.yaml

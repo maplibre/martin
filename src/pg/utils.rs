@@ -106,9 +106,6 @@ pub enum PgError {
     #[error("PostGIS version {0} is too old, minimum required is {1}")]
     PostgisTooOld(Version, Version),
 
-    #[error("Database connection string is not set")]
-    NoConnectionString,
-
     #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
     InvalidTableExtent(String, String),
 

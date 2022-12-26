@@ -13,7 +13,7 @@ function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
     PROCESS_ID=$1
-    echo "Waiting for Martin ($PROCESS_ID) to start..."
+    echo "Waiting for Martin ($PROCESS_ID) to start by checking $MARTIN_URL/health to be valid..."
     for i in {1..60}; do
         if curl -sSf "$MARTIN_URL/health" 2>/dev/null >/dev/null; then
             echo "Martin is up!"
@@ -21,7 +21,7 @@ function wait_for_martin {
             return
         fi
         if ps -p $PROCESS_ID > /dev/null ; then
-            echo "Martin is not up yet, waiting..."
+            echo "Martin is not up yet, waiting for $MARTIN_URL/health ..."
             sleep 1
         else
             echo "Martin died!"
@@ -79,18 +79,18 @@ fi
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test auto configured Martin"
-set -x
 
+TEST_OUT_DIR="$(dirname "$0")/output/auto"
+mkdir -p "$TEST_OUT_DIR"
+
+set -x
 ARG=(--default-srid 900913)
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
+$MARTIN_BIN "${ARG[@]}" --save-config "$(dirname "$0")/output/generated_config.yaml" 2>&1 | tee test_log_1.txt &
 PROCESS_ID=`jobs -p`
 
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
-
-TEST_OUT_DIR="$(dirname "$0")/output/auto"
-mkdir -p "$TEST_OUT_DIR"
 
 >&2 echo "Test catalog"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
@@ -145,17 +145,17 @@ grep -e ' ERROR ' -e ' WARN ' test_log_1.txt && exit 1
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test pre-configured Martin"
-set -x
+TEST_OUT_DIR="$(dirname "$0")/output/configured"
+mkdir -p "$TEST_OUT_DIR"
 
+unset DATABASE_URL
 ARG=(--config tests/config.yaml)
+set -x
 $MARTIN_BIN "${ARG[@]}" -W 1 2>&1 | tee test_log_2.txt &
 PROCESS_ID=`jobs -p`
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
-
-TEST_OUT_DIR="$(dirname "$0")/output/configured"
-mkdir -p "$TEST_OUT_DIR"
 
 >&2 echo "Test catalog"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"

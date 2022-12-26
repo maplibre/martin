@@ -13,6 +13,9 @@ pub enum Error {
     #[error("The --config and the connection parameters cannot be used together")]
     ConfigAndConnectionsError,
 
+    #[error("Unable to bind to {1}: {0}")]
+    BindingError(io::Error, String),
+
     #[error("Unable to load config file {}: {0}", .1.display())]
     ConfigLoadError(io::Error, PathBuf),
 
@@ -21,6 +24,12 @@ pub enum Error {
 
     #[error("Unable to write config file {}: {0}", .1.display())]
     ConfigWriteError(io::Error, PathBuf),
+
+    #[error("No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file.")]
+    NoSources,
+
+    #[error("Unrecognizable connection strings: {0:?}")]
+    UnrecognizableConnections(Vec<String>),
 
     #[error("{0}")]
     PostgresError(#[from] PgError),
@@ -72,7 +81,7 @@ fn find_info_kv<'a, T>(
 
     if multiple.is_empty() {
         if let Some(result) = result {
-            info!("For source {id}, {info} '{key}' was not found, using '{result}' instead.");
+            info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
             Some((result.as_str(), map.get(result)?))
         } else {
             warn!("Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
@@ -80,15 +89,9 @@ fn find_info_kv<'a, T>(
             None
         }
     } else {
-        error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}", multiple.join(", "));
+        error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
+            multiple.join(", "));
         None
-    }
-}
-
-/// Update empty option in place with a non-empty value from the second option.
-pub fn set_option<T>(first: &mut Option<T>, second: Option<T>) {
-    if first.is_none() && second.is_some() {
-        *first = second;
     }
 }
 

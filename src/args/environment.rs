@@ -24,9 +24,9 @@ pub trait Env {
 }
 
 #[derive(Default)]
-pub struct SystemEnv;
+pub struct OsEnv;
 
-impl Env for SystemEnv {
+impl Env for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         std::env::var_os(key)
     }

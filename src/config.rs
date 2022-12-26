@@ -12,7 +12,7 @@ use crate::pg::PgConfig;
 use crate::source::{IdResolver, Sources};
 use crate::srv::SrvConfig;
 use crate::utils::{OneOrMany, Result};
-use crate::Error::{ConfigLoadError, ConfigParseError, PostgresError};
+use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
@@ -27,6 +27,25 @@ pub struct Config {
 }
 
 impl Config {
+    /// Apply defaults to the config, and validate if there is a connection string
+    pub fn finalize(&mut self) -> Result<&Self> {
+        report_unrecognized_config("", &self.unrecognized);
+        let any = if let Some(pg) = &mut self.postgres {
+            for pg in pg.iter_mut() {
+                pg.finalize()?;
+            }
+            !pg.is_empty()
+        } else {
+            false
+        };
+
+        if any {
+            Ok(self)
+        } else {
+            Err(NoSources)
+        }
+    }
+
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
         if let Some(mut pg) = self.postgres.take() {
             Ok(try_join_all(pg.iter_mut().map(|s| s.resolve(idr.clone())))
@@ -40,34 +59,6 @@ impl Config {
         } else {
             Ok(HashMap::new())
         }
-    }
-
-    pub fn merge(&mut self, other: Self) {
-        self.unrecognized.extend(other.unrecognized);
-        self.srv.merge(other.srv);
-
-        if let Some(other) = other.postgres {
-            match &mut self.postgres {
-                Some(_first) => {
-                    unimplemented!("merging multiple postgres configs is not yet supported");
-                    // first.merge(other);
-                }
-                None => self.postgres = Some(other),
-            }
-        }
-    }
-
-    /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(self) -> Result<Config> {
-        report_unrecognized_config("", &self.unrecognized);
-        Ok(Config {
-            srv: self.srv,
-            postgres: self
-                .postgres
-                .map(|pg| pg.map(|v| v.finalize().map_err(PostgresError)))
-                .transpose()?,
-            unrecognized: self.unrecognized,
-        })
     }
 }
 
@@ -93,27 +84,31 @@ pub mod tests {
 
     use super::*;
     use crate::config::Config;
-    use crate::test_utils::some_str;
+    use crate::test_utils::some;
+
+    pub fn parse_config(yaml: &str) -> Config {
+        serde_yaml::from_str(yaml).expect("parse yaml")
+    }
 
     pub fn assert_config(yaml: &str, expected: &Config) {
-        let config: Config = serde_yaml::from_str(yaml).expect("parse yaml");
-        let actual = config.finalize().expect("finalize");
-        assert_eq!(&actual, expected);
+        let mut config = parse_config(yaml);
+        config.finalize().expect("finalize");
+        assert_eq!(&config, expected);
     }
 
     #[test]
-    fn parse_config() {
-        assert_config(
-            indoc! {"
-            ---
-            keep_alive: 75
-            listen_addresses: '0.0.0.0:3000'
-            worker_processes: 8
-        "},
-            &Config {
+    fn parse_empty_config() {
+        assert_eq!(
+            parse_config(indoc! {"
+                ---
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+            "}),
+            Config {
                 srv: SrvConfig {
                     keep_alive: Some(75),
-                    listen_addresses: some_str("0.0.0.0:3000"),
+                    listen_addresses: some("0.0.0.0:3000"),
                     worker_processes: Some(8),
                 },
                 ..Default::default()

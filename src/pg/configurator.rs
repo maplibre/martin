@@ -63,7 +63,7 @@ impl PgBuilder {
             let Some(tables) = find_info(schemas, &cfg_inf.table, "table", id) else { continue };
             let Some(src_inf) = find_info(tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
 
-            let dup = used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id.clone(), cfg_inf);

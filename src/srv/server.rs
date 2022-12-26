@@ -21,6 +21,7 @@ use tilejson::{TileJSON, VectorLayer};
 
 use crate::source::{Source, Sources, UrlQuery, Xyz};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::Error::BindingError;
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1")
@@ -299,7 +300,7 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
-pub fn new_server(config: SrvConfig, sources: Sources) -> (Server, String) {
+pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server, String)> {
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
@@ -324,13 +325,13 @@ pub fn new_server(config: SrvConfig, sources: Sources) -> (Server, String) {
             .configure(router)
     })
     .bind(listen_addresses.clone())
-    .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
+    .map_err(|e| BindingError(e, listen_addresses.clone()))?
     .keep_alive(keep_alive)
     .shutdown_timeout(0)
     .workers(worker_processes)
     .run();
 
-    (server, listen_addresses)
+    Ok((server, listen_addresses))
 }
 
 fn check_zoom(src: &dyn Source, id: &str, zoom: i32) -> bool {

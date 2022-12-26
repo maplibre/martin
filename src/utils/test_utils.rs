@@ -6,8 +6,14 @@ use crate::Env;
 
 #[allow(clippy::unnecessary_wraps)]
 #[must_use]
-pub fn some_str(s: &str) -> Option<String> {
+pub fn some(s: &str) -> Option<String> {
     Some(s.to_string())
+}
+
+#[allow(clippy::unnecessary_wraps)]
+#[must_use]
+pub fn os(s: &str) -> OsString {
+    OsString::from(s)
 }
 
 #[derive(Default)]
@@ -28,8 +34,8 @@ mod tests {
         let env = FauxEnv::default();
         assert_eq!(env.get_env_str("FOO"), None);
 
-        let env = FauxEnv(vec![("FOO", OsString::from("bar"))].into_iter().collect());
-        assert_eq!(env.get_env_str("FOO"), Some("bar".to_string()));
+        let env = FauxEnv(vec![("FOO", os("bar"))].into_iter().collect());
+        assert_eq!(env.get_env_str("FOO"), some("bar"));
     }
 
     #[test]
