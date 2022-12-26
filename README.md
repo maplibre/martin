@@ -318,7 +318,7 @@ curl localhost:3000/points,lines/0/0/0
 
 ## Function Sources
 
-Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is a etag key (i.e. md5 hash).  
+Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is an etag key (i.e. md5 hash).  
 
 | Argument                   | Type    | Description             |
 |----------------------------|---------|-------------------------|
@@ -781,25 +781,27 @@ martin postgresql://postgres@localhost/db
 ❯ cd martin
 ❯ just
 Available recipes:
-    run *ARGS             # Start Martin server and a test database
-    debug-page *ARGS      # Start Martin server and open a test page
-    psql *ARGS            # Run PSQL utility against the test database
-    clean                 # Perform  cargo clean  to delete all build files
-    clean-test            # Delete test output files
-    start-db              # Start a test database
-    start-legacy          # Start a legacy test database
-    docker-up name        # Start a specific test database, e.g. db or db-legacy
-    stop                  # Stop the test database
-    bench                 # Run benchmark tests
-    test                  # Run all tests using a test database
-    test-unit *ARGS       # Run Rust unit and doc tests (cargo test)
-    test-int              # Run integration tests
-    test-int-legacy       # Run integration tests using legacy database
-    test-integration name # Run integration tests with the given docker compose target
-    docker-build          # Build martin docker image
-    docker-run *ARGS      # Build and run martin docker image
-    git *ARGS             # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
-    git-pre-push          # These steps automatically run before git push via a git hook
+    run *ARGS              # Start Martin server and a test database
+    debug-page *ARGS       # Start Martin server and open a test page
+    psql *ARGS             # Run PSQL utility against the test database
+    clean                  # Perform  cargo clean  to delete all build files
+    clean-test             # Delete test output files
+    start                  # Start a test database
+    start-legacy           # Start a legacy test database
+    docker-up name         # Start a specific test database, e.g. db or db-legacy
+    stop                   # Stop the test database
+    bench                  # Run benchmark tests
+    test                   # Run all tests using a test database
+    test-unit *ARGS        # Run Rust unit and doc tests (cargo test)
+    test-int               # Run integration tests
+    test-int-legacy        # Run integration tests using legacy database
+    test-integration name  # Run integration tests with the given docker compose target
+    coverage FORMAT='html' # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
+    docker-build           # Build martin docker image
+    docker-run *ARGS       # Build and run martin docker image
+    git *ARGS              # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+    lint                   # Run cargo fmt and cargo clippy
+    git-pre-push           # These steps automatically run before git push via a git hook
 ```
 
 ### Other useful commands

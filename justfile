@@ -10,16 +10,16 @@ export CARGO_TERM_COLOR := "always"
   just --list --unsorted
 
 # Start Martin server and a test database
-run *ARGS: start-db
+run *ARGS: start
     cargo run -- {{ARGS}}
 
 # Start Martin server and open a test page
-debug-page *ARGS: start-db
+debug-page *ARGS: start
     open tests/debug.html  # run will not exit, so open debug page first
     just run {{ARGS}}
 
 # Run PSQL utility against the test database
-psql *ARGS: start-db
+psql *ARGS: start
     psql {{ARGS}} {{DATABASE_URL}}
 
 # Perform  cargo clean  to delete all build files
@@ -31,7 +31,7 @@ clean-test:
     rm -rf tests/output
 
 # Start a test database
-start-db: (docker-up "db")
+start: (docker-up "db")
 
 # Start a legacy test database
 start-legacy: (docker-up "db-legacy")
@@ -48,14 +48,14 @@ stop:
     docker-compose down
 
 # Run benchmark tests
-bench: start-db
+bench: start
     cargo bench
 
 # Run all tests using a test database
 test: test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)
-test-unit *ARGS: start-db
+test-unit *ARGS: start
     cargo test --all-targets {{ARGS}}
     cargo test --all-targets --all-features {{ARGS}}
     cargo test --doc
@@ -79,7 +79,7 @@ test-int-legacy: (test-integration "db-legacy")
 # fi
 
 # # Run integration tests and save its output as the new expected output
-# bless: start-db clean-test
+# bless: start clean-test
 #     tests/test.sh
 #     rm -rf tests/expected
 #     mv tests/output tests/expected
@@ -98,7 +98,7 @@ coverage FORMAT='html':
     fi
 
     just clean
-    just start-db
+    just start
 
     PROF_DIR=target/prof
     mkdir -p "$PROF_DIR"
@@ -145,7 +145,7 @@ docker-run *ARGS:
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
-git *ARGS: start-db
+git *ARGS: start
     git {{ARGS}}
 
 # Run cargo fmt and cargo clippy
@@ -154,7 +154,7 @@ lint:
     cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
 
 # These steps automatically run before git push via a git hook
-git-pre-push: stop start-db
+git-pre-push: stop start
     rustc --version
     cargo --version
     just lint

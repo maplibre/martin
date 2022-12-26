@@ -92,7 +92,7 @@ pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap> {
                             input_types.len() == 4,
                             format!(
                                 "{schema}.{function}({}) -> {ret_inf}",
-                                input_names.join(", ")
+                                input_types.join(", ")
                             ),
                         ),
                         FunctionInfo::new(schema, function),

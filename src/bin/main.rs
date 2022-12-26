@@ -5,7 +5,7 @@ use std::io::Write;
 
 use actix_web::dev::Server;
 use clap::Parser;
-use log::info;
+use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
 use martin::pg::PgConfig;
 use martin::srv::{new_server, RESERVED_KEYWORDS};
@@ -74,6 +74,11 @@ async fn main() {
 }
 
 fn on_error<E: Display>(e: E) -> ! {
-    eprintln!("{e}");
+    // Ensure the message is printed, even if the logging is disabled
+    if log_enabled!(log::Level::Error) {
+        error!("{e}");
+    } else {
+        eprintln!("{e}");
+    }
     std::process::exit(1);
 }
