@@ -83,9 +83,9 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
+ARG=(--default-srid 900913 --save-config "$(dirname "$0")/output/generated_config.yaml")
 set -x
-ARG=(--default-srid 900913)
-$MARTIN_BIN "${ARG[@]}" --save-config "$(dirname "$0")/output/generated_config.yaml" 2>&1 | tee test_log_1.txt &
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
 PROCESS_ID=`jobs -p`
 
 { set +x; } 2> /dev/null
@@ -149,10 +149,9 @@ echo "Test pre-configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/configured"
 mkdir -p "$TEST_OUT_DIR"
 
-unset DATABASE_URL
-ARG=(--config tests/config.yaml)
+ARG=(--config tests/config.yaml --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
 set -x
-$MARTIN_BIN "${ARG[@]}" -W 1 2>&1 | tee test_log_2.txt &
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_2.txt &
 PROCESS_ID=`jobs -p`
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
