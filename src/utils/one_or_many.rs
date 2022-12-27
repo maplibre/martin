@@ -42,16 +42,6 @@ impl<T: Clone> OneOrMany<T> {
             OneOrMany::Many(v) => v.as_slice(),
         }
     }
-
-    pub fn map<R: Clone, F>(self, mut f: F) -> crate::Result<OneOrMany<R>>
-    where
-        F: FnMut(T) -> crate::Result<R>,
-    {
-        Ok(match self {
-            Self::One(v) => OneOrMany::One(f(v)?),
-            Self::Many(v) => OneOrMany::Many(v.into_iter().map(f).collect::<crate::Result<_>>()?),
-        })
-    }
 }
 
 #[cfg(test)]
