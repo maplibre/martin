@@ -30,6 +30,12 @@ async fn get_function_sources_ok() {
     assert_eq!(source.1.minzoom, None);
     assert_eq!(source.1.maxzoom, None);
     assert_eq!(source.1.bounds, None);
+
+    let source = funcs
+        .get("function_zxy_query_jsonb")
+        .expect("function_zxy_query_jsonb not found");
+    assert_eq!(source.1.schema, "public");
+    assert_eq!(source.1.function, "function_zxy_query_jsonb");
 }
 
 #[actix_rt::test]
@@ -57,7 +63,13 @@ async fn function_source_tile() {
         .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
         .await
         .unwrap();
+    assert!(!tile.is_empty());
 
+    let src = source(&mock, "function_zxy_query_jsonb");
+    let tile = src
+        .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
+        .await
+        .unwrap();
     assert!(!tile.is_empty());
 }
 

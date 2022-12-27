@@ -48,6 +48,9 @@ async fn get_catalog_ok() {
 
     let expected = "function_zxy_query";
     assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
+
+    let expected = "function_zxy_query_jsonb";
+    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
 }
 
 #[actix_rt::test]
@@ -228,6 +231,9 @@ async fn get_function_tiles() {
     let req = test_get("/function_zxy_query/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
 
+    let req = test_get("/function_zxy_query_jsonb/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
     let req = test_get("/function_zxy_row/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
 
@@ -354,6 +360,10 @@ async fn get_function_source_ok() {
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
+    let req = test_get("/function_zxy_query_jsonb");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
     let req = test_get("/function_zxy_query_test");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
@@ -378,6 +388,19 @@ async fn get_function_source_ok() {
     assert_eq!(
         result.tiles,
         &["http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"]
+    );
+
+    let req = TestRequest::get()
+        .uri("/function_zxy_query_jsonb?token=martin")
+        .insert_header((
+            "x-rewrite-url",
+            "/tiles/function_zxy_query_jsonb?token=martin",
+        ))
+        .to_request();
+    let result: TileJSON = call_and_read_body_json(&app, req).await;
+    assert_eq!(
+        result.tiles,
+        &["http://localhost:8080/tiles/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
     );
 }
 

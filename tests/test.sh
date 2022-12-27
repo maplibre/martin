@@ -93,44 +93,45 @@ trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
 
 >&2 echo "Test catalog"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog_auto.json"
 
 >&2 echo "Test server response for table source"
 test_pbf tbl_0_0_0                table_source/0/0/0
-test_pbf tbl_6_38_20              table_source/6/38/20
-test_pbf tbl_12_2476_1280         table_source/12/2476/1280
-test_pbf tbl_13_4952_2560         table_source/13/4952/2560
-test_pbf tbl_14_9904_5121         table_source/14/9904/5121
-test_pbf tbl_20_633856_327787     table_source/20/633856/327787
-test_pbf tbl_21_1267712_655574    table_source/21/1267712/655574
+test_pbf tbl_6_57_29              table_source/6/57/29
+test_pbf tbl_12_3673_1911         table_source/12/3673/1911
+test_pbf tbl_13_7346_3822         table_source/13/7346/3822
+test_pbf tbl_14_14692_7645        table_source/14/14692/7645
+test_pbf tbl_17_117542_61161      table_source/17/117542/61161
+test_pbf tbl_18_235085_122323     table_source/18/235085/122323
 
 >&2 echo "Test server response for composite source"
 test_pbf cmp_0_0_0                table_source,points1,points2/0/0/0
-test_pbf cmp_6_38_20              table_source,points1,points2/6/38/20
-test_pbf cmp_12_2476_1280         table_source,points1,points2/12/2476/1280
-test_pbf cmp_13_4952_2560         table_source,points1,points2/13/4952/2560
-test_pbf cmp_14_9904_5121         table_source,points1,points2/14/9904/5121
-test_pbf cmp_20_633856_327787     table_source,points1,points2/20/633856/327787
-test_pbf cmp_21_1267712_655574    table_source,points1,points2/21/1267712/655574
+test_pbf cmp_6_57_29              table_source,points1,points2/6/57/29
+test_pbf cmp_12_3673_1911         table_source,points1,points2/12/3673/1911
+test_pbf cmp_13_7346_3822         table_source,points1,points2/13/7346/3822
+test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
+test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
+test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
 >&2 echo "Test server response for function source"
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
-test_pbf fnc_6_38_20              function_zxy_query/6/38/20
-test_pbf fnc_12_2476_1280         function_zxy_query/12/2476/1280
-test_pbf fnc_13_4952_2560         function_zxy_query/13/4952/2560
-test_pbf fnc_14_9904_5121         function_zxy_query/14/9904/5121
-test_pbf fnc_20_633856_327787     function_zxy_query/20/633856/327787
-test_pbf fnc_21_1267712_655574    function_zxy_query/21/1267712/655574
+test_pbf fnc_6_57_29              function_zxy_query/6/57/29
+test_pbf fnc_12_3673_1911         function_zxy_query/12/3673/1911
+test_pbf fnc_13_7346_3822         function_zxy_query/13/7346/3822
+test_pbf fnc_14_14692_7645        function_zxy_query/14/14692/7645
+test_pbf fnc_17_117542_61161      function_zxy_query/17/117542/61161
+test_pbf fnc_18_235085_122323     function_zxy_query/18/235085/122323
 test_pbf fnc_0_0_0_token          function_zxy_query_test/0/0/0?token=martin
+test_pbf fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
 
 >&2 echo "Test server response for different function call types"
-test_pbf fnc_zoom_xy_6_38_20      function_zoom_xy/6/38/20
-test_pbf fnc_zxy_6_38_20          function_zxy/6/38/20
-test_pbf fnc_zxy2_6_38_20         function_zxy2/6/38/20
-test_pbf fnc_zxy_query_6_38_20    function_zxy_query/6/38/20
-test_pbf fnc_zxy_row_6_38_20      function_zxy_row/6/38/20
-test_pbf fnc_zxy_row2_6_38_20     function_Mixed_Name/6/38/20
-test_pbf fnc_zxy_row_key_6_38_20  function_zxy_row_key/6/38/20
+test_pbf fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
+test_pbf fnc_zxy_6_57_29          function_zxy/6/57/29
+test_pbf fnc_zxy2_6_57_29         function_zxy2/6/57/29
+test_pbf fnc_zxy_query_6_57_29    function_zxy_query/6/57/29
+test_pbf fnc_zxy_row_6_57_29      function_zxy_row/6/57/29
+test_pbf fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
+test_pbf fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
 
 >&2 echo "Test server response for table source with different SRID"
 test_pbf points3857_srid_0_0_0    points3857/0/0/0
@@ -158,7 +159,7 @@ trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
 
 >&2 echo "Test catalog"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog.json"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog_cfg.json"
 
 test_pbf tbl_0_0_0   table_source/0/0/0
 test_pbf cmp_0_0_0   points1,points2/0/0/0

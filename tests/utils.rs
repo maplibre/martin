@@ -144,6 +144,14 @@ pub fn mock_func_config_map() -> HashMap<&'static str, FunctionInfo> {
             },
         ),
         (
+            "function_zxy_query_jsonb",
+            FunctionInfo {
+                schema: "public".to_string(),
+                function: "function_zxy_query_jsonb".to_string(),
+                ..default.clone()
+            },
+        ),
+        (
             "function_zxy_row",
             FunctionInfo {
                 schema: "public".to_string(),

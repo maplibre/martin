@@ -71,18 +71,17 @@ test-int-legacy: (test-integration "db-legacy")
     #!/usr/bin/env sh
     export MARTIN_PORT=3111
     tests/test.sh
-# echo "** Skipping comparison with the expected values - not yet stable"
-# if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
-#     echo "** Expected output does not match actual output"
-#     echo "** If this is expected, run 'just bless' to update expected output"
-#     echo "** Note that this error is not fatal because we don't have a stable output yet"
-# fi
+    #if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
+    #    echo "** Expected output does not match actual output"
+    #    echo "** If this is expected, run 'just bless' to update expected output"
+    #    echo "** Note that this error is not fatal because we don't have a stable output yet"
+    #fi
 
-# # Run integration tests and save its output as the new expected output
-# bless: start clean-test
-#     tests/test.sh
-#     rm -rf tests/expected
-#     mv tests/output tests/expected
+## Run integration tests and save its output as the new expected output
+#bless: start clean-test
+#    tests/test.sh
+#    rm -rf tests/expected
+#    mv tests/output tests/expected
 
 # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
 coverage FORMAT='html':

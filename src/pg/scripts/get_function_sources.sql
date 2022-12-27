@@ -48,7 +48,7 @@ WHERE jsonb_array_length(input_names) IN (3, 4)
   AND input_types ->> 0 = 'integer'
   AND input_types ->> 1 = 'integer'
   AND input_types ->> 2 = 'integer'
-  AND (input_types ->> 3 = 'json' OR (input_types ->> 3) IS NULL)
+  AND (input_types ->> 3 = 'json' OR input_types ->> 3 = 'jsonb' OR (input_types ->> 3) IS NULL)
   AND (
         (data_type = 'bytea' AND out_params IS NULL)
         OR (data_type = 'bytea' AND out_params = '["bytea"]'::jsonb)
