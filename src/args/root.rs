@@ -45,7 +45,7 @@ impl Args {
         if self.meta.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
         }
-        if env.var_os("WATCH_MODE").is_some() {
+        if env.has_unused_var("WATCH_MODE") {
             warn!("The WATCH_MODE env variable is no longer supported, and will be ignored");
         }
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
@@ -53,9 +53,14 @@ impl Args {
         }
 
         self.srv.merge_into_config(&mut config.srv);
-        self.pg
-            .unwrap_or_default()
-            .merge_into_config(&mut config.postgres, &mut self.meta, env);
+
+        let pg_args = self.pg.unwrap_or_default();
+        if let Some(pg_config) = &mut config.postgres {
+            // config was loaded from a file, we can only apply a few CLI overrides to it
+            pg_args.override_config(pg_config, env);
+        } else {
+            config.postgres = pg_args.into_config(&mut self.meta, env);
+        }
 
         if self.meta.connection.is_empty() {
             Ok(())

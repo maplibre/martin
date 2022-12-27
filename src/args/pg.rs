@@ -24,18 +24,7 @@ pub struct PgArgs {
 }
 
 impl PgArgs {
-    pub fn merge_into_config(
-        self,
-        pg_config: &mut Option<OneOrMany<PgConfig>>,
-        meta: &mut MetaArgs,
-        env: &impl Env,
-    ) {
-        if let Some(pg_config) = pg_config {
-            // config was loaded from a file, we can only apply a few CLI overrides to it
-            self.override_config(pg_config, env);
-            return;
-        }
-
+    pub fn into_config(self, meta: &mut MetaArgs, env: &impl Env) -> Option<OneOrMany<PgConfig>> {
         let connections = Self::extract_conn_strings(meta, env);
         let default_srid = self.get_default_srid(env);
         #[cfg(feature = "ssl")]
@@ -57,14 +46,14 @@ impl PgArgs {
             })
             .collect();
 
-        *pg_config = match results.len() {
+        match results.len() {
             0 => None,
             1 => Some(OneOrMany::One(results.into_iter().next().unwrap())),
             _ => Some(OneOrMany::Many(results)),
-        };
+        }
     }
 
-    fn override_config(&self, pg_config: &mut OneOrMany<PgConfig>, env: &impl Env) {
+    pub fn override_config(self, pg_config: &mut OneOrMany<PgConfig>, env: &impl Env) {
         if self.default_srid.is_some() {
             info!("Overriding configured default SRID to {} on all Postgres connections because of a CLI parameter", self.default_srid.unwrap());
             pg_config.iter_mut().for_each(|c| {
@@ -99,7 +88,8 @@ impl PgArgs {
             "DATABASE_URL",
             "DEFAULT_SRID",
         ] {
-            if env.var_os(v).is_some() {
+            // We don't want to warn about these in case they were used in the config file expansion
+            if env.has_unused_var(v) {
                 warn!("Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file.");
             }
         }
@@ -220,8 +210,7 @@ mod tests {
             connection: vec!["postgres://localhost:5432".to_string()],
             ..Default::default()
         };
-        let mut config = None;
-        PgArgs::default().merge_into_config(&mut config, &mut meta, &FauxEnv::default());
+        let config = PgArgs::default().into_config(&mut meta, &FauxEnv::default());
         assert_eq!(
             config,
             Some(OneOrMany::One(PgConfig {
@@ -235,7 +224,6 @@ mod tests {
     #[test]
     fn test_merge_into_config2() {
         let mut meta = MetaArgs::default();
-        let mut config = None;
         let env = FauxEnv(
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
@@ -246,7 +234,7 @@ mod tests {
             .into_iter()
             .collect(),
         );
-        PgArgs::default().merge_into_config(&mut config, &mut meta, &env);
+        let config = PgArgs::default().into_config(&mut meta, &env);
         assert_eq!(
             config,
             Some(OneOrMany::One(PgConfig {
@@ -264,7 +252,6 @@ mod tests {
     #[test]
     fn test_merge_into_config3() {
         let mut meta = MetaArgs::default();
-        let mut config = None;
         let env = FauxEnv(
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
@@ -282,7 +269,7 @@ mod tests {
             default_srid: Some(20),
             ..Default::default()
         };
-        pg_args.merge_into_config(&mut config, &mut meta, &env);
+        let config = pg_args.into_config(&mut meta, &env);
         assert_eq!(
             config,
             Some(OneOrMany::One(PgConfig {

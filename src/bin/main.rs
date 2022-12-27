@@ -17,16 +17,17 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 async fn start(args: Args) -> Result<Server> {
     info!("Starting Martin v{VERSION}");
 
+    let env = OsEnv::default();
     let save_config = args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {}", cfg_filename.display());
-        read_config(cfg_filename)?
+        read_config(cfg_filename, &env)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
     };
 
-    args.merge_into_config(&mut config, &OsEnv::default())?;
+    args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
     let sources = config.resolve(IdResolver::new(RESERVED_KEYWORDS)).await?;
 

@@ -23,6 +23,10 @@ impl Env for FauxEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         self.0.get(key).map(Into::into)
     }
+
+    fn has_unused_var(&self, key: &str) -> bool {
+        self.var_os(key).is_some()
+    }
 }
 
 #[cfg(test)]

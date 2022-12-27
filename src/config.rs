@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use crate::args::OsEnv;
 use futures::future::try_join_all;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -69,13 +70,12 @@ pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, V
 }
 
 /// Read config from a file
-pub fn read_config(file_name: &Path) -> Result<Config> {
+pub fn read_config(file_name: &Path, env: &OsEnv) -> Result<Config> {
     let mut file = File::open(file_name).map_err(|e| ConfigLoadError(e, file_name.into()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .map_err(|e| ConfigLoadError(e, file_name.into()))?;
-    subst::yaml::from_str(contents.as_str(), &subst::Env)
-        .map_err(|e| ConfigParseError(e, file_name.into()))
+    subst::yaml::from_str(contents.as_str(), env).map_err(|e| ConfigParseError(e, file_name.into()))
 }
 
 #[cfg(test)]

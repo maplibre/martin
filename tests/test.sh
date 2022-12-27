@@ -95,7 +95,7 @@ wait_for_martin $PROCESS_ID
 >&2 echo "Test catalog"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog_auto.json"
 
->&2 echo "Test server response for table source"
+>&2 echo "***** Test server response for table source *****"
 test_pbf tbl_0_0_0                table_source/0/0/0
 test_pbf tbl_6_57_29              table_source/6/57/29
 test_pbf tbl_12_3673_1911         table_source/12/3673/1911
@@ -104,7 +104,7 @@ test_pbf tbl_14_14692_7645        table_source/14/14692/7645
 test_pbf tbl_17_117542_61161      table_source/17/117542/61161
 test_pbf tbl_18_235085_122323     table_source/18/235085/122323
 
->&2 echo "Test server response for composite source"
+>&2 echo "***** Test server response for composite source *****"
 test_pbf cmp_0_0_0                table_source,points1,points2/0/0/0
 test_pbf cmp_6_57_29              table_source,points1,points2/6/57/29
 test_pbf cmp_12_3673_1911         table_source,points1,points2/12/3673/1911
@@ -113,7 +113,7 @@ test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
 test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
 test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
->&2 echo "Test server response for function source"
+>&2 echo "***** Test server response for function source *****"
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
 test_pbf fnc_6_57_29              function_zxy_query/6/57/29
 test_pbf fnc_12_3673_1911         function_zxy_query/12/3673/1911
@@ -124,7 +124,7 @@ test_pbf fnc_18_235085_122323     function_zxy_query/18/235085/122323
 test_pbf fnc_0_0_0_token          function_zxy_query_test/0/0/0?token=martin
 test_pbf fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
 
->&2 echo "Test server response for different function call types"
+>&2 echo "***** Test server response for different function call types *****"
 test_pbf fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
 test_pbf fnc_zxy_6_57_29          function_zxy/6/57/29
 test_pbf fnc_zxy2_6_57_29         function_zxy2/6/57/29
@@ -133,10 +133,10 @@ test_pbf fnc_zxy_row_6_57_29      function_zxy_row/6/57/29
 test_pbf fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
 test_pbf fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
 
->&2 echo "Test server response for table source with different SRID"
+>&2 echo "***** Test server response for table source with different SRID *****"
 test_pbf points3857_srid_0_0_0    points3857/0/0/0
 
->&2 echo "Test server response for table source with empty SRID"
+>&2 echo "***** Test server response for table source with empty SRID *****"
 echo "IGNORING: This test is currently failing, and has been failing for a while"
 echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
