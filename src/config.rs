@@ -3,12 +3,12 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-use crate::args::OsEnv;
 use futures::future::try_join_all;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
+use crate::args::OsEnv;
 use crate::pg::PgConfig;
 use crate::source::{IdResolver, Sources};
 use crate::srv::SrvConfig;
