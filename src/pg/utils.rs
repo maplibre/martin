@@ -1,12 +1,14 @@
-use crate::source::{UrlQuery, Xyz};
-use crate::utils::InfoMap;
-use actix_http::header::HeaderValue;
-use actix_web::http::Uri;
+use std::collections::HashMap;
+
+use itertools::Itertools;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use semver::Version;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
+
+use crate::source::{UrlQuery, Xyz};
+use crate::utils::InfoMap;
 
 #[must_use]
 pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
@@ -51,14 +53,6 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     })
 }
 
-pub fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
-    header
-        .to_str()
-        .ok()
-        .and_then(|header| header.parse::<Uri>().ok())
-        .map(|uri| uri.path().to_owned())
-}
-
 #[must_use]
 pub fn create_tilejson(
     name: String,
@@ -80,28 +74,6 @@ pub fn create_tilejson(
     // TODO: consider removing - this is not needed per TileJSON spec
     tilejson.set_missing_defaults();
     tilejson
-}
-
-#[must_use]
-pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
-    minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
-        && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
-}
-
-#[cfg(test)]
-pub(crate) mod tests {
-    use crate::config::Config;
-
-    pub fn assert_config(yaml: &str, expected: &Config) {
-        let config: Config = serde_yaml::from_str(yaml).expect("parse yaml");
-        let actual = config.finalize().expect("finalize");
-        assert_eq!(&actual, expected);
-    }
-
-    #[allow(clippy::unnecessary_wraps)]
-    pub fn some_str(s: &str) -> Option<String> {
-        Some(s.to_string())
-    }
 }
 
 pub type Result<T> = std::result::Result<T, PgError>;
@@ -134,9 +106,6 @@ pub enum PgError {
     #[error("PostGIS version {0} is too old, minimum required is {1}")]
     PostgisTooOld(Version, Version),
 
-    #[error("Database connection string is not set")]
-    NoConnectionString,
-
     #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
     InvalidTableExtent(String, String),
 
@@ -158,4 +127,34 @@ pub enum PgError {
         Xyz,
         UrlQuery,
     ),
+}
+
+/// A list of schemas to include in the discovery process, or a boolean to
+/// indicate whether to run discovery at all.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Schemas {
+    Bool(bool),
+    List(Vec<String>),
+}
+
+impl Schemas {
+    /// Returns a list of schemas to include in the discovery process.
+    /// If self is a true, returns a list of all schemas produced by the callback.
+    pub fn get<'a, I, F>(&self, keys: F) -> Vec<String>
+    where
+        I: Iterator<Item = &'a String>,
+        F: FnOnce() -> I,
+    {
+        match self {
+            Schemas::List(lst) => lst.clone(),
+            Schemas::Bool(all) => {
+                if *all {
+                    keys().sorted().map(String::to_string).collect()
+                } else {
+                    Vec::new()
+                }
+            }
+        }
+    }
 }

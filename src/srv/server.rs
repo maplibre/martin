@@ -1,7 +1,8 @@
-use crate::pg::utils::parse_x_rewrite_url;
-use crate::source::{Source, UrlQuery, Xyz};
-use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use std::cmp::Ordering;
+use std::time::Duration;
+
 use actix_cors::Cors;
+use actix_http::header::HeaderValue;
 use actix_web::dev::Server;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::http::Uri;
@@ -16,10 +17,11 @@ use itertools::Itertools;
 use log::{debug, error};
 use martin_tile_utils::DataFormat;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::time::Duration;
 use tilejson::{TileJSON, VectorLayer};
+
+use crate::source::{Source, Sources, UrlQuery, Xyz};
+use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::Error::BindingError;
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1")
@@ -27,14 +29,12 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "catalog", "config", "health", "help", "index", "manifest", "refresh", "reload", "status",
 ];
 
-pub type Sources = HashMap<String, Box<dyn Source>>;
-
 pub struct AppState {
     pub sources: Sources,
 }
 
 impl AppState {
-    pub fn get_source(&self, id: &str) -> Result<&dyn Source> {
+    fn get_source(&self, id: &str) -> Result<&dyn Source> {
         Ok(self
             .sources
             .get(id)
@@ -299,7 +299,8 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         .service(get_tile);
 }
 
-pub fn new(config: SrvConfig, sources: Sources) -> (Server, String) {
+/// Create a new initialized Actix `App` instance together with the listening address.
+pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server, String)> {
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
@@ -324,19 +325,27 @@ pub fn new(config: SrvConfig, sources: Sources) -> (Server, String) {
             .configure(router)
     })
     .bind(listen_addresses.clone())
-    .unwrap_or_else(|_| panic!("Can't bind to {listen_addresses}"))
+    .map_err(|e| BindingError(e, listen_addresses.clone()))?
     .keep_alive(keep_alive)
     .shutdown_timeout(0)
     .workers(worker_processes)
     .run();
 
-    (server, listen_addresses)
+    Ok((server, listen_addresses))
 }
 
-pub fn check_zoom(src: &dyn Source, id: &str, zoom: i32) -> bool {
+fn check_zoom(src: &dyn Source, id: &str, zoom: i32) -> bool {
     let is_valid = src.is_valid_zoom(zoom);
     if !is_valid {
         debug!("Zoom {zoom} is not valid for source {id}");
     }
     is_valid
+}
+
+fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
+    header
+        .to_str()
+        .ok()
+        .and_then(|header| header.parse::<Uri>().ok())
+        .map(|uri| uri.path().to_owned())
 }

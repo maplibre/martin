@@ -318,7 +318,7 @@ curl localhost:3000/points,lines/0/0/0
 
 ## Function Sources
 
-Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is a etag key (i.e. md5 hash).  
+Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is an etag key (i.e. md5 hash).  
 
 | Argument                   | Type    | Description             |
 |----------------------------|---------|-------------------------|
@@ -448,18 +448,18 @@ Options:
 
 ## Environment Variables
 
-You can also configure martin using environment variables
+You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files.  
 
 | Environment variable          | Example                              | Description                                 |
 |-------------------------------|--------------------------------------|---------------------------------------------|
 | `DATABASE_URL`                | `postgresql://postgres@localhost/db` | Postgres database connection                |
 | `CA_ROOT_FILE`                | `./ca-certificate.crt`               | Loads trusted root certificates from a file |
 | `DEFAULT_SRID`                | `4326`                               | Fallback SRID                               |
-| `DANGER_ACCEPT_INVALID_CERTS` | `false`                              | Trust invalid certificates                  |
+| `DANGER_ACCEPT_INVALID_CERTS` | `0`                                  | Trust invalid certificates (any value)      |
 
 ## Configuration File
 
-If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a path to a file with a `--config` argument.
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your config file: `connection_string: ${MY_DATABASE_URL}`, or with a default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
 
 ```shell
 martin --config config.yaml
@@ -781,25 +781,27 @@ martin postgresql://postgres@localhost/db
 ❯ cd martin
 ❯ just
 Available recipes:
-    run *ARGS             # Start Martin server and a test database
-    debug-page *ARGS      # Start Martin server and open a test page
-    psql *ARGS            # Run PSQL utility against the test database
-    clean                 # Perform  cargo clean  to delete all build files
-    clean-test            # Delete test output files
-    start-db              # Start a test database
-    start-legacy          # Start a legacy test database
-    docker-up name        # Start a specific test database, e.g. db or db-legacy
-    stop                  # Stop the test database
-    bench                 # Run benchmark tests
-    test                  # Run all tests using a test database
-    test-unit *ARGS       # Run Rust unit and doc tests (cargo test)
-    test-int              # Run integration tests
-    test-int-legacy       # Run integration tests using legacy database
-    test-integration name # Run integration tests with the given docker compose target
-    docker-build          # Build martin docker image
-    docker-run *ARGS      # Build and run martin docker image
-    git *ARGS             # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
-    git-pre-push          # These steps automatically run before git push via a git hook
+    run *ARGS              # Start Martin server and a test database
+    debug-page *ARGS       # Start Martin server and open a test page
+    psql *ARGS             # Run PSQL utility against the test database
+    clean                  # Perform  cargo clean  to delete all build files
+    clean-test             # Delete test output files
+    start                  # Start a test database
+    start-legacy           # Start a legacy test database
+    docker-up name         # Start a specific test database, e.g. db or db-legacy
+    stop                   # Stop the test database
+    bench                  # Run benchmark tests
+    test                   # Run all tests using a test database
+    test-unit *ARGS        # Run Rust unit and doc tests (cargo test)
+    test-int               # Run integration tests
+    test-int-legacy        # Run integration tests using legacy database
+    test-integration name  # Run integration tests with the given docker compose target
+    coverage FORMAT='html' # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
+    docker-build           # Build martin docker image
+    docker-run *ARGS       # Build and run martin docker image
+    git *ARGS              # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+    lint                   # Run cargo fmt and cargo clippy
+    git-pre-push           # These steps automatically run before git push via a git hook
 ```
 
 ### Other useful commands

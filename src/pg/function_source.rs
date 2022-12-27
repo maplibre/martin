@@ -1,15 +1,17 @@
+use std::collections::HashMap;
+use std::fmt::Write;
+use std::iter::zip;
+
+use log::warn;
+use postgres_protocol::escape::escape_identifier;
+use serde_json::Value;
+
 use crate::pg::config_function::FunctionInfo;
 use crate::pg::configurator::SqlFuncInfoMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::Pool;
 use crate::pg::utils::PgError::PostgresError;
 use crate::pg::utils::Result;
-use log::warn;
-use postgres_protocol::escape::escape_identifier;
-use serde_json::Value;
-use std::collections::HashMap;
-use std::fmt::Write;
-use std::iter::zip;
 
 /// Get the list of functions from the database
 ///
@@ -90,7 +92,7 @@ pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap> {
                             input_types.len() == 4,
                             format!(
                                 "{schema}.{function}({}) -> {ret_inf}",
-                                input_names.join(", ")
+                                input_types.join(", ")
                             ),
                         ),
                         FunctionInfo::new(schema, function),

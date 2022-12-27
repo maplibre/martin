@@ -1,5 +1,10 @@
-use log::warn;
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::env::var_os;
 use std::ffi::OsString;
+
+use log::warn;
+use subst::VariableMap;
 
 /// A simple wrapper for the environment var access,
 /// so we can mock it in tests.
@@ -7,37 +12,47 @@ pub trait Env {
     fn var_os(&self, key: &str) -> Option<OsString>;
 
     #[must_use]
-    fn get_env_str(&self, name: &str) -> Option<String> {
-        match self.var_os(name) {
-            Some(s) => match s.into_string() {
-                Ok(v) => Some(v),
-                Err(v) => {
-                    let v = v.to_string_lossy();
-                    warn!("Environment variable {name} has invalid unicode. Lossy representation: {v}");
-                    None
+    fn get_env_str(&self, key: &str) -> Option<String> {
+        match self.var_os(key) {
+            Some(s) => {
+                match s.into_string() {
+                    Ok(v) => Some(v),
+                    Err(v) => {
+                        let v = v.to_string_lossy();
+                        warn!("Environment variable {key} has invalid unicode. Lossy representation: {v}");
+                        None
+                    }
                 }
-            },
+            }
             None => None,
         }
     }
+
+    /// Return true if the environment variable exists, and it was no used by the substitution process.
+    #[must_use]
+    fn has_unused_var(&self, key: &str) -> bool;
 }
 
+/// A map that gives strings from the environment,
+/// but also keeps track of which variables were requested via the `VariableMap` trait.
 #[derive(Default)]
-pub struct SystemEnv;
+pub struct OsEnv(RefCell<HashSet<String>>);
 
-impl Env for SystemEnv {
+impl Env for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         std::env::var_os(key)
     }
+
+    fn has_unused_var(&self, key: &str) -> bool {
+        !self.0.borrow().contains(key) && var_os(key).is_some()
+    }
 }
 
-#[cfg(test)]
-#[derive(Default)]
-pub struct FauxEnv(std::collections::HashMap<&'static str, &'static str>);
+impl<'a> VariableMap<'a> for OsEnv {
+    type Value = String;
 
-#[cfg(test)]
-impl Env for FauxEnv {
-    fn var_os(&self, key: &str) -> Option<OsString> {
-        self.0.get(key).map(Into::into)
+    fn get(&'a self, key: &str) -> Option<Self::Value> {
+        self.0.borrow_mut().insert(key.to_string());
+        std::env::var(key).ok()
     }
 }

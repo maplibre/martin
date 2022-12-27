@@ -1,12 +1,13 @@
-use crate::utils::Result;
-use async_trait::async_trait;
-use martin_tile_utils::DataFormat;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, Write};
 use std::sync::{Arc, Mutex};
+
+use async_trait::async_trait;
+use martin_tile_utils::DataFormat;
 use tilejson::TileJSON;
+
+use crate::utils::Result;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Xyz {
@@ -27,6 +28,7 @@ impl Display for Xyz {
 
 pub type Tile = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
+pub type Sources = HashMap<String, Box<dyn Source>>;
 
 #[async_trait]
 pub trait Source: Send + Debug {

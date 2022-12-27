@@ -1,3 +1,10 @@
+use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
+
+use futures::future::join_all;
+use itertools::Itertools;
+use log::{debug, error, info, warn};
+
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
@@ -6,15 +13,9 @@ use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::Pool;
 use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
 use crate::pg::utils::PgError::InvalidTableExtent;
-use crate::pg::utils::Result;
-use crate::source::IdResolver;
-use crate::srv::server::Sources;
-use crate::utils::{find_info, normalize_key, InfoMap, Schemas};
-use futures::future::join_all;
-use itertools::Itertools;
-use log::{debug, error, info, warn};
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use crate::pg::utils::{Result, Schemas};
+use crate::source::{IdResolver, Sources};
+use crate::utils::{find_info, normalize_key, InfoMap};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
@@ -62,7 +63,7 @@ impl PgBuilder {
             let Some(tables) = find_info(schemas, &cfg_inf.table, "table", id) else { continue };
             let Some(src_inf) = find_info(tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
 
-            let dup = used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id.clone(), cfg_inf);

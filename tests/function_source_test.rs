@@ -1,9 +1,8 @@
 use ctor::ctor;
 use itertools::Itertools;
 use log::info;
-use martin::pg::function_source::get_function_sources;
-use martin::source::Xyz;
-use martin::utils::Schemas;
+use martin::pg::{get_function_sources, Schemas};
+use martin::Xyz;
 
 #[path = "utils.rs"]
 mod utils;
@@ -31,6 +30,12 @@ async fn get_function_sources_ok() {
     assert_eq!(source.1.minzoom, None);
     assert_eq!(source.1.maxzoom, None);
     assert_eq!(source.1.bounds, None);
+
+    let source = funcs
+        .get("function_zxy_query_jsonb")
+        .expect("function_zxy_query_jsonb not found");
+    assert_eq!(source.1.schema, "public");
+    assert_eq!(source.1.function, "function_zxy_query_jsonb");
 }
 
 #[actix_rt::test]
@@ -41,9 +46,9 @@ async fn function_source_tilejson() {
     info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
-    assert_eq!(tilejson.version, some_str("1.0.0"));
-    assert_eq!(tilejson.name, some_str("public.function_zxy_query"));
-    assert_eq!(tilejson.scheme, some_str("xyz"));
+    assert_eq!(tilejson.version, some("1.0.0"));
+    assert_eq!(tilejson.name, some("public.function_zxy_query"));
+    assert_eq!(tilejson.scheme, some("xyz"));
     assert_eq!(tilejson.minzoom, Some(0));
     assert_eq!(tilejson.maxzoom, Some(30));
     assert!(tilejson.bounds.is_some());
@@ -58,7 +63,13 @@ async fn function_source_tile() {
         .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
         .await
         .unwrap();
+    assert!(!tile.is_empty());
 
+    let src = source(&mock, "function_zxy_query_jsonb");
+    let tile = src
+        .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
+        .await
+        .unwrap();
     assert!(!tile.is_empty());
 }
 

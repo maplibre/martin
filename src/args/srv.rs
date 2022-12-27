@@ -1,4 +1,4 @@
-use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -12,12 +12,17 @@ pub struct SrvArgs {
     pub workers: Option<usize>,
 }
 
-impl From<SrvArgs> for SrvConfig {
-    fn from(args: SrvArgs) -> Self {
-        SrvConfig {
-            keep_alive: args.keep_alive,
-            listen_addresses: args.listen_addresses,
-            worker_processes: args.workers,
+impl SrvArgs {
+    pub(crate) fn merge_into_config(self, srv_config: &mut SrvConfig) {
+        // Override config values with the ones from the command line
+        if self.keep_alive.is_some() {
+            srv_config.keep_alive = self.keep_alive;
+        }
+        if self.listen_addresses.is_some() {
+            srv_config.listen_addresses = self.listen_addresses;
+        }
+        if self.workers.is_some() {
+            srv_config.worker_processes = self.workers;
         }
     }
 }
