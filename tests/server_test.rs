@@ -2,7 +2,7 @@ use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
 use ctor::ctor;
-use martin::pg::{FunctionInfo, TableInfo};
+use indoc::indoc;
 use martin::srv::IndexEntry;
 use tilejson::{Bounds, TileJSON};
 
@@ -17,8 +17,8 @@ fn init() {
 }
 
 macro_rules! create_app {
-    ($sources:expr) => {{
-        let sources = mock_sources($sources.await).await.0;
+    ($sources:literal) => {{
+        let sources = mock_sources(mock_cfg($sources)).await.0;
         let state = crate::utils::mock_app_data(sources).await;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
@@ -35,7 +35,7 @@ fn test_get(path: &str) -> Request {
 
 #[actix_rt::test]
 async fn get_catalog_ok() {
-    let app = create_app!(mock_empty_config());
+    let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/catalog");
     let response = call_service(&app, req).await;
@@ -55,22 +55,28 @@ async fn get_catalog_ok() {
 
 #[actix_rt::test]
 async fn get_table_source_ok() {
-    let mut tables = mock_table_config_map();
-    let table = tables.remove("table_source").unwrap();
-    let table_source = TableInfo {
-        minzoom: Some(0),
-        maxzoom: Some(30),
-        ..table.clone()
-    };
-    let bad_srid = TableInfo {
-        srid: 3857,
-        ..table
-    };
-    let app = create_app!(mock_config(
-        None,
-        Some(vec![("table_source", table_source), ("bad_srid", bad_srid)]),
-        None
-    ));
+    let app = create_app! { "
+connection_string: $DATABASE_URL
+tables:
+  bad_srid:
+    schema: public
+    table: table_source
+    srid: 3857
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  table_source:
+    schema: public
+    table: table_source
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+" };
 
     let req = test_get("/non_existent");
     let response = call_service(&app, req).await;
@@ -95,7 +101,85 @@ async fn get_table_source_ok() {
 
 #[actix_rt::test]
 async fn get_table_source_tile_ok() {
-    let app = create_app!(mock_configured_tables(None));
+    let app = create_app! { "
+connection_string: $DATABASE_URL
+tables:
+  points2:
+    schema: public
+    table: points2
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points1:
+    schema: public
+    table: points1
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points_empty_srid:
+    schema: public
+    table: points_empty_srid
+    srid: 900973
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  table_source:
+    schema: public
+    table: table_source
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  points3857:
+    schema: public
+    table: points3857
+    srid: 3857
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  table_source_multiple_geom.geom1:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom1
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      geom2: geometry
+      gid: int4
+  table_source_multiple_geom.geom2:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom2
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      geom1: geometry
+      gid: int4
+  MIXPOINTS:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    id_column: giD
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      tAble: text
+" };
 
     let req = test_get("/non_existent/0/0/0");
     let response = call_service(&app, req).await;
@@ -108,7 +192,85 @@ async fn get_table_source_tile_ok() {
 
 #[actix_rt::test]
 async fn get_table_source_multiple_geom_tile_ok() {
-    let app = create_app!(mock_configured_tables(None));
+    let app = create_app! { "
+connection_string: $DATABASE_URL
+tables:
+  points2:
+    schema: public
+    table: points2
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  table_source_multiple_geom.geom2:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom2
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+      geom1: geometry
+  table_source:
+    schema: public
+    table: table_source
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  points1:
+    schema: public
+    table: points1
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  MIXPOINTS:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    id_column: giD
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      tAble: text
+  points_empty_srid:
+    schema: public
+    table: points_empty_srid
+    srid: 900973
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  points3857:
+    schema: public
+    table: points3857
+    srid: 3857
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  table_source_multiple_geom.geom1:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom1
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      geom2: geometry
+      gid: int4
+"};
 
     let req = test_get("/table_source_multiple_geom.geom1/0/0/0");
     let response = call_service(&app, req).await;
@@ -121,39 +283,50 @@ async fn get_table_source_multiple_geom_tile_ok() {
 
 #[actix_rt::test]
 async fn get_table_source_tile_minmax_zoom_ok() {
-    let mut tables = mock_table_config_map();
-
-    let cfg = mock_config(
-        None,
-        Some(vec![
-            (
-                "points1",
-                TableInfo {
-                    minzoom: Some(6),
-                    maxzoom: Some(12),
-                    ..tables.remove("points1").unwrap()
-                },
-            ),
-            ("points2", tables.remove("points2").unwrap()),
-            (
-                "points3857",
-                TableInfo {
-                    minzoom: Some(6),
-                    ..tables.remove("points3857").unwrap()
-                },
-            ),
-            (
-                "table_source",
-                TableInfo {
-                    maxzoom: Some(6),
-                    ..tables.remove("table_source").unwrap()
-                },
-            ),
-        ]),
-        None,
-    );
-    let app = create_app!(cfg);
-
+    let app = create_app! { "
+connection_string: $DATABASE_URL
+tables:
+  points3857:
+    schema: public
+    table: points3857
+    srid: 3857
+    geometry_column: geom
+    minzoom: 6
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points2:
+    schema: public
+    table: points2
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points1:
+    schema: public
+    table: points1
+    srid: 4326
+    geometry_column: geom
+    minzoom: 6
+    maxzoom: 12
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  table_source:
+    schema: public
+    table: table_source
+    srid: 4326
+    geometry_column: geom
+    maxzoom: 6
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+"};
     // zoom = 0 (nothing)
     let req = test_get("/points1/0/0/0");
     let response = call_service(&app, req).await;
@@ -217,7 +390,7 @@ async fn get_table_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn get_function_tiles() {
-    let app = create_app!(mock_empty_config());
+    let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_zoom_xy/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
@@ -246,8 +419,85 @@ async fn get_function_tiles() {
 
 #[actix_rt::test]
 async fn get_composite_source_ok() {
-    let app = create_app!(mock_configured_tables(None));
-
+    let app = create_app! { "
+connection_string: $DATABASE_URL
+tables:
+  table_source_multiple_geom.geom2:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom2
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+      geom1: geometry
+  points2:
+    schema: public
+    table: points2
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points_empty_srid:
+    schema: public
+    table: points_empty_srid
+    srid: 900973
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  table_source:
+    schema: public
+    table: table_source
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  MIXPOINTS:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    id_column: giD
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      tAble: text
+  table_source_multiple_geom.geom1:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom1
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+      geom2: geometry
+  points1:
+    schema: public
+    table: points1
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points3857:
+    schema: public
+    table: points3857
+    srid: 3857
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+"};
     let req = test_get("/non_existent1,non_existent2");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -259,7 +509,85 @@ async fn get_composite_source_ok() {
 
 #[actix_rt::test]
 async fn get_composite_source_tile_ok() {
-    let app = create_app!(mock_configured_tables(None));
+    let app = create_app! { "
+connection_string: $DATABASE_URL
+tables:
+  points_empty_srid:
+    schema: public
+    table: points_empty_srid
+    srid: 900973
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  table_source_multiple_geom.geom1:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom1
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      geom2: geometry
+      gid: int4
+  table_source_multiple_geom.geom2:
+    schema: public
+    table: table_source_multiple_geom
+    srid: 4326
+    geometry_column: geom2
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      geom1: geometry
+      gid: int4
+  table_source:
+    schema: public
+    table: table_source
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+  points1:
+    schema: public
+    table: points1
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  MIXPOINTS:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    id_column: giD
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      tAble: text
+  points2:
+    schema: public
+    table: points2
+    srid: 4326
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points3857:
+    schema: public
+    table: points3857
+    srid: 3857
+    geometry_column: geom
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+"};
 
     let req = test_get("/non_existent1,non_existent2/0/0/0");
     let response = call_service(&app, req).await;
@@ -272,20 +600,32 @@ async fn get_composite_source_tile_ok() {
 
 #[actix_rt::test]
 async fn get_composite_source_tile_minmax_zoom_ok() {
-    let mut tables = mock_table_config_map();
-
-    let points1 = TableInfo {
-        minzoom: Some(6),
-        maxzoom: Some(13),
-        ..tables.remove("points1").unwrap()
-    };
-    let points2 = TableInfo {
-        minzoom: Some(13),
-        maxzoom: Some(20),
-        ..tables.remove("points2").unwrap()
-    };
-    let tables = vec![("points1", points1), ("points2", points2)];
-    let app = create_app!(mock_config(None, Some(tables), None));
+    let app = create_app! { "
+connection_string: $DATABASE_URL
+tables:
+  points1:
+    schema: public
+    table: points1
+    srid: 4326
+    geometry_column: geom
+    minzoom: 6
+    maxzoom: 13
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+  points2:
+    schema: public
+    table: points2
+    srid: 4326
+    geometry_column: geom
+    minzoom: 13
+    maxzoom: 20
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      gid: int4
+"};
 
     // zoom = 0 (nothing)
     let req = test_get("/points1,points2/0/0/0");
@@ -325,7 +665,7 @@ async fn get_composite_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn null_functions() {
-    let app = create_app!(mock_empty_config());
+    let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_null/0/0/0");
     let response = call_service(&app, req).await;
@@ -342,7 +682,7 @@ async fn null_functions() {
 
 #[actix_rt::test]
 async fn get_function_source_ok() {
-    let app = create_app!(mock_empty_config());
+    let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/non_existent");
     let response = call_service(&app, req).await;
@@ -406,7 +746,7 @@ async fn get_function_source_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_tile_ok() {
-    let app = create_app!(mock_empty_config());
+    let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_zxy_query/0/0/0");
     let response = call_service(&app, req).await;
@@ -415,20 +755,19 @@ async fn get_function_source_tile_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_tile_minmax_zoom_ok() {
-    let function_source1 = FunctionInfo::new("public".to_owned(), "function_zxy_query".to_owned());
-    let function_source2 = FunctionInfo::new_extended(
-        "public".to_owned(),
-        "function_zxy_query".to_owned(),
-        6,
-        12,
-        Bounds::MAX,
-    );
-
-    let funcs = vec![
-        ("function_source1", function_source1),
-        ("function_source2", function_source2),
-    ];
-    let app = create_app!(mock_config(Some(funcs), None, None));
+    let app = create_app! {"
+connection_string: $DATABASE_URL
+functions:
+  function_source1:
+    schema: public
+    function: function_zxy_query
+  function_source2:
+    schema: public
+    function: function_zxy_query
+    minzoom: 6
+    maxzoom: 12
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+"};
 
     // zoom = 0 (function_source1)
     let req = test_get("/function_source1/0/0/0");
@@ -473,7 +812,7 @@ async fn get_function_source_tile_minmax_zoom_ok() {
 
 #[actix_rt::test]
 async fn get_function_source_query_params_ok() {
-    let app = create_app!(mock_empty_config());
+    let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_zxy_query_test/0/0/0");
     let response = call_service(&app, req).await;
@@ -487,7 +826,7 @@ async fn get_function_source_query_params_ok() {
 
 #[actix_rt::test]
 async fn get_health_returns_ok() {
-    let app = create_app!(mock_empty_config());
+    let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/health");
     let response = call_service(&app, req).await;
@@ -496,38 +835,51 @@ async fn get_health_returns_ok() {
 
 #[actix_rt::test]
 async fn tables_feature_id() {
-    let mut tables = mock_table_config_map();
-
-    let default = tables.remove("MIXPOINTS").unwrap();
-
-    let no_id = TableInfo {
-        id_column: None,
-        properties: props(&[("TABLE", "text")]),
-        ..default.clone()
-    };
-    let id_only = TableInfo {
-        id_column: some("giD"),
-        properties: props(&[("TABLE", "text")]),
-        ..default.clone()
-    };
-    let id_and_prop = TableInfo {
-        id_column: some("giD"),
-        properties: props(&[("giD", "int4"), ("TABLE", "text")]),
-        ..default.clone()
-    };
-    let prop_only = TableInfo {
-        id_column: None,
-        properties: props(&[("giD", "int4"), ("TABLE", "text")]),
-        ..default.clone()
-    };
-
-    let tables = vec![
-        ("no_id", no_id),
-        ("id_only", id_only),
-        ("id_and_prop", id_and_prop),
-        ("prop_only", prop_only),
-    ];
-    let mock = mock_sources(mock_config(None, Some(tables.clone()), None).await).await;
+    let cfg = mock_cfg(indoc! {"
+connection_string: $DATABASE_URL
+tables:
+  id_and_prop:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    id_column: giD
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      TABLE: text
+      giD: int4
+  no_id:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      TABLE: text
+  id_only:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    id_column: giD
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      TABLE: text
+  prop_only:
+    schema: MIXEDCASE
+    table: mixPoints
+    srid: 4326
+    geometry_column: geoM
+    bounds: [-180.0, -90.0, 180.0, 90.0]
+    geometry_type: POINT
+    properties:
+      giD: int4
+      TABLE: text
+"});
+    let mock = mock_sources(cfg.clone()).await;
 
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
@@ -552,8 +904,15 @@ async fn tables_feature_id() {
 
     // --------------------------------------------
 
-    let app = create_app!(mock_config(None, Some(tables.clone()), None));
-    for (name, _) in &tables {
+    let state = crate::utils::mock_app_data(mock.0).await;
+    let app = ::actix_web::test::init_service(
+        ::actix_web::App::new()
+            .app_data(state)
+            .configure(::martin::srv::router),
+    )
+    .await;
+
+    for (name, _) in cfg.tables.unwrap_or_default() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;
         assert!(response.status().is_success());

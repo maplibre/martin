@@ -7,7 +7,6 @@ use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
-use martin::pg::PgConfig;
 use martin::srv::{new_server, RESERVED_KEYWORDS};
 use martin::Error::ConfigWriteError;
 use martin::{read_config, Config, IdResolver, Result};
@@ -46,12 +45,7 @@ async fn start(args: Args) -> Result<Server> {
                 .write_all(yaml.as_bytes())
                 .map_err(|e| ConfigWriteError(e, file_name.clone()))?;
         }
-    } else if config
-        .postgres
-        .iter()
-        .any(|v| v.as_slice().iter().any(PgConfig::is_autodetect))
-    {
-        info!("Martin has been configured with automatic settings.");
+    } else {
         info!("Use --save-config to save or print Martin configuration.");
     }
 

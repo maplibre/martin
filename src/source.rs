@@ -72,10 +72,10 @@ impl IdResolver {
     /// try appending it with ".1", ".2", etc. until the name is unique.
     /// Only alphanumeric characters plus dashes/dots/underscores are allowed.
     #[must_use]
-    pub fn resolve(&self, mut name: String, unique_name: String) -> String {
+    pub fn resolve(&self, name: &str, unique_name: String) -> String {
         // Ensure name has no prohibited characters like spaces, commas, slashes, or non-unicode etc.
         // Underscores, dashes, and dots are OK. All other characters will be replaced with dashes.
-        name = name.replace(
+        let mut name = name.replace(
             |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
             "-",
         );
@@ -126,17 +126,17 @@ mod tests {
     #[test]
     fn id_resolve() {
         let r = IdResolver::default();
-        assert_eq!(r.resolve("a".to_string(), "a".to_string()), "a");
-        assert_eq!(r.resolve("a".to_string(), "a".to_string()), "a");
-        assert_eq!(r.resolve("a".to_string(), "b".to_string()), "a.1");
-        assert_eq!(r.resolve("a".to_string(), "b".to_string()), "a.1");
-        assert_eq!(r.resolve("b".to_string(), "a".to_string()), "b");
-        assert_eq!(r.resolve("b".to_string(), "a".to_string()), "b");
-        assert_eq!(r.resolve("a.1".to_string(), "a".to_string()), "a.1.1");
-        assert_eq!(r.resolve("a.1".to_string(), "b".to_string()), "a.1");
+        assert_eq!(r.resolve("a", "a".to_string()), "a");
+        assert_eq!(r.resolve("a", "a".to_string()), "a");
+        assert_eq!(r.resolve("a", "b".to_string()), "a.1");
+        assert_eq!(r.resolve("a", "b".to_string()), "a.1");
+        assert_eq!(r.resolve("b", "a".to_string()), "b");
+        assert_eq!(r.resolve("b", "a".to_string()), "b");
+        assert_eq!(r.resolve("a.1", "a".to_string()), "a.1.1");
+        assert_eq!(r.resolve("a.1", "b".to_string()), "a.1");
 
-        assert_eq!(r.resolve("a b".to_string(), "a b".to_string()), "a-b");
-        assert_eq!(r.resolve("a b".to_string(), "ab2".to_string()), "a-b.1");
+        assert_eq!(r.resolve("a b", "a b".to_string()), "a-b");
+        assert_eq!(r.resolve("a b", "ab2".to_string()), "a-b.1");
     }
 
     #[test]
