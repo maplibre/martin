@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 
 use crate::pg::PgError;
 
@@ -99,4 +100,12 @@ fn find_info_kv<'a, T>(
 pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
     minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
         && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
+}
+
+/// A serde helper to store a boolean as an object.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BoolOrObject<T> {
+    Bool(bool),
+    Object(T),
 }

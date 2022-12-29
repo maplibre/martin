@@ -88,7 +88,7 @@ impl Pool {
             .map_err(|e| PostgresPoolConnError(e, id.clone()))?
             .query_one(
                 r#"
-SELECT 
+SELECT
     (regexp_matches(
            PostGIS_Lib_Version(),
            '^(\d+\.\d+\.\d+)',

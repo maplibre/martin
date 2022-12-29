@@ -29,6 +29,13 @@ impl<T: Clone> OneOrMany<T> {
         }
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        match self {
+            OneOrMany::Many(v) => v.iter(),
+            OneOrMany::One(v) => std::slice::from_ref(v).iter(),
+        }
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         match self {
             OneOrMany::Many(v) => v.iter_mut(),
@@ -55,6 +62,9 @@ mod tests {
 
         assert_eq!(one.iter_mut().collect::<Vec<_>>(), vec![&1]);
         assert_eq!(many.iter_mut().collect::<Vec<_>>(), vec![&1, &2, &3]);
+
+        assert_eq!(one.iter().collect::<Vec<_>>(), vec![&1]);
+        assert_eq!(many.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
 
         assert_eq!(one.as_slice(), &[1]);
         assert_eq!(many.as_slice(), &[1, 2, 3]);
