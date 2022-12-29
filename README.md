@@ -611,7 +611,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgresql:password@db/db
+      - DATABASE_URL=postgresql://postgres:password@db/db
     depends_on:
       - db
 
@@ -663,7 +663,7 @@ services:
     image: maplibre/martin:v0.6.2
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://postgresql:password@db/db
+      - DATABASE_URL=postgresql://postgres:password@db/db
     depends_on:
       - db
 
