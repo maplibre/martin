@@ -19,7 +19,7 @@ debug-page *ARGS: start
     just run {{ARGS}}
 
 # Run PSQL utility against the test database
-psql *ARGS: start
+psql *ARGS:
     psql {{ARGS}} {{DATABASE_URL}}
 
 # Perform  cargo clean  to delete all build files
@@ -51,23 +51,21 @@ stop:
 bench: start
     cargo bench
 
+
 # Run all tests using a test database
-test: test-unit test-int
+test: (docker-up "db") test-unit test-int
+
+# Run all tests using tde oldest suppoarted version of the database
+test-legacy: (docker-up "db-legacy") test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)
-test-unit *ARGS: start
+test-unit *ARGS:
     cargo test --all-targets {{ARGS}}
     cargo test --all-targets --all-features {{ARGS}}
     cargo test --doc
 
 # Run integration tests
-test-int: (test-integration "db")
-
-# Run integration tests using legacy database
-test-int-legacy: (test-integration "db-legacy")
-
-# Run integration tests with the given docker compose target
-@test-integration name: (docker-up name) clean-test
+@test-int: clean-test
     #!/usr/bin/env sh
     export MARTIN_PORT=3111
     tests/test.sh

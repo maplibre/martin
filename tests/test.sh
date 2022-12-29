@@ -141,7 +141,7 @@ echo "IGNORING: This test is currently failing, and has been failing for a while
 echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
-grep -e ' ERROR ' -e ' WARN ' test_log_1.txt && exit 1
+(cat test_log_1.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
@@ -166,6 +166,6 @@ test_pbf fnc_0_0_0   function_zxy_query/0/0/0
 test_pbf fnc2_0_0_0  function_zxy_query_test/0/0/0?token=martin
 
 kill_process $PROCESS_ID
-grep -e ' ERROR ' -e ' WARN ' test_log_2.txt && exit 1
+(cat test_log_2.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1
 
 >&2 echo "All integration tests have passed"
