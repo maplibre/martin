@@ -27,6 +27,7 @@ clean: clean-test stop
     cargo clean
 
 # Delete test output files
+[private]
 clean-test:
     rm -rf tests/output
 
@@ -37,7 +38,8 @@ start: (docker-up "db")
 start-legacy: (docker-up "db-legacy")
 
 # Start a specific test database, e.g. db or db-legacy
-@docker-up name:
+[private]
+docker-up name:
     docker-compose up -d {{name}}
 
 alias _down := stop
@@ -55,7 +57,7 @@ bench: start
 # Run all tests using a test database
 test: (docker-up "db") test-unit test-int
 
-# Run all tests using tde oldest suppoarted version of the database
+# Run all tests using tde oldest supported version of the database
 test-legacy: (docker-up "db-legacy") test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)
@@ -65,7 +67,7 @@ test-unit *ARGS:
     cargo test --doc
 
 # Run integration tests
-@test-int: clean-test
+test-int: clean-test
     #!/usr/bin/env sh
     export MARTIN_PORT=3111
     tests/test.sh
@@ -151,6 +153,7 @@ lint:
     cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
 
 # These steps automatically run before git push via a git hook
+[private]
 git-pre-push: stop start
     rustc --version
     cargo --version
