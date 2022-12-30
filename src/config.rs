@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::fs::File;
+use std::future::Future;
 use std::io::prelude::*;
 use std::path::Path;
+use std::pin::Pin;
 
 use futures::future::try_join_all;
 use log::warn;
@@ -48,18 +50,20 @@ impl Config {
     }
 
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
-        if let Some(mut pg) = self.postgres.take() {
-            Ok(try_join_all(pg.iter_mut().map(|s| s.resolve(idr.clone())))
-                .await?
-                .into_iter()
-                .map(|s: (Sources, _)| s.0)
-                .fold(HashMap::new(), |mut acc, hashmap| {
-                    acc.extend(hashmap);
-                    acc
-                }))
-        } else {
-            Ok(HashMap::new())
+        let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
+        if let Some(v) = self.postgres.as_mut() {
+            for s in v.iter_mut() {
+                sources.push(Box::pin(s.resolve(idr.clone())));
+            }
         }
+
+        Ok(try_join_all(sources)
+            .await?
+            .into_iter()
+            .fold(HashMap::new(), |mut acc, hashmap| {
+                acc.extend(hashmap);
+                acc
+            }))
     }
 }
 

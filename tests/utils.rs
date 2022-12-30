@@ -40,7 +40,7 @@ pub async fn mock_pool() -> Pool {
 pub async fn mock_sources(mut config: PgConfig) -> MockSource {
     let res = config.resolve(IdResolver::default()).await;
     let res = res.expect("Failed to resolve pg data");
-    (res.0, config)
+    (res, config)
 }
 
 #[allow(dead_code)]

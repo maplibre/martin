@@ -219,11 +219,6 @@ impl PgBuilder {
         let source = PgSource::new(id.clone(), sql, info.to_tilejson(), self.pool.clone());
         sources.insert(id, Box::new(source));
     }
-
-    #[must_use]
-    pub fn get_pool(self) -> Pool {
-        self.pool
-    }
 }
 
 fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPublish> {
