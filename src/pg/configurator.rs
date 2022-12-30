@@ -212,11 +212,7 @@ impl PgBuilder {
 
     fn resolve_id<T: PgInfo>(&self, id: &str, src_inf: &T) -> String {
         let signature = format!("{}.{}", self.pool.get_id(), src_inf.format_id());
-        let id2 = self.id_resolver.resolve(id, signature);
-        if id2 != id {
-            info!("Source '{id}' is invalid or already exists, renaming to '{id2}'");
-        }
-        id2
+        self.id_resolver.resolve(id, signature)
     }
 
     fn add_func_src(&self, sources: &mut Sources, id: String, info: &impl PgInfo, sql: PgSqlInfo) {
@@ -284,10 +280,12 @@ fn summary(info: &TableInfo) -> String {
     )
 }
 
+/// A comparator for sorting tuples by first element
 fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
 }
 
+/// Merge two optional list of strings into a hashset
 fn merge_opt_hs(
     a: &Option<OneOrMany<String>>,
     b: &Option<OneOrMany<String>>,

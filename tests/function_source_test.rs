@@ -1,7 +1,6 @@
 use ctor::ctor;
 use indoc::indoc;
 use itertools::Itertools;
-use log::info;
 use martin::pg::get_function_sources;
 use martin::Xyz;
 
@@ -22,19 +21,15 @@ async fn get_function_sources_ok() {
 
     assert!(!sources.is_empty());
 
-    let funcs = sources.get("public").expect("public schema not found");
-    let source = funcs
-        .get("function_zxy_query")
-        .expect("function_zxy_query not found");
+    let funcs = sources.get("public").unwrap();
+    let source = funcs.get("function_zxy_query").unwrap();
     assert_eq!(source.1.schema, "public");
     assert_eq!(source.1.function, "function_zxy_query");
     assert_eq!(source.1.minzoom, None);
     assert_eq!(source.1.maxzoom, None);
     assert_eq!(source.1.bounds, None);
 
-    let source = funcs
-        .get("function_zxy_query_jsonb")
-        .expect("function_zxy_query_jsonb not found");
+    let source = funcs.get("function_zxy_query_jsonb").unwrap();
     assert_eq!(source.1.schema, "public");
     assert_eq!(source.1.function, "function_zxy_query_jsonb");
 }
@@ -43,8 +38,6 @@ async fn get_function_sources_ok() {
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
     let tilejson = source(&mock, "function_zxy_query").get_tilejson();
-
-    info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, some("1.0.0"));

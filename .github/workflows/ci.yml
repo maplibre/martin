@@ -148,6 +148,9 @@ jobs:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
           MARTIN_BUILD: "-"
           MARTIN_BIN: target/${{ matrix.bin }}
+      - name: Compare test output results (Linux)
+        if: runner.os == 'Linux'
+        run: diff --brief --recursive --new-file tests/output tests/expected
       - name: Package
         shell: bash
         run: |

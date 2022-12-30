@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use ctor::ctor;
 use indoc::indoc;
-use log::info;
 use martin::Xyz;
 
 #[path = "utils.rs"]
@@ -44,8 +43,6 @@ async fn tables_tilejson_ok() {
     let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
     let tilejson = source(&mock, "table_source").get_tilejson();
 
-    info!("tilejson = {tilejson:#?}");
-
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, some("1.0.0"));
     assert_eq!(tilejson.name, some("public.table_source.geom"));
@@ -59,8 +56,7 @@ async fn tables_tilejson_ok() {
 #[actix_rt::test]
 async fn tables_tile_ok() {
     let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
-    let src = source(&mock, "table_source");
-    let tile = src
+    let tile = source(&mock, "table_source")
         .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
         .await
         .unwrap();
