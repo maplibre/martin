@@ -8,6 +8,7 @@
 
 pub mod args;
 mod config;
+mod file_config;
 pub mod pg;
 pub mod pmtiles;
 mod source;

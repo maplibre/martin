@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::fs::File;
+use std::future::Future;
 use std::io::prelude::*;
 use std::path::Path;
+use std::pin::Pin;
 
 use futures::future::try_join_all;
 use log::warn;
@@ -9,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use subst::VariableMap;
 
+use crate::file_config::FileConfigEnum;
 use crate::pg::PgConfig;
-use crate::pmtiles::config::PmtConfig;
 use crate::source::{IdResolver, Sources};
 use crate::srv::SrvConfig;
 use crate::utils::{OneOrMany, Result};
@@ -25,7 +27,7 @@ pub struct Config {
     pub postgres: Option<OneOrMany<PgConfig>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub pmtiles: Option<PmtConfig>,
+    pub pmtiles: Option<FileConfigEnum>,
 
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
@@ -35,11 +37,19 @@ impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(&mut self) -> Result<&Self> {
         report_unrecognized_config("", &self.unrecognized);
-        let any = if let Some(pg) = &mut self.postgres {
+
+        let mut any = if let Some(pg) = &mut self.postgres {
             for pg in pg.iter_mut() {
                 pg.finalize()?;
             }
             !pg.is_empty()
+        } else {
+            false
+        };
+
+        any |= if let Some(pmt) = &mut self.pmtiles {
+            // pmt.finalize()?;
+            !pmt.is_empty()
         } else {
             false
         };
@@ -52,18 +62,23 @@ impl Config {
     }
 
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
-        if let Some(mut pg) = self.postgres.take() {
-            Ok(try_join_all(pg.iter_mut().map(|s| s.resolve(idr.clone())))
-                .await?
-                .into_iter()
-                .map(|s: (Sources, _)| s.0)
-                .fold(HashMap::new(), |mut acc, hashmap| {
-                    acc.extend(hashmap);
-                    acc
-                }))
-        } else {
-            Ok(HashMap::new())
+        let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
+        if let Some(v) = self.postgres.as_mut() {
+            for s in v.iter_mut() {
+                sources.push(Box::pin(s.resolve(idr.clone())))
+            }
         }
+        if let Some(v) = self.pmtiles.as_mut() {
+            sources.push(Box::pin(v.resolve(idr.clone())))
+        }
+
+        Ok(try_join_all(sources)
+            .await?
+            .into_iter()
+            .fold(HashMap::new(), |mut acc, hashmap| {
+                acc.extend(hashmap);
+                acc
+            }))
     }
 }
 
@@ -100,9 +115,12 @@ pub mod tests {
     use crate::config::Config;
     use crate::test_utils::FauxEnv;
 
+    pub fn pares_cfg(yaml: &str) -> Config {
+        parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
+    }
+
     pub fn assert_config(yaml: &str, expected: &Config) {
-        let env = FauxEnv::default();
-        let mut config = parse_config(yaml, &env, Path::new("<test>")).unwrap();
+        let mut config = pares_cfg(yaml);
         config.finalize().expect("finalize");
         assert_eq!(&config, expected);
     }

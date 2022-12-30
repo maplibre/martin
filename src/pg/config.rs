@@ -72,7 +72,14 @@ impl PgConfig {
         Ok(self)
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> Result<(Sources, Pool)> {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {
+        self.resolve_with_pool(id_resolver).await.map(|(s, _)| s)
+    }
+
+    pub async fn resolve_with_pool(
+        &mut self,
+        id_resolver: IdResolver,
+    ) -> crate::Result<(Sources, Pool)> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let ((mut tables, tbl_info), (funcs, func_info)) =
             try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
