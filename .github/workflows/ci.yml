@@ -125,13 +125,6 @@ jobs:
           rm -rf target
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Save test output on failure (Linux)
-        if: failure() && matrix.target == 'x86_64-unknown-linux-gnu'
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-output
-          path: tests/output/*
-          retention-days: 5
       - uses: actions/download-artifact@v3
         with:
           name: build-${{ matrix.target }}
@@ -149,8 +142,15 @@ jobs:
           MARTIN_BUILD: "-"
           MARTIN_BIN: target/${{ matrix.bin }}
       - name: Compare test output results (Linux)
-        if: runner.os == 'Linux'
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: diff --brief --recursive --new-file tests/output tests/expected
+      - name: Save test output on failure (Linux)
+        if: failure() && matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-output
+          path: tests/output/*
+          retention-days: 5
       - name: Package
         shell: bash
         run: |
