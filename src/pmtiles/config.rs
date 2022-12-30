@@ -1,12 +1,10 @@
-use crate::config::merge_option;
-use crate::one_or_many::OneOrMany;
 use crate::pmtiles::source::PmtSource;
 use crate::pmtiles::utils::PmtError::{InvalidFilePath, InvalidSourceFilePath};
 use crate::pmtiles::utils::Result;
 use crate::source::{IdResolver, Source};
-use crate::srv::server::Sources;
-use crate::utils;
+use crate::utils::OneOrMany;
 use crate::Error::PmtilesError;
+use crate::{utils, Sources};
 use futures::TryFutureExt;
 use itertools::Itertools;
 use log::{info, warn};
@@ -45,10 +43,10 @@ impl PmtConfigSrcBuilderEnum {
     }
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PmtConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub paths: Option<Vec<PathBuf>>,
+    pub paths: Option<OneOrMany<PathBuf>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sources: Option<HashMap<String, PmtConfigSource>>,
 }
@@ -209,15 +207,12 @@ impl PmtConfigBuilderEnum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
-    use crate::pg::utils::tests::assert_config;
+    use crate::config::tests::parse_config;
     use indoc::indoc;
 
     #[test]
-    fn parse_config() {
-        assert_config(
-            indoc! {"
-            ---
+    fn parse() {
+        let mut config = parse_config(indoc! {"
             pmtiles:
               paths:
                 - /dir-path
@@ -226,31 +221,10 @@ mod tests {
                   pm-src1: /tmp/pmtiles.pmtiles
                   pm-src2:
                     path: /tmp/pmtiles.pmtiles
-        "},
-            &Config {
-                pmtiles: Some(PmtConfig {
-                    paths: Some(vec![
-                        PathBuf::from("/dir-path"),
-                        PathBuf::from("/path/to/pmtiles2.pmtiles"),
-                    ]),
-                    sources: Some(
-                        [
-                            (
-                                "pm-src1".to_string(),
-                                PmtConfigSource::new("/tmp/pmtiles.pmtiles"),
-                            ),
-                            (
-                                "pm-src2".to_string(),
-                                PmtConfigSource::new("/tmp/pmtiles.pmtiles"),
-                            ),
-                        ]
-                        .iter()
-                        .cloned()
-                        .collect(),
-                    ),
-                }),
-                ..Default::default()
-            },
-        );
+        "})
+        .finalize()
+        .unwrap();
+        assert!(config.pmtiles.is_some());
+        let config = config.pmtiles.unwrap();
     }
 }

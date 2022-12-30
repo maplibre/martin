@@ -1,7 +1,7 @@
-use crate::pg::utils::{create_tilejson, is_valid_zoom};
 use crate::pmtiles::utils;
 use crate::pmtiles::utils::PmtError::GetTileError;
 use crate::source::{Source, Tile, UrlQuery, Xyz};
+use crate::utils::{create_tilejson, is_valid_zoom};
 use crate::Error;
 use async_trait::async_trait;
 use martin_tile_utils::DataFormat;
