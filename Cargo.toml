@@ -1,9 +1,10 @@
 [workspace]
+default-members = ["martin-tile-utils", "."]
 members = ["martin-tile-utils"]
 
 [package]
 name = "martin"
-version = "0.6.2"
+version = "0.7.0-alpha"
 edition = "2021"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight PostGIS vector tile server"

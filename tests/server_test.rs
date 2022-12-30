@@ -2,9 +2,8 @@ use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
 use ctor::ctor;
-use martin::pg::config_function::FunctionInfo;
-use martin::pg::config_table::TableInfo;
-use martin::srv::server::IndexEntry;
+use martin::pg::{FunctionInfo, TableInfo};
+use martin::srv::IndexEntry;
 use tilejson::{Bounds, TileJSON};
 
 #[path = "utils.rs"]
@@ -24,7 +23,7 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(state)
-                .configure(::martin::srv::server::router),
+                .configure(::martin::srv::router),
         )
         .await
     }};
@@ -48,6 +47,9 @@ async fn get_catalog_ok() {
     assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
 
     let expected = "function_zxy_query";
+    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
+
+    let expected = "function_zxy_query_jsonb";
     assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
 }
 
@@ -229,6 +231,9 @@ async fn get_function_tiles() {
     let req = test_get("/function_zxy_query/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
 
+    let req = test_get("/function_zxy_query_jsonb/6/38/20");
+    assert!(call_service(&app, req).await.status().is_success());
+
     let req = test_get("/function_zxy_row/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
 
@@ -355,6 +360,10 @@ async fn get_function_source_ok() {
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
 
+    let req = test_get("/function_zxy_query_jsonb");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+
     let req = test_get("/function_zxy_query_test");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
@@ -379,6 +388,19 @@ async fn get_function_source_ok() {
     assert_eq!(
         result.tiles,
         &["http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"]
+    );
+
+    let req = TestRequest::get()
+        .uri("/function_zxy_query_jsonb?token=martin")
+        .insert_header((
+            "x-rewrite-url",
+            "/tiles/function_zxy_query_jsonb?token=martin",
+        ))
+        .to_request();
+    let result: TileJSON = call_and_read_body_json(&app, req).await;
+    assert_eq!(
+        result.tiles,
+        &["http://localhost:8080/tiles/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
     );
 }
 
@@ -484,12 +506,12 @@ async fn tables_feature_id() {
         ..default.clone()
     };
     let id_only = TableInfo {
-        id_column: some_str("giD"),
+        id_column: some("giD"),
         properties: props(&[("TABLE", "text")]),
         ..default.clone()
     };
     let id_and_prop = TableInfo {
-        id_column: some_str("giD"),
+        id_column: some("giD"),
         properties: props(&[("giD", "int4"), ("TABLE", "text")]),
         ..default.clone()
     };
@@ -517,11 +539,11 @@ async fn tables_feature_id() {
     // });
 
     let src = table(&mock, "id_only");
-    assert_eq!(src.id_column, some_str("giD"));
+    assert_eq!(src.id_column, some("giD"));
     assert_eq!(src.properties.len(), 1);
 
     let src = table(&mock, "id_and_prop");
-    assert_eq!(src.id_column, some_str("giD"));
+    assert_eq!(src.id_column, some("giD"));
     assert_eq!(src.properties.len(), 2);
 
     let src = table(&mock, "prop_only");

@@ -1,11 +1,11 @@
-use crate::pg::utils::PgError;
-use crate::pmtiles::utils::PmtError;
-use itertools::Itertools;
-use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
+
+use log::{error, info, warn};
+
+use crate::pg::PgError;
+use crate::pmtiles::utils::PmtError;
 
 pub type InfoMap<T> = HashMap<String, T>;
 
@@ -13,6 +13,9 @@ pub type InfoMap<T> = HashMap<String, T>;
 pub enum Error {
     #[error("The --config and the connection parameters cannot be used together")]
     ConfigAndConnectionsError,
+
+    #[error("Unable to bind to {1}: {0}")]
+    BindingError(io::Error, String),
 
     #[error("Unable to load config file {}: {0}", .1.display())]
     ConfigLoadError(io::Error, PathBuf),
@@ -22,6 +25,12 @@ pub enum Error {
 
     #[error("Unable to write config file {}: {0}", .1.display())]
     ConfigWriteError(io::Error, PathBuf),
+
+    #[error("No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file.")]
+    NoSources,
+
+    #[error("Unrecognizable connection strings: {0:?}")]
+    UnrecognizableConnections(Vec<String>),
 
     #[error("{0}")]
     PostgresError(#[from] PgError),
@@ -48,7 +57,7 @@ pub fn find_info<'a, T>(map: &'a InfoMap<T>, key: &'a str, info: &str, id: &str)
 }
 
 #[must_use]
-pub fn find_info_kv<'a, T>(
+fn find_info_kv<'a, T>(
     map: &'a InfoMap<T>,
     key: &'a str,
     info: &str,
@@ -76,7 +85,7 @@ pub fn find_info_kv<'a, T>(
 
     if multiple.is_empty() {
         if let Some(result) = result {
-            info!("For source {id}, {info} '{key}' was not found, using '{result}' instead.");
+            info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
             Some((result.as_str(), map.get(result)?))
         } else {
             warn!("Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
@@ -84,37 +93,14 @@ pub fn find_info_kv<'a, T>(
             None
         }
     } else {
-        error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}", multiple.join(", "));
+        error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
+            multiple.join(", "));
         None
     }
 }
 
-/// A list of schemas to include in the discovery process, or a boolean to
-/// indicate whether to run discovery at all.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Schemas {
-    Bool(bool),
-    List(Vec<String>),
-}
-
-impl Schemas {
-    /// Returns a list of schemas to include in the discovery process.
-    /// If self is a true, returns a list of all schemas produced by the callback.
-    pub fn get<'a, I, F>(&self, keys: F) -> Vec<String>
-    where
-        I: Iterator<Item = &'a String>,
-        F: FnOnce() -> I,
-    {
-        match self {
-            Schemas::List(lst) => lst.clone(),
-            Schemas::Bool(all) => {
-                if *all {
-                    keys().sorted().map(String::to_string).collect()
-                } else {
-                    Vec::new()
-                }
-            }
-        }
-    }
+#[must_use]
+pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
+    minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
+        && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
 }

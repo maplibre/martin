@@ -7,16 +7,24 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod args;
-pub mod config;
-pub mod one_or_many;
+mod config;
 pub mod pg;
 pub mod pmtiles;
-pub mod source;
+mod source;
 pub mod srv;
-pub mod utils;
+mod utils;
 
-pub use crate::utils::Error;
-pub use crate::utils::Result;
+#[cfg(test)]
+#[path = "utils/test_utils.rs"]
+mod test_utils;
+
+// test_utils is used from tests in other modules, and it uses this crate's object.
+// Must make it accessible as carte::Env from both places when testing.
+#[cfg(test)]
+pub use crate::args::Env;
+pub use crate::config::{read_config, Config};
+pub use crate::source::{IdResolver, Source, Sources, Xyz};
+pub use crate::utils::{Error, Result};
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]

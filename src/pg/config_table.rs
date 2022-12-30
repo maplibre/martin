@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
+use tilejson::{Bounds, TileJSON};
+
 use crate::pg::config::PgInfo;
 use crate::pg::utils::create_tilejson;
 use crate::utils::InfoMap;
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
-use std::collections::HashMap;
-use tilejson::{Bounds, TileJSON};
 
 pub type TableInfoSources = InfoMap<TableInfo>;
 

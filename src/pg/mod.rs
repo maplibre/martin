@@ -1,9 +1,16 @@
-pub mod config;
-pub mod config_function;
-pub mod config_table;
-pub mod configurator;
-pub mod function_source;
-pub mod pg_source;
-pub mod pool;
-pub mod table_source;
-pub mod utils;
+mod config;
+mod config_function;
+mod config_table;
+mod configurator;
+mod function_source;
+mod pg_source;
+mod pool;
+mod table_source;
+mod utils;
+
+pub use config::PgConfig;
+pub use config_function::FunctionInfo;
+pub use config_table::TableInfo;
+pub use function_source::get_function_sources;
+pub use pool::{Pool, POOL_SIZE_DEFAULT};
+pub use utils::{PgError, Schemas};

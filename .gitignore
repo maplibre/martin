@@ -5,6 +5,7 @@
 **/*.rs.bk
 .idea/
 test_log*
+*.profraw
 
 pg_data/
 config.yml
