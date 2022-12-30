@@ -112,7 +112,7 @@ jobs:
       - name: Init database
         if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
-        run: tests/fixtures/initdb.sh
+        run: tests/pg/fixtures/initdb.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Unit Tests (Linux)

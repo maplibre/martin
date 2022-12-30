@@ -56,7 +56,7 @@ jobs:
 
       - name: Init database
         shell: bash
-        run: tests/fixtures/initdb.sh
+        run: tests/pg/fixtures/initdb.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
 
