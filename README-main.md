@@ -793,6 +793,7 @@ Available recipes:
     test-legacy            # Run all tests using tde oldest supported version of the database
     test-unit *ARGS        # Run Rust unit and doc tests (cargo test)
     test-int               # Run integration tests
+    bless                  # Run integration tests and save its output as the new expected output
     coverage FORMAT='html' # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
     docker-build           # Build martin docker image
     docker-run *ARGS       # Build and run martin docker image

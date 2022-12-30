@@ -7,7 +7,8 @@ DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
 MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
 MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
-MARTIN_BIN="${MARTIN_BIN:-cargo run -- --listen-addresses localhost:${MARTIN_PORT}}"
+MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
+MARTIN_BIN="${MARTIN_BIN:-cargo run --} ${MARTIN_ARGS}"
 
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
