@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
-use itertools::Itertools;
 use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use semver::Version;
-use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
 
 use crate::source::{UrlQuery, Xyz};
@@ -104,34 +102,4 @@ pub enum PgError {
         Xyz,
         UrlQuery,
     ),
-}
-
-/// A list of schemas to include in the discovery process, or a boolean to
-/// indicate whether to run discovery at all.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Schemas {
-    Bool(bool),
-    List(Vec<String>),
-}
-
-impl Schemas {
-    /// Returns a list of schemas to include in the discovery process.
-    /// If self is a true, returns a list of all schemas produced by the callback.
-    pub fn get<'a, I, F>(&self, keys: F) -> Vec<String>
-    where
-        I: Iterator<Item = &'a String>,
-        F: FnOnce() -> I,
-    {
-        match self {
-            Schemas::List(lst) => lst.clone(),
-            Schemas::Bool(all) => {
-                if *all {
-                    keys().sorted().map(String::to_string).collect()
-                } else {
-                    Vec::new()
-                }
-            }
-        }
-    }
 }

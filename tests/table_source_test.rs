@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use ctor::ctor;
-use itertools::Itertools;
-use log::info;
-use martin::pg::Schemas;
+use indoc::indoc;
 use martin::Xyz;
 
 #[path = "utils.rs"]
@@ -18,7 +16,7 @@ fn init() {
 
 #[actix_rt::test]
 async fn table_source() {
-    let mock = mock_unconfigured().await;
+    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
     assert!(!mock.0.is_empty());
 
     let source = table(&mock, "table_source");
@@ -42,10 +40,8 @@ async fn table_source() {
 
 #[actix_rt::test]
 async fn tables_tilejson_ok() {
-    let mock = mock_unconfigured().await;
+    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
     let tilejson = source(&mock, "table_source").get_tilejson();
-
-    info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, some("1.0.0"));
@@ -59,9 +55,8 @@ async fn tables_tilejson_ok() {
 
 #[actix_rt::test]
 async fn tables_tile_ok() {
-    let mock = mock_unconfigured().await;
-    let src = source(&mock, "table_source");
-    let tile = src
+    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
+    let tile = source(&mock, "table_source")
         .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
         .await
         .unwrap();
@@ -71,7 +66,11 @@ async fn tables_tile_ok() {
 
 #[actix_rt::test]
 async fn tables_srid_ok() {
-    let mock = mock_unconfigured_srid(Some(900_913)).await;
+    let mock = mock_sources(mock_cfg(indoc! {"
+        connection_string: $DATABASE_URL
+        default_srid: 900913
+    "}))
+    .await;
 
     let source = table(&mock, "points1");
     assert_eq!(source.srid, 4326);
@@ -88,7 +87,7 @@ async fn tables_srid_ok() {
 
 #[actix_rt::test]
 async fn tables_multiple_geom_ok() {
-    let mock = mock_unconfigured().await;
+    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
 
     let source = table(&mock, "table_source_multiple_geom");
     assert_eq!(source.geometry_column, "geom1");
@@ -99,12 +98,13 @@ async fn tables_multiple_geom_ok() {
 
 #[actix_rt::test]
 async fn table_source_schemas() {
-    let mut cfg = mock_empty_config().await;
-    cfg.auto_functions = Some(Schemas::Bool(false));
-    cfg.auto_tables = Some(Schemas::List(vec!["MixedCase".to_owned()]));
+    let cfg = mock_cfg(indoc! {"
+        connection_string: $DATABASE_URL
+        auto_publish:
+          tables:
+            from_schema: MixedCase
+          functions: false
+    "});
     let sources = mock_sources(cfg).await.0;
-    assert_eq!(
-        sources.keys().sorted().collect::<Vec<_>>(),
-        vec!["MixPoints"],
-    );
+    assert_eq!(sources.keys().collect::<Vec<_>>(), vec!["MixPoints"],);
 }

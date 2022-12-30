@@ -8,9 +8,11 @@ mod pool;
 mod table_source;
 mod utils;
 
-pub use config::PgConfig;
+pub use config::{PgCfgPublish, PgCfgPublishType, PgConfig};
 pub use config_function::FunctionInfo;
 pub use config_table::TableInfo;
 pub use function_source::get_function_sources;
 pub use pool::{Pool, POOL_SIZE_DEFAULT};
-pub use utils::{PgError, Schemas};
+pub use utils::PgError;
+
+pub use crate::utils::BoolOrObject;
