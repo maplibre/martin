@@ -205,40 +205,40 @@ jobs:
           - 5432/tcp
         # needed because the postgres container does not provide a healthcheck
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-      steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-      - name: Setup database
-        run: |
-          # sudo apt-get install postgresql-client
-          tests/fixtures/initdb.sh
-        env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - name: Unit Tests (Linux)
-        shell: bash
-        run: |
-          cargo test --all-targets
-          cargo test --all-targets --all-features
-          cargo test --doc
-          rm -rf target
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-      - name: Save test output on failure
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-output
-          path: tests/output/*
-          retention-days: 5
-      - uses: actions/download-artifact@v3
-        with:
-          name: build-x86_64-unknown-linux-gnu
-          path: target/
-      - name: Integration Tests
-        run: |
-          chmod +x target/martin
-          tests/test.sh
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-          MARTIN_BUILD: "-"
-          MARTIN_BIN: target/martin
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+    - name: Setup database
+      run: |
+        # sudo apt-get install postgresql-client
+        tests/fixtures/initdb.sh
+      env:
+        PGPORT: ${{ job.services.postgres.ports[5432] }}
+    - name: Unit Tests (Linux)
+      shell: bash
+      run: |
+        cargo test --all-targets
+        cargo test --all-targets --all-features
+        cargo test --doc
+        rm -rf target
+      env:
+        DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+    - name: Save test output on failure
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-output
+        path: tests/output/*
+        retention-days: 5
+    - uses: actions/download-artifact@v3
+      with:
+        name: build-x86_64-unknown-linux-gnu
+        path: target/
+    - name: Integration Tests
+      run: |
+        chmod +x target/martin
+        tests/test.sh
+      env:
+        DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        MARTIN_BUILD: "-"
+        MARTIN_BIN: target/martin
