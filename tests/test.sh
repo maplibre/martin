@@ -63,8 +63,8 @@ test_pbf()
   $CURL "$URL" > "$FILENAME"
 
   if [[ $OSTYPE == linux* ]]; then
-    ./tests/vtzero-check "$FILENAME"
-    ./tests/vtzero-show "$FILENAME" > "$FILENAME.txt"
+    ./tests/utils/vtzero-check "$FILENAME"
+    ./tests/utils/vtzero-show "$FILENAME" > "$FILENAME.txt"
   fi
 }
 

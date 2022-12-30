@@ -26,8 +26,8 @@ services:
       - PGDATABASE=db
       - PGUSER=postgres
     volumes:
-      - ./tests/fixtures:/fixtures
-      - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
+      - ./tests/pg/fixtures:/fixtures
+      - ./tests/pg/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
 
   db-legacy:
     image: postgis/postgis:11-3.0-alpine
@@ -41,5 +41,5 @@ services:
       - PGDATABASE=db
       - PGUSER=postgres
     volumes:
-      - ./tests/fixtures:/fixtures
-      - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
+      - ./tests/pg/fixtures:/fixtures
+      - ./tests/pg/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
