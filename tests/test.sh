@@ -5,7 +5,7 @@ set -euo pipefail
 CURL=${CURL:-curl -sSf}
 DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
 MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
-MARTIN_PORT="${MARTIN_PORT:-3000}"
+MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_BIN="${MARTIN_BIN:-cargo run -- --listen-addresses localhost:${MARTIN_PORT}}"
 
