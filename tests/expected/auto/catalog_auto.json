@@ -1,0 +1,82 @@
+[
+  {
+    "id": "MixPoints",
+    "name": "MixedCase.MixPoints.Geom"
+  },
+  {
+    "id": "function_Mixed_Name",
+    "name": "MixedCase.function_Mixed_Name"
+  },
+  {
+    "id": "function_null",
+    "name": "public.function_null"
+  },
+  {
+    "id": "function_null_row",
+    "name": "public.function_null_row"
+  },
+  {
+    "id": "function_null_row2",
+    "name": "public.function_null_row2"
+  },
+  {
+    "id": "function_zoom_xy",
+    "name": "public.function_zoom_xy"
+  },
+  {
+    "id": "function_zxy",
+    "name": "public.function_zxy"
+  },
+  {
+    "id": "function_zxy2",
+    "name": "public.function_zxy2"
+  },
+  {
+    "id": "function_zxy_query",
+    "name": "public.function_zxy_query"
+  },
+  {
+    "id": "function_zxy_query_jsonb",
+    "name": "public.function_zxy_query_jsonb"
+  },
+  {
+    "id": "function_zxy_query_test",
+    "name": "public.function_zxy_query_test"
+  },
+  {
+    "id": "function_zxy_row",
+    "name": "public.function_zxy_row"
+  },
+  {
+    "id": "function_zxy_row_key",
+    "name": "public.function_zxy_row_key"
+  },
+  {
+    "id": "points1",
+    "name": "public.points1.geom"
+  },
+  {
+    "id": "points2",
+    "name": "public.points2.geom"
+  },
+  {
+    "id": "points3857",
+    "name": "public.points3857.geom"
+  },
+  {
+    "id": "points_empty_srid",
+    "name": "public.points_empty_srid.geom"
+  },
+  {
+    "id": "table_source",
+    "name": "public.table_source.geom"
+  },
+  {
+    "id": "table_source_multiple_geom",
+    "name": "public.table_source_multiple_geom.geom1"
+  },
+  {
+    "id": "table_source_multiple_geom.1",
+    "name": "public.table_source_multiple_geom.geom2"
+  }
+]

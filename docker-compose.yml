@@ -13,6 +13,7 @@ services:
       - db
 
   db:
+    # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:14-3.3-alpine
     restart: unless-stopped
     ports:
@@ -30,6 +31,7 @@ services:
       - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
 
   db-legacy:
+    # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:11-3.0-alpine
     restart: unless-stopped
     ports:

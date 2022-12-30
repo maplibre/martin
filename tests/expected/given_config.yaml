@@ -1,0 +1,3 @@
+keep_alive: 75
+listen_addresses: localhost:3111
+worker_processes: 1
