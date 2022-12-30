@@ -194,7 +194,7 @@ jobs:
       PGUSER: postgres
     services:
       postgres:
-        image: {{ matrix.image }}
+        image: ${{ matrix.image }}
         env:
           # POSTGRES_* variables are used by the postgis/postgres image
           POSTGRES_DB: ${{ env.PGDATABASE }}
