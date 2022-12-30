@@ -65,7 +65,7 @@ impl Config {
         let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
         if let Some(v) = self.postgres.as_mut() {
             for s in v.iter_mut() {
-                sources.push(Box::pin(s.resolve(idr.clone())))
+                sources.push(Box::pin(s.resolve(idr.clone())));
             }
         }
         if let Some(v) = self.pmtiles.as_mut() {

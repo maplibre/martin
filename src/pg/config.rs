@@ -6,7 +6,6 @@ use crate::config::report_unrecognized_config;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
-use crate::pg::pool::Pool;
 use crate::pg::utils::Result;
 use crate::source::{IdResolver, Sources};
 use crate::utils::{BoolOrObject, OneOrMany};
@@ -73,13 +72,6 @@ impl PgConfig {
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {
-        self.resolve_with_pool(id_resolver).await.map(|(s, _)| s)
-    }
-
-    pub async fn resolve_with_pool(
-        &mut self,
-        id_resolver: IdResolver,
-    ) -> crate::Result<(Sources, Pool)> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let ((mut tables, tbl_info), (funcs, func_info)) =
             try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
@@ -87,7 +79,7 @@ impl PgConfig {
         self.tables = Some(tbl_info);
         self.functions = Some(func_info);
         tables.extend(funcs);
-        Ok((tables, pg.get_pool()))
+        Ok(tables)
     }
 }
 
