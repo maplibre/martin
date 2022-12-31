@@ -7,7 +7,7 @@ pub use martin::args::Env;
 use martin::pg::{PgConfig, Pool, TableInfo};
 use martin::srv::AppState;
 use martin::{IdResolver, Source, Sources};
-#[path = "../../src/utils/test_utils.rs"]
+#[path = "../src/utils/test_utils.rs"]
 mod test_utils;
 #[allow(clippy::wildcard_imports)]
 pub use test_utils::*;

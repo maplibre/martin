@@ -35,7 +35,7 @@ jobs:
       - name: Setup database
         run: |
           sudo apt-get install postgresql-client
-          tests/pg/fixtures/initdb.sh
+          tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
 
