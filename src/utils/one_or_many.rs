@@ -15,8 +15,8 @@ impl<T> IntoIterator for OneOrMany<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            OneOrMany::One(v) => vec![v].into_iter(),
-            OneOrMany::Many(v) => v.into_iter(),
+            Self::One(v) => vec![v].into_iter(),
+            Self::Many(v) => v.into_iter(),
         }
     }
 }
@@ -24,22 +24,22 @@ impl<T> IntoIterator for OneOrMany<T> {
 impl<T: Clone> OneOrMany<T> {
     pub fn is_empty(&self) -> bool {
         match self {
-            OneOrMany::One(_) => false,
-            OneOrMany::Many(v) => v.is_empty(),
+            Self::One(_) => false,
+            Self::Many(v) => v.is_empty(),
         }
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         match self {
-            OneOrMany::Many(v) => v.iter_mut(),
-            OneOrMany::One(v) => std::slice::from_mut(v).iter_mut(),
+            Self::Many(v) => v.iter_mut(),
+            Self::One(v) => std::slice::from_mut(v).iter_mut(),
         }
     }
 
     pub fn as_slice(&self) -> &[T] {
         match self {
-            OneOrMany::One(item) => std::slice::from_ref(item),
-            OneOrMany::Many(v) => v.as_slice(),
+            Self::One(item) => std::slice::from_ref(item),
+            Self::Many(v) => v.as_slice(),
         }
     }
 }

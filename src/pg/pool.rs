@@ -110,7 +110,7 @@ SELECT
         }
 
         let margin = version >= RECOMMENDED_POSTGIS_VER;
-        Ok(Pool { id, pool, margin })
+        Ok(Self { id, pool, margin })
     }
 
     pub async fn get(&self) -> Result<Connection<'_>> {

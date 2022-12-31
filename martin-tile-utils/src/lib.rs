@@ -20,50 +20,50 @@ impl DataFormat {
     #[must_use]
     pub fn new(format: &str) -> Self {
         match format {
-            "png" => DataFormat::Png,
-            "jpg" | "jpeg" => DataFormat::Jpeg,
-            "webp" => DataFormat::Webp,
-            "json" => DataFormat::Json,
-            "pbf" | "mvt" => DataFormat::Mvt,
-            "gzip" => DataFormat::Gzip,
-            "zlib" => DataFormat::Zlib,
-            _ => DataFormat::Unknown,
+            "png" => Self::Png,
+            "jpg" | "jpeg" => Self::Jpeg,
+            "webp" => Self::Webp,
+            "json" => Self::Json,
+            "pbf" | "mvt" => Self::Mvt,
+            "gzip" => Self::Gzip,
+            "zlib" => Self::Zlib,
+            _ => Self::Unknown,
         }
     }
 
     #[must_use]
     pub fn detect(data: &[u8]) -> Self {
         match data {
-            v if &v[0..2] == b"\x1f\x8b" => DataFormat::Gzip,
-            v if &v[0..2] == b"\x78\x9c" => DataFormat::Zlib,
-            v if &v[0..8] == b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A" => DataFormat::Png,
-            v if &v[0..3] == b"\xFF\xD8\xFF" => DataFormat::Jpeg,
-            v if &v[0..4] == b"RIFF" && &v[8..12] == b"WEBP" => DataFormat::Webp,
-            _ => DataFormat::Unknown,
+            v if &v[0..2] == b"\x1f\x8b" => Self::Gzip,
+            v if &v[0..2] == b"\x78\x9c" => Self::Zlib,
+            v if &v[0..8] == b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A" => Self::Png,
+            v if &v[0..3] == b"\xFF\xD8\xFF" => Self::Jpeg,
+            v if &v[0..4] == b"RIFF" && &v[8..12] == b"WEBP" => Self::Webp,
+            _ => Self::Unknown,
         }
     }
 
     #[must_use]
     pub fn format(&self) -> &str {
         match *self {
-            DataFormat::Png => "png",
-            DataFormat::Jpeg => "jpeg",
-            DataFormat::Webp => "webp",
-            DataFormat::Json => "json",
-            DataFormat::Mvt => "mvt",
-            DataFormat::Gzip | DataFormat::Zlib | DataFormat::Unknown => "",
+            Self::Png => "png",
+            Self::Jpeg => "jpeg",
+            Self::Webp => "webp",
+            Self::Json => "json",
+            Self::Mvt => "mvt",
+            Self::Gzip | Self::Zlib | Self::Unknown => "",
         }
     }
 
     #[must_use]
     pub fn content_type(&self) -> &str {
         match *self {
-            DataFormat::Png => "image/png",
-            DataFormat::Jpeg => "image/jpeg",
-            DataFormat::Webp => "image/webp",
-            DataFormat::Json => "application/json",
-            DataFormat::Mvt => "application/x-protobuf",
-            DataFormat::Gzip | DataFormat::Zlib | DataFormat::Unknown => "",
+            Self::Png => "image/png",
+            Self::Jpeg => "image/jpeg",
+            Self::Webp => "image/webp",
+            Self::Json => "application/json",
+            Self::Mvt => "application/x-protobuf",
+            Self::Gzip | Self::Zlib | Self::Unknown => "",
         }
     }
 }
