@@ -1,7 +1,7 @@
 use ctor::ctor;
+use indoc::indoc;
 use itertools::Itertools;
-use log::info;
-use martin::pg::{get_function_sources, Schemas};
+use martin::pg::get_function_sources;
 use martin::Xyz;
 
 #[path = "utils.rs"]
@@ -21,29 +21,23 @@ async fn get_function_sources_ok() {
 
     assert!(!sources.is_empty());
 
-    let funcs = sources.get("public").expect("public schema not found");
-    let source = funcs
-        .get("function_zxy_query")
-        .expect("function_zxy_query not found");
+    let funcs = sources.get("public").unwrap();
+    let source = funcs.get("function_zxy_query").unwrap();
     assert_eq!(source.1.schema, "public");
     assert_eq!(source.1.function, "function_zxy_query");
     assert_eq!(source.1.minzoom, None);
     assert_eq!(source.1.maxzoom, None);
     assert_eq!(source.1.bounds, None);
 
-    let source = funcs
-        .get("function_zxy_query_jsonb")
-        .expect("function_zxy_query_jsonb not found");
+    let source = funcs.get("function_zxy_query_jsonb").unwrap();
     assert_eq!(source.1.schema, "public");
     assert_eq!(source.1.function, "function_zxy_query_jsonb");
 }
 
 #[actix_rt::test]
 async fn function_source_tilejson() {
-    let mock = mock_unconfigured().await;
+    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
     let tilejson = source(&mock, "function_zxy_query").get_tilejson();
-
-    info!("tilejson = {tilejson:#?}");
 
     assert_eq!(tilejson.tilejson, "2.2.0");
     assert_eq!(tilejson.version, some("1.0.0"));
@@ -57,7 +51,7 @@ async fn function_source_tilejson() {
 
 #[actix_rt::test]
 async fn function_source_tile() {
-    let mock = mock_unconfigured().await;
+    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
     let src = source(&mock, "function_zxy_query");
     let tile = src
         .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
@@ -75,9 +69,13 @@ async fn function_source_tile() {
 
 #[actix_rt::test]
 async fn function_source_schemas() {
-    let mut cfg = mock_empty_config().await;
-    cfg.auto_functions = Some(Schemas::List(vec!["MixedCase".to_owned()]));
-    cfg.auto_tables = Some(Schemas::Bool(false));
+    let cfg = mock_cfg(indoc! {"
+        connection_string: $DATABASE_URL
+        auto_publish:
+          tables: false
+          functions:
+            from_schema: MixedCase
+    "});
     let sources = mock_sources(cfg).await.0;
     assert_eq!(
         sources.keys().sorted().collect::<Vec<_>>(),

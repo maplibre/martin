@@ -24,7 +24,11 @@ pub struct PgArgs {
 }
 
 impl PgArgs {
-    pub fn into_config(self, meta: &mut MetaArgs, env: &impl Env) -> Option<OneOrMany<PgConfig>> {
+    pub fn into_config<'a>(
+        self,
+        meta: &mut MetaArgs,
+        env: &impl Env<'a>,
+    ) -> Option<OneOrMany<PgConfig>> {
         let connections = Self::extract_conn_strings(meta, env);
         let default_srid = self.get_default_srid(env);
         #[cfg(feature = "ssl")]
@@ -53,7 +57,7 @@ impl PgArgs {
         }
     }
 
-    pub fn override_config(self, pg_config: &mut OneOrMany<PgConfig>, env: &impl Env) {
+    pub fn override_config<'a>(self, pg_config: &mut OneOrMany<PgConfig>, env: &impl Env<'a>) {
         if self.default_srid.is_some() {
             info!("Overriding configured default SRID to {} on all Postgres connections because of a CLI parameter", self.default_srid.unwrap());
             pg_config.iter_mut().for_each(|c| {
@@ -68,7 +72,7 @@ impl PgArgs {
         }
         #[cfg(feature = "ssl")]
         if self.ca_root_file.is_some() {
-            info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter", 
+            info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
                 self.ca_root_file.as_ref().unwrap().display());
             pg_config.iter_mut().for_each(|c| {
                 c.ca_root_file = self.ca_root_file.clone();
@@ -95,7 +99,7 @@ impl PgArgs {
         }
     }
 
-    fn extract_conn_strings(meta: &mut MetaArgs, env: &impl Env) -> Vec<String> {
+    fn extract_conn_strings<'a>(meta: &mut MetaArgs, env: &impl Env<'a>) -> Vec<String> {
         let mut strings = Vec::new();
         let mut i = 0;
         while i < meta.connection.len() {
@@ -118,7 +122,7 @@ impl PgArgs {
         strings
     }
 
-    fn get_default_srid(&self, env: &impl Env) -> Option<i32> {
+    fn get_default_srid<'a>(&self, env: &impl Env<'a>) -> Option<i32> {
         if self.default_srid.is_some() {
             return self.default_srid;
         }
@@ -136,7 +140,7 @@ impl PgArgs {
     }
 
     #[cfg(feature = "ssl")]
-    fn get_accept_invalid_cert(&self, env: &impl Env) -> bool {
+    fn get_accept_invalid_cert<'a>(&self, env: &impl Env<'a>) -> bool {
         if !self.danger_accept_invalid_certs
             && env.get_env_str("DANGER_ACCEPT_INVALID_CERTS").is_some()
         {
@@ -147,7 +151,7 @@ impl PgArgs {
         }
     }
     #[cfg(feature = "ssl")]
-    fn get_ca_root_file(&self, env: &impl Env) -> Option<std::path::PathBuf> {
+    fn get_ca_root_file<'a>(&self, env: &impl Env<'a>) -> Option<std::path::PathBuf> {
         if self.ca_root_file.is_some() {
             return self.ca_root_file.clone();
         }

@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 use std::fs::File;
+use std::future::Future;
 use std::io::prelude::*;
 use std::path::Path;
+use std::pin::Pin;
 
 use futures::future::try_join_all;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
+use subst::VariableMap;
 
-use crate::args::OsEnv;
 use crate::pg::PgConfig;
 use crate::source::{IdResolver, Sources};
 use crate::srv::SrvConfig;
@@ -48,18 +50,20 @@ impl Config {
     }
 
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
-        if let Some(mut pg) = self.postgres.take() {
-            Ok(try_join_all(pg.iter_mut().map(|s| s.resolve(idr.clone())))
-                .await?
-                .into_iter()
-                .map(|s: (Sources, _)| s.0)
-                .fold(HashMap::new(), |mut acc, hashmap| {
-                    acc.extend(hashmap);
-                    acc
-                }))
-        } else {
-            Ok(HashMap::new())
+        let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
+        if let Some(v) = self.postgres.as_mut() {
+            for s in v.iter_mut() {
+                sources.push(Box::pin(s.resolve(idr.clone())));
+            }
         }
+
+        Ok(try_join_all(sources)
+            .await?
+            .into_iter()
+            .fold(HashMap::new(), |mut acc, hashmap| {
+                acc.extend(hashmap);
+                acc
+            }))
     }
 }
 
@@ -70,49 +74,36 @@ pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, V
 }
 
 /// Read config from a file
-pub fn read_config(file_name: &Path, env: &OsEnv) -> Result<Config> {
+pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> Result<Config>
+where
+    M: VariableMap<'a>,
+    M::Value: AsRef<str>,
+{
     let mut file = File::open(file_name).map_err(|e| ConfigLoadError(e, file_name.into()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .map_err(|e| ConfigLoadError(e, file_name.into()))?;
-    subst::yaml::from_str(contents.as_str(), env).map_err(|e| ConfigParseError(e, file_name.into()))
+    parse_config(&contents, env, file_name)
+}
+
+pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> Result<Config>
+where
+    M: VariableMap<'a>,
+    M::Value: AsRef<str>,
+{
+    subst::yaml::from_str(contents, env).map_err(|e| ConfigParseError(e, file_name.into()))
 }
 
 #[cfg(test)]
 pub mod tests {
-    use indoc::indoc;
-
     use super::*;
     use crate::config::Config;
-    use crate::test_utils::some;
-
-    pub fn parse_config(yaml: &str) -> Config {
-        serde_yaml::from_str(yaml).expect("parse yaml")
-    }
+    use crate::test_utils::FauxEnv;
 
     pub fn assert_config(yaml: &str, expected: &Config) {
-        let mut config = parse_config(yaml);
+        let env = FauxEnv::default();
+        let mut config = parse_config(yaml, &env, Path::new("<test>")).unwrap();
         config.finalize().expect("finalize");
         assert_eq!(&config, expected);
-    }
-
-    #[test]
-    fn parse_empty_config() {
-        assert_eq!(
-            parse_config(indoc! {"
-                ---
-                keep_alive: 75
-                listen_addresses: '0.0.0.0:3000'
-                worker_processes: 8
-            "}),
-            Config {
-                srv: SrvConfig {
-                    keep_alive: Some(75),
-                    listen_addresses: some("0.0.0.0:3000"),
-                    worker_processes: Some(8),
-                },
-                ..Default::default()
-            },
-        );
     }
 }

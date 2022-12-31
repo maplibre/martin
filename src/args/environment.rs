@@ -8,7 +8,7 @@ use subst::VariableMap;
 
 /// A simple wrapper for the environment var access,
 /// so we can mock it in tests.
-pub trait Env {
+pub trait Env<'a>: VariableMap<'a> {
     fn var_os(&self, key: &str) -> Option<OsString>;
 
     #[must_use]
@@ -38,7 +38,7 @@ pub trait Env {
 #[derive(Default)]
 pub struct OsEnv(RefCell<HashSet<String>>);
 
-impl Env for OsEnv {
+impl<'a> Env<'a> for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         std::env::var_os(key)
     }

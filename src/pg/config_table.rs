@@ -5,8 +5,7 @@ use serde_yaml::Value;
 use tilejson::{Bounds, TileJSON};
 
 use crate::pg::config::PgInfo;
-use crate::pg::utils::create_tilejson;
-use crate::utils::InfoMap;
+use crate::utils::{create_tilejson, InfoMap};
 
 pub type TableInfoSources = InfoMap<TableInfo>;
 
