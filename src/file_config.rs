@@ -1,6 +1,8 @@
+use crate::config::report_unrecognized_config;
 use crate::Result;
 use crate::{IdResolver, OneOrMany, Sources};
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -13,17 +15,22 @@ pub enum FileConfigEnum {
 }
 
 impl FileConfigEnum {
+    pub fn finalize(&self) -> Result<&Self> {
+        if let Self::Config(cfg) = self {
+            report_unrecognized_config("pmtiles.", &cfg.unrecognized);
+        }
+        Ok(self)
+    }
+
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
         todo!()
     }
-}
 
-impl FileConfigEnum {
     pub fn is_empty(&self) -> bool {
         match self {
-            FileConfigEnum::Path(_) => false,
-            FileConfigEnum::Paths(v) => v.is_empty(),
-            FileConfigEnum::Config(c) => c.is_empty(),
+            Self::Path(_) => false,
+            Self::Paths(v) => v.is_empty(),
+            Self::Config(c) => c.is_empty(),
         }
     }
 }
@@ -34,6 +41,8 @@ pub struct FileConfig {
     pub paths: Option<OneOrMany<PathBuf>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sources: Option<HashMap<String, FileConfigSrc>>,
+    #[serde(flatten)]
+    pub unrecognized: HashMap<String, Value>,
 }
 
 impl FileConfig {
@@ -53,8 +62,8 @@ pub enum FileConfigSrc {
 impl FileConfigSrc {
     pub fn path(&self) -> &PathBuf {
         match self {
-            FileConfigSrc::Path(p) => p,
-            FileConfigSrc::Obj(o) => &o.path,
+            Self::Path(p) => p,
+            Self::Obj(o) => &o.path,
         }
     }
 }

@@ -1,3 +1,5 @@
-pub mod config;
-pub mod source;
-pub mod utils;
+mod config;
+mod source;
+mod utils;
+
+pub use utils::PmtError;

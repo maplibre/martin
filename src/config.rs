@@ -48,7 +48,7 @@ impl Config {
         };
 
         any |= if let Some(pmt) = &mut self.pmtiles {
-            // pmt.finalize()?;
+            pmt.finalize();
             !pmt.is_empty()
         } else {
             false
@@ -125,93 +125,3 @@ pub mod tests {
         assert_eq!(&config, expected);
     }
 }
-
-// pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
-//     let (pg, pmtiles) = try_join(
-//         try_join_all(
-//             self.postgres
-//                 .iter_mut()
-//                 .flatten()
-//                 .map(|s| s.resolve(idr.clone())),
-//         ),
-//         try_join_all(self.pmtiles.iter_mut().map(|s| s.resolve(idr.clone()))),
-//     )
-//         .await?;
-//
-//     Ok(pg.into_iter().map(|s| s.0).chain(pmtiles.into_iter()).fold(
-//         HashMap::new(),
-//         |mut acc, hashmap| {
-//             acc.extend(hashmap);
-//             acc
-//         },
-//     ))
-// }
-//     pub fn merge(&mut self, other: Self) {
-//         self.unrecognized.extend(other.unrecognized);
-//         self.srv.merge(other.srv);
-//         if let Some(other) = other.postgres {
-//             match &mut self.postgres {
-//                 Some(first) => {
-//                     first.merge(other);
-//                 }
-//                 None => self.postgres = Some(other),
-//             }
-//         }
-//         if let Some(other) = other.pmtiles {
-//             match &mut self.pmtiles {
-//                 Some(first) => first.merge(other),
-//                 None => self.pmtiles = Some::<PmtConfigBuilderEnum>(other),
-//             }
-//         }
-//     }
-//
-//     /// Apply defaults to the config, and validate if there is a connection string
-//     pub fn finalize(self) -> Result<Config> {
-//         report_unrecognized_config("", &self.unrecognized);
-//         Ok(Config {
-//             srv: self.srv,
-//             postgres: self
-//                 .postgres
-//                 .map(|pg| {
-//                     pg.generalize()
-//                         .into_iter()
-//                         .map(|v| v.finalize().map_err(utils::Error::PostgresError))
-//                         .collect::<Result<_>>()
-//                 })
-//                 .transpose()?,
-//             pmtiles: self
-//                 .pmtiles
-//                 .map(PmtConfigBuilderEnum::finalize)
-//                 .transpose()?,
-//         })
-//     }
-// }
-//
-// pub fn merge(&mut self, other: Self) {
-//     self.unrecognized.extend(other.unrecognized);
-//     self.srv.merge(other.srv);
-//
-//     if let Some(other) = other.postgres {
-//         match &mut self.postgres {
-//             Some(_first) => {
-//                 unimplemented!("merging multiple postgres configs is not yet supported");
-//                 // first.merge(other);
-//             }
-//             None => self.postgres = Some(other),
-//         }
-//     }
-// }
-//
-// /// Apply defaults to the config, and validate if there is a connection string
-// pub fn finalize(self) -> Result<Config> {
-//     report_unrecognized_config("", &self.unrecognized);
-//     Ok(Config {
-//         srv: self.srv,
-//         postgres: self
-//             .postgres
-//             .map(|pg| pg.map(|v| v.finalize().map_err(utils::Error::PostgresError)))
-//             .transpose()?,
-//         pmtiles: self.pmtiles.map(|v| v.finalize()).transpose()?,
-//         unrecognized: self.unrecognized,
-//     })
-// }

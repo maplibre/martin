@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::pg::PgError;
-use crate::pmtiles::utils::PmtError;
+use crate::pmtiles::PmtError;
 
 pub type InfoMap<T> = HashMap<String, T>;
 
