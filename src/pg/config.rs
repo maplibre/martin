@@ -8,7 +8,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::utils::{Result, Schemas};
 use crate::source::{IdResolver, Sources};
-use crate::utils::sorted_opt_map;
+use crate::utils::{is_false, sorted_opt_map};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -22,7 +22,7 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ca_root_file: Option<std::path::PathBuf>,
     #[cfg(feature = "ssl")]
-    #[serde(default, skip_serializing_if = "Clone::clone")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub danger_accept_invalid_certs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,

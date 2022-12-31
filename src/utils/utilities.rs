@@ -148,3 +148,9 @@ pub fn sorted_opt_map<S: Serializer, T: Serialize>(
         })
         .serialize(serializer)
 }
+
+/// Helper to skip serialization if the value is `false`
+#[allow(clippy::trivially_copy_pass_by_ref)]
+pub fn is_false(value: &bool) -> bool {
+    !*value
+}

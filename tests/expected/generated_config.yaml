@@ -1,6 +1,5 @@
 listen_addresses: localhost:3111
 postgres:
-  connection_string: postgres://postgres@localhost/db
   default_srid: 900913
   tables:
     MixPoints:

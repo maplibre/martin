@@ -2,7 +2,6 @@ keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
 postgres:
-  connection_string: postgres://postgres@localhost/db
   default_srid: 4326
   pool_size: 20
   tables:
