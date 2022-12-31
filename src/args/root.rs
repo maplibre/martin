@@ -41,7 +41,7 @@ pub struct MetaArgs {
 }
 
 impl Args {
-    pub fn merge_into_config(mut self, config: &mut Config, env: &impl Env) -> Result<()> {
+    pub fn merge_into_config<'a>(mut self, config: &mut Config, env: &impl Env<'a>) -> Result<()> {
         if self.meta.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
         }

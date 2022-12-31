@@ -35,7 +35,7 @@ pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
             buffer: Some(DEFAULT_BUFFER),
             clip_geom: Some(DEFAULT_CLIP_GEOM),
             geometry_type: row.get("type"),
-            properties: json_to_hashmap(&row.get("properties")),
+            properties: Some(json_to_hashmap(&row.get("properties"))),
             unrecognized: HashMap::new(),
             ..TableInfo::default()
         };
@@ -100,13 +100,13 @@ FROM {schema}.{table};
             .and_then(|p| polygon_to_bbox(&p));
     }
 
-    let properties = if info.properties.is_empty() {
-        String::new()
-    } else {
-        info.properties
+    let properties = if let Some(props) = &info.properties {
+        props
             .keys()
             .map(|column| escape_with_alias(&info.prop_mapping, column))
             .collect::<String>()
+    } else {
+        String::new()
     };
 
     let (id_name, id_field) = if let Some(id_column) = &info.id_column {
@@ -189,14 +189,19 @@ pub fn merge_table_info(
         _ => {}
     }
 
+    let empty = HashMap::new();
+    let props = src_inf.properties.as_ref().unwrap_or(&empty);
+
     if let Some(id_column) = &cfg_inf.id_column {
-        let prop = normalize_key(&src_inf.properties, id_column.as_str(), "id_column", new_id)?;
+        let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
         inf.prop_mapping.insert(id_column.clone(), prop);
     }
 
-    for key in cfg_inf.properties.keys() {
-        let prop = normalize_key(&src_inf.properties, key.as_str(), "property", new_id)?;
-        inf.prop_mapping.insert(key.clone(), prop);
+    if let Some(p) = &cfg_inf.properties {
+        for key in p.keys() {
+            let prop = normalize_key(props, key.as_str(), "property", new_id)?;
+            inf.prop_mapping.insert(key.clone(), prop);
+        }
     }
 
     Some(inf)

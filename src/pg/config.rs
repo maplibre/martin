@@ -6,9 +6,9 @@ use crate::config::report_unrecognized_config;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
-use crate::pg::pool::Pool;
 use crate::pg::utils::{Result, Schemas};
 use crate::source::{IdResolver, Sources};
+use crate::utils::sorted_opt_map;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -33,8 +33,10 @@ pub struct PgConfig {
     #[serde(skip)]
     pub auto_functions: Option<Schemas>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "sorted_opt_map")]
     pub tables: Option<TableInfoSources>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "sorted_opt_map")]
     pub functions: Option<FuncInfoSources>,
     #[serde(skip)]
     pub run_autodiscovery: bool,
@@ -58,7 +60,7 @@ impl PgConfig {
         Ok(self)
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> Result<(Sources, Pool)> {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let ((mut tables, tbl_info), (funcs, func_info)) =
             try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
@@ -66,7 +68,7 @@ impl PgConfig {
         self.tables = Some(tbl_info);
         self.functions = Some(func_info);
         tables.extend(funcs);
-        Ok((tables, pg.get_pool()))
+        Ok(tables)
     }
 
     #[must_use]
@@ -94,7 +96,6 @@ mod tests {
     fn parse_pg_one() {
         assert_config(
             indoc! {"
-            ---
             postgres:
               connection_string: 'postgresql://postgres@localhost/db'
         "},
@@ -113,7 +114,6 @@ mod tests {
     fn parse_pg_two() {
         assert_config(
             indoc! {"
-            ---
             postgres:
               - connection_string: 'postgres://postgres@localhost:5432/db'
               - connection_string: 'postgresql://postgres@localhost:5433/db'
@@ -140,7 +140,6 @@ mod tests {
     fn parse_pg_config() {
         assert_config(
             indoc! {"
-            ---
             postgres:
               connection_string: 'postgres://postgres@localhost:5432/db'
               default_srid: 4326
@@ -190,7 +189,10 @@ mod tests {
                             buffer: Some(64),
                             clip_geom: Some(true),
                             geometry_type: some("GEOMETRY"),
-                            properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
+                            properties: Some(HashMap::from([(
+                                "gid".to_string(),
+                                "int4".to_string(),
+                            )])),
                             ..Default::default()
                         },
                     )])),

@@ -1,1 +1,173 @@
 listen_addresses: localhost:3111
+postgres:
+  connection_string: postgres://postgres@localhost/db
+  default_srid: 900913
+  tables:
+    MixPoints:
+      schema: MixedCase
+      table: MixPoints
+      srid: 4326
+      geometry_column: Geom
+      bounds:
+      - -170.94984639004662
+      - -84.20025580733805
+      - 167.70892858284475
+      - 74.23573284753762
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        Gid: int4
+        TABLE: text
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -179.27313970132585
+      - -67.52518563265659
+      - 162.60117193735186
+      - 84.93092095128937
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -174.050750735362
+      - -80.46177157848345
+      - 179.11187181086706
+      - 81.13068764165727
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      bounds:
+      - -161.40590777554058
+      - -81.50727021609012
+      - 172.51549126768532
+      - 84.2440187164111
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points_empty_srid:
+      schema: public
+      table: points_empty_srid
+      srid: 900913
+      geometry_column: geom
+      bounds:
+      - -162.35196679784573
+      - -84.49919770031491
+      - 178.47294677445652
+      - 82.7000012450467
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -2.0
+      - -1.0
+      - 142.84131509869133
+      - 45.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    table_source_multiple_geom:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom1
+      bounds:
+      - -136.62076049706184
+      - -78.3350299285405
+      - 176.56297743499888
+      - 75.78731065954437
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        geom2: geometry
+        gid: int4
+    table_source_multiple_geom.1:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom2
+      bounds:
+      - -136.62076049706184
+      - -78.3350299285405
+      - 176.56297743499888
+      - 75.78731065954437
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        geom1: geometry
+        gid: int4
+  functions:
+    function_Mixed_Name:
+      schema: MixedCase
+      function: function_Mixed_Name
+    function_null:
+      schema: public
+      function: function_null
+    function_null_row:
+      schema: public
+      function: function_null_row
+    function_null_row2:
+      schema: public
+      function: function_null_row2
+    function_zoom_xy:
+      schema: public
+      function: function_zoom_xy
+    function_zxy:
+      schema: public
+      function: function_zxy
+    function_zxy2:
+      schema: public
+      function: function_zxy2
+    function_zxy_query:
+      schema: public
+      function: function_zxy_query
+    function_zxy_query_jsonb:
+      schema: public
+      function: function_zxy_query_jsonb
+    function_zxy_query_test:
+      schema: public
+      function: function_zxy_query_test
+    function_zxy_row:
+      schema: public
+      function: function_zxy_row
+    function_zxy_row_key:
+      schema: public
+      function: function_zxy_row_key

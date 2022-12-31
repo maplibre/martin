@@ -1,3 +1,115 @@
 keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
+postgres:
+  connection_string: postgres://postgres@localhost/db
+  default_srid: 4326
+  pool_size: 20
+  tables:
+    MixPoints:
+      schema: MixedCase
+      table: MixPoints
+      srid: 4326
+      geometry_column: Geom
+      id_column: giD
+      bounds:
+      - -170.94984639004662
+      - -84.20025580733805
+      - 167.70892858284475
+      - 74.23573284753762
+      geometry_type: POINT
+      properties:
+        taBLe: text
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+  functions:
+    function_zxy_query:
+      schema: public
+      function: function_zxy_query
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+    function_zxy_query_test:
+      schema: public
+      function: function_zxy_query_test
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0

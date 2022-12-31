@@ -448,7 +448,7 @@ Options:
 
 ## Environment Variables
 
-You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files.  
+You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files.
 
 | Environment variable          | Example                              | Description                                 |
 |-------------------------------|--------------------------------------|---------------------------------------------|
@@ -479,7 +479,9 @@ worker_processes: 8
 
 # Database configuration. This can also be a list of PG configs.
 postgres:
-  # Database connection string
+  # Database connection string. You can use env vars too, for example:
+  #   $DATABASE_URL
+  #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
   connection_string: 'postgresql://postgres@localhost:5432/db'
   
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback

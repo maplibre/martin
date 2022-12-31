@@ -2,6 +2,8 @@
 // that `crate::Env` is always available, both when it is part of the lib or external to the test.
 use std::ffi::OsString;
 
+use subst::VariableMap;
+
 use crate::Env;
 
 #[allow(clippy::unnecessary_wraps)]
@@ -19,7 +21,15 @@ pub fn os(s: &str) -> OsString {
 #[derive(Default)]
 pub struct FauxEnv(pub std::collections::HashMap<&'static str, OsString>);
 
-impl Env for FauxEnv {
+impl<'a> VariableMap<'a> for FauxEnv {
+    type Value = String;
+
+    fn get(&'a self, key: &str) -> Option<Self::Value> {
+        self.0.get(key).map(|s| s.to_string_lossy().to_string())
+    }
+}
+
+impl<'a> Env<'a> for FauxEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         self.0.get(key).map(Into::into)
     }
