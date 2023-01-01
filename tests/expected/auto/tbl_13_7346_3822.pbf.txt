@@ -1,0 +1,75 @@
+=============================================================
+layer: 0
+  name: public.table_source.geom
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1769,2458)
+    properties:
+      gid=19
+  feature: 1
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1674,2518)
+    properties:
+      gid=20
+  feature: 2
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1762,2512)
+    properties:
+      gid=21
+  feature: 3
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1774,2560)
+    properties:
+      gid=22
+  feature: 4
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1733,2471)
+    properties:
+      gid=23
+  feature: 5
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1731,2492)
+    properties:
+      gid=24
+  feature: 6
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1722,2549)
+    properties:
+      gid=25
+  feature: 7
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1680,2500)
+    properties:
+      gid=26
+  feature: 8
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1685,2456)
+    properties:
+      gid=27
+  feature: 9
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1776,2433)
+    properties:
+      gid=28

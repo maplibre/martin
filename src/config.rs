@@ -33,6 +33,7 @@ impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(&mut self) -> Result<&Self> {
         report_unrecognized_config("", &self.unrecognized);
+
         let any = if let Some(pg) = &mut self.postgres {
             for pg in pg.iter_mut() {
                 pg.finalize()?;
@@ -100,9 +101,12 @@ pub mod tests {
     use crate::config::Config;
     use crate::test_utils::FauxEnv;
 
+    pub fn pares_cfg(yaml: &str) -> Config {
+        parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
+    }
+
     pub fn assert_config(yaml: &str, expected: &Config) {
-        let env = FauxEnv::default();
-        let mut config = parse_config(yaml, &env, Path::new("<test>")).unwrap();
+        let mut config = pares_cfg(yaml);
         config.finalize().expect("finalize");
         assert_eq!(&config, expected);
     }

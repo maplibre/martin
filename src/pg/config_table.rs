@@ -5,7 +5,7 @@ use serde_yaml::Value;
 use tilejson::{Bounds, TileJSON};
 
 use crate::pg::config::PgInfo;
-use crate::utils::{create_tilejson, InfoMap};
+use crate::utils::{create_tilejson, sorted_opt_map, InfoMap};
 
 pub type TableInfoSources = InfoMap<TableInfo>;
 
@@ -59,7 +59,8 @@ pub struct TableInfo {
     pub geometry_type: Option<String>,
 
     /// List of columns, that should be encoded as tile properties
-    pub properties: HashMap<String, String>,
+    #[serde(serialize_with = "sorted_opt_map")]
+    pub properties: Option<HashMap<String, String>>,
 
     /// Mapping of properties to the actual table columns
     #[serde(skip_deserializing, skip_serializing)]

@@ -4,7 +4,7 @@ use itertools::Itertools;
 use martin::pg::get_function_sources;
 use martin::Xyz;
 
-#[path = "utils.rs"]
+#[path = "pg_utils.rs"]
 mod utils;
 #[allow(clippy::wildcard_imports)]
 use utils::*;

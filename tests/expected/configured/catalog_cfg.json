@@ -1,0 +1,30 @@
+[
+  {
+    "id": "MixPoints",
+    "name": "MixedCase.MixPoints.Geom"
+  },
+  {
+    "id": "function_zxy_query",
+    "name": "public.function_zxy_query"
+  },
+  {
+    "id": "function_zxy_query_test",
+    "name": "public.function_zxy_query_test"
+  },
+  {
+    "id": "points1",
+    "name": "public.points1.geom"
+  },
+  {
+    "id": "points2",
+    "name": "public.points2.geom"
+  },
+  {
+    "id": "points3857",
+    "name": "public.points3857.geom"
+  },
+  {
+    "id": "table_source",
+    "name": "public.table_source.geom"
+  }
+]

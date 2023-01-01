@@ -4,10 +4,11 @@ set -euo pipefail
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl -sSf}
 DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
-MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
-MARTIN_PORT="${MARTIN_PORT:-3000}"
+MARTIN_BUILD="${MARTIN_BUILD:-cargo build --all-features}"
+MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
-MARTIN_BIN="${MARTIN_BIN:-cargo run -- --listen-addresses localhost:${MARTIN_PORT}}"
+MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
+MARTIN_BIN="${MARTIN_BIN:-cargo run --all-features --} ${MARTIN_ARGS}"
 
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
@@ -66,6 +67,15 @@ test_pbf()
     ./tests/fixtures/vtzero-check "$FILENAME"
     ./tests/fixtures/vtzero-show "$FILENAME" > "$FILENAME.txt"
   fi
+}
+
+clean_yaml()
+{
+  YAML_FILE="$1"
+  >&2 echo "Cleaning up yaml file $YAML_FILE"
+  # sed -i "/ connection_string: .*/d" "${YAML_FILE}"
+  grep -v " connection_string: " "${YAML_FILE}" > "${YAML_FILE}.tmp"
+  mv "${YAML_FILE}.tmp" "${YAML_FILE}"
 }
 
 curl --version
@@ -141,7 +151,7 @@ echo "IGNORING: This test is currently failing, and has been failing for a while
 echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
-grep -e ' ERROR ' -e ' WARN ' test_log_1.txt && exit 1
+(cat test_log_1.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
@@ -166,6 +176,9 @@ test_pbf fnc_0_0_0   function_zxy_query/0/0/0
 test_pbf fnc2_0_0_0  function_zxy_query_test/0/0/0?token=martin
 
 kill_process $PROCESS_ID
-grep -e ' ERROR ' -e ' WARN ' test_log_2.txt && exit 1
+(cat test_log_2.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1
+
+clean_yaml "$(dirname "$0")/output/given_config.yaml"
+clean_yaml "$(dirname "$0")/output/generated_config.yaml"
 
 >&2 echo "All integration tests have passed"

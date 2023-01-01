@@ -10,7 +10,7 @@ WITH columns AS (
     JOIN pg_catalog.pg_type AS tp ON tp.oid = attr.atttypid
   WHERE NOT attr.attisdropped AND attr.attnum > 0)
 SELECT
-  f_table_schema schema, f_table_name name, f_geometry_column geom, srid, type,
+  f_table_schema AS schema, f_table_name AS name, f_geometry_column AS geom, srid, type,
     COALESCE(
       jsonb_object_agg(columns.column_name, columns.type_name) FILTER (WHERE columns.column_name IS NOT NULL),
       '{}'::jsonb
