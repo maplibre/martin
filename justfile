@@ -19,7 +19,7 @@ debug-page *ARGS: start
     just run {{ARGS}}
 
 # Run PSQL utility against the test database
-psql *ARGS: start
+psql *ARGS:
     psql {{ARGS}} {{DATABASE_URL}}
 
 # Perform  cargo clean  to delete all build files
@@ -27,6 +27,7 @@ clean: clean-test stop
     cargo clean
 
 # Delete test output files
+[private]
 clean-test:
     rm -rf tests/output
 
@@ -37,7 +38,8 @@ start: (docker-up "db")
 start-legacy: (docker-up "db-legacy")
 
 # Start a specific test database, e.g. db or db-legacy
-@docker-up name:
+[private]
+docker-up name:
     docker-compose up -d {{name}}
 
 alias _down := stop
@@ -51,37 +53,36 @@ stop:
 bench: start
     cargo bench
 
+
 # Run all tests using a test database
-test: test-unit test-int
+test: (docker-up "db") test-unit test-int
+
+# Run all tests using tde oldest supported version of the database
+test-legacy: (docker-up "db-legacy") test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)
-test-unit *ARGS: start
+test-unit *ARGS:
     cargo test --all-targets {{ARGS}}
     cargo test --all-targets --all-features {{ARGS}}
     cargo test --doc
 
 # Run integration tests
-test-int: (test-integration "db")
-
-# Run integration tests using legacy database
-test-int-legacy: (test-integration "db-legacy")
-
-# Run integration tests with the given docker compose target
-@test-integration name: (docker-up name) clean-test
+test-int: clean-test
     #!/usr/bin/env sh
-    export MARTIN_PORT=3111
     tests/test.sh
-    #if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
-    #    echo "** Expected output does not match actual output"
-    #    echo "** If this is expected, run 'just bless' to update expected output"
-    #    echo "** Note that this error is not fatal because we don't have a stable output yet"
-    #fi
+    if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
+        echo "** Expected output does not match actual output"
+        echo "** If this is expected, run 'just bless' to update expected output"
+        echo "** Note that this error is not fatal because we don't have a stable output yet"
+    else
+        echo "Expected output matches actual output"
+    fi
 
-## Run integration tests and save its output as the new expected output
-#bless: start clean-test
-#    tests/test.sh
-#    rm -rf tests/expected
-#    mv tests/output tests/expected
+# Run integration tests and save its output as the new expected output
+bless: start clean-test
+    tests/test.sh
+    rm -rf tests/expected
+    mv tests/output tests/expected
 
 # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
 coverage FORMAT='html':
@@ -153,6 +154,7 @@ lint:
     cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
 
 # These steps automatically run before git push via a git hook
+[private]
 git-pre-push: stop start
     rustc --version
     cargo --version

@@ -448,7 +448,7 @@ Options:
 
 ## Environment Variables
 
-You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files.  
+You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files.
 
 | Environment variable          | Example                              | Description                                 |
 |-------------------------------|--------------------------------------|---------------------------------------------|
@@ -479,7 +479,9 @@ worker_processes: 8
 
 # Database configuration. This can also be a list of PG configs.
 postgres:
-  # Database connection string
+  # Database connection string. You can use env vars too, for example:
+  #   $DATABASE_URL
+  #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
   connection_string: 'postgresql://postgres@localhost:5432/db'
   
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback
@@ -785,23 +787,20 @@ Available recipes:
     debug-page *ARGS       # Start Martin server and open a test page
     psql *ARGS             # Run PSQL utility against the test database
     clean                  # Perform  cargo clean  to delete all build files
-    clean-test             # Delete test output files
     start                  # Start a test database
     start-legacy           # Start a legacy test database
-    docker-up name         # Start a specific test database, e.g. db or db-legacy
     stop                   # Stop the test database
     bench                  # Run benchmark tests
     test                   # Run all tests using a test database
+    test-legacy            # Run all tests using tde oldest supported version of the database
     test-unit *ARGS        # Run Rust unit and doc tests (cargo test)
     test-int               # Run integration tests
-    test-int-legacy        # Run integration tests using legacy database
-    test-integration name  # Run integration tests with the given docker compose target
+    bless                  # Run integration tests and save its output as the new expected output
     coverage FORMAT='html' # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
     docker-build           # Build martin docker image
     docker-run *ARGS       # Build and run martin docker image
     git *ARGS              # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
     lint                   # Run cargo fmt and cargo clippy
-    git-pre-push           # These steps automatically run before git push via a git hook
 ```
 
 ### Other useful commands

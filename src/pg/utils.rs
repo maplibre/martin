@@ -5,7 +5,7 @@ use postgis::{ewkb, LineString, Point, Polygon};
 use postgres::types::Json;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use tilejson::{tilejson, Bounds, TileJSON, VectorLayer};
+use tilejson::Bounds;
 
 use crate::source::{UrlQuery, Xyz};
 use crate::utils::InfoMap;
@@ -51,29 +51,6 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
             None
         }
     })
-}
-
-#[must_use]
-pub fn create_tilejson(
-    name: String,
-    minzoom: Option<u8>,
-    maxzoom: Option<u8>,
-    bounds: Option<Bounds>,
-    vector_layers: Option<Vec<VectorLayer>>,
-) -> TileJSON {
-    let mut tilejson = tilejson! {
-        tilejson: "2.2.0".to_string(),
-        tiles: vec![],  // tile source is required, but not yet known
-        name: name,
-    };
-    tilejson.minzoom = minzoom;
-    tilejson.maxzoom = maxzoom;
-    tilejson.bounds = bounds;
-    tilejson.vector_layers = vector_layers;
-
-    // TODO: consider removing - this is not needed per TileJSON spec
-    tilejson.set_missing_defaults();
-    tilejson
 }
 
 pub type Result<T> = std::result::Result<T, PgError>;

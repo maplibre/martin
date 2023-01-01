@@ -1,8 +1,12 @@
-use std::collections::HashMap;
+use itertools::Itertools;
+use std::cmp::Ordering::Equal;
+use std::collections::{BTreeMap, HashMap};
 use std::io;
 use std::path::PathBuf;
 
 use log::{error, info, warn};
+use serde::{Serialize, Serializer};
+use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::pg::PgError;
 
@@ -99,4 +103,54 @@ fn find_info_kv<'a, T>(
 pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
     minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
         && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
+}
+
+#[must_use]
+pub fn create_tilejson(
+    name: String,
+    minzoom: Option<u8>,
+    maxzoom: Option<u8>,
+    bounds: Option<Bounds>,
+    vector_layers: Option<Vec<VectorLayer>>,
+) -> TileJSON {
+    let mut tilejson = tilejson::tilejson! {
+        tilejson: "2.2.0".to_string(),
+        tiles: vec![],  // tile source is required, but not yet known
+        name: name,
+    };
+    tilejson.minzoom = minzoom;
+    tilejson.maxzoom = maxzoom;
+    tilejson.bounds = bounds;
+    tilejson.vector_layers = vector_layers;
+
+    // TODO: consider removing - this is not needed per TileJSON spec
+    tilejson.set_missing_defaults();
+    tilejson
+}
+
+/// Sort an optional hashmap by key, case-insensitive first, then case-sensitive
+pub fn sorted_opt_map<S: Serializer, T: Serialize>(
+    value: &Option<HashMap<String, T>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    value
+        .as_ref()
+        .map(|v| {
+            v.iter()
+                .sorted_by(|a, b| {
+                    let lower = a.0.to_lowercase().cmp(&b.0.to_lowercase());
+                    match lower {
+                        Equal => a.0.cmp(b.0),
+                        other => other,
+                    }
+                })
+                .collect::<BTreeMap<_, _>>()
+        })
+        .serialize(serializer)
+}
+
+/// Helper to skip serialization if the value is `false`
+#[allow(clippy::trivially_copy_pass_by_ref)]
+pub fn is_false(value: &bool) -> bool {
+    !*value
 }

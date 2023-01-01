@@ -66,7 +66,7 @@ impl PgBuilder {
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
-            let id2 = self.resolve_id(id.clone(), cfg_inf);
+            let id2 = self.resolve_id(id, cfg_inf);
             let Some(cfg_inf) = merge_table_info(self.default_srid,&id2, cfg_inf, src_inf) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
@@ -75,14 +75,15 @@ impl PgBuilder {
 
         // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
         for schema in self.auto_tables.get(|| all_tables.keys()) {
-            let Some(schema2) = normalize_key(&all_tables, &schema, "schema", "") else { continue };
-            let tables = all_tables.remove(&schema2).unwrap();
+            let Some(schema) = normalize_key(&all_tables, &schema, "schema", "") else { continue };
+            let tables = all_tables.remove(&schema).unwrap();
             for (table, geoms) in tables.into_iter().sorted_by(by_key) {
-                for (geom, mut src_inf) in geoms.into_iter().sorted_by(by_key) {
-                    if used.contains(&(schema.as_str(), table.as_str(), geom.as_str())) {
+                for (column, mut src_inf) in geoms.into_iter().sorted_by(by_key) {
+                    if used.contains(&(schema.as_str(), table.as_str(), column.as_str())) {
                         continue;
                     }
-                    let id2 = self.resolve_id(table.clone(), &src_inf);
+                    let source_id = &table;
+                    let id2 = self.resolve_id(source_id, &src_inf);
                     let Some(srid) = calc_srid(&src_inf.format_id(), &id2,  src_inf.srid,0, self.default_srid) else {continue};
                     src_inf.srid = srid;
                     info!("Discovered source {id2} from {}", summary(&src_inf));
@@ -128,7 +129,7 @@ impl PgBuilder {
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
             let dup = if dup { "duplicate " } else { "" };
 
-            let id2 = self.resolve_id(id.clone(), cfg_inf);
+            let id2 = self.resolve_id(id, cfg_inf);
             self.add_func_src(&mut res, id2.clone(), cfg_inf, pg_sql.clone());
             warn_on_rename(id, &id2, "Function");
             let signature = &pg_sql.signature;
@@ -139,13 +140,14 @@ impl PgBuilder {
 
         // Sort the discovered sources by schema and function name to ensure a consistent behavior
         for schema in self.auto_functions.get(|| all_funcs.keys()) {
-            let Some(schema2) = normalize_key(&all_funcs, &schema, "schema", "") else { continue };
-            let funcs = all_funcs.remove(&schema2).unwrap();
+            let Some(schema) = normalize_key(&all_funcs, &schema, "schema", "") else { continue };
+            let funcs = all_funcs.remove(&schema).unwrap();
             for (name, (pg_sql, src_inf)) in funcs.into_iter().sorted_by(by_key) {
                 if used.contains(&(schema.as_str(), name.as_str())) {
                     continue;
                 }
-                let id2 = self.resolve_id(name.clone(), &src_inf);
+                let source_id = &name;
+                let id2 = self.resolve_id(source_id, &src_inf);
                 self.add_func_src(&mut res, id2.clone(), &src_inf, pg_sql.clone());
                 info!("Discovered source {id2} from function {}", pg_sql.signature);
                 debug!("{}", pg_sql.query);
@@ -156,7 +158,7 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
-    fn resolve_id<T: PgInfo>(&self, id: String, src_inf: &T) -> String {
+    fn resolve_id<T: PgInfo>(&self, id: &str, src_inf: &T) -> String {
         let signature = format!("{}.{}", self.pool.get_id(), src_inf.format_id());
         self.id_resolver.resolve(id, signature)
     }
@@ -164,11 +166,6 @@ impl PgBuilder {
     fn add_func_src(&self, sources: &mut Sources, id: String, info: &impl PgInfo, sql: PgSqlInfo) {
         let source = PgSource::new(id.clone(), sql, info.to_tilejson(), self.pool.clone());
         sources.insert(id, Box::new(source));
-    }
-
-    #[must_use]
-    pub fn get_pool(self) -> Pool {
-        self.pool
     }
 }
 
@@ -191,6 +188,7 @@ fn summary(info: &TableInfo) -> String {
     )
 }
 
+/// A comparator for sorting tuples by first element
 fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
 }
