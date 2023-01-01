@@ -26,7 +26,9 @@ pub fn mock_cfg(yaml: &str) -> PgConfig {
         panic!("DATABASE_URL env var is not set. Unable to do integration tests");
     };
     let env = FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect());
-    subst::yaml::from_str(yaml, &env).unwrap()
+    let mut cfg: PgConfig = subst::yaml::from_str(yaml, &env).unwrap();
+    cfg.finalize().unwrap();
+    cfg
 }
 
 #[allow(dead_code)]

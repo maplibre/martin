@@ -4,7 +4,7 @@ use ctor::ctor;
 use indoc::indoc;
 use martin::Xyz;
 
-#[path = "utils.rs"]
+#[path = "pg_utils.rs"]
 mod utils;
 #[allow(clippy::wildcard_imports)]
 use utils::*;
@@ -35,7 +35,7 @@ async fn table_source() {
 
     let mut properties = HashMap::new();
     properties.insert("gid".to_owned(), "int4".to_owned());
-    assert_eq!(source.properties, properties);
+    assert_eq!(source.properties, Some(properties));
 }
 
 #[actix_rt::test]

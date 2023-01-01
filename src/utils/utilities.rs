@@ -1,9 +1,11 @@
-use std::collections::HashMap;
+use itertools::Itertools;
+use std::cmp::Ordering::Equal;
+use std::collections::{BTreeMap, HashMap};
 use std::io;
 use std::path::PathBuf;
 
 use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::pg::PgError;
@@ -136,4 +138,25 @@ pub fn create_tilejson(
     // TODO: consider removing - this is not needed per TileJSON spec
     tilejson.set_missing_defaults();
     tilejson
+}
+
+/// Sort an optional hashmap by key, case-insensitive first, then case-sensitive
+pub fn sorted_opt_map<S: Serializer, T: Serialize>(
+    value: &Option<HashMap<String, T>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    value
+        .as_ref()
+        .map(|v| {
+            v.iter()
+                .sorted_by(|a, b| {
+                    let lower = a.0.to_lowercase().cmp(&b.0.to_lowercase());
+                    match lower {
+                        Equal => a.0.cmp(b.0),
+                        other => other,
+                    }
+                })
+                .collect::<BTreeMap<_, _>>()
+        })
+        .serialize(serializer)
 }

@@ -8,7 +8,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::utils::Result;
 use crate::source::{IdResolver, Sources};
-use crate::utils::{BoolOrObject, OneOrMany};
+use crate::utils::{sorted_opt_map, BoolOrObject, OneOrMany};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -22,7 +22,7 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ca_root_file: Option<std::path::PathBuf>,
     #[cfg(feature = "ssl")]
-    #[serde(default, skip_serializing_if = "Clone::clone")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub danger_accept_invalid_certs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
@@ -31,11 +31,13 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_publish: Option<BoolOrObject<PgCfgPublish>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "sorted_opt_map")]
     pub tables: Option<TableInfoSources>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "sorted_opt_map")]
     pub functions: Option<FuncInfoSources>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auto_publish: Option<BoolOrObject<PgCfgPublish>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -195,7 +197,10 @@ mod tests {
                             buffer: Some(64),
                             clip_geom: Some(true),
                             geometry_type: some("GEOMETRY"),
-                            properties: HashMap::from([("gid".to_string(), "int4".to_string())]),
+                            properties: Some(HashMap::from([(
+                                "gid".to_string(),
+                                "int4".to_string(),
+                            )])),
                             ..Default::default()
                         },
                     )])),
@@ -215,4 +220,11 @@ mod tests {
             },
         );
     }
+}
+
+/// Helper to skip serialization if the value is `false`
+#[allow(clippy::trivially_copy_pass_by_ref)]
+#[cfg(feature = "ssl")]
+pub fn is_false(value: &bool) -> bool {
+    !*value
 }

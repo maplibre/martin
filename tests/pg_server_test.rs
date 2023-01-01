@@ -6,7 +6,7 @@ use indoc::indoc;
 use martin::srv::IndexEntry;
 use tilejson::{Bounds, TileJSON};
 
-#[path = "utils.rs"]
+#[path = "pg_utils.rs"]
 mod utils;
 #[allow(clippy::wildcard_imports)]
 use utils::*;
@@ -883,7 +883,7 @@ tables:
 
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
-    assert_eq!(src.properties.len(), 1);
+    assert!(matches!(&src.properties, Some(v) if v.len() == 1));
     // let tj = source(&mock, "no_id").get_tilejson();
     // tj.vector_layers.unwrap().iter().for_each(|vl| {
     //     assert_eq!(vl.id, "no_id");
@@ -892,15 +892,15 @@ tables:
 
     let src = table(&mock, "id_only");
     assert_eq!(src.id_column, some("giD"));
-    assert_eq!(src.properties.len(), 1);
+    assert!(matches!(&src.properties, Some(v) if v.len() == 1));
 
     let src = table(&mock, "id_and_prop");
     assert_eq!(src.id_column, some("giD"));
-    assert_eq!(src.properties.len(), 2);
+    assert!(matches!(&src.properties, Some(v) if v.len() == 2));
 
     let src = table(&mock, "prop_only");
     assert_eq!(src.id_column, None);
-    assert_eq!(src.properties.len(), 2);
+    assert!(matches!(&src.properties, Some(v) if v.len() == 2));
 
     // --------------------------------------------
 
