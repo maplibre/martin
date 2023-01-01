@@ -69,6 +69,15 @@ test_pbf()
   fi
 }
 
+clean_yaml()
+{
+  YAML_FILE="$1"
+  >&2 echo "Cleaning up yaml file $YAML_FILE"
+  # sed -i "/ connection_string: .*/d" "${YAML_FILE}"
+  grep -v " connection_string: " "${YAML_FILE}" > "${YAML_FILE}.tmp"
+  mv "${YAML_FILE}.tmp" "${YAML_FILE}"
+}
+
 curl --version
 
 # Make sure martin is built - this way it won't timeout while waiting for it to start
@@ -169,8 +178,7 @@ test_pbf fnc2_0_0_0  function_zxy_query_test/0/0/0?token=martin
 kill_process $PROCESS_ID
 (cat test_log_2.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1
 
->&2 echo "Cleaning up yaml files"
-sed -i "/ connection_string: .*/d" "$(dirname "$0")/output/given_config.yaml"
-sed -i "/ connection_string: .*/d" "$(dirname "$0")/output/generated_config.yaml"
+clean_yaml "$(dirname "$0")/output/given_config.yaml"
+clean_yaml "$(dirname "$0")/output/generated_config.yaml"
 
 >&2 echo "All integration tests have passed"
