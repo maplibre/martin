@@ -1,4 +1,3 @@
-use martin::pg::Schemas;
 use std::collections::HashMap;
 
 use ctor::ctor;

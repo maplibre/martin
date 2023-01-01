@@ -1,6 +1,7 @@
 listen_addresses: localhost:3111
 postgres:
   default_srid: 900913
+  auto_publish: true
   tables:
     MixPoints:
       schema: MixedCase

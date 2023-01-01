@@ -36,13 +36,6 @@ impl<T: Clone> OneOrMany<T> {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        match self {
-            OneOrMany::Many(v) => v.iter(),
-            OneOrMany::One(v) => std::slice::from_ref(v).iter(),
-        }
-    }
-
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         match self {
             Self::Many(v) => v.iter_mut(),
