@@ -1,9 +1,9 @@
-use itertools::Itertools;
 use std::cmp::Ordering::Equal;
 use std::collections::{BTreeMap, HashMap};
 use std::io;
 use std::path::PathBuf;
 
+use itertools::Itertools;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize, Serializer};
 use tilejson::{Bounds, TileJSON, VectorLayer};

@@ -1,14 +1,11 @@
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::redundant_clone)]
-#![allow(clippy::unused_async)]
-
-use crate::FauxEnv;
 pub use martin::args::Env;
 use martin::pg::{PgConfig, Pool, TableInfo};
 use martin::{IdResolver, Source, Sources};
 
+use crate::FauxEnv;
+
 //
-// This file is used by many tests and benchmarks using the #[path] attribute.
+// This file is used by many tests and benchmarks.
 // Each function should allow dead_code as they might not be used by a specific test file.
 //
 

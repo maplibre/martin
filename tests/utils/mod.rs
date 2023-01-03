@@ -1,3 +1,7 @@
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::unused_async)]
+
 mod pg_utils;
 
 use actix_web::web::Data;
