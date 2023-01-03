@@ -8,6 +8,9 @@ use crate::utils::OneOrMany;
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct PgArgs {
+    /// Disable the automatic generation of bounds for spatial tables.
+    #[arg(short = 'b', long)]
+    pub disable_bounds: bool,
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
     #[cfg(feature = "ssl")]
     #[arg(long)]
@@ -46,7 +49,14 @@ impl PgArgs {
                 danger_accept_invalid_certs,
                 default_srid,
                 pool_size: self.pool_size,
-                ..Default::default()
+                disable_bounds: if self.disable_bounds {
+                    Some(true)
+                } else {
+                    None
+                },
+                auto_publish: None,
+                tables: None,
+                functions: None,
             })
             .collect();
 

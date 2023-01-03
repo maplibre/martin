@@ -42,7 +42,7 @@ impl PgBuilderPublish {
 pub struct PgBuilder {
     pool: Pool,
     default_srid: Option<i32>,
-    calc_bounds: bool,
+    disable_bounds: bool,
     auto_functions: Option<PgBuilderPublish>,
     auto_tables: Option<PgBuilderPublish>,
     id_resolver: IdResolver,
@@ -57,7 +57,7 @@ impl PgBuilder {
         Ok(Self {
             pool,
             default_srid: config.default_srid,
-            calc_bounds: config.calc_bounds.unwrap_or(true),
+            disable_bounds: config.disable_bounds.unwrap_or_default(),
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
             functions: config.functions.clone().unwrap_or_default(),
@@ -95,7 +95,7 @@ impl PgBuilder {
                 id2,
                 cfg_inf,
                 self.pool.clone(),
-                self.calc_bounds,
+                self.disable_bounds,
             ));
         }
 
@@ -127,7 +127,7 @@ impl PgBuilder {
                             id2,
                             src_inf,
                             self.pool.clone(),
-                            self.calc_bounds,
+                            self.disable_bounds,
                         ));
                     }
                 }
@@ -231,9 +231,9 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
                     BoolOrObject::Object(item) => Some(PgBuilderPublish::new(
                         is_function,
                         item.id_format.as_ref(),
-                        merge_opt_hs(&a.from_schema, &item.from_schema),
+                        merge_opt_hs(&a.from_schemas, &item.from_schemas),
                     )),
-                    BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schema, &None)),
+                    BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
                     BoolOrObject::Bool(false) => None,
                 },
                 // If auto_publish.functions is set, and currently asking for .tables which is missing,
@@ -241,9 +241,9 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
                 None => match if is_function { &a.tables } else { &a.functions } {
                     Some(bo_i) => match bo_i {
                         BoolOrObject::Object(_) | BoolOrObject::Bool(true) => None,
-                        BoolOrObject::Bool(false) => default(merge_opt_hs(&a.from_schema, &None)),
+                        BoolOrObject::Bool(false) => default(merge_opt_hs(&a.from_schemas, &None)),
                     },
-                    None => default(merge_opt_hs(&a.from_schema, &None)),
+                    None => default(merge_opt_hs(&a.from_schemas, &None)),
                 },
             },
             BoolOrObject::Bool(true) => default(None),
@@ -348,7 +348,7 @@ mod tests {
     fn test_auto_publish_obj_bool() {
         let config = parse_yaml(indoc! {"
             auto_publish:
-                from_schema: public
+                from_schemas: public
                 tables: true"});
         let res = new_auto_publish(&config, false);
         assert_eq!(res, builder("{table}", Some(&["public"])));
@@ -356,7 +356,7 @@ mod tests {
 
         let config = parse_yaml(indoc! {"
             auto_publish:
-                from_schema: public
+                from_schemas: public
                 functions: true"});
         assert_eq!(new_auto_publish(&config, false), None);
         let res = new_auto_publish(&config, true);
@@ -364,7 +364,7 @@ mod tests {
 
         let config = parse_yaml(indoc! {"
             auto_publish:
-                from_schema: public
+                from_schemas: public
                 tables: false"});
         assert_eq!(new_auto_publish(&config, false), None);
         let res = new_auto_publish(&config, true);
@@ -372,7 +372,7 @@ mod tests {
 
         let config = parse_yaml(indoc! {"
             auto_publish:
-                from_schema: public
+                from_schemas: public
                 functions: false"});
         let res = new_auto_publish(&config, false);
         assert_eq!(res, builder("{table}", Some(&["public"])));
@@ -383,9 +383,9 @@ mod tests {
     fn test_auto_publish_obj_obj() {
         let config = parse_yaml(indoc! {"
             auto_publish:
-                from_schema: public
+                from_schemas: public
                 tables:
-                    from_schema: osm
+                    from_schemas: osm
                     id_format: '{schema}.{table}'"});
         let res = new_auto_publish(&config, false);
         assert_eq!(res, builder("{schema}.{table}", Some(&["public", "osm"])));
@@ -394,7 +394,7 @@ mod tests {
         let config = parse_yaml(indoc! {"
             auto_publish:
                 tables:
-                    from_schema:
+                    from_schemas:
                       - osm
                       - public"});
         let res = new_auto_publish(&config, false);

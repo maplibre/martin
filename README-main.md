@@ -465,7 +465,7 @@ If you don't want to expose all of your tables and functions, you can list your 
 martin --config config.yaml
 ```
 
-You can find an example of a configuration file [here](https://github.com/maplibre/martin/blob/main/tests/config.yaml).
+You may wish to auto-generate a config file with `--save-config` argument. This will generate a config file with all of your tables and functions, and you can then edit it to remove any sources you don't want to expose.
 
 ```yaml
 # Connection keep alive timeout [default: 75]
@@ -489,6 +489,28 @@ postgres:
   
   # Maximum connections pool size [default: 20]
   pool_size: 20
+
+  # Control the automatic generation of bounds for spatial tables [default: false]
+  # If enabled, it will spend some time on startup to compute geometry bounds.
+  disable_bounds: false
+
+  # Enable automatic discovery of tables and functions. You may set this to `false` to disable.
+  auto_publish:
+    # Optionally limit to just these schemas
+    from_schemas:
+      - public
+      - my_schema
+    # Here we enable both tables and functions auto discovery.
+    # You can also enable just one of them by not mentioning the other,
+    # or setting it to false.  Setting one to true disables the other one as well.
+    # E.g. `tables: false` enables just the functions auto-discovery.
+    tables:
+      # Optionally set a custom source ID based on the table name
+      id_format: 'table.{schema}.{table}.{column}'
+      # Add more schemas to the ones listed above
+      from_schemas: my_other_schema
+    functions:
+      id_format: '{schema}.{function}'
   
   # Associative arrays of table sources
   tables:

@@ -27,7 +27,7 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub calc_bounds: Option<bool>,
+    pub disable_bounds: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -42,14 +42,14 @@ pub struct PgConfig {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublish {
-    pub from_schema: Option<OneOrMany<String>>,
+    pub from_schemas: Option<OneOrMany<String>>,
     pub tables: Option<BoolOrObject<PgCfgPublishType>>,
     pub functions: Option<BoolOrObject<PgCfgPublishType>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishType {
-    pub from_schema: Option<OneOrMany<String>>,
+    pub from_schemas: Option<OneOrMany<String>>,
     pub id_format: Option<String>,
 }
 
