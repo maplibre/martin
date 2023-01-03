@@ -6,9 +6,9 @@ use crate::config::report_unrecognized_config;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
-use crate::pg::utils::{Result, Schemas};
+use crate::pg::utils::Result;
 use crate::source::{IdResolver, Sources};
-use crate::utils::{is_false, sorted_opt_map};
+use crate::utils::{sorted_opt_map, BoolOrObject, OneOrMany};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -27,19 +27,30 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub disable_bounds: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<u32>,
-    #[serde(skip)]
-    pub auto_tables: Option<Schemas>,
-    #[serde(skip)]
-    pub auto_functions: Option<Schemas>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_publish: Option<BoolOrObject<PgCfgPublish>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "sorted_opt_map")]
     pub tables: Option<TableInfoSources>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "sorted_opt_map")]
     pub functions: Option<FuncInfoSources>,
-    #[serde(skip)]
-    pub run_autodiscovery: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct PgCfgPublish {
+    pub from_schemas: Option<OneOrMany<String>>,
+    pub tables: Option<BoolOrObject<PgCfgPublishType>>,
+    pub functions: Option<BoolOrObject<PgCfgPublishType>>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct PgCfgPublishType {
+    pub from_schemas: Option<OneOrMany<String>>,
+    pub id_format: Option<String>,
 }
 
 impl PgConfig {
@@ -55,7 +66,9 @@ impl PgConfig {
                 report_unrecognized_config(&format!("functions.{k}."), &v.unrecognized);
             }
         }
-        self.run_autodiscovery = self.tables.is_none() && self.functions.is_none();
+        if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
+            self.auto_publish = Some(BoolOrObject::Bool(true));
+        }
 
         Ok(self)
     }
@@ -69,11 +82,6 @@ impl PgConfig {
         self.functions = Some(func_info);
         tables.extend(funcs);
         Ok(tables)
-    }
-
-    #[must_use]
-    pub fn is_autodetect(&self) -> bool {
-        self.run_autodiscovery
     }
 }
 
@@ -102,7 +110,7 @@ mod tests {
             &Config {
                 postgres: Some(One(PgConfig {
                     connection_string: some("postgresql://postgres@localhost/db"),
-                    run_autodiscovery: true,
+                    auto_publish: Some(BoolOrObject::Bool(true)),
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -122,12 +130,12 @@ mod tests {
                 postgres: Some(Many(vec![
                     PgConfig {
                         connection_string: some("postgres://postgres@localhost:5432/db"),
-                        run_autodiscovery: true,
+                        auto_publish: Some(BoolOrObject::Bool(true)),
                         ..Default::default()
                     },
                     PgConfig {
                         connection_string: some("postgresql://postgres@localhost:5433/db"),
-                        run_autodiscovery: true,
+                        auto_publish: Some(BoolOrObject::Bool(true)),
                         ..Default::default()
                     },
                 ])),
@@ -144,7 +152,7 @@ mod tests {
               connection_string: 'postgres://postgres@localhost:5432/db'
               default_srid: 4326
               pool_size: 20
-            
+
               tables:
                 table_source:
                   schema: public
@@ -161,7 +169,7 @@ mod tests {
                   geometry_type: GEOMETRY
                   properties:
                     gid: int4
-            
+
               functions:
                 function_zxy_query:
                   schema: public
@@ -212,4 +220,11 @@ mod tests {
             },
         );
     }
+}
+
+/// Helper to skip serialization if the value is `false`
+#[allow(clippy::trivially_copy_pass_by_ref)]
+#[cfg(feature = "ssl")]
+pub fn is_false(value: &bool) -> bool {
+    !*value
 }

@@ -64,8 +64,8 @@ test_pbf()
   $CURL "$URL" > "$FILENAME"
 
   if [[ $OSTYPE == linux* ]]; then
-    ./tests/vtzero-check "$FILENAME"
-    ./tests/vtzero-show "$FILENAME" > "$FILENAME.txt"
+    ./tests/fixtures/vtzero-check "$FILENAME"
+    ./tests/fixtures/vtzero-show "$FILENAME" > "$FILENAME.txt"
   fi
 }
 
@@ -93,7 +93,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --save-config "$(dirname "$0")/output/generated_config.yaml")
+ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml")
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
 PROCESS_ID=`jobs -p`

@@ -1,14 +1,11 @@
-use martin::pg::Schemas;
 use std::collections::HashMap;
 
 use ctor::ctor;
 use indoc::indoc;
 use martin::Xyz;
 
-#[path = "pg_utils.rs"]
-mod utils;
-#[allow(clippy::wildcard_imports)]
-use utils::*;
+pub mod utils;
+pub use utils::*;
 
 #[ctor]
 fn init() {
@@ -17,7 +14,7 @@ fn init() {
 
 #[actix_rt::test]
 async fn table_source() {
-    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     assert!(!mock.0.is_empty());
 
     let source = table(&mock, "table_source");
@@ -41,7 +38,7 @@ async fn table_source() {
 
 #[actix_rt::test]
 async fn tables_tilejson_ok() {
-    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tilejson = source(&mock, "table_source").get_tilejson();
 
     assert_eq!(tilejson.tilejson, "2.2.0");
@@ -56,7 +53,7 @@ async fn tables_tilejson_ok() {
 
 #[actix_rt::test]
 async fn tables_tile_ok() {
-    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tile = source(&mock, "table_source")
         .get_tile(&Xyz { z: 0, x: 0, y: 0 }, &None)
         .await
@@ -67,7 +64,7 @@ async fn tables_tile_ok() {
 
 #[actix_rt::test]
 async fn tables_srid_ok() {
-    let mock = mock_sources(mock_cfg(indoc! {"
+    let mock = mock_sources(mock_pgcfg(indoc! {"
         connection_string: $DATABASE_URL
         default_srid: 900913
     "}))
@@ -88,7 +85,7 @@ async fn tables_srid_ok() {
 
 #[actix_rt::test]
 async fn tables_multiple_geom_ok() {
-    let mock = mock_sources(mock_cfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
 
     let source = table(&mock, "table_source_multiple_geom");
     assert_eq!(source.geometry_column, "geom1");
@@ -99,9 +96,13 @@ async fn tables_multiple_geom_ok() {
 
 #[actix_rt::test]
 async fn table_source_schemas() {
-    let mut cfg = mock_cfg("connection_string: $DATABASE_URL");
-    cfg.auto_functions = Some(Schemas::Bool(false));
-    cfg.auto_tables = Some(Schemas::List(vec!["MixedCase".to_owned()]));
+    let cfg = mock_pgcfg(indoc! {"
+        connection_string: $DATABASE_URL
+        auto_publish:
+          tables:
+            from_schemas: MixedCase
+          functions: false
+    "});
     let sources = mock_sources(cfg).await.0;
     assert_eq!(sources.keys().collect::<Vec<_>>(), vec!["MixPoints"],);
 }

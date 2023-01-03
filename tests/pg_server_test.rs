@@ -6,10 +6,8 @@ use indoc::indoc;
 use martin::srv::IndexEntry;
 use tilejson::{Bounds, TileJSON};
 
-#[path = "pg_utils.rs"]
-mod utils;
-#[allow(clippy::wildcard_imports)]
-use utils::*;
+pub mod utils;
+pub use utils::*;
 
 #[ctor]
 fn init() {
@@ -18,7 +16,7 @@ fn init() {
 
 macro_rules! create_app {
     ($sources:literal) => {{
-        let sources = mock_sources(mock_cfg($sources)).await.0;
+        let sources = mock_sources(mock_pgcfg($sources)).await.0;
         let state = crate::utils::mock_app_data(sources).await;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
@@ -835,7 +833,7 @@ async fn get_health_returns_ok() {
 
 #[actix_rt::test]
 async fn tables_feature_id() {
-    let cfg = mock_cfg(indoc! {"
+    let cfg = mock_pgcfg(indoc! {"
 connection_string: $DATABASE_URL
 tables:
   id_and_prop:

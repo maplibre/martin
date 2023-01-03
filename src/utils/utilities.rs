@@ -1,11 +1,11 @@
-use itertools::Itertools;
 use std::cmp::Ordering::Equal;
 use std::collections::{BTreeMap, HashMap};
 use std::io;
 use std::path::PathBuf;
 
+use itertools::Itertools;
 use log::{error, info, warn};
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::pg::PgError;
@@ -105,6 +105,14 @@ pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> boo
         && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
 }
 
+/// A serde helper to store a boolean as an object.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BoolOrObject<T> {
+    Bool(bool),
+    Object(T),
+}
+
 #[must_use]
 pub fn create_tilejson(
     name: String,
@@ -147,10 +155,4 @@ pub fn sorted_opt_map<S: Serializer, T: Serialize>(
                 .collect::<BTreeMap<_, _>>()
         })
         .serialize(serializer)
-}
-
-/// Helper to skip serialization if the value is `false`
-#[allow(clippy::trivially_copy_pass_by_ref)]
-pub fn is_false(value: &bool) -> bool {
-    !*value
 }
