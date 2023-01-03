@@ -3,6 +3,7 @@ use log::{info, warn};
 use crate::args::environment::Env;
 use crate::args::root::MetaArgs;
 use crate::pg::{PgConfig, POOL_SIZE_DEFAULT};
+use crate::utils;
 use crate::utils::OneOrMany;
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
@@ -110,15 +111,7 @@ impl PgArgs {
     }
 
     fn extract_conn_strings<'a>(meta: &mut MetaArgs, env: &impl Env<'a>) -> Vec<String> {
-        let mut strings = Vec::new();
-        let mut i = 0;
-        while i < meta.connection.len() {
-            if is_postgresql_string(&meta.connection[i]) {
-                strings.push(meta.connection.remove(i));
-            } else {
-                i += 1;
-            }
-        }
+        let mut strings = utils::drain_filter(&mut meta.connection, |v| is_postgresql_string(v));
         if strings.is_empty() {
             if let Some(s) = env.get_env_str("DATABASE_URL") {
                 if is_postgresql_string(&s) {

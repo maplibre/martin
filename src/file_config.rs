@@ -1,4 +1,5 @@
 use crate::config::report_unrecognized_config;
+use crate::OneOrMany::{Many, One};
 use crate::Result;
 use crate::{IdResolver, OneOrMany, Sources};
 use serde::{Deserialize, Serialize};
@@ -22,8 +23,22 @@ impl FileConfigEnum {
         Ok(self)
     }
 
+    pub fn into_config(self) -> FileConfig {
+        match self {
+            Self::Path(path) => FileConfig {
+                paths: Some(One(path)),
+                ..FileConfig::default()
+            },
+            Self::Paths(paths) => FileConfig {
+                paths: Some(Many(paths)),
+                ..Default::default()
+            },
+            Self::Config(cfg) => cfg,
+        }
+    }
+
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
-        todo!()
+        self.clone().into_config().resolve(idr).await
     }
 
     pub fn is_empty(&self) -> bool {

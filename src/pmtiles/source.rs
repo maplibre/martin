@@ -5,7 +5,7 @@ use crate::utils::{create_tilejson, is_valid_zoom};
 use crate::Error;
 use async_trait::async_trait;
 use martin_tile_utils::DataFormat;
-use pmtiles::async_reader::AsyncPmTilesReader;
+use pmtiles::async_reader::{AsyncBackend, AsyncPmTilesReader};
 use pmtiles::mmap::MmapBackend;
 use std::fmt::{Debug, Formatter};
 use std::io;
@@ -43,6 +43,8 @@ impl PmtSource {
                 format!("{e:?}: Cannot open file {}", path.display()),
             )
         })?;
+        let metadata = reader.()?;
+
         Ok(Self {
             id: id.clone(),
             path,

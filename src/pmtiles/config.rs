@@ -27,11 +27,6 @@ pub fn parse_pmt_args(cli_strings: &[String]) -> Option<FileConfigEnum> {
     }
 }
 
-pub async fn resolve(file_cfg: &mut FileConfigEnum, idr: IdResolver) -> utils::Result<Sources> {
-    todo!();
-    // self.resolve_int(idr).map_err(PmtilesError).await
-}
-
 impl FileConfig {
     pub async fn resolve(&mut self, idr: IdResolver) -> utils::Result<Sources> {
         self.resolve_int(idr).map_err(crate::Error::from).await
@@ -77,7 +72,7 @@ impl FileConfig {
                         .map(|f| f.path())
                         .collect()
                 } else if !path.is_file() {
-                    return Err(InvalidFilePath(path));
+                    return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
                 } else {
                     vec![path]
                 };

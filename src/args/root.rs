@@ -7,6 +7,7 @@ use crate::args::environment::Env;
 use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
+use crate::pmtiles::parse_pmt_args;
 use crate::{Error, Result};
 
 #[derive(Parser, Debug, PartialEq, Default)]
@@ -60,6 +61,10 @@ impl Args {
             pg_args.override_config(pg_config, env);
         } else {
             config.postgres = pg_args.into_config(&mut self.meta, env);
+        }
+
+        if !self.meta.connection.is_empty() {
+            config.pmtiles = parse_pmt_args(&mut self.meta.connection);
         }
 
         if self.meta.connection.is_empty() {

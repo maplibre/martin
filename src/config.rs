@@ -48,7 +48,7 @@ impl Config {
         };
 
         any |= if let Some(pmt) = &mut self.pmtiles {
-            pmt.finalize();
+            pmt.finalize()?;
             !pmt.is_empty()
         } else {
             false
