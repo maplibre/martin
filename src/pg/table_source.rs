@@ -71,14 +71,14 @@ pub async fn table_to_query(
     id: String,
     mut info: TableInfo,
     pool: Pool,
-    calc_bounds: bool,
+    disable_bounds: bool,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
 
-    if info.bounds.is_none() && calc_bounds {
+    if info.bounds.is_none() && !disable_bounds {
         info.bounds = pool
             .get()
             .await?

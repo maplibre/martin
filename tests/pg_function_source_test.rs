@@ -74,7 +74,7 @@ async fn function_source_schemas() {
         auto_publish:
           tables: false
           functions:
-            from_schema: MixedCase
+            from_schemas: MixedCase
     "});
     let sources = mock_sources(cfg).await.0;
     assert_eq!(

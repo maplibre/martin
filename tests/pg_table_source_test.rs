@@ -102,7 +102,7 @@ async fn table_source_schemas() {
         connection_string: $DATABASE_URL
         auto_publish:
           tables:
-            from_schema: MixedCase
+            from_schemas: MixedCase
           functions: false
     "});
     let sources = mock_sources(cfg).await.0;

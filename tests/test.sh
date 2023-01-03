@@ -93,7 +93,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --save-config "$(dirname "$0")/output/generated_config.yaml")
+ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml")
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
 PROCESS_ID=`jobs -p`
