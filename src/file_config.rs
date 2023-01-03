@@ -37,8 +37,10 @@ impl FileConfigEnum {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileConfig {
+    /// A list of file paths
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paths: Option<OneOrMany<PathBuf>>,
+    /// A map of source IDs to file paths or config objects
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sources: Option<HashMap<String, FileConfigSrc>>,
     #[serde(flatten)]

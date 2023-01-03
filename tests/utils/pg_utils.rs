@@ -2,15 +2,10 @@
 #![allow(clippy::redundant_clone)]
 #![allow(clippy::unused_async)]
 
-use actix_web::web::Data;
+use crate::FauxEnv;
 pub use martin::args::Env;
 use martin::pg::{PgConfig, Pool, TableInfo};
-use martin::srv::AppState;
 use martin::{IdResolver, Source, Sources};
-#[path = "../src/utils/test_utils.rs"]
-mod test_utils;
-#[allow(clippy::wildcard_imports)]
-pub use test_utils::*;
 
 //
 // This file is used by many tests and benchmarks using the #[path] attribute.
@@ -21,7 +16,7 @@ pub type MockSource = (Sources, PgConfig);
 
 #[allow(dead_code)]
 #[must_use]
-pub fn mock_cfg(yaml: &str) -> PgConfig {
+pub fn mock_pgcfg(yaml: &str) -> PgConfig {
     let Ok(db_url) = std::env::var("DATABASE_URL") else {
         panic!("DATABASE_URL env var is not set. Unable to do integration tests");
     };
@@ -33,7 +28,7 @@ pub fn mock_cfg(yaml: &str) -> PgConfig {
 
 #[allow(dead_code)]
 pub async fn mock_pool() -> Pool {
-    let cfg = mock_cfg("connection_string: $DATABASE_URL");
+    let cfg = mock_pgcfg("connection_string: $DATABASE_URL");
     let res = Pool::new(&cfg).await;
     res.expect("Failed to create pool")
 }
@@ -43,11 +38,6 @@ pub async fn mock_sources(mut config: PgConfig) -> MockSource {
     let res = config.resolve(IdResolver::default()).await;
     let res = res.expect("Failed to resolve pg data");
     (res, config)
-}
-
-#[allow(dead_code)]
-pub async fn mock_app_data(sources: Sources) -> Data<AppState> {
-    Data::new(AppState { sources })
 }
 
 #[allow(dead_code)]

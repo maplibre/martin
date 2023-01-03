@@ -8,7 +8,7 @@
 
 pub mod args;
 mod config;
-mod file_config;
+pub mod file_config;
 pub mod pg;
 pub mod pmtiles;
 mod source;
@@ -23,6 +23,7 @@ mod test_utils;
 // Must make it accessible as carte::Env from both places when testing.
 #[cfg(test)]
 pub use crate::args::Env;
+
 pub use crate::config::{read_config, Config};
 pub use crate::source::{IdResolver, Source, Sources, Xyz};
 pub use crate::utils::{BoolOrObject, Error, OneOrMany, Result};
