@@ -1,4 +1,3 @@
-use itertools::Itertools;
 pub use martin::args::Env;
 use martin::pg::{PgConfig, Pool, TableInfo};
 use martin::OneOrMany::One;
@@ -20,7 +19,7 @@ pub fn mock_pgcfg(yaml: &str) -> Config {
         panic!("DATABASE_URL env var is not set. Unable to do integration tests");
     };
     let env = FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect());
-    let mut cfg: PgConfig = subst::yaml::from_str(yaml, &env).unwrap();
+    let cfg: PgConfig = subst::yaml::from_str(yaml, &env).unwrap();
     let mut config = Config {
         postgres: Some(One(cfg)),
         ..Default::default()

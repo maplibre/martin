@@ -1,12 +1,9 @@
 use actix_http::Request;
-use actix_web::http::StatusCode;
-use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
+use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
-use martin::file_config::FileConfig;
 use martin::srv::IndexEntry;
-use martin::{IdResolver, Sources};
-use tilejson::{Bounds, TileJSON};
+use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
@@ -48,7 +45,7 @@ async fn pmt_get_catalog_ok() {
 }
 
 #[actix_rt::test]
-async fn pmt_get_tile() {
+async fn pmt_get_raster() {
     let app = create_app! { indoc!{"
         pmtiles:
             sources:
@@ -58,5 +55,17 @@ async fn pmt_get_tile() {
     let req = test_get("/pmt/0/0/0");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
-    panic!("{:?}", response);
+    assert_eq!(response.headers().get("content-type").unwrap(), "image/png");
+    let body = read_body(response).await;
+    assert_eq!(body.len(), 18404);
+
+    let req = test_get("/pmt");
+    let response = call_service(&app, req).await;
+    assert!(response.status().is_success());
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "application/json"
+    );
+    let body: TileJSON = read_body_json(response).await;
+    assert_eq!(body.maxzoom, Some(3));
 }

@@ -1518,9 +1518,9 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.0.5"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0de606c81d73b0f75701323544e7065fc45cc6381dafa53b748d08a1947d0093"
+checksum = "0616fb67d60744e158c87f194ab5c4ce7b23cc35ad51bc9a2ba9f572221158d9"
 dependencies = [
  "async-compression",
  "async-recursion",
@@ -1528,6 +1528,9 @@ dependencies = [
  "bytes",
  "fmmap",
  "hilbert_2d",
+ "serde",
+ "serde_json",
+ "tilejson",
  "tokio",
  "varint-rs",
 ]
@@ -2100,9 +2103,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.23.1"
+version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38a54aca0c15d014013256222ba0ebed095673f89345dd79119d912eb561b7a8"
+checksum = "7125661431c26622a80ca5051a2f936c9a678318e0351007b0cc313143024e5c"
 dependencies = [
  "autocfg",
  "bytes",

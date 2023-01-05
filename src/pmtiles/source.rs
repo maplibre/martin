@@ -1,12 +1,14 @@
 use crate::pmtiles::utils;
 use crate::pmtiles::utils::PmtError::GetTileError;
 use crate::source::{Source, Tile, UrlQuery, Xyz};
-use crate::utils::{create_tilejson, is_valid_zoom};
+use crate::utils::is_valid_zoom;
 use crate::Error;
 use async_trait::async_trait;
+use log::warn;
 use martin_tile_utils::DataFormat;
-use pmtiles::async_reader::{AsyncBackend, AsyncPmTilesReader};
+use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::mmap::MmapBackend;
+use pmtiles::TileType;
 use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::PathBuf;
@@ -19,6 +21,7 @@ pub struct PmtSource {
     path: PathBuf,
     pmtiles: Arc<AsyncPmTilesReader<MmapBackend>>,
     tilejson: TileJSON,
+    format: DataFormat,
 }
 
 impl Debug for PmtSource {
@@ -43,13 +46,26 @@ impl PmtSource {
                 format!("{e:?}: Cannot open file {}", path.display()),
             )
         })?;
-        let metadata = reader.()?;
+
+        let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
+            warn!("{e:?}: Unable to parse metadata for {}", path.display());
+            reader.header.get_tilejson(Vec::new())
+        });
+
+        let format = match reader.header.tile_type {
+            TileType::Unknown => DataFormat::Unknown,
+            TileType::Mvt => DataFormat::Mvt,
+            TileType::Png => DataFormat::Png,
+            TileType::Jpeg => DataFormat::Jpeg,
+            TileType::Webp => DataFormat::Webp,
+        };
 
         Ok(Self {
-            id: id.clone(),
+            id,
             path,
             pmtiles: Arc::new(reader),
-            tilejson: create_tilejson(id, None, None, None, None),
+            tilejson,
+            format,
         })
     }
 }
@@ -61,7 +77,7 @@ impl Source for PmtSource {
     }
 
     fn get_format(&self) -> DataFormat {
-        DataFormat::Mvt
+        self.format
     }
 
     fn clone_source(&self) -> Box<dyn Source> {
@@ -77,11 +93,13 @@ impl Source for PmtSource {
     }
 
     async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
+        // TODO: optimize to return Bytes
         Ok(self
             .pmtiles
             .get_tile(xyz.z as u8, xyz.x as u64, xyz.y as u64)
             .await
             .ok_or_else(|| GetTileError(*xyz, self.id.clone()))?
-            .data)
+            .data
+            .to_vec())
     }
 }

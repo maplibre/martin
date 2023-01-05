@@ -1,9 +1,8 @@
-use crate::file_config::{FileConfig, FileConfigEnum, FileConfigSource, FileConfigSrc};
+use crate::file_config::{FileConfig, FileConfigEnum, FileConfigSrc};
 use crate::pmtiles::source::PmtSource;
 use crate::pmtiles::utils::PmtError::{InvalidFilePath, InvalidSourceFilePath};
 use crate::pmtiles::utils::Result;
 use crate::source::{IdResolver, Source};
-use crate::Error::PmtilesError;
 use crate::{utils, Sources};
 use futures::TryFutureExt;
 use itertools::Itertools;
@@ -43,17 +42,15 @@ impl FileConfig {
         if let Some(sources) = cfg.sources {
             for (id, source) in sources {
                 let can = source.path().canonicalize()?;
-                // if files.contains(&can) {
-                //     warn!("Ignoring duplicate MBTiles path: {}", can.display());
-                //     continue;
-                // }
                 if !can.is_file() {
-                    // todo: warn instead?
+                    // todo: maybe warn instead?
                     return Err(InvalidSourceFilePath(id.to_string(), can.to_path_buf()));
                 }
+
+                let dup = !files.insert(can.clone());
+                let dup = if dup { "duplicate " } else { "" };
                 let id2 = idr.resolve(&id, can.to_string_lossy().to_string());
-                info!("Configured source {id2} from {}", can.display());
-                files.insert(can);
+                info!("Configured {dup}source {id2} from {}", can.display());
                 configs.insert(id2.clone(), source.clone());
                 results.insert(id2.clone(), create_source(id2, source).await?);
             }
@@ -111,80 +108,52 @@ async fn create_source(id: String, source: FileConfigSrc) -> Result<Box<dyn Sour
     }
 }
 
-// impl PmtConfigSource {
-//     pub fn new<T>(path: T) -> Self
-//     where
-//         PathBuf: From<T>,
-//     {
-//         Self {
-//             path: PathBuf::from(path),
-//         }
-//     }
-// }
-//
-// impl PmtConfigEnum {
-//     pub fn merge(&mut self, other: Self) {
-//         // There is no allocation with Vec::new()
-//         let mut this = mem::replace(self, Self::Paths(Vec::new())).generalize();
-//         let other = other.generalize();
-//
-//         this.paths = merge_option(this.paths, other.paths, |mut a, b| {
-//             a.merge(b);
-//             a
-//         });
-//         this.sources = merge_option(this.sources, other.sources, |mut a, b| {
-//             a.extend(b);
-//             a
-//         });
-//
-//         *self = Self::Config(this)
-//     }
-//
-//     fn generalize(self) -> PmtConfigBuilder {
-//         match self {
-//             Self::Path(path) => PmtConfigBuilder {
-//                 paths: Some(OneOrMany::One(path)),
-//                 ..Default::default()
-//             },
-//             Self::Paths(paths) => PmtConfigBuilder {
-//                 paths: Some(OneOrMany::Many(paths)),
-//                 ..Default::default()
-//             },
-//             Self::Config(cfg) => cfg,
-//         }
-//     }
-//
-//     /// Apply defaults to the config, and validate if there is a file path
-//     pub fn finalize(self) -> Result<PmtConfig> {
-//         let this = self.generalize();
-//         Ok(PmtConfig {
-//             paths: this.paths.map(|p| p.generalize()),
-//             sources: this
-//                 .sources
-//                 .map(|s| s.into_iter().map(|(k, v)| (k, v.generalize())).collect()),
-//         })
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use crate::config::tests::parse_cfg;
+    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
+    use indoc::indoc;
+    use std::collections::HashMap;
+    use std::path::PathBuf;
 
-// #[cfg(test)]
-// mod tests {
-//     use indoc::indoc;
-//
-//     #[test]
-//     fn parse() {
-//         let mut config = parse_cfg(indoc! {"
-//             pmtiles:
-//               paths:
-//                 - /dir-path
-//                 - /path/to/pmtiles2.pmtiles
-//               sources:
-//                   pm-src1: /tmp/pmtiles.pmtiles
-//                   pm-src2:
-//                     path: /tmp/pmtiles.pmtiles
-//         "})
-//         .finalize()
-//         .unwrap();
-//         assert!(config.pmtiles.is_some());
-//         let config = config.pmtiles.unwrap();
-//     }
-// }
+    #[test]
+    fn parse() {
+        let mut cfg = parse_cfg(indoc! {"
+            pmtiles:
+              paths:
+                - /dir-path
+                - /path/to/pmtiles2.pmtiles
+              sources:
+                  pm-src1: /tmp/pmtiles.pmtiles
+                  pm-src2:
+                    path: /tmp/pmtiles.pmtiles
+        "});
+        cfg.finalize().unwrap();
+        let FileConfigEnum::Config(cfg) = cfg.pmtiles.unwrap() else {
+            panic!("No pmtiles config");
+        };
+        let paths = cfg.paths.clone().unwrap().into_iter().collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            vec![
+                PathBuf::from("/dir-path"),
+                PathBuf::from("/path/to/pmtiles2.pmtiles")
+            ]
+        );
+        assert_eq!(
+            cfg.sources,
+            Some(HashMap::from_iter(vec![
+                (
+                    "pm-src1".to_string(),
+                    FileConfigSrc::Path(PathBuf::from("/tmp/pmtiles.pmtiles"))
+                ),
+                (
+                    "pm-src2".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("/tmp/pmtiles.pmtiles"),
+                    })
+                )
+            ]))
+        );
+    }
+}

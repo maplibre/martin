@@ -41,7 +41,7 @@ log = "0.4"
 martin-tile-utils = { path = "martin-tile-utils" }
 num_cpus = "1"
 openssl = { version = "0.10", optional = true }
-pmtiles = { version = "0.0.5", features = ["mmap-async-tokio"] }
+pmtiles = { version = "0.2", features = ["mmap-async-tokio", "tilejson"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-openssl = { version = "0.5", optional = true }

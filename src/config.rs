@@ -115,12 +115,12 @@ pub mod tests {
     use crate::config::Config;
     use crate::test_utils::FauxEnv;
 
-    pub fn pares_cfg(yaml: &str) -> Config {
+    pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
     }
 
     pub fn assert_config(yaml: &str, expected: &Config) {
-        let mut config = pares_cfg(yaml);
+        let mut config = parse_cfg(yaml);
         config.finalize().expect("finalize");
         assert_eq!(&config, expected);
     }
