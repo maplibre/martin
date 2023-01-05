@@ -84,7 +84,7 @@ impl Source for PmtSource {
         Box::new(self.clone())
     }
 
-    fn is_valid_zoom(&self, zoom: i32) -> bool {
+    fn is_valid_zoom(&self, zoom: u8) -> bool {
         is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
@@ -96,7 +96,7 @@ impl Source for PmtSource {
         // TODO: optimize to return Bytes
         Ok(self
             .pmtiles
-            .get_tile(xyz.z as u8, xyz.x as u64, xyz.y as u64)
+            .get_tile(xyz.z, u64::from(xyz.x), u64::from(xyz.y))
             .await
             .ok_or_else(|| GetTileError(*xyz, self.id.clone()))?
             .data

@@ -5,19 +5,18 @@ use crate::pmtiles::utils::Result;
 use crate::source::{IdResolver, Source};
 use crate::{utils, Sources};
 use futures::TryFutureExt;
-use itertools::Itertools;
 use log::{info, warn};
 use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::path::PathBuf;
 
-pub fn parse_pmt_args(cli_strings: &[String]) -> Option<FileConfigEnum> {
-    let paths = cli_strings
-        .iter()
-        .filter_map(|s| PathBuf::try_from(s).ok())
-        .filter(|p| p.extension().filter(|e| *e == "pmtiles").is_some())
-        .unique()
-        .collect::<Vec<_>>();
+pub fn parse_pmt_args(cli_strings: &mut Vec<String>) -> Option<FileConfigEnum> {
+    let paths: Vec<_> = utils::drain_filter(cli_strings, |p| {
+        PathBuf::try_from(p).map_or(false, |p| p.extension().map_or(false, |e| e == "pmtiles"))
+    })
+    .into_iter()
+    .map(PathBuf::from)
+    .collect();
 
     match paths.len() {
         0 => None,
@@ -44,15 +43,15 @@ impl FileConfig {
                 let can = source.path().canonicalize()?;
                 if !can.is_file() {
                     // todo: maybe warn instead?
-                    return Err(InvalidSourceFilePath(id.to_string(), can.to_path_buf()));
+                    return Err(InvalidSourceFilePath(id.to_string(), can));
                 }
 
                 let dup = !files.insert(can.clone());
                 let dup = if dup { "duplicate " } else { "" };
-                let id2 = idr.resolve(&id, can.to_string_lossy().to_string());
-                info!("Configured {dup}source {id2} from {}", can.display());
-                configs.insert(id2.clone(), source.clone());
-                results.insert(id2.clone(), create_source(id2, source).await?);
+                let id = idr.resolve(&id, can.to_string_lossy().to_string());
+                info!("Configured {dup}source {id} from {}", can.display());
+                configs.insert(id.clone(), source.clone());
+                results.insert(id.clone(), create_source(id, source).await?);
             }
         }
 
@@ -61,7 +60,7 @@ impl FileConfig {
                 let dir_files = if path.is_dir() {
                     directories.push(path.clone());
                     path.read_dir()?
-                        .filter_map(|f| f.ok())
+                        .filter_map(std::result::Result::ok)
                         .filter(|f| {
                             f.path().extension().filter(|e| *e == "pmtiles").is_some()
                                 && f.path().is_file()
@@ -84,19 +83,21 @@ impl FileConfig {
                         |s| s.to_string_lossy().to_string(),
                     );
                     let source = FileConfigSrc::Path(path);
-                    let id2 = idr.resolve(&id, can.to_string_lossy().to_string());
-                    info!("Configured source {id2} from {}", can.display());
+                    let id = idr.resolve(&id, can.to_string_lossy().to_string());
+                    info!("Configured source {id} from {}", can.display());
                     files.insert(can);
-                    configs.insert(id2.clone(), source.clone());
-                    results.insert(id2.clone(), create_source(id2, source).await?);
+                    configs.insert(id.clone(), source.clone());
+                    results.insert(id.clone(), create_source(id, source).await?);
                 }
             }
         }
+
         *self = FileConfig {
             paths: None,
             sources: Some(configs),
             unrecognized: cfg.unrecognized,
         };
+
         Ok(results)
     }
 }

@@ -23,6 +23,7 @@ impl FileConfigEnum {
         Ok(self)
     }
 
+    #[must_use]
     pub fn into_config(self) -> FileConfig {
         match self {
             Self::Path(path) => FileConfig {
@@ -41,6 +42,7 @@ impl FileConfigEnum {
         self.clone().into_config().resolve(idr).await
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         match self {
             Self::Path(_) => false,
@@ -63,6 +65,7 @@ pub struct FileConfig {
 }
 
 impl FileConfig {
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.paths.is_none() && self.sources.is_none()
     }
@@ -77,6 +80,7 @@ pub enum FileConfigSrc {
 }
 
 impl FileConfigSrc {
+    #[must_use]
     pub fn path(&self) -> &PathBuf {
         match self {
             Self::Path(p) => p,

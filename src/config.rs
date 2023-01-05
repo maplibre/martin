@@ -69,7 +69,7 @@ impl Config {
             }
         }
         if let Some(v) = self.pmtiles.as_mut() {
-            sources.push(Box::pin(v.resolve(idr.clone())))
+            sources.push(Box::pin(v.resolve(idr.clone())));
         }
 
         Ok(try_join_all(sources)

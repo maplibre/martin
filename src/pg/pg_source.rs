@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::i16;
 
 use async_trait::async_trait;
 use bb8_postgres::tokio_postgres::types::ToSql;
@@ -47,7 +48,7 @@ impl Source for PgSource {
         Box::new(self.clone())
     }
 
-    fn is_valid_zoom(&self, zoom: i32) -> bool {
+    fn is_valid_zoom(&self, zoom: u8) -> bool {
         is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
@@ -61,9 +62,9 @@ impl Source for PgSource {
         let conn = self.pool.get().await?;
 
         let param_types: &[Type] = if self.support_url_query() {
-            &[Type::INT4, Type::INT4, Type::INT4, Type::JSON]
+            &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
         } else {
-            &[Type::INT4, Type::INT4, Type::INT4]
+            &[Type::INT2, Type::INT8, Type::INT8]
         };
 
         let query = &self.info.query;
@@ -79,11 +80,20 @@ impl Source for PgSource {
         let tile = if self.support_url_query() {
             let json = query_to_json(url_query);
             debug!("SQL: {query} [{xyz}, {json:?}]");
-            let params: &[&(dyn ToSql + Sync)] = &[&xyz.z, &xyz.x, &xyz.y, &json];
+            let params: &[&(dyn ToSql + Sync)] = &[
+                &i16::from(xyz.z),
+                &i64::from(xyz.x),
+                &i64::from(xyz.y),
+                &json,
+            ];
             conn.query_opt(&prep_query, params).await
         } else {
             debug!("SQL: {query} [{xyz}]");
-            conn.query_opt(&prep_query, &[&xyz.z, &xyz.x, &xyz.y]).await
+            conn.query_opt(
+                &prep_query,
+                &[&i16::from(xyz.z), &i64::from(xyz.x), &i64::from(xyz.y)],
+            )
+            .await
         };
 
         let tile = tile

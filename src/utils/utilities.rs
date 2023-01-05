@@ -104,9 +104,9 @@ fn find_info_kv<'a, T>(
 }
 
 #[must_use]
-pub fn is_valid_zoom(zoom: i32, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
-    minzoom.map_or(true, |minzoom| zoom >= minzoom.into())
-        && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom.into())
+pub fn is_valid_zoom(zoom: u8, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
+    minzoom.map_or(true, |minzoom| zoom >= minzoom)
+        && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom)
 }
 
 /// A serde helper to store a boolean as an object.
