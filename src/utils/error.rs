@@ -29,8 +29,8 @@ pub enum Error {
     UnrecognizableConnections(Vec<String>),
 
     #[error("{0}")]
-    FileError(#[from] FileError),
+    PostgresError(#[from] PgError),
 
     #[error("{0}")]
-    PostgresError(#[from] PgError),
+    FileError(#[from] FileError),
 }
