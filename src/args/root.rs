@@ -7,8 +7,9 @@ use crate::args::connections::Connections;
 use crate::args::environment::Env;
 use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
+use crate::args::State::{Ignore, Share, Take};
 use crate::config::Config;
-use crate::pmtiles::parse_pmt_args;
+use crate::file_config::FileConfigEnum;
 use crate::{Error, Result};
 
 #[derive(Parser, Debug, PartialEq, Default)]
@@ -66,10 +67,31 @@ impl Args {
         }
 
         if !cli_strings.is_empty() {
-            config.pmtiles = parse_pmt_args(&mut cli_strings);
+            config.pmtiles = parse_file_args(&mut cli_strings, "pmtiles");
         }
 
         cli_strings.check()
+    }
+}
+
+pub fn parse_file_args(cli_strings: &mut Connections, extension: &str) -> Option<FileConfigEnum> {
+    let paths = cli_strings.process(|v| match PathBuf::try_from(v) {
+        Ok(v) => {
+            if v.is_dir() {
+                Share(v)
+            } else if v.is_file() && v.extension().map_or(false, |e| e == extension) {
+                Take(v)
+            } else {
+                Ignore
+            }
+        }
+        Err(_) => Ignore,
+    });
+
+    match paths.len() {
+        0 => None,
+        1 => Some(FileConfigEnum::Path(paths.into_iter().next().unwrap())),
+        _ => Some(FileConfigEnum::Paths(paths)),
     }
 }
 

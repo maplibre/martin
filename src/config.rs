@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use subst::VariableMap;
 
-use crate::file_config::FileConfigEnum;
+use crate::file_config::{resolve_files, FileConfigEnum};
 use crate::pg::PgConfig;
-use crate::pmtiles::pmt_resolve;
+use crate::pmtiles::PmtSource;
 use crate::source::{IdResolver, Sources};
 use crate::srv::SrvConfig;
 use crate::utils::{OneOrMany, Result};
@@ -63,6 +63,8 @@ impl Config {
     }
 
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
+        let create_pmt_src = &mut PmtSource::new_box;
+
         let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
         if let Some(v) = self.postgres.as_mut() {
             for s in v.iter_mut() {
@@ -70,7 +72,8 @@ impl Config {
             }
         }
         if let Some(v) = self.pmtiles.as_mut() {
-            sources.push(Box::pin(pmt_resolve(v, idr.clone())));
+            let val = resolve_files(v, idr.clone(), "pmtiles", create_pmt_src);
+            sources.push(Box::pin(val));
         }
 
         Ok(try_join_all(sources)

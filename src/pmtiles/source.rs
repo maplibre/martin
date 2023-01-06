@@ -1,5 +1,5 @@
-use crate::pmtiles::utils;
-use crate::pmtiles::utils::PmtError::GetTileError;
+use crate::file_config::FileError;
+use crate::file_config::FileError::GetTileError;
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use crate::utils::is_valid_zoom;
 use crate::Error;
@@ -31,7 +31,11 @@ impl Debug for PmtSource {
 }
 
 impl PmtSource {
-    pub async fn new(id: String, path: PathBuf) -> utils::Result<Self> {
+    pub async fn new_box(id: String, path: PathBuf) -> Result<Box<dyn Source>, FileError> {
+        Ok(Box::new(PmtSource::new(id, path).await?))
+    }
+
+    pub async fn new(id: String, path: PathBuf) -> Result<Self, FileError> {
         let backend = MmapBackend::try_from(path.as_path()).await.map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
