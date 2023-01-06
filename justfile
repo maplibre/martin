@@ -74,6 +74,7 @@ test-int: clean-test
         echo "** Expected output does not match actual output"
         echo "** If this is expected, run 'just bless' to update expected output"
         echo "** Note that this error is not fatal because we don't have a stable output yet"
+        exit 1
     else
         echo "Expected output matches actual output"
     fi

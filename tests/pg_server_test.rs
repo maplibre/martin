@@ -4,6 +4,7 @@ use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequ
 use ctor::ctor;
 use indoc::indoc;
 use martin::srv::IndexEntry;
+use martin::OneOrMany;
 use tilejson::{Bounds, TileJSON};
 
 pub mod utils;
@@ -32,7 +33,7 @@ fn test_get(path: &str) -> Request {
 }
 
 #[actix_rt::test]
-async fn get_catalog_ok() {
+async fn pg_get_catalog_ok() {
     let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/catalog");
@@ -52,7 +53,7 @@ async fn get_catalog_ok() {
 }
 
 #[actix_rt::test]
-async fn get_table_source_ok() {
+async fn pg_get_table_source_ok() {
     let app = create_app! { "
 connection_string: $DATABASE_URL
 tables:
@@ -98,7 +99,7 @@ tables:
 }
 
 #[actix_rt::test]
-async fn get_table_source_tile_ok() {
+async fn pg_get_table_source_tile_ok() {
     let app = create_app! { "
 connection_string: $DATABASE_URL
 tables:
@@ -189,7 +190,7 @@ tables:
 }
 
 #[actix_rt::test]
-async fn get_table_source_multiple_geom_tile_ok() {
+async fn pg_get_table_source_multiple_geom_tile_ok() {
     let app = create_app! { "
 connection_string: $DATABASE_URL
 tables:
@@ -280,7 +281,7 @@ tables:
 }
 
 #[actix_rt::test]
-async fn get_table_source_tile_minmax_zoom_ok() {
+async fn pg_get_table_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 connection_string: $DATABASE_URL
 tables:
@@ -387,7 +388,7 @@ tables:
 }
 
 #[actix_rt::test]
-async fn get_function_tiles() {
+async fn pg_get_function_tiles() {
     let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_zoom_xy/6/38/20");
@@ -416,7 +417,7 @@ async fn get_function_tiles() {
 }
 
 #[actix_rt::test]
-async fn get_composite_source_ok() {
+async fn pg_get_composite_source_ok() {
     let app = create_app! { "
 connection_string: $DATABASE_URL
 tables:
@@ -506,7 +507,7 @@ tables:
 }
 
 #[actix_rt::test]
-async fn get_composite_source_tile_ok() {
+async fn pg_get_composite_source_tile_ok() {
     let app = create_app! { "
 connection_string: $DATABASE_URL
 tables:
@@ -597,7 +598,7 @@ tables:
 }
 
 #[actix_rt::test]
-async fn get_composite_source_tile_minmax_zoom_ok() {
+async fn pg_get_composite_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 connection_string: $DATABASE_URL
 tables:
@@ -662,7 +663,7 @@ tables:
 }
 
 #[actix_rt::test]
-async fn null_functions() {
+async fn pg_null_functions() {
     let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_null/0/0/0");
@@ -679,7 +680,7 @@ async fn null_functions() {
 }
 
 #[actix_rt::test]
-async fn get_function_source_ok() {
+async fn pg_get_function_source_ok() {
     let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/non_existent");
@@ -743,7 +744,7 @@ async fn get_function_source_ok() {
 }
 
 #[actix_rt::test]
-async fn get_function_source_tile_ok() {
+async fn pg_get_function_source_tile_ok() {
     let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_zxy_query/0/0/0");
@@ -752,7 +753,7 @@ async fn get_function_source_tile_ok() {
 }
 
 #[actix_rt::test]
-async fn get_function_source_tile_minmax_zoom_ok() {
+async fn pg_get_function_source_tile_minmax_zoom_ok() {
     let app = create_app! {"
 connection_string: $DATABASE_URL
 functions:
@@ -809,7 +810,7 @@ functions:
 }
 
 #[actix_rt::test]
-async fn get_function_source_query_params_ok() {
+async fn pg_get_function_source_query_params_ok() {
     let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/function_zxy_query_test/0/0/0");
@@ -823,7 +824,7 @@ async fn get_function_source_query_params_ok() {
 }
 
 #[actix_rt::test]
-async fn get_health_returns_ok() {
+async fn pg_get_health_returns_ok() {
     let app = create_app! { "connection_string: $DATABASE_URL" };
 
     let req = test_get("/health");
@@ -832,7 +833,7 @@ async fn get_health_returns_ok() {
 }
 
 #[actix_rt::test]
-async fn tables_feature_id() {
+async fn pg_tables_feature_id() {
     let cfg = mock_pgcfg(indoc! {"
 connection_string: $DATABASE_URL
 tables:
@@ -910,6 +911,7 @@ tables:
     )
     .await;
 
+    let OneOrMany::One(cfg) = cfg.postgres.unwrap() else { panic!() };
     for (name, _) in cfg.tables.unwrap_or_default() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;

@@ -11,9 +11,9 @@ use crate::utils::Result;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Xyz {
-    pub z: i32,
-    pub x: i32,
-    pub y: i32,
+    pub z: u8,
+    pub x: u32,
+    pub y: u32,
 }
 
 impl Display for Xyz {
@@ -38,7 +38,7 @@ pub trait Source: Send + Debug {
 
     fn clone_source(&self) -> Box<dyn Source>;
 
-    fn is_valid_zoom(&self, zoom: i32) -> bool;
+    fn is_valid_zoom(&self, zoom: u8) -> bool;
 
     fn support_url_query(&self) -> bool;
 

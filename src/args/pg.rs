@@ -1,7 +1,8 @@
+use crate::args::connections::Connections;
+use crate::args::connections::State::{Ignore, Take};
 use log::{info, warn};
 
 use crate::args::environment::Env;
-use crate::args::root::MetaArgs;
 use crate::pg::{PgConfig, POOL_SIZE_DEFAULT};
 use crate::utils::OneOrMany;
 
@@ -29,10 +30,10 @@ pub struct PgArgs {
 impl PgArgs {
     pub fn into_config<'a>(
         self,
-        meta: &mut MetaArgs,
+        cli_strings: &mut Connections,
         env: &impl Env<'a>,
     ) -> Option<OneOrMany<PgConfig>> {
-        let connections = Self::extract_conn_strings(meta, env);
+        let connections = Self::extract_conn_strings(cli_strings, env);
         let default_srid = self.get_default_srid(env);
         #[cfg(feature = "ssl")]
         let ca_root_file = self.get_ca_root_file(env);
@@ -109,27 +110,25 @@ impl PgArgs {
         }
     }
 
-    fn extract_conn_strings<'a>(meta: &mut MetaArgs, env: &impl Env<'a>) -> Vec<String> {
-        let mut strings = Vec::new();
-        let mut i = 0;
-        while i < meta.connection.len() {
-            if is_postgresql_string(&meta.connection[i]) {
-                strings.push(meta.connection.remove(i));
+    fn extract_conn_strings<'a>(cli_strings: &mut Connections, env: &impl Env<'a>) -> Vec<String> {
+        let mut connections = cli_strings.process(|v| {
+            if is_postgresql_string(v) {
+                Take(v.to_string())
             } else {
-                i += 1;
+                Ignore
             }
-        }
-        if strings.is_empty() {
+        });
+        if connections.is_empty() {
             if let Some(s) = env.get_env_str("DATABASE_URL") {
                 if is_postgresql_string(&s) {
                     info!("Using env var DATABASE_URL to connect to PostgreSQL");
-                    strings.push(s);
+                    connections.push(s);
                 } else {
                     warn!("Environment var DATABASE_URL is not a valid postgres connection string");
                 }
             }
         }
-        strings
+        connections
     }
 
     fn get_default_srid<'a>(&self, env: &impl Env<'a>) -> Option<i32> {
@@ -185,46 +184,40 @@ fn is_postgresql_string(s: &str) -> bool {
 mod tests {
     use super::*;
     use crate::test_utils::{os, some, FauxEnv};
+    use crate::Error;
 
     #[test]
     fn test_extract_conn_strings() {
-        let mut meta = MetaArgs {
-            connection: vec![
-                "postgresql://localhost:5432".to_string(),
-                "postgres://localhost:5432".to_string(),
-                "mysql://localhost:3306".to_string(),
-            ],
-            ..Default::default()
-        };
+        let mut args = Connections::new(vec![
+            "postgresql://localhost:5432".to_string(),
+            "postgres://localhost:5432".to_string(),
+            "mysql://localhost:3306".to_string(),
+        ]);
         assert_eq!(
-            PgArgs::extract_conn_strings(&mut meta, &FauxEnv::default()),
+            PgArgs::extract_conn_strings(&mut args, &FauxEnv::default()),
             vec!["postgresql://localhost:5432", "postgres://localhost:5432"]
         );
-        assert_eq!(meta.connection, vec!["mysql://localhost:3306"]);
+        assert!(matches!(args.check(), Err(
+            Error::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
     }
 
     #[test]
     fn test_extract_conn_strings_from_env() {
-        let mut meta = MetaArgs {
-            ..Default::default()
-        };
+        let mut args = Connections::new(vec![]);
         let env = FauxEnv(
             vec![("DATABASE_URL", os("postgresql://localhost:5432"))]
                 .into_iter()
                 .collect(),
         );
-        let strings = PgArgs::extract_conn_strings(&mut meta, &env);
+        let strings = PgArgs::extract_conn_strings(&mut args, &env);
         assert_eq!(strings, vec!["postgresql://localhost:5432"]);
-        assert_eq!(meta.connection, Vec::<String>::new());
+        assert!(args.check().is_ok());
     }
 
     #[test]
     fn test_merge_into_config() {
-        let mut meta = MetaArgs {
-            connection: vec!["postgres://localhost:5432".to_string()],
-            ..Default::default()
-        };
-        let config = PgArgs::default().into_config(&mut meta, &FauxEnv::default());
+        let mut args = Connections::new(vec!["postgres://localhost:5432".to_string()]);
+        let config = PgArgs::default().into_config(&mut args, &FauxEnv::default());
         assert_eq!(
             config,
             Some(OneOrMany::One(PgConfig {
@@ -232,12 +225,12 @@ mod tests {
                 ..Default::default()
             }))
         );
-        assert_eq!(meta.connection, Vec::<String>::new());
+        assert!(args.check().is_ok());
     }
 
     #[test]
     fn test_merge_into_config2() {
-        let mut meta = MetaArgs::default();
+        let mut args = Connections::new(vec![]);
         let env = FauxEnv(
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
@@ -248,7 +241,7 @@ mod tests {
             .into_iter()
             .collect(),
         );
-        let config = PgArgs::default().into_config(&mut meta, &env);
+        let config = PgArgs::default().into_config(&mut args, &env);
         assert_eq!(
             config,
             Some(OneOrMany::One(PgConfig {
@@ -261,11 +254,12 @@ mod tests {
                 ..Default::default()
             }))
         );
+        assert!(args.check().is_ok());
     }
 
     #[test]
     fn test_merge_into_config3() {
-        let mut meta = MetaArgs::default();
+        let mut args = Connections::new(vec![]);
         let env = FauxEnv(
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
@@ -283,7 +277,7 @@ mod tests {
             default_srid: Some(20),
             ..Default::default()
         };
-        let config = pg_args.into_config(&mut meta, &env);
+        let config = pg_args.into_config(&mut args, &env);
         assert_eq!(
             config,
             Some(OneOrMany::One(PgConfig {
@@ -296,5 +290,6 @@ mod tests {
                 ..Default::default()
             }))
         );
+        assert!(args.check().is_ok());
     }
 }

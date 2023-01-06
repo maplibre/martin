@@ -45,7 +45,7 @@ impl AppState {
     fn get_sources(
         &self,
         source_ids: &str,
-        zoom: Option<i32>,
+        zoom: Option<u8>,
     ) -> Result<(Vec<&dyn Source>, bool, DataFormat)> {
         // TODO?: optimize by pre-allocating max allowed layer count on stack
         let mut sources = Vec::new();
@@ -87,9 +87,9 @@ struct TileJsonRequest {
 #[derive(Deserialize)]
 struct TileRequest {
     source_ids: String,
-    z: i32,
-    x: i32,
-    y: i32,
+    z: u8,
+    x: u32,
+    y: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -334,7 +334,7 @@ pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server,
     Ok((server, listen_addresses))
 }
 
-fn check_zoom(src: &dyn Source, id: &str, zoom: i32) -> bool {
+fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
     let is_valid = src.is_valid_zoom(zoom);
     if !is_valid {
         debug!("Zoom {zoom} is not valid for source {id}");
