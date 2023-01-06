@@ -22,6 +22,9 @@ pub enum FileError {
     #[error("Source {0} uses bad file {}", .1.display())]
     InvalidSourceFilePath(String, PathBuf),
 
+    #[error(r"Unable to parse metadata in file {}", .0.display())]
+    InvalidMetadata(PathBuf),
+
     #[error(r#"Tile {0:#} not found in {1}"#)]
     GetTileError(Xyz, String),
 }

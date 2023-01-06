@@ -1355,6 +1355,7 @@ dependencies = [
  "criterion",
  "ctor",
  "env_logger",
+ "flate2",
  "futures",
  "indoc",
  "itertools",

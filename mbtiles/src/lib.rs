@@ -61,8 +61,8 @@ impl Mbtiles {
                 tiles: vec![String::new()],
             },
             id: self.filename.to_string(),
-            tile_format: DataFormat::Unknown, // TODO: compute
-            grid_format: None,                // TODO: get_grid_info(self.name, &connection),
+            tile_format: DataFormat::Mvt, // TODO: compute
+            grid_format: None,            // TODO: get_grid_info(self.name, &connection),
             layer_type: None,
             json: None,
         };
@@ -94,6 +94,20 @@ impl Mbtiles {
                 }
             }
         }
+
+        if let Some(JSONValue::Object(obj)) = &mut res.json {
+            if let Some(value) = obj.remove("vector_layers") {
+                if let Ok(v) = serde_json::from_value(value) {
+                    tj.vector_layers = Some(v);
+                } else {
+                    warn!(
+                        "Unable to parse metadata vector_layers value in {}",
+                        self.filename
+                    );
+                }
+            }
+        }
+
         Ok(res)
     }
 

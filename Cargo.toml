@@ -38,6 +38,7 @@ async-trait = "0.1"
 bb8 = "0.8"
 bb8-postgres = "0.8"
 clap = { version = "4", features = ["derive"] }
+flate2 = "1"
 env_logger = "0.10"
 futures = "0.3"
 itertools = "0.10"

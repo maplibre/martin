@@ -1,5 +1,5 @@
 use crate::file_config::FileError;
-use crate::file_config::FileError::GetTileError;
+use crate::file_config::FileError::{GetTileError, InvalidMetadata};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use crate::utils::is_valid_zoom;
 use crate::Error;
@@ -8,6 +8,7 @@ use martin_tile_utils::DataFormat;
 use mbtiles::Mbtiles;
 use std::fmt::{Debug, Formatter};
 use std::io;
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tilejson::TileJSON;
@@ -44,9 +45,12 @@ impl MbtSource {
             )
         })?;
 
-        let metadata = mbt.get_metadata().await.unwrap_or_else(|_| {
-            panic!("Unable to parse metadata for {}", path.display());
-        });
+        let metadata = mbt
+            .get_metadata()
+            .await
+            .map_err(|_| InvalidMetadata(path))?;
+
+        dbg!(&metadata);
 
         Ok(Self {
             id,
@@ -85,6 +89,15 @@ impl Source for MbtSource {
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
             .map_err(|_| GetTileError(*xyz, self.id.clone()))?
+            .map(|data| {
+                if data.is_empty() {
+                    return data;
+                }
+                let mut decoder = flate2::read::GzDecoder::new(data.as_slice());
+                let mut buffer = Vec::new();
+                decoder.read_to_end(&mut buffer).unwrap();
+                buffer
+            })
             .unwrap_or_default())
     }
 }
