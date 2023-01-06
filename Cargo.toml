@@ -1,6 +1,10 @@
 [workspace]
-default-members = ["martin-tile-utils", "."]
-members = ["martin-tile-utils"]
+default-members = ["martin-tile-utils", "mbtiles", "."]
+members = ["martin-tile-utils", "mbtiles"]
+
+[profile.dev.package.sqlx-macros]
+# See https://github.com/launchbadge/sqlx#compile-time-verification
+opt-level = 3
 
 [package]
 name = "martin"
@@ -39,6 +43,7 @@ futures = "0.3"
 itertools = "0.10"
 log = "0.4"
 martin-tile-utils = { path = "martin-tile-utils" }
+mbtiles = { path = "mbtiles"}
 num_cpus = "1"
 openssl = { version = "0.10", optional = true }
 pmtiles = { version = "0.2", features = ["mmap-async-tokio", "tilejson"] }

@@ -1,0 +1,45 @@
+{
+  "db": "SQLite",
+  "60264fa07915878b3f7ba0067f48c3a379e96acbdf5fc52d14e29bc726fefab7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "tile_data",
+          "ordinal": 0,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+  },
+  "d6ac76a234c97d0dc1fc4331d8b2cd90903d5401f8f0956245e5163bedd23a4d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "value",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        true,
+        true
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "SELECT name, value FROM metadata WHERE value IS NOT ''"
+  }
+}

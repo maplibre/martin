@@ -1,7 +1,7 @@
 #### Make sure this list is the same as in the .dockerignore file
 
 .DS_Store
-/target/
+target/
 **/*.rs.bk
 .idea/
 test_log*

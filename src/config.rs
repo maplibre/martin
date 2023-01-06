@@ -12,6 +12,7 @@ use serde_yaml::Value;
 use subst::VariableMap;
 
 use crate::file_config::{resolve_files, FileConfigEnum};
+use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
 use crate::source::{IdResolver, Sources};
@@ -29,6 +30,9 @@ pub struct Config {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pmtiles: Option<FileConfigEnum>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mbtiles: Option<FileConfigEnum>,
 
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
@@ -48,9 +52,16 @@ impl Config {
             false
         };
 
-        any |= if let Some(pmt) = &mut self.pmtiles {
-            pmt.finalize("pmtiles.")?;
-            !pmt.is_empty()
+        any |= if let Some(cfg) = &mut self.pmtiles {
+            cfg.finalize("pmtiles.")?;
+            !cfg.is_empty()
+        } else {
+            false
+        };
+
+        any |= if let Some(cfg) = &mut self.mbtiles {
+            cfg.finalize("mbtiles.")?;
+            !cfg.is_empty()
         } else {
             false
         };
@@ -64,6 +75,7 @@ impl Config {
 
     pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
         let create_pmt_src = &mut PmtSource::new_box;
+        let create_mbt_src = &mut MbtSource::new_box;
 
         let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
         if let Some(v) = self.postgres.as_mut() {
@@ -73,6 +85,11 @@ impl Config {
         }
         if let Some(v) = self.pmtiles.as_mut() {
             let val = resolve_files(v, idr.clone(), "pmtiles", create_pmt_src);
+            sources.push(Box::pin(val));
+        }
+
+        if let Some(v) = self.mbtiles.as_mut() {
+            let val = resolve_files(v, idr.clone(), "mbtiles", create_mbt_src);
             sources.push(Box::pin(val));
         }
 

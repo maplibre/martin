@@ -70,6 +70,10 @@ impl Args {
             config.pmtiles = parse_file_args(&mut cli_strings, "pmtiles");
         }
 
+        if !cli_strings.is_empty() {
+            config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles");
+        }
+
         cli_strings.check()
     }
 }
