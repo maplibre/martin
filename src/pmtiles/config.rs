@@ -5,7 +5,8 @@ use crate::pmtiles::source::PmtSource;
 use crate::pmtiles::utils::PmtError::{InvalidFilePath, InvalidSourceFilePath};
 use crate::pmtiles::utils::Result;
 use crate::source::{IdResolver, Source};
-use crate::{utils, Sources};
+use crate::OneOrMany::{Many, One};
+use crate::{utils, OneOrMany, Sources};
 use futures::TryFutureExt;
 use log::{info, warn};
 use std::collections::{HashMap, HashSet};
@@ -33,81 +34,93 @@ pub fn parse_pmt_args(cli_strings: &mut Connections) -> Option<FileConfigEnum> {
     }
 }
 
-impl FileConfig {
-    pub async fn resolve(&mut self, idr: IdResolver) -> utils::Result<Sources> {
-        self.resolve_int(idr).map_err(crate::Error::from).await
+pub async fn pmt_resolve(config: &mut FileConfigEnum, idr: IdResolver) -> utils::Result<Sources> {
+    resolve(config, idr).map_err(crate::Error::from).await
+}
+
+async fn resolve(config: &mut FileConfigEnum, idr: IdResolver) -> Result<Sources> {
+    let cfg = match config {
+        FileConfigEnum::Path(path) => FileConfig {
+            paths: Some(One(mem::take(path))),
+            ..FileConfig::default()
+        },
+        FileConfigEnum::Paths(paths) => FileConfig {
+            paths: Some(Many(mem::take(paths))),
+            ..Default::default()
+        },
+        FileConfigEnum::Config(cfg) => mem::take(cfg),
+    };
+
+    let mut results = Sources::new();
+    let mut configs = HashMap::new();
+    let mut files = HashSet::new();
+    let mut directories = Vec::new();
+
+    if let Some(sources) = cfg.sources {
+        for (id, source) in sources {
+            let can = source.path().canonicalize()?;
+            if !can.is_file() {
+                // todo: maybe warn instead?
+                return Err(InvalidSourceFilePath(id.to_string(), can));
+            }
+
+            let dup = !files.insert(can.clone());
+            let dup = if dup { "duplicate " } else { "" };
+            let id = idr.resolve(&id, can.to_string_lossy().to_string());
+            info!("Configured {dup}source {id} from {}", can.display());
+            configs.insert(id.clone(), source.clone());
+            results.insert(id.clone(), create_source(id, source).await?);
+        }
     }
 
-    async fn resolve_int(&mut self, idr: IdResolver) -> Result<Sources> {
-        let cfg = mem::take(self);
-
-        let mut results = Sources::new();
-        let mut configs = HashMap::new();
-        let mut files = HashSet::new();
-        let mut directories = Vec::new();
-
-        if let Some(sources) = cfg.sources {
-            for (id, source) in sources {
-                let can = source.path().canonicalize()?;
-                if !can.is_file() {
-                    // todo: maybe warn instead?
-                    return Err(InvalidSourceFilePath(id.to_string(), can));
+    if let Some(paths) = cfg.paths {
+        for path in paths {
+            let is_dir = path.is_dir();
+            let dir_files = if is_dir {
+                // directories will be kept in the config just in case there are new files
+                directories.push(path.clone());
+                path.read_dir()?
+                    .filter_map(std::result::Result::ok)
+                    .filter(|f| {
+                        f.path().extension().filter(|e| *e == "pmtiles").is_some()
+                            && f.path().is_file()
+                    })
+                    .map(|f| f.path())
+                    .collect()
+            } else if path.is_file() {
+                vec![path]
+            } else {
+                return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
+            };
+            for path in dir_files {
+                let can = path.canonicalize()?;
+                if files.contains(&can) {
+                    if !is_dir {
+                        warn!("Ignoring duplicate MBTiles path: {}", can.display());
+                    }
+                    continue;
                 }
-
-                let dup = !files.insert(can.clone());
-                let dup = if dup { "duplicate " } else { "" };
+                let id = path.file_stem().map_or_else(
+                    || "_unknown".to_string(),
+                    |s| s.to_string_lossy().to_string(),
+                );
+                let source = FileConfigSrc::Path(path);
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
-                info!("Configured {dup}source {id} from {}", can.display());
+                info!("Configured source {id} from {}", can.display());
+                files.insert(can);
                 configs.insert(id.clone(), source.clone());
                 results.insert(id.clone(), create_source(id, source).await?);
             }
         }
-
-        if let Some(paths) = cfg.paths {
-            for path in paths {
-                let dir_files = if path.is_dir() {
-                    directories.push(path.clone());
-                    path.read_dir()?
-                        .filter_map(std::result::Result::ok)
-                        .filter(|f| {
-                            f.path().extension().filter(|e| *e == "pmtiles").is_some()
-                                && f.path().is_file()
-                        })
-                        .map(|f| f.path())
-                        .collect()
-                } else if !path.is_file() {
-                    return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
-                } else {
-                    vec![path]
-                };
-                for path in dir_files {
-                    let can = path.canonicalize()?;
-                    if files.contains(&can) {
-                        warn!("Ignoring duplicate MBTiles path: {}", can.display());
-                        continue;
-                    }
-                    let id = path.file_stem().map_or_else(
-                        || "_unknown".to_string(),
-                        |s| s.to_string_lossy().to_string(),
-                    );
-                    let source = FileConfigSrc::Path(path);
-                    let id = idr.resolve(&id, can.to_string_lossy().to_string());
-                    info!("Configured source {id} from {}", can.display());
-                    files.insert(can);
-                    configs.insert(id.clone(), source.clone());
-                    results.insert(id.clone(), create_source(id, source).await?);
-                }
-            }
-        }
-
-        *self = FileConfig {
-            paths: None,
-            sources: Some(configs),
-            unrecognized: cfg.unrecognized,
-        };
-
-        Ok(results)
     }
+
+    *config = FileConfigEnum::Config(FileConfig {
+        paths: OneOrMany::new_opt(directories),
+        sources: Some(configs),
+        unrecognized: cfg.unrecognized,
+    });
+
+    Ok(results)
 }
 
 async fn create_source(id: String, source: FileConfigSrc) -> Result<Box<dyn Source>> {

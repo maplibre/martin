@@ -22,6 +22,21 @@ impl<T> IntoIterator for OneOrMany<T> {
 }
 
 impl<T: Clone> OneOrMany<T> {
+    pub fn new_opt<I: IntoIterator<Item = T>>(iter: I) -> Option<Self> {
+        let mut iter = iter.into_iter();
+        match (iter.next(), iter.next()) {
+            (Some(first), Some(second)) => {
+                let mut vec = Vec::with_capacity(iter.size_hint().0 + 2);
+                vec.push(first);
+                vec.push(second);
+                vec.extend(iter);
+                Some(Self::Many(vec))
+            }
+            (Some(first), None) => Some(Self::One(first)),
+            (None, _) => None,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         match self {
             Self::One(_) => false,
@@ -54,11 +69,16 @@ impl<T: Clone> OneOrMany<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::OneOrMany::{Many, One};
 
     #[test]
     fn test_one_or_many() {
-        let mut one = OneOrMany::One(1);
-        let mut many = OneOrMany::Many(vec![1, 2, 3]);
+        let mut one = One(1);
+        let mut many = Many(vec![1, 2, 3]);
+
+        assert_eq!(OneOrMany::new_opt(vec![1, 2, 3]), Some(Many(vec![1, 2, 3])));
+        assert_eq!(OneOrMany::new_opt(vec![1]), Some(One(1)));
+        assert_eq!(OneOrMany::new_opt(Vec::<i32>::new()), None);
 
         assert_eq!(one.iter_mut().collect::<Vec<_>>(), vec![&1]);
         assert_eq!(many.iter_mut().collect::<Vec<_>>(), vec![&1, &2, &3]);

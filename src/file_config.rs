@@ -1,7 +1,6 @@
 use crate::config::report_unrecognized_config;
-use crate::OneOrMany::{Many, One};
+use crate::OneOrMany;
 use crate::Result;
-use crate::{IdResolver, OneOrMany, Sources};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
@@ -21,25 +20,6 @@ impl FileConfigEnum {
             report_unrecognized_config(prefix, &cfg.unrecognized);
         }
         Ok(self)
-    }
-
-    #[must_use]
-    pub fn into_config(self) -> FileConfig {
-        match self {
-            Self::Path(path) => FileConfig {
-                paths: Some(One(path)),
-                ..FileConfig::default()
-            },
-            Self::Paths(paths) => FileConfig {
-                paths: Some(Many(paths)),
-                ..Default::default()
-            },
-            Self::Config(cfg) => cfg,
-        }
-    }
-
-    pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
-        self.clone().into_config().resolve(idr).await
     }
 
     #[must_use]

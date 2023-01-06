@@ -13,6 +13,7 @@ use subst::VariableMap;
 
 use crate::file_config::FileConfigEnum;
 use crate::pg::PgConfig;
+use crate::pmtiles::pmt_resolve;
 use crate::source::{IdResolver, Sources};
 use crate::srv::SrvConfig;
 use crate::utils::{OneOrMany, Result};
@@ -69,7 +70,7 @@ impl Config {
             }
         }
         if let Some(v) = self.pmtiles.as_mut() {
-            sources.push(Box::pin(v.resolve(idr.clone())));
+            sources.push(Box::pin(pmt_resolve(v, idr.clone())));
         }
 
         Ok(try_join_all(sources)
