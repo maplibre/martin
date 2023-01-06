@@ -16,9 +16,9 @@ pub enum FileConfigEnum {
 }
 
 impl FileConfigEnum {
-    pub fn finalize(&self) -> Result<&Self> {
+    pub fn finalize(&self, prefix: &str) -> Result<&Self> {
         if let Self::Config(cfg) = self {
-            report_unrecognized_config("pmtiles.", &cfg.unrecognized);
+            report_unrecognized_config(prefix, &cfg.unrecognized);
         }
         Ok(self)
     }

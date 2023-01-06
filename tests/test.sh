@@ -69,6 +69,19 @@ test_pbf()
   fi
 }
 
+test_png()
+{
+  FILENAME="$TEST_OUT_DIR/$1.png"
+  URL="$MARTIN_URL/$2"
+
+  echo "Testing $(basename "$FILENAME") from $URL"
+  $CURL "$URL" > "$FILENAME"
+
+  if [[ $OSTYPE == linux* ]]; then
+    file "$FILENAME" > "$FILENAME.txt"
+  fi
+}
+
 clean_yaml()
 {
   YAML_FILE="$1"
@@ -93,7 +106,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml")
+ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
 PROCESS_ID=`jobs -p`
@@ -146,6 +159,9 @@ test_pbf fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
 >&2 echo "***** Test server response for table source with different SRID *****"
 test_pbf points3857_srid_0_0_0    points3857/0/0/0
 
+>&2 echo "***** Test server response for PMTiles source *****"
+test_png raster_3_4_2 stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
+
 >&2 echo "***** Test server response for table source with empty SRID *****"
 echo "IGNORING: This test is currently failing, and has been failing for a while"
 echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
@@ -174,6 +190,7 @@ test_pbf tbl_0_0_0   table_source/0/0/0
 test_pbf cmp_0_0_0   points1,points2/0/0/0
 test_pbf fnc_0_0_0   function_zxy_query/0/0/0
 test_pbf fnc2_0_0_0  function_zxy_query_test/0/0/0?token=martin
+test_png pmt_0_0_0   pmt/0/0/0
 
 kill_process $PROCESS_ID
 (cat test_log_2.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1

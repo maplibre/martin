@@ -160,20 +160,3 @@ pub fn sorted_opt_map<S: Serializer, T: Serialize>(
         })
         .serialize(serializer)
 }
-
-/// TODO: replace this with `Vec::drain_filter` when it's stable
-pub fn drain_filter<T, F>(values: &mut Vec<T>, mut filter: F) -> Vec<T>
-where
-    F: FnMut(&T) -> bool,
-{
-    let mut matches = Vec::new();
-    let mut i = 0;
-    while i < values.len() {
-        if filter(&values[i]) {
-            matches.push(values.remove(i));
-        } else {
-            i += 1;
-        }
-    }
-    matches
-}

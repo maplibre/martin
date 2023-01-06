@@ -35,7 +35,7 @@ pub struct Config {
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<&Self> {
+    pub fn finalize(&mut self) -> Result<()> {
         report_unrecognized_config("", &self.unrecognized);
 
         let mut any = if let Some(pg) = &mut self.postgres {
@@ -48,14 +48,14 @@ impl Config {
         };
 
         any |= if let Some(pmt) = &mut self.pmtiles {
-            pmt.finalize()?;
+            pmt.finalize("pmtiles.")?;
             !pmt.is_empty()
         } else {
             false
         };
 
         if any {
-            Ok(self)
+            Ok(())
         } else {
             Err(NoSources)
         }
@@ -121,7 +121,7 @@ pub mod tests {
 
     pub fn assert_config(yaml: &str, expected: &Config) {
         let mut config = parse_cfg(yaml);
-        config.finalize().expect("finalize");
+        config.finalize().unwrap();
         assert_eq!(&config, expected);
     }
 }

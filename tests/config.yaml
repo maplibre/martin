@@ -150,3 +150,7 @@ postgres:
       minzoom: 0
       maxzoom: 30
       bounds: [-180.0, -90.0, 180.0, 90.0]
+
+pmtiles:
+  sources:
+    pmt: tests/fixtures/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles

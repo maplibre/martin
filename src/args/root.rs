@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use log::warn;
 
+use crate::args::connections::Connections;
 use crate::args::environment::Env;
 use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
@@ -42,7 +43,7 @@ pub struct MetaArgs {
 }
 
 impl Args {
-    pub fn merge_into_config<'a>(mut self, config: &mut Config, env: &impl Env<'a>) -> Result<()> {
+    pub fn merge_into_config<'a>(self, config: &mut Config, env: &impl Env<'a>) -> Result<()> {
         if self.meta.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
         }
@@ -55,24 +56,20 @@ impl Args {
 
         self.srv.merge_into_config(&mut config.srv);
 
+        let mut cli_strings = Connections::new(self.meta.connection);
         let pg_args = self.pg.unwrap_or_default();
         if let Some(pg_config) = &mut config.postgres {
             // config was loaded from a file, we can only apply a few CLI overrides to it
             pg_args.override_config(pg_config, env);
         } else {
-            config.postgres = pg_args.into_config(&mut self.meta, env);
+            config.postgres = pg_args.into_config(&mut cli_strings, env);
         }
 
-        if !self.meta.connection.is_empty() {
-            config.pmtiles = parse_pmt_args(&mut self.meta.connection);
+        if !cli_strings.is_empty() {
+            config.pmtiles = parse_pmt_args(&mut cli_strings);
         }
 
-        if self.meta.connection.is_empty() {
-            Ok(())
-        } else {
-            let connections = self.meta.connection.clone();
-            Err(Error::UnrecognizableConnections(connections))
-        }
+        cli_strings.check()
     }
 }
 

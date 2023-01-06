@@ -132,3 +132,4 @@ postgres:
     function_zxy_row_key:
       schema: public
       function: function_zxy_row_key
+pmtiles: tests/fixtures

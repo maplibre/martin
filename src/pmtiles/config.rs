@@ -1,3 +1,5 @@
+use crate::args::Connections;
+use crate::args::State::{Ignore, Share, Take};
 use crate::file_config::{FileConfig, FileConfigEnum, FileConfigSrc};
 use crate::pmtiles::source::PmtSource;
 use crate::pmtiles::utils::PmtError::{InvalidFilePath, InvalidSourceFilePath};
@@ -10,13 +12,19 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::path::PathBuf;
 
-pub fn parse_pmt_args(cli_strings: &mut Vec<String>) -> Option<FileConfigEnum> {
-    let paths: Vec<_> = utils::drain_filter(cli_strings, |p| {
-        PathBuf::try_from(p).map_or(false, |p| p.extension().map_or(false, |e| e == "pmtiles"))
-    })
-    .into_iter()
-    .map(PathBuf::from)
-    .collect();
+pub fn parse_pmt_args(cli_strings: &mut Connections) -> Option<FileConfigEnum> {
+    let paths = cli_strings.process(|v| match PathBuf::try_from(v) {
+        Ok(v) => {
+            if v.is_dir() {
+                Share(v)
+            } else if v.is_file() && v.extension().map_or(false, |e| e == "pmtiles") {
+                Take(v)
+            } else {
+                Ignore
+            }
+        }
+        Err(_) => Ignore,
+    });
 
     match paths.len() {
         0 => None,
