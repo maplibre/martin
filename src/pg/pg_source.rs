@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::i16;
 
 use async_trait::async_trait;
 use bb8_postgres::tokio_postgres::types::ToSql;
