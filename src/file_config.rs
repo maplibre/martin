@@ -1,15 +1,17 @@
-use crate::config::report_unrecognized_config;
-use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath};
-use crate::OneOrMany::{Many, One};
-use crate::{Error, IdResolver, OneOrMany, Source, Sources, Xyz};
-use futures::TryFutureExt;
-use log::{info, warn};
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::mem;
 use std::path::PathBuf;
+
+use futures::TryFutureExt;
+use log::{info, warn};
+use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
+
+use crate::config::report_unrecognized_config;
+use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath};
+use crate::OneOrMany::{Many, One};
+use crate::{Error, IdResolver, OneOrMany, Source, Sources, Xyz};
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
@@ -22,8 +24,8 @@ pub enum FileError {
     #[error("Source {0} uses bad file {}", .1.display())]
     InvalidSourceFilePath(String, PathBuf),
 
-    #[error(r"Unable to parse metadata in file {}", .0.display())]
-    InvalidMetadata(PathBuf),
+    #[error(r"Unable to parse metadata in file {}: {0}", .1.display())]
+    InvalidMetadata(String, PathBuf),
 
     #[error(r#"Tile {0:#} not found in {1}"#)]
     GetTileError(Xyz, String),
@@ -216,10 +218,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
-    use indoc::indoc;
     use std::collections::HashMap;
     use std::path::PathBuf;
+
+    use indoc::indoc;
+
+    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
 
     #[test]
     fn parse() {

@@ -262,9 +262,9 @@ async fn get_tile(
             .await
             .map_err(map_internal_error)?;
         // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
-        let can_join = format == DataFormat::Mvt
-            || format == DataFormat::GzipMvt
-            || format == DataFormat::ZlibMvt; // TODO: can zlib be joined?
+        // TODO: can zlib, brotli, or zstd be concatenated?
+        // TODO: implement decompression step for other concatenate-able formats
+        let can_join = format == DataFormat::Mvt || format == DataFormat::GzipMvt;
         if !can_join && tiles.iter().map(|v| i32::from(!v.is_empty())).sum::<i32>() > 1 {
             return Err(error::ErrorBadRequest(format!(
                 "Can't merge {format:?} tiles. Make sure there is only one non-empty tile source at zoom level {}",

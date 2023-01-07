@@ -1,8 +1,6 @@
 // This code was partially adapted from https://github.com/maplibre/mbtileserver-rs
 // project originally written by Kaveh Karimi and licensed under MIT/Apache-2.0
 
-use actix_http::ContentEncoding;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DataFormat {
     Png,
@@ -13,6 +11,8 @@ pub enum DataFormat {
     Mvt,
     GzipMvt,
     ZlibMvt,
+    BrotliMvt,
+    ZstdMvt,
     Unknown,
 }
 
@@ -40,17 +40,30 @@ impl DataFormat {
             Self::Gif => Some("image/gif"),
             Self::Webp => Some("image/webp"),
             Self::Json => Some("application/json"),
-            Self::Mvt | Self::GzipMvt | Self::ZlibMvt => Some("application/x-protobuf"),
+            Self::Mvt | Self::GzipMvt | Self::ZlibMvt | Self::BrotliMvt | Self::ZstdMvt => {
+                Some("application/x-protobuf")
+            }
             Self::Unknown => None,
         }
     }
 
     #[must_use]
-    pub fn content_encoding(&self) -> Option<ContentEncoding> {
+    pub fn content_encoding(&self) -> Option<&str> {
+        // We could also return http::ContentEncoding,
+        // but seems like on overkill to add a dep for that
         match *self {
-            Self::GzipMvt => Some(ContentEncoding::Gzip),
-            Self::ZlibMvt => Some(ContentEncoding::Deflate),
-            _ => None,
+            Self::BrotliMvt => Some("br"),
+            Self::GzipMvt => Some("gzip"),
+            Self::ZlibMvt => Some("deflate"),
+            Self::ZstdMvt => Some("zstd"),
+
+            Self::Png
+            | Self::Jpeg
+            | Self::Webp
+            | Self::Gif
+            | Self::Json
+            | Self::Mvt
+            | Self::Unknown => None,
         }
     }
 }
@@ -64,7 +77,7 @@ mod tests {
     #[test]
     fn test_data_format_png() {
         assert_eq!(
-            DataFormat::detect(&read("./data/world.png").unwrap()),
+            DataFormat::detect(&read("./fixtures/world.png").unwrap()),
             DataFormat::Png
         );
     }
@@ -72,7 +85,7 @@ mod tests {
     #[test]
     fn test_data_format_jpg() {
         assert_eq!(
-            DataFormat::detect(&read("./data/world.jpg").unwrap()),
+            DataFormat::detect(&read("./fixtures/world.jpg").unwrap()),
             DataFormat::Jpeg
         );
     }
@@ -80,7 +93,7 @@ mod tests {
     #[test]
     fn test_data_format_webp() {
         assert_eq!(
-            DataFormat::detect(&read("./data/dc.webp").unwrap()),
+            DataFormat::detect(&read("./fixtures/dc.webp").unwrap()),
             DataFormat::Webp
         );
     }

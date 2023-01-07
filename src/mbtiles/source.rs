@@ -48,7 +48,7 @@ impl MbtSource {
         let metadata = mbt
             .get_metadata()
             .await
-            .map_err(|_| InvalidMetadata(path))?;
+            .map_err(|e| InvalidMetadata(e.to_string(), path))?;
 
         dbg!(&metadata);
 
