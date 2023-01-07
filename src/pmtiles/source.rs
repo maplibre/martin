@@ -12,7 +12,7 @@ use pmtiles::{Compression, TileType};
 use tilejson::TileJSON;
 
 use crate::file_config::FileError;
-use crate::file_config::FileError::{GetTileError, Unsupported};
+use crate::file_config::FileError::{GetTileError, InvalidMetadata};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use crate::utils::is_valid_zoom;
 use crate::Error;
@@ -55,7 +55,7 @@ impl PmtSource {
         let hdr = &reader.header;
 
         if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
-            return Err(Unsupported(
+            return Err(InvalidMetadata(
                 format!(
                     "Format {:?} and compression {:?} are not yet supported",
                     hdr.tile_type, hdr.tile_compression
