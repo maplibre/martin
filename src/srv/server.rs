@@ -4,7 +4,7 @@ use std::time::Duration;
 use actix_cors::Cors;
 use actix_http::header::HeaderValue;
 use actix_web::dev::Server;
-use actix_web::http::header::CACHE_CONTROL;
+use actix_web::http::header::{CACHE_CONTROL, CONTENT_ENCODING};
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::{Data, Path, Query};
@@ -258,11 +258,20 @@ async fn get_tile(
         } else {
             None
         };
-        let tile = try_join_all(sources.into_iter().map(|s| s.get_tile(&xyz, &query)))
+        let tiles = try_join_all(sources.into_iter().map(|s| s.get_tile(&xyz, &query)))
             .await
-            .map_err(map_internal_error)?
-            .concat();
-        (tile, format)
+            .map_err(map_internal_error)?;
+        // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
+        // TODO: can zlib, brotli, or zstd be concatenated?
+        // TODO: implement decompression step for other concatenate-able formats
+        let can_join = format == DataFormat::Mvt || format == DataFormat::GzipMvt;
+        if !can_join && tiles.iter().map(|v| i32::from(!v.is_empty())).sum::<i32>() > 1 {
+            return Err(error::ErrorBadRequest(format!(
+                "Can't merge {format:?} tiles. Make sure there is only one non-empty tile source at zoom level {}",
+                xyz.z
+            )))?;
+        }
+        (tiles.concat(), format)
     } else {
         let id = &path.source_ids;
         let zoom = xyz.z;
@@ -284,11 +293,18 @@ async fn get_tile(
         (tile, src.get_format())
     };
 
-    let content = format.content_type();
-    match tile.len() {
-        0 => Ok(HttpResponse::NoContent().content_type(content).finish()),
-        _ => Ok(HttpResponse::Ok().content_type(content).body(tile)),
-    }
+    Ok(if tile.is_empty() {
+        HttpResponse::NoContent().finish()
+    } else {
+        let mut response = HttpResponse::Ok();
+        if let Some(val) = format.content_type() {
+            response.content_type(val);
+        }
+        if let Some(val) = format.content_encoding() {
+            response.insert_header((CONTENT_ENCODING, val));
+        }
+        response.body(tile)
+    })
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {

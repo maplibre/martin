@@ -1,8 +1,9 @@
+use std::cmp::Ordering::Equal;
+use std::collections::{BTreeMap, HashMap};
+
 use itertools::Itertools;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize, Serializer};
-use std::cmp::Ordering::Equal;
-use std::collections::{BTreeMap, HashMap};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
 pub type InfoMap<T> = HashMap<String, T>;
