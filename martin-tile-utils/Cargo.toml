@@ -8,3 +8,4 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+actix-http = "3"
