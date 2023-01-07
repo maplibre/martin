@@ -1,7 +1,8 @@
-use crate::file_config::FileError;
-use crate::pg::PgError;
 use std::io;
 use std::path::PathBuf;
+
+use crate::file_config::FileError;
+use crate::pg::PgError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

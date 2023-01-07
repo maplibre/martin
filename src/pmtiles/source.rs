@@ -1,19 +1,21 @@
-use crate::file_config::FileError;
-use crate::file_config::FileError::GetTileError;
-use crate::source::{Source, Tile, UrlQuery, Xyz};
-use crate::utils::is_valid_zoom;
-use crate::Error;
+use std::fmt::{Debug, Formatter};
+use std::io;
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use log::warn;
 use martin_tile_utils::DataFormat;
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::mmap::MmapBackend;
-use pmtiles::TileType;
-use std::fmt::{Debug, Formatter};
-use std::io;
-use std::path::PathBuf;
-use std::sync::Arc;
+use pmtiles::{Compression, TileType};
 use tilejson::TileJSON;
+
+use crate::file_config::FileError;
+use crate::file_config::FileError::{GetTileError, Unsupported};
+use crate::source::{Source, Tile, UrlQuery, Xyz};
+use crate::utils::is_valid_zoom;
+use crate::Error;
 
 #[derive(Clone)]
 pub struct PmtSource {
@@ -50,19 +52,35 @@ impl PmtSource {
                 format!("{e:?}: Cannot open file {}", path.display()),
             )
         })?;
+        let hdr = &reader.header;
 
-        let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
-            warn!("{e:?}: Unable to parse metadata for {}", path.display());
-            reader.header.get_tilejson(Vec::new())
-        });
+        if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
+            return Err(Unsupported(
+                format!(
+                    "Format {:?} and compression {:?} are not yet supported",
+                    hdr.tile_type, hdr.tile_compression
+                ),
+                path,
+            ));
+        }
 
-        let format = match reader.header.tile_type {
+        let format = match hdr.tile_type {
             TileType::Unknown => DataFormat::Unknown,
-            TileType::Mvt => DataFormat::Mvt,
+            TileType::Mvt => match hdr.tile_compression {
+                Compression::Unknown | Compression::None => DataFormat::Mvt,
+                Compression::Gzip => DataFormat::GzipMvt,
+                Compression::Brotli => DataFormat::BrotliMvt,
+                Compression::Zstd => DataFormat::ZstdMvt,
+            },
             TileType::Png => DataFormat::Png,
             TileType::Jpeg => DataFormat::Jpeg,
             TileType::Webp => DataFormat::Webp,
         };
+
+        let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
+            warn!("{e:?}: Unable to parse metadata for {}", path.display());
+            hdr.get_tilejson(Vec::new())
+        });
 
         Ok(Self {
             id,

@@ -48,9 +48,9 @@ impl Config {
             false
         };
 
-        any |= if let Some(pmt) = &mut self.pmtiles {
-            pmt.finalize("pmtiles.")?;
-            !pmt.is_empty()
+        any |= if let Some(cfg) = &mut self.pmtiles {
+            cfg.finalize("pmtiles.")?;
+            !cfg.is_empty()
         } else {
             false
         };
