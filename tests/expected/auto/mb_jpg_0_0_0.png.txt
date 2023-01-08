@@ -1,0 +1,1 @@
+tests/output/auto/mb_jpg_0_0_0.png: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, baseline, precision 8, 256x256, components 3
