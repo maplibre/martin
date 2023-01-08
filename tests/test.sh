@@ -177,7 +177,8 @@ test_jsn points3857_srid          points3857
 test_pbf points3857_srid_0_0_0    points3857/0/0/0
 
 >&2 echo "***** Test server response for PMTiles source *****"
-test_png raster_3_4_2 stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
+test_jsn pmt       stamen_toner__raster_CC-BY-ODbL_z3
+test_png pmt_3_4_2 stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
 echo "IGNORING: This test is currently failing, and has been failing for a while"
