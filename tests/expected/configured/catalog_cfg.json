@@ -1,32 +1,40 @@
 [
   {
+    "content_type": "application/x-protobuf",
     "id": "MixPoints",
     "name": "MixedCase.MixPoints.Geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy_query",
     "name": "public.function_zxy_query"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy_query_test",
     "name": "public.function_zxy_query_test"
   },
   {
+    "content_type": "image/png",
     "id": "pmt"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "points1",
     "name": "public.points1.geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "points2",
     "name": "public.points2.geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "points3857",
     "name": "public.points3857.geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "table_source",
     "name": "public.table_source.geom"
   }

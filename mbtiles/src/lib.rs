@@ -263,7 +263,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_metadata_jpeg() {
-        let mbt = Mbtiles::new(Path::new("fixtures/geography-class-jpg.mbtiles")).await;
+        let mbt = Mbtiles::new(Path::new("../tests/fixtures/geography-class-jpg.mbtiles")).await;
         let mbt = mbt.unwrap();
         let metadata = mbt.get_metadata().await.unwrap();
         let tj = metadata.tilejson;
@@ -281,7 +281,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_metadata_mvt() {
-        let mbt = Mbtiles::new(Path::new("fixtures/world_cities.mbtiles")).await;
+        let mbt = Mbtiles::new(Path::new("../tests/fixtures/world_cities.mbtiles")).await;
         let mbt = mbt.unwrap();
         let metadata = mbt.get_metadata().await.unwrap();
         let tj = metadata.tilejson;
