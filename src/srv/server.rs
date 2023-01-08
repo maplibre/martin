@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::string::ToString;
 use std::time::Duration;
 
 use actix_cors::Cors;
@@ -100,6 +101,10 @@ pub struct IndexEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_encoding: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub attribution: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_layer: Option<Vec<VectorLayer>>,
@@ -146,10 +151,13 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
         .iter()
         .map(|(id, src)| {
             let tilejson = src.get_tilejson();
+            let format = src.get_format();
             IndexEntry {
                 id: id.clone(),
                 name: tilejson.name,
                 description: tilejson.description,
+                content_type: format.content_type().map(ToString::to_string),
+                content_encoding: format.content_encoding().map(ToString::to_string),
                 attribution: tilejson.attribution,
                 vector_layer: tilejson.vector_layers,
             }
