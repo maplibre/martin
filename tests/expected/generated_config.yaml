@@ -132,3 +132,7 @@ postgres:
     function_zxy_row_key:
       schema: public
       function: function_zxy_row_key
+pmtiles:
+  paths: tests/fixtures
+  sources:
+    stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles

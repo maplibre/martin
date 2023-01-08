@@ -85,6 +85,10 @@
     "name": "public.points_empty_srid.geom"
   },
   {
+    "content_type": "image/png",
+    "id": "stamen_toner__raster_CC-BY-ODbL_z3"
+  },
+  {
     "content_type": "application/x-protobuf",
     "id": "table_source",
     "name": "public.table_source.geom"

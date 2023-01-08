@@ -15,6 +15,10 @@
     "name": "public.function_zxy_query_test"
   },
   {
+    "content_type": "image/png",
+    "id": "pmt"
+  },
+  {
     "content_type": "application/x-protobuf",
     "id": "points1",
     "name": "public.points1.geom"

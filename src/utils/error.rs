@@ -1,6 +1,7 @@
 use std::io;
 use std::path::PathBuf;
 
+use crate::file_config::FileError;
 use crate::pg::PgError;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -30,4 +31,7 @@ pub enum Error {
 
     #[error("{0}")]
     PostgresError(#[from] PgError),
+
+    #[error("{0}")]
+    FileError(#[from] FileError),
 }
