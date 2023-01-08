@@ -1395,6 +1395,7 @@ dependencies = [
  "martin-tile-utils",
  "serde_json",
  "sqlx",
+ "thiserror",
  "tilejson",
 ]
 

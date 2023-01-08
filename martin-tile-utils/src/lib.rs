@@ -66,6 +66,14 @@ impl DataFormat {
             | Self::Unknown => None,
         }
     }
+
+    #[must_use]
+    pub fn is_mvt(&self) -> bool {
+        match *self {
+            Self::Mvt | Self::GzipMvt | Self::ZlibMvt | Self::BrotliMvt | Self::ZstdMvt => true,
+            Self::Png | Self::Jpeg | Self::Webp | Self::Gif | Self::Json | Self::Unknown => false,
+        }
+    }
 }
 
 #[cfg(test)]

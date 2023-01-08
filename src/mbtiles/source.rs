@@ -50,8 +50,6 @@ impl MbtSource {
             .await
             .map_err(|e| InvalidMetadata(e.to_string(), path))?;
 
-        dbg!(&metadata);
-
         Ok(Self {
             id,
             mbtiles: Arc::new(mbt),
