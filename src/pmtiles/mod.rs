@@ -1,19 +1,21 @@
-use crate::file_config::FileError;
-use crate::file_config::FileError::{GetTileError, InvalidMetadata};
-use crate::source::{Tile, UrlQuery};
-use crate::utils::is_valid_zoom;
-use crate::{Error, Source, Xyz};
+use std::fmt::{Debug, Formatter};
+use std::io;
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use log::warn;
 use martin_tile_utils::DataFormat;
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::mmap::MmapBackend;
 use pmtiles::{Compression, TileType};
-use std::fmt::{Debug, Formatter};
-use std::io;
-use std::path::PathBuf;
-use std::sync::Arc;
 use tilejson::TileJSON;
+
+use crate::file_config::FileError;
+use crate::file_config::FileError::{GetTileError, InvalidMetadata};
+use crate::source::{Source, Tile, UrlQuery, Xyz};
+use crate::utils::is_valid_zoom;
+use crate::Error;
 
 #[derive(Clone)]
 pub struct PmtSource {

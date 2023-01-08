@@ -139,7 +139,7 @@ pmtiles:
 mbtiles:
   paths: tests/fixtures
   sources:
-    geography-class-jpg: tests/fixtures/geography-class-jpg.mbtiles
     world_cities: tests/fixtures/world_cities.mbtiles
-    geography-class-png-no-bounds: tests/fixtures/geography-class-png-no-bounds.mbtiles
+    geography-class-jpg: tests/fixtures/geography-class-jpg.mbtiles
     geography-class-png: tests/fixtures/geography-class-png.mbtiles
+    geography-class-png-no-bounds: tests/fixtures/geography-class-png-no-bounds.mbtiles

@@ -1,16 +1,18 @@
+use std::fmt::{Debug, Formatter};
+use std::io;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use martin_tile_utils::DataFormat;
+use mbtiles::Mbtiles;
+use tilejson::TileJSON;
+
 use crate::file_config::FileError;
 use crate::file_config::FileError::{GetTileError, InvalidMetadata};
 use crate::source::{Tile, UrlQuery};
 use crate::utils::is_valid_zoom;
 use crate::{Error, Source, Xyz};
-use async_trait::async_trait;
-use martin_tile_utils::DataFormat;
-use mbtiles::Mbtiles;
-use std::fmt::{Debug, Formatter};
-use std::io;
-use std::path::PathBuf;
-use std::sync::Arc;
-use tilejson::TileJSON;
 
 #[derive(Clone)]
 pub struct MbtSource {

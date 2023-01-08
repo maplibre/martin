@@ -2,6 +2,11 @@
 
 extern crate core;
 
+use std::ffi::OsStr;
+use std::fmt::Display;
+use std::path::Path;
+use std::str::FromStr;
+
 use futures::TryStreamExt;
 use log::{debug, warn};
 use martin_tile_utils::DataFormat;
@@ -9,10 +14,6 @@ use serde_json::{Value as JSONValue, Value};
 use sqlx::pool::PoolConnection;
 use sqlx::sqlite::SqlitePool;
 use sqlx::{query, Pool, Sqlite};
-use std::ffi::OsStr;
-use std::fmt::Display;
-use std::path::Path;
-use std::str::FromStr;
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 #[derive(thiserror::Error, Debug)]
@@ -257,9 +258,11 @@ impl Mbtiles {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashMap;
+
     use tilejson::VectorLayer;
+
+    use super::*;
 
     #[actix_rt::test]
     async fn test_metadata_jpeg() {
