@@ -55,13 +55,22 @@ function kill_process {
     timeout -k 1s 1s wait $PROCESS_ID || true
 }
 
+test_jsn()
+{
+  FILENAME="$TEST_OUT_DIR/$1.json"
+  URL="$MARTIN_URL/$2"
+
+  echo "Testing $(basename "$FILENAME") from $URL"
+  $CURL "$URL" | jq --sort-keys -e > "$FILENAME"
+}
+
 test_pbf()
 {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --compressed "$URL" > "$FILENAME"
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
@@ -103,9 +112,10 @@ trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
 
 >&2 echo "Test catalog"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog_auto.json"
+test_jsn catalog_auto catalog
 
 >&2 echo "***** Test server response for table source *****"
+test_jsn table_source             table_source
 test_pbf tbl_0_0_0                table_source/0/0/0
 test_pbf tbl_6_57_29              table_source/6/57/29
 test_pbf tbl_12_3673_1911         table_source/12/3673/1911
@@ -115,6 +125,7 @@ test_pbf tbl_17_117542_61161      table_source/17/117542/61161
 test_pbf tbl_18_235085_122323     table_source/18/235085/122323
 
 >&2 echo "***** Test server response for composite source *****"
+test_jsn cmp                      table_source,points1,points2
 test_pbf cmp_0_0_0                table_source,points1,points2/0/0/0
 test_pbf cmp_6_57_29              table_source,points1,points2/6/57/29
 test_pbf cmp_12_3673_1911         table_source,points1,points2/12/3673/1911
@@ -124,6 +135,7 @@ test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
 test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
 >&2 echo "***** Test server response for function source *****"
+test_jsn fnc                      function_zxy_query
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
 test_pbf fnc_6_57_29              function_zxy_query/6/57/29
 test_pbf fnc_12_3673_1911         function_zxy_query/12/3673/1911
@@ -131,7 +143,11 @@ test_pbf fnc_13_7346_3822         function_zxy_query/13/7346/3822
 test_pbf fnc_14_14692_7645        function_zxy_query/14/14692/7645
 test_pbf fnc_17_117542_61161      function_zxy_query/17/117542/61161
 test_pbf fnc_18_235085_122323     function_zxy_query/18/235085/122323
-test_pbf fnc_0_0_0_token          function_zxy_query_test/0/0/0?token=martin
+
+test_jsn fnc_token                function_zxy_query_test
+test_pbf fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
+
+test_jsn fnc_b                    function_zxy_query_jsonb
 test_pbf fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
 
 >&2 echo "***** Test server response for different function call types *****"
@@ -144,6 +160,7 @@ test_pbf fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
 test_pbf fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
 
 >&2 echo "***** Test server response for table source with different SRID *****"
+test_jsn points3857_srid          points3857
 test_pbf points3857_srid_0_0_0    points3857/0/0/0
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
@@ -168,7 +185,7 @@ trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
 wait_for_martin $PROCESS_ID
 
 >&2 echo "Test catalog"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys -e | tee "$TEST_OUT_DIR/catalog_cfg.json"
+test_jsn catalog_cfg catalog
 
 test_pbf tbl_0_0_0   table_source/0/0/0
 test_pbf cmp_0_0_0   points1,points2/0/0/0

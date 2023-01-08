@@ -1,0 +1,17 @@
+{
+  "bounds": [
+    -180,
+    -85.05112877980659,
+    180,
+    85.0511287798066
+  ],
+  "maxzoom": 30,
+  "minzoom": 0,
+  "name": "public.function_zxy_query",
+  "scheme": "xyz",
+  "tilejson": "2.2.0",
+  "tiles": [
+    "http://localhost:3111/function_zxy_query/{z}/{x}/{y}"
+  ],
+  "version": "1.0.0"
+}
