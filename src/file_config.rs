@@ -10,6 +10,7 @@ use serde_yaml::Value;
 
 use crate::config::report_unrecognized_config;
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath};
+use crate::utils::sorted_opt_map;
 use crate::OneOrMany::{Many, One};
 use crate::{Error, IdResolver, OneOrMany, Source, Sources, Xyz};
 
@@ -46,6 +47,7 @@ pub struct FileConfig {
     pub paths: Option<OneOrMany<PathBuf>>,
     /// A map of source IDs to file paths or config objects
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "sorted_opt_map")]
     pub sources: Option<HashMap<String, FileConfigSrc>>,
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
