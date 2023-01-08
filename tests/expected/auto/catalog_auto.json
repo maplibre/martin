@@ -1,84 +1,105 @@
 [
   {
+    "content_type": "application/x-protobuf",
     "id": "MixPoints",
     "name": "MixedCase.MixPoints.Geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_Mixed_Name",
     "name": "MixedCase.function_Mixed_Name"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_null",
     "name": "public.function_null"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_null_row",
     "name": "public.function_null_row"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_null_row2",
     "name": "public.function_null_row2"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zoom_xy",
     "name": "public.function_zoom_xy"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy",
     "name": "public.function_zxy"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy2",
     "name": "public.function_zxy2"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy_query",
     "name": "public.function_zxy_query"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy_query_jsonb",
     "name": "public.function_zxy_query_jsonb"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy_query_test",
     "name": "public.function_zxy_query_test"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy_row",
     "name": "public.function_zxy_row"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "function_zxy_row_key",
     "name": "public.function_zxy_row_key"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "points1",
     "name": "public.points1.geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "points2",
     "name": "public.points2.geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "points3857",
     "name": "public.points3857.geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "points_empty_srid",
     "name": "public.points_empty_srid.geom"
   },
   {
+    "content_type": "image/png",
     "id": "stamen_toner__raster_CC-BY-ODbL_z3"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "table_source",
     "name": "public.table_source.geom"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "table_source_multiple_geom",
     "name": "public.table_source_multiple_geom.geom1"
   },
   {
+    "content_type": "application/x-protobuf",
     "id": "table_source_multiple_geom.1",
     "name": "public.table_source_multiple_geom.geom2"
   }
