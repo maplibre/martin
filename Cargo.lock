@@ -1004,9 +1004,9 @@ dependencies = [
 
 [[package]]
 name = "hilbert_2d"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21a5f1bc4440f2d5e5e92a53f45af6ade3a8fc2ad5780b85c73a37db32d111f7"
+checksum = "705f81e042b11734af35c701c7f6b65f8a968a430621fa2c95e72e27f9f8be5c"
 
 [[package]]
 name = "hmac"
@@ -1518,9 +1518,9 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0616fb67d60744e158c87f194ab5c4ce7b23cc35ad51bc9a2ba9f572221158d9"
+checksum = "42b045da58fad5677d6c342a9f238dcc82b3786f1e091d1ea6d86acffef7b82d"
 dependencies = [
  "async-compression",
  "async-recursion",
