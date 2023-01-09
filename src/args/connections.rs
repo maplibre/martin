@@ -8,12 +8,12 @@ pub enum State<T: Clone> {
 }
 
 #[derive(Debug)]
-pub struct Connections {
+pub struct Arguments {
     state: Vec<State<()>>,
     values: Vec<String>,
 }
 
-impl Connections {
+impl Arguments {
     #[must_use]
     pub fn new(values: Vec<String>) -> Self {
         Self {

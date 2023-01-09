@@ -1,6 +1,6 @@
 use log::{info, warn};
 
-use crate::args::connections::Connections;
+use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
 use crate::args::environment::Env;
 use crate::pg::{PgConfig, POOL_SIZE_DEFAULT};
@@ -30,7 +30,7 @@ pub struct PgArgs {
 impl PgArgs {
     pub fn into_config<'a>(
         self,
-        cli_strings: &mut Connections,
+        cli_strings: &mut Arguments,
         env: &impl Env<'a>,
     ) -> Option<OneOrMany<PgConfig>> {
         let connections = Self::extract_conn_strings(cli_strings, env);
@@ -110,7 +110,7 @@ impl PgArgs {
         }
     }
 
-    fn extract_conn_strings<'a>(cli_strings: &mut Connections, env: &impl Env<'a>) -> Vec<String> {
+    fn extract_conn_strings<'a>(cli_strings: &mut Arguments, env: &impl Env<'a>) -> Vec<String> {
         let mut connections = cli_strings.process(|v| {
             if is_postgresql_string(v) {
                 Take(v.to_string())
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_extract_conn_strings() {
-        let mut args = Connections::new(vec![
+        let mut args = Arguments::new(vec![
             "postgresql://localhost:5432".to_string(),
             "postgres://localhost:5432".to_string(),
             "mysql://localhost:3306".to_string(),
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_extract_conn_strings_from_env() {
-        let mut args = Connections::new(vec![]);
+        let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![("DATABASE_URL", os("postgresql://localhost:5432"))]
                 .into_iter()
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_merge_into_config() {
-        let mut args = Connections::new(vec!["postgres://localhost:5432".to_string()]);
+        let mut args = Arguments::new(vec!["postgres://localhost:5432".to_string()]);
         let config = PgArgs::default().into_config(&mut args, &FauxEnv::default());
         assert_eq!(
             config,
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_merge_into_config2() {
-        let mut args = Connections::new(vec![]);
+        let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_merge_into_config3() {
-        let mut args = Connections::new(vec![]);
+        let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),

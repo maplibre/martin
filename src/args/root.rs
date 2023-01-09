@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use log::warn;
 
-use crate::args::connections::Connections;
+use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
@@ -39,7 +39,7 @@ pub struct MetaArgs {
     /// [Deprecated] Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
-    /// Database connection strings
+    /// Connection strings, e.g. postgres://... or /path/to/files
     pub connection: Vec<String>,
 }
 
@@ -57,7 +57,7 @@ impl Args {
 
         self.srv.merge_into_config(&mut config.srv);
 
-        let mut cli_strings = Connections::new(self.meta.connection);
+        let mut cli_strings = Arguments::new(self.meta.connection);
         let pg_args = self.pg.unwrap_or_default();
         if let Some(pg_config) = &mut config.postgres {
             // config was loaded from a file, we can only apply a few CLI overrides to it
@@ -78,7 +78,7 @@ impl Args {
     }
 }
 
-pub fn parse_file_args(cli_strings: &mut Connections, extension: &str) -> Option<FileConfigEnum> {
+pub fn parse_file_args(cli_strings: &mut Arguments, extension: &str) -> Option<FileConfigEnum> {
     let paths = cli_strings.process(|v| match PathBuf::try_from(v) {
         Ok(v) => {
             if v.is_dir() {
