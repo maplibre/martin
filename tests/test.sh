@@ -180,9 +180,16 @@ test_pbf points3857_srid_0_0_0    points3857/0/0/0
 test_jsn pmt       stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2 stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 
+>&2 echo "***** Test server response for MbTiles source *****"
+test_jsn mb_jpg       geography-class-jpg
+test_png mb_jpg_0_0_0 geography-class-jpg/0/0/0
+test_jsn mb_png       geography-class-png
+test_png mb_png_0_0_0 geography-class-png/0/0/0
+test_jsn mb_mvt       world_cities
+test_pbf mb_mvt_2_3_1 world_cities/2/3/1
+
 >&2 echo "***** Test server response for table source with empty SRID *****"
-echo "IGNORING: This test is currently failing, and has been failing for a while"
-echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
+test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
 (cat test_log_1.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1

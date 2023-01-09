@@ -11,7 +11,7 @@ The documentation for the latest release v0.6 is available [here](https://github
 ![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)
 [![Docker pulls](https://img.shields.io/docker/pulls/maplibre/martin.svg)](https://hub.docker.com/r/maplibre/martin)
 
-Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https://github.com/mapbox/vector-tile-spec) server suitable for large databases. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
+Martin is a tile server able to generate [vector tiles](https://github.com/mapbox/vector-tile-spec) from the large [PostGIS](https://github.com/postgis/postgis) databases on the fly, or serve tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files. Martin is written in [Rust](https://github.com/rust-lang/rust) using [Actix](https://github.com/actix/actix-web) web framework.
 
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
@@ -23,12 +23,12 @@ Martin is a [PostGIS](https://github.com/postgis/postgis) [vector tiles](https:/
 - [Using with Leaflet](#using-with-leaflet)
 - [Using with deck.gl](#using-with-deckgl)
 - [Sources List](#source-list)
-- [Table Sources](#table-sources)
-  - [Table Source TileJSON](#table-source-tilejson)
-  - [Table Source Tiles](#table-source-tiles)
 - [Composite Sources](#composite-sources)
   - [Composite Source TileJSON](#composite-source-tilejson)
   - [Composite Source Tiles](#composite-source-tiles)
+- [Table Sources](#table-sources)
+  - [Table Source TileJSON](#table-source-tilejson)
+  - [Table Source Tiles](#table-source-tiles)
 - [Function Sources](#function-sources)
   - [Function Source TileJSON](#function-source-tilejson)
   - [Function Source Tiles](#function-source-tiles)
@@ -256,8 +256,34 @@ curl localhost:3000/catalog | jq
     "id": "points1",
     "name": "public.points1.geom"
   },
-  // ...
+  ...
 ]
+```
+
+## Composite Sources
+
+Composite Sources allows combining multiple sources into one. Composite Source consists of multiple sources separated by comma `{source1},...,{sourceN}`
+
+Each source in a composite source can be accessed with its `{source_name}` as a `source-layer` property.
+
+### Composite Source TileJSON
+
+Composite Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{source1},...,{sourceN}`.
+
+For example, composite source combining `points` and `lines` sources will be available at `/points,lines`
+
+```shell
+curl localhost:3000/points,lines | jq
+```
+
+### Composite Source Tiles
+
+Composite Source tiles endpoint is available at `/{source1},...,{sourceN}/{z}/{x}/{y}`
+
+For example, composite source combining `points` and `lines` sources will be available at `/points,lines/{z}/{x}/{y}`
+
+```shell
+curl localhost:3000/points,lines/0/0/0
 ```
 
 ## Table Sources
@@ -271,7 +297,7 @@ Table Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is ava
 For example, `points` table will be available at `/points`, unless there is another source with the same name, or if the table has multiple geometry columns, in which case it will be available at `/points.1`, `/points.2`, etc.
 
 ```shell
-curl localhost:3000/points
+curl localhost:3000/points | jq
 ```
 
 ### Table Source Tiles
@@ -288,32 +314,6 @@ In case if you have multiple geometry columns in that table and want to access a
 
 ```shell
 curl localhost:3000/points.geom/0/0/0
-```
-
-## Composite Sources
-
-Composite Sources allows combining multiple sources into one. Composite Source consists of multiple sources separated by comma `{source1},...,{sourceN}`
-
-Each source in a composite source can be accessed with its `{source_name}` as a `source-layer` property.
-
-### Composite Source TileJSON
-
-Composite Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{source1},...,{sourceN}`.
-
-For example, composite source for `points` and `lines` tables will be available at `/points,lines`
-
-```shell
-curl localhost:3000/points,lines
-```
-
-### Composite Source Tiles
-
-Composite Source tiles endpoint is available at `/{source1},...,{sourceN}/{z}/{x}/{y}`
-
-For example, composite source for `points` and `lines` tables will be available at `/points,lines/{z}/{x}/{y}`
-
-```shell
-curl localhost:3000/points,lines/0/0/0
 ```
 
 ## Function Sources
@@ -400,7 +400,7 @@ Function Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is 
 For example, `points` function will be available at `/points`
 
 ```shell
-curl localhost:3000/points
+curl localhost:3000/points | jq
 ```
 
 ### Function Source Tiles
@@ -413,9 +413,20 @@ For example, `points` function will be available at `/points/{z}/{x}/{y}`
 curl localhost:3000/points/0/0/0
 ```
 
+## MBTile and PMTile Sources
+
+Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files.  To serve a file from CLI, simply put the path to the file or the directory with `*.mbtiles` or `*.pmtiles` files. For example:
+
+```shell
+martin  /path/to/mbtiles/file.mbtiles  /path/to/directory
+```
+
+You may also want to generate a [config file](#configuration-file) using the `--save-config my-config.yaml`, and later edit it and use it with `--config my-config.yaml` option.
+
+
 ## Command-line Interface
 
-You can configure martin using command-line interface
+You can configure martin using command-line interface. See `martin --help` or `cargo run -- --help` for more information.
 
 ```shell
 Usage: martin [OPTIONS] [CONNECTION]
@@ -465,7 +476,7 @@ If you don't want to expose all of your tables and functions, you can list your 
 martin --config config.yaml
 ```
 
-You may wish to auto-generate a config file with `--save-config` argument. This will generate a config file with all of your tables and functions, and you can then edit it to remove any sources you don't want to expose.
+You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
 
 ```yaml
 # Connection keep alive timeout [default: 75]
@@ -578,6 +589,28 @@ postgres:
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
       bounds: [-180.0, -90.0, 180.0, 90.0]
+
+# Publish PMTiles files
+pmtiles:
+  paths:
+    # scan this whole dir, matching all *.pmtiles files
+    - /dir-path
+    # specific pmtiles file will be published as pmtiles2 source
+    - /path/to/pmtiles.pmtiles
+  sources:
+    # named source matching source name to a single file
+    pm-src1: /path/to/pmtiles1.pmtiles
+
+# Publish MBTiles files
+mbtiles:
+  paths:
+    # scan this whole dir, matching all *.mbtiles files
+    - /dir-path
+    # specific mbtiles file will be published as mbtiles2 source
+    - /path/to/mbtiles.mbtiles
+  sources:
+    # named source matching source name to a single file
+    mb-src1: /path/to/mbtiles1.mbtiles
 ```
 
 ## Using with Docker

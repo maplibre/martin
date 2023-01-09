@@ -1,0 +1,111 @@
+{
+  "db": "SQLite",
+  "5b298df51dccbf0d8a22433a99febc59c27dbf204d09a9c1fb0b3bf9aaad284b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "tile_column",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "tile_row",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "tile_data",
+          "ordinal": 2,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "SELECT tile_column, tile_row, tile_data FROM tiles WHERE zoom_level = ? LIMIT 1"
+  },
+  "60264fa07915878b3f7ba0067f48c3a379e96acbdf5fc52d14e29bc726fefab7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "tile_data",
+          "ordinal": 0,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+  },
+  "748436831449877b242d6e167a2f8fe1b1e7b6fb87c4e04ad7406a2bbfd35bec": {
+    "describe": {
+      "columns": [
+        {
+          "name": "zoom_level",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "tile_column",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "tile_row",
+          "ordinal": 2,
+          "type_info": "Int64"
+        },
+        {
+          "name": "tile_data",
+          "ordinal": 3,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1"
+  },
+  "d6ac76a234c97d0dc1fc4331d8b2cd90903d5401f8f0956245e5163bedd23a4d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "value",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        true,
+        true
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "SELECT name, value FROM metadata WHERE value IS NOT ''"
+  }
+}

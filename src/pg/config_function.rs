@@ -5,7 +5,7 @@ use serde_yaml::Value;
 use tilejson::{Bounds, TileJSON};
 
 use crate::pg::config::PgInfo;
-use crate::utils::{create_tilejson, InfoMap};
+use crate::utils::InfoMap;
 
 pub type FuncInfoSources = InfoMap<FunctionInfo>;
 
@@ -71,12 +71,13 @@ impl PgInfo for FunctionInfo {
     }
 
     fn to_tilejson(&self) -> TileJSON {
-        create_tilejson(
-            self.format_id(),
-            self.minzoom,
-            self.maxzoom,
-            self.bounds,
-            None,
-        )
+        let mut tilejson = tilejson::tilejson! {
+            tiles: vec![],  // tile source is required, but not yet known
+            name: self.format_id(),
+        };
+        tilejson.minzoom = self.minzoom;
+        tilejson.maxzoom = self.maxzoom;
+        tilejson.bounds = self.bounds;
+        tilejson
     }
 }

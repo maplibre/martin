@@ -1,0 +1,35 @@
+{
+  "bounds": [
+    -123.12359,
+    -37.818085,
+    174.763027,
+    59.352706
+  ],
+  "center": [
+    -75.9375,
+    38.788894,
+    6
+  ],
+  "description": "Major cities from Natural Earth data",
+  "format": "pbf",
+  "generator": "tippecanoe v1.32.5",
+  "maxzoom": 6,
+  "minzoom": 0,
+  "name": "Major cities from Natural Earth data",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/world_cities/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "description": "",
+      "fields": {
+        "name": "String"
+      },
+      "id": "cities",
+      "maxzoom": 6,
+      "minzoom": 0
+    }
+  ],
+  "version": "2"
+}

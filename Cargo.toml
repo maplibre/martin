@@ -1,13 +1,17 @@
 [workspace]
-default-members = ["martin-tile-utils", "."]
-members = ["martin-tile-utils"]
+default-members = ["martin-tile-utils", "martin-mbtiles", "."]
+members = ["martin-tile-utils", "martin-mbtiles"]
+
+[profile.dev.package.sqlx-macros]
+# See https://github.com/launchbadge/sqlx#compile-time-verification
+opt-level = 3
 
 [package]
 name = "martin"
 version = "0.7.0-alpha"
 edition = "2021"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
-description = "Blazing fast and lightweight PostGIS vector tile server"
+description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 repository = "https://github.com/maplibre/martin"
 license = "MIT OR Apache-2.0"
 
@@ -34,11 +38,13 @@ async-trait = "0.1"
 bb8 = "0.8"
 bb8-postgres = "0.8"
 clap = { version = "4", features = ["derive"] }
+flate2 = "1"
 env_logger = "0.10"
 futures = "0.3"
 itertools = "0.10"
 log = "0.4"
 martin-tile-utils = { path = "martin-tile-utils" }
+martin-mbtiles = { path = "martin-mbtiles"}
 num_cpus = "1"
 openssl = { version = "0.10", optional = true }
 pmtiles = { version = "0.2", features = ["mmap-async-tokio", "tilejson"] }

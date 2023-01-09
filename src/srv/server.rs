@@ -75,8 +75,9 @@ impl AppState {
                 sources.push(src);
             }
         }
-        let format = format.unwrap_or(DataFormat::Unknown);
-        Ok((sources, use_url_query, format))
+
+        // format is guaranteed to be Some() here
+        Ok((sources, use_url_query, format.unwrap()))
     }
 }
 
@@ -96,14 +97,13 @@ struct TileRequest {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IndexEntry {
     pub id: String,
+    pub content_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_encoding: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_encoding: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attribution: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,10 +154,10 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
             let format = src.get_format();
             IndexEntry {
                 id: id.clone(),
+                content_type: format.content_type().to_string(),
+                content_encoding: format.content_encoding().map(ToString::to_string),
                 name: tilejson.name,
                 description: tilejson.description,
-                content_type: format.content_type().map(ToString::to_string),
-                content_encoding: format.content_encoding().map(ToString::to_string),
                 attribution: tilejson.attribution,
                 vector_layer: tilejson.vector_layers,
             }
@@ -305,9 +305,7 @@ async fn get_tile(
         HttpResponse::NoContent().finish()
     } else {
         let mut response = HttpResponse::Ok();
-        if let Some(val) = format.content_type() {
-            response.content_type(val);
-        }
+        response.content_type(format.content_type());
         if let Some(val) = format.content_encoding() {
             response.insert_header((CONTENT_ENCODING, val));
         }

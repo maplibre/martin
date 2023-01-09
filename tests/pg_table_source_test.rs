@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use ctor::ctor;
 use indoc::indoc;
 use martin::Xyz;
+use tilejson::Bounds;
 
 pub mod utils;
 pub use utils::*;
@@ -41,13 +42,21 @@ async fn tables_tilejson_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tilejson = source(&mock, "table_source").get_tilejson();
 
-    assert_eq!(tilejson.tilejson, "2.2.0");
-    assert_eq!(tilejson.version, some("1.0.0"));
+    assert_eq!(tilejson.tilejson, "3.0.0");
+    assert_eq!(tilejson.version, None);
     assert_eq!(tilejson.name, some("public.table_source.geom"));
-    assert_eq!(tilejson.scheme, some("xyz"));
-    assert_eq!(tilejson.minzoom, Some(0));
-    assert_eq!(tilejson.maxzoom, Some(30));
-    assert!(tilejson.bounds.is_some());
+    assert_eq!(tilejson.scheme, None);
+    assert_eq!(tilejson.minzoom, None);
+    assert_eq!(tilejson.maxzoom, None);
+    assert_eq!(
+        tilejson.bounds,
+        Some(Bounds {
+            left: -2.0,
+            bottom: -1.0,
+            right: 142.841_315_098_691_33,
+            top: 45.0
+        })
+    );
     assert!(tilejson.tiles.is_empty());
 }
 

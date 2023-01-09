@@ -232,11 +232,11 @@ mod tests {
         let cfg = serde_yaml::from_str::<FileConfigEnum>(indoc! {"
             paths:
               - /dir-path
-              - /path/to/pmtiles2.pmtiles
+              - /path/to/file2.ext
             sources:
-                pm-src1: /tmp/pmtiles.pmtiles
+                pm-src1: /tmp/file.ext
                 pm-src2:
-                  path: /tmp/pmtiles.pmtiles
+                  path: /tmp/file.ext
         "})
         .unwrap();
         cfg.finalize("").unwrap();
@@ -248,7 +248,7 @@ mod tests {
             paths,
             vec![
                 PathBuf::from("/dir-path"),
-                PathBuf::from("/path/to/pmtiles2.pmtiles")
+                PathBuf::from("/path/to/file2.ext")
             ]
         );
         assert_eq!(
@@ -256,12 +256,12 @@ mod tests {
             Some(HashMap::from_iter(vec![
                 (
                     "pm-src1".to_string(),
-                    FileConfigSrc::Path(PathBuf::from("/tmp/pmtiles.pmtiles"))
+                    FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
                 ),
                 (
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
-                        path: PathBuf::from("/tmp/pmtiles.pmtiles"),
+                        path: PathBuf::from("/tmp/file.ext"),
                     })
                 )
             ]))
