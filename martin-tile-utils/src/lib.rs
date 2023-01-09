@@ -13,13 +13,24 @@ pub enum DataFormat {
     ZlibMvt,
     BrotliMvt,
     ZstdMvt,
-    Unknown,
 }
 
 impl DataFormat {
     #[must_use]
-    pub fn detect(data: &[u8]) -> Self {
-        match data {
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(match value.to_ascii_lowercase().as_str() {
+            "pbf" | "mvt" => Self::Mvt,
+            "jpg" | "jpeg" => Self::Jpeg,
+            "png" => Self::Png,
+            "gif" => Self::Gif,
+            "webp" => Self::Webp,
+            _ => None?,
+        })
+    }
+
+    #[must_use]
+    pub fn detect(data: &[u8]) -> Option<Self> {
+        Some(match data {
             // Compressed prefixes assume MVT content
             v if &v[0..2] == b"\x1f\x8b" => Self::GzipMvt,
             v if &v[0..2] == b"\x78\x9c" => Self::ZlibMvt,
@@ -28,22 +39,21 @@ impl DataFormat {
             v if &v[0..3] == b"\xFF\xD8\xFF" => Self::Jpeg,
             v if &v[0..4] == b"RIFF" && &v[8..12] == b"WEBP" => Self::Webp,
             v if &v[0..1] == b"{" => Self::Json,
-            _ => Self::Unknown,
-        }
+            _ => None?,
+        })
     }
 
     #[must_use]
-    pub fn content_type(&self) -> Option<&str> {
+    pub fn content_type(&self) -> &str {
         match *self {
-            Self::Png => Some("image/png"),
-            Self::Jpeg => Some("image/jpeg"),
-            Self::Gif => Some("image/gif"),
-            Self::Webp => Some("image/webp"),
-            Self::Json => Some("application/json"),
+            Self::Png => "image/png",
+            Self::Jpeg => "image/jpeg",
+            Self::Gif => "image/gif",
+            Self::Webp => "image/webp",
+            Self::Json => "application/json",
             Self::Mvt | Self::GzipMvt | Self::ZlibMvt | Self::BrotliMvt | Self::ZstdMvt => {
-                Some("application/x-protobuf")
+                "application/x-protobuf"
             }
-            Self::Unknown => None,
         }
     }
 
@@ -57,13 +67,7 @@ impl DataFormat {
             Self::ZlibMvt => Some("deflate"),
             Self::ZstdMvt => Some("zstd"),
 
-            Self::Png
-            | Self::Jpeg
-            | Self::Webp
-            | Self::Gif
-            | Self::Json
-            | Self::Mvt
-            | Self::Unknown => None,
+            Self::Png | Self::Jpeg | Self::Webp | Self::Gif | Self::Json | Self::Mvt => None,
         }
     }
 
@@ -71,7 +75,7 @@ impl DataFormat {
     pub fn is_mvt(&self) -> bool {
         match *self {
             Self::Mvt | Self::GzipMvt | Self::ZlibMvt | Self::BrotliMvt | Self::ZstdMvt => true,
-            Self::Png | Self::Jpeg | Self::Webp | Self::Gif | Self::Json | Self::Unknown => false,
+            Self::Png | Self::Jpeg | Self::Webp | Self::Gif | Self::Json => false,
         }
     }
 }
@@ -86,7 +90,7 @@ mod tests {
     fn test_data_format_png() {
         assert_eq!(
             DataFormat::detect(&read("./fixtures/world.png").unwrap()),
-            DataFormat::Png
+            Some(DataFormat::Png)
         );
     }
 
@@ -94,7 +98,7 @@ mod tests {
     fn test_data_format_jpg() {
         assert_eq!(
             DataFormat::detect(&read("./fixtures/world.jpg").unwrap()),
-            DataFormat::Jpeg
+            Some(DataFormat::Jpeg)
         );
     }
 
@@ -102,7 +106,7 @@ mod tests {
     fn test_data_format_webp() {
         assert_eq!(
             DataFormat::detect(&read("./fixtures/dc.webp").unwrap()),
-            DataFormat::Webp
+            Some(DataFormat::Webp)
         );
     }
 }

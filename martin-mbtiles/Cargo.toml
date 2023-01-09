@@ -1,5 +1,5 @@
 [package]
-name = "mbtiles"
+name = "martin-mbtiles"
 version = "0.1.0"
 edition = "2021"
 

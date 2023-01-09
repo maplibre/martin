@@ -1360,8 +1360,8 @@ dependencies = [
  "indoc",
  "itertools",
  "log",
+ "martin-mbtiles",
  "martin-tile-utils",
- "mbtiles",
  "num_cpus",
  "openssl",
  "pmtiles",
@@ -1379,14 +1379,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "martin-tile-utils"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "mbtiles"
+name = "martin-mbtiles"
 version = "0.1.0"
 dependencies = [
  "actix-rt",
@@ -1397,6 +1390,13 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tilejson",
+]
+
+[[package]]
+name = "martin-tile-utils"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

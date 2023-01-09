@@ -38,11 +38,10 @@ pub struct Mbtiles {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
-    pub tilejson: TileJSON,
     pub id: String,
     pub tile_format: DataFormat,
-    pub grid_format: Option<DataFormat>,
     pub layer_type: Option<String>,
+    pub tilejson: TileJSON,
     pub json: Option<JSONValue>,
 }
 
@@ -70,32 +69,30 @@ impl Mbtiles {
     }
 
     pub async fn get_metadata(&self) -> MbtResult<Metadata> {
-        let mut res = Metadata {
-            tilejson: tilejson! {
-                tiles: vec![String::new()],
-            },
-            id: self.filename.to_string(),
-            tile_format: DataFormat::Unknown,
-            grid_format: None, // TODO: get_grid_info(self.name, &connection),
-            layer_type: None,
-            json: None,
-        };
-
         let mut conn = self.pool.acquire().await?;
-        self.parse_metadata(&mut res, &mut conn).await?;
-        self.detect_format(&mut res, &mut conn).await?;
 
-        Ok(res)
+        let (tj, layer_type, json) = self.parse_metadata(&mut conn).await?;
+
+        Ok(Metadata {
+            id: self.filename.to_string(),
+            tile_format: self.detect_format(&tj, &mut conn).await?,
+            tilejson: tj,
+            layer_type,
+            json,
+        })
     }
 
     async fn parse_metadata(
         &self,
-        res: &mut Metadata,
         conn: &mut PoolConnection<Sqlite>,
-    ) -> MbtResult<()> {
+    ) -> MbtResult<(TileJSON, Option<String>, Option<Value>)> {
         let query = query!("SELECT name, value FROM metadata WHERE value IS NOT ''");
         let mut rows = query.fetch(conn);
-        let tj = &mut res.tilejson;
+
+        let mut tj = tilejson! { tiles: vec![String::new()] };
+        let mut layer_type: Option<String> = None;
+        let mut json: Option<JSONValue> = None;
+
         while let Some(row) = rows.try_next().await? {
             if let (Some(name), Some(value)) = (row.name, row.value) {
                 match name.as_ref() {
@@ -107,10 +104,10 @@ impl Mbtiles {
                     "maxzoom" => tj.maxzoom = self.to_val(value.parse(), &name),
                     "description" => tj.description = Some(value),
                     "attribution" => tj.attribution = Some(value),
-                    "type" => res.layer_type = Some(value),
+                    "type" => layer_type = Some(value),
                     "legend" => tj.legend = Some(value),
                     "template" => tj.template = Some(value),
-                    "json" => res.json = self.to_val(serde_json::from_str(&value), &name),
+                    "json" => json = self.to_val(serde_json::from_str(&value), &name),
                     "format" | "generator" => {
                         tj.other.insert(name, Value::String(value));
                     }
@@ -123,7 +120,7 @@ impl Mbtiles {
             }
         }
 
-        if let Some(JSONValue::Object(obj)) = &mut res.json {
+        if let Some(JSONValue::Object(obj)) = &mut json {
             if let Some(value) = obj.remove("vector_layers") {
                 if let Ok(v) = serde_json::from_value(value) {
                     tj.vector_layers = Some(v);
@@ -136,14 +133,14 @@ impl Mbtiles {
             }
         }
 
-        Ok(())
+        Ok((tj, layer_type, json))
     }
 
     async fn detect_format(
         &self,
-        meta: &mut Metadata,
+        tilejson: &TileJSON,
         conn: &mut PoolConnection<Sqlite>,
-    ) -> MbtResult<()> {
+    ) -> MbtResult<DataFormat> {
         let mut format = None;
         let mut tested_zoom = -1_i64;
 
@@ -156,7 +153,7 @@ impl Mbtiles {
         }
 
         // Afterwards, iterate over tiles in all allowed zooms and check for consistency
-        for z in meta.tilejson.minzoom.unwrap_or(0)..=meta.tilejson.maxzoom.unwrap_or(18) {
+        for z in tilejson.minzoom.unwrap_or(0)..=tilejson.maxzoom.unwrap_or(18) {
             if i64::from(z) == tested_zoom {
                 continue;
             }
@@ -168,8 +165,7 @@ impl Mbtiles {
                     self.parse_tile(Some(z.into()), r.tile_column, r.tile_row, r.tile_data),
                 ) {
                     (_, None) => {}
-                    (None | Some(DataFormat::Unknown), new) => format = new,
-                    (Some(_), Some(DataFormat::Unknown)) => {}
+                    (None, new) => format = new,
                     (Some(old), Some(new)) if old == new => {}
                     (Some(old), Some(new)) => {
                         return Err(MbtError::InconsistentMetadata(old, new));
@@ -178,25 +174,16 @@ impl Mbtiles {
             }
         }
 
-        if let Some(Value::String(tj_fmt)) = meta.tilejson.other.get("format") {
-            let fmt = match tj_fmt.to_ascii_lowercase().as_str() {
-                "pbf" | "mvt" => DataFormat::Mvt,
-                "jpg" | "jpeg" => DataFormat::Jpeg,
-                "png" => DataFormat::Png,
-                "gif" => DataFormat::Gif,
-                "webp" => DataFormat::Webp,
-                _ => {
+        if let Some(Value::String(tj_fmt)) = tilejson.other.get("format") {
+            match (format, DataFormat::parse(tj_fmt)) {
+                (_, None) => {
                     warn!("Unknown format value in metadata: {tj_fmt}");
-                    DataFormat::Unknown
                 }
-            };
-            match (format, fmt) {
-                (_, DataFormat::Unknown) => {}
-                (None | Some(DataFormat::Unknown), new) => {
+                (None, Some(new)) => {
                     warn!("Unable to detect tile format, will use metadata.format '{new:?}' for file {}", self.filename);
                     format = Some(new);
                 }
-                (Some(old), new) if old == new || (old.is_mvt() && new.is_mvt()) => {
+                (Some(old), Some(new)) if old == new || (old.is_mvt() && new.is_mvt()) => {
                     debug!("Detected tile format {old:?} matches metadata.format '{tj_fmt}' in file {}", self.filename);
                 }
                 (Some(old), _) => {
@@ -206,17 +193,13 @@ impl Mbtiles {
         }
 
         if let Some(format) = format {
-            if !format.is_mvt()
-                && format != DataFormat::Unknown
-                && meta.tilejson.vector_layers.is_some()
-            {
+            if !format.is_mvt() && tilejson.vector_layers.is_some() {
                 warn!(
                     "{} has vector_layers metadata but non-vector tiles",
                     self.filename
                 );
             }
-            meta.tile_format = format;
-            Ok(())
+            Ok(format)
         } else {
             Err(MbtError::NoTilesFound)
         }
@@ -230,13 +213,15 @@ impl Mbtiles {
         tile: Option<Vec<u8>>,
     ) -> Option<DataFormat> {
         if let (Some(z), Some(x), Some(y), Some(tile)) = (z, x, y, tile) {
-            let format = DataFormat::detect(&tile);
-            debug!(
-                "Tile {z}/{x}/{} is detected as {format:?} in file {}",
-                (1 << z) - 1 - y,
-                self.filename,
-            );
-            Some(format)
+            let fmt = DataFormat::detect(&tile);
+            if let Some(format) = fmt {
+                debug!(
+                    "Tile {z}/{x}/{} is detected as {format:?} in file {}",
+                    (1 << z) - 1 - y,
+                    self.filename,
+                );
+            }
+            fmt
         } else {
             None
         }

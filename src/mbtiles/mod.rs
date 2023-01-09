@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use martin_mbtiles::Mbtiles;
 use martin_tile_utils::DataFormat;
-use mbtiles::Mbtiles;
 use tilejson::TileJSON;
 
 use crate::file_config::FileError;

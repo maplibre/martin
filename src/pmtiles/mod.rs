@@ -65,7 +65,6 @@ impl PmtSource {
         }
 
         let format = match hdr.tile_type {
-            TileType::Unknown => DataFormat::Unknown,
             TileType::Mvt => match hdr.tile_compression {
                 Compression::Unknown | Compression::None => DataFormat::Mvt,
                 Compression::Gzip => DataFormat::GzipMvt,
@@ -75,6 +74,12 @@ impl PmtSource {
             TileType::Png => DataFormat::Png,
             TileType::Jpeg => DataFormat::Jpeg,
             TileType::Webp => DataFormat::Webp,
+            TileType::Unknown => {
+                return Err(InvalidMetadata(
+                    "Unknown tile type".to_string(),
+                    path.clone(),
+                ))
+            }
         };
 
         let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
