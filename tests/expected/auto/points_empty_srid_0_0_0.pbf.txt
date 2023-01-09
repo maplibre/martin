@@ -1,0 +1,215 @@
+=============================================================
+layer: 0
+  name: public.points_empty_srid.geom
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3673,1911)
+    properties:
+      gid=1
+  feature: 1
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3673,1911)
+    properties:
+      gid=2
+  feature: 2
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3673,1911)
+    properties:
+      gid=3
+  feature: 3
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3807,3880)
+    properties:
+      gid=4
+  feature: 4
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2191,3251)
+    properties:
+      gid=5
+  feature: 5
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2485,2851)
+    properties:
+      gid=6
+  feature: 6
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(760,4027)
+    properties:
+      gid=7
+  feature: 7
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2542,1034)
+    properties:
+      gid=8
+  feature: 8
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3794,1861)
+    properties:
+      gid=9
+  feature: 9
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1115,2500)
+    properties:
+      gid=10
+  feature: 10
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(201,1050)
+    properties:
+      gid=11
+  feature: 11
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1434,3972)
+    properties:
+      gid=12
+  feature: 12
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(665,3173)
+    properties:
+      gid=13
+  feature: 13
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(4079,2682)
+    properties:
+      gid=14
+  feature: 14
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3502,728)
+    properties:
+      gid=15
+  feature: 15
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1710,567)
+    properties:
+      gid=16
+  feature: 16
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2488,3388)
+    properties:
+      gid=17
+  feature: 17
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2724,287)
+    properties:
+      gid=18
+  feature: 18
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2162,1836)
+    properties:
+      gid=19
+  feature: 19
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1861,933)
+    properties:
+      gid=20
+  feature: 20
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2895,1751)
+    properties:
+      gid=21
+  feature: 21
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1409,2400)
+    properties:
+      gid=22
+  feature: 22
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1374,742)
+    properties:
+      gid=23
+  feature: 23
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2212,3516)
+    properties:
+      gid=24
+  feature: 24
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(814,2004)
+    properties:
+      gid=25
+  feature: 25
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3287,1621)
+    properties:
+      gid=26
+  feature: 26
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1597,1155)
+    properties:
+      gid=27
+  feature: 27
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(205,254)
+    properties:
+      gid=28
+  feature: 28
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(3773,3835)
+    properties:
+      gid=29
+  feature: 29
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1830,2877)
+    properties:
+      gid=30

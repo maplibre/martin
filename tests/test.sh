@@ -189,8 +189,7 @@ test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
-echo "IGNORING: This test is currently failing, and has been failing for a while"
-echo "IGNORING:   " test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
+test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
 (cat test_log_1.txt | grep -v 'Margin parameter in ST_TileEnvelope is not supported' | grep -e ' ERROR ' -e ' WARN ') && exit 1
