@@ -89,7 +89,7 @@ impl Mbtiles {
         let query = query!("SELECT name, value FROM metadata WHERE value IS NOT ''");
         let mut rows = query.fetch(conn);
 
-        let mut tj = tilejson! { tiles: vec![String::new()] };
+        let mut tj = tilejson! { tiles: vec![] };
         let mut layer_type: Option<String> = None;
         let mut json: Option<JSONValue> = None;
 

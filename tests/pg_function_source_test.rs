@@ -37,13 +37,8 @@ async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tilejson = source(&mock, "function_zxy_query").get_tilejson();
 
-    assert_eq!(tilejson.tilejson, "2.2.0");
-    assert_eq!(tilejson.version, some("1.0.0"));
+    assert_eq!(tilejson.tilejson, "3.0.0");
     assert_eq!(tilejson.name, some("public.function_zxy_query"));
-    assert_eq!(tilejson.scheme, some("xyz"));
-    assert_eq!(tilejson.minzoom, Some(0));
-    assert_eq!(tilejson.maxzoom, Some(30));
-    assert!(tilejson.bounds.is_some());
     assert!(tilejson.tiles.is_empty());
 }
 

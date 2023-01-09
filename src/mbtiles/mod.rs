@@ -46,7 +46,7 @@ impl MbtSource {
             )
         })?;
 
-        let metadata = mbt
+        let meta = mbt
             .get_metadata()
             .await
             .map_err(|e| InvalidMetadata(e.to_string(), path))?;
@@ -54,8 +54,8 @@ impl MbtSource {
         Ok(Self {
             id,
             mbtiles: Arc::new(mbt),
-            tilejson: metadata.tilejson,
-            format: metadata.tile_format,
+            tilejson: meta.tilejson,
+            format: meta.tile_format,
         })
     }
 }

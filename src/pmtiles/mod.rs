@@ -66,7 +66,14 @@ impl PmtSource {
 
         let format = match hdr.tile_type {
             TileType::Mvt => match hdr.tile_compression {
-                Compression::Unknown | Compression::None => DataFormat::Mvt,
+                Compression::None => DataFormat::Mvt,
+                Compression::Unknown => {
+                    warn!(
+                        "MVT tiles have unknown compression in file {}",
+                        path.display()
+                    );
+                    DataFormat::Mvt
+                }
                 Compression::Gzip => DataFormat::GzipMvt,
                 Compression::Brotli => DataFormat::BrotliMvt,
                 Compression::Zstd => DataFormat::ZstdMvt,

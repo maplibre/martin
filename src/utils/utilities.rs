@@ -4,7 +4,6 @@ use std::collections::{BTreeMap, HashMap};
 use itertools::Itertools;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize, Serializer};
-use tilejson::{Bounds, TileJSON, VectorLayer};
 
 pub type InfoMap<T> = HashMap<String, T>;
 
@@ -78,29 +77,6 @@ pub fn is_valid_zoom(zoom: u8, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool
 pub enum BoolOrObject<T> {
     Bool(bool),
     Object(T),
-}
-
-#[must_use]
-pub fn create_tilejson(
-    name: String,
-    minzoom: Option<u8>,
-    maxzoom: Option<u8>,
-    bounds: Option<Bounds>,
-    vector_layers: Option<Vec<VectorLayer>>,
-) -> TileJSON {
-    let mut tilejson = tilejson::tilejson! {
-        tilejson: "2.2.0".to_string(),
-        tiles: vec![],  // tile source is required, but not yet known
-        name: name,
-    };
-    tilejson.minzoom = minzoom;
-    tilejson.maxzoom = maxzoom;
-    tilejson.bounds = bounds;
-    tilejson.vector_layers = vector_layers;
-
-    // TODO: consider removing - this is not needed per TileJSON spec
-    tilejson.set_missing_defaults();
-    tilejson
 }
 
 /// Sort an optional hashmap by key, case-insensitive first, then case-sensitive

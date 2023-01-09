@@ -93,8 +93,8 @@ tables:
     assert_eq!(result.name, Some(String::from("public.table_source.geom")));
     let expected_uri = "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin";
     assert_eq!(result.tiles, &[expected_uri]);
-    assert_eq!(result.minzoom, Some(0));
-    assert_eq!(result.maxzoom, Some(30));
+    assert_eq!(result.minzoom, None);
+    assert_eq!(result.maxzoom, None);
     assert_eq!(result.bounds, Some(Bounds::MAX));
 }
 
