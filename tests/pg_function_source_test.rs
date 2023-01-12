@@ -1,7 +1,6 @@
 use ctor::ctor;
 use indoc::indoc;
 use itertools::Itertools;
-use martin::pg::get_function_sources;
 use martin::Xyz;
 
 pub mod utils;
@@ -10,26 +9,6 @@ pub use utils::*;
 #[ctor]
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
-}
-
-#[actix_rt::test]
-async fn get_function_sources_ok() {
-    let pool = mock_pool().await;
-    let sources = get_function_sources(&pool).await.unwrap();
-
-    assert!(!sources.is_empty());
-
-    let funcs = sources.get("public").unwrap();
-    let source = funcs.get("function_zxy_query").unwrap();
-    assert_eq!(source.1.schema, "public");
-    assert_eq!(source.1.function, "function_zxy_query");
-    assert_eq!(source.1.minzoom, None);
-    assert_eq!(source.1.maxzoom, None);
-    assert_eq!(source.1.bounds, None);
-
-    let source = funcs.get("function_zxy_query_jsonb").unwrap();
-    assert_eq!(source.1.schema, "public");
-    assert_eq!(source.1.function, "function_zxy_query_jsonb");
 }
 
 #[actix_rt::test]

@@ -6,7 +6,6 @@ use std::path::Path;
 use std::pin::Pin;
 
 use futures::future::try_join_all;
-use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use subst::VariableMap;
@@ -40,12 +39,13 @@ pub struct Config {
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<()> {
-        report_unrecognized_config("", &self.unrecognized);
+    pub fn finalize(&mut self) -> Result<Unrecognized> {
+        let mut res = Unrecognized::new();
+        copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
         let mut any = if let Some(pg) = &mut self.postgres {
             for pg in pg.iter_mut() {
-                pg.finalize()?;
+                res.extend(pg.finalize()?);
             }
             !pg.is_empty()
         } else {
@@ -53,21 +53,21 @@ impl Config {
         };
 
         any |= if let Some(cfg) = &mut self.pmtiles {
-            cfg.finalize("pmtiles.")?;
+            res.extend(cfg.finalize("pmtiles.")?);
             !cfg.is_empty()
         } else {
             false
         };
 
         any |= if let Some(cfg) = &mut self.mbtiles {
-            cfg.finalize("mbtiles.")?;
+            res.extend(cfg.finalize("mbtiles.")?);
             !cfg.is_empty()
         } else {
             false
         };
 
         if any {
-            Ok(())
+            Ok(res)
         } else {
             Err(NoSources)
         }
@@ -103,10 +103,18 @@ impl Config {
     }
 }
 
-pub fn report_unrecognized_config(prefix: &str, unrecognized: &HashMap<String, Value>) {
-    for key in unrecognized.keys() {
-        warn!("Unrecognized config key: {prefix}{key}");
-    }
+pub type Unrecognized = HashMap<String, Value>;
+
+pub fn copy_unrecognized_config(
+    result: &mut Unrecognized,
+    prefix: &str,
+    unrecognized: &Unrecognized,
+) {
+    result.extend(
+        unrecognized
+            .iter()
+            .map(|(k, v)| (format!("{prefix}{k}"), v.clone())),
+    );
 }
 
 /// Read config from a file
@@ -142,7 +150,8 @@ pub mod tests {
 
     pub fn assert_config(yaml: &str, expected: &Config) {
         let mut config = parse_cfg(yaml);
-        config.finalize().unwrap();
+        let res = config.finalize().unwrap();
+        assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
     }
 }

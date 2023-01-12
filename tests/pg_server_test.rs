@@ -16,8 +16,9 @@ fn init() {
 }
 
 macro_rules! create_app {
-    ($sources:literal) => {{
-        let sources = mock_sources(mock_pgcfg($sources)).await.0;
+    ($sources:expr) => {{
+        let cfg = mock_cfg(indoc::indoc!($sources));
+        let sources = mock_sources(cfg).await.0;
         let state = crate::utils::mock_app_data(sources).await;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
@@ -34,7 +35,10 @@ fn test_get(path: &str) -> Request {
 
 #[actix_rt::test]
 async fn pg_get_catalog_ok() {
-    let app = create_app! { "connection_string: $DATABASE_URL" };
+    let app = create_app! { "
+postgres:
+   connection_string: $DATABASE_URL
+"};
 
     let req = test_get("/catalog");
     let response = call_service(&app, req).await;
@@ -55,26 +59,27 @@ async fn pg_get_catalog_ok() {
 #[actix_rt::test]
 async fn pg_get_table_source_ok() {
     let app = create_app! { "
-connection_string: $DATABASE_URL
-tables:
-  bad_srid:
-    schema: public
-    table: table_source
-    srid: 3857
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  table_source:
-    schema: public
-    table: table_source
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    bad_srid:
+      schema: public
+      table: table_source
+      srid: 3857
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
 " };
 
     let req = test_get("/non_existent");
@@ -84,6 +89,24 @@ tables:
     let req = test_get("/bad_srid");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_rt::test]
+async fn pg_get_table_source_ok_rewrite() {
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+" };
 
     let req = TestRequest::get()
         .uri("/table_source?token=martin")
@@ -101,83 +124,84 @@ tables:
 #[actix_rt::test]
 async fn pg_get_table_source_tile_ok() {
     let app = create_app! { "
-connection_string: $DATABASE_URL
-tables:
-  points2:
-    schema: public
-    table: points2
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points1:
-    schema: public
-    table: points1
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points_empty_srid:
-    schema: public
-    table: points_empty_srid
-    srid: 900973
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  table_source:
-    schema: public
-    table: table_source
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  points3857:
-    schema: public
-    table: points3857
-    srid: 3857
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  table_source_multiple_geom.geom1:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom1
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      geom2: geometry
-      gid: int4
-  table_source_multiple_geom.geom2:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom2
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      geom1: geometry
-      gid: int4
-  MIXPOINTS:
-    schema: MIXEDCASE
-    table: mixPoints
-    srid: 4326
-    geometry_column: geoM
-    id_column: giD
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      tAble: text
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points_empty_srid:
+      schema: public
+      table: points_empty_srid
+      srid: 900973
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    table_source_multiple_geom.geom1:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom1
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        geom2: geometry
+        gid: int4
+    table_source_multiple_geom.geom2:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom2
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        geom1: geometry
+        gid: int4
+    MIXPOINTS:
+      schema: MIXEDCASE
+      table: mixPoints
+      srid: 4326
+      geometry_column: geoM
+      id_column: giD
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        tAble: text
 " };
 
     let req = test_get("/non_existent/0/0/0");
@@ -192,83 +216,84 @@ tables:
 #[actix_rt::test]
 async fn pg_get_table_source_multiple_geom_tile_ok() {
     let app = create_app! { "
-connection_string: $DATABASE_URL
-tables:
-  points2:
-    schema: public
-    table: points2
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  table_source_multiple_geom.geom2:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom2
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-      geom1: geometry
-  table_source:
-    schema: public
-    table: table_source
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  points1:
-    schema: public
-    table: points1
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  MIXPOINTS:
-    schema: MIXEDCASE
-    table: mixPoints
-    srid: 4326
-    geometry_column: geoM
-    id_column: giD
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      tAble: text
-  points_empty_srid:
-    schema: public
-    table: points_empty_srid
-    srid: 900973
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  points3857:
-    schema: public
-    table: points3857
-    srid: 3857
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  table_source_multiple_geom.geom1:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom1
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      geom2: geometry
-      gid: int4
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    table_source_multiple_geom.geom2:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom2
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+        geom1: geometry
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    MIXPOINTS:
+      schema: MIXEDCASE
+      table: mixPoints
+      srid: 4326
+      geometry_column: geoM
+      id_column: giD
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        tAble: text
+    points_empty_srid:
+      schema: public
+      table: points_empty_srid
+      srid: 900973
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    table_source_multiple_geom.geom1:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom1
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        geom2: geometry
+        gid: int4
 "};
 
     let req = test_get("/table_source_multiple_geom.geom1/0/0/0");
@@ -283,48 +308,49 @@ tables:
 #[actix_rt::test]
 async fn pg_get_table_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
-connection_string: $DATABASE_URL
-tables:
-  points3857:
-    schema: public
-    table: points3857
-    srid: 3857
-    geometry_column: geom
-    minzoom: 6
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points2:
-    schema: public
-    table: points2
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points1:
-    schema: public
-    table: points1
-    srid: 4326
-    geometry_column: geom
-    minzoom: 6
-    maxzoom: 12
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  table_source:
-    schema: public
-    table: table_source
-    srid: 4326
-    geometry_column: geom
-    maxzoom: 6
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      minzoom: 6
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      minzoom: 6
+      maxzoom: 12
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      maxzoom: 6
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
 "};
     // zoom = 0 (nothing)
     let req = test_get("/points1/0/0/0");
@@ -389,7 +415,10 @@ tables:
 
 #[actix_rt::test]
 async fn pg_get_function_tiles() {
-    let app = create_app! { "connection_string: $DATABASE_URL" };
+    let app = create_app! { "
+postgres:
+   connection_string: $DATABASE_URL
+"};
 
     let req = test_get("/function_zoom_xy/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
@@ -419,83 +448,84 @@ async fn pg_get_function_tiles() {
 #[actix_rt::test]
 async fn pg_get_composite_source_ok() {
     let app = create_app! { "
-connection_string: $DATABASE_URL
-tables:
-  table_source_multiple_geom.geom2:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom2
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-      geom1: geometry
-  points2:
-    schema: public
-    table: points2
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points_empty_srid:
-    schema: public
-    table: points_empty_srid
-    srid: 900973
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  table_source:
-    schema: public
-    table: table_source
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  MIXPOINTS:
-    schema: MIXEDCASE
-    table: mixPoints
-    srid: 4326
-    geometry_column: geoM
-    id_column: giD
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      tAble: text
-  table_source_multiple_geom.geom1:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom1
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-      geom2: geometry
-  points1:
-    schema: public
-    table: points1
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points3857:
-    schema: public
-    table: points3857
-    srid: 3857
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    table_source_multiple_geom.geom2:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom2
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+        geom1: geometry
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points_empty_srid:
+      schema: public
+      table: points_empty_srid
+      srid: 900973
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    MIXPOINTS:
+      schema: MIXEDCASE
+      table: mixPoints
+      srid: 4326
+      geometry_column: geoM
+      id_column: giD
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        tAble: text
+    table_source_multiple_geom.geom1:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom1
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+        geom2: geometry
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
 "};
     let req = test_get("/non_existent1,non_existent2");
     let response = call_service(&app, req).await;
@@ -509,83 +539,84 @@ tables:
 #[actix_rt::test]
 async fn pg_get_composite_source_tile_ok() {
     let app = create_app! { "
-connection_string: $DATABASE_URL
-tables:
-  points_empty_srid:
-    schema: public
-    table: points_empty_srid
-    srid: 900973
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  table_source_multiple_geom.geom1:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom1
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      geom2: geometry
-      gid: int4
-  table_source_multiple_geom.geom2:
-    schema: public
-    table: table_source_multiple_geom
-    srid: 4326
-    geometry_column: geom2
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      geom1: geometry
-      gid: int4
-  table_source:
-    schema: public
-    table: table_source
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: GEOMETRY
-    properties:
-      gid: int4
-  points1:
-    schema: public
-    table: points1
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  MIXPOINTS:
-    schema: MIXEDCASE
-    table: mixPoints
-    srid: 4326
-    geometry_column: geoM
-    id_column: giD
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      tAble: text
-  points2:
-    schema: public
-    table: points2
-    srid: 4326
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points3857:
-    schema: public
-    table: points3857
-    srid: 3857
-    geometry_column: geom
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    points_empty_srid:
+      schema: public
+      table: points_empty_srid
+      srid: 900973
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    table_source_multiple_geom.geom1:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom1
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        geom2: geometry
+        gid: int4
+    table_source_multiple_geom.geom2:
+      schema: public
+      table: table_source_multiple_geom
+      srid: 4326
+      geometry_column: geom2
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        geom1: geometry
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    MIXPOINTS:
+      schema: MIXEDCASE
+      table: mixPoints
+      srid: 4326
+      geometry_column: geoM
+      id_column: giD
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        tAble: text
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
 "};
 
     let req = test_get("/non_existent1,non_existent2/0/0/0");
@@ -600,30 +631,31 @@ tables:
 #[actix_rt::test]
 async fn pg_get_composite_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
-connection_string: $DATABASE_URL
-tables:
-  points1:
-    schema: public
-    table: points1
-    srid: 4326
-    geometry_column: geom
-    minzoom: 6
-    maxzoom: 13
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
-  points2:
-    schema: public
-    table: points2
-    srid: 4326
-    geometry_column: geom
-    minzoom: 13
-    maxzoom: 20
-    bounds: [-180.0, -90.0, 180.0, 90.0]
-    geometry_type: POINT
-    properties:
-      gid: int4
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      minzoom: 6
+      maxzoom: 13
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      minzoom: 13
+      maxzoom: 20
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: POINT
+      properties:
+        gid: int4
 "};
 
     // zoom = 0 (nothing)
@@ -664,7 +696,10 @@ tables:
 
 #[actix_rt::test]
 async fn pg_null_functions() {
-    let app = create_app! { "connection_string: $DATABASE_URL" };
+    let app = create_app! { "
+postgres:
+   connection_string: $DATABASE_URL
+"};
 
     let req = test_get("/function_null/0/0/0");
     let response = call_service(&app, req).await;
@@ -681,7 +716,10 @@ async fn pg_null_functions() {
 
 #[actix_rt::test]
 async fn pg_get_function_source_ok() {
-    let app = create_app! { "connection_string: $DATABASE_URL" };
+    let app = create_app! { "
+postgres:
+   connection_string: $DATABASE_URL
+"};
 
     let req = test_get("/non_existent");
     let response = call_service(&app, req).await;
@@ -718,6 +756,14 @@ async fn pg_get_function_source_ok() {
     let req = test_get("/function_zxy_row_key");
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
+}
+
+#[actix_rt::test]
+async fn pg_get_function_source_ok_rewrite() {
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+"};
 
     let req = TestRequest::get()
         .uri("/function_zxy_query?token=martin")
@@ -745,7 +791,10 @@ async fn pg_get_function_source_ok() {
 
 #[actix_rt::test]
 async fn pg_get_function_source_tile_ok() {
-    let app = create_app! { "connection_string: $DATABASE_URL" };
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+"};
 
     let req = test_get("/function_zxy_query/0/0/0");
     let response = call_service(&app, req).await;
@@ -755,17 +804,18 @@ async fn pg_get_function_source_tile_ok() {
 #[actix_rt::test]
 async fn pg_get_function_source_tile_minmax_zoom_ok() {
     let app = create_app! {"
-connection_string: $DATABASE_URL
-functions:
-  function_source1:
-    schema: public
-    function: function_zxy_query
-  function_source2:
-    schema: public
-    function: function_zxy_query
-    minzoom: 6
-    maxzoom: 12
-    bounds: [-180.0, -90.0, 180.0, 90.0]
+postgres:
+  connection_string: $DATABASE_URL
+  functions:
+    function_source1:
+      schema: public
+      function: function_zxy_query
+    function_source2:
+      schema: public
+      function: function_zxy_query
+      minzoom: 6
+      maxzoom: 12
+      bounds: [-180.0, -90.0, 180.0, 90.0]
 "};
 
     // zoom = 0 (function_source1)
@@ -811,7 +861,10 @@ functions:
 
 #[actix_rt::test]
 async fn pg_get_function_source_query_params_ok() {
-    let app = create_app! { "connection_string: $DATABASE_URL" };
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+"};
 
     let req = test_get("/function_zxy_query_test/0/0/0");
     let response = call_service(&app, req).await;
@@ -825,7 +878,10 @@ async fn pg_get_function_source_query_params_ok() {
 
 #[actix_rt::test]
 async fn pg_get_health_returns_ok() {
-    let app = create_app! { "connection_string: $DATABASE_URL" };
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+"};
 
     let req = test_get("/health");
     let response = call_service(&app, req).await;
@@ -903,7 +959,7 @@ tables:
 
     // --------------------------------------------
 
-    let state = crate::utils::mock_app_data(mock.0).await;
+    let state = mock_app_data(mock.0).await;
     let app = ::actix_web::test::init_service(
         ::actix_web::App::new()
             .app_data(state)

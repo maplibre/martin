@@ -2,7 +2,7 @@ use futures::future::try_join;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::config::report_unrecognized_config;
+use crate::config::{copy_unrecognized_config, Unrecognized};
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
@@ -55,22 +55,23 @@ pub struct PgCfgPublishType {
 
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<&Self> {
+    pub fn finalize(&mut self) -> Result<Unrecognized> {
+        let mut res = Unrecognized::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
-                report_unrecognized_config(&format!("tables.{k}."), &v.unrecognized);
+                copy_unrecognized_config(&mut res, &format!("tables.{k}."), &v.unrecognized);
             }
         }
         if let Some(ref fs) = self.functions {
             for (k, v) in fs {
-                report_unrecognized_config(&format!("functions.{k}."), &v.unrecognized);
+                copy_unrecognized_config(&mut res, &format!("functions.{k}."), &v.unrecognized);
             }
         }
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = Some(BoolOrObject::Bool(true));
         }
 
-        Ok(self)
+        Ok(res)
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {

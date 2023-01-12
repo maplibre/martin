@@ -1,9 +1,9 @@
+use indoc::formatdoc;
 pub use martin::args::Env;
-use martin::pg::{PgConfig, Pool, TableInfo};
-use martin::OneOrMany::One;
-use martin::{Config, IdResolver, OneOrMany, Source, Sources};
+use martin::pg::TableInfo;
+use martin::{Config, IdResolver, Source, Sources};
 
-use crate::FauxEnv;
+use crate::mock_cfg;
 
 //
 // This file is used by many tests and benchmarks.
@@ -15,25 +15,10 @@ pub type MockSource = (Sources, Config);
 #[allow(dead_code)]
 #[must_use]
 pub fn mock_pgcfg(yaml: &str) -> Config {
-    let Ok(db_url) = std::env::var("DATABASE_URL") else {
-        panic!("DATABASE_URL env var is not set. Unable to do integration tests");
-    };
-    let env = FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect());
-    let cfg: PgConfig = subst::yaml::from_str(yaml, &env).unwrap();
-    let mut config = Config {
-        postgres: Some(One(cfg)),
-        ..Default::default()
-    };
-    config.finalize().unwrap();
-    config
-}
-
-#[allow(dead_code)]
-pub async fn mock_pool() -> Pool {
-    let cfg = mock_pgcfg("connection_string: $DATABASE_URL");
-    let OneOrMany::One(cfg) = cfg.postgres.unwrap() else { panic!() };
-    let res = Pool::new(&cfg).await;
-    res.expect("Failed to create pool")
+    mock_cfg(&formatdoc! {"
+        postgres:
+          {}
+    ", yaml.replace('\n', "\n  ")})
 }
 
 #[allow(dead_code)]
