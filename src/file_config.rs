@@ -8,7 +8,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
-use crate::config::report_unrecognized_config;
+use crate::config::{copy_unrecognized_config, Unrecognized};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath};
 use crate::utils::sorted_opt_map;
 use crate::OneOrMany::{Many, One};
@@ -84,11 +84,12 @@ pub struct FileConfigSource {
 }
 
 impl FileConfigEnum {
-    pub fn finalize(&self, prefix: &str) -> Result<&Self, Error> {
+    pub fn finalize(&self, prefix: &str) -> Result<Unrecognized, Error> {
+        let mut res = Unrecognized::new();
         if let Self::Config(cfg) = self {
-            report_unrecognized_config(prefix, &cfg.unrecognized);
+            copy_unrecognized_config(&mut res, prefix, &cfg.unrecognized);
         }
-        Ok(self)
+        Ok(res)
     }
 
     #[must_use]
@@ -239,7 +240,8 @@ mod tests {
                   path: /tmp/file.ext
         "})
         .unwrap();
-        cfg.finalize("").unwrap();
+        let res = cfg.finalize("").unwrap();
+        assert!(res.is_empty(), "unrecognized config: {res:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };

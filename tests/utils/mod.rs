@@ -25,6 +25,7 @@ pub fn mock_cfg(yaml: &str) -> Config {
     };
     let env = FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect());
     let mut cfg: Config = subst::yaml::from_str(yaml, &env).unwrap();
-    cfg.finalize().unwrap();
+    let res = cfg.finalize().unwrap();
+    assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
 }

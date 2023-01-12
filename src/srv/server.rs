@@ -18,7 +18,7 @@ use itertools::Itertools;
 use log::{debug, error};
 use martin_tile_utils::DataFormat;
 use serde::{Deserialize, Serialize};
-use tilejson::{TileJSON, VectorLayer};
+use tilejson::TileJSON;
 
 use crate::source::{Source, Sources, UrlQuery, Xyz};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
@@ -106,8 +106,6 @@ pub struct IndexEntry {
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attribution: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vector_layer: Option<Vec<VectorLayer>>,
 }
 
 impl PartialOrd<Self> for IndexEntry {
@@ -159,7 +157,6 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
                 name: tilejson.name,
                 description: tilejson.description,
                 attribution: tilejson.attribution,
-                vector_layer: tilejson.vector_layers,
             }
         })
         .sorted()
