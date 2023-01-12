@@ -114,6 +114,38 @@ postgres:
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(result.name, Some(String::from("public.table_source.geom")));
+    // rewrite is ignored
+    let expected_uri = "http://localhost:8080/table_source/{z}/{x}/{y}?token=martin";
+    assert_eq!(result.tiles, &[expected_uri]);
+    assert_eq!(result.minzoom, None);
+    assert_eq!(result.maxzoom, None);
+    assert_eq!(result.bounds, Some(Bounds::MAX));
+}
+
+#[actix_rt::test]
+async fn pg_get_table_source_ok_rewrite() {
+    let app = create_app! { "
+allow_url_rewrite: true
+postgres:
+  connection_string: $DATABASE_URL
+  tables:
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+" };
+
+    let req = TestRequest::get()
+        .uri("/table_source?token=martin")
+        .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
+        .to_request();
+    let result: TileJSON = call_and_read_body_json(&app, req).await;
+    assert_eq!(result.name, Some(String::from("public.table_source.geom")));
     let expected_uri = "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin";
     assert_eq!(result.tiles, &[expected_uri]);
     assert_eq!(result.minzoom, None);
@@ -761,6 +793,7 @@ postgres:
 #[actix_rt::test]
 async fn pg_get_function_source_ok_rewrite() {
     let app = create_app! { "
+allow_url_rewrite: true
 postgres:
   connection_string: $DATABASE_URL
 "};
@@ -959,7 +992,7 @@ tables:
 
     // --------------------------------------------
 
-    let state = mock_app_data(mock.0).await;
+    let state = mock_app_data(mock.0, false).await;
     let app = ::actix_web::test::init_service(
         ::actix_web::App::new()
             .app_data(state)
