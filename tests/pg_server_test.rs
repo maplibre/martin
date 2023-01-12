@@ -18,8 +18,9 @@ fn init() {
 macro_rules! create_app {
     ($sources:expr) => {{
         let cfg = mock_cfg(indoc::indoc!($sources));
+        let allow_url_rewrite = cfg.srv.allow_url_rewrite.unwrap_or_default();
         let sources = mock_sources(cfg).await.0;
-        let state = crate::utils::mock_app_data(sources).await;
+        let state = crate::utils::mock_app_data(sources, allow_url_rewrite).await;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(state)
@@ -89,24 +90,6 @@ postgres:
     let req = test_get("/bad_srid");
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
-}
-
-#[actix_rt::test]
-async fn pg_get_table_source_ok_rewrite() {
-    let app = create_app! { "
-postgres:
-  connection_string: $DATABASE_URL
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-" };
 
     let req = TestRequest::get()
         .uri("/table_source?token=martin")
@@ -114,7 +97,6 @@ postgres:
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(result.name, Some(String::from("public.table_source.geom")));
-    // rewrite is ignored
     let expected_uri = "http://localhost:8080/table_source/{z}/{x}/{y}?token=martin";
     assert_eq!(result.tiles, &[expected_uri]);
     assert_eq!(result.minzoom, None);

@@ -16,7 +16,7 @@ fn init() {
 macro_rules! create_app {
     ($sources:expr) => {{
         let sources = mock_sources(mock_cfg($sources)).await.0;
-        let state = crate::utils::mock_app_data(sources).await;
+        let state = crate::utils::mock_app_data(sources, false).await;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(state)

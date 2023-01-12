@@ -11,6 +11,8 @@ pub struct SrvConfig {
     pub listen_addresses: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub worker_processes: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_url_rewrite: Option<bool>,
 }
 
 #[cfg(test)]
@@ -27,12 +29,14 @@ mod tests {
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
+                allow_url_rewrite: true
             "})
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
+                allow_url_rewrite: Some(true),
             }
         );
     }

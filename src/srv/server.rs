@@ -3,8 +3,7 @@ use std::string::ToString;
 use std::time::Duration;
 
 use actix_cors::Cors;
-use actix_http::header::HeaderValue;
-use actix_web::dev::Server;
+use actix_web::dev::{ConnectionInfo, Server};
 use actix_web::http::header::{CACHE_CONTROL, CONTENT_ENCODING};
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
@@ -15,7 +14,7 @@ use actix_web::{
 };
 use futures::future::try_join_all;
 use itertools::Itertools;
-use log::{debug, error};
+use log::{debug, error, warn};
 use martin_tile_utils::DataFormat;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -32,6 +31,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 
 pub struct AppState {
     pub sources: Sources,
+    pub allow_url_rewrite: bool,
 }
 
 impl AppState {
@@ -172,20 +172,35 @@ async fn git_source_info(
     state: Data<AppState>,
 ) -> Result<HttpResponse> {
     let sources = state.get_sources(&path.source_ids, None)?.0;
-
-    let tiles_path = req
-        .headers()
-        .get("x-rewrite-url")
-        .and_then(parse_x_rewrite_url)
-        .unwrap_or_else(|| req.path().to_owned());
-
     let info = req.connection_info();
-    let tiles_url = get_tiles_url(info.scheme(), info.host(), req.query_string(), &tiles_path)?;
+    let mut tiles_url: Option<String> = None;
+
+    if let Some(rewrite) = req.headers().get("x-rewrite-url") {
+        if state.allow_url_rewrite {
+            if let Some(rewrite) = rewrite.to_str().ok().and_then(|v| v.parse::<Uri>().ok()) {
+                tiles_url = Some(get_tiles_url(
+                    &info,
+                    req.query_string(),
+                    rewrite.path().trim_end_matches('/'),
+                )?);
+            } else {
+                warn!("x-rewrite-url header is set, but could not be parsed");
+            }
+        } else {
+            // TODO: remove this in a few versions after 0.7. For now, keep it to help with migration
+            warn!("x-rewrite-url header is set, but allow_url_rewrite is disabled");
+        }
+    }
+
+    let tiles_url = match tiles_url {
+        Some(v) => v,
+        None => get_tiles_url(&info, req.query_string(), req.path())?,
+    };
 
     Ok(HttpResponse::Ok().json(merge_tilejson(sources, tiles_url)))
 }
 
-fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str) -> Result<String> {
+fn get_tiles_url(info: &ConnectionInfo, query_string: &str, tiles_path: &str) -> Result<String> {
     let path_and_query = if query_string.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
@@ -193,8 +208,8 @@ fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str)
     };
 
     Uri::builder()
-        .scheme(scheme)
-        .authority(host)
+        .scheme(info.scheme())
+        .authority(info.host())
         .path_and_query(path_and_query)
         .build()
         .map(|tiles_url| tiles_url.to_string())
@@ -319,16 +334,18 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
-pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server, String)> {
+pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server, String, bool)> {
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
         .listen_addresses
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
+    let allow_url_rewrite = config.allow_url_rewrite.unwrap_or_default();
 
     let server = HttpServer::new(move || {
         let state = AppState {
             sources: sources.clone(),
+            allow_url_rewrite,
         };
 
         let cors_middleware = Cors::default()
@@ -350,7 +367,7 @@ pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server,
     .workers(worker_processes)
     .run();
 
-    Ok((server, listen_addresses))
+    Ok((server, listen_addresses, allow_url_rewrite))
 }
 
 fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
@@ -359,12 +376,4 @@ fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
         debug!("Zoom {zoom} is not valid for source {id}");
     }
     is_valid
-}
-
-fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
-    header
-        .to_str()
-        .ok()
-        .and_then(|header| header.parse::<Uri>().ok())
-        .map(|uri| uri.path().to_owned())
 }

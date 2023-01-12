@@ -27,7 +27,10 @@ async fn start(args: Args) -> Result<Server> {
     };
 
     args.merge_into_config(&mut config, &env)?;
-    config.finalize()?;
+    let unrecognized = config.finalize()?;
+    if !unrecognized.is_empty() {
+        error!("Unrecognized config values:\n{:#?}", unrecognized);
+    }
     let sources = config.resolve(IdResolver::new(RESERVED_KEYWORDS)).await?;
 
     if let Some(file_name) = save_config {
@@ -49,9 +52,12 @@ async fn start(args: Args) -> Result<Server> {
         info!("Use --save-config to save or print Martin configuration.");
     }
 
-    let (server, listen_addresses) = new_server(config.srv, sources)?;
+    let (server, listen_addresses, allow_url_rw) = new_server(config.srv, sources)?;
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
+    if allow_url_rw {
+        info!("URL rewriting is enabled, X-Rewrite-URL header will be used to rewrite URLs.");
+    }
 
     Ok(server)
 }

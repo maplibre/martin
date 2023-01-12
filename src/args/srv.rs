@@ -10,6 +10,10 @@ pub struct SrvArgs {
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
+    /// Process `x-rewrite-url` header to rewrite tile URLs in TileJSON. This is useful when running behind a
+    /// reverse proxy that rewrites URLs, e.g. `/tiles/my_source/...` instead of `/my_source/...`.
+    #[arg(long)]
+    pub allow_url_rewrite: bool,
 }
 
 impl SrvArgs {
@@ -23,6 +27,9 @@ impl SrvArgs {
         }
         if self.workers.is_some() {
             srv_config.worker_processes = self.workers;
+        }
+        if self.allow_url_rewrite {
+            srv_config.allow_url_rewrite = Some(self.allow_url_rewrite);
         }
     }
 }

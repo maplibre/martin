@@ -14,8 +14,11 @@ mod test_utils;
 #[allow(clippy::wildcard_imports)]
 pub use test_utils::*;
 
-pub async fn mock_app_data(sources: Sources) -> Data<AppState> {
-    Data::new(AppState { sources })
+pub async fn mock_app_data(sources: Sources, allow_url_rewrite: bool) -> Data<AppState> {
+    Data::new(AppState {
+        sources,
+        allow_url_rewrite,
+    })
 }
 
 #[must_use]
