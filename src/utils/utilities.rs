@@ -8,12 +8,7 @@ use serde::{Deserialize, Serialize, Serializer};
 pub type InfoMap<T> = HashMap<String, T>;
 
 #[must_use]
-pub fn normalize_key<'a, T>(
-    map: &'a InfoMap<T>,
-    key: &str,
-    info: &str,
-    id: &str,
-) -> Option<String> {
+pub fn normalize_key<T>(map: &InfoMap<T>, key: &str, info: &str, id: &str) -> Option<String> {
     find_info_kv(map, key, info, id).map(|(k, _)| k.to_string())
 }
 
@@ -83,7 +78,7 @@ pub enum BoolOrObject<T> {
 pub fn sorted_opt_map<S: Serializer, T: Serialize>(
     value: &Option<HashMap<String, T>>,
     serializer: S,
-) -> std::result::Result<S::Ok, S::Error> {
+) -> Result<S::Ok, S::Error> {
     value
         .as_ref()
         .map(|v| {
