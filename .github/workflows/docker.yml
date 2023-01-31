@@ -38,7 +38,7 @@ jobs:
 
       - name: Build the Docker image
         id: docker_build
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           push: false
           load: true
@@ -79,7 +79,7 @@ jobs:
 
       - name: Push the Docker image
         if: ${{ github.actor != 'dependabot[bot]' && github.event_name != 'pull_request' }}
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
