@@ -16,10 +16,6 @@ pub struct PgArgs {
     #[cfg(feature = "ssl")]
     #[arg(long)]
     pub ca_root_file: Option<std::path::PathBuf>,
-    /// Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort.
-    #[cfg(feature = "ssl")]
-    #[arg(long)]
-    pub danger_accept_invalid_certs: bool,
     /// If a spatial table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
@@ -37,8 +33,6 @@ impl PgArgs {
         let default_srid = self.get_default_srid(env);
         #[cfg(feature = "ssl")]
         let ca_root_file = self.get_ca_root_file(env);
-        #[cfg(feature = "ssl")]
-        let danger_accept_invalid_certs = self.get_accept_invalid_cert(env);
 
         let results: Vec<_> = connections
             .into_iter()
@@ -46,10 +40,9 @@ impl PgArgs {
                 connection_string: Some(s),
                 #[cfg(feature = "ssl")]
                 ca_root_file: ca_root_file.clone(),
-                #[cfg(feature = "ssl")]
-                danger_accept_invalid_certs,
                 default_srid,
                 pool_size: self.pool_size,
+                connection_timeout_ms: None,
                 disable_bounds: if self.disable_bounds {
                     Some(true)
                 } else {
@@ -87,13 +80,6 @@ impl PgArgs {
                 self.ca_root_file.as_ref().unwrap().display());
             pg_config.iter_mut().for_each(|c| {
                 c.ca_root_file = self.ca_root_file.clone();
-            });
-        }
-        #[cfg(feature = "ssl")]
-        if self.danger_accept_invalid_certs {
-            info!("Overriding configured setting: all Postgres connections will accept invalid certificates because of a CLI parameter. This is a dangerous option, and should not be used if possible.");
-            pg_config.iter_mut().for_each(|c| {
-                c.danger_accept_invalid_certs = self.danger_accept_invalid_certs;
             });
         }
 
@@ -148,17 +134,6 @@ impl PgArgs {
             })
     }
 
-    #[cfg(feature = "ssl")]
-    fn get_accept_invalid_cert<'a>(&self, env: &impl Env<'a>) -> bool {
-        if !self.danger_accept_invalid_certs
-            && env.get_env_str("DANGER_ACCEPT_INVALID_CERTS").is_some()
-        {
-            info!("Using env var DANGER_ACCEPT_INVALID_CERTS to trust invalid certificates");
-            true
-        } else {
-            self.danger_accept_invalid_certs
-        }
-    }
     #[cfg(feature = "ssl")]
     fn get_ca_root_file<'a>(&self, env: &impl Env<'a>) -> Option<std::path::PathBuf> {
         if self.ca_root_file.is_some() {
@@ -248,8 +223,6 @@ mod tests {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(10),
                 #[cfg(feature = "ssl")]
-                danger_accept_invalid_certs: true,
-                #[cfg(feature = "ssl")]
                 ca_root_file: Some(std::path::PathBuf::from("file")),
                 ..Default::default()
             }))
@@ -272,8 +245,6 @@ mod tests {
         let pg_args = PgArgs {
             #[cfg(feature = "ssl")]
             ca_root_file: Some(std::path::PathBuf::from("file2")),
-            #[cfg(feature = "ssl")]
-            danger_accept_invalid_certs: true,
             default_srid: Some(20),
             ..Default::default()
         };
@@ -283,8 +254,6 @@ mod tests {
             Some(OneOrMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(20),
-                #[cfg(feature = "ssl")]
-                danger_accept_invalid_certs: true,
                 #[cfg(feature = "ssl")]
                 ca_root_file: Some(std::path::PathBuf::from("file2")),
                 ..Default::default()

@@ -1,7 +1,8 @@
 #!/usr/bin/env just --justfile
 set shell := ["bash", "-c"]
 
-export DATABASE_URL := "postgres://postgres@localhost/db"
+export PGPORT := "5411"
+export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
 export CARGO_TERM_COLOR := "always"
 # export RUST_LOG := "debug"
 # export RUST_BACKTRACE := "1"
@@ -34,6 +35,9 @@ clean-test:
 # Start a test database
 start: (docker-up "db")
 
+# Start an ssl-enabled test database
+start-ssl: (docker-up "db-ssl")
+
 # Start a legacy test database
 start-legacy: (docker-up "db-legacy")
 
@@ -41,6 +45,7 @@ start-legacy: (docker-up "db-legacy")
 [private]
 docker-up name:
     docker-compose up -d {{name}}
+    docker-compose run --rm db-is-ready
 
 alias _down := stop
 alias _stop-db := stop
@@ -57,7 +62,11 @@ bench: start
 # Run all tests using a test database
 test: (docker-up "db") test-unit test-int
 
-# Run all tests using tde oldest supported version of the database
+# Run all tests using an SSL connection to a test database. Expected output won't match.
+test-ssl: (docker-up "ssl") test-unit clean-test
+    tests/test.sh
+
+# Run all tests using the oldest supported version of the database
 test-legacy: (docker-up "db-legacy") test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)

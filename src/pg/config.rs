@@ -21,15 +21,14 @@ pub struct PgConfig {
     #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ca_root_file: Option<std::path::PathBuf>,
-    #[cfg(feature = "ssl")]
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub danger_accept_invalid_certs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_bounds: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_timeout_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_publish: Option<BoolOrObject<PgCfgPublish>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -221,11 +220,4 @@ mod tests {
             },
         );
     }
-}
-
-/// Helper to skip serialization if the value is `false`
-#[allow(clippy::trivially_copy_pass_by_ref)]
-#[cfg(feature = "ssl")]
-pub fn is_false(value: &bool) -> bool {
-    !*value
 }

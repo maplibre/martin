@@ -75,7 +75,8 @@ brew install martin
 You can also use [official Docker image](https://hub.docker.com/r/maplibre/martin)
 
 ```shell
-docker run -p 3000:3000 -e DATABASE_URL=postgresql://postgres@localhost/db maplibre/martin
+export PGPASSWORD=postgres  # secret!
+docker run -p 3000:3000 -e PGPASSWORD -e DATABASE_URL=postgresql://postgres@localhost/db maplibre/martin
 ```
 
 ## Usage
@@ -445,8 +446,6 @@ Options:
           Number of web server workers
       --ca-root-file <CA_ROOT_FILE>
           Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates
-      --danger-accept-invalid-certs
-          Trust invalid certificates. This introduces significant vulnerabilities, and should only be used as a last resort
   -d, --default-srid <DEFAULT_SRID>
           If a spatial table has SRID 0, then this default SRID will be used as a fallback
   -p, --pool-size <POOL_SIZE>
@@ -897,22 +896,6 @@ First, you need to download the CA certificate and get your cluster connection s
 martin --ca-root-file ./ca-certificate.crt postgresql://user:password@host:port/db?sslmode=require
 ```
 
-### Using with Heroku PostgreSQL
-
-You can use martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
-
-```shell
-heroku pg:psql -a APP_NAME -c 'create extension postgis'
-```
-
-In order to trust the Heroku certificate, you can disable certificate validation with either `DANGER_ACCEPT_INVALID_CERTS` environment variable
-
-```shell
-DATABASE_URL=$(heroku config:get DATABASE_URL -a APP_NAME) DANGER_ACCEPT_INVALID_CERTS=true martin
-```
-
-or `--danger-accept-invalid-certs` command-line argument
-
-```shell
-martin --danger-accept-invalid-certs $(heroku config:get DATABASE_URL -a APP_NAME)
-```
+### SSL Security
+Note that Martin does not full support the `verify-ca` and `verify-full` ssl modes as described in the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-ssl.html).  Martin
+will only verify the SSL certificate of the database server if the certificate is signed with a valid root cert authority.  If the cert is not signed, i.e. for Heroku, do not set the root certificate at all.  This is a known issue and will be fixed in the future.

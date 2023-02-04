@@ -1,22 +1,20 @@
 use std::str::FromStr;
+use std::time::Duration;
 
 use bb8::PooledConnection;
-use bb8_postgres::{tokio_postgres as pg, PostgresConnectionManager};
+use bb8_postgres::tokio_postgres as pg;
 use log::{info, warn};
 use semver::Version;
 
 use crate::pg::config::PgConfig;
+use crate::pg::tls::{make_connector, ConnectionManager, PgErrorSink};
 use crate::pg::utils::PgError::{
     BadConnectionString, BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolConnError,
 };
 use crate::pg::utils::Result;
 
-#[cfg(feature = "ssl")]
-pub type ConnectionManager = PostgresConnectionManager<postgres_openssl::MakeTlsConnector>;
-#[cfg(not(feature = "ssl"))]
-pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
-
 pub const POOL_SIZE_DEFAULT: u32 = 20;
+pub const CONNECTION_TIMEOUT_MS: u64 = 5 * 1000; // seconds
 
 pub type InternalPool = bb8::Pool<ConnectionManager>;
 pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
@@ -47,45 +45,21 @@ impl Pool {
             ToString::to_string,
         );
 
-        #[cfg(not(feature = "ssl"))]
-        let manager = ConnectionManager::new(pg_cfg, postgres::NoTls);
-
-        #[cfg(feature = "ssl")]
-        let manager = {
-            use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-
-            use crate::pg::utils::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
-
-            let tls = SslMethod::tls();
-            let mut builder = SslConnector::builder(tls).map_err(BuildSslConnectorError)?;
-
-            if config.danger_accept_invalid_certs {
-                builder.set_verify(SslVerifyMode::NONE);
-            }
-
-            if let Some(file) = &config.ca_root_file {
-                builder
-                    .set_ca_file(file)
-                    .map_err(|e| BadTrustedRootCertError(e, file.clone()))?;
-                info!("Using {} as trusted root certificate", file.display());
-            }
-
-            PostgresConnectionManager::new(
-                pg_cfg,
-                postgres_openssl::MakeTlsConnector::new(builder.build()),
-            )
-        };
+        let timeout_ms = config
+            .connection_timeout_ms
+            .unwrap_or(CONNECTION_TIMEOUT_MS);
 
         let pool = InternalPool::builder()
             .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
-            .build(manager)
+            .test_on_check_out(false)
+            .connection_timeout(Duration::from_millis(timeout_ms))
+            .error_sink(Box::new(PgErrorSink))
+            .build(ConnectionManager::new(pg_cfg, make_connector(config)?))
             .await
             .map_err(|e| PostgresError(e, "building connection pool"))?;
 
-        let version = pool
-            .get()
-            .await
-            .map_err(|e| PostgresPoolConnError(e, id.clone()))?
+        let version = get_conn(&pool, id.as_str())
+            .await?
             .query_one(
                 r#"
 SELECT
@@ -114,10 +88,7 @@ SELECT
     }
 
     pub async fn get(&self) -> Result<Connection<'_>> {
-        self.pool
-            .get()
-            .await
-            .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
+        get_conn(&self.pool, self.id.as_str()).await
     }
 
     #[must_use]
@@ -129,4 +100,10 @@ SELECT
     pub fn supports_tile_margin(&self) -> bool {
         self.margin
     }
+}
+
+async fn get_conn<'a>(pool: &'a InternalPool, id: &str) -> Result<Connection<'a>> {
+    pool.get()
+        .await
+        .map_err(|e| PostgresPoolConnError(e, id.to_string()))
 }
