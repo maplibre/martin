@@ -23,6 +23,9 @@ pub struct TableInfo {
     /// Geometry column name
     pub geometry_column: String,
 
+    /// Geometry column has a spatial index
+    pub geometry_index: bool,
+
     /// Feature id column name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id_column: Option<String>,
