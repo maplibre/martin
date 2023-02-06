@@ -45,7 +45,7 @@ pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
         // Warn for missing geometry indices. Ignore views since those can't have indices
         // and will generally refer to table columns.
         if let (Some(false), Some(false)) = (info.geometry_index, info.is_view) {
-            warn!(
+            info!(
                 "Table {}.{} has no spatial index on column {}",
                 info.schema, info.table, info.geometry_column
             );
