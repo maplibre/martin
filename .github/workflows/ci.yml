@@ -189,25 +189,43 @@ jobs:
         include:
           # These must match the versions of postgres used in the docker-compose.yml
           - image: postgis/postgis:11-3.0-alpine
+            args: postgres
+            sslmode: disable
           - image: postgis/postgis:14-3.3-alpine
+            args: postgres
+            sslmode: disable
+          # alpine images don't support SSL, so for this we use the debian images
+          - image: postgis/postgis:15-3.3
+            args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+            sslmode: require
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
+      PGPASSWORD: postgres
     services:
       postgres:
         image: ${{ matrix.image }}
-        env:
-          # POSTGRES_* variables are used by the postgis/postgres image
-          POSTGRES_DB: ${{ env.PGDATABASE }}
-          POSTGRES_USER: ${{ env.PGUSER }}
-          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           # will assign a random free host port
           - 5432/tcp
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        # Sadly there is currently no way to pass arguments to the service image other than this hack
+        # See also https://stackoverflow.com/a/62720566/177275
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --entrypoint sh
+          ${{ matrix.image }}
+          -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
@@ -220,12 +238,18 @@ jobs:
     - name: Unit Tests (Linux)
       shell: bash
       run: |
-        cargo test --all-targets
+        echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
+        echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
+        echo "$DATABASE_URL" | base64
+        if [[ "${{ matrix.sslmode }}" == "disable" ]]; then
+          # This only works if SSL is not required
+          cargo test --all-targets
+        fi
         cargo test --all-targets --all-features
         cargo test --doc
         rm -rf target
       env:
-        DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
     - name: Save test output on failure
       if: failure()
       uses: actions/upload-artifact@v3
@@ -242,6 +266,6 @@ jobs:
         chmod +x target/martin
         tests/test.sh
       env:
-        DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
         MARTIN_BUILD: "-"
         MARTIN_BIN: target/martin

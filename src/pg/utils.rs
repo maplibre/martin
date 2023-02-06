@@ -63,6 +63,18 @@ pub enum PgError {
     #[error("Can't set trusted root certificate {}: {0}", .1.display())]
     BadTrustedRootCertError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
 
+    #[cfg(feature = "ssl")]
+    #[error("Can't set client certificate {}: {0}", .1.display())]
+    BadClientCertError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+
+    #[cfg(feature = "ssl")]
+    #[error("Can't set client certificate key {}: {0}", .1.display())]
+    BadClientKeyError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+
+    #[cfg(feature = "ssl")]
+    #[error("Unknown SSL mode: {0:?}")]
+    UnknownSslMode(postgres::config::SslMode),
+
     #[error("Postgres error while {1}: {0}")]
     PostgresError(#[source] bb8_postgres::tokio_postgres::Error, &'static str),
 

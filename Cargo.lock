@@ -1383,6 +1383,7 @@ dependencies = [
  "postgres",
  "postgres-openssl",
  "postgres-protocol",
+ "regex",
  "semver",
  "serde",
  "serde_json",

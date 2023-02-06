@@ -6,9 +6,10 @@ mod function_source;
 mod pg_source;
 mod pool;
 mod table_source;
+mod tls;
 mod utils;
 
-pub use config::{PgCfgPublish, PgCfgPublishType, PgConfig};
+pub use config::{PgCfgPublish, PgCfgPublishType, PgConfig, PgSslCerts};
 pub use config_function::FunctionInfo;
 pub use config_table::TableInfo;
 pub use function_source::get_function_sources;
