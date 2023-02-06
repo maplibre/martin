@@ -1,11 +1,11 @@
-# WARNING
+<h1>WARNING</h1>
 This documentation is for the unreleased main branch.
 
 The documentation for the latest release v0.6 is available [here](https://github.com/maplibre/martin/tree/v0.6#readme).
 
 ----
 
-# Martin
+<h1>Martin</h1>
 
 [![CI](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
 ![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)
@@ -15,43 +15,49 @@ Martin is a tile server able to generate [vector tiles](https://github.com/mapbo
 
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [API](#api)
-- [Using with MapLibre GL JS](#using-with-maplibre)
-- [Using with Leaflet](#using-with-leaflet)
-- [Using with deck.gl](#using-with-deckgl)
-- [Sources List](#source-list)
-- [Composite Sources](#composite-sources)
-  - [Composite Source TileJSON](#composite-source-tilejson)
-  - [Composite Source Tiles](#composite-source-tiles)
-- [Table Sources](#table-sources)
-  - [Table Source TileJSON](#table-source-tilejson)
-  - [Table Source Tiles](#table-source-tiles)
-- [Function Sources](#function-sources)
-  - [Function Source TileJSON](#function-source-tilejson)
-  - [Function Source Tiles](#function-source-tiles)
-- [Command-line Interface](#command-line-interface)
-- [Environment Variables](#environment-variables)
-- [Configuration File](#configuration-file)
-- [Using with Docker](#using-with-docker)
-- [Using with Docker Compose](#using-with-docker-compose)
-- [Using with Nginx](#using-with-nginx)
-  - [Rewriting URLs](#rewriting-urls)
-  - [Caching tiles](#caching-tiles)
-- [Building from Source](#building-from-source)
-- [Debugging](#debugging)
-- [Development](#development)
-- [Recipes](#recipes)
-  - [Using with DigitalOcean PostgreSQL](#using-with-digitalocean-postgresql)
-  - [Using with Heroku PostgreSQL](#using-with-heroku-postgresql)
+<!-- TOC -->
+* [Requirements](#requirements)
+* [Installation](#installation)
+* [Usage](#usage)
+* [API](#api)
+* [Using with MapLibre](#using-with-maplibre)
+* [Using with Leaflet](#using-with-leaflet)
+* [Using with deck.gl](#using-with-deckgl)
+* [Using with Mapbox](#using-with-mapbox)
+* [Source List](#source-list)
+* [Composite Sources](#composite-sources)
+  * [Composite Source TileJSON](#composite-source-tilejson)
+  * [Composite Source Tiles](#composite-source-tiles)
+* [Table Sources](#table-sources)
+  * [Table Source TileJSON](#table-source-tilejson)
+  * [Table Source Tiles](#table-source-tiles)
+* [Function Sources](#function-sources)
+  * [Function Source TileJSON](#function-source-tilejson)
+  * [Function Source Tiles](#function-source-tiles)
+* [MBTile and PMTile Sources](#mbtile-and-pmtile-sources)
+* [Command-line Interface](#command-line-interface)
+* [Environment Variables](#environment-variables)
+* [Configuration File](#configuration-file)
+* [PostgreSQL SSL Connections](#postgresql-ssl-connections)
+* [Using with Docker](#using-with-docker)
+* [Using with Docker Compose](#using-with-docker-compose)
+* [Using with Nginx](#using-with-nginx)
+  * [Rewriting URLs](#rewriting-urls)
+  * [Caching tiles](#caching-tiles)
+* [Building from Source](#building-from-source)
+* [Debugging](#debugging)
+* [Development](#development)
+  * [Other useful commands](#other-useful-commands)
+* [Recipes](#recipes)
+  * [Using with DigitalOcean PostgreSQL](#using-with-digitalocean-postgresql)
+  * [Using with Heroku PostgreSQL](#using-with-heroku-postgresql)
+<!-- TOC -->
 
-## Requirements
+# Requirements
 
-Martin requires PostGIS >= 3.0.0
+Martin requires PostGIS 3.0+.  PostGIS 3.1+ is recommended.
 
-## Installation
+# Installation
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
@@ -79,7 +85,7 @@ export PGPASSWORD=postgres  # secret!
 docker run -p 3000:3000 -e PGPASSWORD -e DATABASE_URL=postgresql://postgres@localhost/db maplibre/martin
 ```
 
-## Usage
+# Usage
 
 Martin requires a database connection string. It can be passed as a command-line argument or as a `DATABASE_URL` environment variable.
 
@@ -89,7 +95,7 @@ martin postgresql://postgres@localhost/db
 
 Martin provides [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint for each [geospatial-enabled](https://postgis.net/docs/postgis_usage.html#geometry_columns) table in your database.
 
-## API
+# API
 
 When started, martin will go through all spatial tables and functions with an appropriate signature in the database. These tables and functions will be available as the HTTP endpoints, which you can use to query Mapbox vector tiles.
 
@@ -103,7 +109,7 @@ When started, martin will go through all spatial tables and functions with an ap
 | `GET`  | `/{name1},...,{nameN}/{z}/{x}/{y}` | [Composite Source Tiles](#composite-source-tiles)       |
 | `GET`  | `/health`                          | Martin server health check: returns 200 `OK`            |
 
-## Using with MapLibre
+# Using with MapLibre
 [MapLibre](https://maplibre.org/projects/maplibre-gl-js/) is an Open-source JavaScript library for showing maps on a website. MapLibre can accept [MVT vector tiles](https://github.com/mapbox/vector-tile-spec) generated by Martin, and applies [a style](https://maplibre.org/maplibre-gl-js-docs/style-spec/) to them to draw a map using Web GL.
 
 You can add a layer to the map and specify Martin [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint as a vector source URL. You should also specify a `source-layer` property. For [Table Sources](#table-sources) it is `{table_name}` by default.
@@ -169,7 +175,7 @@ map.addLayer({
 });
 ```
 
-## Using with Leaflet
+# Using with Leaflet
 
 [Leaflet](https://github.com/Leaflet/Leaflet) is the leading open-source JavaScript library for mobile-friendly interactive maps.
 
@@ -188,7 +194,7 @@ L.vectorGrid
   .addTo(map);
 ```
 
-## Using with deck.gl
+# Using with deck.gl
 
 [deck.gl](https://deck.gl/) is a WebGL-powered framework for visual exploratory data analysis of large datasets.
 
@@ -218,7 +224,7 @@ const deckgl = new DeckGL({
 });
 ```
 
-## Using with Mapbox
+# Using with Mapbox
 
 [Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a JavaScript library for interactive, customizable vector maps on the web. Mapbox GL JS v1.x was open source, and it was forked as MapLibre (see [above](#using-with-maplibre)), so using Martin with Mapbox is similar to MapLibre. Mapbox GL JS can accept [MVT vector tiles](https://github.com/mapbox/vector-tile-spec) generated by Martin, and applies [a style](https://docs.mapbox.com/mapbox-gl-js/style-spec/) to them to draw a map using Web GL.
 
@@ -239,7 +245,7 @@ map.addLayer({
 });
 ```
 
-## Source List
+# Source List
 
 A list of all available sources is available in a catalogue:
 
@@ -261,13 +267,13 @@ curl localhost:3000/catalog | jq
 ]
 ```
 
-## Composite Sources
+# Composite Sources
 
 Composite Sources allows combining multiple sources into one. Composite Source consists of multiple sources separated by comma `{source1},...,{sourceN}`
 
 Each source in a composite source can be accessed with its `{source_name}` as a `source-layer` property.
 
-### Composite Source TileJSON
+## Composite Source TileJSON
 
 Composite Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{source1},...,{sourceN}`.
 
@@ -277,7 +283,7 @@ For example, composite source combining `points` and `lines` sources will be ava
 curl localhost:3000/points,lines | jq
 ```
 
-### Composite Source Tiles
+## Composite Source Tiles
 
 Composite Source tiles endpoint is available at `/{source1},...,{sourceN}/{z}/{x}/{y}`
 
@@ -287,11 +293,11 @@ For example, composite source combining `points` and `lines` sources will be ava
 curl localhost:3000/points,lines/0/0/0
 ```
 
-## Table Sources
+# Table Sources
 
 Table Source is a database table which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will go through all spatial tables in the database and build a list of table sources. A table should have at least one geometry column with non-zero SRID. All other table columns will be represented as properties of a vector tile feature.
 
-### Table Source TileJSON
+## Table Source TileJSON
 
 Table Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{table_name}`.
 
@@ -301,7 +307,7 @@ For example, `points` table will be available at `/points`, unless there is anot
 curl localhost:3000/points | jq
 ```
 
-### Table Source Tiles
+## Table Source Tiles
 
 Table Source tiles endpoint is available at `/{table_name}/{z}/{x}/{y}`
 
@@ -317,7 +323,7 @@ In case if you have multiple geometry columns in that table and want to access a
 curl localhost:3000/points.geom/0/0/0
 ```
 
-## Function Sources
+# Function Sources
 
 Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is an etag key (i.e. md5 hash).  
 
@@ -394,7 +400,7 @@ You can access this params using [json operators](https://www.postgresql.org/doc
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
 ```
 
-### Function Source TileJSON
+## Function Source TileJSON
 
 Function Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{function_name}`
 
@@ -404,7 +410,7 @@ For example, `points` function will be available at `/points`
 curl localhost:3000/points | jq
 ```
 
-### Function Source Tiles
+## Function Source Tiles
 
 Function Source tiles endpoint is available at `/{function_name}/{z}/{x}/{y}`
 
@@ -414,7 +420,7 @@ For example, `points` function will be available at `/points/{z}/{x}/{y}`
 curl localhost:3000/points/0/0/0
 ```
 
-## MBTile and PMTile Sources
+# MBTile and PMTile Sources
 
 Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files.  To serve a file from CLI, simply put the path to the file or the directory with `*.mbtiles` or `*.pmtiles` files. For example:
 
@@ -425,25 +431,29 @@ martin  /path/to/mbtiles/file.mbtiles  /path/to/directory
 You may also want to generate a [config file](#configuration-file) using the `--save-config my-config.yaml`, and later edit it and use it with `--config my-config.yaml` option.
 
 
-## Command-line Interface
+# Command-line Interface
 
 You can configure martin using command-line interface. See `martin --help` or `cargo run -- --help` for more information.
 
 ```shell
-Usage: martin [OPTIONS] [CONNECTION]
+Usage: martin [OPTIONS] [CONNECTION]...
 
 Arguments:
-  [CONNECTION]  Database connection string
+  [CONNECTION]...  Connection strings, e.g. postgres://... or /path/to/files
 
 Options:
   -c, --config <CONFIG>
-          Path to config file
+          Path to config file. If set, no tile source-related parameters are allowed
+      --save-config <SAVE_CONFIG>
+          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
   -k, --keep-alive <KEEP_ALIVE>
           Connection keep alive timeout. [DEFAULT: 75]
   -l, --listen-addresses <LISTEN_ADDRESSES>
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
   -W, --workers <WORKERS>
           Number of web server workers
+  -b, --disable-bounds
+          Disable the automatic generation of bounds for spatial tables
       --ca-root-file <CA_ROOT_FILE>
           Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates
   -d, --default-srid <DEFAULT_SRID>
@@ -451,23 +461,24 @@ Options:
   -p, --pool-size <POOL_SIZE>
           Maximum connections pool size [DEFAULT: 20]
   -h, --help
-          Print help information
+          Print help
   -V, --version
-          Print version information
+          Print version
 ```
 
-## Environment Variables
+# Environment Variables
 
-You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files.
+You can also configure martin using environment variables, but only if the configuration file is not used. See [configuration section](#configuration-file) on how to use environment variables with config files. See also [SSL configuration](#postgresql-ssl-connections) section below.
 
-| Environment variable          | Example                              | Description                                 |
-|-------------------------------|--------------------------------------|---------------------------------------------|
-| `DATABASE_URL`                | `postgresql://postgres@localhost/db` | Postgres database connection                |
-| `CA_ROOT_FILE`                | `./ca-certificate.crt`               | Loads trusted root certificates from a file |
-| `DEFAULT_SRID`                | `4326`                               | Fallback SRID                               |
-| `DANGER_ACCEPT_INVALID_CERTS` | `0`                                  | Trust invalid certificates (any value)      |
+| Environment var <br/> Config File key    | Example                              | Description                                                                                                                                                                                                                                                                                            |
+|------------------------------------------|--------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DATABASE_URL` <br/> `connection_string` | `postgresql://postgres@localhost/db` | Postgres database connection                                                                                                                                                                                                                                                                           |
+| `DEFAULT_SRID` <br/> `default_srid`      | `4326`                               | If a PostgreSQL table has a geometry column with SRID=0, use this value instead                                                                                                                                                                                                                        |
+| `PGSSLCERT` <br/> `ssl_cert`             | `./postgresql.crt`                   | A file with a client SSL certificate. [docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT)                                                                                                                                                                         |
+| `PGSSLKEY` <br/> `ssl_key`               | `./postgresql.key`                   | A file with the key for the client SSL certificate. [docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY)                                                                                                                                                            |
+| `PGSSLROOTCERT` <br/> `ssl_root_cert`    | `./root.crt`                         | A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. [docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT)<br/>This env var used to be called `CA_ROOT_FILE`, but support for it will be removed soon. |
 
-## Configuration File
+# Configuration File
 
 If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your config file: `connection_string: ${MY_DATABASE_URL}`, or with a default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
 
@@ -478,22 +489,29 @@ martin --config config.yaml
 You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
 
 ```yaml
-# Connection keep alive timeout [default: 75]
+ Connection keep alive timeout [default: 75]
 keep_alive: 75
 
-# The socket address to bind [default: 0.0.0.0:3000]
+ The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
-# Number of web server workers
+ Number of web server workers
 worker_processes: 8
 
-# Database configuration. This can also be a list of PG configs.
+ Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string. You can use env vars too, for example:
   #   $DATABASE_URL
   #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
   connection_string: 'postgresql://postgres@localhost:5432/db'
-  
+
+  # Same as PGSSLCERT for psql
+  ssl_cert: './postgresql.crt'
+  # Same as PGSSLKEY for psql
+  ssl_key: './postgresql.key'
+  # Same as PGSSLROOTCERT for psql
+  ssl_root_cert: './root.crt'
+
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
   
@@ -589,7 +607,7 @@ postgres:
       # Values may be integers or floating point numbers.
       bounds: [-180.0, -90.0, 180.0, 90.0]
 
-# Publish PMTiles files
+ Publish PMTiles files
 pmtiles:
   paths:
     # scan this whole dir, matching all *.pmtiles files
@@ -600,7 +618,7 @@ pmtiles:
     # named source matching source name to a single file
     pm-src1: /path/to/pmtiles1.pmtiles
 
-# Publish MBTiles files
+ Publish MBTiles files
 mbtiles:
   paths:
     # scan this whole dir, matching all *.mbtiles files
@@ -612,7 +630,12 @@ mbtiles:
     mb-src1: /path/to/mbtiles1.mbtiles
 ```
 
-## Using with Docker
+# PostgreSQL SSL Connections
+Martin supports PostgreSQL `sslmode` including `disable`, `prefer`, `require`, `verify-ca` and `verify-full` modes as described in the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-ssl.html).  Certificates can be provided in the configuration file, or can be set using the same env vars as used for `psql`. When set as env vars, they apply to all PostgreSQL connections.  See [environment vars](#environment-variables) section for more details.
+
+By default, `sslmode` is set to `prefer` which means that SSL is used if the server supports it, but the connection is not aborted if the server does not support it.  This is the default behavior of `psql` and is the most compatible option.  Use the `sslmode` param to set a different `sslmode`, e.g. `postgresql://user:password@host/db?sslmode=require`.
+
+# Using with Docker
 
 You can use official Docker image [`maplibre/martin`](https://hub.docker.com/r/maplibre/martin)
 
@@ -653,7 +676,7 @@ docker run \
   maplibre/martin
 ```
 
-## Using with Docker Compose
+# Using with Docker Compose
 
 You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml) file as a reference
 
@@ -696,7 +719,7 @@ docker-compose up -d martin
 
 By default, martin will be available at [localhost:3000](http://localhost:3000/)
 
-## Using with Nginx
+# Using with Nginx
 
 You can run martin behind Nginx proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database.
 
@@ -736,7 +759,7 @@ services:
 
 You can find an example Nginx configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
 
-### Rewriting URLs
+## Rewriting URLs
 
 If you are running martin behind Nginx proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](#table-source-tilejson) [endpoints](#function-source-tilejson).
 
@@ -751,7 +774,7 @@ location ~ /tiles/(?<fwd_path>.*) {
 }
 ```
 
-### Caching tiles
+## Caching tiles
 
 You can also use Nginx to cache tiles. In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
 
@@ -791,7 +814,7 @@ http {
 
 You can find an example Nginx configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
 
-## Building from Source
+# Building from Source
 
 You can clone the repository and build martin using [cargo](https://doc.rust-lang.org/cargo) package manager.
 
@@ -808,7 +831,7 @@ cd ./target/release/
 ./martin postgresql://postgres@localhost/db
 ```
 
-## Debugging
+# Debugging
 
 Log levels are controlled on a per-module basis, and by default all logging is disabled except for errors. Logging is controlled via the `RUST_LOG` environment variable. The value of this environment variable is a comma-separated list of logging directives.
 
@@ -826,7 +849,7 @@ export RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
 martin postgresql://postgres@localhost/db
 ```
 
-## Development
+# Development
 
 * Clone Martin
 * Install [docker](https://docs.docker.com/get-docker/), [docker-compose](https://docs.docker.com/compose/), and [Just](https://github.com/casey/just#readme) (improved makefile processor)
@@ -857,13 +880,13 @@ Available recipes:
     lint                   # Run cargo fmt and cargo clippy
 ```
 
-### Other useful commands
+## Other useful commands
 
 ```shell
-# Start db service
+ Start db service
 just debug-page
 
-# Run Martin server
+ Run Martin server
 DATABASE_URL=postgresql://postgres@localhost/db cargo run
 ```
 
@@ -883,10 +906,8 @@ DATABASE_URL=postgresql://postgres@localhost/db cargo bench
 
 An HTML report displaying the results of the benchmark will be generated under `target/criterion/report/index.html`
 
-## Recipes
-
-
-### Using with DigitalOcean PostgreSQL
+# Recipes
+## Using with DigitalOcean PostgreSQL
 
 You can use martin with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with PostGIS extension
 
@@ -896,6 +917,26 @@ First, you need to download the CA certificate and get your cluster connection s
 martin --ca-root-file ./ca-certificate.crt postgresql://user:password@host:port/db?sslmode=require
 ```
 
-### SSL Security
-Note that Martin does not full support the `verify-ca` and `verify-full` ssl modes as described in the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-ssl.html).  Martin
-will only verify the SSL certificate of the database server if the certificate is signed with a valid root cert authority.  If the cert is not signed, i.e. for Heroku, do not set the root certificate at all.  This is a known issue and will be fixed in the future.
+## Using with Heroku PostgreSQL
+
+You can use martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
+
+```shell
+heroku pg:psql -a APP_NAME -c 'create extension postgis'
+```
+
+Use the same environment variables as Heroku [suggests for psql](https://devcenter.heroku.com/articles/heroku-postgres-via-mtls#step-2-configure-environment-variables).
+
+```shell
+export DATABASE_URL=$(heroku config:get DATABASE_URL -a APP_NAME)
+export PGSSLCERT=DIRECTORY/PREFIXpostgresql.crt
+export PGSSLKEY=DIRECTORY/PREFIXpostgresql.key
+export PGSSLROOTCERT=DIRECTORY/PREFIXroot.crt
+
+martin
+```
+
+You may also be able to validate SSL certificate with an explicit sslmode, e.g.
+```shell
+export DATABASE_URL="$(heroku config:get DATABASE_URL -a APP_NAME)?sslmode=verify-ca"
+```

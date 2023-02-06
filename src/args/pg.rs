@@ -3,7 +3,7 @@ use log::{info, warn};
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
 use crate::args::environment::Env;
-use crate::pg::{PgConfig, POOL_SIZE_DEFAULT};
+use crate::pg::{PgConfig, PgSslCerts, POOL_SIZE_DEFAULT};
 use crate::utils::OneOrMany;
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
@@ -31,15 +31,13 @@ impl PgArgs {
     ) -> Option<OneOrMany<PgConfig>> {
         let connections = Self::extract_conn_strings(cli_strings, env);
         let default_srid = self.get_default_srid(env);
-        #[cfg(feature = "ssl")]
-        let ca_root_file = self.get_ca_root_file(env);
+        let certs = self.get_certs(env);
 
         let results: Vec<_> = connections
             .into_iter()
             .map(|s| PgConfig {
                 connection_string: Some(s),
-                #[cfg(feature = "ssl")]
-                ca_root_file: ca_root_file.clone(),
+                ssl_certificates: certs.clone(),
                 default_srid,
                 pool_size: self.pool_size,
                 connection_timeout_ms: None,
@@ -74,16 +72,20 @@ impl PgArgs {
                 c.pool_size = self.pool_size;
             });
         }
+
         #[cfg(feature = "ssl")]
         if self.ca_root_file.is_some() {
             info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
                 self.ca_root_file.as_ref().unwrap().display());
             pg_config.iter_mut().for_each(|c| {
-                c.ca_root_file = self.ca_root_file.clone();
+                c.ssl_certificates.ssl_root_cert = self.ca_root_file.clone();
             });
         }
 
         for v in &[
+            "PGSSLCERT",
+            "PGSSLKEY",
+            "PGSSLROOTCERT",
             "CA_ROOT_FILE",
             "DANGER_ACCEPT_INVALID_CERTS",
             "DATABASE_URL",
@@ -134,17 +136,42 @@ impl PgArgs {
             })
     }
 
+    #[cfg(not(feature = "ssl"))]
+    fn get_certs<'a>(&self, _env: &impl Env<'a>) -> PgSslCerts {
+        PgSslCerts {}
+    }
+
     #[cfg(feature = "ssl")]
-    fn get_ca_root_file<'a>(&self, env: &impl Env<'a>) -> Option<std::path::PathBuf> {
-        if self.ca_root_file.is_some() {
-            return self.ca_root_file.clone();
+    fn get_certs<'a>(&self, env: &impl Env<'a>) -> PgSslCerts {
+        let mut result = PgSslCerts {
+            ssl_cert: Self::parse_env_var(env, "PGSSLCERT", "ssl certificate"),
+            ssl_key: Self::parse_env_var(env, "PGSSLKEY", "ssl key for certificate"),
+            ssl_root_cert: self.ca_root_file.clone(),
+        };
+        if result.ssl_root_cert.is_none() {
+            result.ssl_root_cert = Self::parse_env_var(env, "PGSSLROOTCERT", "root certificate(s)");
         }
-        let path = env.var_os("CA_ROOT_FILE").map(std::path::PathBuf::from);
-        if let Some(path) = &path {
-            info!(
-                "Using env var CA_ROOT_FILE={} to load trusted root certificates",
-                path.display()
+        if result.ssl_root_cert.is_none() {
+            result.ssl_root_cert = Self::parse_env_var(
+                env,
+                "CA_ROOT_FILE",
+                "root certificate(s). This setting is obsolete, please use PGSSLROOTCERT instead",
             );
+        }
+
+        result
+    }
+
+    #[cfg(feature = "ssl")]
+    fn parse_env_var<'a>(
+        env: &impl Env<'a>,
+        env_var: &str,
+        info: &str,
+    ) -> Option<std::path::PathBuf> {
+        let path = env.var_os(env_var).map(std::path::PathBuf::from);
+        if let Some(p) = &path {
+            let p = p.display();
+            info!("Using env {env_var}={p} to load {info}");
         }
         path
     }
@@ -157,6 +184,9 @@ fn is_postgresql_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "ssl")]
+    use std::path::PathBuf;
+
     use super::*;
     use crate::test_utils::{os, some, FauxEnv};
     use crate::Error;
@@ -223,7 +253,10 @@ mod tests {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(10),
                 #[cfg(feature = "ssl")]
-                ca_root_file: Some(std::path::PathBuf::from("file")),
+                ssl_certificates: PgSslCerts {
+                    ssl_root_cert: Some(PathBuf::from("file")),
+                    ..Default::default()
+                },
                 ..Default::default()
             }))
         );
@@ -237,14 +270,14 @@ mod tests {
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
                 ("DEFAULT_SRID", os("10")),
-                ("CA_ROOT_FILE", os("file")),
+                ("PGSSLCERT", os("cert")),
+                ("PGSSLKEY", os("key")),
+                ("PGSSLROOTCERT", os("root")),
             ]
             .into_iter()
             .collect(),
         );
         let pg_args = PgArgs {
-            #[cfg(feature = "ssl")]
-            ca_root_file: Some(std::path::PathBuf::from("file2")),
             default_srid: Some(20),
             ..Default::default()
         };
@@ -255,7 +288,11 @@ mod tests {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(20),
                 #[cfg(feature = "ssl")]
-                ca_root_file: Some(std::path::PathBuf::from("file2")),
+                ssl_certificates: PgSslCerts {
+                    ssl_cert: Some(PathBuf::from("cert")),
+                    ssl_key: Some(PathBuf::from("key")),
+                    ssl_root_cert: Some(PathBuf::from("root")),
+                },
                 ..Default::default()
             }))
         );

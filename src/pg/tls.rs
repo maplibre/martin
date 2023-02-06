@@ -1,64 +1,122 @@
-use crate::pg::{utils, PgConfig};
-use bb8::ErrorSink;
-use bb8_postgres::PostgresConnectionManager;
-use log::error;
+use std::str::FromStr;
 
+use bb8_postgres::tokio_postgres::Config;
+use bb8_postgres::PostgresConnectionManager;
 #[cfg(feature = "ssl")]
-use crate::pg::utils::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
+use log::{info, warn};
 #[cfg(feature = "ssl")]
-use log::info;
+use openssl::ssl::SslFiletype;
 #[cfg(feature = "ssl")]
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use postgres::config::SslMode;
+use regex::Regex;
+
+use crate::pg::utils::PgError::BadConnectionString;
+#[cfg(feature = "ssl")]
+use crate::pg::utils::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
+use crate::pg::utils::Result;
+#[cfg(feature = "ssl")]
+use crate::pg::PgError::{BadClientCertError, BadClientKeyError, UnknownSslMode};
+use crate::pg::PgSslCerts;
 
 #[cfg(feature = "ssl")]
 pub type ConnectionManager = PostgresConnectionManager<postgres_openssl::MakeTlsConnector>;
 #[cfg(not(feature = "ssl"))]
 pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
 
-#[derive(Debug, Clone, Copy)]
-pub struct PgErrorSink;
+/// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SslModeOverride {
+    Unmodified(SslMode),
+    VerifyCa,
+    VerifyFull,
+}
 
-type PgConnError = <ConnectionManager as bb8::ManageConnection>::Error;
+/// Special treatment for sslmode=verify-ca & sslmode=verify-full - if found, replace them with sslmode=require
+pub fn parse_conn_str(conn_str: &str) -> Result<(Config, SslModeOverride)> {
+    let mut mode = SslModeOverride::Unmodified(SslMode::Disable);
 
-impl ErrorSink<PgConnError> for PgErrorSink {
-    fn sink(&self, e: PgConnError) {
-        error!("{e}");
+    let re = Regex::new(r"(^|\?|&| )sslmode=(verify-(ca|full))($|&| )").unwrap();
+    let pg_cfg = if let Some(captures) = re.captures(conn_str) {
+        let captured_value = &captures[2];
+        mode = match captured_value {
+            "verify-ca" => SslModeOverride::VerifyCa,
+            "verify-full" => SslModeOverride::VerifyFull,
+            _ => unreachable!(),
+        };
+        Config::from_str(re.replace_all(conn_str, "$1sslmode=require$4").as_ref())
+    } else {
+        Config::from_str(conn_str)
+    };
+    let pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
+    if let SslModeOverride::Unmodified(_) = mode {
+        mode = SslModeOverride::Unmodified(pg_cfg.get_ssl_mode());
     }
-
-    fn boxed_clone(&self) -> Box<dyn ErrorSink<PgConnError>> {
-        Box::new(*self)
-    }
+    Ok((pg_cfg, mode))
 }
 
 #[cfg(not(feature = "ssl"))]
-pub fn make_connector(_config: &PgConfig) -> utils::Result<postgres::NoTls> {
+pub fn make_connector(_certs: &PgSslCerts, _ssl_mode: SslModeOverride) -> Result<postgres::NoTls> {
     Ok(postgres::NoTls)
 }
 
 #[cfg(feature = "ssl")]
-pub fn make_connector(config: &PgConfig) -> utils::Result<postgres_openssl::MakeTlsConnector> {
-    let tls = SslMethod::tls();
+pub fn make_connector(
+    certs: &PgSslCerts,
+    ssl_mode: SslModeOverride,
+) -> Result<postgres_openssl::MakeTlsConnector> {
+    let (verify_ca, verify_hostname) = match ssl_mode {
+        SslModeOverride::Unmodified(mode) => match mode {
+            SslMode::Disable | SslMode::Prefer => (false, false),
+            SslMode::Require => match certs.ssl_root_cert {
+                // If a root CA file exists, the behavior of sslmode=require will be the same as
+                // that of verify-ca, meaning the server certificate is validated against the CA.
+                // For more details, check out the note about backwards compatibility in
+                // https://postgresql.org/docs/current/libpq-ssl.html#LIBQ-SSL-CERTIFICATES
+                // See also notes in
+                // https://github.com/sfu-db/connector-x/blob/b26f3b73714259dc55010f2233e663b64d24f1b1/connectorx/src/sources/postgres/connection.rs#L25
+                Some(_) => (true, false),
+                None => (false, false),
+            },
+            _ => return Err(UnknownSslMode(mode)),
+        },
+        SslModeOverride::VerifyCa => (true, false),
+        SslModeOverride::VerifyFull => (true, true),
+    };
+
+    let tls = SslMethod::tls_client();
     let mut builder = SslConnector::builder(tls).map_err(BuildSslConnectorError)?;
 
-    if let Some(file) = &config.ca_root_file {
+    if let (Some(cert), Some(key)) = (&certs.ssl_cert, &certs.ssl_key) {
+        builder
+            .set_certificate_file(cert, SslFiletype::PEM)
+            .map_err(|e| BadClientCertError(e, cert.clone()))?;
+        builder
+            .set_private_key_file(key, SslFiletype::PEM)
+            .map_err(|e| BadClientKeyError(e, key.clone()))?;
+    } else if certs.ssl_key.is_some() || certs.ssl_key.is_some() {
+        warn!("SSL client certificate and key files must be set to use client certificate with Postgres. Only one of them was set.");
+    }
+
+    if let Some(file) = &certs.ssl_root_cert {
         builder
             .set_ca_file(file)
             .map_err(|e| BadTrustedRootCertError(e, file.clone()))?;
-        info!("Using {} as trusted root certificate", file.display());
-    } else {
-        // TODO: Once https://github.com/sfackler/rust-postgres/pull/988 is merged,
-        // we can only set this to None if ssl mode is Required, but not verify*
+        info!("Using {} as a root certificate", file.display());
+    }
+
+    if !verify_ca {
         builder.set_verify(SslVerifyMode::NONE);
     }
 
     let mut connector = postgres_openssl::MakeTlsConnector::new(builder.build());
 
-    // TODO: Once https://github.com/sfackler/rust-postgres/pull/988 is merged,
-    // we can only only do this if ssl mode is Required, but not verifyFull
-    connector.set_callback(|cfg, _domain| {
-        cfg.set_verify_hostname(false);
-        Ok(())
-    });
+    if !verify_hostname {
+        connector.set_callback(|cfg, _domain| {
+            cfg.set_verify_hostname(false);
+            Ok(())
+        });
+    }
 
     Ok(connector)
 }
