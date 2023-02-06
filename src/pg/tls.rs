@@ -36,15 +36,17 @@ pub enum SslModeOverride {
 pub fn parse_conn_str(conn_str: &str) -> Result<(Config, SslModeOverride)> {
     let mut mode = SslModeOverride::Unmodified(SslMode::Disable);
 
-    let re = Regex::new(r"(^|\?|&| )sslmode=(verify-(ca|full))($|&| )").unwrap();
+    let exp = r"(?P<before>(^|\?|&| )sslmode=)(?P<mode>verify-(ca|full))(?P<after>$|&| )";
+    let re = Regex::new(exp).unwrap();
     let pg_cfg = if let Some(captures) = re.captures(conn_str) {
-        let captured_value = &captures[2];
+        let captured_value = &captures["mode"];
         mode = match captured_value {
             "verify-ca" => SslModeOverride::VerifyCa,
             "verify-full" => SslModeOverride::VerifyFull,
             _ => unreachable!(),
         };
-        Config::from_str(re.replace_all(conn_str, "$1sslmode=require$4").as_ref())
+        let conn_str = re.replace(conn_str, "${before}require${after}");
+        Config::from_str(conn_str.as_ref())
     } else {
         Config::from_str(conn_str)
     };
@@ -119,4 +121,47 @@ pub fn make_connector(
     }
 
     Ok(connector)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use postgres::config::Host;
+
+    #[test]
+    fn test_parse_conn_str() {
+        let (cfg, mode) = parse_conn_str("postgresql://localhost:5432").unwrap();
+        assert_eq!(cfg.get_hosts(), &vec![Host::Tcp("localhost".to_string())]);
+        assert_eq!(cfg.get_ports(), &vec![5432]);
+        assert_eq!(cfg.get_user(), None);
+        assert_eq!(cfg.get_dbname(), None);
+        assert_eq!(cfg.get_password(), None);
+        assert_eq!(cfg.get_ssl_mode(), SslMode::Prefer);
+        assert_eq!(mode, SslModeOverride::Unmodified(SslMode::Prefer));
+
+        let (cfg, mode) =
+            parse_conn_str("postgresql://localhost:5432/db?sslmode=verify-ca").unwrap();
+        assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
+        assert_eq!(mode, SslModeOverride::VerifyCa);
+
+        let conn = "postgresql://localhost:5432?sslmode=verify-full";
+        let (cfg, mode) = parse_conn_str(conn).unwrap();
+        assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
+        assert_eq!(mode, SslModeOverride::VerifyFull);
+
+        let conn = "postgresql://localhost:5432?sslmode=verify-full&connect_timeout=5";
+        let (cfg, mode) = parse_conn_str(conn).unwrap();
+        assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
+        assert_eq!(mode, SslModeOverride::VerifyFull);
+
+        let conn = "host=localhost sslmode=verify-full";
+        let (cfg, mode) = parse_conn_str(conn).unwrap();
+        assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
+        assert_eq!(mode, SslModeOverride::VerifyFull);
+
+        let conn = "sslmode=verify-ca host=localhost";
+        let (cfg, mode) = parse_conn_str(conn).unwrap();
+        assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
+        assert_eq!(mode, SslModeOverride::VerifyCa);
+    }
 }
