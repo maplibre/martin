@@ -91,23 +91,23 @@ test_png()
   fi
 }
 
-clean_yaml()
+# Delete a line from a file $1 that matches parameter $2
+remove_line()
 {
-  YAML_FILE="$1"
-  >&2 echo "Cleaning up yaml file $YAML_FILE"
-  # sed -i "/ connection_string: .*/d" "${YAML_FILE}"
-  grep -v " connection_string: " "${YAML_FILE}" > "${YAML_FILE}.tmp"
-  mv "${YAML_FILE}.tmp" "${YAML_FILE}"
+  FILE="$1"
+  LINE_TO_REMOVE="$2"
+  >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
+  grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
+  mv "${FILE}.tmp" "${FILE}"
 }
 
 test_log_has_str()
 {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
-  echo "Checking $LOG_FILE for expected text: $EXPECTED_TEXT"
-  grep -q "$EXPECTED_TEXT" "${LOG_FILE}"
-  grep -v "$EXPECTED_TEXT" "${LOG_FILE}" > "${LOG_FILE}.tmp"
-  mv "${LOG_FILE}.tmp" "${LOG_FILE}"
+  echo "Checking $LOG_FILE for expected text: '$EXPECTED_TEXT'"
+  grep -q "$EXPECTED_TEXT" "$LOG_FILE"
+  remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
 validate_log()
@@ -116,14 +116,16 @@ validate_log()
   >&2 echo "Validating log file $LOG_FILE"
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
-  EXPECTED_TEXT='Margin parameter in ST_TileEnvelope is not supported'
-  grep -v "$EXPECTED_TEXT" "$LOG_FILE" > "${LOG_FILE}.tmp"
+  remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
 
   # Make sure the log has just the expected warnings, remove them, and test that there are no other ones
-  test_log_has_str "${LOG_FILE}.tmp" "WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom"
+  test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
 
   echo "Checking for no other warnings or errors in the log"
-  grep -e ' ERROR ' -e ' WARN ' "${LOG_FILE}.tmp" && exit 1 || true
+  if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
+    echo "Log file $LOG_FILE has unexpected warnings or errors"
+    exit 1
+  fi
 }
 
 curl --version
@@ -246,7 +248,7 @@ test_png pmt_0_0_0   pmt/0/0/0
 kill_process $PROCESS_ID
 validate_log test_log_2.txt
 
-clean_yaml "$(dirname "$0")/output/given_config.yaml"
-clean_yaml "$(dirname "$0")/output/generated_config.yaml"
+remove_line "$(dirname "$0")/output/given_config.yaml"       " connection_string: "
+remove_line "$(dirname "$0")/output/generated_config.yaml"   " connection_string: "
 
 >&2 echo "All integration tests have passed"
