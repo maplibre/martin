@@ -24,11 +24,11 @@ pub struct TableInfo {
     pub geometry_column: String,
 
     /// Geometry column has a spatial index
-    #[serde(skip_serializing)]
+    #[serde(skip_deserializing, skip_serializing)]
     pub geometry_index: Option<bool>,
 
     /// Flag indicating if table is actually a view (PostgreSQL relkind = 'v')
-    #[serde(skip_serializing)]
+    #[serde(skip_deserializing, skip_serializing)]
     pub is_view: Option<bool>,
 
     /// Feature id column name
