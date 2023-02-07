@@ -20,7 +20,7 @@ pub struct PgArgs {
     #[arg(short, long)]
     pub default_srid: Option<i32>,
     #[arg(help = format!("Maximum connections pool size [DEFAULT: {}]", POOL_SIZE_DEFAULT), short, long)]
-    pub pool_size: Option<u32>,
+    pub pool_size: Option<usize>,
 }
 
 impl PgArgs {
@@ -40,7 +40,6 @@ impl PgArgs {
                 ssl_certificates: certs.clone(),
                 default_srid,
                 pool_size: self.pool_size,
-                connection_timeout_ms: None,
                 disable_bounds: if self.disable_bounds {
                     Some(true)
                 } else {

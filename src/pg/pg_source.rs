@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use bb8_postgres::tokio_postgres::types::ToSql;
+use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
 use log::debug;
 use martin_tile_utils::DataFormat;
-use postgres::types::Type;
 use tilejson::TileJSON;
 
 use crate::pg::pool::Pool;

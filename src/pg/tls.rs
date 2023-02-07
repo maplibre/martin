@@ -1,14 +1,13 @@
 use std::str::FromStr;
 
-use bb8_postgres::tokio_postgres::Config;
-use bb8_postgres::PostgresConnectionManager;
+use deadpool_postgres::tokio_postgres::config::SslMode;
+use deadpool_postgres::tokio_postgres::Config;
 #[cfg(feature = "ssl")]
 use log::{info, warn};
 #[cfg(feature = "ssl")]
 use openssl::ssl::SslFiletype;
 #[cfg(feature = "ssl")]
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-use postgres::config::SslMode;
 use regex::Regex;
 
 use crate::pg::utils::PgError::BadConnectionString;
@@ -18,11 +17,6 @@ use crate::pg::utils::Result;
 #[cfg(feature = "ssl")]
 use crate::pg::PgError::{BadClientCertError, BadClientKeyError, UnknownSslMode};
 use crate::pg::PgSslCerts;
-
-#[cfg(feature = "ssl")]
-pub type ConnectionManager = PostgresConnectionManager<postgres_openssl::MakeTlsConnector>;
-#[cfg(not(feature = "ssl"))]
-pub type ConnectionManager = PostgresConnectionManager<postgres::NoTls>;
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,8 +52,11 @@ pub fn parse_conn_str(conn_str: &str) -> Result<(Config, SslModeOverride)> {
 }
 
 #[cfg(not(feature = "ssl"))]
-pub fn make_connector(_certs: &PgSslCerts, _ssl_mode: SslModeOverride) -> Result<postgres::NoTls> {
-    Ok(postgres::NoTls)
+pub fn make_connector(
+    _certs: &PgSslCerts,
+    _ssl_mode: SslModeOverride,
+) -> Result<deadpool_postgres::tokio_postgres::NoTls> {
+    Ok(deadpool_postgres::tokio_postgres::NoTls)
 }
 
 #[cfg(feature = "ssl")]
@@ -125,8 +122,9 @@ pub fn make_connector(
 
 #[cfg(test)]
 mod tests {
+    use deadpool_postgres::tokio_postgres::config::Host;
+
     use super::*;
-    use postgres::config::Host;
 
     #[test]
     fn test_parse_conn_str() {

@@ -35,16 +35,15 @@ actix-http = "3"
 actix-rt = "2"
 actix-web = "4"
 async-trait = "0.1"
-bb8 = "0.8"
-bb8-postgres = "0.8"
 clap = { version = "4", features = ["derive"] }
-flate2 = "1"
+deadpool-postgres = "0.10"
 env_logger = "0.10"
+flate2 = "1"
 futures = "0.3"
 itertools = "0.10"
 log = "0.4"
-martin-tile-utils = { path = "martin-tile-utils" }
 martin-mbtiles = { path = "martin-mbtiles"}
+martin-tile-utils = { path = "martin-tile-utils" }
 num_cpus = "1"
 openssl = { version = "0.10", optional = true }
 pmtiles = { version = "0.2", features = ["mmap-async-tokio", "tilejson"] }
