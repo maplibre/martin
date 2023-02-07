@@ -30,6 +30,8 @@ pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
             schema: row.get("schema"),
             table: row.get("name"),
             geometry_column: row.get("geom"),
+            geometry_index: row.get("geom_idx"),
+            is_view: row.get("is_view"),
             srid: row.get("srid"), // casting i32 to u32?
             extent: Some(DEFAULT_EXTENT),
             buffer: Some(DEFAULT_BUFFER),
@@ -39,6 +41,15 @@ pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
             unrecognized: HashMap::new(),
             ..TableInfo::default()
         };
+
+        // Warn for missing geometry indices. Ignore views since those can't have indices
+        // and will generally refer to table columns.
+        if let (Some(false), Some(false)) = (info.geometry_index, info.is_view) {
+            warn!(
+                "Table {}.{} has no spatial index on column {}",
+                info.schema, info.table, info.geometry_column
+            );
+        }
 
         if let Some(v) = res
             .entry(info.schema.clone())
