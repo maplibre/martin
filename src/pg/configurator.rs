@@ -10,7 +10,7 @@ use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
 use crate::pg::function_source::get_function_sources;
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
-use crate::pg::pool::Pool;
+use crate::pg::pool::PgPool;
 use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
 use crate::pg::utils::PgError::InvalidTableExtent;
 use crate::pg::utils::Result;
@@ -40,7 +40,7 @@ impl PgBuilderPublish {
 }
 
 pub struct PgBuilder {
-    pool: Pool,
+    pool: PgPool,
     default_srid: Option<i32>,
     disable_bounds: bool,
     auto_functions: Option<PgBuilderPublish>,
@@ -52,7 +52,7 @@ pub struct PgBuilder {
 
 impl PgBuilder {
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> Result<Self> {
-        let pool = Pool::new(config).await?;
+        let pool = PgPool::new(config).await?;
 
         Ok(Self {
             pool,

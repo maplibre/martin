@@ -80,8 +80,8 @@ pub enum PgError {
     #[error("Postgres error while {1}: {0}")]
     PostgresError(#[source] Error, &'static str),
 
-    #[error("Unable to build a Postgres connection pool: {0}")]
-    PostgresPoolBuildError(#[from] BuildError),
+    #[error("Unable to build a Postgres connection pool {1}: {0}")]
+    PostgresPoolBuildError(#[source] BuildError, String),
 
     #[error("Unable to get a Postgres connection from the pool {1}: {0}")]
     PostgresPoolConnError(#[source] PoolError, String),

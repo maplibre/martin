@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::pg::config_function::FunctionInfo;
 use crate::pg::configurator::SqlFuncInfoMapMap;
 use crate::pg::pg_source::PgSqlInfo;
-use crate::pg::pool::Pool;
+use crate::pg::pool::PgPool;
 use crate::pg::utils::PgError::PostgresError;
 use crate::pg::utils::Result;
 
@@ -17,7 +17,7 @@ use crate::pg::utils::Result;
 ///
 /// # Panics
 /// Panics if the built-in query returns unexpected results.
-pub async fn get_function_sources(pool: &Pool) -> Result<SqlFuncInfoMapMap> {
+pub async fn get_function_sources(pool: &PgPool) -> Result<SqlFuncInfoMapMap> {
     let mut res = SqlFuncInfoMapMap::new();
     pool.get()
         .await?

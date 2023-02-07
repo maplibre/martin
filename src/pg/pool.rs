@@ -1,4 +1,4 @@
-use deadpool_postgres::{Manager, ManagerConfig, Object, Pool as PgPool, RecyclingMethod};
+use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use log::{info, warn};
 use semver::Version;
 
@@ -8,6 +8,7 @@ use crate::pg::utils::PgError::{
     BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolConnError,
 };
 use crate::pg::utils::Result;
+use crate::pg::PgError::PostgresPoolBuildError;
 
 pub const POOL_SIZE_DEFAULT: usize = 20;
 
@@ -18,14 +19,14 @@ const MINIMUM_POSTGIS_VER: Version = Version::new(3, 0, 0);
 const RECOMMENDED_POSTGIS_VER: Version = Version::new(3, 1, 0);
 
 #[derive(Clone, Debug)]
-pub struct Pool {
+pub struct PgPool {
     id: String,
-    pool: PgPool,
+    pool: Pool,
     // When true, we can use margin parameter in ST_TileEnvelope
     margin: bool,
 }
 
-impl Pool {
+impl PgPool {
     pub async fn new(config: &PgConfig) -> Result<Self> {
         let conn_str = config.connection_string.as_ref().unwrap().as_str();
         info!("Connecting to {conn_str}");
@@ -42,9 +43,10 @@ impl Pool {
             recycling_method: RecyclingMethod::Fast,
         };
         let mgr = Manager::from_config(pg_cfg, connector, mgr_config);
-        let pool = PgPool::builder(mgr)
+        let pool = Pool::builder(mgr)
             .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
-            .build()?;
+            .build()
+            .map_err(|e| PostgresPoolBuildError(e, id.clone()))?;
 
         let version = get_conn(&pool, id.as_str())
             .await?
@@ -90,7 +92,7 @@ SELECT
     }
 }
 
-async fn get_conn(pool: &PgPool, id: &str) -> Result<Object> {
+async fn get_conn(pool: &Pool, id: &str) -> Result<Object> {
     pool.get()
         .await
         .map_err(|e| PostgresPoolConnError(e, id.to_string()))
