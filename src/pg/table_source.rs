@@ -189,6 +189,8 @@ pub fn merge_table_info(
         schema: src_inf.schema.clone(),
         table: src_inf.table.clone(),
         geometry_column: src_inf.geometry_column.clone(),
+        geometry_index: src_inf.geometry_index,
+        is_view: src_inf.is_view,
         srid: calc_srid(&table_id, new_id, src_inf.srid, cfg_inf.srid, default_srid)?,
         prop_mapping: HashMap::new(),
         ..cfg_inf.clone()

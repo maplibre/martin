@@ -263,8 +263,12 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
 }
 
 fn summary(info: &TableInfo) -> String {
+    let relkind = match info.is_view {
+        Some(true) => "view",
+        _ => "table",
+    };
     format!(
-        "table {}.{} with {} column ({}, SRID={})",
+        "{relkind} {}.{} with {} column ({}, SRID={})",
         info.schema,
         info.table,
         info.geometry_column,
