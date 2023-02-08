@@ -77,12 +77,12 @@ test-unit *ARGS:
 
 # Run integration tests
 test-int: clean-test
-    #!/usr/bin/env sh
+    #!/usr/bin/env bash
+    set -euo pipefail
     tests/test.sh
     if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
         echo "** Expected output does not match actual output"
         echo "** If this is expected, run 'just bless' to update expected output"
-        echo "** Note that this error is not fatal because we don't have a stable output yet"
         exit 1
     else
         echo "Expected output matches actual output"

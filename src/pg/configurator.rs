@@ -88,7 +88,7 @@ impl PgBuilder {
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(cfg_inf) = merge_table_info(self.default_srid,&id2, cfg_inf, src_inf) else { continue };
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(
@@ -263,8 +263,12 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
 }
 
 fn summary(info: &TableInfo) -> String {
+    let relkind = match info.is_view {
+        Some(true) => "view",
+        _ => "table",
+    };
     format!(
-        "table {}.{} with {} column ({}, SRID={})",
+        "{relkind} {}.{} with {} column ({}, SRID={})",
         info.schema,
         info.table,
         info.geometry_column,
