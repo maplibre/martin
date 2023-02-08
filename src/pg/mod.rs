@@ -13,7 +13,7 @@ pub use config::{PgCfgPublish, PgCfgPublishType, PgConfig, PgSslCerts};
 pub use config_function::FunctionInfo;
 pub use config_table::TableInfo;
 pub use function_source::get_function_sources;
-pub use pool::{Pool, POOL_SIZE_DEFAULT};
+pub use pool::{PgPool, POOL_SIZE_DEFAULT};
 pub use utils::PgError;
 
 pub use crate::utils::BoolOrObject;

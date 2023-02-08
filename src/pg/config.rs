@@ -44,9 +44,7 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_bounds: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub pool_size: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub connection_timeout_ms: Option<u64>,
+    pub pool_size: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_publish: Option<BoolOrObject<PgCfgPublish>>,
     #[serde(skip_serializing_if = "Option::is_none")]

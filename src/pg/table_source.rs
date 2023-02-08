@@ -8,7 +8,7 @@ use crate::pg::config::PgInfo;
 use crate::pg::config_table::TableInfo;
 use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
-use crate::pg::pool::Pool;
+use crate::pg::pool::PgPool;
 use crate::pg::utils::PgError::PostgresError;
 use crate::pg::utils::{json_to_hashmap, polygon_to_bbox, Result};
 use crate::utils::normalize_key;
@@ -17,7 +17,7 @@ static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-pub async fn get_table_sources(pool: &Pool) -> Result<SqlTableInfoMapMapMap> {
+pub async fn get_table_sources(pool: &PgPool) -> Result<SqlTableInfoMapMapMap> {
     let conn = pool.get().await?;
     let rows = conn
         .query(include_str!("scripts/get_table_sources.sql"), &[])
@@ -81,7 +81,7 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 pub async fn table_to_query(
     id: String,
     mut info: TableInfo,
-    pool: Pool,
+    pool: PgPool,
     disable_bounds: bool,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);

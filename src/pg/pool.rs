@@ -1,21 +1,16 @@
-use std::time::Duration;
-
-use bb8::{ErrorSink, PooledConnection};
-use log::{error, info, warn};
+use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
+use log::{info, warn};
 use semver::Version;
 
 use crate::pg::config::PgConfig;
-use crate::pg::tls::{make_connector, parse_conn_str, ConnectionManager};
+use crate::pg::tls::{make_connector, parse_conn_str};
 use crate::pg::utils::PgError::{
     BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolConnError,
 };
 use crate::pg::utils::Result;
+use crate::pg::PgError::PostgresPoolBuildError;
 
-pub const POOL_SIZE_DEFAULT: u32 = 20;
-pub const CONNECTION_TIMEOUT_MS: u64 = 5 * 1000; // seconds
-
-pub type InternalPool = bb8::Pool<ConnectionManager>;
-pub type Connection<'a> = PooledConnection<'a, ConnectionManager>;
+pub const POOL_SIZE_DEFAULT: usize = 20;
 
 // We require ST_TileEnvelope that was added in PostGIS 3.0.0
 // See https://postgis.net/docs/ST_TileEnvelope.html
@@ -24,14 +19,14 @@ const MINIMUM_POSTGIS_VER: Version = Version::new(3, 0, 0);
 const RECOMMENDED_POSTGIS_VER: Version = Version::new(3, 1, 0);
 
 #[derive(Clone, Debug)]
-pub struct Pool {
+pub struct PgPool {
     id: String,
-    pool: InternalPool,
+    pool: Pool,
     // When true, we can use margin parameter in ST_TileEnvelope
     margin: bool,
 }
 
-impl Pool {
+impl PgPool {
     pub async fn new(config: &PgConfig) -> Result<Self> {
         let conn_str = config.connection_string.as_ref().unwrap().as_str();
         info!("Connecting to {conn_str}");
@@ -42,21 +37,16 @@ impl Pool {
             ToString::to_string,
         );
 
-        let timeout_ms = config
-            .connection_timeout_ms
-            .unwrap_or(CONNECTION_TIMEOUT_MS);
+        let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
 
-        let pool = InternalPool::builder()
+        let mgr_config = ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        };
+        let mgr = Manager::from_config(pg_cfg, connector, mgr_config);
+        let pool = Pool::builder(mgr)
             .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
-            .test_on_check_out(false)
-            .connection_timeout(Duration::from_millis(timeout_ms))
-            .error_sink(Box::new(PgErrorSink))
-            .build(ConnectionManager::new(
-                pg_cfg,
-                make_connector(&config.ssl_certificates, ssl_mode)?,
-            ))
-            .await
-            .map_err(|e| PostgresError(e, "building connection pool"))?;
+            .build()
+            .map_err(|e| PostgresPoolBuildError(e, id.clone()))?;
 
         let version = get_conn(&pool, id.as_str())
             .await?
@@ -87,7 +77,7 @@ SELECT
         Ok(Self { id, pool, margin })
     }
 
-    pub async fn get(&self) -> Result<Connection<'_>> {
+    pub async fn get(&self) -> Result<Object> {
         get_conn(&self.pool, self.id.as_str()).await
     }
 
@@ -102,23 +92,8 @@ SELECT
     }
 }
 
-async fn get_conn<'a>(pool: &'a InternalPool, id: &str) -> Result<Connection<'a>> {
+async fn get_conn(pool: &Pool, id: &str) -> Result<Object> {
     pool.get()
         .await
         .map_err(|e| PostgresPoolConnError(e, id.to_string()))
-}
-
-type PgConnError = <ConnectionManager as bb8::ManageConnection>::Error;
-
-#[derive(Debug, Clone, Copy)]
-pub struct PgErrorSink;
-
-impl ErrorSink<PgConnError> for PgErrorSink {
-    fn sink(&self, e: PgConnError) {
-        error!("{e}");
-    }
-
-    fn boxed_clone(&self) -> Box<dyn ErrorSink<PgConnError>> {
-        Box::new(*self)
-    }
 }

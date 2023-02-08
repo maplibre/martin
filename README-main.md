@@ -38,7 +38,8 @@ Martin is a tile server able to generate [vector tiles](https://github.com/mapbo
 * [Command-line Interface](#command-line-interface)
 * [Environment Variables](#environment-variables)
 * [Configuration File](#configuration-file)
-* [PostgreSQL SSL Connections](#postgresql-ssl-connections)
+* [PostgreSQL Connection String](#postgresql-connection-string)
+  * [PostgreSQL SSL Connections](#postgresql-ssl-connections)
 * [Using with Docker](#using-with-docker)
 * [Using with Docker Compose](#using-with-docker-compose)
 * [Using with Nginx](#using-with-nginx)
@@ -87,7 +88,7 @@ docker run -p 3000:3000 -e PGPASSWORD -e DATABASE_URL=postgresql://postgres@loca
 
 # Usage
 
-Martin requires a database connection string. It can be passed as a command-line argument or as a `DATABASE_URL` environment variable.
+Martin requires at least one PostgreSQL [connection string](#postgresql-connection-string) or a [tile source file](#mbtile-and-pmtile-sources) as a command-line argument. A PG connection string can also be passed via the `DATABASE_URL` environment variable.
 
 ```shell
 martin postgresql://postgres@localhost/db
@@ -325,7 +326,7 @@ curl localhost:3000/points.geom/0/0/0
 
 # Function Sources
 
-Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is an etag key (i.e. md5 hash).  
+Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is an etag key (i.e. md5 hash).
 
 | Argument                   | Type    | Description             |
 |----------------------------|---------|-------------------------|
@@ -489,16 +490,16 @@ martin --config config.yaml
 You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
 
 ```yaml
- Connection keep alive timeout [default: 75]
+# Connection keep alive timeout [default: 75]
 keep_alive: 75
 
- The socket address to bind [default: 0.0.0.0:3000]
+# The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
- Number of web server workers
+# Number of web server workers
 worker_processes: 8
 
- Database configuration. This can also be a list of PG configs.
+# Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string. You can use env vars too, for example:
   #   $DATABASE_URL
@@ -545,43 +546,43 @@ postgres:
     table_source_id:
       # Table schema (required)
       schema: public
-  
+      
       # Table name (required)
       table: table_source
-  
+      
       # Geometry SRID (required)
       srid: 4326
-  
+      
       # Geometry column name (required)
       geometry_column: geom
-  
+      
       # Feature id column name
       id_column: ~
-  
+      
       # An integer specifying the minimum zoom level
       minzoom: 0
-  
+      
       # An integer specifying the maximum zoom level. MUST be >= minzoom
       maxzoom: 30
-  
+      
       # The maximum extent of available map tiles. Bounds MUST define an area
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-  
+      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+      
       # Tile extent in tile coordinate space
       extent: 4096
-  
+      
       # Buffer distance in tile coordinate space to optionally clip geometries
       buffer: 64
-  
+      
       # Boolean to control if geometries should be clipped or encoded as is
       clip_geom: true
-  
+      
       # Geometry type
       geometry_type: GEOMETRY
-  
+      
       # List of columns, that should be encoded as tile properties (required)
       properties:
         gid: int4
@@ -591,23 +592,23 @@ postgres:
     function_source_id:
       # Schema name (required)
       schema: public
-  
+      
       # Function name (required)
       function: function_zxy_query
-  
+      
       # An integer specifying the minimum zoom level
       minzoom: 0
-  
+      
       # An integer specifying the maximum zoom level. MUST be >= minzoom
       maxzoom: 30
-  
+      
       # The maximum extent of available map tiles. Bounds MUST define an area
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [-180.0, -90.0, 180.0, 90.0]
+      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
 
- Publish PMTiles files
+# Publish PMTiles files
 pmtiles:
   paths:
     # scan this whole dir, matching all *.pmtiles files
@@ -617,8 +618,8 @@ pmtiles:
   sources:
     # named source matching source name to a single file
     pm-src1: /path/to/pmtiles1.pmtiles
-
- Publish MBTiles files
+    
+# Publish MBTiles files
 mbtiles:
   paths:
     # scan this whole dir, matching all *.mbtiles files
@@ -630,7 +631,10 @@ mbtiles:
     mb-src1: /path/to/mbtiles1.mbtiles
 ```
 
-# PostgreSQL SSL Connections
+# PostgreSQL Connection String
+Martin supports many of the PostgreSQL connection string settings such as `host`, `port`, `user`, `password`, `dbname`, `sslmode`, `connect_timeout`, `keepalives`, `keepalives_idle`, etc. See the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING) for more details.
+`
+## PostgreSQL SSL Connections
 Martin supports PostgreSQL `sslmode` including `disable`, `prefer`, `require`, `verify-ca` and `verify-full` modes as described in the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-ssl.html).  Certificates can be provided in the configuration file, or can be set using the same env vars as used for `psql`. When set as env vars, they apply to all PostgreSQL connections.  See [environment vars](#environment-variables) section for more details.
 
 By default, `sslmode` is set to `prefer` which means that SSL is used if the server supports it, but the connection is not aborted if the server does not support it.  This is the default behavior of `psql` and is the most compatible option.  Use the `sslmode` param to set a different `sslmode`, e.g. `postgresql://user:password@host/db?sslmode=require`.
