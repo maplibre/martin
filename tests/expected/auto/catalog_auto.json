@@ -89,6 +89,11 @@
   },
   {
     "content_type": "application/x-protobuf",
+    "id": "points1_vw",
+    "name": "public.points1_vw.geom"
+  },
+  {
+    "content_type": "application/x-protobuf",
     "id": "points2",
     "name": "public.points2.geom"
   },

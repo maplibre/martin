@@ -4,6 +4,10 @@ CREATE TABLE points1
     geom GEOMETRY(POINT, 4326)
 );
 
+CREATE VIEW points1_vw AS
+SELECT gid, geom
+FROM points1;
+
 -- INSERT INTO points1
 -- SELECT generate_series(1, 3) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(18, 235085, 122323), 4326), 3))).geom;

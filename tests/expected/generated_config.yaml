@@ -27,6 +27,17 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
+    points1_vw:
+      schema: public
+      table: points1_vw
+      srid: 4326
+      geometry_column: geom
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
     points2:
       schema: public
       table: points2
