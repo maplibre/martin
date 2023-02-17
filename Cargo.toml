@@ -8,12 +8,13 @@ opt-level = 3
 
 [package]
 name = "martin"
-version = "0.7.0-alpha"
+version = "0.7.0"
 edition = "2021"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 repository = "https://github.com/maplibre/martin"
 license = "MIT OR Apache-2.0"
+keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis", "tileserver"]
 
 [lib]
 name = "martin"
