@@ -1,10 +1,3 @@
-<h1>WARNING</h1>
-This documentation is for the unreleased main branch.
-
-The documentation for the latest release v0.6 is available [here](https://github.com/maplibre/martin/tree/v0.6#readme).
-
-----
-
 <h1>Martin</h1>
 
 [![CI](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
@@ -704,7 +697,7 @@ version: '3'
 
 services:
   martin:
-    image: maplibre/martin:v0.6.2
+    image: maplibre/martin:v0.7.0
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -758,7 +751,7 @@ services:
       - martin
 
   martin:
-    image: maplibre/martin:v0.6.2
+    image: maplibre/martin:v0.7.0
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://postgres:password@db/db
