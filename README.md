@@ -469,6 +469,8 @@ Options:
           If a spatial table has SRID 0, then this default SRID will be used as a fallback
   -p, --pool-size <POOL_SIZE>
           Maximum connections pool size [DEFAULT: 20]
+  -m, --max-feature-count <MAX_FEATURE_COUNT>
+          Limit the number of features in a tile from a PG table source
   -h, --help
           Print help
   -V, --version
@@ -526,6 +528,9 @@ postgres:
   
   # Maximum connections pool size [default: 20]
   pool_size: 20
+
+  # Limit the number of table geo features included in a tile. Unlimited by default.
+  max_feature_count: 1000
 
   # Control the automatic generation of bounds for spatial tables [default: false]
   # If enabled, it will spend some time on startup to compute geometry bounds.
