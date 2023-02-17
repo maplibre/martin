@@ -9,18 +9,21 @@ use crate::utils::OneOrMany;
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct PgArgs {
-    /// Disable the automatic generation of bounds for spatial tables.
+    /// Disable the automatic generation of bounds for spatial PG tables.
     #[arg(short = 'b', long)]
     pub disable_bounds: bool,
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
     #[cfg(feature = "ssl")]
     #[arg(long)]
     pub ca_root_file: Option<std::path::PathBuf>,
-    /// If a spatial table has SRID 0, then this default SRID will be used as a fallback.
+    /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
     #[arg(help = format!("Maximum connections pool size [DEFAULT: {}]", POOL_SIZE_DEFAULT), short, long)]
     pub pool_size: Option<usize>,
+    /// Limit the number of features in a tile from a PG table source.
+    #[arg(short, long)]
+    pub max_feature_count: Option<usize>,
 }
 
 impl PgArgs {
@@ -39,12 +42,13 @@ impl PgArgs {
                 connection_string: Some(s),
                 ssl_certificates: certs.clone(),
                 default_srid,
-                pool_size: self.pool_size,
                 disable_bounds: if self.disable_bounds {
                     Some(true)
                 } else {
                     None
                 },
+                max_feature_count: self.max_feature_count,
+                pool_size: self.pool_size,
                 auto_publish: None,
                 tables: None,
                 functions: None,
@@ -69,6 +73,12 @@ impl PgArgs {
             info!("Overriding configured pool size to {} on all Postgres connections because of a CLI parameter", self.pool_size.unwrap());
             pg_config.iter_mut().for_each(|c| {
                 c.pool_size = self.pool_size;
+            });
+        }
+        if self.max_feature_count.is_some() {
+            info!("Overriding maximum feature count to {} on all Postgres connections because of a CLI parameter", self.max_feature_count.unwrap());
+            pg_config.iter_mut().for_each(|c| {
+                c.max_feature_count = self.max_feature_count;
             });
         }
 

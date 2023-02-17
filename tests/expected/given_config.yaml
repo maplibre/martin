@@ -3,6 +3,7 @@ listen_addresses: localhost:3111
 worker_processes: 1
 postgres:
   default_srid: 4326
+  max_feature_count: 1000
   pool_size: 20
   tables:
     MixPoints:

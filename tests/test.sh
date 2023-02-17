@@ -228,7 +228,7 @@ echo "Test pre-configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/configured"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--config tests/config.yaml --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
+ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_2.txt &
 PROCESS_ID=`jobs -p`

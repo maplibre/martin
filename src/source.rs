@@ -51,7 +51,7 @@ impl Clone for Box<dyn Source> {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct IdResolver {
     /// name -> unique name
     names: Arc<Mutex<HashMap<String, String>>>,

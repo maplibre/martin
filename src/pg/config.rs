@@ -44,6 +44,8 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_bounds: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_feature_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_publish: Option<BoolOrObject<PgCfgPublish>>,
@@ -168,6 +170,7 @@ mod tests {
               connection_string: 'postgres://postgres@localhost:5432/db'
               default_srid: 4326
               pool_size: 20
+              max_feature_count: 100
 
               tables:
                 table_source:
@@ -199,6 +202,7 @@ mod tests {
                     connection_string: some("postgres://postgres@localhost:5432/db"),
                     default_srid: Some(4326),
                     pool_size: Some(20),
+                    max_feature_count: Some(100),
                     tables: Some(HashMap::from([(
                         "table_source".to_string(),
                         TableInfo {

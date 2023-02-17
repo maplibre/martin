@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use log::{info, warn};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
+use tilejson::Bounds;
 
 use crate::pg::config::PgInfo;
 use crate::pg::config_table::TableInfo;
@@ -83,6 +84,7 @@ pub async fn table_to_query(
     mut info: TableInfo,
     pool: PgPool,
     disable_bounds: bool,
+    max_feature_count: Option<usize>,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
@@ -90,26 +92,7 @@ pub async fn table_to_query(
     let srid = info.srid;
 
     if info.bounds.is_none() && !disable_bounds {
-        info.bounds = pool
-            .get()
-            .await?
-            .query_one(&format!(
-                r#"
-WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
-SELECT ST_Transform(
-            CASE
-                WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) = 'ST_Point'
-                THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}, 1)), {srid})
-                ELSE (SELECT * FROM real_bounds)
-            END,
-            4326
-        ) AS bounds
-FROM {schema}.{table};
-                "#), &[])
-            .await
-            .map_err(|e| PostgresError(e, "querying table bounds"))?
-            .get::<_, Option<ewkb::Polygon>>("bounds")
-            .and_then(|p| polygon_to_bbox(&p));
+        info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
     }
 
     let properties = if let Some(props) = &info.properties {
@@ -148,6 +131,8 @@ FROM {schema}.{table};
         "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
     };
 
+    let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
+
     let query = format!(
         r#"
 SELECT
@@ -164,6 +149,7 @@ FROM (
     {schema}.{table}
   WHERE
     {geometry_column} && ST_Transform({bbox_search}, {srid})
+  {limit_clause}
 ) AS tile;
 "#,
         table_id = escape_literal(info.format_id().as_str()),
@@ -173,6 +159,34 @@ FROM (
     .to_string();
 
     Ok((id, PgSqlInfo::new(query, false, info.format_id()), info))
+}
+
+async fn calc_bounds(
+    pool: &PgPool,
+    schema: &str,
+    table: &str,
+    geometry_column: &str,
+    srid: i32,
+) -> Result<Option<Bounds>> {
+    Ok(pool.get()
+        .await?
+        .query_one(&format!(
+            r#"
+WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
+SELECT ST_Transform(
+            CASE
+                WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) = 'ST_Point'
+                THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}, 1)), {srid})
+                ELSE (SELECT * FROM real_bounds)
+            END,
+            4326
+        ) AS bounds
+FROM {schema}.{table};
+                "#), &[])
+        .await
+        .map_err(|e| PostgresError(e, "querying table bounds"))?
+        .get::<_, Option<ewkb::Polygon>>("bounds")
+        .and_then(|p| polygon_to_bbox(&p)))
 }
 
 #[must_use]

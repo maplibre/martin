@@ -39,10 +39,12 @@ impl PgBuilderPublish {
     }
 }
 
+#[derive(Debug)]
 pub struct PgBuilder {
     pool: PgPool,
     default_srid: Option<i32>,
     disable_bounds: bool,
+    max_feature_count: Option<usize>,
     auto_functions: Option<PgBuilderPublish>,
     auto_tables: Option<PgBuilderPublish>,
     id_resolver: IdResolver,
@@ -58,6 +60,7 @@ impl PgBuilder {
             pool,
             default_srid: config.default_srid,
             disable_bounds: config.disable_bounds.unwrap_or_default(),
+            max_feature_count: config.max_feature_count,
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
             functions: config.functions.clone().unwrap_or_default(),
@@ -96,6 +99,7 @@ impl PgBuilder {
                 cfg_inf,
                 self.pool.clone(),
                 self.disable_bounds,
+                self.max_feature_count,
             ));
         }
 
@@ -128,6 +132,7 @@ impl PgBuilder {
                             src_inf,
                             self.pool.clone(),
                             self.disable_bounds,
+                            self.max_feature_count,
                         ));
                     }
                 }
