@@ -83,6 +83,16 @@
     "name": "Geography Class"
   },
   {
+    "content_type": "application/json",
+    "id": "json",
+    "name": "Dummy json data"
+  },
+  {
+    "content_type": "image/png",
+    "id": "png",
+    "name": "ne2sr"
+  },
+  {
     "content_type": "application/x-protobuf",
     "id": "points1",
     "name": "public.points1.geom"
@@ -125,6 +135,22 @@
     "content_type": "application/x-protobuf",
     "id": "table_source_multiple_geom.1",
     "name": "public.table_source_multiple_geom.geom2"
+  },
+  {
+    "content_type": "application/x-protobuf",
+    "description": "Major cities from Natural Earth data",
+    "id": "uncompressed_mvt",
+    "name": "Major cities from Natural Earth data"
+  },
+  {
+    "content_type": "image/webp",
+    "id": "webp",
+    "name": "ne2sr"
+  },
+  {
+    "content_type": "image/webp",
+    "id": "webp.1",
+    "name": "ne2sr"
   },
   {
     "content_encoding": "gzip",

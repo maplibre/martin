@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter, Write};
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use martin_tile_utils::DataFormat;
+use martin_tile_utils::TileInfo;
 use tilejson::TileJSON;
 
 use crate::utils::Result;
@@ -34,7 +34,7 @@ pub type Sources = HashMap<String, Box<dyn Source>>;
 pub trait Source: Send + Debug {
     fn get_tilejson(&self) -> TileJSON;
 
-    fn get_format(&self) -> DataFormat;
+    fn get_tile_info(&self) -> TileInfo;
 
     fn clone_source(&self) -> Box<dyn Source>;
 

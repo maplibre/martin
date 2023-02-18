@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use martin_mbtiles::Mbtiles;
-use martin_tile_utils::DataFormat;
+use martin_tile_utils::TileInfo;
 use tilejson::TileJSON;
 
 use crate::file_config::FileError;
-use crate::file_config::FileError::{GetTileError, InvalidMetadata};
+use crate::file_config::FileError::{GetTileError, InvalidMetadata, IoError};
 use crate::source::{Tile, UrlQuery};
 use crate::utils::is_valid_zoom;
 use crate::{Error, Source, Xyz};
@@ -19,7 +19,7 @@ pub struct MbtSource {
     id: String,
     mbtiles: Arc<Mbtiles>,
     tilejson: TileJSON,
-    format: DataFormat,
+    tile_info: TileInfo,
 }
 
 impl Debug for MbtSource {
@@ -39,12 +39,15 @@ impl MbtSource {
     }
 
     async fn new(id: String, path: PathBuf) -> Result<Self, FileError> {
-        let mbt = Mbtiles::new(&path).await.map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("{e:?}: Cannot open file {}", path.display()),
-            )
-        })?;
+        let mbt = Mbtiles::new(&path)
+            .await
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{e:?}: Cannot open file {}", path.display()),
+                )
+            })
+            .map_err(|e| IoError(e, path.clone()))?;
 
         let meta = mbt
             .get_metadata()
@@ -55,7 +58,7 @@ impl MbtSource {
             id,
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
-            format: meta.tile_format,
+            tile_info: meta.tile_info,
         })
     }
 }
@@ -66,8 +69,8 @@ impl Source for MbtSource {
         self.tilejson.clone()
     }
 
-    fn get_format(&self) -> DataFormat {
-        self.format
+    fn get_tile_info(&self) -> TileInfo {
+        self.tile_info
     }
 
     fn clone_source(&self) -> Box<dyn Source> {

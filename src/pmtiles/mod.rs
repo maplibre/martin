@@ -5,14 +5,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::warn;
-use martin_tile_utils::DataFormat;
+use martin_tile_utils::{Encoding, Format, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::mmap::MmapBackend;
 use pmtiles::{Compression, TileType};
 use tilejson::TileJSON;
 
 use crate::file_config::FileError;
-use crate::file_config::FileError::{GetTileError, InvalidMetadata};
+use crate::file_config::FileError::{GetTileError, InvalidMetadata, IoError};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use crate::utils::is_valid_zoom;
 use crate::Error;
@@ -23,7 +23,7 @@ pub struct PmtSource {
     path: PathBuf,
     pmtiles: Arc<AsyncPmTilesReader<MmapBackend>>,
     tilejson: TileJSON,
-    format: DataFormat,
+    tile_info: TileInfo,
 }
 
 impl Debug for PmtSource {
@@ -38,20 +38,25 @@ impl PmtSource {
     }
 
     async fn new(id: String, path: PathBuf) -> Result<Self, FileError> {
-        let backend = MmapBackend::try_from(path.as_path()).await.map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("{e:?}: Cannot open file {}", path.display()),
-            )
-        })?;
+        let backend = MmapBackend::try_from(path.as_path())
+            .await
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{e:?}: Cannot open file {}", path.display()),
+                )
+            })
+            .map_err(|e| IoError(e, path.clone()))?;
 
         let reader = AsyncPmTilesReader::try_from_source(backend).await;
-        let reader = reader.map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("{e:?}: Cannot open file {}", path.display()),
-            )
-        })?;
+        let reader = reader
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{e:?}: Cannot open file {}", path.display()),
+                )
+            })
+            .map_err(|e| IoError(e, path.clone()))?;
         let hdr = &reader.header;
 
         if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
@@ -65,22 +70,25 @@ impl PmtSource {
         }
 
         let format = match hdr.tile_type {
-            TileType::Mvt => match hdr.tile_compression {
-                Compression::None => DataFormat::Mvt,
-                Compression::Unknown => {
-                    warn!(
-                        "MVT tiles have unknown compression in file {}",
-                        path.display()
-                    );
-                    DataFormat::Mvt
-                }
-                Compression::Gzip => DataFormat::GzipMvt,
-                Compression::Brotli => DataFormat::BrotliMvt,
-                Compression::Zstd => DataFormat::ZstdMvt,
-            },
-            TileType::Png => DataFormat::Png,
-            TileType::Jpeg => DataFormat::Jpeg,
-            TileType::Webp => DataFormat::Webp,
+            TileType::Mvt => TileInfo::new(
+                Format::Mvt,
+                match hdr.tile_compression {
+                    Compression::None => Encoding::Uncompressed,
+                    Compression::Unknown => {
+                        warn!(
+                            "MVT tiles have unknown compression in file {}",
+                            path.display()
+                        );
+                        Encoding::Uncompressed
+                    }
+                    Compression::Gzip => Encoding::Gzip,
+                    Compression::Brotli => Encoding::Brotli,
+                    Compression::Zstd => Encoding::Zstd,
+                },
+            ),
+            TileType::Png => Format::Png.into(),
+            TileType::Jpeg => Format::Jpeg.into(),
+            TileType::Webp => Format::Webp.into(),
             TileType::Unknown => {
                 return Err(InvalidMetadata(
                     "Unknown tile type".to_string(),
@@ -99,7 +107,7 @@ impl PmtSource {
             path,
             pmtiles: Arc::new(reader),
             tilejson,
-            format,
+            tile_info: format,
         })
     }
 }
@@ -110,8 +118,8 @@ impl Source for PmtSource {
         self.tilejson.clone()
     }
 
-    fn get_format(&self) -> DataFormat {
-        self.format
+    fn get_tile_info(&self) -> TileInfo {
+        self.tile_info
     }
 
     fn clone_source(&self) -> Box<dyn Source> {

@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
 use log::debug;
-use martin_tile_utils::DataFormat;
+use martin_tile_utils::Encoding::Uncompressed;
+use martin_tile_utils::Format::Mvt;
+use martin_tile_utils::TileInfo;
 use tilejson::TileJSON;
 
 use crate::pg::pool::PgPool;
@@ -38,8 +40,8 @@ impl Source for PgSource {
         self.tilejson.clone()
     }
 
-    fn get_format(&self) -> DataFormat {
-        DataFormat::Mvt
+    fn get_tile_info(&self) -> TileInfo {
+        TileInfo::new(Mvt, Uncompressed)
     }
 
     fn clone_source(&self) -> Box<dyn Source> {
