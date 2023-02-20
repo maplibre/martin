@@ -3,31 +3,41 @@ use std::string::ToString;
 use std::time::Duration;
 
 use actix_cors::Cors;
-use actix_http::header::HeaderValue;
+use actix_http::ContentEncoding;
 use actix_web::dev::Server;
-use actix_web::http::header::{CACHE_CONTROL, CONTENT_ENCODING};
+use actix_web::error::ErrorBadRequest;
+use actix_web::http::header::{
+    AcceptEncoding, Encoding as HeaderEnc, HeaderValue, Preference, CACHE_CONTROL, CONTENT_ENCODING,
+};
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::{Data, Path, Query};
 use actix_web::{
-    error, middleware, route, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
-    Result,
+    error, middleware, route, web, App, Error, HttpMessage, HttpRequest, HttpResponse, HttpServer,
+    Responder, Result,
 };
 use futures::future::try_join_all;
 use itertools::Itertools;
 use log::{debug, error};
-use martin_tile_utils::DataFormat;
+use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
 use crate::source::{Source, Sources, UrlQuery, Xyz};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use crate::Error::BindingError;
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1")
 pub const RESERVED_KEYWORDS: &[&str] = &[
     "catalog", "config", "health", "help", "index", "manifest", "refresh", "reload", "status",
+];
+
+static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
+    HeaderEnc::brotli(),
+    HeaderEnc::gzip(),
+    HeaderEnc::identity(),
 ];
 
 pub struct AppState {
@@ -47,23 +57,22 @@ impl AppState {
         &self,
         source_ids: &str,
         zoom: Option<u8>,
-    ) -> Result<(Vec<&dyn Source>, bool, DataFormat)> {
-        // TODO?: optimize by pre-allocating max allowed layer count on stack
+    ) -> Result<(Vec<&dyn Source>, bool, TileInfo)> {
         let mut sources = Vec::new();
-        let mut format: Option<DataFormat> = None;
+        let mut info: Option<TileInfo> = None;
         let mut use_url_query = false;
         for id in source_ids.split(',') {
             let src = self.get_source(id)?;
-            let src_fmt = src.get_format();
+            let src_inf = src.get_tile_info();
             use_url_query |= src.support_url_query();
 
             // make sure all sources have the same format
-            match format {
-                Some(fmt) if fmt == src_fmt => {}
-                Some(fmt) => Err(error::ErrorNotFound(format!(
-                    "Cannot merge sources with {fmt:?} with {src_fmt:?}"
+            match info {
+                Some(inf) if inf == src_inf => {}
+                Some(inf) => Err(error::ErrorNotFound(format!(
+                    "Cannot merge sources with {inf} with {src_inf}"
                 )))?,
-                None => format = Some(src_fmt),
+                None => info = Some(src_inf),
             }
 
             // TODO: Use chained-if-let once available
@@ -77,7 +86,7 @@ impl AppState {
         }
 
         // format is guaranteed to be Some() here
-        Ok((sources, use_url_query, format.unwrap()))
+        Ok((sources, use_url_query, info.unwrap()))
     }
 }
 
@@ -129,7 +138,9 @@ fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
 async fn get_index() -> &'static str {
-    "Martin server is running. Eventually this will be a nice web front."
+    "Martin server is running. Eventually this will be a nice web front.\n\n\
+    A list of all available sources is at /catalog\n\n\
+    See documentation https://github.com/maplibre/martin"
 }
 
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
@@ -141,7 +152,12 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
-#[route("/catalog", method = "GET", method = "HEAD")]
+#[route(
+    "/catalog",
+    method = "GET",
+    method = "HEAD",
+    wrap = "middleware::Compress::default()"
+)]
 #[allow(clippy::unused_async)]
 async fn get_catalog(state: Data<AppState>) -> impl Responder {
     let info: Vec<_> = state
@@ -149,11 +165,11 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
         .iter()
         .map(|(id, src)| {
             let tilejson = src.get_tilejson();
-            let format = src.get_format();
+            let info = src.get_tile_info();
             IndexEntry {
                 id: id.clone(),
-                content_type: format.content_type().to_string(),
-                content_encoding: format.content_encoding().map(ToString::to_string),
+                content_type: info.format.content_type().to_string(),
+                content_encoding: info.encoding.content_encoding().map(ToString::to_string),
                 name: tilejson.name,
                 description: tilejson.description,
                 attribution: tilejson.attribution,
@@ -164,7 +180,12 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(info)
 }
 
-#[route("/{source_ids}", method = "GET", method = "HEAD")]
+#[route(
+    "/{source_ids}",
+    method = "GET",
+    method = "HEAD",
+    wrap = "middleware::Compress::default()"
+)]
 #[allow(clippy::unused_async)]
 async fn git_source_info(
     req: HttpRequest,
@@ -198,7 +219,7 @@ fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str)
         .path_and_query(path_and_query)
         .build()
         .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| error::ErrorBadRequest(format!("Can't build tiles URL: {e}")))
+        .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))
 }
 
 fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
@@ -253,8 +274,8 @@ async fn get_tile(
     };
 
     // Optimization for a single-source request.
-    let (tile, format) = if path.source_ids.contains(',') {
-        let (sources, use_url_query, format) = state.get_sources(&path.source_ids, Some(path.z))?;
+    let (tile, info) = if path.source_ids.contains(',') {
+        let (sources, use_url_query, info) = state.get_sources(&path.source_ids, Some(path.z))?;
         if sources.is_empty() {
             return Err(error::ErrorNotFound("No valid sources found"))?;
         }
@@ -269,14 +290,15 @@ async fn get_tile(
         // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
         // TODO: can zlib, brotli, or zstd be concatenated?
         // TODO: implement decompression step for other concatenate-able formats
-        let can_join = format == DataFormat::Mvt || format == DataFormat::GzipMvt;
-        if !can_join && tiles.iter().map(|v| i32::from(!v.is_empty())).sum::<i32>() > 1 {
+        let can_join = info.format == Format::Mvt
+            && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
+        if !can_join && tiles.iter().filter(|v| !v.is_empty()).count() > 1 {
             return Err(error::ErrorBadRequest(format!(
-                "Can't merge {format:?} tiles. Make sure there is only one non-empty tile source at zoom level {}",
+                "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
                 xyz.z
             )))?;
         }
-        (tiles.concat(), format)
+        (tiles.concat(), info)
     } else {
         let id = &path.source_ids;
         let zoom = xyz.z;
@@ -295,18 +317,85 @@ async fn get_tile(
             .get_tile(&xyz, &query)
             .await
             .map_err(map_internal_error)?;
-        (tile, src.get_format())
+        (tile, src.get_tile_info())
     };
 
     Ok(if tile.is_empty() {
         HttpResponse::NoContent().finish()
     } else {
+        // decide if (re-)encoding of the tile data is needed, and recompress if so
+        let (tile, info) = recompress(tile, info, req.get_header::<AcceptEncoding>())?;
         let mut response = HttpResponse::Ok();
-        response.content_type(format.content_type());
-        if let Some(val) = format.content_encoding() {
+        response.content_type(info.format.content_type());
+        if let Some(val) = info.encoding.content_encoding() {
             response.insert_header((CONTENT_ENCODING, val));
         }
         response.body(tile)
+    })
+}
+
+fn recompress(
+    mut tile: Vec<u8>,
+    mut info: TileInfo,
+    accept_enc: Option<AcceptEncoding>,
+) -> Result<(Vec<u8>, TileInfo)> {
+    if let Some(accept_enc) = accept_enc {
+        if info.encoding.is_encoded() {
+            // already compressed, see if we can send it as is, or need to re-compress
+            if !accept_enc.iter().any(|e| {
+                if let Preference::Specific(HeaderEnc::Known(enc)) = e.item {
+                    to_encoding(enc) == Some(info.encoding)
+                } else {
+                    false
+                }
+            }) {
+                // need to re-compress the tile - uncompress it first
+                (tile, info) = decode(tile, info)?;
+            }
+        }
+        if info.encoding == Encoding::Uncompressed {
+            // only apply compression if the content supports it
+            if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENCODINGS.iter()) {
+                // (re-)compress the tile into the preferred encoding
+                (tile, info) = encode(tile, info, enc)?;
+            }
+        }
+        Ok((tile, info))
+    } else {
+        // no accepted-encoding header, decode the tile if compressed
+        decode(tile, info)
+    }
+}
+
+fn encode(tile: Vec<u8>, info: TileInfo, enc: ContentEncoding) -> Result<(Vec<u8>, TileInfo)> {
+    Ok(match enc {
+        ContentEncoding::Brotli => (encode_brotli(&tile)?, info.encoding(Encoding::Brotli)),
+        ContentEncoding::Gzip => (encode_gzip(&tile)?, info.encoding(Encoding::Gzip)),
+        _ => (tile, info),
+    })
+}
+
+fn decode(tile: Vec<u8>, info: TileInfo) -> Result<(Vec<u8>, TileInfo)> {
+    Ok(if info.encoding.is_encoded() {
+        match info.encoding {
+            Encoding::Gzip => (decode_gzip(&tile)?, info.encoding(Encoding::Uncompressed)),
+            Encoding::Brotli => (decode_brotli(&tile)?, info.encoding(Encoding::Uncompressed)),
+            _ => Err(ErrorBadRequest(format!(
+                "Tile is is stored as {info}, but the client does not accept this encoding"
+            )))?,
+        }
+    } else {
+        (tile, info)
+    })
+}
+
+fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
+    Some(match val {
+        ContentEncoding::Identity => Encoding::Uncompressed,
+        ContentEncoding::Gzip => Encoding::Gzip,
+        ContentEncoding::Brotli => Encoding::Brotli,
+        // TODO: Deflate => Encoding::Zstd or Encoding::Zlib ?
+        _ => None?,
     })
 }
 
@@ -340,7 +429,6 @@ pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server,
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
-            .wrap(middleware::Compress::default())
             .configure(router)
     })
     .bind(listen_addresses.clone())

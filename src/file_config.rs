@@ -9,15 +9,15 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
 use crate::config::{copy_unrecognized_config, Unrecognized};
-use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath};
+use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
 use crate::utils::sorted_opt_map;
 use crate::OneOrMany::{Many, One};
 use crate::{Error, IdResolver, OneOrMany, Source, Sources, Xyz};
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
-    #[error("IO Error {0}")]
-    IoError(#[from] std::io::Error),
+    #[error("IO error {0}: {}", .1.display())]
+    IoError(std::io::Error, PathBuf),
 
     #[error("Source path is not a file: {}", .0.display())]
     InvalidFilePath(PathBuf),
@@ -144,7 +144,8 @@ where
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            let can = source.path().canonicalize()?;
+            let path = source.path();
+            let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
             if !can.is_file() {
                 // todo: maybe warn instead?
                 return Err(InvalidSourceFilePath(id.to_string(), can));
@@ -170,7 +171,8 @@ where
             let dir_files = if is_dir {
                 // directories will be kept in the config just in case there are new files
                 directories.push(path.clone());
-                path.read_dir()?
+                path.read_dir()
+                    .map_err(|e| IoError(e, path.clone()))?
                     .filter_map(std::result::Result::ok)
                     .filter(|f| {
                         f.path().extension().filter(|e| *e == extension).is_some()
@@ -184,7 +186,7 @@ where
                 return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
             };
             for path in dir_files {
-                let can = path.canonicalize()?;
+                let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
                 if files.contains(&can) {
                     if !is_dir {
                         warn!("Ignoring duplicate MBTiles path: {}", can.display());

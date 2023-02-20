@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # TODO: use  --fail-with-body  to get the response body on failure
-CURL=${CURL:-curl -sSf}
+CURL=${CURL:-curl --silent --show-error --fail --compressed}
 DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
 MARTIN_BUILD="${MARTIN_BUILD:-cargo build --all-features}"
 MARTIN_PORT="${MARTIN_PORT:-3111}"
@@ -16,9 +16,9 @@ function wait_for_martin {
     PROCESS_ID=$1
     echo "Waiting for Martin ($PROCESS_ID) to start by checking $MARTIN_URL/health to be valid..."
     for i in {1..60}; do
-        if curl -sSf "$MARTIN_URL/health" 2>/dev/null >/dev/null; then
+        if $CURL "$MARTIN_URL/health" 2>/dev/null >/dev/null; then
             echo "Martin is up!"
-            curl -s "$MARTIN_URL/health"
+            $CURL "$MARTIN_URL/health"
             return
         fi
         if ps -p $PROCESS_ID > /dev/null ; then
@@ -70,7 +70,7 @@ test_pbf()
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL --compressed "$URL" > "$FILENAME"
+  $CURL "$URL" > "$FILENAME"
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
@@ -143,7 +143,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures)
+ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/files)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
 PROCESS_ID=`jobs -p`

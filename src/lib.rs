@@ -26,7 +26,7 @@ mod test_utils;
 pub use crate::args::Env;
 pub use crate::config::{read_config, Config};
 pub use crate::source::{IdResolver, Source, Sources, Xyz};
-pub use crate::utils::{BoolOrObject, Error, OneOrMany, Result};
+pub use crate::utils::{decode_brotli, decode_gzip, BoolOrObject, Error, OneOrMany, Result};
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]
