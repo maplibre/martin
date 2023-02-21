@@ -1,7 +1,16 @@
 {
-  "name": "public.table_source.geom",
+  "description": "public.table_source.geom",
+  "name": "table_source",
   "tilejson": "3.0.0",
   "tiles": [
     "http://localhost:3111/table_source,points1,points2/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "gid": "int4"
+      },
+      "id": "table_source"
+    }
   ]
 }

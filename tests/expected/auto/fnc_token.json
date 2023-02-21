@@ -1,5 +1,6 @@
 {
-  "name": "public.function_zxy_query_test",
+  "description": "public.function_zxy_query_test",
+  "name": "function_zxy_query_test",
   "tilejson": "3.0.0",
   "tiles": [
     "http://localhost:3111/function_zxy_query_test/{z}/{x}/{y}"

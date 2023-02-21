@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use ctor::ctor;
 use indoc::indoc;
 use martin::Xyz;
-use tilejson::Bounds;
 
 pub mod utils;
 pub use utils::*;
@@ -38,26 +37,27 @@ async fn table_source() {
 }
 
 #[actix_rt::test]
-async fn tables_tilejson_ok() {
+async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    let tilejson = source(&mock, "table_source").get_tilejson();
-
-    assert_eq!(tilejson.tilejson, "3.0.0");
-    assert_eq!(tilejson.version, None);
-    assert_eq!(tilejson.name, some("public.table_source.geom"));
-    assert_eq!(tilejson.scheme, None);
-    assert_eq!(tilejson.minzoom, None);
-    assert_eq!(tilejson.maxzoom, None);
     assert_eq!(
-        tilejson.bounds,
-        Some(Bounds {
-            left: -2.0,
-            bottom: -1.0,
-            right: 142.841_315_098_691_33,
-            top: 45.0
-        })
+        source(&mock, "table_source").get_tilejson(),
+        serde_json::from_str(indoc! {r#"
+{
+  "name": "table_source",
+  "description": "public.table_source.geom",
+  "tilejson": "3.0.0",
+  "tiles": [],
+  "vector_layers": [
+    {
+      "id": "table_source",
+      "fields": {"gid": "int4"}
+    }
+  ],
+  "bounds": [-2.0, -1.0, 142.84131509869133, 45.0]
+}
+        "#})
+        .unwrap()
     );
-    assert!(tilejson.tiles.is_empty());
 }
 
 #[actix_rt::test]

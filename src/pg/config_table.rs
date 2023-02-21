@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
-use tilejson::{Bounds, TileJSON};
+use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::pg::config::PgInfo;
 use crate::utils::{sorted_opt_map, InfoMap};
@@ -83,14 +83,24 @@ impl PgInfo for TableInfo {
         format!("{}.{}.{}", self.schema, self.table, self.geometry_column)
     }
 
-    fn to_tilejson(&self) -> TileJSON {
+    fn to_tilejson(&self, source_id: String) -> TileJSON {
         let mut tilejson = tilejson::tilejson! {
             tiles: vec![],  // tile source is required, but not yet known
-            name: self.format_id(),
+            name: source_id.clone(),
+            description: self.format_id(),
         };
         tilejson.minzoom = self.minzoom;
         tilejson.maxzoom = self.maxzoom;
         tilejson.bounds = self.bounds;
+        let layer = VectorLayer {
+            id: source_id,
+            fields: self.properties.clone().unwrap_or_default(),
+            description: None,
+            maxzoom: None,
+            minzoom: None,
+            other: HashMap::default(),
+        };
+        tilejson.vector_layers = Some(vec![layer]);
         tilejson
     }
 }

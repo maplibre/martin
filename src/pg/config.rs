@@ -12,7 +12,7 @@ use crate::utils::{sorted_opt_map, BoolOrObject, OneOrMany};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
-    fn to_tilejson(&self) -> TileJSON;
+    fn to_tilejson(&self, source_id: String) -> TileJSON;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

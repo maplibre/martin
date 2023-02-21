@@ -5,7 +5,7 @@ use ctor::ctor;
 use indoc::indoc;
 use martin::srv::IndexEntry;
 use martin::OneOrMany;
-use tilejson::{Bounds, TileJSON};
+use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
@@ -92,7 +92,7 @@ postgres:
 }
 
 #[actix_rt::test]
-async fn pg_get_table_source_ok_rewrite() {
+async fn pg_get_table_source_rewrite() {
     let app = create_app! { "
 postgres:
   connection_string: $DATABASE_URL
@@ -113,12 +113,29 @@ postgres:
         .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
-    assert_eq!(result.name, Some(String::from("public.table_source.geom")));
-    let expected_uri = "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin";
-    assert_eq!(result.tiles, &[expected_uri]);
-    assert_eq!(result.minzoom, None);
-    assert_eq!(result.maxzoom, None);
-    assert_eq!(result.bounds, Some(Bounds::MAX));
+    assert_eq!(
+        result,
+        serde_json::from_str(indoc! {r#"
+{
+  "name": "table_source",
+  "description": "public.table_source.geom",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin"
+  ],
+  "vector_layers": [
+    {
+      "id": "table_source",
+      "fields": {
+        "gid": "int4"
+      }
+    }
+  ],
+  "bounds": [-180.0, -90.0, 180.0, 90.0]
+}
+        "#})
+        .unwrap()
+    );
 }
 
 #[actix_rt::test]
@@ -939,11 +956,25 @@ tables:
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
     assert!(matches!(&src.properties, Some(v) if v.len() == 1));
-    // let tj = source(&mock, "no_id").get_tilejson();
-    // tj.vector_layers.unwrap().iter().for_each(|vl| {
-    //     assert_eq!(vl.id, "no_id");
-    //     assert_eq!(vl.fields.len(), 2);
-    // });
+    assert_eq!(
+        source(&mock, "no_id").get_tilejson(),
+        serde_json::from_str(indoc! {r#"
+{
+  "name": "no_id",
+  "description": "MixedCase.MixPoints.Geom",
+  "tilejson": "3.0.0",
+  "tiles": [],
+  "vector_layers": [
+    {
+      "id": "no_id",
+      "fields": {"TABLE": "text"}
+    }
+  ],
+  "bounds": [-180.0, -90.0, 180.0, 90.0]
+}
+        "#})
+        .unwrap()
+    );
 
     let src = table(&mock, "id_only");
     assert_eq!(src.id_column, some("giD"));

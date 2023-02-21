@@ -14,11 +14,18 @@ fn init() {
 #[actix_rt::test]
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    let tilejson = source(&mock, "function_zxy_query").get_tilejson();
-
-    assert_eq!(tilejson.tilejson, "3.0.0");
-    assert_eq!(tilejson.name, some("public.function_zxy_query"));
-    assert!(tilejson.tiles.is_empty());
+    assert_eq!(
+        source(&mock, "function_zxy_query").get_tilejson(),
+        serde_json::from_str(indoc! {r#"
+{
+  "name": "function_zxy_query",
+  "description": "public.function_zxy_query",
+  "tilejson": "3.0.0",
+  "tiles": []
+}
+    "#})
+        .unwrap()
+    );
 }
 
 #[actix_rt::test]

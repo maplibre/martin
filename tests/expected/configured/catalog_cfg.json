@@ -1,18 +1,21 @@
 [
   {
     "content_type": "application/x-protobuf",
+    "description": "MixedCase.MixPoints.Geom",
     "id": "MixPoints",
-    "name": "MixedCase.MixPoints.Geom"
+    "name": "MixPoints"
   },
   {
     "content_type": "application/x-protobuf",
+    "description": "public.function_zxy_query",
     "id": "function_zxy_query",
-    "name": "public.function_zxy_query"
+    "name": "function_zxy_query"
   },
   {
     "content_type": "application/x-protobuf",
+    "description": "public.function_zxy_query_test",
     "id": "function_zxy_query_test",
-    "name": "public.function_zxy_query_test"
+    "name": "function_zxy_query_test"
   },
   {
     "content_type": "image/png",
@@ -20,22 +23,26 @@
   },
   {
     "content_type": "application/x-protobuf",
+    "description": "public.points1.geom",
     "id": "points1",
-    "name": "public.points1.geom"
+    "name": "points1"
   },
   {
     "content_type": "application/x-protobuf",
+    "description": "public.points2.geom",
     "id": "points2",
-    "name": "public.points2.geom"
+    "name": "points2"
   },
   {
     "content_type": "application/x-protobuf",
+    "description": "public.points3857.geom",
     "id": "points3857",
-    "name": "public.points3857.geom"
+    "name": "points3857"
   },
   {
     "content_type": "application/x-protobuf",
+    "description": "public.table_source.geom",
     "id": "table_source",
-    "name": "public.table_source.geom"
+    "name": "table_source"
   }
 ]

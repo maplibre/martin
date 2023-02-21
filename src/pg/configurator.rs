@@ -221,7 +221,12 @@ impl PgBuilder {
     }
 
     fn add_func_src(&self, sources: &mut Sources, id: String, info: &impl PgInfo, sql: PgSqlInfo) {
-        let source = PgSource::new(id.clone(), sql, info.to_tilejson(), self.pool.clone());
+        let source = PgSource::new(
+            id.clone(),
+            sql,
+            info.to_tilejson(id.clone()),
+            self.pool.clone(),
+        );
         sources.insert(id, Box::new(source));
     }
 }
