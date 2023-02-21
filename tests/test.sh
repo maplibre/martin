@@ -61,7 +61,7 @@ test_jsn()
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" | jq --sort-keys -e > "$FILENAME"
+  $CURL "$URL" | jq -e > "$FILENAME"
 }
 
 test_pbf()

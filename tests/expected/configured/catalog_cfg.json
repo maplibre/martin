@@ -1,41 +1,41 @@
 [
   {
+    "id": "MixPoints",
     "content_type": "application/x-protobuf",
-    "description": "MixedCase.MixPoints.Geom",
-    "id": "MixPoints"
+    "description": "MixedCase.MixPoints.Geom"
   },
   {
+    "id": "function_zxy_query",
     "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query",
-    "id": "function_zxy_query"
+    "description": "public.function_zxy_query"
   },
   {
+    "id": "function_zxy_query_test",
     "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query_test",
-    "id": "function_zxy_query_test"
+    "description": "public.function_zxy_query_test"
   },
   {
-    "content_type": "image/png",
-    "id": "pmt"
+    "id": "pmt",
+    "content_type": "image/png"
   },
   {
+    "id": "points1",
     "content_type": "application/x-protobuf",
-    "description": "public.points1.geom",
-    "id": "points1"
+    "description": "public.points1.geom"
   },
   {
+    "id": "points2",
     "content_type": "application/x-protobuf",
-    "description": "public.points2.geom",
-    "id": "points2"
+    "description": "public.points2.geom"
   },
   {
+    "id": "points3857",
     "content_type": "application/x-protobuf",
-    "description": "public.points3857.geom",
-    "id": "points3857"
+    "description": "public.points3857.geom"
   },
   {
+    "id": "table_source",
     "content_type": "application/x-protobuf",
-    "description": "public.table_source.geom",
-    "id": "table_source"
+    "description": "public.table_source.geom"
   }
 ]

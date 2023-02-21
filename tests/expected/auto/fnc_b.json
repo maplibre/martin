@@ -1,8 +1,8 @@
 {
-  "description": "public.function_zxy_query_jsonb",
-  "name": "function_zxy_query_jsonb",
   "tilejson": "3.0.0",
   "tiles": [
     "http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}"
-  ]
+  ],
+  "description": "public.function_zxy_query_jsonb",
+  "name": "function_zxy_query_jsonb"
 }
