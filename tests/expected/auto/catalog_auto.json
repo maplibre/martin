@@ -2,80 +2,67 @@
   {
     "content_type": "application/x-protobuf",
     "description": "MixedCase.MixPoints.Geom",
-    "id": "MixPoints",
-    "name": "MixPoints"
+    "id": "MixPoints"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "MixedCase.function_Mixed_Name",
-    "id": "function_Mixed_Name",
-    "name": "function_Mixed_Name"
+    "id": "function_Mixed_Name"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_null",
-    "id": "function_null",
-    "name": "function_null"
+    "id": "function_null"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_null_row",
-    "id": "function_null_row",
-    "name": "function_null_row"
+    "id": "function_null_row"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_null_row2",
-    "id": "function_null_row2",
-    "name": "function_null_row2"
+    "id": "function_null_row2"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zoom_xy",
-    "id": "function_zoom_xy",
-    "name": "function_zoom_xy"
+    "id": "function_zoom_xy"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy",
-    "id": "function_zxy",
-    "name": "function_zxy"
+    "id": "function_zxy"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy2",
-    "id": "function_zxy2",
-    "name": "function_zxy2"
+    "id": "function_zxy2"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy_query",
-    "id": "function_zxy_query",
-    "name": "function_zxy_query"
+    "id": "function_zxy_query"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy_query_jsonb",
-    "id": "function_zxy_query_jsonb",
-    "name": "function_zxy_query_jsonb"
+    "id": "function_zxy_query_jsonb"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy_query_test",
-    "id": "function_zxy_query_test",
-    "name": "function_zxy_query_test"
+    "id": "function_zxy_query_test"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy_row",
-    "id": "function_zxy_row",
-    "name": "function_zxy_row"
+    "id": "function_zxy_row"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy_row_key",
-    "id": "function_zxy_row_key",
-    "name": "function_zxy_row_key"
+    "id": "function_zxy_row_key"
   },
   {
     "content_type": "image/jpeg",
@@ -108,32 +95,27 @@
   {
     "content_type": "application/x-protobuf",
     "description": "public.points1.geom",
-    "id": "points1",
-    "name": "points1"
+    "id": "points1"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.points1_vw.geom",
-    "id": "points1_vw",
-    "name": "points1_vw"
+    "id": "points1_vw"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.points2.geom",
-    "id": "points2",
-    "name": "points2"
+    "id": "points2"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.points3857.geom",
-    "id": "points3857",
-    "name": "points3857"
+    "id": "points3857"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.points_empty_srid.geom",
-    "id": "points_empty_srid",
-    "name": "points_empty_srid"
+    "id": "points_empty_srid"
   },
   {
     "content_type": "image/png",
@@ -142,20 +124,17 @@
   {
     "content_type": "application/x-protobuf",
     "description": "public.table_source.geom",
-    "id": "table_source",
-    "name": "table_source"
+    "id": "table_source"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.table_source_multiple_geom.geom1",
-    "id": "table_source_multiple_geom",
-    "name": "table_source_multiple_geom"
+    "id": "table_source_multiple_geom"
   },
   {
     "content_type": "application/x-protobuf",
     "description": "public.table_source_multiple_geom.geom2",
-    "id": "table_source_multiple_geom.1",
-    "name": "table_source_multiple_geom.1"
+    "id": "table_source_multiple_geom.1"
   },
   {
     "content_type": "application/x-protobuf",

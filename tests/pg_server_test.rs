@@ -34,7 +34,7 @@ fn test_get(path: &str) -> Request {
 }
 
 #[actix_rt::test]
-async fn pg_get_catalog_ok() {
+async fn pg_get_catalog() {
     let app = create_app! { "
 postgres:
    connection_string: $DATABASE_URL
