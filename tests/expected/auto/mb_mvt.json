@@ -30,6 +30,5 @@
   "minzoom": 0,
   "name": "Major cities from Natural Earth data",
   "version": "2",
-  "format": "pbf",
-  "generator": "tippecanoe v1.32.5"
+  "format": "pbf"
 }
