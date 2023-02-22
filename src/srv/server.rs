@@ -170,7 +170,7 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
                 id: id.clone(),
                 content_type: info.format.content_type().to_string(),
                 content_encoding: info.encoding.content_encoding().map(ToString::to_string),
-                name: tilejson.name,
+                name: tilejson.name.filter(|v| v != id),
                 description: tilejson.description,
                 attribution: tilejson.attribution,
             }

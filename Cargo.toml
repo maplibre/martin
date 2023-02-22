@@ -8,7 +8,7 @@ opt-level = 3
 
 [package]
 name = "martin"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
@@ -56,7 +56,7 @@ postgres-protocol = "0.6"
 regex = "1"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.9"
 subst = { version = "0.2", features = ["yaml"] }
 thiserror = "1"

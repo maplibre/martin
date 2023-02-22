@@ -70,10 +70,11 @@ impl PgInfo for FunctionInfo {
         format!("{}.{}", self.schema, self.function)
     }
 
-    fn to_tilejson(&self) -> TileJSON {
+    fn to_tilejson(&self, source_id: String) -> TileJSON {
         let mut tilejson = tilejson::tilejson! {
             tiles: vec![],  // tile source is required, but not yet known
-            name: self.format_id(),
+            name: source_id,
+            description: self.format_id(),
         };
         tilejson.minzoom = self.minzoom;
         tilejson.maxzoom = self.maxzoom;

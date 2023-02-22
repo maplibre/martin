@@ -1,7 +1,16 @@
 {
-  "name": "public.points3857.geom",
   "tilejson": "3.0.0",
   "tiles": [
     "http://localhost:3111/points3857/{z}/{x}/{y}"
-  ]
+  ],
+  "vector_layers": [
+    {
+      "id": "points3857",
+      "fields": {
+        "gid": "int4"
+      }
+    }
+  ],
+  "description": "public.points3857.geom",
+  "name": "points3857"
 }
