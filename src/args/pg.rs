@@ -92,13 +92,13 @@ impl PgArgs {
         }
 
         for v in &[
-            "PGSSLCERT",
-            "PGSSLKEY",
-            "PGSSLROOTCERT",
             "CA_ROOT_FILE",
             "DANGER_ACCEPT_INVALID_CERTS",
             "DATABASE_URL",
             "DEFAULT_SRID",
+            "PGSSLCERT",
+            "PGSSLKEY",
+            "PGSSLROOTCERT",
         ] {
             // We don't want to warn about these in case they were used in the config file expansion
             if env.has_unused_var(v) {
