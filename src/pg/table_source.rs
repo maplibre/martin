@@ -28,7 +28,7 @@ pub async fn get_table_sources(pool: &PgPool) -> Result<SqlTableInfoMapMapMap> {
     let mut res = SqlTableInfoMapMapMap::new();
     for row in &rows {
         let info = TableInfo {
-            layer_id: Some(row.get("name")),
+            layer_id: None,
             schema: row.get("schema"),
             table: row.get("name"),
             geometry_column: row.get("geom"),
@@ -137,7 +137,7 @@ pub async fn table_to_query(
     };
 
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
-    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&info.table));
+    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
     let query = format!(
         r#"

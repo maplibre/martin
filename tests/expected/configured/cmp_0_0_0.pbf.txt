@@ -1,6 +1,6 @@
 =============================================================
 layer: 0
-  name: points1
+  name: abc
   version: 2
   extent: 4096
   feature: 0
