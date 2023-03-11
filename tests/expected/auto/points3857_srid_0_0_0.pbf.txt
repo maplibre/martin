@@ -1,6 +1,6 @@
 =============================================================
 layer: 0
-  name: public.points3857.geom
+  name: points3857
   version: 2
   extent: 4096
   feature: 0
