@@ -1,6 +1,6 @@
 =============================================================
 layer: 0
-  name: public.points_empty_srid.geom
+  name: points_empty_srid
   version: 2
   extent: 4096
   feature: 0

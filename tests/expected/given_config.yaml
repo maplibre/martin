@@ -21,6 +21,7 @@ postgres:
       properties:
         taBLe: text
     points1:
+      layer_id: abc
       schema: public
       table: points1
       srid: 4326

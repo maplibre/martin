@@ -28,19 +28,24 @@ pub async fn get_table_sources(pool: &PgPool) -> Result<SqlTableInfoMapMapMap> {
     let mut res = SqlTableInfoMapMapMap::new();
     for row in &rows {
         let info = TableInfo {
+            layer_id: None,
             schema: row.get("schema"),
             table: row.get("name"),
             geometry_column: row.get("geom"),
             geometry_index: row.get("geom_idx"),
             is_view: row.get("is_view"),
+            id_column: None,
+            minzoom: None,
+            maxzoom: None,
             srid: row.get("srid"), // casting i32 to u32?
             extent: Some(DEFAULT_EXTENT),
             buffer: Some(DEFAULT_BUFFER),
             clip_geom: Some(DEFAULT_CLIP_GEOM),
             geometry_type: row.get("type"),
             properties: Some(json_to_hashmap(&row.get("properties"))),
+            prop_mapping: HashMap::new(),
             unrecognized: HashMap::new(),
-            ..TableInfo::default()
+            bounds: None,
         };
 
         // Warn for missing geometry indices. Ignore views since those can't have indices
@@ -132,11 +137,12 @@ pub async fn table_to_query(
     };
 
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
-
+    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
+    let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
     let query = format!(
         r#"
 SELECT
-  ST_AsMVT(tile, {table_id}, {extent}, 'geom'{id_name})
+  ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
 FROM (
   SELECT
     ST_AsMVTGeom(
@@ -151,9 +157,7 @@ FROM (
     {geometry_column} && ST_Transform({bbox_search}, {srid})
   {limit_clause}
 ) AS tile;
-"#,
-        table_id = escape_literal(info.format_id().as_str()),
-        clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
+"#
     )
     .trim()
     .to_string();

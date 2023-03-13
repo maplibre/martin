@@ -557,6 +557,9 @@ postgres:
   # Associative arrays of table sources
   tables:
     table_source_id:
+      # ID of the MVT layer (optional, defaults to table name)
+      layer_id: table_source
+      
       # Table schema (required)
       schema: public
       

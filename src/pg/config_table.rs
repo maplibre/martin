@@ -11,6 +11,10 @@ pub type TableInfoSources = InfoMap<TableInfo>;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct TableInfo {
+    /// ID of the layer as specified in a tile (ST_AsMVT param)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layer_id: Option<String>,
+
     /// Table schema
     pub schema: String,
 
