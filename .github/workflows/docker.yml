@@ -24,7 +24,7 @@ jobs:
         id: docker_meta
         uses: docker/metadata-action@v4
         with:
-          images: maplibre/martin
+          images: ghcr.io/maplibre/martin
 
       # https://github.com/docker/setup-qemu-action
       - name: Set up QEMU
@@ -70,15 +70,16 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
 
-      - name: Login to DockerHub
+      - name: Login to GitHub Docker registry
         uses: docker/login-action@v2
         if: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push the Docker image
-        if: ${{ github.actor != 'dependabot[bot]' && github.event_name != 'pull_request' }}
+        if: ${{ github.actor != 'dependabot[bot]'}}
         uses: docker/build-push-action@v4
         with:
           push: true
