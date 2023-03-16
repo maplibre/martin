@@ -44,6 +44,7 @@ jobs:
           load: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
+          # TODO: enable for multi-platform build
           # platforms: linux/amd64,linux/arm64
 
       - name: Start postgres
@@ -80,7 +81,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push the Docker image
-        if: ${{ github.actor != 'dependabot[bot]'}}
+        if: ${{ github.actor != 'dependabot[bot]' && github.event_name != 'pull_request' }}
         uses: docker/build-push-action@v4
         with:
           push: true
