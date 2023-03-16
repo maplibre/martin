@@ -8,42 +8,42 @@ Martin is a tile server able to generate [vector tiles](https://github.com/mapbo
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
 <!-- TOC -->
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [API](#api)
-- [Using with MapLibre](#using-with-maplibre)
-- [Using with Leaflet](#using-with-leaflet)
-- [Using with deck.gl](#using-with-deckgl)
-- [Using with Mapbox](#using-with-mapbox)
-- [Source List](#source-list)
-- [Composite Sources](#composite-sources)
-  - [Composite Source TileJSON](#composite-source-tilejson)
-  - [Composite Source Tiles](#composite-source-tiles)
-- [Table Sources](#table-sources)
-  - [Table Source TileJSON](#table-source-tilejson)
-  - [Table Source Tiles](#table-source-tiles)
-- [Function Sources](#function-sources)
-  - [Function Source TileJSON](#function-source-tilejson)
-  - [Function Source Tiles](#function-source-tiles)
-- [MBTile and PMTile Sources](#mbtile-and-pmtile-sources)
-- [Command-line Interface](#command-line-interface)
-- [Environment Variables](#environment-variables)
-- [Configuration File](#configuration-file)
-- [PostgreSQL Connection String](#postgresql-connection-string)
-  - [PostgreSQL SSL Connections](#postgresql-ssl-connections)
-- [Using with Docker](#using-with-docker)
-- [Using with Docker Compose](#using-with-docker-compose)
-- [Using with Nginx](#using-with-nginx)
-  - [Rewriting URLs](#rewriting-urls)
-  - [Caching tiles](#caching-tiles)
-- [Building from Source](#building-from-source)
-- [Debugging](#debugging)
-- [Development](#development)
-  - [Other useful commands](#other-useful-commands)
-- [Recipes](#recipes)
-  - [Using with DigitalOcean PostgreSQL](#using-with-digitalocean-postgresql)
-  - [Using with Heroku PostgreSQL](#using-with-heroku-postgresql)
+* [Requirements](#requirements)
+* [Installation](#installation)
+* [Usage](#usage)
+* [API](#api)
+* [Using with MapLibre](#using-with-maplibre)
+* [Using with Leaflet](#using-with-leaflet)
+* [Using with deck.gl](#using-with-deckgl)
+* [Using with Mapbox](#using-with-mapbox)
+* [Source List](#source-list)
+* [Composite Sources](#composite-sources)
+  * [Composite Source TileJSON](#composite-source-tilejson)
+  * [Composite Source Tiles](#composite-source-tiles)
+* [Table Sources](#table-sources)
+  * [Table Source TileJSON](#table-source-tilejson)
+  * [Table Source Tiles](#table-source-tiles)
+* [Function Sources](#function-sources)
+  * [Function Source TileJSON](#function-source-tilejson)
+  * [Function Source Tiles](#function-source-tiles)
+* [MBTile and PMTile Sources](#mbtile-and-pmtile-sources)
+* [Command-line Interface](#command-line-interface)
+* [Environment Variables](#environment-variables)
+* [Configuration File](#configuration-file)
+* [PostgreSQL Connection String](#postgresql-connection-string)
+  * [PostgreSQL SSL Connections](#postgresql-ssl-connections)
+* [Using with Docker](#using-with-docker)
+* [Using with Docker Compose](#using-with-docker-compose)
+* [Using with Nginx](#using-with-nginx)
+  * [Rewriting URLs](#rewriting-urls)
+  * [Caching tiles](#caching-tiles)
+* [Building from Source](#building-from-source)
+* [Debugging](#debugging)
+* [Development](#development)
+  * [Other useful commands](#other-useful-commands)
+* [Recipes](#recipes)
+  * [Using with DigitalOcean PostgreSQL](#using-with-digitalocean-postgresql)
+  * [Using with Heroku PostgreSQL](#using-with-heroku-postgresql)
 <!-- TOC -->
 
 # Requirements
@@ -74,7 +74,7 @@ brew install martin
 You can also use [official Docker image](https://ghcr.io/maplibre/martin)
 
 ```shell
-export PGPASSWORD=postgres # secret!
+export PGPASSWORD=postgres  # secret!
 docker run \
        -p 3000:3000 \
        -e PGPASSWORD \
@@ -85,7 +85,7 @@ docker run \
 Use docker `-v` param to share configuration file or its directory with the container:
 
 ```shell
-export PGPASSWORD=postgres # secret!
+export PGPASSWORD=postgres  # secret!
 docker run -v /path/to/config/dir:/config \
            -p 3000:3000 \
            -e PGPASSWORD \
@@ -524,7 +524,7 @@ postgres:
 
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
-
+  
   # Maximum connections pool size [default: 20]
   pool_size: 20
 
@@ -552,71 +552,71 @@ postgres:
       from_schemas: my_other_schema
     functions:
       id_format: '{schema}.{function}'
-
+  
   # Associative arrays of table sources
   tables:
     table_source_id:
       # ID of the MVT layer (optional, defaults to table name)
       layer_id: table_source
-
+      
       # Table schema (required)
       schema: public
-
+      
       # Table name (required)
       table: table_source
-
+      
       # Geometry SRID (required)
       srid: 4326
-
+      
       # Geometry column name (required)
       geometry_column: geom
-
+      
       # Feature id column name
       id_column: ~
-
+      
       # An integer specifying the minimum zoom level
       minzoom: 0
-
+      
       # An integer specifying the maximum zoom level. MUST be >= minzoom
       maxzoom: 30
-
+      
       # The maximum extent of available map tiles. Bounds MUST define an area
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
       bounds: [ -180.0, -90.0, 180.0, 90.0 ]
-
+      
       # Tile extent in tile coordinate space
       extent: 4096
-
+      
       # Buffer distance in tile coordinate space to optionally clip geometries
       buffer: 64
-
+      
       # Boolean to control if geometries should be clipped or encoded as is
       clip_geom: true
-
+      
       # Geometry type
       geometry_type: GEOMETRY
-
+      
       # List of columns, that should be encoded as tile properties (required)
       properties:
         gid: int4
-
+  
   # Associative arrays of function sources
   functions:
     function_source_id:
       # Schema name (required)
       schema: public
-
+      
       # Function name (required)
       function: function_zxy_query
-
+      
       # An integer specifying the minimum zoom level
       minzoom: 0
-
+      
       # An integer specifying the maximum zoom level. MUST be >= minzoom
       maxzoom: 30
-
+      
       # The maximum extent of available map tiles. Bounds MUST define an area
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
@@ -633,7 +633,7 @@ pmtiles:
   sources:
     # named source matching source name to a single file
     pm-src1: /path/to/pmtiles1.pmtiles
-
+    
 # Publish MBTiles files
 mbtiles:
   paths:
