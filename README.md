@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
 ![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)
-[![Docker pulls](https://img.shields.io/docker/pulls/maplibre/martin.svg)](https://hub.docker.com/r/maplibre/martin)
 
 Martin is a tile server able to generate [vector tiles](https://github.com/mapbox/vector-tile-spec) from large [PostGIS](https://github.com/postgis/postgis) databases on the fly, or serve tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
@@ -72,7 +71,7 @@ brew tap urbica/tap
 brew install martin
 ```
 
-You can also use [official Docker image](https://hub.docker.com/r/maplibre/martin)
+You can also use [official Docker image](https://ghcr.io/maplibre/martin)
 
 ```shell
 export PGPASSWORD=postgres  # secret!
@@ -80,7 +79,7 @@ docker run \
        -p 3000:3000 \
        -e PGPASSWORD \
        -e DATABASE_URL=postgresql://postgres@localhost/db \
-       maplibre/martin
+       ghcr.io/maplibre/martin
 ```
 
 Use docker `-v` param to share configuration file or its directory with the container:
@@ -91,7 +90,7 @@ docker run -v /path/to/config/dir:/config \
            -p 3000:3000 \
            -e PGPASSWORD \
            -e DATABASE_URL=postgresql://postgres@localhost/db \
-           maplibre/martin --config /config/config.yaml
+           ghcr.io/maplibre/martin --config /config/config.yaml
 ```
 
 # Usage
@@ -657,13 +656,13 @@ By default, `sslmode` is set to `prefer` which means that SSL is used if the ser
 
 # Using with Docker
 
-You can use official Docker image [`maplibre/martin`](https://hub.docker.com/r/maplibre/martin)
+You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/maplibre/martin)
 
 ```shell
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgresql://postgres@localhost/db \
-  maplibre/martin
+  ghcr.io/maplibre/martin
 ```
 
 If you are running PostgreSQL instance on `localhost`, you have to change network settings to allow the Docker container to access the `localhost` network.
@@ -675,7 +674,7 @@ docker run \
   --net=host \
   -p 3000:3000 \
   -e DATABASE_URL=postgresql://postgres@localhost/db \
-  maplibre/martin
+  ghcr.io/maplibre/martin
 ```
 
 For macOS, use `host.docker.internal` as hostname to access the `localhost` PostgreSQL service.
@@ -684,7 +683,7 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgresql://postgres@host.docker.internal/db \
-  maplibre/martin
+  ghcr.io/maplibre/martin
 ```
 
 For Windows, use `docker.for.win.localhost` as hostname to access the `localhost` PostgreSQL service.
@@ -693,7 +692,7 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgresql://postgres@docker.for.win.localhost/db \
-  maplibre/martin
+  ghcr.io/maplibre/martin
 ```
 
 # Using with Docker Compose
@@ -705,7 +704,7 @@ version: '3'
 
 services:
   martin:
-    image: maplibre/martin:v0.7.0
+    image: ghcr.io/maplibre/martin:v0.7.0
     restart: unless-stopped
     ports:
       - "3000:3000"

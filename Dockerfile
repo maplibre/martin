@@ -10,6 +10,8 @@ RUN cargo build --release --features=vendored-openssl
 
 FROM alpine:latest
 
+LABEL org.opencontainers.image.description="Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
+
 RUN apk add --no-cache libc6-compat
 
 COPY --from=builder \

@@ -147,11 +147,11 @@ coverage FORMAT='html':
 
 # Build martin docker image
 docker-build:
-    docker build -t martin .
+    docker build -t ghcr.io/maplibre/martin .
 
 # Build and run martin docker image
 docker-run *ARGS:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests martin {{ARGS}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ARGS}}
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
