@@ -8,6 +8,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::utils::Result;
 use crate::source::{IdResolver, Sources};
+use crate::tilesystems::TileSystemsConfig;
 use crate::utils::{sorted_opt_map, BoolOrObject, OneOrMany};
 
 pub trait PgInfo {
@@ -91,10 +92,17 @@ impl PgConfig {
         Ok(res)
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {
+    pub async fn resolve(
+        &mut self,
+        id_resolver: IdResolver,
+        tile_systems: &Option<TileSystemsConfig>,
+    ) -> crate::Result<Sources> {
         let pg = PgBuilder::new(self, id_resolver).await?;
-        let ((mut tables, tbl_info), (funcs, func_info)) =
-            try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
+        let ((mut tables, tbl_info), (funcs, func_info)) = try_join(
+            pg.instantiate_tables(tile_systems),
+            pg.instantiate_functions(),
+        )
+        .await?;
 
         self.tables = Some(tbl_info);
         self.functions = Some(func_info);

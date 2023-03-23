@@ -12,6 +12,7 @@ use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
 use crate::pg::utils::PgError::PostgresError;
 use crate::pg::utils::{json_to_hashmap, polygon_to_bbox, Result};
+use crate::tilesystems::TileSystemConfig;
 use crate::utils::normalize_key;
 
 static DEFAULT_EXTENT: u32 = 4096;
@@ -90,6 +91,7 @@ pub async fn table_to_query(
     pool: PgPool,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
+    tile_system: Option<&TileSystemConfig>,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
@@ -121,11 +123,24 @@ pub async fn table_to_query(
     let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
 
+    let tile_system_bounds = match tile_system {
+        Some(ts) => {
+            let left = ts.bounds.left;
+            let top = ts.bounds.top;
+            let right = ts.bounds.right;
+            let bottom = ts.bounds.bottom;
+            let ts_srid = ts.srid;
+            format!(", bounds => ST_MakeEnvelope({left}, {bottom}, {right}, {top}, {ts_srid})")
+        }
+        None => String::new(),
+    };
+
     let bbox_search = if buffer == 0 {
-        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
+        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer{tile_system_bounds})")
+        // "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
     } else if pool.supports_tile_margin() {
         let margin = f64::from(buffer) / f64::from(extent);
-        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin})")
+        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin}{tile_system_bounds})")
     } else {
         // TODO: we should use ST_Expand here, but it may require a bit more math work,
         //       so might not be worth it as it is only used for PostGIS < v3.1.
@@ -133,12 +148,14 @@ pub async fn table_to_query(
         // let earth_circumference = 40075016.6855785;
         // let val = earth_circumference * buffer as f64 / extent as f64;
         // format!("ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {val}/2^$1::integer)")
-        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
+        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer{tile_system_bounds})")
+        // "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
     };
 
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
+    let output_srid = tile_system.map_or(3857, |ts| ts.srid);
     let query = format!(
         r#"
 SELECT
@@ -146,8 +163,8 @@ SELECT
 FROM (
   SELECT
     ST_AsMVTGeom(
-        ST_Transform(ST_CurveToLine({geometry_column}), 3857),
-        ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+        ST_Transform(ST_CurveToLine({geometry_column}), {output_srid}),
+        ST_TileEnvelope($1::integer, $2::integer, $3::integer{tile_system_bounds}),
         {extent}, {buffer}, {clip_geom}
     ) AS geom
     {id_field}{properties}
