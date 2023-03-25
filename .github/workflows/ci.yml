@@ -29,14 +29,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Rust Versions
+        shell: bash
+        run: |
+          rustc --version
+          cargo --version
       - name: Lint
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
-            rustc --version
-            cargo --version
-            cargo fmt --all -- --check
-            cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
+          cargo fmt --all -- --check
+          cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
