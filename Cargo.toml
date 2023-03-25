@@ -6,7 +6,7 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAs
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 repository = "https://github.com/maplibre/martin"
 license = "MIT OR Apache-2.0"
-keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis", "tileserver", "mvt"]
+keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
 exclude = [
     # Tests include a lot of data and other test files that are not needed for the users of the library
     "/tests",
@@ -40,8 +40,8 @@ flate2 = "1"
 futures = "0.3"
 itertools = "0.10"
 log = "0.4"
-martin-mbtiles = { path = "martin-mbtiles"}
-martin-tile-utils = { path = "martin-tile-utils" }
+martin-mbtiles = { path = "martin-mbtiles", version = "0.1.0" }
+martin-tile-utils = { path = "martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
 openssl = { version = "0.10", optional = true }
 pmtiles = { version = "0.2", features = ["mmap-async-tokio", "tilejson"] }
