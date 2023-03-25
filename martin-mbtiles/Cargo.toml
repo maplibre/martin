@@ -2,6 +2,15 @@
 name = "martin-mbtiles"
 version = "0.1.0"
 edition = "2021"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/maplibre/martin"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
+keywords = ["mbtiles", "maps", "tiles", "mvt", "tileserver", "tilejson"]
+exclude = [
+    # Exclude the fixtures directory from the package - it's only used for tests.
+    "/fixtures",
+]
 
 [dependencies]
 futures = "0.3"
