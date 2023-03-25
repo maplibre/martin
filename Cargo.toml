@@ -1,11 +1,3 @@
-[workspace]
-default-members = ["martin-tile-utils", "martin-mbtiles", "."]
-members = ["martin-tile-utils", "martin-mbtiles"]
-
-[profile.dev.package.sqlx-macros]
-# See https://github.com/launchbadge/sqlx#compile-time-verification
-opt-level = 3
-
 [package]
 name = "martin"
 version = "0.8.0"
@@ -14,7 +6,11 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAs
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 repository = "https://github.com/maplibre/martin"
 license = "MIT OR Apache-2.0"
-keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis", "tileserver"]
+keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis", "tileserver", "mvt"]
+exclude = [
+    # Tests include a lot of data and other test files that are not needed for the users of the library
+    "/tests",
+]
 
 [lib]
 name = "martin"
@@ -72,3 +68,11 @@ indoc = "2"
 [[bench]]
 name = "sources"
 harness = false
+
+[profile.dev.package.sqlx-macros]
+# See https://github.com/launchbadge/sqlx#compile-time-verification
+opt-level = 3
+
+[workspace]
+default-members = ["martin-tile-utils", "martin-mbtiles", "."]
+members = ["martin-tile-utils", "martin-mbtiles"]

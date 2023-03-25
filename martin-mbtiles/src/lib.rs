@@ -21,10 +21,10 @@ pub enum MbtError {
     #[error("SQL Error {0}")]
     SqlError(#[from] sqlx::Error),
 
-    #[error(r"MBTile filepath contains unsupported characters: {}", .0.display())]
+    #[error("MBTile filepath contains unsupported characters: {}", .0.display())]
     UnsupportedCharsInFilepath(PathBuf),
 
-    #[error(r"Inconsistent tile formats detected: {0} vs {1}")]
+    #[error("Inconsistent tile formats detected: {0} vs {1}")]
     InconsistentMetadata(TileInfo, TileInfo),
 
     #[error("No tiles found")]

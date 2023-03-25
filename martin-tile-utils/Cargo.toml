@@ -1,10 +1,16 @@
 [package]
 name = "martin-tile-utils"
-description = "Some basic utilites to work with map tiles, such as type detection"
 version = "0.1.0"
+edition = "2021"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-edition = "2021"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Utilites to help with map tile processing, such as type and compression detection. Used by the MapLibre's Martin tile server."
+keywords = ["maps", "tiles", "mvt", "tileserver"]
+exclude = [
+    # Exclude the fixtures directory from the package - it's only used for tests.
+    "/fixtures",
+]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

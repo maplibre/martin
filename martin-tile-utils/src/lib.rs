@@ -140,7 +140,9 @@ impl TileInfo {
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Self::new(Png, Internal),
             v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Self::new(Gif, Internal),
             v if v.starts_with(b"\xFF\xD8\xFF") => Self::new(Jpeg, Internal),
-            v if v.starts_with(b"RIFF") && v[8..].starts_with(b"WEBP") => Self::new(Webp, Internal),
+            v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
+                Self::new(Webp, Internal)
+            }
             v if v.starts_with(b"{") => Self::new(Json, Uncompressed),
             _ => None?,
         })
@@ -181,36 +183,39 @@ mod tests {
     use std::fs::read;
 
     use super::*;
+    use Encoding::{Internal, Uncompressed};
+    use Format::{Jpeg, Json, Png, Webp};
+
+    fn detect(path: &str) -> Option<TileInfo> {
+        TileInfo::detect(&read(path).unwrap())
+    }
+
+    #[allow(clippy::unnecessary_wraps)]
+    fn info(format: Format, encoding: Encoding) -> Option<TileInfo> {
+        Some(TileInfo::new(format, encoding))
+    }
 
     #[test]
     fn test_data_format_png() {
-        assert_eq!(
-            TileInfo::detect(&read("./fixtures/world.png").unwrap()).unwrap(),
-            TileInfo::new(Format::Png, Encoding::Internal)
-        );
+        assert_eq!(detect("./fixtures/world.png"), info(Png, Internal));
     }
 
     #[test]
     fn test_data_format_jpg() {
-        assert_eq!(
-            TileInfo::detect(&read("./fixtures/world.jpg").unwrap()).unwrap(),
-            TileInfo::new(Format::Jpeg, Encoding::Internal)
-        );
+        assert_eq!(detect("./fixtures/world.jpg"), info(Jpeg, Internal));
     }
 
     #[test]
     fn test_data_format_webp() {
-        assert_eq!(
-            TileInfo::detect(&read("./fixtures/dc.webp").unwrap()).unwrap(),
-            TileInfo::new(Format::Webp, Encoding::Internal)
-        );
+        assert_eq!(detect("./fixtures/dc.webp"), info(Webp, Internal));
+        assert_eq!(TileInfo::detect(br#"RIFF"#), None);
     }
 
     #[test]
     fn test_data_format_json() {
         assert_eq!(
-            TileInfo::detect(br#"{"foo":"bar"}"#).unwrap(),
-            TileInfo::new(Format::Json, Encoding::Uncompressed)
+            TileInfo::detect(br#"{"foo":"bar"}"#),
+            info(Json, Uncompressed)
         );
     }
 }
