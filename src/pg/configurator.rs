@@ -79,14 +79,14 @@ impl PgBuilder {
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
         let mut pending = Vec::new();
-        let mut all_tile_systems: Vec<Option<(&str, &TileSystemConfig)>> = vec![None];
+        let mut all_tile_systems: Vec<Option<&TileSystemConfig>> = vec![None];
 
         all_tile_systems.extend(
             tile_systems
                 .as_ref()
                 .iter()
-                .flat_map(|map| map.iter())
-                .map(|(id, ts)| Some((id.as_str(), ts))),
+                .flat_map(|m| m.values())
+                .map(Some),
         );
 
         for (id, cfg_inf) in &self.tables {
@@ -104,26 +104,18 @@ impl PgBuilder {
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
-            for tile_system in &all_tile_systems {
-                let mut id2 = self.resolve_id(id, cfg_inf);
+            let id2 = self.resolve_id(id, cfg_inf);
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf) else { continue };
+            warn_on_rename(id, &id2, "Table");
+            info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
 
-                if let Some((ts_id, _)) = tile_system {
-                    id2 += format!(":{ts_id}").as_str();
-                }
-
-                let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf) else { continue };
-                warn_on_rename(id, &id2, "Table");
-                info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
-
-                pending.push(table_to_query(
-                    id2,
-                    cfg_inf,
-                    self.pool.clone(),
-                    self.disable_bounds,
-                    self.max_feature_count,
-                    tile_system.map(|(_, ts)| ts),
-                ));
-            }
+            pending.push(table_to_query(
+                id2,
+                cfg_inf,
+                self.pool.clone(),
+                self.disable_bounds,
+                self.max_feature_count,
+            ));
         }
 
         // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
@@ -137,7 +129,7 @@ impl PgBuilder {
                 let Some(schema) = normalize_key(&all_tables, schema, "schema", "") else { continue };
                 let tables = all_tables.remove(&schema).unwrap();
                 for (table, geoms) in tables.into_iter().sorted_by(by_key) {
-                    for (column, mut src_inf) in geoms.into_iter().sorted_by(by_key) {
+                    for (column, src_inf) in geoms.into_iter().sorted_by(by_key) {
                         if used.contains(&(schema.as_str(), table.as_str(), column.as_str())) {
                             continue;
                         }
@@ -150,21 +142,27 @@ impl PgBuilder {
                         for tile_system in &all_tile_systems {
                             let mut id2 = self.resolve_id(&source_id, &src_inf);
 
-                            if let Some((ts_id, _)) = tile_system {
-                                id2 += format!(":{ts_id}").as_str();
+                            if let Some(ts) = tile_system {
+                                if let Some(id) = &ts.identifier {
+                                    id2 += format!(":{id}").as_str();
+                                } else {
+                                    id2 += format!(":{}", &ts.srid).as_str();
+                                }
                             }
 
                             let Some(srid) = calc_srid(&src_inf.format_id(), &id2, src_inf.srid, 0, self.default_srid) else { continue };
-                            src_inf.srid = srid;
+                            let mut table_info = src_inf.clone();
+                            table_info.srid = srid;
+                            table_info.tile_system = tile_system.map(Clone::clone);
+
                             info!("Discovered source {id2} from {}", summary(&src_inf));
 
                             pending.push(table_to_query(
                                 id2,
-                                src_inf.clone(),
+                                table_info,
                                 self.pool.clone(),
                                 self.disable_bounds,
                                 self.max_feature_count,
-                                tile_system.map(|x| x.1),
                             ));
                         }
                     }

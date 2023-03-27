@@ -5,6 +5,7 @@ use serde_yaml::Value;
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::pg::config::PgInfo;
+use crate::tilesystems::TileSystemConfig;
 use crate::utils::{sorted_opt_map, InfoMap};
 
 pub type TableInfoSources = InfoMap<TableInfo>;
@@ -77,6 +78,10 @@ pub struct TableInfo {
     /// Mapping of properties to the actual table columns
     #[serde(skip_deserializing, skip_serializing)]
     pub prop_mapping: HashMap<String, String>,
+
+    /// Alternative tiling to standard web-mercator
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tile_system: Option<TileSystemConfig>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: HashMap<String, Value>,

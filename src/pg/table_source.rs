@@ -12,7 +12,6 @@ use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
 use crate::pg::utils::PgError::PostgresError;
 use crate::pg::utils::{json_to_hashmap, polygon_to_bbox, Result};
-use crate::tilesystems::TileSystemConfig;
 use crate::utils::normalize_key;
 
 static DEFAULT_EXTENT: u32 = 4096;
@@ -47,6 +46,7 @@ pub async fn get_table_sources(pool: &PgPool) -> Result<SqlTableInfoMapMapMap> {
             prop_mapping: HashMap::new(),
             unrecognized: HashMap::new(),
             bounds: None,
+            tile_system: None,
         };
 
         // Warn for missing geometry indices. Ignore views since those can't have indices
@@ -91,12 +91,12 @@ pub async fn table_to_query(
     pool: PgPool,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
-    tile_system: Option<&TileSystemConfig>,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
+    let tile_system = &info.tile_system;
 
     if info.bounds.is_none() && !disable_bounds {
         info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
@@ -155,7 +155,7 @@ pub async fn table_to_query(
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
-    let output_srid = tile_system.map_or(3857, |ts| ts.srid);
+    let output_srid = tile_system.as_ref().map_or(3857, |ts| ts.srid);
     let query = format!(
         r#"
 SELECT

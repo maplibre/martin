@@ -6,6 +6,7 @@ use tilejson::Bounds;
 pub struct TileSystemConfig {
     pub srid: i32,
     pub bounds: Bounds,
+    pub identifier: Option<String>,
 }
 
 pub type TileSystemsConfig = HashMap<String, TileSystemConfig>;
@@ -44,6 +45,7 @@ mod tests {
                     TileSystemConfig {
                         srid: 4326,
                         bounds: Bounds::new(-180.0, -90.0, 180.0, 90.0),
+                        identifier: None,
                     },
                 )])),
                 ..Default::default()
