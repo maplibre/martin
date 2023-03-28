@@ -12,7 +12,15 @@ on:
 jobs:
   docker:
     # Don't change this name - it is used by the merge protection rules
-    name: Build and test docker image
+    name: Build ${{ matrix.platform }} docker image
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            file: Dockerfile
+          - platform: linux/arm64
+            file: arm64.Dockerfile
     runs-on: ubuntu-latest
     steps:
 
@@ -35,20 +43,22 @@ jobs:
         uses: docker/setup-buildx-action@v2.5.0
         with:
           install: true
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
 
       - name: Build the Docker image
         id: docker_build
         uses: docker/build-push-action@v4
         with:
-          file: Dockerfile
+          file: ${{ matrix.file }}
           push: false
           load: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
 
       - name: Start postgres
+        # arm64 cannot be tested just yet
+        # if: matrix.platform == 'linux/amd64'
         uses: nyurik/action-setup-postgis@v1
         id: pg
         with:
@@ -58,12 +68,16 @@ jobs:
           rights: --superuser
 
       - name: Init database
+        # arm64 cannot be tested just yet
+        # if: matrix.platform == 'linux/amd64'
         shell: bash
         run: tests/fixtures/initdb.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
 
       - name: Test Docker image
+        # arm64 cannot be tested just yet
+        # if: matrix.platform == 'linux/amd64'
         run: |
           TAG=$(echo '${{ steps.docker_meta.outputs.json }}' | jq -r '.tags[0]')
           export MARTIN_BUILD=-
