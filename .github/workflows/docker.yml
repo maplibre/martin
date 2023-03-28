@@ -28,22 +28,25 @@ jobs:
 
       # https://github.com/docker/setup-qemu-action
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v2.1.0
 
       # https://github.com/docker/setup-buildx-action
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v2.5.0
         with:
           install: true
+          platforms: linux/amd64
 
       - name: Build the Docker image
         id: docker_build
         uses: docker/build-push-action@v4
         with:
+          file: Dockerfile
           push: false
           load: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
+          platforms: linux/amd64
 
       - name: Start postgres
         uses: nyurik/action-setup-postgis@v1
