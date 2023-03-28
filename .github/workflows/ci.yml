@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main, v0.6]
+    paths-ignore: ['**.md']
   pull_request:
     branches: [main, v0.6]
+    paths-ignore: ['**.md']
   release:
     types: [published]
   workflow_dispatch:

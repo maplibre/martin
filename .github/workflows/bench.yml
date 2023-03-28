@@ -3,8 +3,10 @@ name: Benchmark
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore: ['**.md']
   push:
     branches: [main, v0.6]
+    paths-ignore: ['**.md']
   workflow_dispatch:
 
 jobs:
