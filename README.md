@@ -67,8 +67,8 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
 
 ```shell
-brew tap urbica/tap
-brew install martin
+brew tap maplibre/martin https://github.com/maplibre/martin.git
+brew install maplibre/martin/martin
 ```
 
 You can also use [official Docker image](https://ghcr.io/maplibre/martin)
