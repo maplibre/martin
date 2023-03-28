@@ -16,7 +16,6 @@ use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
 use crate::source::{IdResolver, Sources};
 use crate::srv::SrvConfig;
-use crate::tilesystems::TileSystemsConfig;
 use crate::utils::{OneOrMany, Result};
 use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
 
@@ -33,9 +32,6 @@ pub struct Config {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mbtiles: Option<FileConfigEnum>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tile_systems: Option<TileSystemsConfig>,
 
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
@@ -84,7 +80,7 @@ impl Config {
         let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
         if let Some(v) = self.postgres.as_mut() {
             for s in v.iter_mut() {
-                sources.push(Box::pin(s.resolve(idr.clone(), &self.tile_systems)));
+                sources.push(Box::pin(s.resolve(idr.clone())));
             }
         }
         if let Some(v) = self.pmtiles.as_mut() {

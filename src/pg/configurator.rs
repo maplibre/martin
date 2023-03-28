@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
+use crate::OneOrMany::Many;
 use futures::future::join_all;
 use itertools::Itertools;
 use log::{debug, error, info, warn};
@@ -15,8 +16,8 @@ use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, ta
 use crate::pg::utils::PgError::InvalidTableExtent;
 use crate::pg::utils::Result;
 use crate::source::{IdResolver, Sources};
-use crate::tilesystems::{TileSystemConfig, TileSystemsConfig};
-use crate::utils::{find_info, normalize_key, BoolOrObject, InfoMap, OneOrMany};
+use crate::tilesystems::{TileSystem, TileSystemConfig};
+use crate::utils::{find_info, normalize_key, BoolOrObject, InfoMap, OneOrMany, OneOrMany::One};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
@@ -25,6 +26,7 @@ pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 pub struct PgBuilderPublish {
     id_format: String,
     schemas: Option<HashSet<String>>,
+    tile_systems: OneOrMany<TileSystem>,
 }
 
 impl PgBuilderPublish {
@@ -32,11 +34,27 @@ impl PgBuilderPublish {
         is_function: bool,
         id_format: Option<&String>,
         schemas: Option<HashSet<String>>,
+        maybe_tile_systems: &Option<Vec<TileSystem>>,
     ) -> Self {
+        let tile_systems = match maybe_tile_systems {
+            None => One(TileSystem::default()),
+            Some(tss) => {
+                if tss.len() < 2 {
+                    One(tss.first().map_or_else(Default::default, Clone::clone))
+                } else {
+                    Many(tss.clone())
+                }
+            }
+        };
+
         let id_format = id_format
             .cloned()
             .unwrap_or_else(|| (if is_function { "{function}" } else { "{table}" }).to_string());
-        Self { id_format, schemas }
+        Self {
+            id_format,
+            schemas,
+            tile_systems,
+        }
     }
 }
 
@@ -70,24 +88,12 @@ impl PgBuilder {
         })
     }
 
-    pub async fn instantiate_tables(
-        &self,
-        tile_systems: &Option<TileSystemsConfig>,
-    ) -> Result<(Sources, TableInfoSources)> {
+    pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources)> {
         let mut all_tables = get_table_sources(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
         let mut pending = Vec::new();
-        let mut all_tile_systems: Vec<Option<&TileSystemConfig>> = vec![None];
-
-        all_tile_systems.extend(
-            tile_systems
-                .as_ref()
-                .iter()
-                .flat_map(|m| m.values())
-                .map(Some),
-        );
 
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
@@ -120,6 +126,8 @@ impl PgBuilder {
 
         // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
         if let Some(auto_tables) = &self.auto_tables {
+            let tile_systems = &auto_tables.tile_systems;
+
             let schemas = auto_tables
                 .schemas
                 .as_ref()
@@ -139,21 +147,21 @@ impl PgBuilder {
                             .replace("{table}", &table)
                             .replace("{column}", &column);
 
-                        for tile_system in &all_tile_systems {
+                        for tile_system in tile_systems.clone() {
                             let mut id2 = self.resolve_id(&source_id, &src_inf);
 
-                            if let Some(ts) = tile_system {
-                                if let Some(id) = &ts.identifier {
-                                    id2 += format!(":{id}").as_str();
-                                } else {
-                                    id2 += format!(":{}", &ts.srid).as_str();
+                            match &tile_system {
+                                TileSystem::Custom(TileSystemConfig { identifier, .. }) => {
+                                    id2 += ":";
+                                    id2 += identifier.as_str();
                                 }
+                                TileSystem::WebMercatorQuad => {}
                             }
 
                             let Some(srid) = calc_srid(&src_inf.format_id(), &id2, src_inf.srid, 0, self.default_srid) else { continue };
                             let mut table_info = src_inf.clone();
                             table_info.srid = srid;
-                            table_info.tile_system = tile_system.map(Clone::clone);
+                            table_info.tile_system = tile_system.clone().into();
 
                             info!("Discovered source {id2} from {}", summary(&src_inf));
 
@@ -263,7 +271,7 @@ impl PgBuilder {
 }
 
 fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPublish> {
-    let default = |schemas| Some(PgBuilderPublish::new(is_function, None, schemas));
+    let default = |schemas| Some(PgBuilderPublish::new(is_function, None, schemas, &None));
 
     if let Some(bo_a) = &config.auto_publish {
         match bo_a {
@@ -273,6 +281,7 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
                         is_function,
                         item.id_format.as_ref(),
                         merge_opt_hs(&a.from_schemas, &item.from_schemas),
+                        &item.tile_systems,
                     )),
                     BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
                     BoolOrObject::Bool(false) => None,
@@ -344,14 +353,20 @@ fn merge_opt_hs(
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
+    use tilejson::Bounds;
 
     use super::*;
 
     #[allow(clippy::unnecessary_wraps)]
-    fn builder(id_format: &str, schemas: Option<&[&str]>) -> Option<PgBuilderPublish> {
+    fn builder(
+        id_format: &str,
+        schemas: Option<&[&str]>,
+        tile_systems: Option<Vec<TileSystem>>,
+    ) -> Option<PgBuilderPublish> {
         Some(PgBuilderPublish {
             id_format: id_format.to_string(),
             schemas: schemas.map(|s| s.iter().map(|s| (*s).to_string()).collect()),
+            tile_systems: tile_systems.map_or_else(|| One(TileSystem::default()), Many),
         })
     }
 
@@ -363,9 +378,9 @@ mod tests {
     fn test_auto_publish_no_auto() {
         let config = parse_yaml("{}");
         let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", None));
+        assert_eq!(res, builder("{table}", None, None));
         let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", None));
+        assert_eq!(res, builder("{function}", None, None));
 
         let config = parse_yaml("tables: {}");
         assert_eq!(new_auto_publish(&config, false), None);
@@ -380,9 +395,9 @@ mod tests {
     fn test_auto_publish_bool() {
         let config = parse_yaml("auto_publish: true");
         let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", None));
+        assert_eq!(res, builder("{table}", None, None));
         let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", None));
+        assert_eq!(res, builder("{function}", None, None));
 
         let config = parse_yaml("auto_publish: false");
         assert_eq!(new_auto_publish(&config, false), None);
@@ -396,7 +411,7 @@ mod tests {
                 from_schemas: public
                 tables: true"});
         let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", Some(&["public"])));
+        assert_eq!(res, builder("{table}", Some(&["public"]), None));
         assert_eq!(new_auto_publish(&config, true), None);
 
         let config = parse_yaml(indoc! {"
@@ -405,7 +420,7 @@ mod tests {
                 functions: true"});
         assert_eq!(new_auto_publish(&config, false), None);
         let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", Some(&["public"])));
+        assert_eq!(res, builder("{function}", Some(&["public"]), None));
 
         let config = parse_yaml(indoc! {"
             auto_publish:
@@ -413,14 +428,14 @@ mod tests {
                 tables: false"});
         assert_eq!(new_auto_publish(&config, false), None);
         let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", Some(&["public"])));
+        assert_eq!(res, builder("{function}", Some(&["public"]), None));
 
         let config = parse_yaml(indoc! {"
             auto_publish:
                 from_schemas: public
                 functions: false"});
         let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", Some(&["public"])));
+        assert_eq!(res, builder("{table}", Some(&["public"]), None));
         assert_eq!(new_auto_publish(&config, true), None);
     }
 
@@ -431,9 +446,27 @@ mod tests {
                 from_schemas: public
                 tables:
                     from_schemas: osm
-                    id_format: '{schema}.{table}'"});
+                    id_format: '{schema}.{table}'
+                    tile_systems:
+                      - type: WebMercatorQuad
+                      - type: Custom
+                        srid: 4326
+                        identifier: WGS84Quad
+                        bounds: [-180, -90, 180, 90]"});
         let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{schema}.{table}", Some(&["public", "osm"])));
+        let tile_systems = Some(vec![
+            TileSystem::WebMercatorQuad,
+            TileSystem::Custom(TileSystemConfig {
+                identifier: "WGS84Quad".to_string(),
+                srid: 4326,
+                bounds: Bounds::new(-180.0, -90.0, 180.0, 90.0),
+            }),
+        ]);
+
+        assert_eq!(
+            res,
+            builder("{schema}.{table}", Some(&["public", "osm"]), tile_systems)
+        );
         assert_eq!(new_auto_publish(&config, true), None);
 
         let config = parse_yaml(indoc! {"
@@ -443,7 +476,7 @@ mod tests {
                       - osm
                       - public"});
         let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", Some(&["public", "osm"])));
+        assert_eq!(res, builder("{table}", Some(&["public", "osm"]), None));
         assert_eq!(new_auto_publish(&config, true), None);
     }
 }

@@ -24,6 +24,11 @@
     "description": "public.points1.geom"
   },
   {
+    "id": "points1_wgs84",
+    "content_type": "application/x-protobuf",
+    "description": "public.points1.geom"
+  },
+  {
     "id": "points2",
     "content_type": "application/x-protobuf",
     "description": "public.points2.geom"

@@ -1,3 +1,3 @@
 mod config;
 
-pub use config::{TileSystemConfig, TileSystemsConfig};
+pub use config::{TileSystem, TileSystemConfig};

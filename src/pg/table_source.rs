@@ -12,6 +12,7 @@ use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
 use crate::pg::utils::PgError::PostgresError;
 use crate::pg::utils::{json_to_hashmap, polygon_to_bbox, Result};
+use crate::tilesystems::TileSystem;
 use crate::utils::normalize_key;
 
 static DEFAULT_EXTENT: u32 = 4096;
@@ -96,7 +97,7 @@ pub async fn table_to_query(
     let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
-    let tile_system = &info.tile_system;
+    let tile_system: TileSystem = info.tile_system.clone().into();
 
     if info.bounds.is_none() && !disable_bounds {
         info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
@@ -123,8 +124,8 @@ pub async fn table_to_query(
     let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
 
-    let tile_system_bounds = match tile_system {
-        Some(ts) => {
+    let tile_system_bounds = match &tile_system {
+        TileSystem::Custom(ts) => {
             let left = ts.bounds.left;
             let top = ts.bounds.top;
             let right = ts.bounds.right;
@@ -132,7 +133,7 @@ pub async fn table_to_query(
             let ts_srid = ts.srid;
             format!(", bounds => ST_MakeEnvelope({left}, {bottom}, {right}, {top}, {ts_srid})")
         }
-        None => String::new(),
+        TileSystem::WebMercatorQuad => String::new(),
     };
 
     let bbox_search = if buffer == 0 {
@@ -155,7 +156,7 @@ pub async fn table_to_query(
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
-    let output_srid = tile_system.as_ref().map_or(3857, |ts| ts.srid);
+    let output_srid = tile_system.get_srid();
     let query = format!(
         r#"
 SELECT
