@@ -61,7 +61,7 @@ tilejson = "0.3"
 [dev-dependencies]
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 criterion = { version = "0.4", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.1"
+ctor = "0.2"
 indoc = "2"
 #test-log = "0.2"
 
