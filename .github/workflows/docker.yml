@@ -39,6 +39,8 @@ jobs:
       # https://github.com/docker/setup-qemu-action
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2.1.0
+        with:
+          platforms: linux/arm64,linux/amd64
 
       # https://github.com/docker/setup-buildx-action
       - name: Set up Docker Buildx
