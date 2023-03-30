@@ -145,9 +145,9 @@ coverage FORMAT='html':
         open "$OUTPUT_RESULTS_DIR/index.html"
     fi
 
-# Build martin docker image
+# Build martin docker image (amd64)
 docker-build:
-    docker build -t ghcr.io/maplibre/martin .
+    docker build --build-arg BUILDPLATFORM=linux/amd64 -t ghcr.io/maplibre/martin .
 
 # Build and run martin docker image
 docker-run *ARGS:
