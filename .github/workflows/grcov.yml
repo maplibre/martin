@@ -63,3 +63,9 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           file: ${{ steps.coverage.outputs.report }}
+
+      - name: Check conditional cfg values
+        run: |
+          cargo +nightly check -Z unstable-options -Z check-cfg=features,names,values,output --workspace --all-features
+        env:
+          RUSTFLAGS: '-D warnings'
