@@ -146,6 +146,7 @@ impl PgArgs {
     }
 
     #[cfg(not(feature = "ssl"))]
+    #[allow(clippy::unused_self)]
     fn get_certs<'a>(&self, _env: &impl Env<'a>) -> PgSslCerts {
         PgSslCerts {}
     }

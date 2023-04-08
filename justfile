@@ -161,7 +161,7 @@ git *ARGS: start
 # Run cargo fmt and cargo clippy
 lint:
     cargo fmt --all -- --check
-    cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # These steps automatically run before git push via a git hook
 [private]

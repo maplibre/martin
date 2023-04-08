@@ -52,6 +52,7 @@ pub fn parse_conn_str(conn_str: &str) -> Result<(Config, SslModeOverride)> {
 }
 
 #[cfg(not(feature = "ssl"))]
+#[allow(clippy::unnecessary_wraps)]
 pub fn make_connector(
     _certs: &PgSslCerts,
     _ssl_mode: SslModeOverride,
