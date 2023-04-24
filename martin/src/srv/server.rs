@@ -7,7 +7,7 @@ use actix_web::dev::Server;
 use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound};
 use actix_web::http::header::{
     AcceptEncoding, ContentType, Encoding as HeaderEnc, HeaderValue, Preference, CACHE_CONTROL,
-    CONTENT_ENCODING,
+    CONTENT_ENCODING, AUTHORIZATION, ACCEPT
 };
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
@@ -481,7 +481,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> crate::Result<(Serve
     let server = HttpServer::new(move || {
         let cors_middleware = Cors::default()
             .allow_any_origin()
-            .allowed_methods(vec!["GET"]);
+            .allowed_methods(vec!["GET"])
+            .allowed_headers(vec![AUTHORIZATION, ACCEPT]);
 
         App::new()
             .app_data(Data::new(state.tiles.clone()))
