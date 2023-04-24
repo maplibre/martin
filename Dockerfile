@@ -1,19 +1,20 @@
-FROM rust:alpine as builder
+FROM rust:1.68-bullseye as builder
 
 WORKDIR /usr/src/martin
 
-RUN apk update \
-    && apk add --no-cache openssl-dev musl-dev perl build-base
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+  libssl-dev \
+  perl \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo build --release --features=vendored-openssl
 
 
-FROM alpine:latest
+FROM debian:bullseye-slim
 
 LABEL org.opencontainers.image.description="Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
-
-RUN apk add --no-cache libc6-compat
 
 COPY --from=builder \
   /usr/src/martin/target/release/martin \
