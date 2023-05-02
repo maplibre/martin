@@ -9,8 +9,20 @@
       "fields": {
         "gid": "int4"
       }
+    },
+    {
+      "id": "points1",
+      "fields": {
+        "gid": "int4"
+      }
+    },
+    {
+      "id": "points2",
+      "fields": {
+        "gid": "int4"
+      }
     }
   ],
-  "description": "public.table_source.geom",
-  "name": "table_source"
+  "description": "public.table_source.geom\npublic.points1.geom\npublic.points2.geom",
+  "name": "table_source,points1,points2"
 }

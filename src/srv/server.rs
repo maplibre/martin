@@ -21,7 +21,7 @@ use itertools::Itertools;
 use log::{debug, error};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
-use tilejson::TileJSON;
+use tilejson::{tilejson, TileJSON};
 
 use crate::source::{Source, Sources, UrlQuery, Xyz};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
@@ -223,42 +223,95 @@ fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str)
 }
 
 fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
-    let mut tilejson = sources
-        .into_iter()
-        .map(Source::get_tilejson)
-        .reduce(|mut accum, tj| {
-            if let Some(minzoom) = tj.minzoom {
-                if let Some(a) = accum.minzoom {
-                    if a > minzoom {
-                        accum.minzoom = tj.minzoom;
-                    }
-                } else {
-                    accum.minzoom = tj.minzoom;
-                }
-            }
-            if let Some(maxzoom) = tj.maxzoom {
-                if let Some(a) = accum.maxzoom {
-                    if a < maxzoom {
-                        accum.maxzoom = tj.maxzoom;
-                    }
-                } else {
-                    accum.maxzoom = tj.maxzoom;
-                }
-            }
-            if let Some(bounds) = tj.bounds {
-                if let Some(a) = accum.bounds {
-                    accum.bounds = Some(a + bounds);
-                } else {
-                    accum.bounds = tj.bounds;
-                }
-            }
+    if sources.len() == 1 {
+        let mut tj = sources[0].get_tilejson();
+        tj.tiles = vec![tiles_url];
+        return tj;
+    }
 
-            accum
-        })
-        .expect("nonempty sources iter");
+    let mut attributions = vec![];
+    let mut descriptions = vec![];
+    let mut names = vec![];
+    let mut result = tilejson! {
+        tiles: vec![tiles_url],
+    };
 
-    tilejson.tiles.push(tiles_url);
-    tilejson
+    for src in sources {
+        let tj = src.get_tilejson();
+
+        if let Some(vector_layers) = tj.vector_layers {
+            if let Some(ref mut a) = result.vector_layers {
+                a.extend(vector_layers);
+            } else {
+                result.vector_layers = Some(vector_layers);
+            }
+        }
+
+        if let Some(v) = tj.attribution {
+            if !attributions.contains(&v) {
+                attributions.push(v);
+            }
+        }
+
+        if let Some(bounds) = tj.bounds {
+            if let Some(a) = result.bounds {
+                result.bounds = Some(a + bounds);
+            } else {
+                result.bounds = tj.bounds;
+            }
+        }
+
+        if result.center.is_none() {
+            // Use first found center. Averaging multiple centers might create a center in the middle of nowhere.
+            result.center = tj.center;
+        }
+
+        if let Some(v) = tj.description {
+            if !descriptions.contains(&v) {
+                descriptions.push(v);
+            }
+        }
+
+        if let Some(maxzoom) = tj.maxzoom {
+            if let Some(a) = result.maxzoom {
+                if a < maxzoom {
+                    result.maxzoom = tj.maxzoom;
+                }
+            } else {
+                result.maxzoom = tj.maxzoom;
+            }
+        }
+
+        if let Some(minzoom) = tj.minzoom {
+            if let Some(a) = result.minzoom {
+                if a > minzoom {
+                    result.minzoom = tj.minzoom;
+                }
+            } else {
+                result.minzoom = tj.minzoom;
+            }
+        }
+
+        if let Some(name) = tj.name {
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+
+    if !attributions.is_empty() {
+        result.attribution = Some(attributions.join("\n"));
+    }
+
+    if !descriptions.is_empty() {
+        result.description = Some(descriptions.join("\n"));
+    }
+
+    if !names.is_empty() {
+        result.name = Some(names.join(","));
+    }
+
+    result
 }
 
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
@@ -455,4 +508,114 @@ fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
         .ok()
         .and_then(|header| header.parse::<Uri>().ok())
         .map(|uri| uri.path().to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::{Source, Tile};
+    use crate::utils;
+    use async_trait::async_trait;
+    use std::collections::HashMap;
+    use tilejson::{tilejson, Bounds, VectorLayer};
+
+    #[derive(Debug, Clone)]
+    struct TestSource {
+        tj: TileJSON,
+    }
+
+    #[async_trait]
+    impl Source for TestSource {
+        fn get_tilejson(&self) -> TileJSON {
+            self.tj.clone()
+        }
+
+        fn get_tile_info(&self) -> TileInfo {
+            unimplemented!()
+        }
+
+        fn clone_source(&self) -> Box<dyn Source> {
+            unimplemented!()
+        }
+
+        fn is_valid_zoom(&self, _zoom: u8) -> bool {
+            unimplemented!()
+        }
+
+        fn support_url_query(&self) -> bool {
+            unimplemented!()
+        }
+
+        async fn get_tile(
+            &self,
+            _xyz: &Xyz,
+            _url_query: &Option<UrlQuery>,
+        ) -> Result<Tile, utils::Error> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_merge_tilejson() {
+        let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_string();
+        let src1 = TestSource {
+            tj: tilejson! {
+                tiles: vec![],
+                name: "layer1".to_string(),
+                minzoom: 5,
+                maxzoom: 10,
+                bounds: Bounds::new(-10.0, -20.0, 10.0, 20.0),
+                vector_layers: vec![
+                    VectorLayer::new("layer1".to_string(),
+                    HashMap::from([
+                        ("a".to_string(), "x1".to_string()),
+                    ]))
+                ],
+            },
+        };
+        let tj = merge_tilejson(vec![&src1], url.clone());
+        assert_eq!(
+            TileJSON {
+                tiles: vec![url.clone()],
+                ..src1.tj.clone()
+            },
+            tj
+        );
+
+        let src2 = TestSource {
+            tj: tilejson! {
+                tiles: vec![],
+                name: "layer2".to_string(),
+                minzoom: 7,
+                maxzoom: 12,
+                bounds: Bounds::new(-20.0, -5.0, 5.0, 50.0),
+                vector_layers: vec![
+                    VectorLayer::new("layer2".to_string(),
+                    HashMap::from([
+                        ("b".to_string(), "x2".to_string()),
+                    ]))
+                ],
+            },
+        };
+
+        let tj = merge_tilejson(vec![&src1, &src2], url.clone());
+        assert_eq!(tj.tiles, vec![url]);
+        assert_eq!(tj.name, Some("layer1,layer2".to_string()));
+        assert_eq!(tj.minzoom, Some(5));
+        assert_eq!(tj.maxzoom, Some(12));
+        assert_eq!(tj.bounds, Some(Bounds::new(-20.0, -20.0, 10.0, 50.0)));
+        assert_eq!(
+            tj.vector_layers,
+            Some(vec![
+                VectorLayer::new(
+                    "layer1".to_string(),
+                    HashMap::from([("a".to_string(), "x1".to_string())])
+                ),
+                VectorLayer::new(
+                    "layer2".to_string(),
+                    HashMap::from([("b".to_string(), "x2".to_string())])
+                ),
+            ])
+        );
+    }
 }
