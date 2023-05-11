@@ -69,9 +69,25 @@
       #menu a.active:hover {
         background: #3074a4;
       }
+
       #menu-search {
         padding: 2px;
         width: 100%;
+      }
+
+      #menu a.active #colorbox {
+        display: block;
+      }
+
+      #menu a #colorbox {
+        display: none;
+      }
+
+      #colorbox {
+        width: 10px;
+        height: 10px;
+        float: right;
+        margin-left: 5px;
       }
     </style>
   </head>
@@ -175,12 +191,17 @@
             console.log(e.features);
           });
 
+          const colorbox = document.createElement("div");
+          colorbox.id = "colorbox";
+          colorbox.style.backgroundColor = stringToColour(source.id);
+
           // Create a link.
           const link = document.createElement('a');
           link.id = source.id;
           link.href = '#';
           link.textContent = source.id;
           link.title = source.id;
+          link.appendChild(colorbox);
 
           // Show or hide layer when the toggle is clicked.
           link.onclick = function (e) {
