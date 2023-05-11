@@ -84,10 +84,24 @@
       }
 
       #colorbox {
-        width: 10px;
-        height: 10px;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        height: 15px;
+        width: 15px;
+        border: 1px solid white;
+        outline: none;
         float: right;
         margin-left: 5px;
+        cursor: pointer;
+      }
+
+      #colorbox::-webkit-color-swatch {
+        border: none;
+      }
+
+      #colorbox::-moz-color-swatch {
+        border: none;
       }
     </style>
   </head>
@@ -191,9 +205,18 @@
             console.log(e.features);
           });
 
-          const colorbox = document.createElement("div");
+          const colorbox = document.createElement("input");
+          colorbox.type = "color";
           colorbox.id = "colorbox";
+          colorbox.value = stringToColour(source.id);
           colorbox.style.backgroundColor = stringToColour(source.id);
+          colorbox.onclick = function(e){
+            e.stopPropagation();
+          }
+          colorbox.onchange = function(e){
+            map.setPaintProperty(source.id, `${layerType}-color`, e.target.value);
+            colorbox.style.backgroundColor = e.target.value;
+          }
 
           // Create a link.
           const link = document.createElement('a');
