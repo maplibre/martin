@@ -884,11 +884,13 @@ Available recipes:
     psql *ARGS             # Run PSQL utility against the test database
     clean                  # Perform  cargo clean  to delete all build files
     start                  # Start a test database
+    start-ssl              # Start an ssl-enabled test database
     start-legacy           # Start a legacy test database
     stop                   # Stop the test database
     bench                  # Run benchmark tests
     test                   # Run all tests using a test database
-    test-legacy            # Run all tests using tde oldest supported version of the database
+    test-ssl               # Run all tests using an SSL connection to a test database. Expected output won't match.
+    test-legacy            # Run all tests using the oldest supported version of the database
     test-unit *ARGS        # Run Rust unit and doc tests (cargo test)
     test-int               # Run integration tests
     bless                  # Run integration tests and save its output as the new expected output
@@ -896,6 +898,7 @@ Available recipes:
     docker-build           # Build martin docker image
     docker-run *ARGS       # Build and run martin docker image
     git *ARGS              # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+    print-conn-str         # Print the connection string for the test database
     lint                   # Run cargo fmt and cargo clippy
 ```
 

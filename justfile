@@ -158,6 +158,10 @@ docker-run *ARGS:
 git *ARGS: start
     git {{ARGS}}
 
+# Print the connection string for the test database
+print-conn-str:
+    @echo {{DATABASE_URL}}
+
 # Run cargo fmt and cargo clippy
 lint:
     cargo fmt --all -- --check
