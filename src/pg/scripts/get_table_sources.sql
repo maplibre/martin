@@ -40,7 +40,7 @@ annotated_geometry_columns AS (
 SELECT
   schema, name, geom, srid, type, is_view, geom_idx,
     COALESCE(
-      jsonb_object_agg(columns.column_name, columns.type_name) FILTER (WHERE columns.column_name IS NOT NULL),
+      jsonb_object_agg(columns.column_name, columns.type_name) FILTER (WHERE columns.column_name IS NOT NULL AND columns.type_name != 'geometry'),
       '{}'::jsonb
     ) as properties
 FROM annotated_geometry_columns AS gc

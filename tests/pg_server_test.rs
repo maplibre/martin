@@ -197,7 +197,6 @@ postgres:
       bounds: [-180.0, -90.0, 180.0, 90.0]
       geometry_type: POINT
       properties:
-        geom2: geometry
         gid: int4
     table_source_multiple_geom.geom2:
       schema: public
@@ -207,7 +206,6 @@ postgres:
       bounds: [-180.0, -90.0, 180.0, 90.0]
       geometry_type: POINT
       properties:
-        geom1: geometry
         gid: int4
     MIXPOINTS:
       schema: MIXEDCASE
@@ -254,7 +252,6 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
-        geom1: geometry
     table_source:
       schema: public
       table: table_source
@@ -309,7 +306,6 @@ postgres:
       bounds: [-180.0, -90.0, 180.0, 90.0]
       geometry_type: POINT
       properties:
-        geom2: geometry
         gid: int4
 "};
 
@@ -477,7 +473,6 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
-        geom1: geometry
     points2:
       schema: public
       table: points2
@@ -524,7 +519,6 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
-        geom2: geometry
     points1:
       schema: public
       table: points1
@@ -576,7 +570,6 @@ postgres:
       bounds: [-180.0, -90.0, 180.0, 90.0]
       geometry_type: POINT
       properties:
-        geom2: geometry
         gid: int4
     table_source_multiple_geom.geom2:
       schema: public
@@ -586,7 +579,6 @@ postgres:
       bounds: [-180.0, -90.0, 180.0, 90.0]
       geometry_type: POINT
       properties:
-        geom1: geometry
         gid: int4
     table_source:
       schema: public
