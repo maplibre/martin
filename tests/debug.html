@@ -34,6 +34,7 @@
         width: 120px;
         font-family: 'Open Sans', sans-serif;
         overflow: scroll;
+        resize: horizontal;
       }
 
       #menu a {
@@ -68,14 +69,80 @@
       #menu a.active:hover {
         background: #3074a4;
       }
+
+      #menu-search {
+        padding: 2px;
+        width: 100%;
+      }
+
+      #menu a.active #colorbox {
+        display: block;
+      }
+
+      #menu a #colorbox {
+        display: none;
+      }
+
+      #colorbox {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        height: 15px;
+        width: 15px;
+        border: 1px solid white;
+        outline: none;
+        float: right;
+        margin-left: 5px;
+        cursor: pointer;
+      }
+
+      #colorbox::-webkit-color-swatch {
+        border: none;
+      }
+
+      #colorbox::-moz-color-swatch {
+        border: none;
+      }
     </style>
   </head>
 
   <body>
-    <nav id="menu"></nav>
+    <nav id="menu">
+      <input
+        oninput="handleSearch()"
+        id="menu-search"
+        type="search"
+        placeholder="Search..."
+      />
+    </nav>
     <div id="map"></div>
 
     <script>
+      function handleSearch() {
+        const search = document.getElementById("menu-search").value;
+        const links = document.querySelectorAll("#menu a");
+        for (const link of links) {
+          if (link.textContent.toLowerCase().includes(search.toLowerCase())) {
+            link.style.display = "block";
+          } else {
+            link.style.display = "none";
+          }
+        }
+      }
+
+      // Reference from: https://stackoverflow.com/a/16348977/11522644
+      const stringToColour = function (str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        let colour = "#";
+        for (let i = 0; i < 3; i++) {
+          const value = (hash >> (i * 8)) & 0xff;
+          colour += ("00" + value.toString(16)).substr(-2);
+        }
+        return colour;
+      };
       const map = new maplibregl.Map({
         container: 'map',
         style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
@@ -130,7 +197,7 @@
               visibility: 'none'
             },
             paint: {
-              [`${layerType}-color`]: 'red'
+              [`${layerType}-color`]: stringToColour(source.id)
             }
           });
 
@@ -138,12 +205,26 @@
             console.log(e.features);
           });
 
+          const colorbox = document.createElement("input");
+          colorbox.type = "color";
+          colorbox.id = "colorbox";
+          colorbox.value = stringToColour(source.id);
+          colorbox.style.backgroundColor = stringToColour(source.id);
+          colorbox.onclick = function(e){
+            e.stopPropagation();
+          }
+          colorbox.onchange = function(e){
+            map.setPaintProperty(source.id, `${layerType}-color`, e.target.value);
+            colorbox.style.backgroundColor = e.target.value;
+          }
+
           // Create a link.
           const link = document.createElement('a');
           link.id = source.id;
           link.href = '#';
           link.textContent = source.id;
           link.title = source.id;
+          link.appendChild(colorbox);
 
           // Show or hide layer when the toggle is clicked.
           link.onclick = function (e) {
