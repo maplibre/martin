@@ -92,7 +92,6 @@ postgres:
       clip_geom: true
       geometry_type: POINT
       properties:
-        geom2: geometry
         gid: int4
     table_source_multiple_geom.1:
       schema: public
@@ -104,7 +103,6 @@ postgres:
       clip_geom: true
       geometry_type: POINT
       properties:
-        geom1: geometry
         gid: int4
   functions:
     function_Mixed_Name:
