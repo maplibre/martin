@@ -309,7 +309,7 @@ Table Source is a database table which can be used to query [vector tiles](https
 
 Table Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{table_name}`.
 
-For example, `points` table will be available at `/points`, unless there is another source with the same name, or if the table has multiple geometry columns, in which case it will be available at `/points.1`, `/points.2`, etc.
+For example, `points` table will be available at `/points`, unless there is another source with the same name, or if the table has multiple geometry columns, in which case it will be available at `/points`, `/points.1`, etc.
 
 ```shell
 curl localhost:3000/points | jq
