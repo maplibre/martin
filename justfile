@@ -1,27 +1,29 @@
 #!/usr/bin/env just --justfile
+
 set shell := ["bash", "-c"]
 
 export PGPORT := "5411"
 export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
 export CARGO_TERM_COLOR := "always"
+
 # export RUST_LOG := "debug"
 # export RUST_BACKTRACE := "1"
 
 @_default:
-  just --list --unsorted
+    just --list --unsorted
 
 # Start Martin server and a test database
 run *ARGS: start
-    cargo run -- {{ARGS}}
+    cargo run -- {{ ARGS }}
 
 # Start Martin server and open a test page
 debug-page *ARGS: start
     open tests/debug.html  # run will not exit, so open debug page first
-    just run {{ARGS}}
+    just run {{ ARGS }}
 
 # Run PSQL utility against the test database
 psql *ARGS:
-    psql {{ARGS}} {{DATABASE_URL}}
+    psql {{ ARGS }} {{ DATABASE_URL }}
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop
@@ -44,7 +46,7 @@ start-legacy: (docker-up "db-legacy")
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name:
-    docker-compose up -d {{name}}
+    docker-compose up -d {{ name }}
     docker-compose run --rm db-is-ready
 
 alias _down := stop
@@ -58,7 +60,6 @@ stop:
 bench: start
     cargo bench
 
-
 # Run all tests using a test database
 test: (docker-up "db") test-unit test-int
 
@@ -71,8 +72,8 @@ test-legacy: (docker-up "db-legacy") test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)
 test-unit *ARGS:
-    cargo test --all-targets {{ARGS}}
-    cargo test --all-targets --all-features {{ARGS}}
+    cargo test --all-targets {{ ARGS }}
+    cargo test --all-targets --all-features {{ ARGS }}
     cargo test --doc
 
 # Run integration tests
@@ -114,7 +115,7 @@ coverage FORMAT='html':
     mkdir -p "$PROF_DIR"
     PROF_DIR=$(realpath "$PROF_DIR")
 
-    OUTPUT_RESULTS_DIR=target/coverage/{{FORMAT}}
+    OUTPUT_RESULTS_DIR=target/coverage/{{ FORMAT }}
     mkdir -p "$OUTPUT_RESULTS_DIR"
 
     export CARGO_INCREMENTAL=0
@@ -128,20 +129,20 @@ coverage FORMAT='html':
     tests/test.sh
 
     set -x
-    grcov --binary-path ./target/debug  \
-          -s .                          \
-          -t {{FORMAT}}                 \
-          --branch                      \
-          --ignore 'benches/*'          \
-          --ignore 'tests/*'            \
-          --ignore-not-existing         \
-          -o target/coverage/{{FORMAT}} \
-          --llvm                        \
+    grcov --binary-path ./target/debug    \
+          -s .                            \
+          -t {{ FORMAT }}                 \
+          --branch                        \
+          --ignore 'benches/*'            \
+          --ignore 'tests/*'              \
+          --ignore-not-existing           \
+          -o target/coverage/{{ FORMAT }} \
+          --llvm                          \
           "$PROF_DIR"
     { set +x; } 2>/dev/null
 
     # if this is html, open it in the browser
-    if [ "{{FORMAT}}" = "html" ]; then
+    if [ "{{ FORMAT }}" = "html" ]; then
         open "$OUTPUT_RESULTS_DIR/index.html"
     fi
 
@@ -151,16 +152,16 @@ docker-build:
 
 # Build and run martin docker image
 docker-run *ARGS:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ARGS}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ ARGS }}
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
 git *ARGS: start
-    git {{ARGS}}
+    git {{ ARGS }}
 
 # Print the connection string for the test database
 print-conn-str:
-    @echo {{DATABASE_URL}}
+    @echo {{ DATABASE_URL }}
 
 # Run cargo fmt and cargo clippy
 lint:
