@@ -10,3 +10,4 @@ test_log*
 pg_data/
 config.yml
 tests/output/
+docs/book

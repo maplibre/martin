@@ -95,6 +95,18 @@ bless: start clean-test
     rm -rf tests/expected
     mv tests/output tests/expected
 
+# Build and open mdbook documentation
+mdbook:
+    if ! command -v mdbook &> /dev/null; then \
+        echo "mdbook could not be found. Installing..." ;\
+        cargo install mdbook ;\
+    fi
+    mdbook build docs --open
+
+# Build and open code documentation
+docs:
+    cargo doc --no-deps --open
+
 # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
 coverage FORMAT='html':
     #!/usr/bin/env bash

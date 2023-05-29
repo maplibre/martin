@@ -1,0 +1,6 @@
+[book]
+authors = ["Maplibre"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Martin Documentation"
