@@ -10,7 +10,7 @@ import DocsButton from '../GitHubButton/DocsButton'
 const Intro = () => (
   <Container>
     <Parallax translateY={[100, -50]}>
-      <Title>Martin</Title>
+      <Title>Martin<br />Demo</Title>
       <Description>Vector Tiles from Large Databases on the Fly</Description>
       <GitHubButton />{' '}
       <DocsButton />
