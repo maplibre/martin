@@ -14,7 +14,7 @@ services:
 
   tiles:
     image: ghcr.io/maplibre/martin 
-    # For Arm64 - you have to build your own image from source
+    # For Arm64 - you have to build your own image from source https://github.com/maplibre/martin/issues/655#issuecomment-1540669505
     restart: unless-stopped
     ports:
       - "3000:3000"
