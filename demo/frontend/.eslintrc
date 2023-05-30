@@ -1,0 +1,59 @@
+{
+  "extends": ["react-app", "airbnb"],
+  "rules": {
+    "arrow-parens": [
+      "warn",
+      "as-needed",
+      {
+        "requireForBlockBody": true
+      }
+    ],
+    "comma-dangle": ["error", "never"],
+    "jsx-quotes": ["error", "prefer-single"],
+    "max-len": [
+      "error",
+      {
+        "code": 80,
+        "ignoreUrls": true,
+        "ignoreStrings": true
+      }
+    ],
+    "no-return-assign": "warn",
+    "no-restricted-exports": "warn",
+    "quotes": ["error", "single"],
+    "react/button-has-type": "off",
+    "react/destructuring-assignment": "off",
+    "react/prop-types": [
+      1,
+      {
+        "skipUndeclared": true
+      }
+    ],
+    "react/forbid-prop-types": [
+      1,
+      {
+        "forbid": ["any", "array"]
+      }
+    ],
+    "react/jsx-filename-extension": [
+      1,
+      {
+        "extensions": [".js", ".jsx"]
+      }
+    ],
+    "react/function-component-definition": "warn",
+    "react/jsx-no-bind": "error",
+    "react/sort-comp": [
+      1,
+      {
+        "order": [
+          "type-annotations",
+          "static-methods",
+          "lifecycle",
+          "everything-else",
+          "render"
+        ]
+      }
+    ]
+  }
+}

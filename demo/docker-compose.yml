@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - tiles
+    ports:
+      - "80:80"
+
+  tiles:
+    image: urbica/martin
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://postgres@db/db
+    depends_on:
+      - db
+
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - ./db/db:/var/lib/postgresql/data
+      - ./db/initdb:/docker-entrypoint-initdb.d
