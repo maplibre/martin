@@ -4,3 +4,8 @@ language = "en"
 multilingual = false
 src = "src"
 title = "Martin Documentation"
+
+[output.html]
+curly-quotes = true
+git-repository-url = "https://github.com/maplibre/martin"
+edit-url-template = "https://github.com/maplibre/martin/edit/main/docs/{path}"
