@@ -13,7 +13,8 @@ services:
       - "80:8080"
 
   tiles:
-    image: arm64martinimage
+    image: ghcr.io/maplibre/martin 
+    # For Arm64 - you have to build your own image from source
     restart: unless-stopped
     ports:
       - "3000:3000"
