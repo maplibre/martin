@@ -45,7 +45,7 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
 
   componentDidUpdate() {
     const queryParams = this.getQueryParams();
-    const newStyleUrl = `/tiles/rpc/public.get_trips.json?${queryParams}`;
+    const newStyleUrl = `http://localhost:3000/get_trips?${queryParams}`;
     const newStyle = this.map.getStyle();
 
     newStyle.sources['public.get_trips'].url = newStyleUrl;
@@ -57,7 +57,7 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
 
     this.map.addSource('public.get_trips', {
       type: 'vector',
-      url: `/tiles/rpc/public.get_trips.json?${queryParams}`
+      url: `http://localhost:3000/get_trips?${queryParams}`
     });
     layers.forEach(({ mapboxLayer }) => {
       this.map.addLayer(mapboxLayer, 'place_town');

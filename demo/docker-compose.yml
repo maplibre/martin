@@ -6,14 +6,17 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    command: ["npm", "run", "preview"]
     depends_on:
       - tiles
     ports:
-      - "80:80"
+      - "80:8080"
 
   tiles:
-    image: urbica/martin
+    image: arm64martinimage
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres@db/db
     depends_on:

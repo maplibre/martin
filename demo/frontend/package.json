@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "vite --port 3000 --host",
+    "dev": "vite --port 8080 --host",
     "build": "tsc && vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --port 8080 --host",
     "lint": "eslint src"
   },
   "eslintConfig": {
