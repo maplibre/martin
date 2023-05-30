@@ -3,10 +3,18 @@ name: Benchmark
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths-ignore: ['**.md']
+    paths-ignore:
+      - '**.md'
+      - 'demo/**'
+      - 'docs/**'
+      - 'homebrew-formula/**'
   push:
     branches: [main, v0.6]
-    paths-ignore: ['**.md']
+    paths-ignore:
+      - '**.md'
+      - 'demo/**'
+      - 'docs/**'
+      - 'homebrew-formula/**'
   workflow_dispatch:
 
 jobs:
