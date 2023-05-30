@@ -30,6 +30,7 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
 
   componentDidMount() {
     this.map = new maplibregl.Map({
+      cooperativeGestures: true,
       container: 'map',
       style: MAP_STYLE,
       center: [-74.005308, 40.713370],
@@ -38,7 +39,7 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
     });
     this.nav = new maplibregl.NavigationControl();
 
-    this.map.scrollZoom.disable();
+    
     this.map.addControl(this.nav, 'top-right');
     this.map.on('load', this.mapOnLoad);
   }
