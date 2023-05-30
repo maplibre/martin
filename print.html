@@ -119,6 +119,9 @@
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        <a href="https://github.com/maplibre/martin" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
 
                     </div>
                 </div>
@@ -472,10 +475,10 @@ Options:
 <tr><td><code>PGSSLROOTCERT</code> <br/> <code>ssl_root_cert</code></td><td><code>./root.crt</code></td><td>A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT">docs</a><br/>This env var used to be called <code>CA_ROOT_FILE</code>, but support for it will be removed soon.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-file"><a class="header" href="#configuration-file">Configuration File</a></h1>
-<p>If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a path to a file with a <code>--config</code> argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use <code>MY_DATABASE_URL</code> in your config file: <code>connection_string: ${MY_DATABASE_URL}</code>, or with a default <code>connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}</code></p>
+<p>If you don’t want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a path to a file with a <code>--config</code> argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use <code>MY_DATABASE_URL</code> in your config file: <code>connection_string: ${MY_DATABASE_URL}</code>, or with a default <code>connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}</code></p>
 <pre><code class="language-shell">martin --config config.yaml
 </code></pre>
-<p>You may wish to auto-generate a config file with <code>--save-config</code> argument. This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.</p>
+<p>You may wish to auto-generate a config file with <code>--save-config</code> argument. This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don’t want to expose.</p>
 <pre><code class="language-yaml"># Connection keep alive timeout [default: 75]
 keep_alive: 75
 
