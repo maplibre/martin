@@ -30,6 +30,7 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
 
   componentDidMount() {
     this.map = new maplibregl.Map({
+      cooperativeGestures: true,
       container: 'map',
       style: MAP_STYLE,
       center: [-74.005308, 40.713370],
@@ -38,14 +39,14 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
     });
     this.nav = new maplibregl.NavigationControl();
 
-    this.map.scrollZoom.disable();
+    
     this.map.addControl(this.nav, 'top-right');
     this.map.on('load', this.mapOnLoad);
   }
 
   componentDidUpdate() {
     const queryParams = this.getQueryParams();
-    const newStyleUrl = `/tiles/rpc/public.get_trips.json?${queryParams}`;
+    const newStyleUrl = `http://localhost:3000/get_trips?${queryParams}`;
     const newStyle = this.map.getStyle();
 
     newStyle.sources['public.get_trips'].url = newStyleUrl;
@@ -57,7 +58,7 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
 
     this.map.addSource('public.get_trips', {
       type: 'vector',
-      url: `/tiles/rpc/public.get_trips.json?${queryParams}`
+      url: `http://localhost:3000/get_trips?${queryParams}`
     });
     layers.forEach(({ mapboxLayer }) => {
       this.map.addLayer(mapboxLayer, 'place_town');

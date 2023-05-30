@@ -6,14 +6,18 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    command: ["npm", "run", "preview"]
     depends_on:
       - tiles
     ports:
-      - "80:80"
+      - "80:8080"
 
   tiles:
-    image: urbica/martin
+    image: ghcr.io/maplibre/martin 
+    # For Arm64 - you have to build your own image from source https://github.com/maplibre/martin/issues/655#issuecomment-1540669505
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres@db/db
     depends_on:
