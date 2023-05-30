@@ -1,12 +1,10 @@
-FROM node:14-alpine as builder
-LABEL maintainer="Andrey Bakhvalov<bakhvalov.andrey@gmail.com>"
+FROM node:18-alpine as builder
 
 WORKDIR /usr/src/app
-COPY package.json /usr/src/app/package.json
-RUN yarn
 COPY . .
-RUN yarn run build
+RUN npm i
+RUN npm run build
 
 FROM nginx:alpine
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY --from=builder "/usr/src/app/build" /usr/share/nginx/html
+COPY --from=builder "/usr/src/app/dist" /usr/share/nginx/html

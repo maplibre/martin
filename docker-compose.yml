@@ -1,4 +1,4 @@
-version: "3.7"
+version: "3.8"
 
 services:
   frontend:
@@ -9,9 +9,7 @@ services:
     depends_on:
       - tiles
     ports:
-      - "443:443"
-    volumes:
-      - ./certs:/etc/ssl/certs
+      - "80:80"
 
   tiles:
     image: urbica/martin

@@ -8,6 +8,7 @@ frontend/coverage
 
 # production
 frontend/build
+frontend/dist
 
 db/initdb/taxi_zones
 db/initdb/taxi_trips

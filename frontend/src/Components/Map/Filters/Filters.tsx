@@ -1,7 +1,9 @@
 import React, { PureComponent } from 'react';
-import DayPicker, { DateUtils } from 'react-day-picker';
+
+//@ts-ignore
+import { DayPicker, addToRange } from 'react-day-picker';
 import { debounce } from 'debounce';
-import 'react-day-picker/lib/style.css';
+import 'react-day-picker/dist/style.css';
 
 import { JAN, DEC } from '../../../config/constants';
 import dateConverter from '../../../utils/dateConverter';
@@ -16,16 +18,16 @@ import TimePicker from './TimePicker';
 import AvgTime from './AvgTime';
 import Input from './Input';
 
-class Filters extends PureComponent {
+class Filters extends PureComponent<{visibleLayer, toggleLayer, range, hour, changeFilter}, {isDayPickerEnabled}> {
   constructor(props) {
     super(props);
     this.state = {
-      isDayPickerEnabled: false
+      isDayPickerEnabled: true
     };
   }
 
   handleDayClick = (day) => {
-    const range = DateUtils.addDayToRange(day, this.props.range);
+    const range = addToRange(day, this.props.range);
 
     this.props.changeFilter('range', range);
   };
@@ -69,12 +71,13 @@ class Filters extends PureComponent {
         {this.state.isDayPickerEnabled && (
           <DayPickerContainer>
             <DayPicker
+              style={{ height: '290px' }}
               numberOfMonths={1}
-              selectedDays={[from, { from, to }]}
+              selected={[from, { from, to }]}
               modifiers={modifiers}
               onDayClick={this.handleDayClick}
-              captionElement={CaptionElement}
-              initialMonth={JAN}
+              // captionElement={CaptionElement}
+              defaultMonth={JAN}
               fromMonth={JAN}
               toMonth={DEC}
             />

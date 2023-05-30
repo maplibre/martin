@@ -6,4 +6,4 @@
 docker-compose up
 ```
 
-Open `localhost:3000` in your browser
+Open `localhost` in your browser

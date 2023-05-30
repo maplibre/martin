@@ -9,9 +9,13 @@ import dateConverter from '../../utils/dateConverter';
 import Container from './Container';
 import Filters from './Filters';
 
-const mapStyle = { height: '585px' };
+const mapStyle = { height: '615px', marginLeft: '350px' };
 
-class Map extends PureComponent {
+class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
+
+  map: any;
+  nav: any;
+
   constructor(props) {
     super(props);
     this.state = {
@@ -30,9 +34,7 @@ class Map extends PureComponent {
       style: MAP_STYLE,
       center: [-74.005308, 40.713370],
       pitch: 45,
-      zoom: 10,
-      minZoom: 8,
-      maxZoom: 16
+      zoom: 9,
     });
     this.nav = new maplibregl.NavigationControl();
 
