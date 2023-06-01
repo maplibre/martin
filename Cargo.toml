@@ -8,13 +8,13 @@ exclude = [
     # Tests include a lot of data and other test files that are not needed for the users of the library
     "/tests",
 ]
+default-run = "martin"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
 
 [lib]
-name = "martin"
 path = "src/lib.rs"
 
 [[bin]]
