@@ -22,6 +22,16 @@ sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 
+# Bin dependencies
+clap.workspace = true
+
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "mbtiles"
+path = "src/bin/main.rs"

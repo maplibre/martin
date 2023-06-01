@@ -1446,6 +1446,7 @@ name = "martin-mbtiles"
 version = "0.1.0"
 dependencies = [
  "actix-rt",
+ "clap",
  "futures",
  "log",
  "martin-tile-utils",
