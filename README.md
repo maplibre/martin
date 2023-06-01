@@ -8,7 +8,7 @@
 [![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)](https://github.com/maplibre/martin/security)
 [![CI build](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
 
-Martin is a tile server able to generate [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, or serve tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
+Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), and [MBTile](https://github.com/mapbox/mbtiles-spec) files, allowing multiple tile sources to be dynamically combined into one. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
 See [Martin book](https://maplibre.org/martin/) for complete documentation.
 
@@ -16,7 +16,7 @@ See [Martin book](https://maplibre.org/martin/) for complete documentation.
 
 ## Requirements
 
-When using Martin with PostgreSQL, you must install PostGIS with at least v3.0+, and v3.1+ is recommended.
+If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+, v3.1+ recommended.
 
 ## Installation
 
@@ -39,18 +39,7 @@ brew tap maplibre/martin https://github.com/maplibre/martin.git
 brew install maplibre/martin/martin
 ```
 
-You can also use [official Docker image](https://ghcr.io/maplibre/martin)
-
-```shell
-export PGPASSWORD=postgres  # secret!
-docker run \
-       -p 3000:3000 \
-       -e PGPASSWORD \
-       -e DATABASE_URL=postgresql://user@host:port/db \
-       ghcr.io/maplibre/martin
-```
-
-Use docker `-v` param to share configuration file or its directory with the container:
+You can also use [official Docker image](https://ghcr.io/maplibre/martin), and share configuration file from the host with the container via the `-v` param.  Config file is optional - you can let Martin auto-discover all sources e.g. by passing `DATABASE_URL` only.
 
 ```shell
 export PGPASSWORD=postgres  # secret!
@@ -63,27 +52,33 @@ docker run -p 3000:3000 \
 
 ## Usage
 
-### PostGIS sources
+Martin supports any number of PostgreSQL/PostGIS database connections with [geospatial-enabled](https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns) tables and tile-producing SQL functions, as well as [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files as tile sources.
 
-Martin requires at least one PostgreSQL [connection string](https://maplibre.org/martin/PostgreSQL-Connection-String.html) or a [tile source file](https://maplibre.org/martin/MBTile-and-PMTile-Sources.html) as a command-line argument. A PG connection string can also be passed via the `DATABASE_URL` environment variable.
+Martin can auto-discover tables and functions using a [connection string](https://maplibre.org/martin/PostgreSQL-Connection-String.html). A PG connection string can also be passed via the `DATABASE_URL` environment variable.
 
-```shell
-martin postgresql://user:password@host:port/database
-```
+Each tile source will have a [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint.
 
-Martin provides [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint for each [geospatial-enabled](https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns) table in your database.
-
-### MBTiles and PMTiles sources
-Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files.  To serve a file from CLI, simply put the path to the file or the directory with `*.mbtiles` or `*.pmtiles` files. For example:
+#### Examples
 
 ```shell
-martin  /path/to/mbtiles/file.mbtiles
-martin  /path/to/directory
+# publish all tables and functions from a single database
+export DATABASE_URL=postgresql://user:password@host:port/database
+martin
+
+# same as above, but passing connection string via CLI, together with a directory of .mbtiles/.pmtiles files  
+martin postgresql://user:password@host:port/database path/to/dir
+
+# publish all discovered tables/funcs from two DBs
+# and generate config file with all detected sources
+martin postgres://... postgres://...  --save-config config.yaml
+
+# use configuration file instead of auto-discovery
+martin --config config.yaml
 ```
 
 ## API
 
-When started, Martin will go through all spatial tables and functions with an appropriate signature in the database. These tables and functions will be available as the HTTP endpoints, which you can use to query Mapbox vector tiles.
+Martin data is available via the HTTP `GET` endpoints:
 
 | URL                                    | Description                                                                                               |
 |----------------------------------------|-----------------------------------------------------------------------------------------------------------|
