@@ -8,6 +8,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::utils::Result;
 use crate::source::{IdResolver, Sources};
+use crate::tilesystems::TileSystem;
 use crate::utils::{sorted_opt_map, BoolOrObject, OneOrMany};
 
 pub trait PgInfo {
@@ -68,6 +69,7 @@ pub struct PgCfgPublish {
 pub struct PgCfgPublishType {
     pub from_schemas: Option<OneOrMany<String>>,
     pub id_format: Option<String>,
+    pub tile_systems: Option<Vec<TileSystem>>,
 }
 
 impl PgConfig {
@@ -116,6 +118,7 @@ mod tests {
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
     use crate::test_utils::some;
+    use crate::tilesystems::TileSystemConfig;
     use crate::utils::OneOrMany::{Many, One};
 
     #[test]
@@ -188,6 +191,11 @@ mod tests {
                   geometry_type: GEOMETRY
                   properties:
                     gid: int4
+                  tile_system:
+                    identifier: WGS84Quad
+                    srid: 4326
+                    bounds: [-180, -90, 180, 90]
+
 
               functions:
                 function_zxy_query:
@@ -221,6 +229,11 @@ mod tests {
                                 "gid".to_string(),
                                 "int4".to_string(),
                             )])),
+                            tile_system: Some(TileSystemConfig {
+                                srid: 4326,
+                                bounds: Bounds::new(-180.0, -90.0, 180.0, 90.0),
+                                identifier: "WGS84Quad".to_string(),
+                            }),
                             ..Default::default()
                         },
                     )])),

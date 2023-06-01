@@ -15,6 +15,7 @@ pub mod pg;
 pub mod pmtiles;
 mod source;
 pub mod srv;
+mod tilesystems;
 mod utils;
 
 #[cfg(test)]

@@ -550,6 +550,18 @@ postgres:
       id_format: 'table.{schema}.{table}.{column}'
       # Add more schemas to the ones listed above
       from_schemas: my_other_schema
+      # Optionally, publish tiles in more than one projection/tiling scheme
+      tile_systems:
+        # the default web mercator tiles, enabled by default 
+        - type: WebMercatorQuad
+        # an additional custom tiling scheme
+        - type: Custom
+          srid: 4326
+          # bounds of tile 0/0/0
+          bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+          # name for the tiling scheme 
+          # auto published table will be given the name {source_id}:{tile_system.identifier}
+          identifier: WGS84Quad
     functions:
       id_format: '{schema}.{function}'
   
@@ -601,6 +613,15 @@ postgres:
       # List of columns, that should be encoded as tile properties (required)
       properties:
         gid: int4
+        
+      # Output tiles with a custom projection and tiling
+      tile_system:
+        # output srid
+        srid: 4326
+        # bounds of tile 0/0/0
+        bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+        # name for the tiling scheme
+        identifier: WGS84Quad
   
   # Associative arrays of function sources
   functions:

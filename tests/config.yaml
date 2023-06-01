@@ -92,6 +92,27 @@ postgres:
       properties:
         gid: int4
 
+    points1_wgs84:
+      layer_id: abc
+      schema: public
+      table: points1
+      minzoom: 0
+      maxzoom: 30
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      id_column: ~
+      geometry_column: geom
+      srid: 4326
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      tile_system:
+        identifier: WGS84Quad
+        srid: 4326
+        bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        gid: int4
+
     points2:
       schema: public
       table: points2
