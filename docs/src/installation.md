@@ -1,5 +1,11 @@
 # Installation
 
+## Prerequisites
+
+Martin requires PostGIS 3.0+.  PostGIS 3.1+ is recommended.
+
+## Binary Distributions
+
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
 | Platform | Downloads (latest)     |
@@ -18,6 +24,8 @@ If you are using macOS and [Homebrew](https://brew.sh/) you can install martin u
 brew tap maplibre/martin https://github.com/maplibre/martin.git
 brew install maplibre/martin/martin
 ```
+
+## Docker
 
 You can also use [official Docker image](https://ghcr.io/maplibre/martin)
 
