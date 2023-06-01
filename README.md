@@ -51,7 +51,7 @@ export PGPASSWORD=postgres  # secret!
 docker run -v /path/to/config/dir:/config \
            -p 3000:3000 \
            -e PGPASSWORD \
-           -e DATABASE_URL=postgresql://postgres@localhost/db \
+           -e DATABASE_URL=postgresql://user@host:port/db \
            ghcr.io/maplibre/martin --config /config/config.yaml
 ```
 
@@ -61,7 +61,7 @@ docker run -v /path/to/config/dir:/config \
 Martin requires at least one PostgreSQL [connection string](https://maplibre.org/martin/PostgreSQL-Connection-String.html) or a [tile source file](https://maplibre.org/martin/MBTile-and-PMTile-Sources.html) as a command-line argument. A PG connection string can also be passed via the `DATABASE_URL` environment variable.
 
 ```shell
-martin postgresql://postgres@localhost/db
+martin postgresql://user:password@host:port/database
 ```
 
 Martin provides [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint for each [geospatial-enabled](https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns) table in your database.
