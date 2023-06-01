@@ -39,7 +39,7 @@ brew tap maplibre/martin https://github.com/maplibre/martin.git
 brew install maplibre/martin/martin
 ```
 
-You can also use [official Docker image](https://ghcr.io/maplibre/martin), and share configuration file from the host with the container via the `-v` param.  Config file is optional - you can let Martin auto-discover all sources e.g. by passing `DATABASE_URL` only.
+Martin is also available as a [Docker image](https://ghcr.io/maplibre/martin). You could either share a configuration file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by passing `DATABASE_URL` or specifying the .mbtiles/.pmtiles files.
 
 ```shell
 export PGPASSWORD=postgres  # secret!
