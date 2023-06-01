@@ -88,3 +88,6 @@ When started, Martin will go through all spatial tables and functions with an ap
 | `GET`  | `/{sourceID1},...,{nameN}`             | [Composite Source TileJSON](https://maplibre.org/martin/composite-sources.html#composite-source-tilejson) |
 | `GET`  | `/{sourceID1},...,{nameN}/{z}/{x}/{y}` | [Composite Source Tiles](https://maplibre.org/martin/composite-sources.html#composite-source-tiles)       |
 | `GET`  | `/health`                              | Martin server health check: returns 200 `OK`                                                              |
+
+## Documentation
+For more informations and to fully configure Martin's behaviors, [read the Martin book here]((https://maplibre.org/martin/).).
