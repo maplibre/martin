@@ -1,16 +1,17 @@
 [package]
 name = "martin"
 version = "0.8.4"
-edition = "2021"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
-repository = "https://github.com/maplibre/martin"
-license = "MIT OR Apache-2.0"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
 exclude = [
     # Tests include a lot of data and other test files that are not needed for the users of the library
     "/tests",
 ]
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 name = "martin"
@@ -26,43 +27,43 @@ ssl = ["openssl", "postgres-openssl"]
 vendored-openssl = ["ssl", "openssl/vendored"]
 
 [dependencies]
-actix = "0.13"
-actix-cors = "0.6"
-actix-http = "3"
-actix-rt = "2"
-actix-web = "4"
-async-trait = "0.1"
-brotli = "3"
-clap = { version = "4", features = ["derive"] }
-deadpool-postgres = "0.10"
-env_logger = "0.10"
-flate2 = "1"
-futures = "0.3"
-itertools = "0.10"
-log = "0.4"
-martin-mbtiles = { path = "martin-mbtiles", version = "0.1.0" }
-martin-tile-utils = { path = "martin-tile-utils", version = "0.1.0" }
-num_cpus = "1"
-openssl = { version = "0.10", optional = true }
-pmtiles = { version = "0.2.2", features = ["mmap-async-tokio", "tilejson"] }
-postgis = "0.9"
-postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
-postgres-openssl = { version = "0.5", optional = true }
-postgres-protocol = "0.6"
-regex = "1"
-semver = "1"
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["preserve_order"] }
-serde_yaml = "0.9"
-subst = { version = "0.2", features = ["yaml"] }
-thiserror = "1"
-tilejson = "0.3"
+actix.workspace = true
+actix-cors.workspace = true
+actix-http.workspace = true
+actix-rt.workspace = true
+actix-web.workspace = true
+async-trait.workspace = true
+brotli.workspace = true
+clap.workspace = true
+deadpool-postgres.workspace = true
+env_logger.workspace = true
+flate2.workspace = true
+futures.workspace = true
+itertools.workspace = true
+log.workspace = true
+martin-mbtiles = { path = "./martin-mbtiles", version = "0.1.0" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
+num_cpus.workspace = true
+openssl = { workspace = true, optional = true }
+pmtiles.workspace = true
+postgis.workspace = true
+postgres.workspace = true
+postgres-openssl = { workspace = true, optional = true }
+postgres-protocol.workspace = true
+regex.workspace = true
+semver.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+serde_yaml.workspace = true
+subst.workspace = true
+thiserror.workspace = true
+tilejson.workspace = true
 
 [dev-dependencies]
-cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
-criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.2"
-indoc = "2"
+cargo-husky.workspace = true
+criterion.workspace = true
+ctor.workspace = true
+indoc.workspace = true
 #test-log = "0.2"
 
 [[bench]]
@@ -76,3 +77,45 @@ opt-level = 3
 [workspace]
 default-members = ["martin-tile-utils", "martin-mbtiles", "."]
 members = ["martin-tile-utils", "martin-mbtiles"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.65"
+repository = "https://github.com/maplibre/martin"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+actix = "0.13"
+actix-cors = "0.6"
+actix-http = "3"
+actix-rt = "2"
+actix-web = "4"
+async-trait = "0.1"
+brotli = "3"
+cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
+clap = { version = "4", features = ["derive"] }
+criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
+ctor = "0.2"
+deadpool-postgres = "0.10"
+env_logger = "0.10"
+flate2 = "1"
+futures = "0.3"
+indoc = "2"
+itertools = "0.10"
+log = "0.4"
+num_cpus = "1"
+openssl = "0.10"
+pmtiles = { version = "0.2.2", features = ["mmap-async-tokio", "tilejson"] }
+postgis = "0.9"
+postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
+postgres-openssl = "0.5"
+postgres-protocol = "0.6"
+regex = "1"
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sqlx = { version = "0.6", features = ["offline", "sqlite", "runtime-actix-native-tls"] }
+subst = { version = "0.2", features = ["yaml"] }
+thiserror = "1"
+tilejson = "0.3"

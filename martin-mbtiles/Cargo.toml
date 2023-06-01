@@ -1,9 +1,6 @@
 [package]
 name = "martin-mbtiles"
 version = "0.1.0"
-edition = "2021"
-license = "MIT/Apache-2.0"
-repository = "https://github.com/maplibre/martin"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -11,16 +8,20 @@ exclude = [
     # Exclude the fixtures directory from the package - it's only used for tests.
     "/fixtures",
 ]
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
-futures = "0.3"
-log = "0.4"
+futures.workspace = true
+log.workspace = true
 martin-tile-utils = { path = "../martin-tile-utils", version = "0.1.0" }
-serde_json = "1"
-sqlx = { version = "0.6", features = ["offline", "sqlite", "runtime-actix-native-tls"] }
-thiserror = "1"
-tilejson = "0.3"
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tilejson.workspace = true
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
-actix-rt = "2"
+actix-rt.workspace = true
