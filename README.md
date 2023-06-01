@@ -10,7 +10,7 @@ Martin is a tile server able to generate [vector tiles](https://github.com/mapbo
 
 ## Requirements
 
-When using Martin with Postgres, PostGIS 3.0+ is required and PostGIS 3.1+ is recommended.  
+When using Martin with PostgreSQL, you must install PostGIS with at least v3.0+, and v3.1+ is recommended.
 
 ## Installation
 
@@ -40,7 +40,7 @@ export PGPASSWORD=postgres  # secret!
 docker run \
        -p 3000:3000 \
        -e PGPASSWORD \
-       -e DATABASE_URL=postgresql://user@host:port/database \
+       -e DATABASE_URL=postgresql://user@host:port/db \
        ghcr.io/maplibre/martin
 ```
 
@@ -48,10 +48,10 @@ Use docker `-v` param to share configuration file or its directory with the cont
 
 ```shell
 export PGPASSWORD=postgres  # secret!
-docker run -v /path/to/config/dir:/config \
-           -p 3000:3000 \
+docker run -p 3000:3000 \
            -e PGPASSWORD \
            -e DATABASE_URL=postgresql://user@host:port/db \
+           -v /path/to/config/dir:/config \
            ghcr.io/maplibre/martin --config /config/config.yaml
 ```
 
