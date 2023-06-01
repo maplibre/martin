@@ -187,3 +187,11 @@ git-pre-push: stop start
     cargo --version
     just lint
     just test
+
+# Update sqlite database schema. Install SQLX cli if not already installed.
+prepare-sqlite:
+    if ! command -v cargo-sqlx &> /dev/null; then \
+        echo "SQLX could not be found. Installing..." ;\
+        cargo install sqlx-cli --no-default-features --features sqlite,native-tls ;\
+    fi
+    cd martin-mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/files/world_cities.mbtiles

@@ -1,9 +1,3 @@
 # Development
 
-```bash
-# To update sqlx files, first install sqlx-cli:
-cargo install sqlx-cli --no-default-features --features sqlite,native-tls
-
-# Prepare DB schema (from the ./mbtiles dir)
-cargo sqlx prepare --database-url sqlite://$PWD/fixtures/geography-class-jpg.mbtiles
-```
+Any changes to SQL commands require running of `just prepare-sqlite`.  This will install `cargo sqlx` command if it is not already installed, and update the `./sqlx-data.json` file.
