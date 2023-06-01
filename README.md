@@ -4,7 +4,9 @@
 [![CI](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
 ![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)
 
-Martin is a tile server able to generate [vector tiles](https://github.com/mapbox/vector-tile-spec) from large [PostGIS](https://github.com/postgis/postgis) databases on the fly, or serve tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
+Martin is a tile server able to generate [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, or serve tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
+
+See [Martin book](https://maplibre.org/martin/) for complete documentation.
 
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
@@ -90,4 +92,4 @@ When started, Martin will go through all spatial tables and functions with an ap
 | `GET`  | `/health`                              | Martin server health check: returns 200 `OK`                                                              |
 
 ## Documentation
-For more informations and to fully configure Martin's behaviors, [read the Martin book here]((https://maplibre.org/martin/).).
+See [Martin book](https://maplibre.org/martin/) for complete documentation.
