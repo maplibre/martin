@@ -10,7 +10,7 @@ Martin is a tile server able to generate [vector tiles](https://github.com/mapbo
 
 ## Requirements
 
-Martin requires PostGIS 3.0+.  PostGIS 3.1+ is recommended.
+When using Martin with Postgres, PostGIS 3.0+ is required and PostGIS 3.1+ is recommended.  
 
 ## Installation
 
@@ -58,6 +58,7 @@ docker run -v /path/to/config/dir:/config \
 ## Usage
 
 ### PostGIS sources
+
 Martin requires at least one PostgreSQL [connection string](https://maplibre.org/martin/PostgreSQL-Connection-String.html) or a [tile source file](https://maplibre.org/martin/MBTile-and-PMTile-Sources.html) as a command-line argument. A PG connection string can also be passed via the `DATABASE_URL` environment variable.
 
 ```shell
