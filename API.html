@@ -151,15 +151,15 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="api"><a class="header" href="#api">API</a></h1>
-<p>When started, Martin will go through all spatial tables and functions with an appropriate signature in the database. These tables and functions will be available as the HTTP endpoints, which you can use to query Mapbox vector tiles.</p>
-<div class="table-wrapper"><table><thead><tr><th>Method</th><th>URL</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>GET</code></td><td><code>/</code></td><td>Status text, that will eventually show web UI</td></tr>
-<tr><td><code>GET</code></td><td><code>/catalog</code></td><td><a href="#source-list">List of all sources</a></td></tr>
-<tr><td><code>GET</code></td><td><code>/{sourceID}</code></td><td><a href="#table-source-tilejson">Source TileJSON</a></td></tr>
-<tr><td><code>GET</code></td><td><code>/{sourceID}/{z}/{x}/{y}</code></td><td><a href="#table-source-tiles">Source Tiles</a></td></tr>
-<tr><td><code>GET</code></td><td><code>/{sourceID1},...,{nameN}</code></td><td><a href="#composite-source-tilejson">Composite Source TileJSON</a></td></tr>
-<tr><td><code>GET</code></td><td><code>/{sourceID1},...,{nameN}/{z}/{x}/{y}</code></td><td><a href="#composite-source-tiles">Composite Source Tiles</a></td></tr>
-<tr><td><code>GET</code></td><td><code>/health</code></td><td>Martin server health check: returns 200 <code>OK</code></td></tr>
+<p>Martin data is available via the HTTP <code>GET</code> endpoints:</p>
+<div class="table-wrapper"><table><thead><tr><th>URL</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>/</code></td><td>Status text, that will eventually show web UI</td></tr>
+<tr><td><code>/catalog</code></td><td><a href="https://maplibre.org/martin/source-list.html">List of all sources</a></td></tr>
+<tr><td><code>/{sourceID}</code></td><td><a href="https://maplibre.org/martin/table-sources.html#table-source-tilejson">Source TileJSON</a></td></tr>
+<tr><td><code>/{sourceID}/{z}/{x}/{y}</code></td><td><a href="https://maplibre.org/martin/table-sources.html#table-source-tiles">Source Tiles</a></td></tr>
+<tr><td><code>/{sourceID1},...,{nameN}</code></td><td><a href="https://maplibre.org/martin/composite-sources.html#composite-source-tilejson">Composite Source TileJSON</a></td></tr>
+<tr><td><code>/{sourceID1},...,{nameN}/{z}/{x}/{y}</code></td><td><a href="https://maplibre.org/martin/composite-sources.html#composite-source-tiles">Composite Source Tiles</a></td></tr>
+<tr><td><code>/health</code></td><td>Martin server health check: returns 200 <code>OK</code></td></tr>
 </tbody></table>
 </div>
                     </main>
