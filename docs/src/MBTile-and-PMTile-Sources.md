@@ -6,5 +6,4 @@ Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmti
 martin  /path/to/mbtiles/file.mbtiles  /path/to/directory
 ```
 
-You may also want to generate a [config file](#configuration-file) using the `--save-config my-config.yaml`, and later edit it and use it with `--config my-config.yaml` option.
-
+You may also want to generate a [config file](./configuration-File.md) using the `--save-config my-config.yaml`, and later edit it and use it with `--config my-config.yaml` option.

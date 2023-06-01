@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Martin requires PostGIS 3.0+.  PostGIS 3.1+ is recommended.
+If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+, v3.1+ recommended.
 
 ## Binary Distributions
 

@@ -14,11 +14,11 @@ See [Martin book](https://maplibre.org/martin/) for complete documentation.
 
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
-## Requirements
+## Prerequisites
 
 If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+, v3.1+ recommended.
 
-## Installation
+## Binary Distributions
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 

@@ -40,7 +40,7 @@ You can find an example Nginx configuration file [here](https://github.com/mapli
 
 ## Rewriting URLs
 
-If you are running Martin behind Nginx proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](#table-source-tilejson) [endpoints](#function-source-tilejson).
+If you are running Martin behind Nginx proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](./table-sources.md#table-source-tilejson) [endpoints](./function-Sources.md#function-source-tilejson).
 
 ```nginx
 location ~ /tiles/(?<fwd_path>.*) {
