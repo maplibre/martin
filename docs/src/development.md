@@ -1,18 +1,18 @@
 # Development
 
-* Clone Martin
+Clone Martin, setting remote name to `upstream`. This way `main` branch will be updated automatically with the latest changes from the upstream repo.
 ```shell, ignore
 git clone git@github.com:maplibre/martin.git -o upstream
 cd martin
 ```
 
-* Fork Martin repo into your own GitHub account, and add your fork as a remote
+Fork Martin repo into your own GitHub account, and add your fork as a remote
 
 ```shell, ignore
 git remote add origin <your_fork_url>
 ```
 
-* Install [docker](https://docs.docker.com/get-docker/), [docker-compose](https://docs.docker.com/compose/), and openssl:
+Install [docker](https://docs.docker.com/get-docker/), [docker-compose](https://docs.docker.com/compose/), and openssl:
 
 ```shell, ignore
 # For Ubuntu-based distros
@@ -20,14 +20,13 @@ sudo apt install -y  docker.io  docker-compose  libssl-dev
 ```
 
 
-* Install [Just](https://github.com/casey/just#readme) (improved makefile processor). Note that some Linux and Homebrew distros have outdated versions of Just, so you should install it from source:
+Install [Just](https://github.com/casey/just#readme) (improved makefile processor). Note that some Linux and Homebrew distros have outdated versions of Just, so you should install it from source:
 
 ```shell, ignore
 cargo install just
 ```
 
-* When developing MBTiles SQL code, you many need to use `just prepare-sqlite` whenever SQL queries are modified.
-* Run `just` to see all available commands:
+When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified. Run `just` to see all available commands:
 
 ```shell, ignore
 ❯ just
