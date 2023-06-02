@@ -1,3 +1,0 @@
-[alias]
-installsqlx = "install sqlx-cli --no-default-features --features sqlite,native-tls"
-sqlxprep = "sqlx prepare --merged --database-url sqlite://mbtiles/data/geography-class-jpg.mbtiles"
