@@ -10,7 +10,7 @@ You can add vector tiles using [MVTLayer](https://deck.gl/docs/api-reference/geo
 
 ```js
 const pointsLayer = new MVTLayer({
-  data: 'http://localhost:3000/points', // 'http://localhost:3000/table_source/{z}/{x}/{y}'
+  data: 'http://localhost:3000/points',
   pointRadiusUnits: 'pixels',
   getRadius: 5,
   getFillColor: [230, 0, 0]

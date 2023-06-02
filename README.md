@@ -14,11 +14,11 @@ See [Martin book](https://maplibre.org/martin/) for complete documentation.
 
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
-## Prerequisites
+## Installation
+_See [installation instructions](https://maplibre.org/martin/installation.html) in the Martin book._
 
-If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+, v3.1+ recommended.
+**Prerequisites:** If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+, v3.1+ recommended.
 
-## Binary Distributions
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
@@ -39,18 +39,8 @@ brew tap maplibre/martin https://github.com/maplibre/martin.git
 brew install maplibre/martin/martin
 ```
 
-Martin is also available as a [Docker image](https://ghcr.io/maplibre/martin). You could either share a configuration file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by passing `DATABASE_URL` or specifying the .mbtiles/.pmtiles files.
-
-```shell
-export PGPASSWORD=postgres  # secret!
-docker run -p 3000:3000 \
-           -e PGPASSWORD \
-           -e DATABASE_URL=postgresql://user@host:port/db \
-           -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin --config /config/config.yaml
-```
-
-## Usage
+## Running Martin Service
+_See [running instructions](https://maplibre.org/martin/run.html) in the Martin book._
 
 Martin supports any number of PostgreSQL/PostGIS database connections with [geospatial-enabled](https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns) tables and tile-producing SQL functions, as well as [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files as tile sources.
 
@@ -76,19 +66,34 @@ martin postgres://... postgres://...  --save-config config.yaml
 martin --config config.yaml
 ```
 
+#### Docker Example
+_See [Docker instructions](https://maplibre.org/martin/run-with-docker.html) in the Martin book._
+
+Martin is also available as a [Docker image](https://ghcr.io/maplibre/martin). You could either share a configuration file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by passing `DATABASE_URL` or specifying the .mbtiles/.pmtiles files.
+
+```shell
+export PGPASSWORD=postgres  # secret!
+docker run -p 3000:3000 \
+           -e PGPASSWORD \
+           -e DATABASE_URL=postgresql://user@host:port/db \
+           -v /path/to/config/dir:/config \
+           ghcr.io/maplibre/martin --config /config/config.yaml
+```
+
 ## API
+_See [API documentation](https://maplibre.org/martin/using.html) in the Martin book._
 
 Martin data is available via the HTTP `GET` endpoints:
 
-| URL                                    | Description                                                                          |
-|----------------------------------------|--------------------------------------------------------------------------------------|
-| `/`                                    | Status text, that will eventually show web UI                                        |
-| `/catalog`                             | [List of all sources](https://maplibre.org/martin/using.html#catalog)                |
-| `/{sourceID}`                          | [Source TileJSON](https://maplibre.org/martin/using.html#source-tilejson)            |
-| `/{sourceID}/{z}/{x}/{y}`              | Map Tiles                                                                            |
-| `/{source1},...,{sourceN}`             | [Composite Source TileJSON](https://maplibre.org/martin/using.html#source-tilejson)  |
-| `/{source1},...,{sourceN}/{z}/{x}/{y}` | [Composite Source Tiles](https://maplibre.org/martin/using.htmlsources-composite.md) |
-| `/health`                              | Martin server health check: returns 200 `OK`                                         |
+| URL                                    | Description                                   |
+|----------------------------------------|-----------------------------------------------|
+| `/`                                    | Status text, that will eventually show web UI |
+| `/catalog`                             | List of all sources                           |
+| `/{sourceID}`                          | Source TileJSON                               |
+| `/{sourceID}/{z}/{x}/{y}`              | Map Tiles                                     |
+| `/{source1},...,{sourceN}`             | Composite Source TileJSON                     |
+| `/{source1},...,{sourceN}/{z}/{x}/{y}` | Composite Source Tiles                        |
+| `/health`                              | Martin server health check: returns 200 `OK`  |
 
 ## Documentation
 See [Martin book](https://maplibre.org/martin/) for complete documentation.
