@@ -329,28 +329,27 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn when_metadata_get_valid_key_then_value() {
-        let mbt = Mbtiles::new(Path::new("../tests/fixtures/files/world_cities.mbtiles")).await;
-        let mbt = mbt.unwrap();
+    async fn metadata_get_key() {
+        let mbt = Mbtiles::new(Path::new("../tests/fixtures/files/world_cities.mbtiles"))
+            .await
+            .unwrap();
 
-        let bounds = mbt.get_metadata_value("bounds").await.unwrap().unwrap();
-        let name = mbt.get_metadata_value("name").await.unwrap().unwrap();
-        let maxzoom = mbt.get_metadata_value("maxzoom").await.unwrap().unwrap();
-
-        assert_eq!(bounds, "-123.123590,-37.818085,174.763027,59.352706");
-        assert_eq!(name, "Major cities from Natural Earth data");
-        assert_eq!(maxzoom, "6");
-    }
-
-    #[actix_rt::test]
-    async fn when_metadata_get_missing_key_then_none() {
-        let mbt = Mbtiles::new(Path::new("../tests/fixtures/files/world_cities.mbtiles")).await;
-        let mbt = mbt.unwrap();
-
-        let nonexistent_key_value = mbt.get_metadata_value("nonexistent_key").await.unwrap();
-        let empty_key_value = mbt.get_metadata_value("").await.unwrap();
-
-        assert_eq!(nonexistent_key_value, None);
-        assert_eq!(empty_key_value, None);
+        assert_eq!(
+            mbt.get_metadata_value("bounds").await.unwrap().unwrap(),
+            "-123.123590,-37.818085,174.763027,59.352706"
+        );
+        assert_eq!(
+            mbt.get_metadata_value("name").await.unwrap().unwrap(),
+            "Major cities from Natural Earth data"
+        );
+        assert_eq!(
+            mbt.get_metadata_value("maxzoom").await.unwrap().unwrap(),
+            "6"
+        );
+        assert_eq!(
+            mbt.get_metadata_value("nonexistent_key").await.unwrap(),
+            None
+        );
+        assert_eq!(mbt.get_metadata_value("").await.unwrap(), None);
     }
 }
