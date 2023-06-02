@@ -97,11 +97,11 @@ bless: start clean-test
 
 # Build and open mdbook documentation
 mdbook:
-    if ! command -v mdbook &> /dev/null; then \
+    @if ! command -v mdbook &> /dev/null; then \
         echo "mdbook could not be found. Installing..." ;\
         cargo install mdbook ;\
     fi
-    mdbook build docs --open
+    mdbook serve docs --open
 
 # Build and open code documentation
 docs:
@@ -111,7 +111,7 @@ docs:
 coverage FORMAT='html':
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! command -v grcov &> /dev/null; then \
+    @if ! command -v grcov &> /dev/null; then \
         echo "grcov could not be found. Installing..." ;\
         cargo install grcov ;\
     fi
@@ -190,7 +190,7 @@ git-pre-push: stop start
 
 # Update sqlite database schema. Install SQLX cli if not already installed.
 prepare-sqlite:
-    if ! command -v cargo-sqlx &> /dev/null; then \
+    @if ! command -v cargo-sqlx &> /dev/null; then \
         echo "SQLX could not be found. Installing..." ;\
         cargo install sqlx-cli --no-default-features --features sqlite,native-tls ;\
     fi
