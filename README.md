@@ -80,15 +80,15 @@ martin --config config.yaml
 
 Martin data is available via the HTTP `GET` endpoints:
 
-| URL                                    | Description                                                                                               |
-|----------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| `/`                                    | Status text, that will eventually show web UI                                                             |
-| `/catalog`                             | [List of all sources](https://maplibre.org/martin/source-list.html)                                       |
-| `/{sourceID}`                          | [Source TileJSON](https://maplibre.org/martin/table-sources.html#table-source-tilejson)                   |
-| `/{sourceID}/{z}/{x}/{y}`              | [Source Tiles](https://maplibre.org/martin/table-sources.html#table-source-tiles)                         |
-| `/{sourceID1},...,{nameN}`             | [Composite Source TileJSON](https://maplibre.org/martin/composite-sources.html#composite-source-tilejson) |
-| `/{sourceID1},...,{nameN}/{z}/{x}/{y}` | [Composite Source Tiles](https://maplibre.org/martin/composite-sources.html#composite-source-tiles)       |
-| `/health`                              | Martin server health check: returns 200 `OK`                                                              |
+| URL                                    | Description                                                                          |
+|----------------------------------------|--------------------------------------------------------------------------------------|
+| `/`                                    | Status text, that will eventually show web UI                                        |
+| `/catalog`                             | [List of all sources](https://maplibre.org/martin/using.html#catalog)                |
+| `/{sourceID}`                          | [Source TileJSON](https://maplibre.org/martin/using.html#source-tilejson)            |
+| `/{sourceID}/{z}/{x}/{y}`              | Map Tiles                                                                            |
+| `/{source1},...,{sourceN}`             | [Composite Source TileJSON](https://maplibre.org/martin/using.html#source-tilejson)  |
+| `/{source1},...,{sourceN}/{z}/{x}/{y}` | [Composite Source Tiles](https://maplibre.org/martin/using.htmlsources-composite.md) |
+| `/health`                              | Martin server health check: returns 200 `OK`                                         |
 
 ## Documentation
 See [Martin book](https://maplibre.org/martin/) for complete documentation.
