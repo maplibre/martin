@@ -12,13 +12,18 @@ Function Source is a database function which can be used to query [vector tiles]
 For example, if you have a table `table_source` in WGS84 (`4326` SRID), then you can use this function as a Function Source:
 
 ```sql, ignore
-CREATE OR REPLACE FUNCTION function_zxy_query(z integer, x integer, y integer) RETURNS bytea AS $$
+CREATE OR REPLACE
+    FUNCTION function_zxy_query(z integer, x integer, y integer)
+    RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN
   SELECT INTO mvt ST_AsMVT(tile, 'function_zxy_query', 4096, 'geom') FROM (
     SELECT
-      ST_AsMVTGeom(ST_Transform(ST_CurveToLine(geom), 3857), ST_TileEnvelope(z, x, y), 4096, 64, true) AS geom
+      ST_AsMVTGeom(
+          ST_Transform(ST_CurveToLine(geom), 3857),
+          ST_TileEnvelope(z, x, y),
+          4096, 64, true) AS geom
     FROM table_source
     WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)
   ) as tile WHERE geom IS NOT NULL;
@@ -29,13 +34,18 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 ```
 
 ```sql, ignore
-CREATE OR REPLACE FUNCTION function_zxy_query(z integer, x integer, y integer, query_params json) RETURNS bytea AS $$
+CREATE OR REPLACE
+    FUNCTION function_zxy_query(z integer, x integer, y integer, query_params json)
+    RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN
   SELECT INTO mvt ST_AsMVT(tile, 'function_zxy_query', 4096, 'geom') FROM (
     SELECT
-      ST_AsMVTGeom(ST_Transform(ST_CurveToLine(geom), 3857), ST_TileEnvelope(z, x, y), 4096, 64, true) AS geom
+      ST_AsMVTGeom(
+          ST_Transform(ST_CurveToLine(geom), 3857),
+          ST_TileEnvelope(z, x, y),
+          4096, 64, true) AS geom
     FROM table_source
     WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)
   ) as tile WHERE geom IS NOT NULL;
@@ -73,14 +83,4 @@ You can access this params using [json operators](https://www.postgresql.org/doc
 
 ```sql, ignore
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
-```
-
-## Function Source Tiles
-
-Function Source tiles endpoint is available at `/{function_name}/{z}/{x}/{y}`
-
-For example, `points` function will be available at `/points/{z}/{x}/{y}`
-
-```shell
-curl localhost:3000/points/0/0/0
 ```

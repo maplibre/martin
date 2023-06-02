@@ -1,4 +1,3 @@
-# Recipes
 ## Using with DigitalOcean PostgreSQL
 
 You can use Martin with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with PostGIS extension
@@ -6,7 +5,8 @@ You can use Martin with [Managed PostgreSQL from DigitalOcean](https://www.digit
 First, you need to download the CA certificate and get your cluster connection string from the [dashboard](https://cloud.digitalocean.com/databases). After that, you can use the connection string and the CA certificate to connect to the database
 
 ```shell
-martin --ca-root-file ./ca-certificate.crt postgresql://user:password@host:port/db?sslmode=require
+martin --ca-root-file ./ca-certificate.crt \
+       postgresql://user:password@host:port/db?sslmode=require
 ```
 
 ## Using with Heroku PostgreSQL
