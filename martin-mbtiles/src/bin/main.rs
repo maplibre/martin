@@ -29,6 +29,9 @@ enum Commands {
         file: PathBuf,
         /// Value to read
         key: String,
+        /// Output the raw value
+        #[arg(short, long)]
+        raw: bool,
     },
     /// Sets a single value in the metadata table, or deletes it if no value.
     #[command(name = "meta-set")]
@@ -50,14 +53,20 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.command {
-        Commands::MetaGetValue { file, key } => {
+        Commands::MetaGetValue { file, key, raw } => {
             let mbt = Mbtiles::new(&file).await?;
 
             let value = mbt.get_metadata_value(&key).await?;
 
-            match value {
-                Some(s) => println!("The value for metadata key \"{key}\" is:\n \"{s}\""),
-                None => println!("No value for metadata key \"{key}\""),
+            if raw {
+                if let Some(s) = value {
+                    println!("{s}")
+                }
+            } else {
+                match value {
+                    Some(s) => println!(r#"The value for metadata key "{key}" is:\n "{s}""#),
+                    None => println!(r#"No value for metadata key "{key}""#),
+                }
             }
         }
         _ => {
