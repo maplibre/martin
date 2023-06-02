@@ -63,7 +63,7 @@ async fn main() {
 
     start(Args::parse())
         .await
-        .map_or_else(|e| on_error(e), |server| async { server.await })
+        .unwrap_or_else(|e| on_error(e))
         .await
         .unwrap_or_else(|e| on_error(e));
 }
