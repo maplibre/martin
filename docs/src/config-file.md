@@ -40,7 +40,7 @@ postgres:
 
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
-  
+
   # Maximum connections pool size [default: 20]
   pool_size: 20
 
@@ -69,7 +69,7 @@ postgres:
       from_schemas: my_other_schema
     functions:
       id_format: '{schema}.{function}'
-  
+      
   # Associative arrays of table sources
   tables:
     table_source_id:
