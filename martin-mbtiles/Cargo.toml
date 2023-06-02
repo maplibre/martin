@@ -21,11 +21,11 @@ serde_json.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
-tokio = { version = "1.25.0", features = ["full"] }
-anyhow = "1.0"
 
 # Bin dependencies
+anyhow.workspace = true
 clap.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
