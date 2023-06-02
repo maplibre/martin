@@ -1,6 +1,6 @@
-# Using with Nginx
+# Using with NGINX
 
-You can run Martin behind Nginx proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database.
+You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database. Here is an example `docker-compose.yml` file that runs Martin with NGINX and PostgreSQL.
 
 ```yml
 version: '3'
@@ -36,11 +36,11 @@ services:
       - ./pg_data:/var/lib/postgresql/data
 ```
 
-You can find an example Nginx configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
+You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
 
 ## Rewriting URLs
 
-If you are running Martin behind Nginx proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](./table-sources.md#table-source-tilejson) [endpoints](./function-Sources.md#function-source-tilejson).
+If you are running Martin behind NGINX proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](using.md#source-tilejson).
 
 ```nginx
 location ~ /tiles/(?<fwd_path>.*) {
@@ -55,7 +55,7 @@ location ~ /tiles/(?<fwd_path>.*) {
 
 ## Caching tiles
 
-You can also use Nginx to cache tiles. In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
+You can also use NGINX to cache tiles. In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
 
 ```nginx
 http {
@@ -91,4 +91,4 @@ http {
 }
 ```
 
-You can find an example Nginx configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
+You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).

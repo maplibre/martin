@@ -8,6 +8,12 @@ martin --config config.yaml
 
 You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
 
+```shell
+martin  ... ... ...  --save-config config.yaml
+```
+
+## Config Example
+
 ```yaml
 # Connection keep alive timeout [default: 75]
 keep_alive: 75
@@ -45,7 +51,8 @@ postgres:
   # If enabled, it will spend some time on startup to compute geometry bounds.
   disable_bounds: false
 
-  # Enable automatic discovery of tables and functions. You may set this to `false` to disable.
+  # Enable automatic discovery of tables and functions.
+  # You may set this to `false` to disable.
   auto_publish:
     # Optionally limit to just these schemas
     from_schemas:

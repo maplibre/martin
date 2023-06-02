@@ -1,4 +1,4 @@
-# Function Sources
+# PostgreSQL Function Sources
 
 Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is an etag key (i.e. md5 hash).
 
@@ -73,16 +73,6 @@ You can access this params using [json operators](https://www.postgresql.org/doc
 
 ```sql, ignore
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
-```
-
-## Function Source TileJSON
-
-Function Source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available at `/{function_name}`
-
-For example, `points` function will be available at `/points`
-
-```shell
-curl localhost:3000/points | jq
 ```
 
 ## Function Source Tiles
