@@ -9,6 +9,7 @@ Function Source is a database function which can be used to query [vector tiles]
 | y                          | integer | Tile y parameter        |
 | query (optional, any name) | json    | Query string parameters |
 
+## Simple Function
 For example, if you have a table `table_source` in WGS84 (`4326` SRID), then you can use this function as a Function Source:
 
 ```sql, ignore
@@ -33,6 +34,11 @@ END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 ```
 
+## Function with Query Parameters
+Users may add a `query` parameter to pass additional parameters to the function.
+
+_**TODO**: Modify this example to actually use the query parameters._
+
 ```sql, ignore
 CREATE OR REPLACE
     FUNCTION function_zxy_query(z integer, x integer, y integer, query_params json)
@@ -55,7 +61,13 @@ END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 ```
 
-The `query_params` argument is a JSON representation of the tile request query params. For example, if user requested a tile with [urlencoded](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent) params:
+The `query_params` argument is a JSON representation of the tile request query params.  Query params could be passed as simple query values, e.g.
+
+```shell
+curl localhost:3000/function_zxy_query/0/0/0?token=martin
+```
+
+You can also use [urlencoded](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent) params to encode complex values:
 
 ```shell
 curl \
