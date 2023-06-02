@@ -20,4 +20,5 @@
   - [Using with deck.gl](using-with-deck-gl.md)
   - [Using with Mapbox](using-with-mapbox.md)
   - [Recipes](recipes.md)
+- [Tools](tools.md)
 - [Development](development.md)
