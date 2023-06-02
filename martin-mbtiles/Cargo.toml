@@ -21,6 +21,8 @@ serde_json.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
+tokio = { version = "1.25.0", features = ["full"] }
+anyhow = "1.0"
 
 # Bin dependencies
 clap.workspace = true

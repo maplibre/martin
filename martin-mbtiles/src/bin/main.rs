@@ -1,4 +1,6 @@
+use anyhow::Result;
 use clap::{Parser, Subcommand};
+use martin_mbtiles::Mbtiles;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -25,6 +27,8 @@ enum Commands {
     MetaGetValue {
         /// MBTiles file to read a value from
         file: PathBuf,
+        /// Value to read
+        key: String,
     },
     /// Sets a single value in the metadata table, or deletes it if no value.
     #[command(name = "meta-set")]
@@ -41,10 +45,25 @@ enum Commands {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args = Args::parse();
 
-    println!("Parsed args:\n");
-    println!("{args:#?}");
-    println!();
+    match args.command {
+        Commands::MetaGetValue { file, key } => {
+            let mbt = Mbtiles::new(&file).await?;
+
+            let value = mbt.get_metadata_value(&key).await?;
+
+            match value {
+                Some(s) => println!("The value for metadata key \"{key}\" is:\n \"{s}\""),
+                None => println!("No value for metadata key \"{key}\""),
+            }
+        }
+        _ => {
+            unimplemented!("Oops! This command is not yet available, stay tuned for future updates")
+        }
+    }
+
+    Ok(())
 }
