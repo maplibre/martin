@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -38,17 +38,12 @@ enum Commands {
         src_file: PathBuf,
         /// MBTiles file to write to
         dst_file: PathBuf,
-
-        /// Zoom level to start at
-        #[arg(short, long, default_value = "0")]
-        min_zoom: u8,
     },
 }
 
 fn main() {
     let args = Args::parse();
 
-    let f: Path = args.file.as_path();
     println!("Parsed args:\n");
     println!("{args:#?}");
     println!();
