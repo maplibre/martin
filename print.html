@@ -815,10 +815,13 @@ martin
 <pre><code class="language-shell">export DATABASE_URL=&quot;$(heroku config:get DATABASE_URL -a APP_NAME)?sslmode=verify-ca&quot;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="tools"><a class="header" href="#tools">Tools</a></h1>
+<p>Martin has a few additional tools that can be used to interact with the data.</p>
 <h2 id="mbtiles-tools"><a class="header" href="#mbtiles-tools">MBTiles tools</a></h2>
-<p>A small utility that allows users to interact with mbtiles files from the CLI as follows: <code>mbtiles &lt;command&gt; ...</code></p>
-<h4 id="meta-get"><a class="header" href="#meta-get"><code>meta-get</code></a></h4>
-<p>Retrieve a metadata value by its name: <code>mbtiles meta-get &lt;file.mbtiles&gt; &lt;key&gt;</code>. See <code>mbtiles meta-get --help</code> to see available options.</p>
+<p>A small utility that allows users to interact with the <code>*.mbtiles</code> files from the command line. Use <code>mbtiles --help</code> to see a list of available commands, and <code>mbtiles &lt;command&gt; --help</code> to see help for a specific command.</p>
+<h3 id="meta-get"><a class="header" href="#meta-get">meta-get</a></h3>
+<p>Retrieve raw metadata value by its name. The value is printed to stdout without any modifications.</p>
+<pre><code class="language-shell">mbtiles meta-get &lt;file.mbtiles&gt; &lt;key&gt;
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
 <p>Clone Martin, setting remote name to <code>upstream</code>. This way <code>main</code> branch will be updated automatically with the latest changes from the upstream repo.</p>
 <pre><code class="language-shell  ignore">git clone git@github.com:maplibre/martin.git -o upstream
