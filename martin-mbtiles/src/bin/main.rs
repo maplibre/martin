@@ -1,13 +1,16 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use martin_mbtiles::Mbtiles;
-use std::path::PathBuf;
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{Connection, SqliteConnection};
 
 #[derive(Parser, Debug)]
 #[command(
     version,
     name = "mbtiles",
-    about = "A utility to work with .mbtiles files content"
+    about = "A utility to work with .mbtiles file content"
 )]
 pub struct Args {
     #[command(subcommand)]
@@ -16,12 +19,12 @@ pub struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Prints all values in the metadata table.
-    #[command(name = "meta-all")]
-    MetaAll {
-        /// MBTiles file to read from
-        file: PathBuf,
-    },
+    // /// Prints all values in the metadata table.
+    // #[command(name = "meta-all")]
+    // MetaAll {
+    //     /// MBTiles file to read from
+    //     file: PathBuf,
+    // },
     /// Gets a single value from metadata table.
     #[command(name = "meta-get")]
     MetaGetValue {
@@ -29,23 +32,20 @@ enum Commands {
         file: PathBuf,
         /// Value to read
         key: String,
-        /// Output the raw value
-        #[arg(short, long)]
-        raw: bool,
     },
-    /// Sets a single value in the metadata table, or deletes it if no value.
-    #[command(name = "meta-set")]
-    MetaSetValue {
-        /// MBTiles file to modify
-        file: PathBuf,
-    },
-    /// Copy tiles from one mbtiles file to another.
-    Copy {
-        /// MBTiles file to read from
-        src_file: PathBuf,
-        /// MBTiles file to write to
-        dst_file: PathBuf,
-    },
+    // /// Sets a single value in the metadata table, or deletes it if no value.
+    // #[command(name = "meta-set")]
+    // MetaSetValue {
+    //     /// MBTiles file to modify
+    //     file: PathBuf,
+    // },
+    // /// Copy tiles from one mbtiles file to another.
+    // Copy {
+    //     /// MBTiles file to read from
+    //     src_file: PathBuf,
+    //     /// MBTiles file to write to
+    //     dst_file: PathBuf,
+    // },
 }
 
 #[tokio::main]
@@ -53,26 +53,20 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.command {
-        Commands::MetaGetValue { file, key, raw } => {
-            let mbt = Mbtiles::new(&file).await?;
-
-            let value = mbt.get_metadata_value(&key).await?;
-
-            if raw {
-                if let Some(s) = value {
-                    println!("{s}")
-                }
-            } else {
-                match value {
-                    Some(s) => println!(r#"The value for metadata key "{key}" is:\n "{s}""#),
-                    None => println!(r#"No value for metadata key "{key}""#),
-                }
-            }
-        }
-        _ => {
-            unimplemented!("Oops! This command is not yet available, stay tuned for future updates")
+        Commands::MetaGetValue { file, key } => {
+            meta_get_value(file.as_path(), &key).await?;
         }
     }
 
+    Ok(())
+}
+
+async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
+    let mbt = Mbtiles::new(file)?;
+    let opt = SqliteConnectOptions::new().filename(file).read_only(true);
+    let mut conn = SqliteConnection::connect_with(&opt).await?;
+    if let Some(s) = mbt.get_metadata_value(&mut conn, key).await? {
+        println!("{s}")
+    }
     Ok(())
 }

@@ -41,8 +41,8 @@ flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
 log.workspace = true
-martin-mbtiles = { path = "./martin-mbtiles", version = "0.1.0" }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
+martin-mbtiles.workspace = true
+martin-tile-utils.workspace = true
 num_cpus.workspace = true
 openssl = { workspace = true, optional = true }
 pmtiles.workspace = true
@@ -104,6 +104,8 @@ futures = "0.3"
 indoc = "2"
 itertools = "0.10"
 log = "0.4"
+martin-mbtiles = { path = "./martin-mbtiles", version = "0.2.0" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
 openssl = "0.10"
 pmtiles = { version = "0.2.2", features = ["mmap-async-tokio", "tilejson"] }

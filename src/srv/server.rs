@@ -512,12 +512,14 @@ fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use async_trait::async_trait;
+    use tilejson::{tilejson, Bounds, VectorLayer};
+
     use super::*;
     use crate::source::{Source, Tile};
     use crate::utils;
-    use async_trait::async_trait;
-    use std::collections::HashMap;
-    use tilejson::{tilejson, Bounds, VectorLayer};
 
     #[derive(Debug, Clone)]
     struct TestSource {
