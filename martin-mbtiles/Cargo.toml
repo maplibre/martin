@@ -13,6 +13,11 @@ rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[features]
+# TODO: Disable "tools" feature in default builds
+default = ["tools"]
+tools = ["anyhow", "clap", "tokio"]
+
 [dependencies]
 futures.workspace = true
 log.workspace = true
@@ -23,10 +28,9 @@ thiserror.workspace = true
 tilejson.workspace = true
 
 # Bin dependencies
-# TODO: Make these only enabled for the bin target, i.e. by using a feature, and add a just task to run the bin
-anyhow.workspace = true
-clap.workspace = true
-tokio.workspace = true
+anyhow = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
@@ -38,3 +42,4 @@ path = "src/lib.rs"
 [[bin]]
 name = "mbtiles"
 path = "src/bin/main.rs"
+required-features = ["tools"]

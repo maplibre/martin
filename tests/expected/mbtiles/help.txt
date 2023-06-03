@@ -1,0 +1,11 @@
+A utility to work with .mbtiles file content
+
+Usage: mbtiles <COMMAND>
+
+Commands:
+  meta-get  Gets a single value from metadata table
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version

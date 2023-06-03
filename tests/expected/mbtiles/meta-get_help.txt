@@ -1,0 +1,10 @@
+Gets a single value from metadata table
+
+Usage: mbtiles meta-get <FILE> <KEY>
+
+Arguments:
+  <FILE>  MBTiles file to read a value from
+  <KEY>   Value to read
+
+Options:
+  -h, --help  Print help

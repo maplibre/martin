@@ -94,6 +94,8 @@ jobs:
         if: matrix.platform == 'linux/amd64'
         run: |
           TAG=$(echo '${{ steps.docker_meta.outputs.json }}' | jq -r '.tags[0]')
+          export MBTILES_BUILD=-
+          export MBTILES_BIN=-
           export MARTIN_BUILD=-
           export MARTIN_BIN="docker run --rm --net host -e DATABASE_URL -v $PWD/tests:/tests $TAG"
           echo "MARTIN_BIN=$MARTIN_BIN"

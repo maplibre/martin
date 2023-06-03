@@ -27,11 +27,11 @@ ssl = ["openssl", "postgres-openssl"]
 vendored-openssl = ["ssl", "openssl/vendored"]
 
 [dependencies]
-actix.workspace = true
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-rt.workspace = true
 actix-web.workspace = true
+actix.workspace = true
 async-trait.workspace = true
 brotli.workspace = true
 clap.workspace = true
@@ -44,12 +44,10 @@ log.workspace = true
 martin-mbtiles.workspace = true
 martin-tile-utils.workspace = true
 num_cpus.workspace = true
-openssl = { workspace = true, optional = true }
 pmtiles.workspace = true
 postgis.workspace = true
-postgres.workspace = true
-postgres-openssl = { workspace = true, optional = true }
 postgres-protocol.workspace = true
+postgres.workspace = true
 regex.workspace = true
 semver.workspace = true
 serde.workspace = true
@@ -58,6 +56,10 @@ serde_yaml.workspace = true
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
+
+# Optional dependencies for openssl support
+openssl = { workspace = true, optional = true }
+postgres-openssl = { workspace = true, optional = true }
 
 [dev-dependencies]
 cargo-husky.workspace = true

@@ -61,15 +61,19 @@ jobs:
           if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
             rustup target add aarch64-apple-darwin
             # compile without debug symbols
-            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=vendored-openssl
+            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
+            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=tools --package martin-mbtiles
           else
-            cargo build --release --target ${{ matrix.target }} --features=ssl
+            cargo build --release --target ${{ matrix.target }} --features=ssl --package martin
+            cargo build --release --target ${{ matrix.target }} --features=tools --package martin-mbtiles
           fi
           mkdir target_releases
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             mv target/${{ matrix.target }}/release/martin.exe target_releases
+            mv target/${{ matrix.target }}/release/mbtiles.exe target_releases
           else
             mv target/${{ matrix.target }}/release/martin target_releases
+            mv target/${{ matrix.target }}/release/mbtiles target_releases
           fi
       - name: Save build artifact build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
@@ -86,19 +90,19 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            bin: martin
+            ext: ''
             target: x86_64-unknown-linux-gnu
             name: martin-Linux-x86_64.tar.gz
           - os: windows-latest
-            bin: martin.exe
+            ext: '.exe'
             target: x86_64-pc-windows-msvc
             name: martin-Windows-x86_64.zip
           - os: macOS-latest
-            bin: martin
+            ext: ''
             target: x86_64-apple-darwin
             name: martin-Darwin-x86_64.tar.gz
           - os: ubuntu-latest
-            bin: martin
+            ext: ''
             target: aarch64-apple-darwin
             name: martin-Darwin-aarch64.tar.gz
     runs-on: ${{ matrix.os }}
@@ -147,13 +151,17 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ runner.os }}" != "Windows" ]]; then
-            chmod +x target/${{ matrix.bin }}
+            chmod +x target/martin${{ matrix.ext }}
+            chmod +x target/mbtiles${{ matrix.ext }}
           fi
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
           MARTIN_BUILD: "-"
-          MARTIN_BIN: target/${{ matrix.bin }}
+          MARTIN_BIN: target/martin${{ matrix.ext }}
+          MBTILES_BUILD: "-"
+          MBTILES_BIN: target/mbtiles${{ matrix.ext }}
+
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: diff --brief --recursive --new-file tests/output tests/expected
@@ -170,12 +178,13 @@ jobs:
           cd target/
           # Symbol stripping does not work cross-platform
           if [[ "${{ matrix.target }}" != "aarch64-apple-darwin" ]]; then
-            strip ${{ matrix.bin }}
+            strip martin${{ matrix.ext }}
+            strip mbtiles${{ matrix.ext }}
           fi
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            7z a ../${{ matrix.name }} ${{ matrix.bin }}
+            7z a ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           else
-            tar czvf ../${{ matrix.name }} ${{ matrix.bin }}
+            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           fi
           cd -
       - name: Generate SHA-256 (MacOS)
@@ -276,9 +285,11 @@ jobs:
         path: target/
     - name: Integration Tests
       run: |
-        chmod +x target/martin
+        chmod +x target/martin target/mbtiles
         tests/test.sh
       env:
         DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
         MARTIN_BUILD: "-"
         MARTIN_BIN: target/martin
+        MBTILES_BUILD: "-"
+        MBTILES_BIN: target/mbtiles
