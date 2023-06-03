@@ -1,7 +1,13 @@
 # Tools
 
-## MBTiles tools
-A small utility that allows users to interact with mbtiles files from the CLI as follows: `mbtiles <command> ...`
+Martin has a few additional tools that can be used to interact with the data.
 
-#### `meta-get`
-Retrieve a metadata value by its name: `mbtiles meta-get <file.mbtiles> <key>`. See `mbtiles meta-get --help` to see available options.
+## MBTiles tools
+A small utility that allows users to interact with the `*.mbtiles` files from the command line. Use `mbtiles --help` to see a list of available commands, and `mbtiles <command> --help` to see help for a specific command.
+
+### meta-get
+Retrieve raw metadata value by its name. The value is printed to stdout without any modifications.
+
+```shell
+mbtiles meta-get <file.mbtiles> <key>
+```

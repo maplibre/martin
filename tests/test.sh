@@ -10,6 +10,9 @@ MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
 MARTIN_BIN="${MARTIN_BIN:-cargo run --all-features --} ${MARTIN_ARGS}"
 
+MBTILES_BUILD="${MBTILES_BUILD:-cargo build -p martin-mbtiles}"
+MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
+
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
@@ -130,10 +133,13 @@ validate_log()
 
 curl --version
 
-# Make sure martin is built - this way it won't timeout while waiting for it to start
-# If MARTIN_BUILD is set to "-", don't build
+# Make sure martin and mbtiles are built - this way it won't timeout while waiting for it to start
+# If set to "-", don't build
 if [[ "$MARTIN_BUILD" != "-" ]]; then
   $MARTIN_BUILD
+fi
+if [[ "$MBTILES_BUILD" != "-" ]]; then
+  $MBTILES_BUILD
 fi
 
 
@@ -250,5 +256,24 @@ validate_log test_log_2.txt
 
 remove_line "$(dirname "$0")/output/given_config.yaml"       " connection_string: "
 remove_line "$(dirname "$0")/output/generated_config.yaml"   " connection_string: "
+
+
+echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Test mbtiles utility"
+if [[ "$MBTILES_BIN" != "-" ]]; then
+  TEST_OUT_DIR="$(dirname "$0")/output/mbtiles"
+  mkdir -p "$TEST_OUT_DIR"
+
+  set -x
+
+  $MBTILES_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
+  $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
+  $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
+  $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
+
+  { set +x; } 2> /dev/null
+else
+  echo "Skipping mbtiles utility tests"
+fi
 
 >&2 echo "All integration tests have passed"

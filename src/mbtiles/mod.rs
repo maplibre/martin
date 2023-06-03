@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use martin_mbtiles::Mbtiles;
+use martin_mbtiles::MbtilesPool;
 use martin_tile_utils::TileInfo;
 use tilejson::TileJSON;
 
@@ -17,7 +17,7 @@ use crate::{Error, Source, Xyz};
 #[derive(Clone)]
 pub struct MbtSource {
     id: String,
-    mbtiles: Arc<Mbtiles>,
+    mbtiles: Arc<MbtilesPool>,
     tilejson: TileJSON,
     tile_info: TileInfo,
 }
@@ -39,7 +39,7 @@ impl MbtSource {
     }
 
     async fn new(id: String, path: PathBuf) -> Result<Self, FileError> {
-        let mbt = Mbtiles::new(&path)
+        let mbt = MbtilesPool::new(&path)
             .await
             .map_err(|e| {
                 io::Error::new(

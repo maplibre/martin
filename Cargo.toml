@@ -27,11 +27,11 @@ ssl = ["openssl", "postgres-openssl"]
 vendored-openssl = ["ssl", "openssl/vendored"]
 
 [dependencies]
-actix.workspace = true
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-rt.workspace = true
 actix-web.workspace = true
+actix.workspace = true
 async-trait.workspace = true
 brotli.workspace = true
 clap.workspace = true
@@ -41,15 +41,13 @@ flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
 log.workspace = true
-martin-mbtiles = { path = "./martin-mbtiles", version = "0.1.0" }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
+martin-mbtiles.workspace = true
+martin-tile-utils.workspace = true
 num_cpus.workspace = true
-openssl = { workspace = true, optional = true }
 pmtiles.workspace = true
 postgis.workspace = true
-postgres.workspace = true
-postgres-openssl = { workspace = true, optional = true }
 postgres-protocol.workspace = true
+postgres.workspace = true
 regex.workspace = true
 semver.workspace = true
 serde.workspace = true
@@ -58,6 +56,10 @@ serde_yaml.workspace = true
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
+
+# Optional dependencies for openssl support
+openssl = { workspace = true, optional = true }
+postgres-openssl = { workspace = true, optional = true }
 
 [dev-dependencies]
 cargo-husky.workspace = true
@@ -104,6 +106,8 @@ futures = "0.3"
 indoc = "2"
 itertools = "0.10"
 log = "0.4"
+martin-mbtiles = { path = "./martin-mbtiles", version = "0.2.0" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
 openssl = "0.10"
 pmtiles = { version = "0.2.2", features = ["mmap-async-tokio", "tilejson"] }

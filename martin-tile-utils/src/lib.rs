@@ -182,9 +182,10 @@ impl Display for TileInfo {
 mod tests {
     use std::fs::read;
 
-    use super::*;
     use Encoding::{Internal, Uncompressed};
     use Format::{Jpeg, Json, Png, Webp};
+
+    use super::*;
 
     fn detect(path: &str) -> Option<TileInfo> {
         TileInfo::detect(&read(path).unwrap())

@@ -176,9 +176,15 @@ print-conn-str:
     @echo {{ DATABASE_URL }}
 
 # Run cargo fmt and cargo clippy
-lint:
+lint: fmt clippy
+
+# Run cargo fmt
+fmt:
     cargo fmt --all -- --check
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+# Run cargo clippy
+clippy:
+    cargo clippy --workspace --all-targets --all-features --bins --tests --lib --benches -- -D warnings
 
 # These steps automatically run before git push via a git hook
 [private]
