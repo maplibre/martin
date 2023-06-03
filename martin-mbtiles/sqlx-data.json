@@ -1,5 +1,23 @@
 {
   "db": "SQLite",
+  "386a375cf65c3e5aef51deffc99d23bd852ba445c1058aed380fe83bed618c29": {
+    "describe": {
+      "columns": [
+        {
+          "name": "value",
+          "ordinal": 0,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "SELECT value from metadata where name = ?"
+  },
   "5b298df51dccbf0d8a22433a99febc59c27dbf204d09a9c1fb0b3bf9aaad284b": {
     "describe": {
       "columns": [

@@ -23,7 +23,9 @@ thiserror.workspace = true
 tilejson.workspace = true
 
 # Bin dependencies
+anyhow.workspace = true
 clap.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself

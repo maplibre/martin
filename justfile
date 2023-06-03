@@ -47,7 +47,7 @@ start-legacy: (docker-up "db-legacy")
 [private]
 docker-up name:
     docker-compose up -d {{ name }}
-    docker-compose run --rm db-is-ready
+    docker-compose run -T --rm db-is-ready
 
 alias _down := stop
 alias _stop-db := stop

@@ -343,6 +343,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.71"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
+
+[[package]]
 name = "async-compression"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1446,6 +1452,7 @@ name = "martin-mbtiles"
 version = "0.1.0"
 dependencies = [
  "actix-rt",
+ "anyhow",
  "clap",
  "futures",
  "log",
@@ -1454,6 +1461,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tilejson",
+ "tokio",
 ]
 
 [[package]]
@@ -2575,7 +2583,19 @@ dependencies = [
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.4.9",
+ "tokio-macros",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "630bdcf245f78637c13ec01ffae6187cca34625e8c63150d424b59e55af2675e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.18",
 ]
 
 [[package]]

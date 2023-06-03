@@ -90,6 +90,7 @@ actix-cors = "0.6"
 actix-http = "3"
 actix-rt = "2"
 actix-web = "4"
+anyhow = "1.0"
 async-trait = "0.1"
 brotli = "3"
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
@@ -119,3 +120,4 @@ sqlx = { version = "0.6", features = ["offline", "sqlite", "runtime-actix-native
 subst = { version = "0.2", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
+tokio = { version = "1.28.2", features = ["macros"] }

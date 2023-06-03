@@ -75,6 +75,19 @@ impl Mbtiles {
         }
     }
 
+    pub async fn get_metadata_value(&self, key: &str) -> MbtResult<Option<String>> {
+        let mut conn = self.pool.acquire().await?;
+
+        let query = query! {"SELECT value from metadata where name = ?", key};
+        let row = query.fetch_optional(&mut conn).await?;
+        if let Some(row) = row {
+            if let Some(value) = row.value {
+                return Ok(Some(value));
+            }
+        }
+        Ok(None)
+    }
+
     pub async fn get_metadata(&self) -> MbtResult<Metadata> {
         let mut conn = self.pool.acquire().await?;
 
@@ -313,5 +326,30 @@ mod tests {
             TileInfo::new(Format::Mvt, Encoding::Gzip)
         );
         assert_eq!(metadata.layer_type, Some("overlay".to_string()));
+    }
+
+    #[actix_rt::test]
+    async fn metadata_get_key() {
+        let mbt = Mbtiles::new(Path::new("../tests/fixtures/files/world_cities.mbtiles"))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            mbt.get_metadata_value("bounds").await.unwrap().unwrap(),
+            "-123.123590,-37.818085,174.763027,59.352706"
+        );
+        assert_eq!(
+            mbt.get_metadata_value("name").await.unwrap().unwrap(),
+            "Major cities from Natural Earth data"
+        );
+        assert_eq!(
+            mbt.get_metadata_value("maxzoom").await.unwrap().unwrap(),
+            "6"
+        );
+        assert_eq!(
+            mbt.get_metadata_value("nonexistent_key").await.unwrap(),
+            None
+        );
+        assert_eq!(mbt.get_metadata_value("").await.unwrap(), None);
     }
 }
