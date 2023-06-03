@@ -120,4 +120,4 @@ sqlx = { version = "0.6", features = ["offline", "sqlite", "runtime-actix-native
 subst = { version = "0.2", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
-tokio = { version = "1.25.0", features = ["full"] }
+tokio = { version = "1.28.2", features = ["macros"] }
