@@ -25,7 +25,7 @@ enum Commands {
     //     /// MBTiles file to read from
     //     file: PathBuf,
     // },
-    /// Gets a single value from metadata table.
+    /// Gets a single value from the MBTiles metadata table.
     #[command(name = "meta-get")]
     MetaGetValue {
         /// MBTiles file to read a value from

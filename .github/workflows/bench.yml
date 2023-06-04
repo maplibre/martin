@@ -9,7 +9,7 @@ on:
       - 'docs/**'
       - 'homebrew-formula/**'
   push:
-    branches: [main, v0.6]
+    branches: [main]
     paths-ignore:
       - '**.md'
       - 'demo/**'
