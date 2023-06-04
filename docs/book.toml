@@ -5,6 +5,9 @@ multilingual = false
 src = "src"
 title = "Martin Tile Server Documentation"
 
+[build]
+build-dir = "../target/book"
+
 [output.html]
 curly-quotes = true
 git-repository-url = "https://github.com/maplibre/martin"
