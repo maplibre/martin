@@ -1,6 +1,5 @@
 [Introduction](introduction.md)
 - [Installation](installation.md)
-  - [Building from Source](building-from-source.md)
 - [Running](run.md)
   - [Command Line Interface](run-with-cli.md)
     - [Environment Variables](env-vars.md)
