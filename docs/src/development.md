@@ -32,6 +32,7 @@ When developing MBTiles SQL code, you may need to use `just prepare-sqlite` when
 ❯ just
 Available recipes:
     run *ARGS              # Start Martin server and a test database
+    run-release *ARGS      # Start release-compiled Martin server and a test database
     debug-page *ARGS       # Start Martin server and open a test page
     psql *ARGS             # Run PSQL utility against the test database
     clean                  # Perform  cargo clean  to delete all build files
@@ -40,6 +41,7 @@ Available recipes:
     start-legacy           # Start a legacy test database
     stop                   # Stop the test database
     bench                  # Run benchmark tests
+    bench-http             # Run HTTP requests benchmark using OHA tool. Use with `just run-release`
     test                   # Run all tests using a test database
     test-ssl               # Run all tests using an SSL connection to a test database. Expected output won't match.
     test-legacy            # Run all tests using the oldest supported version of the database
