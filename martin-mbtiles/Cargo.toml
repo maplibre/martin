@@ -4,10 +4,6 @@ version = "0.2.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
-exclude = [
-    # Exclude the fixtures directory from the package - it's only used for tests.
-    "/fixtures",
-]
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
