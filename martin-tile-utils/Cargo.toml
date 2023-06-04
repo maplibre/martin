@@ -1,6 +1,6 @@
 [package]
 name = "martin-tile-utils"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Utilites to help with map tile processing, such as type and compression detection. Used by the MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
