@@ -68,14 +68,17 @@ impl Source for PgSource {
         };
 
         let query = &self.info.query;
-        let prep_query = conn.prepare_typed(query, param_types).await.map_err(|e| {
-            PrepareQueryError(
-                e,
-                self.id.to_string(),
-                self.info.signature.to_string(),
-                self.info.query.to_string(),
-            )
-        })?;
+        let prep_query = conn
+            .prepare_typed_cached(query, param_types)
+            .await
+            .map_err(|e| {
+                PrepareQueryError(
+                    e,
+                    self.id.to_string(),
+                    self.info.signature.to_string(),
+                    self.info.query.to_string(),
+                )
+            })?;
 
         let tile = if self.support_url_query() {
             let json = query_to_json(url_query);

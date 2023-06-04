@@ -16,6 +16,10 @@ export CARGO_TERM_COLOR := "always"
 run *ARGS: start
     cargo run -- {{ ARGS }}
 
+# Start release-compiled Martin server and a test database
+run-release *ARGS: start
+    cargo run -- {{ ARGS }}
+
 # Start Martin server and open a test page
 debug-page *ARGS: start
     open tests/debug.html  # run will not exit, so open debug page first
@@ -59,6 +63,17 @@ stop:
 # Run benchmark tests
 bench: start
     cargo bench
+
+# Run HTTP requests benchmark using OHA tool. Use with `just run-release`
+bench-http:
+    @echo "Make sure Martin was started with 'just run-release'"
+    @if ! command -v oha &> /dev/null; then \
+        echo "oha could not be found. Installing..." ;\
+        cargo install oha ;\
+    fi
+    @echo "Warming up..."
+    oha -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
+    oha -z 120s  http://localhost:3000/function_zxy_query/18/235085/122323
 
 # Run all tests using a test database
 test: (docker-up "db") test-unit test-int
