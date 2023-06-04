@@ -1,84 +1,5 @@
-[package]
-name = "martin"
-version = "0.8.4"
-authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
-description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
-keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
-exclude = [
-    # Tests include a lot of data and other test files that are not needed for the users of the library
-    "/tests",
-]
-default-run = "martin"
-edition.workspace = true
-rust-version.workspace = true
-repository.workspace = true
-license.workspace = true
-
-[lib]
-path = "src/lib.rs"
-
-[[bin]]
-name = "martin"
-path = "src/bin/main.rs"
-
-[features]
-default = []
-ssl = ["openssl", "postgres-openssl"]
-vendored-openssl = ["ssl", "openssl/vendored"]
-
-[dependencies]
-actix-cors.workspace = true
-actix-http.workspace = true
-actix-rt.workspace = true
-actix-web.workspace = true
-actix.workspace = true
-async-trait.workspace = true
-brotli.workspace = true
-clap.workspace = true
-deadpool-postgres.workspace = true
-env_logger.workspace = true
-flate2.workspace = true
-futures.workspace = true
-itertools.workspace = true
-log.workspace = true
-martin-mbtiles.workspace = true
-martin-tile-utils.workspace = true
-num_cpus.workspace = true
-pmtiles.workspace = true
-postgis.workspace = true
-postgres-protocol.workspace = true
-postgres.workspace = true
-regex.workspace = true
-semver.workspace = true
-serde.workspace = true
-serde_json = { workspace = true, features = ["preserve_order"] }
-serde_yaml.workspace = true
-subst.workspace = true
-thiserror.workspace = true
-tilejson.workspace = true
-
-# Optional dependencies for openssl support
-openssl = { workspace = true, optional = true }
-postgres-openssl = { workspace = true, optional = true }
-
-[dev-dependencies]
-cargo-husky.workspace = true
-criterion.workspace = true
-ctor.workspace = true
-indoc.workspace = true
-#test-log = "0.2"
-
-[[bench]]
-name = "sources"
-harness = false
-
-[profile.dev.package.sqlx-macros]
-# See https://github.com/launchbadge/sqlx#compile-time-verification
-opt-level = 3
-
 [workspace]
-default-members = ["martin-tile-utils", "martin-mbtiles", "."]
-members = ["martin-tile-utils", "martin-mbtiles"]
+members = ["martin", "martin-tile-utils", "martin-mbtiles"]
 
 [workspace.package]
 edition = "2021"
@@ -125,3 +46,7 @@ subst = { version = "0.2", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
 tokio = { version = "1.28.2", features = ["macros"] }
+
+[profile.dev.package.sqlx-macros]
+# See https://github.com/launchbadge/sqlx#compile-time-verification
+opt-level = 3

@@ -1,4 +1,4 @@
-Gets a single value from metadata table
+Gets a single value from the MBTiles metadata table
 
 Usage: mbtiles meta-get <FILE> <KEY>
 
