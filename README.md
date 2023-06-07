@@ -52,7 +52,7 @@ Each tile source will have a [TileJSON](https://github.com/mapbox/tilejson-spec)
 
 ```shell
 # publish all tables and functions from a single database
-export DATABASE_URL=postgresql://user:password@host:port/database
+export DATABASE_URL="postgresql://user:password@host:port/database"
 martin
 
 # same as above, but passing connection string via CLI, together with a directory of .mbtiles/.pmtiles files  
