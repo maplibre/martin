@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::Mbtiles;
+use martin_mbtiles::{Mbtiles, TileCopier};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -39,13 +39,14 @@ enum Commands {
     //     /// MBTiles file to modify
     //     file: PathBuf,
     // },
-    // /// Copy tiles from one mbtiles file to another.
-    // Copy {
-    //     /// MBTiles file to read from
-    //     src_file: PathBuf,
-    //     /// MBTiles file to write to
-    //     dst_file: PathBuf,
-    // },
+    /// Copy tiles from one mbtiles file to another.
+    #[command(name = "copy")]
+    Copy {
+        /// MBTiles file to read from
+        src_file: PathBuf,
+        /// MBTiles file to write to
+        dst_file: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -55,6 +56,9 @@ async fn main() -> Result<()> {
     match args.command {
         Commands::MetaGetValue { file, key } => {
             meta_get_value(file.as_path(), &key).await?;
+        }
+        Commands::Copy { src_file, dst_file } => {
+            copy_tiles(src_file.as_path(), dst_file.as_path()).await?;
         }
     }
 
@@ -68,5 +72,13 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
     if let Some(s) = mbt.get_metadata_value(&mut conn, key).await? {
         println!("{s}")
     }
+    Ok(())
+}
+
+async fn copy_tiles(src_file: &Path, dst_file: &Path) -> Result<()> {
+    TileCopier::new(PathBuf::from(src_file), PathBuf::from(dst_file))
+        .run()
+        .await?;
+
     Ok(())
 }

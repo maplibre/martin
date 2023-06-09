@@ -20,6 +20,7 @@ cargo-husky = { version = "1", features = ["user-hooks"], default-features = fal
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.2"
+db-schema = "0.2.1"
 deadpool-postgres = "0.10"
 env_logger = "0.10"
 flate2 = "1"
