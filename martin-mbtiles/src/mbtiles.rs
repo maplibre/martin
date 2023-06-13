@@ -11,10 +11,11 @@ use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
-use sqlx::{query, Row, SqliteExecutor};
+use sqlx::{query, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
+use crate::mbtiles_queries::{is_deduplicated_type, is_tile_tables_type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
@@ -25,7 +26,7 @@ pub struct Metadata {
     pub json: Option<JSONValue>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Type {
     TileTables,
     DeDuplicated,
@@ -279,21 +280,13 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        if query(include_str!("queries/is_tile_tables_type.sql"))
-            .fetch_one(&mut *conn)
-            .await?
-            .get::<bool, _>("is_valid")
-        {
-            return Ok(Type::TileTables);
-        } else if query(include_str!("queries/is_deduplicated_type.sql"))
-            .fetch_one(conn)
-            .await?
-            .get::<bool, _>("is_valid")
-        {
-            return Ok(Type::DeDuplicated);
+        if is_deduplicated_type(&mut *conn).await? {
+            Ok(Type::DeDuplicated)
+        } else if is_tile_tables_type(&mut *conn).await? {
+            Ok(Type::TileTables)
+        } else {
+            Err(MbtError::InvalidDataStorageFormat(self.filepath.clone()))
         }
-
-        Err(MbtError::InvalidDataStorageFormat(self.filepath.clone()))
     }
 }
 
@@ -385,5 +378,20 @@ mod tests {
         assert_eq!(res.unwrap(), None);
         let res = mbt.get_metadata_value(&mut conn, "").await;
         assert_eq!(res.unwrap(), None);
+    }
+
+    #[actix_rt::test]
+    async fn detect_type() {
+        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, Type::TileTables);
+
+        let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, Type::DeDuplicated);
+
+        let (mut conn, mbt) = open(":memory:").await;
+        let res = mbt.detect_type(&mut conn).await;
+        assert!(matches!(res, Err(MbtError::InvalidDataStorageFormat(_))));
     }
 }
