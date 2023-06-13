@@ -13,6 +13,9 @@ pub enum MbtError {
     #[error("Inconsistent tile formats detected: {0} vs {1}")]
     InconsistentMetadata(TileInfo, TileInfo),
 
+    #[error("Invalid data storage format for MBTile file {0}")]
+    InvalidDataStorageFormat(String),
+
     #[error("No tiles found")]
     NoTilesFound,
 }

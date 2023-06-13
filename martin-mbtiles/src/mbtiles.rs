@@ -11,7 +11,7 @@ use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
-use sqlx::{query, SqliteExecutor};
+use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
@@ -23,6 +23,12 @@ pub struct Metadata {
     pub layer_type: Option<String>,
     pub tilejson: TileJSON,
     pub json: Option<JSONValue>,
+}
+
+#[derive(Debug)]
+pub enum Type {
+    TileTables,
+    DeDuplicated,
 }
 
 #[derive(Clone, Debug)]
@@ -267,6 +273,31 @@ impl Mbtiles {
             }
         }
         Ok(None)
+    }
+
+    pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<Type>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let is_tiles_tables_type: i32 =
+            query(include_str!("queries/is_tile_tables_mbtiles_type.sql"))
+                .fetch_one(&mut *conn)
+                .await?
+                .get("is_valid");
+        if 1 == is_tiles_tables_type {
+            return Ok(Type::TileTables);
+        }
+
+        let is_deduplicated_type: i32 =
+            query(include_str!("queries/is_deduplicated_mbtiles_type.sql"))
+                .fetch_one(conn)
+                .await?
+                .get("is_valid");
+        if 1 == is_deduplicated_type {
+            return Ok(Type::DeDuplicated);
+        }
+
+        Err(MbtError::InvalidDataStorageFormat(self.filepath.clone()))
     }
 }
 
