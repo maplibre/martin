@@ -279,21 +279,17 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let is_tiles_tables_type: bool =
-            query(include_str!("queries/is_tile_tables_mbtiles_type.sql"))
-                .fetch_one(&mut *conn)
-                .await?
-                .get("is_valid");
-        if is_tiles_tables_type {
+        if query(include_str!("queries/is_tile_tables_type.sql"))
+            .fetch_one(&mut *conn)
+            .await?
+            .get::<bool, _>("is_valid")
+        {
             return Ok(Type::TileTables);
-        }
-
-        let is_deduplicated_type: bool =
-            query(include_str!("queries/is_deduplicated_mbtiles_type.sql"))
-                .fetch_one(conn)
-                .await?
-                .get("is_valid");
-        if is_deduplicated_type {
+        } else if query(include_str!("queries/is_deduplicated_type.sql"))
+            .fetch_one(conn)
+            .await?
+            .get::<bool, _>("is_valid")
+        {
             return Ok(Type::DeDuplicated);
         }
 
