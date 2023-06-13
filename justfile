@@ -96,7 +96,7 @@ test-int: clean-test
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
-    @if ( ! diff --brief --recursive --new-file tests/output tests/expected ); then
+    if ! diff --brief --recursive --new-file tests/output tests/expected; then
         echo "** Expected output does not match actual output"
         echo "** If this is expected, run 'just bless' to update expected output"
         exit 1
@@ -126,11 +126,11 @@ docs:
 coverage FORMAT='html':
     #!/usr/bin/env bash
     set -euo pipefail
-    @if ! command -v grcov &> /dev/null; then \
+    if ! command -v grcov &> /dev/null; then \
         echo "grcov could not be found. Installing..." ;\
         cargo install grcov ;\
     fi
-    @if ! rustup component list | grep llvm-tools-preview &> /dev/null; then \
+    if ! rustup component list | grep llvm-tools-preview &> /dev/null; then \
         echo "llvm-tools-preview could not be found. Installing..." ;\
         rustup component add llvm-tools-preview ;\
     fi

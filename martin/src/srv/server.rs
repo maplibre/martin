@@ -330,7 +330,7 @@ async fn get_tile(
     let (tile, info) = if path.source_ids.contains(',') {
         let (sources, use_url_query, info) = state.get_sources(&path.source_ids, Some(path.z))?;
         if sources.is_empty() {
-            return Err(error::ErrorNotFound("No valid sources found"))?;
+            return Err(error::ErrorNotFound("No valid sources found"));
         }
         let query = if use_url_query {
             Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
