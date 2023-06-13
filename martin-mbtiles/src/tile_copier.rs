@@ -1,24 +1,18 @@
 extern crate core;
 
 use crate::errors::MbtResult;
-use crate::MbtError;
+use crate::mbtiles::Type;
+use crate::{MbtError, Mbtiles};
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query, Connection, Row, SqliteConnection, SqliteExecutor};
-use std::fs::File;
+use sqlx::{query, Connection, Row, SqliteConnection};
+use std::collections::HashSet;
 use std::path::PathBuf;
 
-#[derive(Debug)]
-enum StorageType {
-    Unknown,
-    StandardCompliant,
-    Deduplicated,
-}
-
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct TileCopier {
-    src_filepath: PathBuf,
+    src_mbtiles: Mbtiles,
     dst_filepath: PathBuf,
-    zooms: Vec<u8>,
+    zooms: HashSet<u8>,
     min_zoom: Option<u8>,
     max_zoom: Option<u8>,
     //self.bbox = bbox
@@ -26,19 +20,21 @@ pub struct TileCopier {
 }
 
 impl TileCopier {
-    pub fn new(src_filepath: PathBuf, dst_filepath: PathBuf) -> TileCopier {
-        TileCopier {
-            src_filepath,
+    pub fn new(src_filepath: PathBuf, dst_filepath: PathBuf) -> MbtResult<Self> {
+        Ok(TileCopier {
+            src_mbtiles: Mbtiles::new(src_filepath)?,
             dst_filepath,
-            zooms: Vec::new(),
+            zooms: HashSet::new(),
             min_zoom: None,
             max_zoom: None,
             verbose: false,
-        }
+        })
     }
 
-    pub fn zooms(&mut self, zooms: &[u8]) -> &mut Self {
-        self.zooms.extend_from_slice(zooms);
+    pub fn zooms(&mut self, zooms: Vec<u8>) -> &mut Self {
+        for zoom in zooms {
+            self.zooms.insert(zoom);
+        }
         self
     }
 
@@ -48,7 +44,7 @@ impl TileCopier {
     }
 
     pub fn max_zoom(&mut self, max_zoom: u8) -> &mut Self {
-        self.min_zoom = Some(max_zoom);
+        self.max_zoom = Some(max_zoom);
         self
     }
 
@@ -57,142 +53,123 @@ impl TileCopier {
         self
     }
 
-    pub async fn run(&self) -> MbtResult<()> {
+    pub async fn run(self) -> MbtResult<()> {
         let opt = SqliteConnectOptions::new()
-            .filename(&self.src_filepath)
-            .read_only(true);
+            .read_only(true)
+            .filename(PathBuf::from(&self.src_mbtiles.filepath()));
         let mut conn = SqliteConnection::connect_with(&opt).await?;
-        self.copy_tiles(&mut conn).await
-    }
+        let storage_type = self.src_mbtiles.detect_type(&mut conn).await?;
 
-    async fn copy_tiles<T>(&self, src_conn: &mut T) -> MbtResult<()>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        let storage_type = self.determine_storage_type(src_conn).await?;
+        let opt = SqliteConnectOptions::new()
+            .create_if_missing(true)
+            .filename(&self.dst_filepath);
+        let mut conn = SqliteConnection::connect_with(&opt).await?;
 
-        return match storage_type {
-            Some(StorageType::StandardCompliant) => {
-                self.copy_standard_compliant_tiles(src_conn).await
-            }
-            Some(StorageType::Deduplicated) => self.copy_deduplicated_tiles(src_conn).await,
-            _ => Err(MbtError::InvalidDataStorageFormat(
-                self.src_filepath.clone(),
-            )),
-        };
-    }
-
-    async fn determine_storage_type<T>(&self, conn: &mut T) -> MbtResult<Option<StorageType>>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        if let Some(_v) = query(include_str!("queries/is_standard_compliant_mbtiles.sql"))
-            .fetch_optional(&mut *conn)
+        if query("SELECT 1 FROM sqlite_schema")
+            .fetch_optional(&mut conn)
             .await?
+            .is_some()
         {
-            return Ok(Some(StorageType::StandardCompliant));
-        } else if let Some(_v) = query(include_str!("queries/is_deduplicated_mbtiles.sql"))
-            .fetch_optional(&mut *conn)
-            .await?
-        {
-            return Ok(Some(StorageType::Deduplicated));
+            return Err(MbtError::NonEmptyTargetFile(self.dst_filepath.clone()));
         }
 
-        Ok(Some(StorageType::Unknown))
-    }
+        query("PRAGMA page_size = 512").execute(&mut conn).await?;
+        query("VACUUM").execute(&mut conn).await?;
 
-    async fn create_target_db<T>(&self, conn: &mut T) -> MbtResult<()>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        match File::create(&self.dst_filepath) {
-            Ok(_) => {}
-            Err(_) => return Err(MbtError::CouldNotCreateMBTiles(self.dst_filepath.clone())),
-        };
-        let opt = SqliteConnectOptions::new().filename(&self.dst_filepath);
-        let mut dst_conn = SqliteConnection::connect_with(&opt).await?;
-        //TODO: Q fix this with format string?
-        let schema = query("SELECT sql FROM sqlite_schema WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images')")
-            .fetch_all(conn)
+        query("ATTACH DATABASE ? AS sourceDb")
+            .bind(self.src_mbtiles.filepath())
+            .execute(&mut conn)
             .await?;
 
-        query("PRAGMA page_size = 512").execute(&mut dst_conn);
-        query("VACUUM").execute(&mut dst_conn);
+        let schema = query("SELECT sql FROM sourceDb.sqlite_schema WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images')")
+            .fetch_all(&mut conn)
+            .await?;
 
-        for row in schema.iter() {
+        for row in &schema {
             let row: String = row.get(0);
-            query(row.as_str()).execute(&mut dst_conn).await?;
+            query(row.as_str()).execute(&mut conn).await?;
         }
 
-        dst_conn.close();
+        query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
+            .execute(&mut conn)
+            .await?;
 
-        Ok(())
+        match storage_type {
+            Type::TileTables => self.copy_standard_compliant_tiles(&mut conn).await,
+            Type::DeDuplicated => self.copy_deduplicated_tiles(&mut conn).await,
+        }
     }
 
-    async fn copy_standard_compliant_tiles<T>(&self, conn: &mut T) -> MbtResult<()>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
+    async fn copy_standard_compliant_tiles(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         // TODO: Handle options
         //  - bbox
         //  - verbose
         //  - zoom
-        self.create_target_db(conn).await?;
 
-        let opt = SqliteConnectOptions::new().filename(&self.dst_filepath);
-        let mut dst_conn = SqliteConnection::connect_with(&opt).await?;
-
-        query(&*format!(
-            "ATTACH DATABASE '{}' AS sourceDb",
-            match self.src_filepath.to_str() {
-                Some(v) => v,
-                None => return Err(MbtError::NoSuchMBTiles(self.src_filepath.clone())),
-            }
-        )) // TODO: Q can this be done without the format string?
-        .execute(&mut dst_conn)
+        self.run_conditional_query(
+            conn,
+            String::from("INSERT INTO tiles SELECT * FROM sourceDb.tiles"),
+        )
         .await?;
 
-        query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
-            .execute(&mut dst_conn)
+        Ok(())
+    }
+
+    async fn copy_deduplicated_tiles(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
+        query("INSERT INTO map SELECT * FROM sourceDb.map")
+            .execute(&mut *conn)
             .await?;
 
-        query("INSERT INTO tiles SELECT * FROM sourceDb.tiles")
-            .execute(&mut dst_conn)
+        query("INSERT INTO images SELECT * FROM sourceDb.images")
+            .execute(conn)
             .await?;
 
         Ok(())
     }
 
-    async fn copy_deduplicated_tiles<T>(&self, conn: &mut T) -> MbtResult<()>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        self.create_target_db(conn).await?;
+    // TODO:: rename this
+    async fn run_conditional_query(
+        &self,
+        conn: &mut SqliteConnection,
+        mut sql: String,
+    ) -> MbtResult<()> {
+        let mut params: Vec<String> = vec![];
 
-        let opt = SqliteConnectOptions::new().filename(&self.dst_filepath);
-        let mut dst_conn = SqliteConnection::connect_with(&opt).await?;
-
-        query(&*format!(
-            "ATTACH DATABASE '{}' AS sourceDb",
-            match self.src_filepath.to_str() {
-                Some(v) => v,
-                None => return Err(MbtError::NoSuchMBTiles(self.src_filepath.clone())),
+        if !&self.zooms.is_empty() {
+            sql.push_str(
+                format!(
+                    " WHERE zoom_level IN ({})",
+                    vec!["?"; self.zooms.len()].join(",")
+                )
+                .as_str(),
+            );
+            for zoom_level in &self.zooms {
+                params.push(zoom_level.to_string());
             }
-        ))
-        .execute(&mut dst_conn)
-        .await?;
+        } else if let Some(min_zoom) = &self.min_zoom {
+            if let Some(max_zoom) = &self.max_zoom {
+                sql.push_str(" WHERE zoom_level BETWEEN ? AND ?");
 
-        query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
-            .execute(&mut dst_conn)
-            .await?;
+                params.push(min_zoom.to_string());
+                params.push(max_zoom.to_string());
+            } else {
+                sql.push_str(" WHERE zoom_level >= ? ");
 
-        query("INSERT INTO map SELECT * FROM sourceDb.map")
-            .execute(&mut dst_conn)
-            .await?;
+                params.push(min_zoom.to_string());
+            }
+        } else if let Some(max_zoom) = &self.max_zoom {
+            sql.push_str(" WHERE zoom_level <= ? ");
 
-        query("INSERT INTO images SELECT * FROM sourceDb.images")
-            .execute(&mut dst_conn)
-            .await?;
+            params.push(max_zoom.to_string());
+        }
+
+        let mut query = query(sql.as_str());
+
+        for param in params {
+            query = query.bind(param);
+        }
+
+        query.execute(conn).await?;
 
         Ok(())
     }

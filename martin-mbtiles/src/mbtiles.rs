@@ -285,7 +285,7 @@ impl Mbtiles {
         } else if is_tile_tables_type(&mut *conn).await? {
             Ok(Type::TileTables)
         } else {
-            Err(MbtError::InvalidDataStorageFormat(self.filepath.clone()))
+            Err(MbtError::InvalidDataFormat(self.filepath.clone()))
         }
     }
 }
@@ -392,6 +392,6 @@ mod tests {
 
         let (mut conn, mbt) = open(":memory:").await;
         let res = mbt.detect_type(&mut conn).await;
-        assert!(matches!(res, Err(MbtError::InvalidDataStorageFormat(_))));
+        assert!(matches!(res, Err(MbtError::InvalidDataFormat(_))));
     }
 }

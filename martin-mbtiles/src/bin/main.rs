@@ -46,6 +46,18 @@ enum Commands {
         src_file: PathBuf,
         /// MBTiles file to write to
         dst_file: PathBuf,
+        /// Display detailed copying information
+        #[arg(short, long)]
+        verbose: bool,
+        /// Minimum zoom level to copy
+        #[arg(long)]
+        min_zoom: Option<u8>,
+        /// Maximum zoom level to copy
+        #[arg(long)]
+        max_zoom: Option<u8>,
+        /// List of zoom levels to copy; if provided, min-zoom and max-zoom will be ignored
+        #[arg(long, value_delimiter(','))]
+        zoom_levels: Vec<u8>,
     },
 }
 
@@ -57,8 +69,25 @@ async fn main() -> Result<()> {
         Commands::MetaGetValue { file, key } => {
             meta_get_value(file.as_path(), &key).await?;
         }
-        Commands::Copy { src_file, dst_file } => {
-            copy_tiles(src_file.as_path(), dst_file.as_path()).await?;
+        Commands::Copy {
+            src_file,
+            dst_file,
+            verbose,
+            min_zoom,
+            max_zoom,
+            zoom_levels,
+        } => {
+            let mut tile_copier = TileCopier::new(src_file, dst_file)?;
+
+            if let Some(v) = min_zoom {
+                tile_copier.min_zoom(v);
+            };
+            if let Some(v) = max_zoom {
+                tile_copier.max_zoom(v);
+            };
+
+            tile_copier.verbose(verbose).zooms(zoom_levels);
+            tile_copier.run().await?;
         }
     }
 
@@ -72,13 +101,5 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
     if let Some(s) = mbt.get_metadata_value(&mut conn, key).await? {
         println!("{s}")
     }
-    Ok(())
-}
-
-async fn copy_tiles(src_file: &Path, dst_file: &Path) -> Result<()> {
-    TileCopier::new(PathBuf::from(src_file), PathBuf::from(dst_file))
-        .run()
-        .await?;
-
     Ok(())
 }
