@@ -31,7 +31,8 @@ use crate::Error::BindingError;
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1")
 pub const RESERVED_KEYWORDS: &[&str] = &[
-    "catalog", "config", "health", "help", "index", "manifest", "refresh", "reload", "status",
+    "catalog", "config", "font", "health", "help", "index", "manifest", "refresh", "reload",
+    "sprite", "status",
 ];
 
 static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[

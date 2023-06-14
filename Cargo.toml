@@ -27,7 +27,7 @@ futures = "0.3"
 indoc = "2"
 itertools = "0.10"
 log = "0.4"
-martin-mbtiles = { path = "./martin-mbtiles", version = "0.2.0" }
+martin-mbtiles = { path = "./martin-mbtiles", version = "0.2.0", default-features = false }  # disable tools
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
 openssl = "0.10"
