@@ -15,6 +15,7 @@ use sqlx::{query, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
+use crate::mbtiles_queries::{is_deduplicated_type, is_tile_tables_type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
@@ -23,6 +24,12 @@ pub struct Metadata {
     pub layer_type: Option<String>,
     pub tilejson: TileJSON,
     pub json: Option<JSONValue>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Type {
+    TileTables,
+    DeDuplicated,
 }
 
 #[derive(Clone, Debug)]
@@ -268,6 +275,19 @@ impl Mbtiles {
         }
         Ok(None)
     }
+
+    pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<Type>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        if is_deduplicated_type(&mut *conn).await? {
+            Ok(Type::DeDuplicated)
+        } else if is_tile_tables_type(&mut *conn).await? {
+            Ok(Type::TileTables)
+        } else {
+            Err(MbtError::InvalidDataStorageFormat(self.filepath.clone()))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -358,5 +378,20 @@ mod tests {
         assert_eq!(res.unwrap(), None);
         let res = mbt.get_metadata_value(&mut conn, "").await;
         assert_eq!(res.unwrap(), None);
+    }
+
+    #[actix_rt::test]
+    async fn detect_type() {
+        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, Type::TileTables);
+
+        let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, Type::DeDuplicated);
+
+        let (mut conn, mbt) = open(":memory:").await;
+        let res = mbt.detect_type(&mut conn).await;
+        assert!(matches!(res, Err(MbtError::InvalidDataStorageFormat(_))));
     }
 }
