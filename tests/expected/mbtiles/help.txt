@@ -1,11 +1,13 @@
 A utility to work with .mbtiles file content
 
-Usage: mbtiles <COMMAND>
+Usage: mbtiles [OPTIONS] <COMMAND>
 
 Commands:
   meta-get  Gets a single value from the MBTiles metadata table
+  copy      Copy tiles from one mbtiles file to another
   help      Print this message or the help of the given subcommand(s)
 
 Options:
+  -v, --verbose  Display detailed information
   -h, --help     Print help
   -V, --version  Print version

@@ -1,7 +1,7 @@
 extern crate core;
 
 use crate::errors::MbtResult;
-use crate::mbtiles::Type;
+use crate::mbtiles::MbtType;
 use crate::{MbtError, Mbtiles};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection, Row, SqliteConnection};
@@ -56,6 +56,7 @@ impl TileCopierOptions {
         self
     }
 }
+
 impl TileCopier {
     pub fn new(
         src_filepath: PathBuf,
@@ -111,40 +112,35 @@ impl TileCopier {
             .await?;
 
         match storage_type {
-            Type::TileTables => self.copy_standard_compliant_tiles(&mut conn).await,
-            Type::DeDuplicated => self.copy_deduplicated_tiles(&mut conn).await,
+            MbtType::TileTables => self.copy_tile_tables(&mut conn).await,
+            MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await,
         }
     }
 
-    async fn copy_standard_compliant_tiles(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
+    async fn copy_tile_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         // TODO: Handle options
         //  - bbox
         //  - verbose
         //  - zoom
 
-        self.run_query_with_options(
-            conn,
-            String::from("INSERT INTO tiles SELECT * FROM sourceDb.tiles"),
-        )
-        .await?;
+        self.run_query_with_options(conn, "INSERT INTO tiles SELECT * FROM sourceDb.tiles")
+            .await?;
 
         Ok(())
     }
 
-    async fn copy_deduplicated_tiles(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
+    async fn copy_deduplicated(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         query("INSERT INTO map SELECT * FROM sourceDb.map")
             .execute(&mut *conn)
             .await?;
 
         self.run_query_with_options(
             conn,
-            String::from(
-                "INSERT INTO images
+            "INSERT INTO images
                 SELECT images.tile_data, images.tile_id
                 FROM sourceDb.images
                   JOIN sourceDb.map
                   ON images.tile_id = map.tile_id",
-            ),
         )
         .await?;
 
@@ -154,37 +150,31 @@ impl TileCopier {
     async fn run_query_with_options(
         &self,
         conn: &mut SqliteConnection,
-        mut sql: String,
+        sql: &str,
     ) -> MbtResult<()> {
         let mut params: Vec<String> = vec![];
 
-        if !&self.options.zooms.is_empty() {
-            sql.push_str(
-                format!(
-                    " WHERE zoom_level IN ({})",
-                    vec!["?"; self.options.zooms.len()].join(",")
-                )
-                .as_str(),
-            );
-            for zoom_level in &self.options.zooms {
-                params.push(zoom_level.to_string());
-            }
+        let sql = if !&self.options.zooms.is_empty() {
+            params.extend(self.options.zooms.iter().map(|z| z.to_string()));
+            format!(
+                "{sql} WHERE zoom_level IN ({})",
+                vec!["?"; self.options.zooms.len()].join(",")
+            )
         } else if let Some(min_zoom) = &self.options.min_zoom {
             if let Some(max_zoom) = &self.options.max_zoom {
-                sql.push_str(" WHERE zoom_level BETWEEN ? AND ?");
-
                 params.push(min_zoom.to_string());
                 params.push(max_zoom.to_string());
+                format!("{sql} WHERE zoom_level BETWEEN ? AND ?")
             } else {
-                sql.push_str(" WHERE zoom_level >= ? ");
-
                 params.push(min_zoom.to_string());
+                format!("{sql} WHERE zoom_level >= ? ")
             }
         } else if let Some(max_zoom) = &self.options.max_zoom {
-            sql.push_str(" WHERE zoom_level <= ? ");
-
             params.push(max_zoom.to_string());
-        }
+            format!("{sql} WHERE zoom_level <= ? ")
+        } else {
+            sql.to_string()
+        };
 
         let mut query = query(sql.as_str());
 

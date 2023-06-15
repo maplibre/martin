@@ -13,6 +13,9 @@ use sqlx::{Connection, SqliteConnection};
     about = "A utility to work with .mbtiles file content"
 )]
 pub struct Args {
+    /// Display detailed information
+    #[arg(short, long)]
+    verbose: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -46,9 +49,6 @@ enum Commands {
         src_file: PathBuf,
         /// MBTiles file to write to
         dst_file: PathBuf,
-        /// Display detailed copying information
-        #[arg(short, long)]
-        verbose: bool,
         /// Minimum zoom level to copy
         #[arg(long)]
         min_zoom: Option<u8>,
@@ -72,21 +72,21 @@ async fn main() -> Result<()> {
         Commands::Copy {
             src_file,
             dst_file,
-            verbose,
             min_zoom,
             max_zoom,
             zoom_levels,
         } => {
-            let mut tile_copier_options =
-                TileCopierOptions::new().verbose(verbose).zooms(zoom_levels);
+            let mut copy_opts = TileCopierOptions::new()
+                .verbose(args.verbose)
+                .zooms(zoom_levels);
             if let Some(v) = min_zoom {
-                tile_copier_options = tile_copier_options.min_zoom(v);
+                copy_opts = copy_opts.min_zoom(v);
             };
             if let Some(v) = max_zoom {
-                tile_copier_options = tile_copier_options.max_zoom(v);
+                copy_opts = copy_opts.max_zoom(v);
             };
 
-            let tile_copier = TileCopier::new(src_file, dst_file, tile_copier_options)?;
+            let tile_copier = TileCopier::new(src_file, dst_file, copy_opts)?;
 
             tile_copier.run().await?;
         }
