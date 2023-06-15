@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::string::ToString;
 use std::time::Duration;
 
@@ -17,12 +16,12 @@ use actix_web::{
     Responder, Result,
 };
 use futures::future::try_join_all;
-use itertools::Itertools;
-use log::{debug, error};
+use log::error;
 use martin_tile_utils::{Encoding, Format, TileInfo};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tilejson::{tilejson, TileJSON};
 
+use crate::config::AllSources;
 use crate::source::{Source, Sources, UrlQuery, Xyz};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
@@ -41,56 +40,6 @@ static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
     HeaderEnc::identity(),
 ];
 
-pub struct AppState {
-    pub sources: Sources,
-}
-
-impl AppState {
-    fn get_source(&self, id: &str) -> Result<&dyn Source> {
-        Ok(self
-            .sources
-            .get(id)
-            .ok_or_else(|| error::ErrorNotFound(format!("Source {id} does not exist")))?
-            .as_ref())
-    }
-
-    fn get_sources(
-        &self,
-        source_ids: &str,
-        zoom: Option<u8>,
-    ) -> Result<(Vec<&dyn Source>, bool, TileInfo)> {
-        let mut sources = Vec::new();
-        let mut info: Option<TileInfo> = None;
-        let mut use_url_query = false;
-        for id in source_ids.split(',') {
-            let src = self.get_source(id)?;
-            let src_inf = src.get_tile_info();
-            use_url_query |= src.support_url_query();
-
-            // make sure all sources have the same format
-            match info {
-                Some(inf) if inf == src_inf => {}
-                Some(inf) => Err(error::ErrorNotFound(format!(
-                    "Cannot merge sources with {inf} with {src_inf}"
-                )))?,
-                None => info = Some(src_inf),
-            }
-
-            // TODO: Use chained-if-let once available
-            if match zoom {
-                Some(zoom) if check_zoom(src, id, zoom) => true,
-                None => true,
-                _ => false,
-            } {
-                sources.push(src);
-            }
-        }
-
-        // format is guaranteed to be Some() here
-        Ok((sources, use_url_query, info.unwrap()))
-    }
-}
-
 #[derive(Deserialize)]
 struct TileJsonRequest {
     source_ids: String,
@@ -102,32 +51,6 @@ struct TileRequest {
     z: u8,
     x: u32,
     y: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct IndexEntry {
-    pub id: String,
-    pub content_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_encoding: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub attribution: Option<String>,
-}
-
-impl PartialOrd<Self> for IndexEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for IndexEntry {
-    fn cmp(&self, other: &Self) -> Ordering {
-        (&self.id, &self.name).cmp(&(&other.id, &other.name))
-    }
 }
 
 fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
@@ -160,25 +83,8 @@ async fn get_health() -> impl Responder {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_catalog(state: Data<AppState>) -> impl Responder {
-    let info: Vec<_> = state
-        .sources
-        .iter()
-        .map(|(id, src)| {
-            let tilejson = src.get_tilejson();
-            let info = src.get_tile_info();
-            IndexEntry {
-                id: id.clone(),
-                content_type: info.format.content_type().to_string(),
-                content_encoding: info.encoding.content_encoding().map(ToString::to_string),
-                name: tilejson.name.filter(|v| v != id),
-                description: tilejson.description,
-                attribution: tilejson.attribution,
-            }
-        })
-        .sorted()
-        .collect();
-    HttpResponse::Ok().json(info)
+async fn get_catalog(sources: Data<Sources>) -> impl Responder {
+    HttpResponse::Ok().json(sources.get_catalog())
 }
 
 #[route(
@@ -191,9 +97,9 @@ async fn get_catalog(state: Data<AppState>) -> impl Responder {
 async fn git_source_info(
     req: HttpRequest,
     path: Path<TileJsonRequest>,
-    state: Data<AppState>,
+    sources: Data<Sources>,
 ) -> Result<HttpResponse> {
-    let sources = state.get_sources(&path.source_ids, None)?.0;
+    let sources = sources.get_sources(&path.source_ids, None)?.0;
 
     let tiles_path = req
         .headers()
@@ -319,7 +225,7 @@ fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
 async fn get_tile(
     req: HttpRequest,
     path: Path<TileRequest>,
-    state: Data<AppState>,
+    sources: Data<Sources>,
 ) -> Result<HttpResponse> {
     let xyz = Xyz {
         z: path.z,
@@ -329,7 +235,7 @@ async fn get_tile(
 
     // Optimization for a single-source request.
     let (tile, info) = if path.source_ids.contains(',') {
-        let (sources, use_url_query, info) = state.get_sources(&path.source_ids, Some(path.z))?;
+        let (sources, use_url_query, info) = sources.get_sources(&path.source_ids, Some(path.z))?;
         if sources.is_empty() {
             return Err(error::ErrorNotFound("No valid sources found"));
         }
@@ -356,8 +262,8 @@ async fn get_tile(
     } else {
         let id = &path.source_ids;
         let zoom = xyz.z;
-        let src = state.get_source(id)?;
-        if !check_zoom(src, id, zoom) {
+        let src = sources.get_source(id)?;
+        if !Sources::check_zoom(src, id, zoom) {
             return Err(error::ErrorNotFound(format!(
                 "Zoom {zoom} is not valid for source {id}",
             )));
@@ -462,7 +368,7 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
-pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server, String)> {
+pub fn new_server(config: SrvConfig, all_sources: AllSources) -> crate::Result<(Server, String)> {
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
@@ -470,16 +376,12 @@ pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server,
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
 
     let server = HttpServer::new(move || {
-        let state = AppState {
-            sources: sources.clone(),
-        };
-
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .allowed_methods(vec!["GET"]);
 
         App::new()
-            .app_data(Data::new(state))
+            .app_data(Data::new(all_sources.sources.clone()))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
@@ -493,14 +395,6 @@ pub fn new_server(config: SrvConfig, sources: Sources) -> crate::Result<(Server,
     .run();
 
     Ok((server, listen_addresses))
-}
-
-fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
-    let is_valid = src.is_valid_zoom(zoom);
-    if !is_valid {
-        debug!("Zoom {zoom} is not valid for source {id}");
-    }
-    is_valid
 }
 
 fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {

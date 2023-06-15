@@ -7,8 +7,8 @@ use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::utils::Result;
-use crate::source::{IdResolver, Sources};
-use crate::utils::{sorted_opt_map, BoolOrObject, OneOrMany};
+use crate::source::Sources;
+use crate::utils::{sorted_opt_map, BoolOrObject, IdResolver, OneOrMany};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;

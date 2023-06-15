@@ -10,9 +10,8 @@ use serde_yaml::Value;
 
 use crate::config::{copy_unrecognized_config, Unrecognized};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
-use crate::utils::sorted_opt_map;
-use crate::OneOrMany::{Many, One};
-use crate::{Error, IdResolver, OneOrMany, Source, Sources, Xyz};
+use crate::source::{Source, Sources, Xyz};
+use crate::utils::{sorted_opt_map, Error, IdResolver, OneOrMany};
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
@@ -38,6 +37,22 @@ pub enum FileConfigEnum {
     Path(PathBuf),
     Paths(Vec<PathBuf>),
     Config(FileConfig),
+}
+
+impl FileConfigEnum {
+    pub fn extract_file_config(&mut self) -> FileConfig {
+        match self {
+            FileConfigEnum::Path(path) => FileConfig {
+                paths: Some(OneOrMany::One(mem::take(path))),
+                ..FileConfig::default()
+            },
+            FileConfigEnum::Paths(paths) => FileConfig {
+                paths: Some(OneOrMany::Many(mem::take(paths))),
+                ..Default::default()
+            },
+            FileConfigEnum::Config(cfg) => mem::take(cfg),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -69,12 +84,12 @@ pub enum FileConfigSrc {
 }
 
 impl FileConfigSrc {
-    #[must_use]
-    pub fn path(&self) -> &PathBuf {
-        match self {
+    pub fn abs_path(&self) -> Result<PathBuf, FileError> {
+        let path = match self {
             Self::Path(p) => p,
             Self::Obj(o) => &o.path,
-        }
+        };
+        path.canonicalize().map_err(|e| IoError(e, path.clone()))
     }
 }
 
@@ -125,27 +140,16 @@ async fn resolve_int<Fut>(
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
-    let cfg = match config {
-        FileConfigEnum::Path(path) => FileConfig {
-            paths: Some(One(mem::take(path))),
-            ..FileConfig::default()
-        },
-        FileConfigEnum::Paths(paths) => FileConfig {
-            paths: Some(Many(mem::take(paths))),
-            ..Default::default()
-        },
-        FileConfigEnum::Config(cfg) => mem::take(cfg),
-    };
+    let cfg = config.extract_file_config();
 
-    let mut results = Sources::new();
+    let mut results = Sources::default();
     let mut configs = HashMap::new();
     let mut files = HashSet::new();
     let mut directories = Vec::new();
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            let path = source.path();
-            let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
+            let can = source.abs_path()?;
             if !can.is_file() {
                 // todo: maybe warn instead?
                 return Err(InvalidSourceFilePath(id.to_string(), can));
@@ -173,7 +177,7 @@ where
                 directories.push(path.clone());
                 path.read_dir()
                     .map_err(|e| IoError(e, path.clone()))?
-                    .filter_map(std::result::Result::ok)
+                    .filter_map(Result::ok)
                     .filter(|f| {
                         f.path().extension().filter(|e| *e == extension).is_some()
                             && f.path().is_file()
