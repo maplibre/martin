@@ -9,9 +9,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
-pub struct TileCopier {
-    src_mbtiles: Mbtiles,
-    dst_filepath: PathBuf,
+pub struct TileCopierOptions {
     zooms: HashSet<u8>,
     min_zoom: Option<u8>,
     max_zoom: Option<u8>,
@@ -19,16 +17,21 @@ pub struct TileCopier {
     verbose: bool,
 }
 
-impl TileCopier {
-    pub fn new(src_filepath: PathBuf, dst_filepath: PathBuf) -> MbtResult<Self> {
-        Ok(TileCopier {
-            src_mbtiles: Mbtiles::new(src_filepath)?,
-            dst_filepath,
+#[derive(Clone, Debug)]
+pub struct TileCopier {
+    src_mbtiles: Mbtiles,
+    dst_filepath: PathBuf,
+    options: TileCopierOptions,
+}
+
+impl TileCopierOptions {
+    pub fn new() -> Self {
+        Self {
             zooms: HashSet::new(),
             min_zoom: None,
             max_zoom: None,
             verbose: false,
-        })
+        }
     }
 
     pub fn zooms(&mut self, zooms: Vec<u8>) -> &mut Self {
@@ -51,6 +54,19 @@ impl TileCopier {
     pub fn verbose(&mut self, verbose: bool) -> &mut Self {
         self.verbose = verbose;
         self
+    }
+}
+impl TileCopier {
+    pub fn new(
+        src_filepath: PathBuf,
+        dst_filepath: PathBuf,
+        options: TileCopierOptions,
+    ) -> MbtResult<Self> {
+        Ok(TileCopier {
+            src_mbtiles: Mbtiles::new(src_filepath)?,
+            dst_filepath,
+            options,
+        })
     }
 
     pub async fn run(self) -> MbtResult<()> {
@@ -106,7 +122,7 @@ impl TileCopier {
         //  - verbose
         //  - zoom
 
-        self.run_conditional_query(
+        self.run_query_with_options(
             conn,
             String::from("INSERT INTO tiles SELECT * FROM sourceDb.tiles"),
         )
@@ -120,34 +136,41 @@ impl TileCopier {
             .execute(&mut *conn)
             .await?;
 
-        query("INSERT INTO images SELECT * FROM sourceDb.images")
-            .execute(conn)
-            .await?;
+        self.run_query_with_options(
+            conn,
+            String::from(
+                "INSERT INTO images
+                SELECT images.tile_data, images.tile_id
+                FROM sourceDb.images
+                  JOIN sourceDb.map
+                  ON images.tile_id = map.tile_id",
+            ),
+        )
+        .await?;
 
         Ok(())
     }
 
-    // TODO:: rename this
-    async fn run_conditional_query(
+    async fn run_query_with_options(
         &self,
         conn: &mut SqliteConnection,
         mut sql: String,
     ) -> MbtResult<()> {
         let mut params: Vec<String> = vec![];
 
-        if !&self.zooms.is_empty() {
+        if !&self.options.zooms.is_empty() {
             sql.push_str(
                 format!(
                     " WHERE zoom_level IN ({})",
-                    vec!["?"; self.zooms.len()].join(",")
+                    vec!["?"; self.options.zooms.len()].join(",")
                 )
                 .as_str(),
             );
-            for zoom_level in &self.zooms {
+            for zoom_level in &self.options.zooms {
                 params.push(zoom_level.to_string());
             }
-        } else if let Some(min_zoom) = &self.min_zoom {
-            if let Some(max_zoom) = &self.max_zoom {
+        } else if let Some(min_zoom) = &self.options.min_zoom {
+            if let Some(max_zoom) = &self.options.max_zoom {
                 sql.push_str(" WHERE zoom_level BETWEEN ? AND ?");
 
                 params.push(min_zoom.to_string());
@@ -157,7 +180,7 @@ impl TileCopier {
 
                 params.push(min_zoom.to_string());
             }
-        } else if let Some(max_zoom) = &self.max_zoom {
+        } else if let Some(max_zoom) = &self.options.max_zoom {
             sql.push_str(" WHERE zoom_level <= ? ");
 
             params.push(max_zoom.to_string());

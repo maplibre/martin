@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{Mbtiles, TileCopier};
+use martin_mbtiles::{Mbtiles, TileCopier, TileCopierOptions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -77,16 +77,16 @@ async fn main() -> Result<()> {
             max_zoom,
             zoom_levels,
         } => {
-            let mut tile_copier = TileCopier::new(src_file, dst_file)?;
-
+            /*            let tile_copier_options = TileCopierOptions::new().verbose(verbose).zooms(zoom_levels);
             if let Some(v) = min_zoom {
-                tile_copier.min_zoom(v);
+                tile_copier_options.min_zoom(v);
             };
             if let Some(v) = max_zoom {
-                tile_copier.max_zoom(v);
-            };
+                tile_copier_options.max_zoom(v);
+            };*/
 
-            tile_copier.verbose(verbose).zooms(zoom_levels);
+            let mut tile_copier = TileCopier::new(src_file, dst_file, TileCopierOptions::new())?;
+
             tile_copier.run().await?;
         }
     }
