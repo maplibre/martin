@@ -93,6 +93,7 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/{sourceID}/{z}/{x}/{y}`              | Map Tiles                                     |
 | `/{source1},...,{sourceN}`             | Composite Source TileJSON                     |
 | `/{source1},...,{sourceN}/{z}/{x}/{y}` | Composite Source Tiles                        |
+| `/sprite/{spriteID}[@2x].{json,png}`   | Sprites (low and high DPI, index/png)         |
 | `/health`                              | Martin server health check: returns 200 `OK`  |
 
 ## Documentation

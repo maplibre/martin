@@ -1,0 +1,1 @@
+tests/output/configured/spr_mysrc.png: PNG image data, 15 x 15, 8-bit colormap, non-interlaced

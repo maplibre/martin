@@ -15,12 +15,14 @@ use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
 use crate::source::Sources;
+use crate::sprites::{resolve_sprites, SpriteSources};
 use crate::srv::SrvConfig;
 use crate::utils::{IdResolver, OneOrMany, Result};
 use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
 
 pub struct AllSources {
     pub sources: Sources,
+    pub sprites: SpriteSources,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -36,6 +38,9 @@ pub struct Config {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mbtiles: Option<FileConfigEnum>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sprites: Option<FileConfigEnum>,
 
     #[serde(flatten)]
     pub unrecognized: HashMap<String, Value>,
@@ -70,6 +75,13 @@ impl Config {
             false
         };
 
+        any |= if let Some(cfg) = &mut self.sprites {
+            res.extend(cfg.finalize("sprites.")?);
+            !cfg.is_empty()
+        } else {
+            false
+        };
+
         if any {
             Ok(res)
         } else {
@@ -97,6 +109,12 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
+        let sprites = if let Some(v) = self.sprites.as_mut() {
+            resolve_sprites(v)?
+        } else {
+            SpriteSources::default()
+        };
+
         Ok(AllSources {
             sources: try_join_all(sources).await?.into_iter().fold(
                 Sources::default(),
@@ -105,6 +123,7 @@ impl Config {
                     acc
                 },
             ),
+            sprites,
         })
     }
 }

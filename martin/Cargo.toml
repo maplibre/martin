@@ -25,6 +25,7 @@ path = "src/bin/main.rs"
 default = []
 ssl = ["openssl", "postgres-openssl"]
 vendored-openssl = ["ssl", "openssl/vendored"]
+bless-tests = []
 
 [dependencies]
 actix-cors.workspace = true
@@ -53,9 +54,11 @@ semver.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_yaml.workspace = true
+spreet.workspace = true
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
+tokio = { workspace = true, features = ["io-std"] }
 
 # Optional dependencies for openssl support
 openssl = { workspace = true, optional = true }

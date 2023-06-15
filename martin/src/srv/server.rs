@@ -6,7 +6,8 @@ use actix_http::ContentEncoding;
 use actix_web::dev::Server;
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::header::{
-    AcceptEncoding, Encoding as HeaderEnc, HeaderValue, Preference, CACHE_CONTROL, CONTENT_ENCODING,
+    AcceptEncoding, ContentType, Encoding as HeaderEnc, HeaderValue, Preference, CACHE_CONTROL,
+    CONTENT_ENCODING,
 };
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
@@ -19,10 +20,12 @@ use futures::future::try_join_all;
 use log::error;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::Deserialize;
+use spreet::sprite::Spritesheet;
 use tilejson::{tilejson, TileJSON};
 
 use crate::config::AllSources;
 use crate::source::{Source, Sources, UrlQuery, Xyz};
+use crate::sprites::{get_spritesheet, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use crate::Error::BindingError;
@@ -85,6 +88,41 @@ async fn get_health() -> impl Responder {
 #[allow(clippy::unused_async)]
 async fn get_catalog(sources: Data<Sources>) -> impl Responder {
     HttpResponse::Ok().json(sources.get_catalog())
+}
+
+#[route("/sprite/{source_ids}.png", method = "GET", method = "HEAD")]
+async fn get_sprite_png(
+    path: Path<TileJsonRequest>,
+    sprites: Data<SpriteSources>,
+) -> Result<HttpResponse> {
+    let ss = get_sprite_int(&path.source_ids, &sprites).await?;
+    Ok(HttpResponse::Ok()
+        .content_type(ContentType::png())
+        .body(ss.encode_png().map_err(map_internal_error)?))
+}
+
+#[route("/sprite/{source_ids}.json", method = "GET", method = "HEAD")]
+async fn get_sprite_json(
+    path: Path<TileJsonRequest>,
+    sprites: Data<SpriteSources>,
+) -> Result<HttpResponse> {
+    let ss = get_sprite_int(&path.source_ids, &sprites).await?;
+    Ok(HttpResponse::Ok().json(ss.get_index()))
+}
+
+async fn get_sprite_int(ids: &str, sprites: &SpriteSources) -> Result<Spritesheet> {
+    let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
+        (ids, 2)
+    } else {
+        (ids, 1)
+    };
+    let sprite_ids = ids
+        .split(',')
+        .map(|id| sprites.get_sprite_source(id))
+        .collect::<Result<Vec<_>>>()?;
+    get_spritesheet(sprite_ids.into_iter(), dpi)
+        .await
+        .map_err(map_internal_error)
 }
 
 #[route(
@@ -364,7 +402,9 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         .service(get_index)
         .service(get_catalog)
         .service(git_source_info)
-        .service(get_tile);
+        .service(get_tile)
+        .service(get_sprite_json)
+        .service(get_sprite_png);
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
@@ -382,6 +422,7 @@ pub fn new_server(config: SrvConfig, all_sources: AllSources) -> crate::Result<(
 
         App::new()
             .app_data(Data::new(all_sources.sources.clone()))
+            .app_data(Data::new(all_sources.sprites.clone()))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())

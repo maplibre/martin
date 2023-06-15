@@ -251,6 +251,19 @@ test_pbf fnc_0_0_0   function_zxy_query/0/0/0
 test_pbf fnc2_0_0_0  function_zxy_query_test/0/0/0?token=martin
 test_png pmt_0_0_0   pmt/0/0/0
 
+test_jsn spr_src1     sprite/src1.json
+test_png spr_src1     sprite/src1.png
+test_jsn spr_src1_2x  sprite/src1@2x.json
+test_png spr_src1_2x  sprite/src1@2x.png
+test_jsn spr_mysrc    sprite/mysrc.json
+test_png spr_mysrc    sprite/mysrc.png
+test_jsn spr_mysrc_2x sprite/mysrc@2x.json
+test_png spr_mysrc_2x sprite/mysrc@2x.png
+test_jsn spr_cmp      sprite/src1,mysrc.json
+test_png spr_cmp      sprite/src1,mysrc.png
+test_jsn spr_cmp_2x   sprite/src1,mysrc@2x.json
+test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
+
 kill_process $PROCESS_ID
 validate_log test_log_2.txt
 

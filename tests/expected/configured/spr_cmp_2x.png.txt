@@ -1,0 +1,1 @@
+tests/output/configured/spr_cmp_2x.png: PNG image data, 100 x 62, 8-bit colormap, non-interlaced
