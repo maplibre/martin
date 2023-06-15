@@ -12,6 +12,7 @@ use crate::config::{copy_unrecognized_config, Unrecognized};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
 use crate::source::{Source, Sources, Xyz};
 use crate::utils::{sorted_opt_map, Error, IdResolver, OneOrMany};
+use crate::OneOrMany::{Many, One};
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
@@ -43,11 +44,11 @@ impl FileConfigEnum {
     pub fn extract_file_config(&mut self) -> FileConfig {
         match self {
             FileConfigEnum::Path(path) => FileConfig {
-                paths: Some(OneOrMany::One(mem::take(path))),
+                paths: Some(One(mem::take(path))),
                 ..FileConfig::default()
             },
             FileConfigEnum::Paths(paths) => FileConfig {
-                paths: Some(OneOrMany::Many(mem::take(paths))),
+                paths: Some(Many(mem::take(paths))),
                 ..Default::default()
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),
