@@ -167,7 +167,7 @@ impl TileCopier {
                 format!("{sql} WHERE zoom_level BETWEEN ? AND ?")
             } else {
                 params.push(min_zoom.to_string());
-                format!("{sql} WHERE zoom_level >= ? ")
+                format!("{sql} WHERE zoom_level >= ?")
             }
         } else if let Some(max_zoom) = &self.options.max_zoom {
             params.push(max_zoom.to_string());
