@@ -8,7 +8,7 @@ use sqlx::{query, Connection, Row, SqliteConnection};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct TileCopierOptions {
     zooms: HashSet<u8>,
     min_zoom: Option<u8>,
@@ -34,24 +34,24 @@ impl TileCopierOptions {
         }
     }
 
-    pub fn zooms(&mut self, zooms: Vec<u8>) -> &mut Self {
+    pub fn zooms(mut self, zooms: Vec<u8>) -> Self {
         for zoom in zooms {
             self.zooms.insert(zoom);
         }
         self
     }
 
-    pub fn min_zoom(&mut self, min_zoom: u8) -> &mut Self {
+    pub fn min_zoom(mut self, min_zoom: u8) -> Self {
         self.min_zoom = Some(min_zoom);
         self
     }
 
-    pub fn max_zoom(&mut self, max_zoom: u8) -> &mut Self {
+    pub fn max_zoom(mut self, max_zoom: u8) -> Self {
         self.max_zoom = Some(max_zoom);
         self
     }
 
-    pub fn verbose(&mut self, verbose: bool) -> &mut Self {
+    pub fn verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
         self
     }
@@ -81,7 +81,7 @@ impl TileCopier {
             .filename(&self.dst_filepath);
         let mut conn = SqliteConnection::connect_with(&opt).await?;
 
-        if query("SELECT 1 FROM sqlite_schema")
+        if query("SELECT 1 FROM sqlite_schema LIMIT 1")
             .fetch_optional(&mut conn)
             .await?
             .is_some()

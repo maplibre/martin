@@ -77,15 +77,16 @@ async fn main() -> Result<()> {
             max_zoom,
             zoom_levels,
         } => {
-            /*            let tile_copier_options = TileCopierOptions::new().verbose(verbose).zooms(zoom_levels);
+            let mut tile_copier_options =
+                TileCopierOptions::new().verbose(verbose).zooms(zoom_levels);
             if let Some(v) = min_zoom {
-                tile_copier_options.min_zoom(v);
+                tile_copier_options = tile_copier_options.min_zoom(v);
             };
             if let Some(v) = max_zoom {
-                tile_copier_options.max_zoom(v);
-            };*/
+                tile_copier_options = tile_copier_options.max_zoom(v);
+            };
 
-            let mut tile_copier = TileCopier::new(src_file, dst_file, TileCopierOptions::new())?;
+            let tile_copier = TileCopier::new(src_file, dst_file, tile_copier_options)?;
 
             tile_copier.run().await?;
         }
