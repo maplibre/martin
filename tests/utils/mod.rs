@@ -15,8 +15,8 @@ mod test_utils;
 #[allow(clippy::wildcard_imports)]
 pub use test_utils::*;
 
-pub async fn mock_app_data(sources: Sources) -> Data<AppState> {
-    Data::new(AppState { sources })
+pub async fn mock_app_data(sources: Sources) -> Data<Sources> {
+    Data::new(sources)
 }
 
 #[must_use]

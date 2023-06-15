@@ -1,10 +1,13 @@
-use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Debug, Display, Formatter, Write};
-use std::sync::{Arc, Mutex};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::fmt::{Debug, Display, Formatter};
 
+use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
+use itertools::Itertools;
+use log::debug;
 use martin_tile_utils::TileInfo;
+use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
 use crate::utils::Result;
@@ -28,7 +31,91 @@ impl Display for Xyz {
 
 pub type Tile = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
-pub type Sources = HashMap<String, Box<dyn Source>>;
+
+#[derive(Default, Clone)]
+pub struct Sources(HashMap<String, Box<dyn Source>>);
+
+impl Sources {
+    pub fn insert(&mut self, id: String, source: Box<dyn Source>) {
+        self.0.insert(id, source);
+    }
+
+    pub fn extend(&mut self, other: Sources) {
+        self.0.extend(other.0);
+    }
+
+    #[must_use]
+    pub fn get_catalog(&self) -> Vec<IndexEntry> {
+        self.0
+            .iter()
+            .map(|(id, src)| {
+                let tilejson = src.get_tilejson();
+                let info = src.get_tile_info();
+                IndexEntry {
+                    id: id.clone(),
+                    content_type: info.format.content_type().to_string(),
+                    content_encoding: info.encoding.content_encoding().map(ToString::to_string),
+                    name: tilejson.name.filter(|v| v != id),
+                    description: tilejson.description,
+                    attribution: tilejson.attribution,
+                }
+            })
+            .sorted()
+            .collect()
+    }
+
+    pub fn get_source(&self, id: &str) -> actix_web::Result<&dyn Source> {
+        Ok(self
+            .0
+            .get(id)
+            .ok_or_else(|| ErrorNotFound(format!("Source {id} does not exist")))?
+            .as_ref())
+    }
+
+    pub fn get_sources(
+        &self,
+        source_ids: &str,
+        zoom: Option<u8>,
+    ) -> actix_web::Result<(Vec<&dyn Source>, bool, TileInfo)> {
+        let mut sources = Vec::new();
+        let mut info: Option<TileInfo> = None;
+        let mut use_url_query = false;
+        for id in source_ids.split(',') {
+            let src = self.get_source(id)?;
+            let src_inf = src.get_tile_info();
+            use_url_query |= src.support_url_query();
+
+            // make sure all sources have the same format
+            match info {
+                Some(inf) if inf == src_inf => {}
+                Some(inf) => Err(ErrorNotFound(format!(
+                    "Cannot merge sources with {inf} with {src_inf}"
+                )))?,
+                None => info = Some(src_inf),
+            }
+
+            // TODO: Use chained-if-let once available
+            if match zoom {
+                Some(zoom) if Self::check_zoom(src, id, zoom) => true,
+                None => true,
+                _ => false,
+            } {
+                sources.push(src);
+            }
+        }
+
+        // format is guaranteed to be Some() here
+        Ok((sources, use_url_query, info.unwrap()))
+    }
+
+    pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
+        let is_valid = src.is_valid_zoom(zoom);
+        if !is_valid {
+            debug!("Zoom {zoom} is not valid for source {id}");
+        }
+        is_valid
+    }
+}
 
 #[async_trait]
 pub trait Source: Send + Debug {
@@ -51,93 +138,35 @@ impl Clone for Box<dyn Source> {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct IdResolver {
-    /// name -> unique name
-    names: Arc<Mutex<HashMap<String, String>>>,
-    /// reserved names
-    reserved: HashSet<&'static str>,
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct IndexEntry {
+    pub id: String,
+    pub content_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_encoding: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attribution: Option<String>,
 }
 
-impl IdResolver {
-    #[must_use]
-    pub fn new(reserved_keywords: &[&'static str]) -> Self {
-        Self {
-            names: Arc::new(Mutex::new(HashMap::new())),
-            reserved: reserved_keywords.iter().copied().collect(),
-        }
+impl PartialOrd<Self> for IndexEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
+}
 
-    /// If source name already exists in the self.names structure,
-    /// try appending it with ".1", ".2", etc. until the name is unique.
-    /// Only alphanumeric characters plus dashes/dots/underscores are allowed.
-    #[must_use]
-    pub fn resolve(&self, name: &str, unique_name: String) -> String {
-        // Ensure name has no prohibited characters like spaces, commas, slashes, or non-unicode etc.
-        // Underscores, dashes, and dots are OK. All other characters will be replaced with dashes.
-        let mut name = name.replace(
-            |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
-            "-",
-        );
-
-        let mut names = self.names.lock().expect("IdResolver panicked");
-        if !self.reserved.contains(name.as_str()) {
-            match names.entry(name) {
-                Entry::Vacant(e) => {
-                    let id = e.key().clone();
-                    e.insert(unique_name);
-                    return id;
-                }
-                Entry::Occupied(e) => {
-                    name = e.key().clone();
-                    if e.get() == &unique_name {
-                        return name;
-                    }
-                }
-            }
-        }
-        // name already exists, try it with ".1", ".2", etc. until the value matches
-        // assume that reserved keywords never end in a "dot number", so don't check
-        let mut index: i32 = 1;
-        let mut new_name = String::new();
-        loop {
-            new_name.clear();
-            write!(&mut new_name, "{name}.{index}").unwrap();
-            index = index.checked_add(1).unwrap();
-            match names.entry(new_name.clone()) {
-                Entry::Vacant(e) => {
-                    e.insert(unique_name);
-                    return new_name;
-                }
-                Entry::Occupied(e) => {
-                    if e.get() == &unique_name {
-                        return new_name;
-                    }
-                }
-            }
-        }
+impl Ord for IndexEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (&self.id, &self.name).cmp(&(&other.id, &other.name))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn id_resolve() {
-        let r = IdResolver::default();
-        assert_eq!(r.resolve("a", "a".to_string()), "a");
-        assert_eq!(r.resolve("a", "a".to_string()), "a");
-        assert_eq!(r.resolve("a", "b".to_string()), "a.1");
-        assert_eq!(r.resolve("a", "b".to_string()), "a.1");
-        assert_eq!(r.resolve("b", "a".to_string()), "b");
-        assert_eq!(r.resolve("b", "a".to_string()), "b");
-        assert_eq!(r.resolve("a.1", "a".to_string()), "a.1.1");
-        assert_eq!(r.resolve("a.1", "b".to_string()), "a.1");
-
-        assert_eq!(r.resolve("a b", "a b".to_string()), "a-b");
-        assert_eq!(r.resolve("a b", "ab2".to_string()), "a-b.1");
-    }
 
     #[test]
     fn xyz_format() {

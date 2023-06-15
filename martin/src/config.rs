@@ -14,10 +14,14 @@ use crate::file_config::{resolve_files, FileConfigEnum};
 use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
-use crate::source::{IdResolver, Sources};
+use crate::source::Sources;
 use crate::srv::SrvConfig;
-use crate::utils::{OneOrMany, Result};
+use crate::utils::{IdResolver, OneOrMany, Result};
 use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
+
+pub struct AllSources {
+    pub sources: Sources,
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
@@ -73,7 +77,7 @@ impl Config {
         }
     }
 
-    pub async fn resolve(&mut self, idr: IdResolver) -> Result<Sources> {
+    pub async fn resolve(&mut self, idr: IdResolver) -> Result<AllSources> {
         let create_pmt_src = &mut PmtSource::new_box;
         let create_mbt_src = &mut MbtSource::new_box;
 
@@ -93,13 +97,15 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        Ok(try_join_all(sources)
-            .await?
-            .into_iter()
-            .fold(HashMap::new(), |mut acc, hashmap| {
-                acc.extend(hashmap);
-                acc
-            }))
+        Ok(AllSources {
+            sources: try_join_all(sources).await?.into_iter().fold(
+                Sources::default(),
+                |mut acc, hashmap| {
+                    acc.extend(hashmap);
+                    acc
+                },
+            ),
+        })
     }
 }
 

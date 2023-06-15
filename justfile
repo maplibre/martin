@@ -197,6 +197,10 @@ lint: fmt clippy
 fmt:
     cargo fmt --all -- --check
 
+# Run Nightly cargo fmt, ordering imports
+fmt2:
+    cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate
+
 # Run cargo clippy
 clippy:
     cargo clippy --workspace --all-targets --all-features --bins --tests --lib --benches -- -D warnings

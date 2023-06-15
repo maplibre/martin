@@ -1,5 +1,6 @@
-use crate::errors::MbtResult;
 use sqlx::{query, SqliteExecutor};
+
+use crate::errors::MbtResult;
 
 pub async fn is_deduplicated_type<T>(conn: &mut T) -> MbtResult<bool>
 where

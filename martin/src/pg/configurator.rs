@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use futures::future::join_all;
 use itertools::Itertools;
@@ -14,8 +14,8 @@ use crate::pg::pool::PgPool;
 use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
 use crate::pg::utils::PgError::InvalidTableExtent;
 use crate::pg::utils::Result;
-use crate::source::{IdResolver, Sources};
-use crate::utils::{find_info, normalize_key, BoolOrObject, InfoMap, OneOrMany};
+use crate::source::Sources;
+use crate::utils::{find_info, normalize_key, BoolOrObject, IdResolver, InfoMap, OneOrMany};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
@@ -139,7 +139,7 @@ impl PgBuilder {
             }
         }
 
-        let mut res: Sources = HashMap::new();
+        let mut res = Sources::default();
         let mut info_map = TableInfoSources::new();
         let pending = join_all(pending).await;
         for src in pending {
@@ -161,7 +161,7 @@ impl PgBuilder {
 
     pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources)> {
         let mut all_funcs = get_function_sources(&self.pool).await?;
-        let mut res: Sources = HashMap::new();
+        let mut res = Sources::default();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
 
