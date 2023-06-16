@@ -62,10 +62,10 @@ jobs:
             rustup target add aarch64-apple-darwin
             # compile without debug symbols
             RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
-            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=tools --package martin-mbtiles
+            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
           else
             cargo build --release --target ${{ matrix.target }} --features=ssl --package martin
-            cargo build --release --target ${{ matrix.target }} --features=tools --package martin-mbtiles
+            cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
           fi
           mkdir target_releases
           if [[ "${{ runner.os }}" == "Windows" ]]; then

@@ -10,9 +10,9 @@ repository.workspace = true
 license.workspace = true
 
 [features]
-# TODO: Disable "tools" feature in default builds
-default = ["tools"]
-tools = ["anyhow", "clap", "tokio"]
+# TODO: Disable "cli" feature in default builds
+default = ["cli"]
+cli = ["dep:anyhow", "dep:clap", "dep:tokio"]
 
 [dependencies]
 futures.workspace = true
@@ -38,4 +38,4 @@ path = "src/lib.rs"
 [[bin]]
 name = "mbtiles"
 path = "src/bin/main.rs"
-required-features = ["tools"]
+required-features = ["cli"]
