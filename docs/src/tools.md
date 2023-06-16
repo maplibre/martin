@@ -13,3 +13,10 @@ Retrieve raw metadata value by its name. The value is printed to stdout without 
 ```shell
 mbtiles meta-get <file.mbtiles> <key>
 ```
+
+### copy
+Copy existing `.mbtiles` file to a new, non-existent file.
+
+```shell
+mbtiles copy  <src_file.mbtiles> <dst_file.mbtiles>
+```

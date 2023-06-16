@@ -14,7 +14,7 @@ use sqlx::{Connection, SqliteConnection};
 )]
 pub struct Args {
     /// Display detailed information
-    #[arg(short, long)]
+    #[arg(short, long, hide = true)]
     verbose: bool,
     #[command(subcommand)]
     command: Commands,
@@ -76,15 +76,11 @@ async fn main() -> Result<()> {
             max_zoom,
             zoom_levels,
         } => {
-            let mut copy_opts = TileCopierOptions::new()
+            let copy_opts = TileCopierOptions::new()
                 .verbose(args.verbose)
+                .min_zoom(min_zoom)
+                .max_zoom(max_zoom)
                 .zooms(zoom_levels);
-            if let Some(v) = min_zoom {
-                copy_opts = copy_opts.min_zoom(v);
-            };
-            if let Some(v) = max_zoom {
-                copy_opts = copy_opts.max_zoom(v);
-            };
 
             let tile_copier = TileCopier::new(src_file, dst_file, copy_opts)?;
 
