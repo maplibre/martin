@@ -6,9 +6,8 @@ use std::path::PathBuf;
 use futures::TryFutureExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 
-use crate::config::{copy_unrecognized_config, Unrecognized};
+use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
 use crate::source::{Source, Sources, Xyz};
 use crate::utils::{sorted_opt_map, Error, IdResolver, OneOrMany};
@@ -41,6 +40,31 @@ pub enum FileConfigEnum {
 }
 
 impl FileConfigEnum {
+    pub fn new(paths: Vec<PathBuf>) -> Option<FileConfigEnum> {
+        match paths.len() {
+            0 => None,
+            1 => Some(FileConfigEnum::Path(paths.into_iter().next().unwrap())),
+            _ => Some(FileConfigEnum::Paths(paths)),
+        }
+    }
+
+    #[must_use]
+    pub fn from_configs(
+        directories: Vec<PathBuf>,
+        configs: HashMap<String, FileConfigSrc>,
+        unrecognized: UnrecognizedValues,
+    ) -> FileConfigEnum {
+        FileConfigEnum::Config(FileConfig {
+            paths: OneOrMany::new_opt(directories),
+            sources: if configs.is_empty() {
+                None
+            } else {
+                Some(configs)
+            },
+            unrecognized,
+        })
+    }
+
     pub fn extract_file_config(&mut self) -> FileConfig {
         match self {
             FileConfigEnum::Path(path) => FileConfig {
@@ -66,7 +90,7 @@ pub struct FileConfig {
     #[serde(serialize_with = "sorted_opt_map")]
     pub sources: Option<HashMap<String, FileConfigSrc>>,
     #[serde(flatten)]
-    pub unrecognized: HashMap<String, Value>,
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl FileConfig {
@@ -100,8 +124,8 @@ pub struct FileConfigSource {
 }
 
 impl FileConfigEnum {
-    pub fn finalize(&self, prefix: &str) -> Result<Unrecognized, Error> {
-        let mut res = Unrecognized::new();
+    pub fn finalize(&self, prefix: &str) -> Result<UnrecognizedValues, Error> {
+        let mut res = UnrecognizedValues::new();
         if let Self::Config(cfg) = self {
             copy_unrecognized_config(&mut res, prefix, &cfg.unrecognized);
         }
@@ -217,11 +241,7 @@ where
         }
     }
 
-    *config = FileConfigEnum::Config(FileConfig {
-        paths: OneOrMany::new_opt(directories),
-        sources: Some(configs),
-        unrecognized: cfg.unrecognized,
-    });
+    *config = FileConfigEnum::from_configs(directories, configs, cfg.unrecognized);
 
     Ok(results)
 }

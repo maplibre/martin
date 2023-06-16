@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
+use crate::config::UnrecognizedValues;
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use tilejson::{Bounds, TileJSON};
 
 use crate::pg::config::PgInfo;
@@ -33,7 +31,7 @@ pub struct FunctionInfo {
     pub bounds: Option<Bounds>,
 
     #[serde(flatten, skip_serializing)]
-    pub unrecognized: HashMap<String, Value>,
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl FunctionInfo {

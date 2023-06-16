@@ -44,9 +44,12 @@ pub enum SpriteError {
 pub fn resolve_sprites(config: &mut FileConfigEnum) -> Result<SpriteSources, FileError> {
     let cfg = config.extract_file_config();
     let mut results = SpriteSources::default();
+    let mut directories = Vec::new();
+    let mut configs = HashMap::new();
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
+            configs.insert(id.clone(), source.clone());
             add_source(id, source.abs_path()?, &mut results);
         }
     };
@@ -57,9 +60,12 @@ pub fn resolve_sprites(config: &mut FileConfigEnum) -> Result<SpriteSources, Fil
                 warn!("Ignoring sprite source with no name from {}", path.display());
                 continue;
             };
+            directories.push(path.clone());
             add_source(name.to_string_lossy().to_string(), path, &mut results);
         }
     }
+
+    *config = FileConfigEnum::from_configs(directories, configs, cfg.unrecognized);
 
     Ok(results)
 }

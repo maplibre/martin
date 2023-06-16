@@ -7,7 +7,6 @@ use std::pin::Pin;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use subst::VariableMap;
 
 use crate::file_config::{resolve_files, FileConfigEnum};
@@ -19,6 +18,8 @@ use crate::sprites::{resolve_sprites, SpriteSources};
 use crate::srv::SrvConfig;
 use crate::utils::{IdResolver, OneOrMany, Result};
 use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
+
+pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
 pub struct AllSources {
     pub sources: Sources,
@@ -43,13 +44,13 @@ pub struct Config {
     pub sprites: Option<FileConfigEnum>,
 
     #[serde(flatten)]
-    pub unrecognized: HashMap<String, Value>,
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<Unrecognized> {
-        let mut res = Unrecognized::new();
+    pub fn finalize(&mut self) -> Result<UnrecognizedValues> {
+        let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
         let mut any = if let Some(pg) = &mut self.postgres {
@@ -128,12 +129,10 @@ impl Config {
     }
 }
 
-pub type Unrecognized = HashMap<String, Value>;
-
 pub fn copy_unrecognized_config(
-    result: &mut Unrecognized,
+    result: &mut UnrecognizedValues,
     prefix: &str,
-    unrecognized: &Unrecognized,
+    unrecognized: &UnrecognizedValues,
 ) {
     result.extend(
         unrecognized
