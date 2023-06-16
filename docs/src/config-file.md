@@ -101,7 +101,7 @@ postgres:
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+      bounds: [-180.0, -90.0, 180.0, 90.0]
       
       # Tile extent in tile coordinate space
       extent: 4096
@@ -138,7 +138,7 @@ postgres:
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+      bounds: [-180.0, -90.0, 180.0, 90.0]
 
 # Publish PMTiles files
 pmtiles:
@@ -161,4 +161,13 @@ mbtiles:
   sources:
     # named source matching source name to a single file
     mb-src1: /path/to/mbtiles1.mbtiles
+
+# Sprite configuration
+sprites:
+  paths:
+    # all SVG files in this dir will be published as a "my_images" sprite source
+    - /path/to/my_images
+  sources:
+    # SVG images in this directory will be published as a "my_sprites" sprite source
+    my_sprites: /path/to/some_dir
 ```
