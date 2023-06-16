@@ -41,8 +41,12 @@ pub enum SpriteError {
     UnableToGenerateSpritesheet,
 }
 
-pub fn resolve_sprites(config: &mut FileConfigEnum) -> Result<SpriteSources, FileError> {
-    let cfg = config.extract_file_config();
+pub fn resolve_sprites(config: &mut Option<FileConfigEnum>) -> Result<SpriteSources, FileError> {
+    let Some(cfg) = config else {
+        return Ok(SpriteSources::default());
+    };
+
+    let cfg = cfg.extract_file_config();
     let mut results = SpriteSources::default();
     let mut directories = Vec::new();
     let mut configs = HashMap::new();
@@ -65,7 +69,7 @@ pub fn resolve_sprites(config: &mut FileConfigEnum) -> Result<SpriteSources, Fil
         }
     }
 
-    *config = FileConfigEnum::from_configs(directories, configs, cfg.unrecognized);
+    *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
 
     Ok(results)
 }
@@ -159,22 +163,15 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::file_config::FileConfig;
-    use crate::OneOrMany::Many;
 
     #[actix_rt::test]
     async fn test_sprites() {
-        let config = FileConfig {
-            paths: Some(Many(vec![
-                PathBuf::from("../tests/fixtures/sprites/src1"),
-                PathBuf::from("../tests/fixtures/sprites/src2"),
-            ])),
-            ..FileConfig::default()
-        };
+        let mut cfg = FileConfigEnum::new(vec![
+            PathBuf::from("../tests/fixtures/sprites/src1"),
+            PathBuf::from("../tests/fixtures/sprites/src2"),
+        ]);
 
-        let sprites = resolve_sprites(&mut FileConfigEnum::Config(config))
-            .unwrap()
-            .0;
+        let sprites = resolve_sprites(&mut cfg).unwrap().0;
         assert_eq!(sprites.len(), 2);
 
         test_src(sprites.values(), 1, "all_1").await;

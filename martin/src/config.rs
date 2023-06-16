@@ -100,21 +100,15 @@ impl Config {
                 sources.push(Box::pin(s.resolve(idr.clone())));
             }
         }
-        if let Some(v) = self.pmtiles.as_mut() {
-            let val = resolve_files(v, idr.clone(), "pmtiles", create_pmt_src);
+        if self.pmtiles.is_some() {
+            let val = resolve_files(&mut self.pmtiles, idr.clone(), "pmtiles", create_pmt_src);
             sources.push(Box::pin(val));
         }
 
-        if let Some(v) = self.mbtiles.as_mut() {
-            let val = resolve_files(v, idr.clone(), "mbtiles", create_mbt_src);
+        if self.mbtiles.is_some() {
+            let val = resolve_files(&mut self.mbtiles, idr.clone(), "mbtiles", create_mbt_src);
             sources.push(Box::pin(val));
         }
-
-        let sprites = if let Some(v) = self.sprites.as_mut() {
-            resolve_sprites(v)?
-        } else {
-            SpriteSources::default()
-        };
 
         Ok(AllSources {
             sources: try_join_all(sources).await?.into_iter().fold(
@@ -124,7 +118,7 @@ impl Config {
                     acc
                 },
             ),
-            sprites,
+            sprites: resolve_sprites(&mut self.sprites)?,
         })
     }
 }

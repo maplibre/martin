@@ -1,7 +1,7 @@
-use crate::config::UnrecognizedValues;
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON};
 
+use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
 use crate::utils::InfoMap;
 

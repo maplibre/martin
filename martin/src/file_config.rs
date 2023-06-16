@@ -40,29 +40,34 @@ pub enum FileConfigEnum {
 }
 
 impl FileConfigEnum {
+    #[must_use]
     pub fn new(paths: Vec<PathBuf>) -> Option<FileConfigEnum> {
-        match paths.len() {
-            0 => None,
-            1 => Some(FileConfigEnum::Path(paths.into_iter().next().unwrap())),
-            _ => Some(FileConfigEnum::Paths(paths)),
-        }
+        Self::new_extended(paths, HashMap::new(), UnrecognizedValues::new())
     }
 
     #[must_use]
-    pub fn from_configs(
-        directories: Vec<PathBuf>,
+    pub fn new_extended(
+        paths: Vec<PathBuf>,
         configs: HashMap<String, FileConfigSrc>,
         unrecognized: UnrecognizedValues,
-    ) -> FileConfigEnum {
-        FileConfigEnum::Config(FileConfig {
-            paths: OneOrMany::new_opt(directories),
-            sources: if configs.is_empty() {
-                None
-            } else {
-                Some(configs)
-            },
-            unrecognized,
-        })
+    ) -> Option<FileConfigEnum> {
+        if configs.is_empty() && unrecognized.is_empty() {
+            match paths.len() {
+                0 => None,
+                1 => Some(FileConfigEnum::Path(paths.into_iter().next().unwrap())),
+                _ => Some(FileConfigEnum::Paths(paths)),
+            }
+        } else {
+            Some(FileConfigEnum::Config(FileConfig {
+                paths: OneOrMany::new_opt(paths),
+                sources: if configs.is_empty() {
+                    None
+                } else {
+                    Some(configs)
+                },
+                unrecognized,
+            }))
+        }
     }
 
     pub fn extract_file_config(&mut self) -> FileConfig {
@@ -143,7 +148,7 @@ impl FileConfigEnum {
 }
 
 pub async fn resolve_files<Fut>(
-    config: &mut FileConfigEnum,
+    config: &mut Option<FileConfigEnum>,
     idr: IdResolver,
     extension: &str,
     create_source: &mut impl FnMut(String, PathBuf) -> Fut,
@@ -157,7 +162,7 @@ where
 }
 
 async fn resolve_int<Fut>(
-    config: &mut FileConfigEnum,
+    config: &mut Option<FileConfigEnum>,
     idr: IdResolver,
     extension: &str,
     create_source: &mut impl FnMut(String, PathBuf) -> Fut,
@@ -165,7 +170,8 @@ async fn resolve_int<Fut>(
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
-    let cfg = config.extract_file_config();
+    let Some(cfg) = config else { return Ok(Sources::default()) };
+    let cfg = cfg.extract_file_config();
 
     let mut results = Sources::default();
     let mut configs = HashMap::new();
@@ -241,7 +247,7 @@ where
         }
     }
 
-    *config = FileConfigEnum::from_configs(directories, configs, cfg.unrecognized);
+    *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
 
     Ok(results)
 }

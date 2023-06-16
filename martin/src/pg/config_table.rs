@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::config::UnrecognizedValues;
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
+use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
 use crate::utils::{sorted_opt_map, InfoMap};
 
