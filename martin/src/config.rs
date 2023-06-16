@@ -7,7 +7,6 @@ use std::pin::Pin;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use subst::VariableMap;
 
 use crate::file_config::{resolve_files, FileConfigEnum};
@@ -15,12 +14,16 @@ use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
 use crate::source::Sources;
+use crate::sprites::{resolve_sprites, SpriteSources};
 use crate::srv::SrvConfig;
 use crate::utils::{IdResolver, OneOrMany, Result};
 use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
 
+pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
+
 pub struct AllSources {
     pub sources: Sources,
+    pub sprites: SpriteSources,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -37,14 +40,17 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mbtiles: Option<FileConfigEnum>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sprites: Option<FileConfigEnum>,
+
     #[serde(flatten)]
-    pub unrecognized: HashMap<String, Value>,
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<Unrecognized> {
-        let mut res = Unrecognized::new();
+    pub fn finalize(&mut self) -> Result<UnrecognizedValues> {
+        let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
         let mut any = if let Some(pg) = &mut self.postgres {
@@ -70,6 +76,13 @@ impl Config {
             false
         };
 
+        any |= if let Some(cfg) = &mut self.sprites {
+            res.extend(cfg.finalize("sprites.")?);
+            !cfg.is_empty()
+        } else {
+            false
+        };
+
         if any {
             Ok(res)
         } else {
@@ -87,13 +100,13 @@ impl Config {
                 sources.push(Box::pin(s.resolve(idr.clone())));
             }
         }
-        if let Some(v) = self.pmtiles.as_mut() {
-            let val = resolve_files(v, idr.clone(), "pmtiles", create_pmt_src);
+        if self.pmtiles.is_some() {
+            let val = resolve_files(&mut self.pmtiles, idr.clone(), "pmtiles", create_pmt_src);
             sources.push(Box::pin(val));
         }
 
-        if let Some(v) = self.mbtiles.as_mut() {
-            let val = resolve_files(v, idr.clone(), "mbtiles", create_mbt_src);
+        if self.mbtiles.is_some() {
+            let val = resolve_files(&mut self.mbtiles, idr.clone(), "mbtiles", create_mbt_src);
             sources.push(Box::pin(val));
         }
 
@@ -105,16 +118,15 @@ impl Config {
                     acc
                 },
             ),
+            sprites: resolve_sprites(&mut self.sprites)?,
         })
     }
 }
 
-pub type Unrecognized = HashMap<String, Value>;
-
 pub fn copy_unrecognized_config(
-    result: &mut Unrecognized,
+    result: &mut UnrecognizedValues,
     prefix: &str,
-    unrecognized: &Unrecognized,
+    unrecognized: &UnrecognizedValues,
 ) {
     result.extend(
         unrecognized

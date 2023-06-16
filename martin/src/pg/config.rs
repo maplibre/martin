@@ -2,7 +2,7 @@ use futures::future::try_join;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::config::{copy_unrecognized_config, Unrecognized};
+use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
@@ -72,8 +72,8 @@ pub struct PgCfgPublishType {
 
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<Unrecognized> {
-        let mut res = Unrecognized::new();
+    pub fn finalize(&mut self) -> Result<UnrecognizedValues> {
+        let mut res = UnrecognizedValues::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
                 copy_unrecognized_config(&mut res, &format!("tables.{k}."), &v.unrecognized);

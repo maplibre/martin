@@ -1,0 +1,30 @@
+{
+  "another_bicycle": {
+    "height": 30,
+    "pixelRatio": 2,
+    "width": 30,
+    "x": 40,
+    "y": 32
+  },
+  "bear": {
+    "height": 32,
+    "pixelRatio": 2,
+    "width": 32,
+    "x": 40,
+    "y": 0
+  },
+  "bicycle": {
+    "height": 30,
+    "pixelRatio": 2,
+    "width": 30,
+    "x": 70,
+    "y": 32
+  },
+  "sub/circle": {
+    "height": 40,
+    "pixelRatio": 2,
+    "width": 40,
+    "x": 0,
+    "y": 0
+  }
+}

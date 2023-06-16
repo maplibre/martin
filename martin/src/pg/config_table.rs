@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
+use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
 use crate::utils::{sorted_opt_map, InfoMap};
 
@@ -79,7 +79,7 @@ pub struct TableInfo {
     pub prop_mapping: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
-    pub unrecognized: HashMap<String, Value>,
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl PgInfo for TableInfo {

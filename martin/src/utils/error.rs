@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::file_config::FileError;
 use crate::pg::PgError;
+use crate::sprites::SpriteError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -34,4 +35,7 @@ pub enum Error {
 
     #[error("{0}")]
     FileError(#[from] FileError),
+
+    #[error("{0}")]
+    SpriteError(#[from] SpriteError),
 }

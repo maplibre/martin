@@ -14,6 +14,7 @@ pub mod mbtiles;
 pub mod pg;
 pub mod pmtiles;
 mod source;
+pub mod sprites;
 pub mod srv;
 mod utils;
 

@@ -41,6 +41,9 @@ pub struct MetaArgs {
     pub watch: bool,
     /// Connection strings, e.g. postgres://... or /path/to/files
     pub connection: Vec<String>,
+    /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
+    #[arg(short, long)]
+    pub sprite: Vec<PathBuf>,
 }
 
 impl Args {
@@ -74,6 +77,10 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles");
         }
 
+        if !self.meta.sprite.is_empty() {
+            config.sprites = FileConfigEnum::new(self.meta.sprite);
+        }
+
         cli_strings.check()
     }
 }
@@ -92,11 +99,7 @@ pub fn parse_file_args(cli_strings: &mut Arguments, extension: &str) -> Option<F
         Err(_) => Ignore,
     });
 
-    match paths.len() {
-        0 => None,
-        1 => Some(FileConfigEnum::Path(paths.into_iter().next().unwrap())),
-        _ => Some(FileConfigEnum::Paths(paths)),
-    }
+    FileConfigEnum::new(paths)
 }
 
 #[cfg(test)]
