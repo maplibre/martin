@@ -868,6 +868,10 @@ martin
 <p>Retrieve raw metadata value by its name. The value is printed to stdout without any modifications.</p>
 <pre><code class="language-shell">mbtiles meta-get &lt;file.mbtiles&gt; &lt;key&gt;
 </code></pre>
+<h3 id="copy"><a class="header" href="#copy">copy</a></h3>
+<p>Copy existing <code>.mbtiles</code> file to a new, non-existent file.</p>
+<pre><code class="language-shell">mbtiles copy  &lt;src_file.mbtiles&gt; &lt;dst_file.mbtiles&gt;
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
 <p>Clone Martin, setting remote name to <code>upstream</code>. This way <code>main</code> branch will be updated automatically with the latest changes from the upstream repo.</p>
 <pre><code class="language-shell  ignore">git clone https://github.com/maplibre/martin.git -o upstream
