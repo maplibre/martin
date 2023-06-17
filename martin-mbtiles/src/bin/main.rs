@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::Mbtiles;
+use martin_mbtiles::{Mbtiles, TileCopier, TileCopierOptions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -13,6 +13,9 @@ use sqlx::{Connection, SqliteConnection};
     about = "A utility to work with .mbtiles file content"
 )]
 pub struct Args {
+    /// Display detailed information
+    #[arg(short, long, hide = true)]
+    verbose: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -39,13 +42,23 @@ enum Commands {
     //     /// MBTiles file to modify
     //     file: PathBuf,
     // },
-    // /// Copy tiles from one mbtiles file to another.
-    // Copy {
-    //     /// MBTiles file to read from
-    //     src_file: PathBuf,
-    //     /// MBTiles file to write to
-    //     dst_file: PathBuf,
-    // },
+    /// Copy tiles from one mbtiles file to another.
+    #[command(name = "copy")]
+    Copy {
+        /// MBTiles file to read from
+        src_file: PathBuf,
+        /// MBTiles file to write to
+        dst_file: PathBuf,
+        /// Minimum zoom level to copy
+        #[arg(long)]
+        min_zoom: Option<u8>,
+        /// Maximum zoom level to copy
+        #[arg(long)]
+        max_zoom: Option<u8>,
+        /// List of zoom levels to copy; if provided, min-zoom and max-zoom will be ignored
+        #[arg(long, value_delimiter(','))]
+        zoom_levels: Vec<u8>,
+    },
 }
 
 #[tokio::main]
@@ -55,6 +68,23 @@ async fn main() -> Result<()> {
     match args.command {
         Commands::MetaGetValue { file, key } => {
             meta_get_value(file.as_path(), &key).await?;
+        }
+        Commands::Copy {
+            src_file,
+            dst_file,
+            min_zoom,
+            max_zoom,
+            zoom_levels,
+        } => {
+            let copy_opts = TileCopierOptions::new()
+                .verbose(args.verbose)
+                .min_zoom(min_zoom)
+                .max_zoom(max_zoom)
+                .zooms(zoom_levels);
+
+            let tile_copier = TileCopier::new(src_file, dst_file, copy_opts)?;
+
+            tile_copier.run().await?;
         }
     }
 

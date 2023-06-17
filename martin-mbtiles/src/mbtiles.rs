@@ -27,7 +27,7 @@ pub struct Metadata {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Type {
+pub enum MbtType {
     TileTables,
     DeDuplicated,
 }
@@ -276,16 +276,16 @@ impl Mbtiles {
         Ok(None)
     }
 
-    pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<Type>
+    pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         if is_deduplicated_type(&mut *conn).await? {
-            Ok(Type::DeDuplicated)
+            Ok(MbtType::DeDuplicated)
         } else if is_tile_tables_type(&mut *conn).await? {
-            Ok(Type::TileTables)
+            Ok(MbtType::TileTables)
         } else {
-            Err(MbtError::InvalidDataStorageFormat(self.filepath.clone()))
+            Err(MbtError::InvalidDataFormat(self.filepath.clone()))
         }
     }
 }
@@ -384,14 +384,14 @@ mod tests {
     async fn detect_type() {
         let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, Type::TileTables);
+        assert_eq!(res, MbtType::TileTables);
 
         let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, Type::DeDuplicated);
+        assert_eq!(res, MbtType::DeDuplicated);
 
         let (mut conn, mbt) = open(":memory:").await;
         let res = mbt.detect_type(&mut conn).await;
-        assert!(matches!(res, Err(MbtError::InvalidDataStorageFormat(_))));
+        assert!(matches!(res, Err(MbtError::InvalidDataFormat(_))));
     }
 }
