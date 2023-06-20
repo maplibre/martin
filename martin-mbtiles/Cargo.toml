@@ -11,8 +11,10 @@ license.workspace = true
 
 [features]
 # TODO: Disable "cli" feature in default builds
-default = ["cli"]
+default = ["cli", "native-tls"]
 cli = ["dep:anyhow", "dep:clap", "dep:tokio"]
+native-tls = ["sqlx/runtime-actix-native-tls"]
+rustls = ["sqlx/runtime-actix-rustls"]
 
 [dependencies]
 futures.workspace = true
