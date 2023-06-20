@@ -5,6 +5,8 @@ use sqlite_hashes::rusqlite;
 
 use crate::MbtType;
 
+use crate::mbtiles::MbtType;
+
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
     #[error("The source and destination MBTiles files are the same: {}", .0.display())]

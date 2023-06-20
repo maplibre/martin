@@ -10,7 +10,7 @@ use crate::args::srv::SrvArgs;
 use crate::args::State::{Ignore, Share, Take};
 use crate::config::Config;
 use crate::file_config::FileConfigEnum;
-use crate::{Error, Result};
+use crate::{Error, OneOrMany, Result};
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -44,6 +44,9 @@ pub struct MetaArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
     pub sprite: Vec<PathBuf>,
+    /// Export a directory with font files as a font source. Can be specified multiple times.
+    #[arg(short, long)]
+    pub font: Vec<PathBuf>,
 }
 
 impl Args {
@@ -79,6 +82,10 @@ impl Args {
 
         if !self.meta.sprite.is_empty() {
             config.sprites = FileConfigEnum::new(self.meta.sprite);
+        }
+
+        if !self.meta.font.is_empty() {
+            config.fonts = OneOrMany::new_opt(self.meta.font);
         }
 
         cli_strings.check()
