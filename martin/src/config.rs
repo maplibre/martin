@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::future::Future;
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::file_config::{resolve_files, FileConfigEnum};
+use crate::fonts::{resolve_fonts, FontSources};
 use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
@@ -24,6 +25,7 @@ pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 pub struct ServerState {
     pub tiles: TileSources,
     pub sprites: SpriteSources,
+    pub fonts: FontSources,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -43,6 +45,9 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: FileConfigEnum,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fonts: OptOneMany<PathBuf>,
+
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -61,10 +66,14 @@ impl Config {
         res.extend(self.mbtiles.finalize("mbtiles.")?);
         res.extend(self.sprites.finalize("sprites.")?);
 
+        // TODO: support for unrecognized fonts?
+        // res.extend(self.fonts.finalize("fonts.")?);
+
         if self.postgres.is_empty()
             && self.pmtiles.is_empty()
             && self.mbtiles.is_empty()
             && self.sprites.is_empty()
+            && self.fonts.is_empty()
         {
             Err(NoSources)
         } else {
@@ -76,6 +85,7 @@ impl Config {
         Ok(ServerState {
             tiles: self.resolve_tile_sources(idr).await?,
             sprites: SpriteSources::resolve(&mut self.sprites)?,
+            fonts: resolve_fonts(&mut self.fonts)?,
         })
     }
 
