@@ -78,6 +78,12 @@ impl TileCopier {
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         let opt = SqliteConnectOptions::new()
+            .read_only(true)
+            .filename(self.src_mbtiles.filepath());
+        let mut conn = SqliteConnection::connect_with(&opt).await?;
+        let storage_type = self.src_mbtiles.detect_type(&mut conn).await?;
+
+        let opt = SqliteConnectOptions::new()
             .create_if_missing(true)
             .filename(&self.dst_filepath);
         let mut conn = SqliteConnection::connect_with(&opt).await?;
@@ -98,18 +104,18 @@ impl TileCopier {
             .execute(&mut conn)
             .await?;
 
-        if !self.options.force_simple {
-            for row in query("SELECT sql FROM sourceDb.sqlite_schema WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images')")
-                .fetch_all(&mut conn)
-                .await? {
-                query(row.get(0)).execute(&mut conn).await?;
-            }
-        } else {
+        if self.options.force_simple {
             for statement in &["CREATE TABLE metadata (name text, value text);",
                 "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
                 "CREATE UNIQUE INDEX name on metadata (name);",
                 "CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);"] {
                 query(statement).execute(&mut conn).await?;
+            }
+        } else {
+            for row in query("SELECT sql FROM sourceDb.sqlite_schema WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images')")
+                .fetch_all(&mut conn)
+                .await? {
+                query(row.get(0)).execute(&mut conn).await?;
             }
         };
 
@@ -118,12 +124,7 @@ impl TileCopier {
             .await?;
 
         if !self.options.force_simple {
-            let src_opt = SqliteConnectOptions::new()
-                .read_only(true)
-                .filename(PathBuf::from(&self.src_mbtiles.filepath()));
-            let mut src_conn = SqliteConnection::connect_with(&src_opt).await?;
-
-            match self.src_mbtiles.detect_type(&mut src_conn).await? {
+            match storage_type {
                 MbtType::TileTables => self.copy_tile_tables(&mut conn).await?,
                 MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await?,
             }
