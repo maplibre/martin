@@ -11,9 +11,9 @@ use std::path::PathBuf;
 #[derive(Clone, Default, Debug)]
 pub struct TileCopierOptions {
     zooms: HashSet<u8>,
+    force_simple: bool,
     min_zoom: Option<u8>,
     max_zoom: Option<u8>,
-    //self.bbox = bbox
     verbose: bool,
 }
 
@@ -28,10 +28,16 @@ impl TileCopierOptions {
     pub fn new() -> Self {
         Self {
             zooms: HashSet::new(),
+            force_simple: false,
             min_zoom: None,
             max_zoom: None,
             verbose: false,
         }
+    }
+
+    pub fn force_simple(mut self, force_simple: bool) -> Self {
+        self.force_simple = force_simple;
+        self
     }
 
     pub fn zooms(mut self, zooms: Vec<u8>) -> Self {
@@ -72,12 +78,6 @@ impl TileCopier {
 
     pub async fn run(self) -> MbtResult<()> {
         let opt = SqliteConnectOptions::new()
-            .read_only(true)
-            .filename(self.src_mbtiles.filepath());
-        let mut conn = SqliteConnection::connect_with(&opt).await?;
-        let storage_type = self.src_mbtiles.detect_type(&mut conn).await?;
-
-        let opt = SqliteConnectOptions::new()
             .create_if_missing(true)
             .filename(&self.dst_filepath);
         let mut conn = SqliteConnection::connect_with(&opt).await?;
@@ -98,22 +98,37 @@ impl TileCopier {
             .execute(&mut conn)
             .await?;
 
-        let schema = query("SELECT sql FROM sourceDb.sqlite_schema WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images')")
-            .fetch_all(&mut conn)
-            .await?;
-
-        for row in &schema {
-            let row: String = row.get(0);
-            query(row.as_str()).execute(&mut conn).await?;
-        }
+        if !self.options.force_simple {
+            for row in query("SELECT sql FROM sourceDb.sqlite_schema WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images')")
+                .fetch_all(&mut conn)
+                .await? {
+                query(row.get(0)).execute(&mut conn).await?;
+            }
+        } else {
+            for statement in &["CREATE TABLE metadata (name text, value text);",
+                "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
+                "CREATE UNIQUE INDEX name on metadata (name);",
+                "CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);"] {
+                query(statement).execute(&mut conn).await?;
+            }
+        };
 
         query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
             .execute(&mut conn)
             .await?;
 
-        match storage_type {
-            MbtType::TileTables => self.copy_tile_tables(&mut conn).await,
-            MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await,
+        if !self.options.force_simple {
+            let src_opt = SqliteConnectOptions::new()
+                .read_only(true)
+                .filename(PathBuf::from(&self.src_mbtiles.filepath()));
+            let mut src_conn = SqliteConnection::connect_with(&src_opt).await?;
+
+            match self.src_mbtiles.detect_type(&mut src_conn).await? {
+                MbtType::TileTables => self.copy_tile_tables(&mut conn).await,
+                MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await,
+            }
+        } else {
+            self.copy_tile_tables(&mut conn).await
         }
     }
 
@@ -265,6 +280,35 @@ mod tests {
                 .await,
             Err(MbtError::NonEmptyTargetFile(_))
         ));
+    }
+
+    #[actix_rt::test]
+    async fn copy_force_simple() {
+        let src_filepath = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let dst_filepath = PathBuf::from("../tests/tmp_force_simple.mbtiles");
+
+        let copy_opts = TileCopierOptions::new().force_simple(true);
+
+        let tile_copier =
+            TileCopier::new(src_filepath.clone(), dst_filepath.clone(), copy_opts).unwrap();
+
+        tile_copier.run().await.unwrap();
+
+        let mut dst_conn = SqliteConnection::connect_with(
+            &SqliteConnectOptions::new().filename(dst_filepath.clone()),
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            query("SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles';")
+                .fetch_optional(&mut dst_conn)
+                .await
+                .unwrap()
+                .is_some()
+        );
+
+        remove_file(dst_filepath).unwrap();
     }
 
     #[actix_rt::test]

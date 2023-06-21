@@ -49,6 +49,9 @@ enum Commands {
         src_file: PathBuf,
         /// MBTiles file to write to
         dst_file: PathBuf,
+        /// Force the output file to be in a simple MBTiles format with a `tiles` table
+        #[arg(long)]
+        force_simple: bool,
         /// Minimum zoom level to copy
         #[arg(long)]
         min_zoom: Option<u8>,
@@ -72,12 +75,14 @@ async fn main() -> Result<()> {
         Commands::Copy {
             src_file,
             dst_file,
+            force_simple,
             min_zoom,
             max_zoom,
             zoom_levels,
         } => {
             let copy_opts = TileCopierOptions::new()
                 .verbose(args.verbose)
+                .force_simple(force_simple)
                 .min_zoom(min_zoom)
                 .max_zoom(max_zoom)
                 .zooms(zoom_levels);
