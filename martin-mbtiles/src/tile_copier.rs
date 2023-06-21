@@ -76,7 +76,7 @@ impl TileCopier {
         })
     }
 
-    pub async fn run(self) -> MbtResult<()> {
+    pub async fn run(self) -> MbtResult<SqliteConnection> {
         let opt = SqliteConnectOptions::new()
             .create_if_missing(true)
             .filename(&self.dst_filepath);
@@ -124,12 +124,14 @@ impl TileCopier {
             let mut src_conn = SqliteConnection::connect_with(&src_opt).await?;
 
             match self.src_mbtiles.detect_type(&mut src_conn).await? {
-                MbtType::TileTables => self.copy_tile_tables(&mut conn).await,
-                MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await,
+                MbtType::TileTables => self.copy_tile_tables(&mut conn).await?,
+                MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await?,
             }
         } else {
-            self.copy_tile_tables(&mut conn).await
+            self.copy_tile_tables(&mut conn).await?
         }
+
+        Ok(conn)
     }
 
     async fn copy_tile_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
@@ -192,8 +194,6 @@ impl TileCopier {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::remove_file;
-
     use sqlx::{Connection, SqliteConnection};
 
     use super::*;
@@ -205,7 +205,7 @@ mod tests {
     }
 
     async fn verify_copy_all(src_filepath: PathBuf, dst_filepath: PathBuf) {
-        TileCopier::new(
+        let mut dst_conn = TileCopier::new(
             src_filepath.clone(),
             dst_filepath.clone(),
             TileCopierOptions::new(),
@@ -222,13 +222,11 @@ mod tests {
                 .unwrap()
                 .get::<i32, _>(0),
             query("SELECT COUNT(*) FROM tiles;")
-                .fetch_one(&mut open_sql(&dst_filepath).await)
+                .fetch_one(&mut dst_conn)
                 .await
                 .unwrap()
                 .get::<i32, _>(0)
         );
-
-        remove_file(dst_filepath).unwrap();
     }
 
     async fn verify_copy_with_zoom_filter(
@@ -237,7 +235,7 @@ mod tests {
         opts: TileCopierOptions,
         expected_zoom_levels: u8,
     ) {
-        TileCopier::new(src_filepath, dst_filepath.clone(), opts)
+        let mut dst_conn = TileCopier::new(src_filepath, dst_filepath.clone(), opts)
             .unwrap()
             .run()
             .await
@@ -245,27 +243,25 @@ mod tests {
 
         assert_eq!(
             query("SELECT COUNT(DISTINCT zoom_level) FROM tiles;")
-                .fetch_one(&mut open_sql(&dst_filepath).await)
+                .fetch_one(&mut dst_conn)
                 .await
                 .unwrap()
                 .get::<u8, _>(0),
             expected_zoom_levels
         );
-
-        remove_file(dst_filepath).unwrap();
     }
 
     #[actix_rt::test]
     async fn copy_tile_tables() {
         let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let dst = PathBuf::from("../tests/tmp_tile_tables.mbtiles");
+        let dst = PathBuf::from(":memory:");
         verify_copy_all(src, dst).await;
     }
 
     #[actix_rt::test]
     async fn copy_deduplicated() {
         let src = PathBuf::from("../tests/fixtures/files/geography-class-png.mbtiles");
-        let dst = PathBuf::from("../tests/tmp_deduplicated.mbtiles");
+        let dst = PathBuf::from(":memory:");
         verify_copy_all(src, dst).await;
     }
 
@@ -285,20 +281,15 @@ mod tests {
     #[actix_rt::test]
     async fn copy_force_simple() {
         let src_filepath = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let dst_filepath = PathBuf::from("../tests/tmp_force_simple.mbtiles");
+        let dst_filepath = PathBuf::from(":memory:");
 
         let copy_opts = TileCopierOptions::new().force_simple(true);
 
-        let tile_copier =
-            TileCopier::new(src_filepath.clone(), dst_filepath.clone(), copy_opts).unwrap();
-
-        tile_copier.run().await.unwrap();
-
-        let mut dst_conn = SqliteConnection::connect_with(
-            &SqliteConnectOptions::new().filename(dst_filepath.clone()),
-        )
-        .await
-        .unwrap();
+        let mut dst_conn = TileCopier::new(src_filepath.clone(), dst_filepath.clone(), copy_opts)
+            .unwrap()
+            .run()
+            .await
+            .unwrap();
 
         assert!(
             query("SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles';")
@@ -307,14 +298,12 @@ mod tests {
                 .unwrap()
                 .is_some()
         );
-
-        remove_file(dst_filepath).unwrap();
     }
 
     #[actix_rt::test]
     async fn copy_with_min_max_zoom() {
         let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let dst = PathBuf::from("../tests/tmp_min_max_zoom.mbtiles");
+        let dst = PathBuf::from(":memory:");
         let opt = TileCopierOptions::new().min_zoom(Some(2)).max_zoom(Some(4));
         verify_copy_with_zoom_filter(src, dst, opt, 3).await;
     }
@@ -322,7 +311,7 @@ mod tests {
     #[actix_rt::test]
     async fn copy_with_zoom_levels() {
         let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let dst = PathBuf::from("../tests/tmp_zoom_levels.mbtiles");
+        let dst = PathBuf::from(":memory:");
         let opt = TileCopierOptions::new()
             .min_zoom(Some(2))
             .max_zoom(Some(4))
