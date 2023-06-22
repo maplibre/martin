@@ -45,22 +45,8 @@ enum Commands {
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy")]
     Copy {
-        /// MBTiles file to read from
-        src_file: PathBuf,
-        /// MBTiles file to write to
-        dst_file: PathBuf,
-        /// Force the output file to be in a simple MBTiles format with a `tiles` table
-        #[arg(long)]
-        force_simple: bool,
-        /// Minimum zoom level to copy
-        #[arg(long)]
-        min_zoom: Option<u8>,
-        /// Maximum zoom level to copy
-        #[arg(long)]
-        max_zoom: Option<u8>,
-        /// List of zoom levels to copy; if provided, min-zoom and max-zoom will be ignored
-        #[arg(long, value_delimiter(','))]
-        zoom_levels: Vec<u8>,
+        #[clap(flatten)]
+        opts: TileCopierOptions,
     },
 }
 
@@ -72,22 +58,8 @@ async fn main() -> Result<()> {
         Commands::MetaGetValue { file, key } => {
             meta_get_value(file.as_path(), &key).await?;
         }
-        Commands::Copy {
-            src_file,
-            dst_file,
-            force_simple,
-            min_zoom,
-            max_zoom,
-            zoom_levels,
-        } => {
-            let copy_opts = TileCopierOptions::new()
-                .verbose(args.verbose)
-                .force_simple(force_simple)
-                .min_zoom(min_zoom)
-                .max_zoom(max_zoom)
-                .zooms(zoom_levels);
-
-            let tile_copier = TileCopier::new(src_file, dst_file, copy_opts)?;
+        Commands::Copy { opts } => {
+            let tile_copier = TileCopier::new(opts)?;
 
             tile_copier.run().await?;
         }
