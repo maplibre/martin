@@ -3,13 +3,13 @@ extern crate core;
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType;
 use crate::{MbtError, Mbtiles};
+#[cfg(feature = "cli")]
+use clap::{builder::ValueParser, error::ErrorKind, Args};
 use sqlx::sqlite::{SqliteArguments, SqliteConnectOptions};
 use sqlx::{query, query_with, Arguments, Connection, Row, SqliteConnection};
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::PathBuf;
-#[cfg(feature = "cli")]
-use {clap::error::ErrorKind, clap::Args};
 
 #[derive(Clone, Default, Debug)]
 #[cfg_attr(feature = "cli", derive(Args))]
@@ -28,7 +28,7 @@ pub struct TileCopierOptions {
     #[cfg_attr(feature = "cli", arg(long))]
     max_zoom: Option<u8>,
     /// List of zoom levels to copy; if provided, min-zoom and max-zoom will be ignored
-    #[cfg_attr(feature = "cli", arg(long, value_parser(clap::builder::ValueParser::new(HashSetValueParser{}))))]
+    #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{}))))]
     zoom_levels: HashSet<u8>,
 }
 
@@ -71,11 +71,11 @@ impl TileCopierOptions {
     pub fn new(src_filepath: PathBuf, dst_filepath: PathBuf) -> Self {
         Self {
             src_file: src_filepath,
+            dst_file: dst_filepath,
             zoom_levels: HashSet::new(),
             force_simple: false,
             min_zoom: None,
             max_zoom: None,
-            dst_file: dst_filepath,
         }
     }
 
@@ -85,9 +85,7 @@ impl TileCopierOptions {
     }
 
     pub fn zoom_levels(mut self, zoom_levels: Vec<u8>) -> Self {
-        for zoom in zoom_levels {
-            self.zoom_levels.insert(zoom);
-        }
+        self.zoom_levels.extend(zoom_levels);
         self
     }
 
@@ -147,9 +145,21 @@ impl TileCopier {
                 query(statement).execute(&mut conn).await?;
             }
         } else {
-            for row in query("SELECT sql FROM sourceDb.sqlite_schema WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images') ORDER BY type DESC")
-                .fetch_all(&mut conn)
-                .await? {
+            // DB objects must be created in a specific order: tables, views, triggers, indexes.
+
+            for row in query(
+                "SELECT sql 
+            FROM sourceDb.sqlite_schema 
+            WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images') 
+                AND type IN ('table', 'view', 'index')
+            ORDER BY CASE WHEN type = 'table' THEN 1
+              WHEN type = 'view' THEN 2
+              WHEN type = 'index' THEN 3
+              ELSE 4 END",
+            )
+            .fetch_all(&mut conn)
+            .await?
+            {
                 query(row.get(0)).execute(&mut conn).await?;
             }
         };
@@ -309,11 +319,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_force_simple() {
-        let src_filepath = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let dst_filepath = PathBuf::from(":memory:");
+        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let dst = PathBuf::from(":memory:");
 
-        let copy_opts =
-            TileCopierOptions::new(src_filepath.clone(), dst_filepath.clone()).force_simple(true);
+        let copy_opts = TileCopierOptions::new(src.clone(), dst.clone()).force_simple(true);
 
         let mut dst_conn = TileCopier::new(copy_opts).unwrap().run().await.unwrap();
 
