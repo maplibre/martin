@@ -9,4 +9,4 @@ mod tile_copier;
 pub use errors::MbtError;
 pub use mbtiles::{Mbtiles, Metadata};
 pub use mbtiles_pool::MbtilesPool;
-pub use tile_copier::{TileCopier, TileCopierOptions};
+pub use tile_copier::{copy_mbtiles_file, TileCopierOptions};

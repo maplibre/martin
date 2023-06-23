@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "cli", derive(Args))]
 pub struct TileCopierOptions {
     /// MBTiles file to read from
@@ -22,13 +22,13 @@ pub struct TileCopierOptions {
     #[cfg_attr(feature = "cli", arg(long))]
     force_simple: bool,
     /// Minimum zoom level to copy
-    #[cfg_attr(feature = "cli", arg(long))]
+    #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     min_zoom: Option<u8>,
     /// Maximum zoom level to copy
-    #[cfg_attr(feature = "cli", arg(long))]
+    #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     max_zoom: Option<u8>,
     /// List of zoom levels to copy; if provided, min-zoom and max-zoom will be ignored
-    #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{}))))]
+    #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{})), default_value=""))]
     zoom_levels: HashSet<u8>,
 }
 
@@ -50,19 +50,22 @@ impl clap::builder::TypedValueParser for HashSetValueParser {
         let values = value
             .to_str()
             .ok_or(clap::Error::new(ErrorKind::ValueValidation))?
-            .split(',');
-        for val in values {
-            result.insert(
-                val.parse::<u8>()
-                    .map_err(|_| clap::Error::new(ErrorKind::ValueValidation))?,
-            );
+            .trim();
+        if !values.is_empty() {
+            for val in values.split(',') {
+                result.insert(
+                    val.trim()
+                        .parse::<u8>()
+                        .map_err(|_| clap::Error::new(ErrorKind::ValueValidation))?,
+                );
+            }
         }
         Ok(result)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct TileCopier {
+struct TileCopier {
     src_mbtiles: Mbtiles,
     options: TileCopierOptions,
 }
@@ -151,11 +154,12 @@ impl TileCopier {
                 "SELECT sql 
             FROM sourceDb.sqlite_schema 
             WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images') 
-                AND type IN ('table', 'view', 'index')
+                AND type IN ('table', 'view', 'trigger', 'index')
             ORDER BY CASE WHEN type = 'table' THEN 1
               WHEN type = 'view' THEN 2
-              WHEN type = 'index' THEN 3
-              ELSE 4 END",
+              WHEN type = 'trigger' THEN 3
+              WHEN type = 'index' THEN 4
+              ELSE 5 END",
             )
             .fetch_all(&mut conn)
             .await?
@@ -238,6 +242,12 @@ impl TileCopier {
     }
 }
 
+pub async fn copy_mbtiles_file(opts: TileCopierOptions) -> MbtResult<SqliteConnection> {
+    let tile_copier = TileCopier::new(opts)?;
+
+    tile_copier.run().await
+}
+
 #[cfg(test)]
 mod tests {
     use sqlx::{Connection, Decode, Sqlite, SqliteConnection, Type};
@@ -258,12 +268,10 @@ mod tests {
     }
 
     async fn verify_copy_all(src_filepath: PathBuf, dst_filepath: PathBuf) {
-        let mut dst_conn = TileCopier::new(TileCopierOptions::new(
+        let mut dst_conn = copy_mbtiles_file(TileCopierOptions::new(
             src_filepath.clone(),
             dst_filepath.clone(),
         ))
-        .unwrap()
-        .run()
         .await
         .unwrap();
 
@@ -278,7 +286,7 @@ mod tests {
     }
 
     async fn verify_copy_with_zoom_filter(opts: TileCopierOptions, expected_zoom_levels: u8) {
-        let mut dst_conn = TileCopier::new(opts).unwrap().run().await.unwrap();
+        let mut dst_conn = copy_mbtiles_file(opts).await.unwrap();
 
         assert_eq!(
             get_one::<u8>(
@@ -324,7 +332,7 @@ mod tests {
 
         let copy_opts = TileCopierOptions::new(src.clone(), dst.clone()).force_simple(true);
 
-        let mut dst_conn = TileCopier::new(copy_opts).unwrap().run().await.unwrap();
+        let mut dst_conn = copy_mbtiles_file(copy_opts).await.unwrap();
 
         assert!(
             query("SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles';")

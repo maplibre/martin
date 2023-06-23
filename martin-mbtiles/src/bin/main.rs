@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{Mbtiles, TileCopier, TileCopierOptions};
+use martin_mbtiles::{copy_mbtiles_file, Mbtiles, TileCopierOptions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, PartialEq, Eq, Debug)]
 #[command(
     version,
     name = "mbtiles",
@@ -20,7 +20,7 @@ pub struct Args {
     command: Commands,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, PartialEq, Eq, Debug)]
 enum Commands {
     // /// Prints all values in the metadata table.
     // #[command(name = "meta-all")]
@@ -44,10 +44,7 @@ enum Commands {
     // },
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy")]
-    Copy {
-        #[clap(flatten)]
-        opts: TileCopierOptions,
-    },
+    Copy(TileCopierOptions),
 }
 
 #[tokio::main]
@@ -58,10 +55,8 @@ async fn main() -> Result<()> {
         Commands::MetaGetValue { file, key } => {
             meta_get_value(file.as_path(), &key).await?;
         }
-        Commands::Copy { opts } => {
-            let tile_copier = TileCopier::new(opts)?;
-
-            tile_copier.run().await?;
+        Commands::Copy(opts) => {
+            copy_mbtiles_file(opts).await?;
         }
     }
 
@@ -76,4 +71,145 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
         println!("{s}")
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Args;
+    use crate::Commands::{Copy, MetaGetValue};
+    use clap::error::ErrorKind;
+    use clap::Parser;
+    use martin_mbtiles::TileCopierOptions;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_copy_no_arguments() {
+        assert_eq!(
+            Args::try_parse_from(["mbtiles", "copy"])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::MissingRequiredArgument
+        );
+    }
+
+    #[test]
+    fn test_copy_minimal_arguments() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file"]),
+            Args {
+                verbose: false,
+                command: Copy(TileCopierOptions::new(
+                    PathBuf::from("src_file"),
+                    PathBuf::from("dst_file")
+                ))
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_min_max_zoom_arguments() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--max-zoom",
+                "100",
+                "--min-zoom",
+                "1"
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(
+                    TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                        .min_zoom(Some(1))
+                        .max_zoom(Some(100))
+                )
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_min_max_zoom_no_arguments() {
+        assert_eq!(
+            Args::try_parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--max-zoom",
+                "--min-zoom",
+            ])
+            .unwrap_err()
+            .kind(),
+            ErrorKind::InvalidValue
+        );
+    }
+
+    #[test]
+    fn test_copy_min_max_zoom_with_zoom_levels_arguments() {
+        assert_eq!(
+            Args::try_parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--max-zoom",
+                "100",
+                "--min-zoom",
+                "1",
+                "--zoom-levels",
+                "3,7,1"
+            ])
+            .unwrap_err()
+            .kind(),
+            ErrorKind::ArgumentConflict
+        );
+    }
+
+    #[test]
+    fn test_copy_zoom_levels_arguments() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--zoom-levels",
+                "3,7,1"
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(
+                    TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                        .zoom_levels(vec![1, 3, 7])
+                )
+            }
+        );
+    }
+
+    #[test]
+    fn test_meta_get_no_arguments() {
+        assert_eq!(
+            Args::try_parse_from(["mbtiles", "meta-get"])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::MissingRequiredArgument
+        );
+    }
+
+    #[test]
+    fn test_meta_get_with_arguments() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "meta-get", "src_file", "key"]),
+            Args {
+                verbose: false,
+                command: MetaGetValue {
+                    file: PathBuf::from("src_file"),
+                    key: "key".to_string(),
+                }
+            }
+        );
+    }
 }
