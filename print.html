@@ -865,12 +865,12 @@ martin
 <p>A small utility that allows users to interact with the <code>*.mbtiles</code> files from the command line. Use <code>mbtiles --help</code> to see a list of available commands, and <code>mbtiles &lt;command&gt; --help</code> to see help for a specific command.</p>
 <p>This tool can be installed by compiling the latest released version with <code>cargo install martin-mbtiles</code>, or by downloading a pre-built binary from the <a href="https://github.com/maplibre/martin/releases/latest">releases page</a>.</p>
 <h3 id="meta-get"><a class="header" href="#meta-get">meta-get</a></h3>
-<p>Retrieve raw metadata value by its name. The value is printed to stdout without any modifications.</p>
-<pre><code class="language-shell">mbtiles meta-get &lt;file.mbtiles&gt; &lt;key&gt;
+<p>Retrieve raw metadata value by its name. The value is printed to stdout without any modifications.  For example, to get the <code>description</code> value from an mbtiles file:</p>
+<pre><code class="language-shell">mbtiles meta-get my_file.mbtiles description
 </code></pre>
 <h3 id="copy"><a class="header" href="#copy">copy</a></h3>
-<p>Copy existing <code>.mbtiles</code> file to a new, non-existent file.</p>
-<pre><code class="language-shell">mbtiles copy  &lt;src_file.mbtiles&gt; &lt;dst_file.mbtiles&gt;
+<p>Copy an mbtiles file, optionally filtering its content by zoom levels. Can also flatten mbtiles file from de-duplicated tiles to a simple table structure.</p>
+<pre><code class="language-shell">mbtiles copy src_file.mbtiles dst_file.mbtiles --min-zoom 0 --max-zoom 10 --force-simple
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
 <p>Clone Martin, setting remote name to <code>upstream</code>. This way <code>main</code> branch will be updated automatically with the latest changes from the upstream repo.</p>
