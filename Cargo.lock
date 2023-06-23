@@ -727,7 +727,7 @@ dependencies = [
  "criterion-plot",
  "futures",
  "is-terminal",
- "itertools",
+ "itertools 0.10.5",
  "num-traits",
  "once_cell",
  "oorandom",
@@ -749,7 +749,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
 dependencies = [
  "cast",
- "itertools",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -1543,6 +1543,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1676,7 +1685,7 @@ checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
 
 [[package]]
 name = "martin"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "actix",
  "actix-cors",
@@ -1694,7 +1703,7 @@ dependencies = [
  "flate2",
  "futures",
  "indoc",
- "itertools",
+ "itertools 0.11.0",
  "log",
  "martin-mbtiles",
  "martin-tile-utils",
@@ -1719,7 +1728,7 @@ dependencies = [
 
 [[package]]
 name = "martin-mbtiles"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "actix-rt",
  "anyhow",
@@ -1968,7 +1977,7 @@ dependencies = [
  "filetime",
  "image",
  "indexmap",
- "itertools",
+ "itertools 0.10.5",
  "libdeflater",
  "log",
  "rayon",
@@ -2271,7 +2280,7 @@ checksum = "09963355b9f467184c04017ced4a2ba2d75cbcb4e7462690d388233253d4b1a9"
 dependencies = [
  "anstyle",
  "difflib",
- "itertools",
+ "itertools 0.10.5",
  "predicates-core",
 ]
 
@@ -2781,7 +2790,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c12bc9199d1db8234678b7051747c07f517cdcf019262d1847b94ec8b1aee3e"
 dependencies = [
- "itertools",
+ "itertools 0.10.5",
  "nom",
  "unicode_categories",
 ]
