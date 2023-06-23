@@ -151,9 +151,9 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="sprite-sources"><a class="header" href="#sprite-sources">Sprite Sources</a></h1>
-<p>Given a directory with SVG images, Martin can generate a Sprite index an a PNG image, for both low and high resolution displays. The SVG filenames without extension will be used as the sprite image IDs. The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs, e.g. <code>icons/bicycle.svg</code> will be available as <code>icons/bicycle</code> sprite image.</p>
+<p>Given a directory with SVG images, Martin will generate a sprite – a JSON index and a PNG image, for both low and high resolution displays. The SVG filenames without extension will be used as the sprite image IDs. The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs, e.g. <code>icons/bicycle.svg</code> will be available as <code>icons/bicycle</code> sprite image.</p>
 <h3 id="api"><a class="header" href="#api">API</a></h3>
-<p>As described in the <a href="https://maplibre.org/maplibre-style-spec/sprite/">MapLibre sprites API</a>, Sprites must be accessible via support the following endpoints. The sprite image and index are generated on the fly, so if the sprite directory is updated, the changes will be reflected immediately.</p>
+<p>Martin uses <a href="https://maplibre.org/maplibre-style-spec/sprite/">MapLibre sprites API</a> specification to serve sprites via several endpoints. The sprite image and index are generated on the fly, so if the sprite directory is updated, the changes will be reflected immediately.</p>
 <h5 id="sprite-png"><a class="header" href="#sprite-png">Sprite PNG</a></h5>
 <p><img src="sources-sprites.png" alt="sprite" /></p>
 <p><code>GET /sprite/&lt;sprite_id&gt;.png</code> endpoint contains a single PNG sprite image that combines all sources images. Additionally, there is a high DPI version available at <code>GET /sprite/&lt;sprite_id&gt;@2x.png</code>.</p>
