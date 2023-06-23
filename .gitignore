@@ -1,5 +1,4 @@
-#### Make sure this list is the same as in the .dockerignore file
-
+#### This must match .dockerignore ####
 .DS_Store
 target/
 **/*.rs.bk
@@ -11,3 +10,4 @@ pg_data/
 config.yml
 tests/output/
 docs/book
+tmp/

@@ -146,7 +146,7 @@ pmtiles:
   sources:
     png: tests/fixtures/files/png.pmtiles
     stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/files/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
-    webp: tests/fixtures/files/webp.pmtiles
+    webp2: tests/fixtures/files/webp2.pmtiles
 mbtiles:
   paths: tests/fixtures/files
   sources:
@@ -155,5 +155,5 @@ mbtiles:
     geography-class-png-no-bounds: tests/fixtures/files/geography-class-png-no-bounds.mbtiles
     json: tests/fixtures/files/json.mbtiles
     uncompressed_mvt: tests/fixtures/files/uncompressed_mvt.mbtiles
-    webp.1: tests/fixtures/files/webp.mbtiles
+    webp: tests/fixtures/files/webp.mbtiles
     world_cities: tests/fixtures/files/world_cities.mbtiles

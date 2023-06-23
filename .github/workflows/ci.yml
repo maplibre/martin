@@ -169,7 +169,7 @@ jobs:
         if: failure() && matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/upload-artifact@v3
         with:
-          name: test-output
+          name: failed-test-output
           path: tests/output/*
           retention-days: 5
       - name: Package
