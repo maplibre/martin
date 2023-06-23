@@ -1,9 +1,9 @@
 # Sprite Sources
 
-Given a directory with SVG images, Martin can generate a Sprite index an a PNG image, for both low and high resolution displays. The SVG filenames without extension will be used as the sprite image IDs. The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs, e.g. `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
+Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and high resolution displays. The SVG filenames without extension will be used as the sprite image IDs. The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs, e.g. `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
 
 ### API
-As described in the [MapLibre sprites API](https://maplibre.org/maplibre-style-spec/sprite/), Sprites must be accessible via support the following endpoints. The sprite image and index are generated on the fly, so if the sprite directory is updated, the changes will be reflected immediately.
+Martin uses [MapLibre sprites API](https://maplibre.org/maplibre-style-spec/sprite/) specification to serve sprites via several endpoints. The sprite image and index are generated on the fly, so if the sprite directory is updated, the changes will be reflected immediately.
 
 ##### Sprite PNG
 

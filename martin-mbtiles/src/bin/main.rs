@@ -75,12 +75,14 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Args;
-    use crate::Commands::{Copy, MetaGetValue};
+    use std::path::PathBuf;
+
     use clap::error::ErrorKind;
     use clap::Parser;
     use martin_mbtiles::TileCopierOptions;
-    use std::path::PathBuf;
+
+    use crate::Args;
+    use crate::Commands::{Copy, MetaGetValue};
 
     #[test]
     fn test_copy_no_arguments() {

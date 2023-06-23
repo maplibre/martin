@@ -1,15 +1,16 @@
 extern crate core;
 
-use crate::errors::MbtResult;
-use crate::mbtiles::MbtType;
-use crate::{MbtError, Mbtiles};
+use std::collections::HashSet;
+use std::path::PathBuf;
+
 #[cfg(feature = "cli")]
 use clap::{builder::ValueParser, error::ErrorKind, Args};
 use sqlx::sqlite::{SqliteArguments, SqliteConnectOptions};
 use sqlx::{query, query_with, Arguments, Connection, Row, SqliteConnection};
-use std::collections::HashSet;
-use std::ffi::OsStr;
-use std::path::PathBuf;
+
+use crate::errors::MbtResult;
+use crate::mbtiles::MbtType;
+use crate::{MbtError, Mbtiles};
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "cli", derive(Args))]
@@ -44,7 +45,7 @@ impl clap::builder::TypedValueParser for HashSetValueParser {
         &self,
         _cmd: &clap::Command,
         _arg: Option<&clap::Arg>,
-        value: &OsStr,
+        value: &std::ffi::OsStr,
     ) -> Result<Self::Value, clap::Error> {
         let mut result = HashSet::<u8>::new();
         let values = value
