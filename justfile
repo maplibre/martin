@@ -218,6 +218,6 @@ git-pre-push: stop start
 prepare-sqlite:
     @if ! command -v cargo-sqlx &> /dev/null; then \
         echo "SQLX could not be found. Installing..." ;\
-        cargo install sqlx-cli --no-default-features --features sqlite,native-tls ;\
+        cargo install sqlx-cli --version 0.7.0-alpha.3 --no-default-features --features sqlite,native-tls ;\
     fi
-    cd martin-mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/files/world_cities.mbtiles
+    cd martin-mbtiles && cargo sqlx prepare --check --database-url sqlite://$PWD/../tests/fixtures/files/world_cities.mbtiles

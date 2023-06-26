@@ -1,6 +1,7 @@
 use sqlx::{query, SqliteExecutor};
 
 use crate::errors::MbtResult;
+use crate::MbtError;
 
 pub async fn is_deduplicated_type<T>(conn: &mut T) -> MbtResult<bool>
 where
@@ -46,7 +47,15 @@ where
        ) AS is_valid;
 "#
     );
-    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
+
+    Ok(sql
+        .fetch_one(&mut *conn)
+        .await?
+        .is_valid
+        .ok_or(MbtError::SqlError(sqlx::Error::ColumnNotFound(
+            "is_valid".to_string(),
+        )))?
+        == 1)
 }
 
 pub async fn is_tile_tables_type<T>(conn: &mut T) -> MbtResult<bool>
@@ -76,5 +85,13 @@ where
        ) as is_valid;
 "#
     );
-    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
+
+    Ok(sql
+        .fetch_one(&mut *conn)
+        .await?
+        .is_valid
+        .ok_or(MbtError::SqlError(sqlx::Error::ColumnNotFound(
+            "is_valid".to_string(),
+        )))?
+        == 1)
 }
