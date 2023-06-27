@@ -31,6 +31,8 @@ pub struct TileCopierOptions {
     /// List of zoom levels to copy; if provided, min-zoom and max-zoom will be ignored
     #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{})), default_value=""))]
     zoom_levels: HashSet<u8>,
+    #[cfg_attr(feature = "cli", arg(long, requires("force_simple")))]
+    diff_with_file: Option<PathBuf>,
 }
 
 #[cfg(feature = "cli")]
@@ -80,6 +82,7 @@ impl TileCopierOptions {
             force_simple: false,
             min_zoom: None,
             max_zoom: None,
+            diff_with_file: None,
         }
     }
 
@@ -102,6 +105,11 @@ impl TileCopierOptions {
         self.max_zoom = max_zoom;
         self
     }
+
+    pub fn diff_with_file(mut self, diff_with_file: PathBuf) -> Self {
+        self.diff_with_file = Some(diff_with_file);
+        self
+    }
 }
 
 impl TileCopier {
@@ -113,11 +121,7 @@ impl TileCopier {
     }
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        let opt = SqliteConnectOptions::new()
-            .read_only(true)
-            .filename(self.src_mbtiles.filepath());
-        let mut conn = SqliteConnection::connect_with(&opt).await?;
-        let storage_type = self.src_mbtiles.detect_type(&mut conn).await?;
+        let storage_type = self.detect_type(&self.src_mbtiles).await?;
         let force_simple = self.options.force_simple && storage_type != MbtType::TileTables;
 
         let opt = SqliteConnectOptions::new()
@@ -186,8 +190,39 @@ impl TileCopier {
     }
 
     async fn copy_tile_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        self.run_query_with_options(conn, "INSERT INTO tiles SELECT * FROM sourceDb.tiles")
+        if let Some(diff_file) = &self.options.diff_with_file {
+            let diff_mbtiles = Mbtiles::new(diff_file)?;
+
+            let _ = &self.detect_type(&diff_mbtiles);
+
+            query("ATTACH DATABASE ? AS newDb")
+                .bind(diff_mbtiles.filepath())
+                .execute(&mut *conn)
+                .await?;
+
+            self.run_query_with_options(
+                &mut *conn,
+                "INSERT INTO tiles
+                        SELECT COALESCE(sourceDb.tiles.zoom_level, newDb.tiles.zoom_level) as zoom_level,
+                                COALESCE(sourceDb.tiles.tile_column, newDb.tiles.tile_column) as tile_column,
+                                COALESCE(sourceDb.tiles.tile_row, newDb.tiles.tile_row) as tile_row,
+                                    newDb.tiles.tile_data as tile_data
+                        FROM sourceDb.tiles FULL OUTER JOIN newDb.tiles
+                            ON sourceDb.tiles.zoom_level = newDb.tiles.zoom_level
+                            AND sourceDb.tiles.tile_column = newDb.tiles.tile_column
+                            AND sourceDb.tiles.tile_row = newDb.tiles.tile_row
+                        WHERE (sourceDb.tiles.tile_data != newDb.tiles.tile_data
+                            OR sourceDb.tiles.tile_data ISNULL
+                            OR newDb.tiles.tile_data ISNULL)",
+            )
             .await
+        } else {
+            self.run_query_with_options(
+                conn,
+                "INSERT INTO tiles SELECT * FROM sourceDb.tiles WHERE 1=1",
+            )
+            .await
+        }
     }
 
     async fn copy_deduplicated(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
@@ -201,7 +236,8 @@ impl TileCopier {
                 SELECT images.tile_data, images.tile_id
                 FROM sourceDb.images
                   JOIN sourceDb.map
-                  ON images.tile_id = map.tile_id",
+                  ON images.tile_id = map.tile_id
+                WHERE 1=1",
         )
         .await
     }
@@ -218,21 +254,21 @@ impl TileCopier {
                 params.add(z);
             }
             format!(
-                "{sql} WHERE zoom_level IN ({})",
+                "{sql} AND zoom_level IN ({})",
                 vec!["?"; self.options.zoom_levels.len()].join(",")
             )
         } else if let Some(min_zoom) = &self.options.min_zoom {
             if let Some(max_zoom) = &self.options.max_zoom {
                 params.add(min_zoom);
                 params.add(max_zoom);
-                format!("{sql} WHERE zoom_level BETWEEN ? AND ?")
+                format!("{sql} AND zoom_level BETWEEN ? AND ?")
             } else {
                 params.add(min_zoom);
-                format!("{sql} WHERE zoom_level >= ?")
+                format!("{sql} AND zoom_level >= ?")
             }
         } else if let Some(max_zoom) = &self.options.max_zoom {
             params.add(max_zoom);
-            format!("{sql} WHERE zoom_level <= ?")
+            format!("{sql} AND zoom_level <= ?")
         } else {
             sql.to_string()
         };
@@ -240,6 +276,14 @@ impl TileCopier {
         query_with(sql.as_str(), params).execute(conn).await?;
 
         Ok(())
+    }
+
+    async fn detect_type(&self, mbtiles: &Mbtiles) -> MbtResult<MbtType> {
+        let opt = SqliteConnectOptions::new()
+            .read_only(true)
+            .filename(mbtiles.filepath());
+        let mut conn = SqliteConnection::connect_with(&opt).await?;
+        mbtiles.detect_type(&mut conn).await
     }
 }
 
@@ -328,7 +372,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_force_simple() {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
         let dst = PathBuf::from(":memory:");
 
         let copy_opts = TileCopierOptions::new(src.clone(), dst.clone()).force_simple(true);
