@@ -28,9 +28,10 @@ pub struct TileCopierOptions {
     /// Maximum zoom level to copy
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     max_zoom: Option<u8>,
-    /// List of zoom levels to copy; if provided, min-zoom and max-zoom will be ignored
+    /// List of zoom levels to copy
     #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{})), default_value=""))]
     zoom_levels: HashSet<u8>,
+    /// If provided this file will be used to generate a diff with the source file
     #[cfg_attr(feature = "cli", arg(long, requires("force_simple")))]
     diff_with_file: Option<PathBuf>,
 }
@@ -407,5 +408,33 @@ mod tests {
             .max_zoom(Some(4))
             .zoom_levels(vec![1, 6]);
         verify_copy_with_zoom_filter(opt, 2).await;
+    }
+
+    #[actix_rt::test]
+    async fn copy_with_diff_with_file() {
+        let src = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
+        let dst = PathBuf::from(":memory:");
+
+        let diff_file =
+            PathBuf::from("../tests/fixtures/files/geography-class-jpg-modified.mbtiles");
+
+        let copy_opts = TileCopierOptions::new(src.clone(), dst.clone())
+            .diff_with_file(diff_file.clone())
+            .force_simple(true);
+
+        let mut dst_conn = copy_mbtiles_file(copy_opts).await.unwrap();
+
+        assert!(
+            query("SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles';")
+                .fetch_optional(&mut dst_conn)
+                .await
+                .unwrap()
+                .is_some()
+        );
+
+        assert_eq!(
+            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles;").await,
+            3
+        );
     }
 }
