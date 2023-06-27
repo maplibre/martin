@@ -110,6 +110,10 @@ bless: start clean-test
 book: (cargo-install "mdbook")
     mdbook serve docs --open --port 8321
 
+# Build debian package
+package-deb: (cargo-install "cargo-deb")
+    cargo deb -v -p martin --output target/debian/martin.deb
+
 # Build and open code documentation
 docs:
     cargo doc --no-deps --open

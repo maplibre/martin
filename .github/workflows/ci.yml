@@ -62,6 +62,13 @@ jobs:
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
+      - name: Install cargo-deb
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt install dpkg -y
+          sudo apt install dpkg-dev -y
+          sudo apt install liblzma-dev -y
+          cargo install cargo-deb
       - name: Run build
         shell: bash
         run: |
@@ -82,6 +89,12 @@ jobs:
             mv target/${{ matrix.target }}/release/martin target_releases
             mv target/${{ matrix.target }}/release/mbtiles target_releases
           fi
+      - name: Run build (debian package)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          cargo deb -v -p martin --output target/debian/martin.deb
+          mv target/debian/martin.deb target_releases
       - name: Save build artifact build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
         with:
@@ -156,7 +169,7 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Integration Tests
+      - name: Integration Tests (without debian package)
         if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
         run: |
@@ -171,7 +184,18 @@ jobs:
           MARTIN_BIN: target/martin${{ matrix.ext }}
           MBTILES_BUILD: "-"
           MBTILES_BIN: target/mbtiles${{ matrix.ext }}
-
+      - name: Integration Tests (with debian package)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          sudo dpkg -i target/martin.deb
+          tests/test.sh
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          MARTIN_BUILD: "-"
+          MARTIN_BIN: /usr/bin/martin
+          MBTILES_BUILD: "-"
+          MBTILES_BIN: target/mbtiles${{ matrix.ext }}
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: diff --brief --recursive --new-file tests/output tests/expected
@@ -196,6 +220,13 @@ jobs:
           else
             tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           fi
+          cd -
+      - name: package (debian)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          cd target/
+          tar czvf ../martin-debian-x86_64.tar.gz martin.deb
           cd -
       - name: Generate SHA-256 (MacOS)
         if: matrix.target == 'x86_64-apple-darwin' || matrix.target == 'aarch64-apple-darwin'
