@@ -31,7 +31,7 @@ pub struct TileCopierOptions {
     /// List of zoom levels to copy
     #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{})), default_value=""))]
     zoom_levels: HashSet<u8>,
-    /// If provided this file will be used to generate a diff with the source file
+    /// Compare source file with this file, and only copy non-identical tiles to destination
     #[cfg_attr(feature = "cli", arg(long, requires("force_simple")))]
     diff_with_file: Option<PathBuf>,
 }
@@ -220,7 +220,8 @@ impl TileCopier {
         } else {
             self.run_query_with_options(
                 conn,
-                "INSERT INTO tiles SELECT * FROM sourceDb.tiles WHERE 1=1",
+                // Allows for adding clauses to query using "AND"
+                "INSERT INTO tiles SELECT * FROM sourceDb.tiles WHERE TRUE",
             )
             .await
         }
@@ -233,12 +234,13 @@ impl TileCopier {
 
         self.run_query_with_options(
             conn,
+            // Allows for adding clauses to query using "AND"
             "INSERT INTO images
                 SELECT images.tile_data, images.tile_id
                 FROM sourceDb.images
                   JOIN sourceDb.map
                   ON images.tile_id = map.tile_id
-                WHERE 1=1",
+                WHERE TRUE",
         )
         .await
     }
