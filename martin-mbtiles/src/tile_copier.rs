@@ -208,7 +208,7 @@ impl TileCopier {
                                 COALESCE(sourceDb.tiles.tile_column, newDb.tiles.tile_column) as tile_column,
                                 COALESCE(sourceDb.tiles.tile_row, newDb.tiles.tile_row) as tile_row,
                                     newDb.tiles.tile_data as tile_data
-                        FROM sourceDb.tiles FULL OUTER JOIN newDb.tiles
+                        FROM sourceDb.tiles FULL JOIN newDb.tiles
                             ON sourceDb.tiles.zoom_level = newDb.tiles.zoom_level
                             AND sourceDb.tiles.tile_column = newDb.tiles.tile_column
                             AND sourceDb.tiles.tile_row = newDb.tiles.tile_row
@@ -438,5 +438,30 @@ mod tests {
             get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles;").await,
             3
         );
+
+        assert_eq!(
+            get_one::<i32>(
+                &mut dst_conn,
+                "SELECT tile_data FROM tiles where zoom_level=2 AND tile_row=2 AND tile_column=2;"
+            )
+            .await,
+            2
+        );
+
+        assert_eq!(
+            get_one::<String>(
+                &mut dst_conn,
+                "SELECT tile_data FROM tiles where zoom_level=1 AND tile_row=1 AND tile_column=1;"
+            )
+            .await,
+            "4"
+        );
+
+        assert!(get_one::<Option<i32>>(
+            &mut dst_conn,
+            "SELECT tile_data FROM tiles where zoom_level=0 AND tile_row=0 AND tile_column=0;"
+        )
+        .await
+        .is_none());
     }
 }

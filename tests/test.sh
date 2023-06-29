@@ -275,14 +275,34 @@ echo "--------------------------------------------------------------------------
 echo "Test mbtiles utility"
 if [[ "$MBTILES_BIN" != "-" ]]; then
   TEST_OUT_DIR="$(dirname "$0")/output/mbtiles"
+  TEST_FIXTURES_DIR="./tests/fixtures"
+  TEST_FILES_DIR="$TEST_FIXTURES_DIR/files"
+
   mkdir -p "$TEST_OUT_DIR"
+  TEST_TEMP_DIR="$(mktemp -d -p  "$TEST_OUT_DIR")"
 
   set -x
 
   $MBTILES_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
   $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
+  $MBTILES_BIN meta-get "$TEST_FILES_DIR/world_cities.mbtiles" name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
+  $MBTILES_BIN meta-get "$TEST_FILES_DIR/world_cities.mbtiles" missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
+
+  # Create diff file
+  $MBTILES_BIN copy "$TEST_FILES_DIR/world_cities.mbtiles" "$TEST_TEMP_DIR/world_cities_diff.mbtiles" --diff-with-file "$TEST_FILES_DIR/world_cities_modified.mbtiles" --force-simple 2>&1 | tee "$TEST_OUT_DIR/copy_diff.txt"
+  # Apply this diff to the original version of the file
+  cp "$TEST_FILES_DIR/world_cities.mbtiles" "$TEST_TEMP_DIR/world_cities_copy.mbtiles"
+  $TEST_FIXTURES_DIR/apply_diff.sh "$TEST_TEMP_DIR/world_cities_copy.mbtiles" "$TEST_TEMP_DIR/world_cities_diff.mbtiles"
+  # Ensure that applying the diff resulted in the modified version of the file
+  $MBTILES_BIN copy "$TEST_FILES_DIR/world_cities_modified.mbtiles" "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" --diff-with-file "$TEST_TEMP_DIR/world_cities_copy.mbtiles" --force-simple 2>&1
+  CMP_APPLIED=$(sqlite3 "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" "SELECT COUNT(*) FROM tiles;")
+
+  rm -rf "$TEST_TEMP_DIR"
+
+  if [[ $CMP_APPLIED != 0 ]]; then
+    echo "Something went wrong when comparing files and generating a diff file!"
+    exit 1
+  fi
 
   { set +x; } 2> /dev/null
 else
