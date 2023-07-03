@@ -2,14 +2,14 @@ name: Code coverage
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
       - 'homebrew-formula/**'
   pull_request:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
@@ -74,6 +74,6 @@ jobs:
 
       - name: Check conditional cfg values
         run: |
-          cargo +nightly check -Z unstable-options -Z check-cfg=features,names,values,output --workspace --all-features
+          cargo +nightly check -Z unstable-options -Z check-cfg=features,names,values,output --workspace
         env:
           RUSTFLAGS: '-D warnings'

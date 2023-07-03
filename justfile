@@ -88,7 +88,6 @@ test-legacy: (docker-up "db-legacy") test-unit test-int
 # Run Rust unit and doc tests (cargo test)
 test-unit *ARGS:
     cargo test --all-targets {{ ARGS }}
-    cargo test --all-targets --all-features {{ ARGS }}
     cargo test --doc
 
 # Run integration tests
@@ -153,7 +152,6 @@ coverage FORMAT='html':
     export MARTIN_PORT=3111
 
     cargo test --all-targets
-    cargo test --all-targets --all-features
     tests/test.sh
 
     set -x
@@ -204,7 +202,7 @@ fmt2:
 
 # Run cargo clippy
 clippy:
-    cargo clippy --workspace --all-targets --all-features --bins --tests --lib --benches -- -D warnings
+    cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
 
 # These steps automatically run before git push via a git hook
 [private]

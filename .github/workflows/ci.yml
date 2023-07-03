@@ -2,21 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
       - 'homebrew-formula/**'
   pull_request:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
       - 'homebrew-formula/**'
   release:
-    types: [published]
+    types: [ published ]
   workflow_dispatch:
 
 jobs:
@@ -48,8 +48,15 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
+          set -x
           cargo fmt --all -- --check
-          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo clippy --package martin-tile-utils -- -D warnings
+          cargo clippy --package martin-mbtiles -- -D warnings
+          cargo clippy --package martin-mbtiles --no-default-features --features native-tls -- -D warnings
+          cargo clippy --package martin-mbtiles --no-default-features --features rustls -- -D warnings
+          cargo clippy --package martin -- -D warnings
+          cargo clippy --package martin --features vendored-openssl -- -D warnings
+          cargo clippy --package martin --features bless-tests -- -D warnings
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -84,7 +91,7 @@ jobs:
   test:
     # Don't change this name - it is used by the merge protection rules
     name: Test & package ${{ matrix.target }}
-    needs: [build]
+    needs: [ build ]
     strategy:
       fail-fast: true
       matrix:
@@ -136,8 +143,11 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
-          cargo test --all-targets
-          cargo test --all-targets --all-features
+          set -x
+          cargo test --package martin-tile-utils
+          cargo test --package martin-mbtiles
+          cargo test --package martin-mbtiles --no-default-features --features rustls
+          cargo test --package martin --features vendored-openssl
           cargo test --doc
           rm -rf target
         env:
@@ -203,7 +213,7 @@ jobs:
   test-legacy:
     # Don't change this name - it is used by the merge protection rules
     name: Test Legacy DB
-    needs: [build]
+    needs: [ build ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -249,47 +259,47 @@ jobs:
           ${{ matrix.image }}
           -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v3
-    - name: Setup database
-      run: |
-        # sudo apt-get install postgresql-client
-        tests/fixtures/initdb.sh
-      env:
-        PGPORT: ${{ job.services.postgres.ports[5432] }}
-    - name: Unit Tests (Linux)
-      shell: bash
-      run: |
-        echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
-        echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
-        echo "$DATABASE_URL" | base64
-        if [[ "${{ matrix.sslmode }}" == "disable" ]]; then
-          # This only works if SSL is not required
-          cargo test --all-targets
-        fi
-        cargo test --all-targets --all-features
-        cargo test --doc
-        rm -rf target
-      env:
-        DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-    - name: Save test output on failure
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-output
-        path: tests/output/*
-        retention-days: 5
-    - uses: actions/download-artifact@v3
-      with:
-        name: build-x86_64-unknown-linux-gnu
-        path: target/
-    - name: Integration Tests
-      run: |
-        chmod +x target/martin target/mbtiles
-        tests/test.sh
-      env:
-        DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-        MARTIN_BUILD: "-"
-        MARTIN_BIN: target/martin
-        MBTILES_BUILD: "-"
-        MBTILES_BIN: target/mbtiles
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Setup database
+        run: |
+          # sudo apt-get install postgresql-client
+          tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+      - name: Unit Tests (Linux)
+        shell: bash
+        run: |
+          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
+          echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
+          echo "$DATABASE_URL" | base64
+          set -x
+          cargo test --package martin-tile-utils
+          cargo test --package martin-mbtiles
+          cargo test --package martin-mbtiles --no-default-features --features rustls
+          cargo test --package martin --features vendored-openssl
+          cargo test --doc
+          rm -rf target
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+      - name: Save test output on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-output
+          path: tests/output/*
+          retention-days: 5
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-x86_64-unknown-linux-gnu
+          path: target/
+      - name: Integration Tests
+        run: |
+          chmod +x target/martin target/mbtiles
+          tests/test.sh
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+          MARTIN_BUILD: "-"
+          MARTIN_BIN: target/martin
+          MBTILES_BUILD: "-"
+          MBTILES_BIN: target/mbtiles

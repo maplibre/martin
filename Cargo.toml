@@ -27,7 +27,7 @@ futures = "0.3"
 indoc = "2"
 itertools = "0.11"
 log = "0.4"
-martin-mbtiles = { path = "./martin-mbtiles", version = "0.2.0", default-features = false }  # disable CLI tools
+martin-mbtiles = { path = "./martin-mbtiles", version = "0.3.0", default-features = false, features = ["native-tls"] }  # disable CLI tools
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
 openssl = "0.10"
@@ -42,7 +42,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 spreet = { version = "0.8", default-features = false }
-sqlx = { version = "0.7.0-alpha.3", features = ["sqlite", "runtime-tokio-native-tls"] }
+sqlx = { version = "0.7.0-alpha.3", features = ["sqlite"] }
 subst = { version = "0.2", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
