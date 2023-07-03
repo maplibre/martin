@@ -2,14 +2,14 @@ name: Benchmark
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
       - 'homebrew-formula/**'
   push:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
