@@ -122,8 +122,8 @@ impl TileCopier {
     }
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        let storage_type = self.detect_type(&self.src_mbtiles).await?;
-        let force_simple = self.options.force_simple && storage_type != MbtType::TileTables;
+        let src_type = open_and_detect_type(&self.src_mbtiles).await?;
+        let force_simple = self.options.force_simple && src_type != MbtType::TileTables;
 
         let opt = SqliteConnectOptions::new()
             .create_if_missing(true)
@@ -181,7 +181,7 @@ impl TileCopier {
         if force_simple {
             self.copy_tile_tables(&mut conn).await?
         } else {
-            match storage_type {
+            match src_type {
                 MbtType::TileTables => self.copy_tile_tables(&mut conn).await?,
                 MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await?,
             }
@@ -193,8 +193,7 @@ impl TileCopier {
     async fn copy_tile_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         if let Some(diff_file) = &self.options.diff_with_file {
             let diff_mbtiles = Mbtiles::new(diff_file)?;
-
-            let _ = &self.detect_type(&diff_mbtiles);
+            open_and_detect_type(&diff_mbtiles).await?;
 
             query("ATTACH DATABASE ? AS newDb")
                 .bind(diff_mbtiles.filepath())
@@ -205,13 +204,13 @@ impl TileCopier {
                 &mut *conn,
                 "INSERT INTO tiles
                         SELECT COALESCE(sourceDb.tiles.zoom_level, newDb.tiles.zoom_level) as zoom_level,
-                                COALESCE(sourceDb.tiles.tile_column, newDb.tiles.tile_column) as tile_column,
-                                COALESCE(sourceDb.tiles.tile_row, newDb.tiles.tile_row) as tile_row,
-                                    newDb.tiles.tile_data as tile_data
+                               COALESCE(sourceDb.tiles.tile_column, newDb.tiles.tile_column) as tile_column,
+                               COALESCE(sourceDb.tiles.tile_row, newDb.tiles.tile_row) as tile_row,
+                               newDb.tiles.tile_data as tile_data
                         FROM sourceDb.tiles FULL JOIN newDb.tiles
-                            ON sourceDb.tiles.zoom_level = newDb.tiles.zoom_level
-                            AND sourceDb.tiles.tile_column = newDb.tiles.tile_column
-                            AND sourceDb.tiles.tile_row = newDb.tiles.tile_row
+                             ON sourceDb.tiles.zoom_level = newDb.tiles.zoom_level
+                             AND sourceDb.tiles.tile_column = newDb.tiles.tile_column
+                             AND sourceDb.tiles.tile_row = newDb.tiles.tile_row
                         WHERE (sourceDb.tiles.tile_data != newDb.tiles.tile_data
                             OR sourceDb.tiles.tile_data ISNULL
                             OR newDb.tiles.tile_data ISNULL)",
@@ -237,8 +236,7 @@ impl TileCopier {
             // Allows for adding clauses to query using "AND"
             "INSERT INTO images
                 SELECT images.tile_data, images.tile_id
-                FROM sourceDb.images
-                  JOIN sourceDb.map
+                FROM sourceDb.images JOIN sourceDb.map
                   ON images.tile_id = map.tile_id
                 WHERE TRUE",
         )
@@ -280,14 +278,14 @@ impl TileCopier {
 
         Ok(())
     }
+}
 
-    async fn detect_type(&self, mbtiles: &Mbtiles) -> MbtResult<MbtType> {
-        let opt = SqliteConnectOptions::new()
-            .read_only(true)
-            .filename(mbtiles.filepath());
-        let mut conn = SqliteConnection::connect_with(&opt).await?;
-        mbtiles.detect_type(&mut conn).await
-    }
+async fn open_and_detect_type(mbtiles: &Mbtiles) -> MbtResult<MbtType> {
+    let opt = SqliteConnectOptions::new()
+        .read_only(true)
+        .filename(mbtiles.filepath());
+    let mut conn = SqliteConnection::connect_with(&opt).await?;
+    mbtiles.detect_type(&mut conn).await
 }
 
 pub async fn copy_mbtiles_file(opts: TileCopierOptions) -> MbtResult<SqliteConnection> {
@@ -442,7 +440,7 @@ mod tests {
         assert_eq!(
             get_one::<i32>(
                 &mut dst_conn,
-                "SELECT tile_data FROM tiles where zoom_level=2 AND tile_row=2 AND tile_column=2;"
+                "SELECT tile_data FROM tiles WHERE zoom_level=2 AND tile_row=2 AND tile_column=2;"
             )
             .await,
             2
@@ -451,7 +449,7 @@ mod tests {
         assert_eq!(
             get_one::<String>(
                 &mut dst_conn,
-                "SELECT tile_data FROM tiles where zoom_level=1 AND tile_row=1 AND tile_column=1;"
+                "SELECT tile_data FROM tiles WHERE zoom_level=1 AND tile_row=1 AND tile_column=1;"
             )
             .await,
             "4"
@@ -459,7 +457,7 @@ mod tests {
 
         assert!(get_one::<Option<i32>>(
             &mut dst_conn,
-            "SELECT tile_data FROM tiles where zoom_level=0 AND tile_row=0 AND tile_column=0;"
+            "SELECT tile_data FROM tiles WHERE zoom_level=0 AND tile_row=0 AND tile_column=0;"
         )
         .await
         .is_none());
