@@ -21,11 +21,20 @@ Copy an mbtiles file, optionally filtering its content by zoom levels. Can also 
 mbtiles copy src_file.mbtiles dst_file.mbtiles --min-zoom 0 --max-zoom 10 --force-simple
 ```
 
-This command can also be used to compare two mbtiles files and generate a diff.
+Copy command can also be used to compare two mbtiles files and generate a diff.
 ```shell
 mbtiles copy src_file.mbtiles diff_file.mbtiles --force-simple --diff-with-file modified_file.mbtiles
 ```
-* The `diff_file.mbtiles` can then be applied to the `src_file.mbtiles` elsewhere, to avoid copying large files when only small updates are needed. To do this, you may want to copy and then use [apply_diff.sh](/tests/fixtures/apply_diff.sh) as follows.
 
-        ./apply_diff.sh src_file.mbtiles diff_file.mbtiles
-  **_NOTE:_** This _only_ works for mbtiles files in the simple tables format; it does _not_ work for mbtiles files in deduplicated format.
+The `diff_file.mbtiles` can be applied to the `src_file.mbtiles` elsewhere to avoid copying/transmitting the entire modified dataset.
+
+One way to apply the diff is to use the `sqlite3` command line tool directly. Here, we assume that the `src_file.mbtiles` is in the simple tables format, and that the `diff_file.mbtiles` is the output of the `mbtiles copy` command above. This SQL will delete all tiles from `src_file.mbtiles` that are set to `NULL` in `diff_file.mbtiles`, and then insert or update all new tiles from `diff_file.mbtiles` into `src_file.mbtiles`. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.
+
+```shell
+sqlite3 src_file.mbtiles \
+  -bail \
+  -cmd ".parameter set @diffDbFilename diff_file.mbtiles" \
+  "ATTACH DATABASE @diffDbFilename AS diffDb;" \
+  "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
+  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
+```
