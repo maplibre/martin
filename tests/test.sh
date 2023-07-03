@@ -4,11 +4,11 @@ set -euo pipefail
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl --silent --show-error --fail --compressed}
 DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
-MARTIN_BUILD="${MARTIN_BUILD:-cargo build --all-features}"
+MARTIN_BUILD="${MARTIN_BUILD:-cargo build --features ssl}"
 MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
-MARTIN_BIN="${MARTIN_BIN:-cargo run --all-features --} ${MARTIN_ARGS}"
+MARTIN_BIN="${MARTIN_BIN:-cargo run --features ssl --} ${MARTIN_ARGS}"
 
 MBTILES_BUILD="${MBTILES_BUILD:-cargo build -p martin-mbtiles}"
 MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"

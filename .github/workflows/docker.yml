@@ -2,21 +2,21 @@ name: Docker
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
       - 'homebrew-formula/**'
   pull_request:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
       - 'homebrew-formula/**'
   release:
-    types: [published]
+    types: [ published ]
   workflow_dispatch:
 
 jobs:
