@@ -91,7 +91,7 @@ test-unit *ARGS:
     cargo test --doc
 
 # Run integration tests
-test-int: clean-test
+test-int: clean-test install-sqlx
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
@@ -212,10 +212,15 @@ git-pre-push: stop start
     just lint
     just test
 
-# Update sqlite database schema. Install SQLX cli if not already installed.
-prepare-sqlite:
+# Update sqlite database schema.
+prepare-sqlite: install-sqlx
+    mkdir -p martin-mbtiles/.sqlx
+    cd martin-mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/files/world_cities.mbtiles
+
+# Install SQLX cli if not already installed.
+[private]
+install-sqlx:
     @if ! command -v cargo-sqlx &> /dev/null; then \
-        echo "SQLX could not be found. Installing..." ;\
+        echo "SQLX cargo plugin could not be found. Installing..." ;\
         cargo install sqlx-cli --no-default-features --features sqlite,native-tls ;\
     fi
-    cd martin-mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/files/world_cities.mbtiles

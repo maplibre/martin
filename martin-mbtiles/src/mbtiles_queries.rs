@@ -46,7 +46,13 @@ where
        ) AS is_valid;
 "#
     );
-    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
+
+    Ok(sql
+        .fetch_one(&mut *conn)
+        .await?
+        .is_valid
+        .unwrap_or_default()
+        == 1)
 }
 
 pub async fn is_tile_tables_type<T>(conn: &mut T) -> MbtResult<bool>
@@ -76,5 +82,11 @@ where
        ) as is_valid;
 "#
     );
-    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
+
+    Ok(sql
+        .fetch_one(&mut *conn)
+        .await?
+        .is_valid
+        .unwrap_or_default()
+        == 1)
 }

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "zoom_level",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "tile_column",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "tile_row",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "tile_data",
+        "ordinal": 3,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "748436831449877b242d6e167a2f8fe1b1e7b6fb87c4e04ad7406a2bbfd35bec"
+}

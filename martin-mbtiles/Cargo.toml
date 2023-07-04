@@ -1,6 +1,6 @@
 [package]
 name = "martin-mbtiles"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -14,8 +14,8 @@ license.workspace = true
 default = ["cli", "native-tls"]
 cli = ["dep:anyhow", "dep:clap", "dep:tokio"]
 # One of the following two must be used
-native-tls = ["sqlx/runtime-actix-native-tls"]
-rustls = ["sqlx/runtime-actix-rustls"]
+native-tls = ["sqlx/runtime-tokio-native-tls"]
+rustls = ["sqlx/runtime-tokio-rustls"]
 
 [dependencies]
 futures.workspace = true
@@ -29,7 +29,7 @@ tilejson.workspace = true
 # Bin dependencies
 anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
