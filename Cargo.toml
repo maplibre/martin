@@ -27,7 +27,7 @@ futures = "0.3"
 indoc = "2"
 itertools = "0.11"
 log = "0.4"
-martin-mbtiles = { path = "./martin-mbtiles", version = "0.3.0", default-features = false, features = ["native-tls"] }  # disable CLI tools
+martin-mbtiles = { path = "./martin-mbtiles", version = "0.4.0", default-features = false, features = ["native-tls"] }  # disable CLI tools
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
 openssl = "0.10"
@@ -46,7 +46,7 @@ sqlx = { version = "0.7", features = ["sqlite"] }
 subst = { version = "0.2", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
-tokio = { version = "1.29.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.29.1", features = ["macros"] }
 
 [profile.dev.package.sqlx-macros]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
