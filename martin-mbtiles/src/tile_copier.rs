@@ -10,6 +10,7 @@ use sqlx::{query, query_with, Arguments, Connection, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType;
+use crate::mbtiles::MbtType::TileTables;
 use crate::{MbtError, Mbtiles};
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
@@ -302,8 +303,10 @@ pub async fn apply_mbtiles_diff(
     let src_type = src_mbtiles.detect_type(&mut conn).await?;
 
     if src_type != MbtType::TileTables {
-        return Err(MbtError::InvalidDataFormat(
+        return Err(MbtError::IncorrectDataFormat(
             src_mbtiles.filepath().to_string(),
+            TileTables,
+            src_type,
         ));
     }
 
