@@ -188,8 +188,11 @@
 <p>Copy command can also be used to compare two mbtiles files and generate a diff.</p>
 <pre><code class="language-shell">mbtiles copy src_file.mbtiles diff_file.mbtiles --force-simple --diff-with-file modified_file.mbtiles
 </code></pre>
-<p>The <code>diff_file.mbtiles</code> can be applied to the <code>src_file.mbtiles</code> elsewhere to avoid copying/transmitting the entire modified dataset.</p>
-<p>One way to apply the diff is to use the <code>sqlite3</code> command line tool directly. Here, we assume that the <code>src_file.mbtiles</code> is in the simple tables format, and that the <code>diff_file.mbtiles</code> is the output of the <code>mbtiles copy</code> command above. This SQL will delete all tiles from <code>src_file.mbtiles</code> that are set to <code>NULL</code> in <code>diff_file.mbtiles</code>, and then insert or update all new tiles from <code>diff_file.mbtiles</code> into <code>src_file.mbtiles</code>. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.</p>
+<h3 id="apply-diff"><a class="header" href="#apply-diff">apply-diff</a></h3>
+<p>Apply the diff file generated from <code>copy</code> command above to an mbtiles file. The diff file can be applied to the <code>src_file.mbtiles</code> elsewhere, to avoid copying/transmitting the entire modified dataset.</p>
+<pre><code class="language-shell">mbtiles apply_diff src_file.mbtiles diff_file.mbtiles
+</code></pre>
+<p>Another way to apply the diff is to use the <code>sqlite3</code> command line tool directly. This SQL will delete all tiles from <code>src_file.mbtiles</code> that are set to <code>NULL</code> in <code>diff_file.mbtiles</code>, and then insert or update all new tiles from <code>diff_file.mbtiles</code> into <code>src_file.mbtiles</code>. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.</p>
 <pre><code class="language-shell">sqlite3 src_file.mbtiles \
   -bail \
   -cmd &quot;.parameter set @diffDbFilename diff_file.mbtiles&quot; \
@@ -197,6 +200,7 @@
   &quot;DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);&quot; \
   &quot;INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;&quot;
 </code></pre>
+<p><strong><em>NOTE:</em></strong> Both of these methods for applying a diff <em>only</em> work for mbtiles files in the simple tables format; they do <em>not</em> work for mbtiles files in deduplicated format.</p>
 
                     </main>
 
