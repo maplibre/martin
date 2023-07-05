@@ -166,6 +166,12 @@
     "description": "Major cities from Natural Earth data"
   },
   {
+    "id": "world_cities_diff",
+    "content_type": "application/x-protobuf",
+    "name": "Major cities from Natural Earth data",
+    "description": "Major cities from Natural Earth data"
+  },
+  {
     "id": "world_cities_modified",
     "content_type": "application/x-protobuf",
     "content_encoding": "gzip",
