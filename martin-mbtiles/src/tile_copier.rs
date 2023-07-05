@@ -191,12 +191,14 @@ impl TileCopier {
     }
 
     async fn copy_tile_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        if let Some(diff_file) = &self.options.diff_with_file {
-            let diff_mbtiles = Mbtiles::new(diff_file)?;
-            open_and_detect_type(&diff_mbtiles).await?;
+        if let Some(diff_with) = &self.options.diff_with_file {
+            let diff_with_mbtiles = Mbtiles::new(diff_with)?;
+            // Make sure file is of valid type; the specific type is irrelevant
+            // because all types will be used in the same way
+            open_and_detect_type(&diff_with_mbtiles).await?;
 
             query("ATTACH DATABASE ? AS newDb")
-                .bind(diff_mbtiles.filepath())
+                .bind(diff_with_mbtiles.filepath())
                 .execute(&mut *conn)
                 .await?;
 
