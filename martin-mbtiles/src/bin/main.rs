@@ -192,6 +192,46 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_diff_with_file_no_force_simple_arguments() {
+        assert_eq!(
+            Args::try_parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--diff-with-file",
+                "no_file",
+            ])
+            .unwrap_err()
+            .kind(),
+            ErrorKind::MissingRequiredArgument
+        );
+    }
+
+    #[test]
+    fn test_copy_diff_with_file_arguments() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--diff-with-file",
+                "no_file",
+                "--force-simple"
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(
+                    TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                        .diff_with_file(PathBuf::from("no_file"))
+                        .force_simple(true)
+                )
+            }
+        );
+    }
+
+    #[test]
     fn test_meta_get_no_arguments() {
         assert_eq!(
             Args::try_parse_from(["mbtiles", "meta-get"])
