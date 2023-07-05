@@ -158,4 +158,5 @@ mbtiles:
     uncompressed_mvt: tests/fixtures/files/uncompressed_mvt.mbtiles
     webp: tests/fixtures/files/webp.mbtiles
     world_cities: tests/fixtures/files/world_cities.mbtiles
+    world_cities_diff: tests/fixtures/files/world_cities_diff.mbtiles
     world_cities_modified: tests/fixtures/files/world_cities_modified.mbtiles

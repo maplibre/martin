@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{copy_mbtiles_file, Mbtiles, TileCopierOptions};
+use martin_mbtiles::{apply_mbtiles_diff, copy_mbtiles_file, Mbtiles, TileCopierOptions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -45,6 +45,14 @@ enum Commands {
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy")]
     Copy(TileCopierOptions),
+    /// Apply diff file generated from 'copy' command
+    #[command(name = "apply-diff")]
+    ApplyDiff {
+        /// MBTiles file to apply diff to
+        src_file: PathBuf,
+        /// Diff file
+        diff_file: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -57,6 +65,12 @@ async fn main() -> Result<()> {
         }
         Commands::Copy(opts) => {
             copy_mbtiles_file(opts).await?;
+        }
+        Commands::ApplyDiff {
+            src_file,
+            diff_file,
+        } => {
+            apply_mbtiles_diff(src_file, diff_file).await?;
         }
     }
 
@@ -82,7 +96,7 @@ mod tests {
     use martin_mbtiles::TileCopierOptions;
 
     use crate::Args;
-    use crate::Commands::{Copy, MetaGetValue};
+    use crate::Commands::{ApplyDiff, Copy, MetaGetValue};
 
     #[test]
     fn test_copy_no_arguments() {
@@ -250,6 +264,20 @@ mod tests {
                 command: MetaGetValue {
                     file: PathBuf::from("src_file"),
                     key: "key".to_string(),
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_apply_diff_with_arguments() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "apply-diff", "src_file", "diff_file"]),
+            Args {
+                verbose: false,
+                command: ApplyDiff {
+                    src_file: PathBuf::from("src_file"),
+                    diff_file: PathBuf::from("diff_file"),
                 }
             }
         );
