@@ -3,9 +3,9 @@ members = ["martin", "martin-tile-utils", "martin-mbtiles"]
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.65"
-repository = "https://github.com/maplibre/martin"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/maplibre/martin"
+rust-version = "1.65"
 
 [workspace.dependencies]
 actix = "0.13"
