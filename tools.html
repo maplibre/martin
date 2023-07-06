@@ -183,10 +183,12 @@
 </code></pre>
 <h3 id="copy"><a class="header" href="#copy">copy</a></h3>
 <p>Copy an mbtiles file, optionally filtering its content by zoom levels. Can also flatten mbtiles file from de-duplicated tiles to a simple table structure.</p>
-<pre><code class="language-shell">mbtiles copy src_file.mbtiles dst_file.mbtiles --min-zoom 0 --max-zoom 10 --force-simple
+<pre><code class="language-shell">mbtiles copy src_file.mbtiles dst_file.mbtiles \
+        --min-zoom 0 --max-zoom 10 --force-simple
 </code></pre>
 <p>Copy command can also be used to compare two mbtiles files and generate a diff.</p>
-<pre><code class="language-shell">mbtiles copy src_file.mbtiles diff_file.mbtiles --force-simple --diff-with-file modified_file.mbtiles
+<pre><code class="language-shell">mbtiles copy src_file.mbtiles diff_file.mbtiles \
+        --force-simple --diff-with-file modified_file.mbtiles
 </code></pre>
 <h3 id="apply-diff"><a class="header" href="#apply-diff">apply-diff</a></h3>
 <p>Apply the diff file generated from <code>copy</code> command above to an mbtiles file. The diff file can be applied to the <code>src_file.mbtiles</code> elsewhere, to avoid copying/transmitting the entire modified dataset.</p>
