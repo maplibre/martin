@@ -18,12 +18,14 @@ mbtiles meta-get my_file.mbtiles description
 Copy an mbtiles file, optionally filtering its content by zoom levels. Can also flatten mbtiles file from de-duplicated tiles to a simple table structure.
 
 ```shell
-mbtiles copy src_file.mbtiles dst_file.mbtiles --min-zoom 0 --max-zoom 10 --force-simple
+mbtiles copy src_file.mbtiles dst_file.mbtiles \
+        --min-zoom 0 --max-zoom 10 --force-simple
 ```
 
 Copy command can also be used to compare two mbtiles files and generate a diff.
 ```shell
-mbtiles copy src_file.mbtiles diff_file.mbtiles --force-simple --diff-with-file modified_file.mbtiles
+mbtiles copy src_file.mbtiles diff_file.mbtiles \
+        --force-simple --diff-with-file modified_file.mbtiles
 ```
 
 ### apply-diff
@@ -43,4 +45,3 @@ sqlite3 src_file.mbtiles \
 ```
 
 **_NOTE:_** Both of these methods for applying a diff _only_ work for mbtiles files in the simple tables format; they do _not_ work for mbtiles files in deduplicated format.
-
