@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use actix_web::error::ErrorNotFound;
 use futures::future::try_join_all;
 use log::{info, warn};
 use spreet::fs::get_svg_input_paths;
@@ -16,6 +15,9 @@ use crate::file_config::{FileConfigEnum, FileError};
 
 #[derive(thiserror::Error, Debug)]
 pub enum SpriteError {
+    #[error("Sprite {0} not found")]
+    SpriteNotFound(String),
+
     #[error("IO error {0}: {}", .1.display())]
     IoError(std::io::Error, PathBuf),
 
@@ -96,10 +98,25 @@ fn add_source(id: String, path: PathBuf, results: &mut SpriteSources) {
 pub struct SpriteSources(HashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn get_sprite_source(&self, id: &str) -> actix_web::Result<&SpriteSource> {
+    pub fn get_sprite_source(&self, id: &str) -> Result<&SpriteSource, SpriteError> {
         self.0
             .get(id)
-            .ok_or_else(|| ErrorNotFound(format!("Sprite {id} does not exist")))
+            .ok_or_else(|| SpriteError::SpriteNotFound(id.to_string()))
+    }
+
+    /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
+    /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
+    pub async fn get_sprites(&self, ids: &str) -> Result<Spritesheet, SpriteError> {
+        let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
+            (ids, 2)
+        } else {
+            (ids, 1)
+        };
+        let sprite_ids = ids
+            .split(',')
+            .map(|id| self.get_sprite_source(id))
+            .collect::<Result<Vec<_>, SpriteError>>()?;
+        get_spritesheet(sprite_ids.into_iter(), dpi).await
     }
 }
 

@@ -13,19 +13,18 @@ use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::{Data, Path, Query};
 use actix_web::{
-    error, middleware, route, web, App, Error, HttpMessage, HttpRequest, HttpResponse, HttpServer,
+    error, middleware, route, web, App, HttpMessage, HttpRequest, HttpResponse, HttpServer,
     Responder, Result,
 };
 use futures::future::try_join_all;
 use log::error;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::Deserialize;
-use spreet::sprite::Spritesheet;
 use tilejson::{tilejson, TileJSON};
 
 use crate::config::AllSources;
 use crate::source::{Source, Sources, UrlQuery, Xyz};
-use crate::sprites::{get_spritesheet, SpriteSources};
+use crate::sprites::{SpriteError, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use crate::Error::BindingError;
@@ -56,9 +55,17 @@ struct TileRequest {
     y: u32,
 }
 
-fn map_internal_error<T: std::fmt::Display>(e: T) -> Error {
+pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     error!("{e}");
     error::ErrorInternalServerError(e.to_string())
+}
+
+pub fn map_sprite_error(e: SpriteError) -> actix_web::Error {
+    if let SpriteError::SpriteNotFound(_) = e {
+        error::ErrorNotFound(e.to_string())
+    } else {
+        map_internal_error(e)
+    }
 }
 
 /// Root path will eventually have a web front. For now, just a stub.
@@ -95,10 +102,13 @@ async fn get_sprite_png(
     path: Path<TileJsonRequest>,
     sprites: Data<SpriteSources>,
 ) -> Result<HttpResponse> {
-    let ss = get_sprite_int(&path.source_ids, &sprites).await?;
+    let sheet = sprites
+        .get_sprites(&path.source_ids)
+        .await
+        .map_err(map_sprite_error)?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
-        .body(ss.encode_png().map_err(map_internal_error)?))
+        .body(sheet.encode_png().map_err(map_internal_error)?))
 }
 
 #[route("/sprite/{source_ids}.json", method = "GET", method = "HEAD")]
@@ -106,23 +116,11 @@ async fn get_sprite_json(
     path: Path<TileJsonRequest>,
     sprites: Data<SpriteSources>,
 ) -> Result<HttpResponse> {
-    let ss = get_sprite_int(&path.source_ids, &sprites).await?;
-    Ok(HttpResponse::Ok().json(ss.get_index()))
-}
-
-async fn get_sprite_int(ids: &str, sprites: &SpriteSources) -> Result<Spritesheet> {
-    let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
-        (ids, 2)
-    } else {
-        (ids, 1)
-    };
-    let sprite_ids = ids
-        .split(',')
-        .map(|id| sprites.get_sprite_source(id))
-        .collect::<Result<Vec<_>>>()?;
-    get_spritesheet(sprite_ids.into_iter(), dpi)
+    let sheet = sprites
+        .get_sprites(&path.source_ids)
         .await
-        .map_err(map_internal_error)
+        .map_err(map_sprite_error)?;
+    Ok(HttpResponse::Ok().json(sheet.get_index()))
 }
 
 #[route(
