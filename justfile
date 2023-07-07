@@ -65,12 +65,8 @@ bench: start
     cargo bench
 
 # Run HTTP requests benchmark using OHA tool. Use with `just run-release`
-bench-http:
+bench-http: (cargo-install "oha")
     @echo "Make sure Martin was started with 'just run-release'"
-    @if ! command -v oha &> /dev/null; then \
-        echo "oha could not be found. Installing..." ;\
-        cargo install oha ;\
-    fi
     @echo "Warming up..."
     oha -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha -z 120s  http://localhost:3000/function_zxy_query/18/235085/122323
@@ -111,11 +107,7 @@ bless: start clean-test
     mv tests/output tests/expected
 
 # Build and open mdbook documentation
-mdbook:
-    @if ! command -v mdbook &> /dev/null; then \
-        echo "mdbook could not be found. Installing..." ;\
-        cargo install mdbook ;\
-    fi
+book: (cargo-install "mdbook")
     mdbook serve docs --open --port 8321
 
 # Build and open code documentation
@@ -123,13 +115,9 @@ docs:
     cargo doc --no-deps --open
 
 # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
-coverage FORMAT='html':
+coverage FORMAT='html': (cargo-install "grcov")
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! command -v grcov &> /dev/null; then \
-        echo "grcov could not be found. Installing..." ;\
-        cargo install grcov ;\
-    fi
     if ! rustup component list | grep llvm-tools-preview &> /dev/null; then \
         echo "llvm-tools-preview could not be found. Installing..." ;\
         rustup component add llvm-tools-preview ;\
@@ -219,8 +207,12 @@ prepare-sqlite: install-sqlx
 
 # Install SQLX cli if not already installed.
 [private]
-install-sqlx:
-    @if ! command -v cargo-sqlx &> /dev/null; then \
-        echo "SQLX cargo plugin could not be found. Installing..." ;\
-        cargo install sqlx-cli --no-default-features --features sqlite,native-tls ;\
+install-sqlx: (cargo-install "cargo-sqlx" "sqlx-cli" "--no-default-features" "--features" "sqlite,native-tls")
+
+# Check if a certain Cargo command is installed, and install it if needed
+[private]
+cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
+    @if ! command -v $COMMAND &> /dev/null; then \
+        echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}" ;\
+        cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }} ;\
     fi

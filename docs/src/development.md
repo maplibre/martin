@@ -48,7 +48,7 @@ Available recipes:
     test-unit *ARGS        # Run Rust unit and doc tests (cargo test)
     test-int               # Run integration tests
     bless                  # Run integration tests and save its output as the new expected output
-    mdbook                 # Build and open mdbook documentation
+    book                   # Build and open mdbook documentation
     docs                   # Build and open code documentation
     coverage FORMAT='html' # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
     docker-build           # Build martin docker image
@@ -57,6 +57,7 @@ Available recipes:
     print-conn-str         # Print the connection string for the test database
     lint                   # Run cargo fmt and cargo clippy
     fmt                    # Run cargo fmt
+    fmt2                   # Run Nightly cargo fmt, ordering imports
     clippy                 # Run cargo clippy
-    prepare-sqlite         # Update sqlite database schema. Install SQLX cli if not already installed.
+    prepare-sqlite         # Update sqlite database schema.
 ```
