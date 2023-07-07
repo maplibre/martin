@@ -261,25 +261,35 @@ Options:
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="running-with-docker"><a class="header" href="#running-with-docker">Running with Docker</a></h1>
 <p>You can use official Docker image <a href="https://ghcr.io/maplibre/martin"><code>ghcr.io/maplibre/martin</code></a></p>
+<h3 id="using-non-local-postgresql"><a class="header" href="#using-non-local-postgresql">Using Non-Local PostgreSQL</a></h3>
 <pre><code class="language-shell">docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@localhost/db \
+  -e DATABASE_URL=postgresql://postgres@postgres.example.com/db \
   ghcr.io/maplibre/martin
 </code></pre>
+<h3 id="exposing-local-files"><a class="header" href="#exposing-local-files">Exposing Local Files</a></h3>
+<p>You can expose local files to the Docker container using the <code>-v</code> flag.</p>
+<pre><code class="language-shell">docker run \
+  -p 3000:3000 \
+  -v /path/to/local/files:/files \
+  ghcr.io/maplibre/martin /files
+</code></pre>
+<h3 id="accessing-local-postgresql-on-linux"><a class="header" href="#accessing-local-postgresql-on-linux">Accessing Local PostgreSQL on Linux</a></h3>
 <p>If you are running PostgreSQL instance on <code>localhost</code>, you have to change network settings to allow the Docker container to access the <code>localhost</code> network.</p>
-<p>For Linux, add the <code>--net=host</code> flag to access the <code>localhost</code> PostgreSQL service.</p>
+<p>For Linux, add the <code>--net=host</code> flag to access the <code>localhost</code> PostgreSQL service. You would not need to export ports with <code>-p</code> because the container is already using the host network.</p>
 <pre><code class="language-shell">docker run \
   --net=host \
-  -p 3000:3000 \
   -e DATABASE_URL=postgresql://postgres@localhost/db \
   ghcr.io/maplibre/martin
 </code></pre>
+<h3 id="accessing-local-postgresql-on-macos"><a class="header" href="#accessing-local-postgresql-on-macos">Accessing Local PostgreSQL on macOS</a></h3>
 <p>For macOS, use <code>host.docker.internal</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-shell">docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgresql://postgres@host.docker.internal/db \
   ghcr.io/maplibre/martin
 </code></pre>
+<h3 id="accessing-local-postgresql-on-windows"><a class="header" href="#accessing-local-postgresql-on-windows">Accessing Local PostgreSQL on Windows</a></h3>
 <p>For Windows, use <code>docker.for.win.localhost</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-shell">docker run \
   -p 3000:3000 \
@@ -947,7 +957,7 @@ Available recipes:
     test-unit *ARGS        # Run Rust unit and doc tests (cargo test)
     test-int               # Run integration tests
     bless                  # Run integration tests and save its output as the new expected output
-    mdbook                 # Build and open mdbook documentation
+    book                   # Build and open mdbook documentation
     docs                   # Build and open code documentation
     coverage FORMAT='html' # Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
     docker-build           # Build martin docker image
@@ -956,8 +966,9 @@ Available recipes:
     print-conn-str         # Print the connection string for the test database
     lint                   # Run cargo fmt and cargo clippy
     fmt                    # Run cargo fmt
+    fmt2                   # Run Nightly cargo fmt, ordering imports
     clippy                 # Run cargo clippy
-    prepare-sqlite         # Update sqlite database schema. Install SQLX cli if not already installed.
+    prepare-sqlite         # Update sqlite database schema.
 </code></pre>
 
                     </main>
