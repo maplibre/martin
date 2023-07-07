@@ -111,7 +111,7 @@ bless: start clean-test
     mv tests/output tests/expected
 
 # Build and open mdbook documentation
-mdbook:
+book:
     @if ! command -v mdbook &> /dev/null; then \
         echo "mdbook could not be found. Installing..." ;\
         cargo install mdbook ;\
