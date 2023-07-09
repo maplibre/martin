@@ -25,17 +25,19 @@ curl localhost:3000/catalog | jq
 ```
 
 ```yaml
-[
-  {
-    "id": "function_zxy_query",
-    "name": "public.function_zxy_query"
+{
+  "tiles" {
+    "function_zxy_query": {
+      "name": "public.function_zxy_query",
+      "content_type": "application/x-protobuf"
+    },
+    "points1": {
+      "name": "public.points1.geom",
+      "content_type": "image/webp"
+    },
+    ...
   },
-  {
-    "id": "points1",
-    "name": "public.points1.geom"
-  },
-  ...
-]
+}
 ```
 
 ## Source TileJSON

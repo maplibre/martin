@@ -1,16 +1,14 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
-use itertools::Itertools;
 use log::debug;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::utils::Result;
+use crate::utils::{sorted_map, Result};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Xyz {
@@ -33,40 +31,43 @@ pub type Tile = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
 
 #[derive(Default, Clone)]
-pub struct Sources(HashMap<String, Box<dyn Source>>);
+pub struct Sources {
+    tiles: HashMap<String, Box<dyn Source>>,
+    catalog: SourceCatalog,
+}
 
 impl Sources {
     pub fn insert(&mut self, id: String, source: Box<dyn Source>) {
-        self.0.insert(id, source);
+        let tilejson = source.get_tilejson();
+        let info = source.get_tile_info();
+        self.catalog.tiles.insert(
+            id.clone(),
+            SourceEntry {
+                content_type: info.format.content_type().to_string(),
+                content_encoding: info.encoding.content_encoding().map(ToString::to_string),
+                name: tilejson.name.filter(|v| v != &id),
+                description: tilejson.description,
+                attribution: tilejson.attribution,
+            },
+        );
+        self.tiles.insert(id, source);
     }
 
     pub fn extend(&mut self, other: Sources) {
-        self.0.extend(other.0);
+        for (k, v) in other.catalog.tiles {
+            self.catalog.tiles.insert(k, v);
+        }
+        self.tiles.extend(other.tiles);
     }
 
     #[must_use]
-    pub fn get_catalog(&self) -> Vec<IndexEntry> {
-        self.0
-            .iter()
-            .map(|(id, src)| {
-                let tilejson = src.get_tilejson();
-                let info = src.get_tile_info();
-                IndexEntry {
-                    id: id.clone(),
-                    content_type: info.format.content_type().to_string(),
-                    content_encoding: info.encoding.content_encoding().map(ToString::to_string),
-                    name: tilejson.name.filter(|v| v != id),
-                    description: tilejson.description,
-                    attribution: tilejson.attribution,
-                }
-            })
-            .sorted()
-            .collect()
+    pub fn get_catalog(&self) -> &SourceCatalog {
+        &self.catalog
     }
 
     pub fn get_source(&self, id: &str) -> actix_web::Result<&dyn Source> {
         Ok(self
-            .0
+            .tiles
             .get(id)
             .ok_or_else(|| ErrorNotFound(format!("Source {id} does not exist")))?
             .as_ref())
@@ -138,9 +139,15 @@ impl Clone for Box<dyn Source> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct IndexEntry {
-    pub id: String,
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SourceCatalog {
+    // TODO: Use pre-sorted BTreeMap instead
+    #[serde(serialize_with = "sorted_map")]
+    tiles: HashMap<String, SourceEntry>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SourceEntry {
     pub content_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_encoding: Option<String>,
@@ -150,18 +157,6 @@ pub struct IndexEntry {
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attribution: Option<String>,
-}
-
-impl PartialOrd<Self> for IndexEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for IndexEntry {
-    fn cmp(&self, other: &Self) -> Ordering {
-        (&self.id, &self.name).cmp(&(&other.id, &other.name))
-    }
 }
 
 #[cfg(test)]
