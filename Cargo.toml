@@ -6,6 +6,8 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
 rust-version = "1.65"
+readme = "README.md"
+homepage = "https://martin.maplibre.org/"
 
 [workspace.dependencies]
 actix = "0.13"
