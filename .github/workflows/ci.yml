@@ -65,9 +65,7 @@ jobs:
       - name: Install cargo-deb
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt install dpkg -y
-          sudo apt install dpkg-dev -y
-          sudo apt install liblzma-dev -y
+          sudo apt install -y dpkg dpkg-dev liblzma-dev
           cargo install cargo-deb
       - name: Run build
         shell: bash
@@ -169,7 +167,7 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Integration Tests (without debian package)
+      - name: Integration Tests
         if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
         run: |
@@ -221,7 +219,7 @@ jobs:
             tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           fi
           cd -
-      - name: package (debian)
+      - name: Package (debian)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
