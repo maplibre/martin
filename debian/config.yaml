@@ -1,0 +1,31 @@
+# Connection keep alive timeout [default: 75]
+keep_alive: 75
+
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: '0.0.0.0:3000'
+
+# Number of web server workers
+worker_processes: 8
+
+# see https://maplibre.org/martin/config-file.html
+
+# postgres:
+#   connection_string: 'postgresql://postgres@localhost:5432/db'
+#   default_srid: 4326
+#   pool_size: 20
+#   max_feature_count: 1000
+#   disable_bounds: false
+
+# pmtiles:
+#   paths:
+#     - /dir-path
+#     - /path/to/pmtiles.pmtiles
+#   sources:
+#     pm-src1: /path/to/pmtiles1.pmtiles
+    
+# mbtiles:
+#   paths:
+#     - /dir-path
+#     - /path/to/mbtiles.mbtiles
+#   sources:
+#     mb-src1: /path/to/mbtiles1.mbtiles
