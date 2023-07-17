@@ -36,7 +36,7 @@ log = "0.4"
 martin-mbtiles = { path = "./martin-mbtiles", version = "0.6.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
-pbf_font_tools = { version = "2.4.0", features = ["freetype"], path = "../sdf_font_tools/pbf_font_tools" }
+pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
 pmtiles = { version = "0.3", features = ["mmap-async-tokio", "tilejson"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }

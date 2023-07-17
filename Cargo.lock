@@ -2075,7 +2075,9 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
 name = "pbf_font_tools"
-version = "2.4.0"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67768bb2719d708e2de28cec7271dae35c717122c0fa4d9f8558ef5e7fa83db7"
 dependencies = [
  "futures",
  "glob",
@@ -2796,7 +2798,9 @@ dependencies = [
 
 [[package]]
 name = "sdf_glyph_renderer"
-version = "0.6.0"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b05c114d181e20b509e03b05856cc5823bc6189d581c276fe37c5ebc5e3b3b9"
 dependencies = [
  "freetype-rs",
  "thiserror",
