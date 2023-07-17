@@ -91,7 +91,7 @@ pub fn map_font_error(e: FontError) -> actix_web::Error {
     #[allow(clippy::enum_glob_use)]
     use FontError::*;
     match e {
-        FontNotFound(_) => error::ErrorNotFound(e.to_string()),
+        FontNotFound(_) => ErrorNotFound(e.to_string()),
         InvalidFontRangeStartEnd(_, _)
         | InvalidFontRangeStart(_)
         | InvalidFontRangeEnd(_)

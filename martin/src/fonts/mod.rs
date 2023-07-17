@@ -3,12 +3,14 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use bit_set::BitSet;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::protobuf::Message;
 use pbf_font_tools::{render_sdf_glyph, Fontstack, Glyphs, PbfFontError};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::fonts::FontError::IoError;
@@ -79,6 +81,8 @@ fn recurse_dirs(
     fonts: &mut HashMap<String, FontSource>,
     catalog: &mut HashMap<String, FontEntry>,
 ) -> Result<(), FontError> {
+    static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+
     for dir_entry in path
         .read_dir()
         .map_err(|e| IoError(e, path.to_path_buf()))?
@@ -115,10 +119,11 @@ fn recurse_dirs(
                 name.push_str(style);
             }
             // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
-            name = name
-                .replace(['/', ','], " ")
-                .replace("  ", " ")
-                .replace("  ", " ");
+            name = name.replace(['/', ','], " ");
+            name = RE_SPACES
+                .get_or_init(|| Regex::new(r"\s+").unwrap())
+                .replace_all(name.as_str(), " ")
+                .to_string();
 
             match fonts.entry(name) {
                 Entry::Occupied(v) => {
@@ -127,9 +132,13 @@ fn recurse_dirs(
                 }
                 Entry::Vacant(v) => {
                     let key = v.key();
-                    let Some((codepoints, count, ranges )) = get_available_codepoints(&mut face) else {
-                        warn!("Ignoring font source {key} from {} because it has no available glyphs", path.display());
-                        continue
+                    let Some((codepoints, count, ranges)) = get_available_codepoints(&mut face)
+                    else {
+                        warn!(
+                            "Ignoring font source {key} from {} because it has no available glyphs",
+                            path.display()
+                        );
+                        continue;
                     };
 
                     let start = ranges.first().map(|(s, _)| *s).unwrap();
@@ -328,7 +337,7 @@ impl FontSources {
             // and https://www.freetype.org/freetype2/docs/tutorial/step1.html for details.
             face.set_char_size(0, CHAR_HEIGHT, 0, 0)?;
 
-            for cp in ds.iter() {
+            for cp in &ds {
                 let glyph = render_sdf_glyph(&face, cp as u32, BUFFER_SIZE, RADIUS, CUTOFF)?;
                 stack.glyphs.push(glyph);
             }
