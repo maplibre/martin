@@ -1,6 +1,10 @@
-FROM node:18-alpine as builder
+FROM node:20-alpine as builder
 
 WORKDIR /usr/src/app
+
+COPY package.json .
+COPY yarn.lock .
+RUN yarn install
+
 COPY . .
-RUN npm i
-RUN npm run build
+CMD yarn run build
