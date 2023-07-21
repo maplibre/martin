@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
-use clap::{builder::ValueParser, error::ErrorKind, Args};
+use clap::{builder::ValueParser, error::ErrorKind, Args, ValueEnum};
 use sqlx::sqlite::{SqliteArguments, SqliteConnectOptions};
 use sqlx::{query, query_with, Arguments, Connection, Row, SqliteConnection};
 
@@ -12,6 +12,14 @@ use crate::errors::MbtResult;
 use crate::mbtiles::MbtType;
 use crate::mbtiles::MbtType::TileTables;
 use crate::{MbtError, Mbtiles};
+
+#[derive(ValueEnum, PartialEq, Eq, Default, Debug, Clone)]
+enum CopyDuplicateMode {
+    #[default]
+    Override,
+    Ignore,
+    Abort,
+}
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "cli", derive(Args))]
@@ -21,8 +29,12 @@ pub struct TileCopierOptions {
     /// MBTiles file to write to
     dst_file: PathBuf,
     /// Force the output file to be in a simple MBTiles format with a `tiles` table
+    ///
     #[cfg_attr(feature = "cli", arg(long))]
     force_simple: bool,
+    /// Specify copying behaviour when tiles with duplicate (zoom_level, tile_column, tile_row) values are found
+    #[cfg_attr(feature = "cli", arg(long, value_enum, default_value_t = CopyDuplicateMode::Override))]
+    on_duplicate: CopyDuplicateMode,
     /// Minimum zoom level to copy
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     min_zoom: Option<u8>,
@@ -72,6 +84,7 @@ impl clap::builder::TypedValueParser for HashSetValueParser {
 #[derive(Clone, Debug)]
 struct TileCopier {
     src_mbtiles: Mbtiles,
+    dst_mbtiles: Mbtiles,
     options: TileCopierOptions,
 }
 
@@ -82,6 +95,7 @@ impl TileCopierOptions {
             dst_file: dst_filepath,
             zoom_levels: HashSet::new(),
             force_simple: false,
+            on_duplicate: CopyDuplicateMode::Override,
             min_zoom: None,
             max_zoom: None,
             diff_with_file: None,
@@ -118,24 +132,27 @@ impl TileCopier {
     pub fn new(options: TileCopierOptions) -> MbtResult<Self> {
         Ok(TileCopier {
             src_mbtiles: Mbtiles::new(&options.src_file)?,
+            dst_mbtiles: Mbtiles::new(&options.dst_file)?,
             options,
         })
     }
 
+    //TODO: handle case where source is simple and deduplicated
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        let src_type = open_and_detect_type(&self.src_mbtiles).await?;
-        let force_simple = self.options.force_simple && src_type != MbtType::TileTables;
+        let mut mbtiles_type = open_and_detect_type(&self.src_mbtiles).await?;
+        let force_simple = self.options.force_simple && mbtiles_type != MbtType::TileTables;
 
         let opt = SqliteConnectOptions::new()
             .create_if_missing(true)
             .filename(&self.options.dst_file);
         let mut conn = SqliteConnection::connect_with(&opt).await?;
 
-        if query("SELECT 1 FROM sqlite_schema LIMIT 1")
+        let is_empty = query("SELECT 1 FROM sqlite_schema LIMIT 1")
             .fetch_optional(&mut conn)
             .await?
-            .is_some()
-        {
+            .is_none();
+
+        if !is_empty && self.options.diff_with_file.is_some() {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         }
 
@@ -147,42 +164,64 @@ impl TileCopier {
             .execute(&mut conn)
             .await?;
 
-        if force_simple {
-            for statement in &["CREATE TABLE metadata (name text, value text);",
-                "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
-                "CREATE UNIQUE INDEX name on metadata (name);",
-                "CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);"] {
-                query(statement).execute(&mut conn).await?;
-            }
+        if is_empty {
+            if force_simple {
+                for statement in &["CREATE TABLE metadata (name text, value text);",
+                    "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
+                    "CREATE UNIQUE INDEX name on metadata (name);",
+                    "CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);"] {
+                    query(statement).execute(&mut conn).await?;
+                }
+            } else {
+                // DB objects must be created in a specific order: tables, views, triggers, indexes.
+
+                for row in query(
+                    "SELECT sql 
+                        FROM sourceDb.sqlite_schema 
+                        WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images') 
+                            AND type IN ('table', 'view', 'trigger', 'index')
+                        ORDER BY CASE WHEN type = 'table' THEN 1
+                          WHEN type = 'view' THEN 2
+                          WHEN type = 'trigger' THEN 3
+                          WHEN type = 'index' THEN 4
+                          ELSE 5 END",
+                )
+                .fetch_all(&mut conn)
+                .await?
+                {
+                    query(row.get(0)).execute(&mut conn).await?;
+                }
+            };
+
+            query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
+                .execute(&mut conn)
+                .await?;
         } else {
-            // DB objects must be created in a specific order: tables, views, triggers, indexes.
+            mbtiles_type = open_and_detect_type(&self.dst_mbtiles).await?;
+            self.dst_mbtiles
+                .check_for_uniqueness_constraint(&mut conn, Some(mbtiles_type.clone()))
+                .await?;
 
-            for row in query(
-                "SELECT sql 
-            FROM sourceDb.sqlite_schema 
-            WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images') 
-                AND type IN ('table', 'view', 'trigger', 'index')
-            ORDER BY CASE WHEN type = 'table' THEN 1
-              WHEN type = 'view' THEN 2
-              WHEN type = 'trigger' THEN 3
-              WHEN type = 'index' THEN 4
-              ELSE 5 END",
-            )
-            .fetch_all(&mut conn)
-            .await?
+            if self.options.on_duplicate == CopyDuplicateMode::Abort
+                && query(
+                    "SELECT zoom_level, tile_column, tile_row
+                FROM tiles
+                INTERSECT
+                SELECT zoom_level, tile_column, tile_row
+                FROM sourceDb.tiles",
+                )
+                .fetch_optional(&mut conn)
+                .await?
+                .is_some()
             {
-                query(row.get(0)).execute(&mut conn).await?;
+                return Err(MbtError::DuplicateValues());
             }
-        };
-
-        query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
-            .execute(&mut conn)
-            .await?;
+        }
 
         if force_simple {
             self.copy_tile_tables(&mut conn).await?
         } else {
-            match src_type {
+            match mbtiles_type {
                 MbtType::TileTables => self.copy_tile_tables(&mut conn).await?,
                 MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await?,
             }
@@ -223,25 +262,41 @@ impl TileCopier {
             self.run_query_with_options(
                 conn,
                 // Allows for adding clauses to query using "AND"
-                "INSERT INTO tiles SELECT * FROM sourceDb.tiles WHERE TRUE",
+                &format!(
+                    "INSERT {} INTO tiles SELECT * FROM sourceDb.tiles WHERE TRUE",
+                    match &self.options.on_duplicate {
+                        CopyDuplicateMode::Override => "OR REPLACE",
+                        CopyDuplicateMode::Ignore => "OR IGNORE",
+                        _ => "",
+                    }
+                ),
             )
             .await
         }
     }
 
     async fn copy_deduplicated(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        query("INSERT INTO map SELECT * FROM sourceDb.map")
-            .execute(&mut *conn)
-            .await?;
+        let on_duplicate_sql = match &self.options.on_duplicate {
+            CopyDuplicateMode::Override => "OR REPLACE",
+            CopyDuplicateMode::Ignore => "OR IGNORE",
+            _ => "",
+        };
+        query(&format!(
+            "INSERT {on_duplicate_sql} INTO map SELECT * FROM sourceDb.map"
+        ))
+        .execute(&mut *conn)
+        .await?;
 
         self.run_query_with_options(
             conn,
             // Allows for adding clauses to query using "AND"
-            "INSERT INTO images
+            &format!(
+                "INSERT {on_duplicate_sql} INTO images
                 SELECT images.tile_data, images.tile_id
                 FROM sourceDb.images JOIN sourceDb.map
                   ON images.tile_id = map.tile_id
-                WHERE TRUE",
+                WHERE TRUE"
+            ),
         )
         .await
     }
@@ -400,19 +455,6 @@ mod tests {
         let src = PathBuf::from("../tests/fixtures/files/geography-class-png.mbtiles");
         let dst = PathBuf::from(":memory:");
         verify_copy_all(src, dst).await;
-    }
-
-    #[actix_rt::test]
-    async fn non_empty_target_file() {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let dst = PathBuf::from("../tests/fixtures/files/json.mbtiles");
-        assert!(matches!(
-            TileCopier::new(TileCopierOptions::new(src, dst))
-                .unwrap()
-                .run()
-                .await,
-            Err(MbtError::NonEmptyTargetFile(_))
-        ));
     }
 
     #[actix_rt::test]

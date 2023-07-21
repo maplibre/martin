@@ -28,6 +28,12 @@ pub enum MbtError {
 
     #[error("The destination file {0} is non-empty")]
     NonEmptyTargetFile(PathBuf),
+
+    #[error("The file {0} is does not have the required uniqueness constraint")]
+    NoUniquenessConstraint(String),
+
+    #[error("Unexpected duplicate values found when copying")]
+    DuplicateValues(),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

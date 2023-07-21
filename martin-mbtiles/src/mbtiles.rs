@@ -2,6 +2,7 @@
 
 extern crate core;
 
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::path::Path;
@@ -11,7 +12,7 @@ use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
-use sqlx::{query, SqliteExecutor};
+use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
@@ -26,7 +27,7 @@ pub struct Metadata {
     pub json: Option<JSONValue>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MbtType {
     TileTables,
     DeDuplicated,
@@ -287,6 +288,54 @@ impl Mbtiles {
         } else {
             Err(MbtError::InvalidDataFormat(self.filepath.clone()))
         }
+    }
+
+    pub async fn check_for_uniqueness_constraint<T>(
+        &self,
+        conn: &mut T,
+        mbt_type: Option<MbtType>,
+    ) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let mbt_type = if let Some(mbt_type) = mbt_type {
+            mbt_type
+        } else {
+            self.detect_type(conn).await?
+        };
+
+        let table_name = match mbt_type {
+            MbtType::TileTables => "tiles",
+            MbtType::DeDuplicated => "map",
+        };
+
+        let mut unique_idx_cols = HashSet::new();
+        let query_string = format!(
+            "SELECT DISTINCT ii.name as column_name 
+            FROM
+               pragma_index_list('{table_name}') AS il,
+               pragma_index_info(il.name) AS ii
+            WHERE il.[unique] = 1;"
+        );
+        let mut rows = query(&query_string).fetch(conn);
+
+        while let Some(row) = rows.try_next().await? {
+            unique_idx_cols.insert(row.get("column_name"));
+        }
+
+        if !unique_idx_cols
+            .symmetric_difference(&HashSet::from([
+                "zoom_level".to_string(),
+                "tile_column".to_string(),
+                "tile_row".to_string(),
+            ]))
+            .collect::<Vec<_>>()
+            .is_empty()
+        {
+            return Err(MbtError::NoUniquenessConstraint(self.filepath.clone()));
+        }
+
+        Ok(())
     }
 }
 
