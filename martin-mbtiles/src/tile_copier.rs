@@ -13,7 +13,8 @@ use crate::mbtiles::MbtType;
 use crate::mbtiles::MbtType::TileTables;
 use crate::{MbtError, Mbtiles};
 
-#[derive(ValueEnum, PartialEq, Eq, Default, Debug, Clone)]
+#[derive(PartialEq, Eq, Default, Debug, Clone)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 enum CopyDuplicateMode {
     #[default]
     Override,
