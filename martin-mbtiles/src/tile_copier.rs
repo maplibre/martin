@@ -15,7 +15,7 @@ use crate::{MbtError, Mbtiles};
 
 #[derive(PartialEq, Eq, Default, Debug, Clone)]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
-enum CopyDuplicateMode {
+pub enum CopyDuplicateMode {
     #[default]
     Override,
     Ignore,
