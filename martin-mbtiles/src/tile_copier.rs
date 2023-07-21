@@ -267,7 +267,7 @@ impl TileCopier {
                     match &self.options.on_duplicate {
                         CopyDuplicateMode::Override => "OR REPLACE",
                         CopyDuplicateMode::Ignore => "OR IGNORE",
-                        _ => "",
+                        CopyDuplicateMode::Abort => "",
                     }
                 ),
             )
@@ -279,7 +279,7 @@ impl TileCopier {
         let on_duplicate_sql = match &self.options.on_duplicate {
             CopyDuplicateMode::Override => "OR REPLACE",
             CopyDuplicateMode::Ignore => "OR IGNORE",
-            _ => "",
+            CopyDuplicateMode::Abort => "",
         };
         query(&format!(
             "INSERT {on_duplicate_sql} INTO map SELECT * FROM sourceDb.map"
