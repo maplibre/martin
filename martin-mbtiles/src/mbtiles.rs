@@ -281,29 +281,28 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        if is_deduplicated_type(&mut *conn).await? {
-            Ok(MbtType::DeDuplicated)
+        let mbt_type = if is_deduplicated_type(&mut *conn).await? {
+            MbtType::DeDuplicated
         } else if is_tile_tables_type(&mut *conn).await? {
-            Ok(MbtType::TileTables)
+            MbtType::TileTables
         } else {
-            Err(MbtError::InvalidDataFormat(self.filepath.clone()))
-        }
+            return Err(MbtError::InvalidDataFormat(self.filepath.clone()));
+        };
+
+        self.check_for_uniqueness_constraint(&mut *conn, &mbt_type)
+            .await?;
+
+        Ok(mbt_type)
     }
 
-    pub async fn check_for_uniqueness_constraint<T>(
+    async fn check_for_uniqueness_constraint<T>(
         &self,
         conn: &mut T,
-        mbt_type: Option<MbtType>,
+        mbt_type: &MbtType,
     ) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let mbt_type = if let Some(mbt_type) = mbt_type {
-            mbt_type
-        } else {
-            self.detect_type(conn).await?
-        };
-
         let table_name = match mbt_type {
             MbtType::TileTables => "tiles",
             MbtType::DeDuplicated => "map",

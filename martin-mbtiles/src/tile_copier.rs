@@ -199,9 +199,6 @@ impl TileCopier {
                 .await?;
         } else {
             mbtiles_type = open_and_detect_type(&self.dst_mbtiles).await?;
-            self.dst_mbtiles
-                .check_for_uniqueness_constraint(&mut conn, Some(mbtiles_type.clone()))
-                .await?;
 
             if self.options.on_duplicate == CopyDuplicateMode::Abort
                 && query(
