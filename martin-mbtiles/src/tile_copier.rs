@@ -108,6 +108,11 @@ impl TileCopierOptions {
         self
     }
 
+    pub fn on_duplicate(mut self, on_duplicate: CopyDuplicateMode) -> Self {
+        self.on_duplicate = on_duplicate;
+        self
+    }
+
     pub fn zoom_levels(mut self, zoom_levels: Vec<u8>) -> Self {
         self.zoom_levels.extend(zoom_levels);
         self
@@ -157,15 +162,15 @@ impl TileCopier {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         }
 
-        query("PRAGMA page_size = 512").execute(&mut conn).await?;
-        query("VACUUM").execute(&mut conn).await?;
-
         query("ATTACH DATABASE ? AS sourceDb")
             .bind(self.src_mbtiles.filepath())
             .execute(&mut conn)
             .await?;
 
         if is_empty {
+            query("PRAGMA page_size = 512").execute(&mut conn).await?;
+            query("VACUUM").execute(&mut conn).await?;
+
             if force_simple {
                 for statement in &["CREATE TABLE metadata (name text, value text);",
                     "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
@@ -212,7 +217,7 @@ impl TileCopier {
                 .await?
                 .is_some()
             {
-                return Err(MbtError::DuplicateValues());
+                return Err(MbtError::DuplicateValues);
             }
         }
 
@@ -545,6 +550,109 @@ mod tests {
         )
         .await
         .is_none());
+    }
+
+    #[actix_rt::test]
+    async fn copy_to_existing_abort_mode() {
+        let src = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
+        let dst = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+
+        let copy_opts =
+            TileCopierOptions::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
+
+        assert!(matches!(
+            copy_mbtiles_file(copy_opts).await.unwrap_err(),
+            MbtError::DuplicateValues
+        ));
+    }
+
+    #[actix_rt::test]
+    async fn copy_to_existing_override_mode() {
+        let src_file = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
+
+        // Copy the dst file to an in-memory DB
+        let dst_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let dst =
+            PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
+
+        let _dst_conn = copy_mbtiles_file(TileCopierOptions::new(dst_file.clone(), dst.clone()))
+            .await
+            .unwrap();
+
+        let mut dst_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), dst.clone()))
+            .await
+            .unwrap();
+
+        // Verify the tiles in the destination file is a superset of the tiles in the source file
+        let _ = query("ATTACH DATABASE ? AS otherDb")
+            .bind(src_file.clone().to_str().unwrap())
+            .execute(&mut dst_conn)
+            .await;
+
+        assert!(
+            query("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles;")
+                .fetch_optional(&mut dst_conn)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn copy_to_existing_ignore_mode() {
+        let src_file = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
+
+        // Copy the dst file to an in-memory DB
+        let dst_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let dst =
+            PathBuf::from("file:copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
+
+        let _dst_conn = copy_mbtiles_file(TileCopierOptions::new(dst_file.clone(), dst.clone()))
+            .await
+            .unwrap();
+
+        let mut dst_conn = copy_mbtiles_file(
+            TileCopierOptions::new(src_file.clone(), dst.clone())
+                .on_duplicate(CopyDuplicateMode::Ignore),
+        )
+        .await
+        .unwrap();
+
+        // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
+        let _ = query("ATTACH DATABASE ? AS srcDb")
+            .bind(src_file.clone().to_str().unwrap())
+            .execute(&mut dst_conn)
+            .await;
+        let _ = query("ATTACH DATABASE ? AS originalDb")
+            .bind(dst_file.clone().to_str().unwrap())
+            .execute(&mut dst_conn)
+            .await;
+
+        assert!(
+            query("
+                        SELECT * FROM
+                            (SELECT * FROM 
+                                (SELECT t2.zoom_level, t2.tile_column, t2.tile_row, COALESCE(t1.tile_data, t2.tile_data)
+                                FROM originalDb.tiles as t1 
+                                RIGHT JOIN srcDb.tiles as t2
+                                    ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row)         
+                           EXCEPT 
+                           SELECT * FROM tiles)
+                       UNION
+                       SELECT * FROM
+                           (SELECT * FROM srcDb.tiles
+                            EXCEPT
+                            SELECT * FROM
+                                (SELECT t2.zoom_level, t2.tile_column, t2.tile_row, COALESCE(t1.tile_data, t2.tile_data)
+                                FROM srcDb.tiles as t1
+                                RIGHT JOIN tiles as t2
+                                ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row))
+                        ")
+                .fetch_optional(&mut dst_conn)
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[actix_rt::test]

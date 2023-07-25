@@ -33,7 +33,7 @@ pub enum MbtError {
     NoUniquenessConstraint(String),
 
     #[error("Unexpected duplicate tiles found when copying")]
-    DuplicateValues(),
+    DuplicateValues,
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

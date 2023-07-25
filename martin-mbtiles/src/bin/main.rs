@@ -93,7 +93,7 @@ mod tests {
 
     use clap::error::ErrorKind;
     use clap::Parser;
-    use martin_mbtiles::TileCopierOptions;
+    use martin_mbtiles::{CopyDuplicateMode, TileCopierOptions};
 
     use crate::Args;
     use crate::Commands::{ApplyDiff, Copy, MetaGetValue};
@@ -240,6 +240,69 @@ mod tests {
                     TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .diff_with_file(PathBuf::from("no_file"))
                         .force_simple(true)
+                )
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_diff_with_override_copy_duplicate_mode() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--on-duplicate",
+                "override"
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(
+                    TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                        .on_duplicate(CopyDuplicateMode::Override)
+                )
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_diff_with_ignore_copy_duplicate_mode() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--on-duplicate",
+                "ignore"
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(
+                    TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                        .on_duplicate(CopyDuplicateMode::Ignore)
+                )
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_diff_with_abort_copy_duplicate_mode() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--on-duplicate",
+                "abort"
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(
+                    TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                        .on_duplicate(CopyDuplicateMode::Abort)
                 )
             }
         );
