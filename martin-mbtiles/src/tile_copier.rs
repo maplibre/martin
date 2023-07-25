@@ -10,7 +10,7 @@ use sqlx::{query, query_with, Arguments, Connection, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType;
-use crate::mbtiles::MbtType::TileTables;
+use crate::mbtiles::MbtType::{DeDuplicated, TileTables};
 use crate::{MbtError, Mbtiles};
 
 #[derive(PartialEq, Eq, Default, Debug, Clone)]
@@ -146,14 +146,14 @@ impl TileCopier {
     //TODO: handle case where source is simple and deduplicated
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         let mut mbtiles_type = open_and_detect_type(&self.src_mbtiles).await?;
-        let force_simple = self.options.force_simple && mbtiles_type != MbtType::TileTables;
+        let force_simple = self.options.force_simple && mbtiles_type != TileTables;
 
         let opt = SqliteConnectOptions::new()
             .create_if_missing(true)
             .filename(&self.options.dst_file);
         let mut conn = SqliteConnection::connect_with(&opt).await?;
 
-        let is_empty = query("SELECT 1 FROM sqlite_schema LIMIT 1")
+        let is_empty = query!("SELECT 1 as has_rows FROM sqlite_schema LIMIT 1")
             .fetch_optional(&mut conn)
             .await?
             .is_none();
@@ -162,14 +162,14 @@ impl TileCopier {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         }
 
-        query("ATTACH DATABASE ? AS sourceDb")
-            .bind(self.src_mbtiles.filepath())
+        let path = self.src_mbtiles.filepath();
+        query!("ATTACH DATABASE ? AS sourceDb", path)
             .execute(&mut conn)
             .await?;
 
         if is_empty {
-            query("PRAGMA page_size = 512").execute(&mut conn).await?;
-            query("VACUUM").execute(&mut conn).await?;
+            query!("PRAGMA page_size = 512").execute(&mut conn).await?;
+            query!("VACUUM").execute(&mut conn).await?;
 
             if force_simple {
                 for statement in &["CREATE TABLE metadata (name text, value text);",
@@ -225,8 +225,8 @@ impl TileCopier {
             self.copy_tile_tables(&mut conn).await?
         } else {
             match mbtiles_type {
-                MbtType::TileTables => self.copy_tile_tables(&mut conn).await?,
-                MbtType::DeDuplicated => self.copy_deduplicated(&mut conn).await?,
+                TileTables => self.copy_tile_tables(&mut conn).await?,
+                DeDuplicated => self.copy_deduplicated(&mut conn).await?,
             }
         }
 
@@ -240,8 +240,8 @@ impl TileCopier {
             // because all types will be used in the same way
             open_and_detect_type(&diff_with_mbtiles).await?;
 
-            query("ATTACH DATABASE ? AS newDb")
-                .bind(diff_with_mbtiles.filepath())
+            let path = diff_with_mbtiles.filepath();
+            query!("ATTACH DATABASE ? AS newDb", path)
                 .execute(&mut *conn)
                 .await?;
 
@@ -360,7 +360,7 @@ pub async fn apply_mbtiles_diff(
     let mut conn = SqliteConnection::connect_with(&opt).await?;
     let src_type = src_mbtiles.detect_type(&mut conn).await?;
 
-    if src_type != MbtType::TileTables {
+    if src_type != TileTables {
         return Err(MbtError::IncorrectDataFormat(
             src_mbtiles.filepath().to_string(),
             TileTables,
@@ -370,8 +370,8 @@ pub async fn apply_mbtiles_diff(
 
     open_and_detect_type(&diff_mbtiles).await?;
 
-    query("ATTACH DATABASE ? AS diffDb")
-        .bind(diff_mbtiles.filepath())
+    let path = diff_mbtiles.filepath();
+    query!("ATTACH DATABASE ? AS diffDb", path)
         .execute(&mut conn)
         .await?;
 
@@ -379,9 +379,13 @@ pub async fn apply_mbtiles_diff(
         "
     DELETE FROM tiles 
     WHERE (zoom_level, tile_column, tile_row) IN 
-        (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);
+        (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);",
+    )
+    .execute(&mut conn)
+    .await?;
 
-    INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) 
+    query(
+        "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) 
     SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;",
     )
     .execute(&mut conn)
@@ -670,11 +674,11 @@ mod tests {
         let mut src_conn = apply_mbtiles_diff(src, diff_file).await.unwrap();
 
         // Verify the data is the same as the file the diff was generated from
-        let modified_file = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
-        let _ = query("ATTACH DATABASE ? AS otherDb")
-            .bind(modified_file.clone().to_str().unwrap())
+        let path = "../tests/fixtures/files/world_cities_modified.mbtiles";
+        query!("ATTACH DATABASE ? AS otherDb", path)
             .execute(&mut src_conn)
-            .await;
+            .await
+            .unwrap();
 
         assert!(
             query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
