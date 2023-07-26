@@ -215,11 +215,10 @@ impl TileCopier {
 
             if self.options.on_duplicate == CopyDuplicateMode::Abort
                 && query(
-                    "SELECT zoom_level, tile_column, tile_row
-                FROM tiles
-                INTERSECT
-                SELECT zoom_level, tile_column, tile_row
-                FROM sourceDb.tiles",
+                    "SELECT * FROM tiles t1 
+                        JOIN sourceDb.tiles t2 
+                        ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row AND t1.tile_data!=t2.tile_data
+                        LIMIT 1",
                 )
                 .fetch_optional(&mut conn)
                 .await?
@@ -277,8 +276,7 @@ impl TileCopier {
                     "INSERT {} INTO tiles SELECT * FROM sourceDb.tiles WHERE TRUE",
                     match &self.options.on_duplicate {
                         CopyDuplicateMode::Override => "OR REPLACE",
-                        CopyDuplicateMode::Ignore => "OR IGNORE",
-                        CopyDuplicateMode::Abort => "",
+                        CopyDuplicateMode::Ignore | CopyDuplicateMode::Abort => "OR IGNORE",
                     }
                 ),
             )
@@ -289,8 +287,7 @@ impl TileCopier {
     async fn copy_deduplicated(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         let on_duplicate_sql = match &self.options.on_duplicate {
             CopyDuplicateMode::Override => "OR REPLACE",
-            CopyDuplicateMode::Ignore => "OR IGNORE",
-            CopyDuplicateMode::Abort => "",
+            CopyDuplicateMode::Ignore | CopyDuplicateMode::Abort => "OR IGNORE",
         };
         query(&format!(
             "INSERT {on_duplicate_sql} INTO map SELECT * FROM sourceDb.map"
