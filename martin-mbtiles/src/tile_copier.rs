@@ -143,7 +143,6 @@ impl TileCopier {
         })
     }
 
-    //TODO: handle case where source is simple and deduplicated
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         let mut mbtiles_type = open_and_detect_type(&self.src_mbtiles).await?;
         let force_simple = self.options.force_simple && mbtiles_type != TileTables;
@@ -203,7 +202,16 @@ impl TileCopier {
                 .execute(&mut conn)
                 .await?;
         } else {
-            mbtiles_type = open_and_detect_type(&self.dst_mbtiles).await?;
+            let dst_type = open_and_detect_type(&self.dst_mbtiles).await?;
+
+            if mbtiles_type == TileTables && dst_type == DeDuplicated {
+                return Err(MbtError::UnsupportedCopyOperation{ reason: "\
+                Attempted copying from a source file with simple format to a non-empty destination file with deduplicated format, which is not currently supported"
+                    .to_string(),
+                });
+            }
+
+            mbtiles_type = dst_type;
 
             if self.options.on_duplicate == CopyDuplicateMode::Abort
                 && query(
@@ -554,6 +562,19 @@ mod tests {
         )
         .await
         .is_none());
+    }
+
+    #[actix_rt::test]
+    async fn copy_from_simple_to_existing_deduplicated() {
+        let src = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
+        let dst = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
+
+        let copy_opts = TileCopierOptions::new(src.clone(), dst.clone());
+
+        assert!(matches!(
+            copy_mbtiles_file(copy_opts).await.unwrap_err(),
+            MbtError::UnsupportedCopyOperation { .. }
+        ));
     }
 
     #[actix_rt::test]

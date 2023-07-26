@@ -32,6 +32,9 @@ pub enum MbtError {
     #[error("The file {0} does not have the required uniqueness constraint")]
     NoUniquenessConstraint(String),
 
+    #[error("Could not copy MBTiles file: {reason}")]
+    UnsupportedCopyOperation { reason: String },
+
     #[error("Unexpected duplicate tiles found when copying")]
     DuplicateValues,
 }
