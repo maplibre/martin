@@ -289,8 +289,11 @@ impl TileCopier {
             CopyDuplicateMode::Override => "OR REPLACE",
             CopyDuplicateMode::Ignore | CopyDuplicateMode::Abort => "OR IGNORE",
         };
+
         query(&format!(
-            "INSERT {on_duplicate_sql} INTO map SELECT * FROM sourceDb.map"
+            "INSERT {on_duplicate_sql} INTO images
+                SELECT images.tile_data, images.tile_id
+                FROM sourceDb.images"
         ))
         .execute(&mut *conn)
         .await?;
@@ -298,15 +301,15 @@ impl TileCopier {
         self.run_query_with_options(
             conn,
             // Allows for adding clauses to query using "AND"
-            &format!(
-                "INSERT {on_duplicate_sql} INTO images
-                SELECT images.tile_data, images.tile_id
-                FROM sourceDb.images JOIN sourceDb.map
-                  ON images.tile_id = map.tile_id
-                WHERE TRUE"
-            ),
+            &format!("INSERT {on_duplicate_sql} INTO map SELECT * FROM sourceDb.map WHERE TRUE"),
         )
-        .await
+        .await?;
+
+        query("DELETE FROM images WHERE tile_id NOT IN (SELECT DISTINCT tile_id FROM map)")
+            .execute(&mut *conn)
+            .await?;
+
+        Ok(())
     }
 
     async fn run_query_with_options(
