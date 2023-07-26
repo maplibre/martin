@@ -20,6 +20,21 @@ homepage.workspace = true
 name = "martin"
 maintainer = "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>, Yuri Astrakhan <YuriAstrakhan@gmail.com>, MapLibre contributors"
 depends = "$auto"
+maintainer-scripts = "../debian"
+assets = [
+    ["target/release/martin", "/usr/bin/martin", "755"],
+    ["../README.md","/usr/share/doc/martin/README.md","644"],
+    ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
+    ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
+]
+
+# see https://github.com/kornelski/cargo-deb/blob/main/systemd.md#packagemetadatadebsystemd-units-options
+[package.metadata.deb.systemd-units]
+unit-scripts = "../debian/"
+enable = false
+start = false
+restart-after-upgrade = false
+stop-on-upgrade = true
 
 [lib]
 path = "src/lib.rs"
