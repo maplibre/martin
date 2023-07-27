@@ -308,18 +308,18 @@ impl Mbtiles {
             MbtType::DeDuplicated => "map",
         };
 
-        let index_query =
-            format!("SELECT name FROM pragma_index_list('{table_name}') WHERE [unique] = 1;");
-        let indexes = query(&index_query).fetch_all(&mut *conn).await?;
+        let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
+            .bind(table_name)
+            .fetch_all(&mut *conn)
+            .await?;
 
         // Ensure there is some index on tiles that has a unique constraint on (zoom_level, tile_row, tile_column)
         for index in indexes {
             let mut unique_idx_cols = HashSet::new();
-            let key_column_query = format!(
-                "SELECT DISTINCT name FROM pragma_index_info('{}')",
-                index.get::<String, _>("name")
-            );
-            let rows = query(&key_column_query).fetch_all(&mut *conn).await?;
+            let rows = query("SELECT DISTINCT name FROM pragma_index_info(?)")
+                .bind(index.get::<String, _>("name"))
+                .fetch_all(&mut *conn)
+                .await?;
 
             for row in rows {
                 unique_idx_cols.insert(row.get("name"));
