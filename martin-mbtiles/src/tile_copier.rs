@@ -171,10 +171,9 @@ impl TileCopier {
             query!("VACUUM").execute(&mut conn).await?;
 
             if force_simple {
-                for statement in &["CREATE TABLE metadata (name text, value text);",
-                    "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
-                    "CREATE UNIQUE INDEX name on metadata (name);",
-                    "CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);"] {
+                for statement in &["CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
+                    "CREATE TABLE tiles (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob,
+                    PRIMARY KEY(zoom_level, tile_column, tile_row));"] {
                     query(statement).execute(&mut conn).await?;
                 }
             } else {
