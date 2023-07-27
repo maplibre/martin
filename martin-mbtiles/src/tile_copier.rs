@@ -609,10 +609,11 @@ mod tests {
             .unwrap();
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
-        let _ = query("ATTACH DATABASE ? AS otherDb")
+        query("ATTACH DATABASE ? AS otherDb")
             .bind(src_file.clone().to_str().unwrap())
             .execute(&mut dst_conn)
-            .await;
+            .await
+            .unwrap();
 
         assert!(
             query("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles;")
@@ -644,40 +645,40 @@ mod tests {
         .unwrap();
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
-        let _ = query("ATTACH DATABASE ? AS srcDb")
+        query("ATTACH DATABASE ? AS srcDb")
             .bind(src_file.clone().to_str().unwrap())
             .execute(&mut dst_conn)
-            .await;
-        let _ = query("ATTACH DATABASE ? AS originalDb")
+            .await
+            .unwrap();
+        query("ATTACH DATABASE ? AS originalDb")
             .bind(dst_file.clone().to_str().unwrap())
             .execute(&mut dst_conn)
-            .await;
-
-        assert!(
-            query("
-                        SELECT * FROM
-                            (SELECT * FROM 
-                                (SELECT t2.zoom_level, t2.tile_column, t2.tile_row, COALESCE(t1.tile_data, t2.tile_data)
+            .await
+            .unwrap();
+        // Create a temporary table with all the tiles in the original database and
+        // all the tiles in the source database except for those that conflict with tiles in the original database
+        query("CREATE TEMP TABLE expected_tiles AS
+                    SELECT COALESCE(t1.zoom_level, t2.zoom_level) as zoom_level,
+                                        COALESCE(t1.tile_column, t2.zoom_level) as tile_column,
+                                        COALESCE(t1.tile_row, t2.tile_row) as tile_row,
+                                        COALESCE(t1.tile_data, t2.tile_data) as tile_data
                                 FROM originalDb.tiles as t1 
-                                RIGHT JOIN srcDb.tiles as t2
-                                    ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row)         
-                           EXCEPT 
-                           SELECT * FROM tiles)
-                       UNION
-                       SELECT * FROM
-                           (SELECT * FROM srcDb.tiles
-                            EXCEPT
-                            SELECT * FROM
-                                (SELECT t2.zoom_level, t2.tile_column, t2.tile_row, COALESCE(t1.tile_data, t2.tile_data)
-                                FROM srcDb.tiles as t1
-                                RIGHT JOIN tiles as t2
-                                ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row))
-                        ")
-                .fetch_optional(&mut dst_conn)
-                .await
-                .unwrap()
-                .is_none()
-        );
+                                FULL OUTER JOIN srcDb.tiles as t2
+                                    ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row")
+            .execute(&mut dst_conn)
+            .await
+            .unwrap();
+
+        // Ensure all entries in expected_tiles are in tiles and vice versa
+        assert!(query(
+            "SELECT * FROM expected_tiles EXCEPT SELECT * FROM tiles
+                 UNION 
+                 SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
+        )
+        .fetch_optional(&mut dst_conn)
+        .await
+        .unwrap()
+        .is_none());
     }
 
     #[actix_rt::test]
