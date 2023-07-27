@@ -308,33 +308,37 @@ impl Mbtiles {
             MbtType::DeDuplicated => "map",
         };
 
-        let mut unique_idx_cols = HashSet::new();
-        let query_string = format!(
-            "SELECT DISTINCT ii.name as column_name 
-            FROM
-               pragma_index_list('{table_name}') AS il,
-               pragma_index_info(il.name) AS ii
-            WHERE il.[unique] = 1;"
-        );
-        let mut rows = query(&query_string).fetch(conn);
+        let index_query =
+            format!("SELECT name FROM pragma_index_list('{table_name}') WHERE [unique] = 1;");
+        let indexes = query(&index_query).fetch_all(&mut *conn).await?;
 
-        while let Some(row) = rows.try_next().await? {
-            unique_idx_cols.insert(row.get("column_name"));
+        // Ensure there is some index on tiles that has a unique constraint on (zoom_level, tile_row, tile_column)
+        for index in indexes {
+            let mut unique_idx_cols = HashSet::new();
+            let key_column_query = format!(
+                "SELECT DISTINCT name FROM pragma_index_info('{}')",
+                index.get::<String, _>("name")
+            );
+            let rows = query(&key_column_query).fetch_all(&mut *conn).await?;
+
+            for row in rows {
+                unique_idx_cols.insert(row.get("name"));
+            }
+
+            if unique_idx_cols
+                .symmetric_difference(&HashSet::from([
+                    "zoom_level".to_string(),
+                    "tile_column".to_string(),
+                    "tile_row".to_string(),
+                ]))
+                .collect::<Vec<_>>()
+                .is_empty()
+            {
+                return Ok(());
+            }
         }
 
-        if !unique_idx_cols
-            .symmetric_difference(&HashSet::from([
-                "zoom_level".to_string(),
-                "tile_column".to_string(),
-                "tile_row".to_string(),
-            ]))
-            .collect::<Vec<_>>()
-            .is_empty()
-        {
-            return Err(MbtError::NoUniquenessConstraint(self.filepath.clone()));
-        }
-
-        Ok(())
+        Err(MbtError::NoUniquenessConstraint(self.filepath.clone()))
     }
 }
 
