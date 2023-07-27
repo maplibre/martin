@@ -2,6 +2,7 @@
 
 extern crate core;
 
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::path::Path;
@@ -11,7 +12,7 @@ use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
-use sqlx::{query, SqliteExecutor};
+use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
@@ -26,7 +27,7 @@ pub struct Metadata {
     pub json: Option<JSONValue>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MbtType {
     TileTables,
     DeDuplicated,
@@ -280,13 +281,64 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        if is_deduplicated_type(&mut *conn).await? {
-            Ok(MbtType::DeDuplicated)
+        let mbt_type = if is_deduplicated_type(&mut *conn).await? {
+            MbtType::DeDuplicated
         } else if is_tile_tables_type(&mut *conn).await? {
-            Ok(MbtType::TileTables)
+            MbtType::TileTables
         } else {
-            Err(MbtError::InvalidDataFormat(self.filepath.clone()))
+            return Err(MbtError::InvalidDataFormat(self.filepath.clone()));
+        };
+
+        self.check_for_uniqueness_constraint(&mut *conn, &mbt_type)
+            .await?;
+
+        Ok(mbt_type)
+    }
+
+    async fn check_for_uniqueness_constraint<T>(
+        &self,
+        conn: &mut T,
+        mbt_type: &MbtType,
+    ) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let table_name = match mbt_type {
+            MbtType::TileTables => "tiles",
+            MbtType::DeDuplicated => "map",
+        };
+
+        let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
+            .bind(table_name)
+            .fetch_all(&mut *conn)
+            .await?;
+
+        // Ensure there is some index on tiles that has a unique constraint on (zoom_level, tile_row, tile_column)
+        for index in indexes {
+            let mut unique_idx_cols = HashSet::new();
+            let rows = query("SELECT DISTINCT name FROM pragma_index_info(?)")
+                .bind(index.get::<String, _>("name"))
+                .fetch_all(&mut *conn)
+                .await?;
+
+            for row in rows {
+                unique_idx_cols.insert(row.get("name"));
+            }
+
+            if unique_idx_cols
+                .symmetric_difference(&HashSet::from([
+                    "zoom_level".to_string(),
+                    "tile_column".to_string(),
+                    "tile_row".to_string(),
+                ]))
+                .collect::<Vec<_>>()
+                .is_empty()
+            {
+                return Ok(());
+            }
         }
+
+        Err(MbtError::NoUniquenessConstraint(self.filepath.clone()))
     }
 }
 

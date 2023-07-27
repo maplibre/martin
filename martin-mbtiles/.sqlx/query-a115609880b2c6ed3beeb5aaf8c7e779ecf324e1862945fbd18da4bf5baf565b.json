@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "ATTACH DATABASE ? AS newDb",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "a115609880b2c6ed3beeb5aaf8c7e779ecf324e1862945fbd18da4bf5baf565b"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "ATTACH DATABASE ? AS diffDb",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "e13e2e17d5bf56287bc0fd7c55a1f52ce710d8978e3b35b59b724fc5bee9f55c"
+}
