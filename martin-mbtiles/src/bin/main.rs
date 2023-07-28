@@ -82,7 +82,7 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
     if let Some(s) = mbt.get_metadata_value(&mut conn, key).await? {
-        println!("{s}")
+        println!("{s}");
     }
     Ok(())
 }

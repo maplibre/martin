@@ -171,10 +171,17 @@ impl TileCopier {
             query!("VACUUM").execute(&mut conn).await?;
 
             if force_simple {
-                for statement in &["CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-                    "CREATE TABLE tiles (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob,
-                    PRIMARY KEY(zoom_level, tile_column, tile_row));"] {
-                    query(statement).execute(&mut conn).await?;
+                for sql in &[
+                    "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text)",
+                    "CREATE TABLE tiles (
+                         zoom_level integer NOT NULL,
+                         tile_column integer NOT NULL,
+                         tile_row integer NOT NULL,
+                         tile_data blob,
+                         PRIMARY KEY(zoom_level, tile_column, tile_row)
+                     )",
+                ] {
+                    query(sql).execute(&mut conn).await?;
                 }
             } else {
                 // DB objects must be created in a specific order: tables, views, triggers, indexes.
@@ -184,11 +191,13 @@ impl TileCopier {
                         FROM sourceDb.sqlite_schema 
                         WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images') 
                             AND type IN ('table', 'view', 'trigger', 'index')
-                        ORDER BY CASE WHEN type = 'table' THEN 1
-                          WHEN type = 'view' THEN 2
-                          WHEN type = 'trigger' THEN 3
-                          WHEN type = 'index' THEN 4
-                          ELSE 5 END",
+                        ORDER BY CASE
+                            WHEN type = 'table' THEN 1
+                            WHEN type = 'view' THEN 2
+                            WHEN type = 'trigger' THEN 3
+                            WHEN type = 'index' THEN 4
+                            ELSE 5
+                        END",
                 )
                 .fetch_all(&mut conn)
                 .await?
@@ -214,10 +223,17 @@ impl TileCopier {
 
             if self.options.on_duplicate == CopyDuplicateMode::Abort
                 && query(
-                    "SELECT * FROM tiles t1 
-                        JOIN sourceDb.tiles t2 
-                        ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row AND t1.tile_data!=t2.tile_data
-                        LIMIT 1",
+                    "SELECT *
+                     FROM
+                         tiles t1 
+                       JOIN
+                         sourceDb.tiles t2 
+                       ON
+                         t1.zoom_level = t2.zoom_level
+                         AND t1.tile_column = t2.tile_column
+                         AND t1.tile_row = t2.tile_row
+                         AND t1.tile_data != t2.tile_data
+                       LIMIT 1",
                 )
                 .fetch_optional(&mut conn)
                 .await?
@@ -228,7 +244,7 @@ impl TileCopier {
         }
 
         if force_simple {
-            self.copy_tile_tables(&mut conn).await?
+            self.copy_tile_tables(&mut conn).await?;
         } else {
             match mbtiles_type {
                 TileTables => self.copy_tile_tables(&mut conn).await?,
@@ -291,8 +307,8 @@ impl TileCopier {
 
         query(&format!(
             "INSERT {on_duplicate_sql} INTO images
-                SELECT images.tile_data, images.tile_id
-                FROM sourceDb.images"
+             SELECT images.tile_data, images.tile_id
+             FROM sourceDb.images"
         ))
         .execute(&mut *conn)
         .await?;
@@ -382,29 +398,21 @@ pub async fn apply_mbtiles_diff(
         .execute(&mut conn)
         .await?;
 
-    query(
-        "
+    let sql = "
     DELETE FROM tiles 
     WHERE (zoom_level, tile_column, tile_row) IN 
-        (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);",
-    )
-    .execute(&mut conn)
-    .await?;
+        (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL)";
+    query(sql).execute(&mut conn).await?;
 
-    query(
-        "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) 
-    SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;",
-    )
-    .execute(&mut conn)
-    .await?;
+    let sql = "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) 
+        SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL";
+    query(sql).execute(&mut conn).await?;
 
     Ok(conn)
 }
 
 pub async fn copy_mbtiles_file(opts: TileCopierOptions) -> MbtResult<SqliteConnection> {
-    let tile_copier = TileCopier::new(opts)?;
-
-    tile_copier.run().await
+    TileCopier::new(opts)?.run().await
 }
 
 #[cfg(test)]
@@ -427,32 +435,21 @@ mod tests {
     }
 
     async fn verify_copy_all(src_filepath: PathBuf, dst_filepath: PathBuf) {
-        let mut dst_conn = copy_mbtiles_file(TileCopierOptions::new(
-            src_filepath.clone(),
-            dst_filepath.clone(),
-        ))
-        .await
-        .unwrap();
+        let mut dst = copy_mbtiles_file(TileCopierOptions::new(src_filepath.clone(), dst_filepath))
+            .await
+            .unwrap();
+        let mut src = open_sql(&src_filepath).await;
 
         assert_eq!(
-            get_one::<i32>(
-                &mut open_sql(&src_filepath).await,
-                "SELECT COUNT(*) FROM tiles;"
-            )
-            .await,
-            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles;").await
+            get_one::<i32>(&mut src, "SELECT COUNT(*) FROM tiles").await,
+            get_one::<i32>(&mut dst, "SELECT COUNT(*) FROM tiles").await
         );
     }
 
     async fn verify_copy_with_zoom_filter(opts: TileCopierOptions, expected_zoom_levels: u8) {
-        let mut dst_conn = copy_mbtiles_file(opts).await.unwrap();
-
+        let mut conn = copy_mbtiles_file(opts).await.unwrap();
         assert_eq!(
-            get_one::<u8>(
-                &mut dst_conn,
-                "SELECT COUNT(DISTINCT zoom_level) FROM tiles;"
-            )
-            .await,
+            get_one::<u8>(&mut conn, "SELECT COUNT(DISTINCT zoom_level) FROM tiles").await,
             expected_zoom_levels
         );
     }
@@ -476,12 +473,11 @@ mod tests {
         let src = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
         let dst = PathBuf::from(":memory:");
 
-        let copy_opts = TileCopierOptions::new(src.clone(), dst.clone()).force_simple(true);
-
+        let copy_opts = TileCopierOptions::new(src, dst).force_simple(true);
         let mut dst_conn = copy_mbtiles_file(copy_opts).await.unwrap();
 
         assert!(
-            query("SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles';")
+            query("SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles'")
                 .fetch_optional(&mut dst_conn)
                 .await
                 .unwrap()
@@ -514,53 +510,32 @@ mod tests {
     async fn copy_with_diff_with_file() {
         let src = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
         let dst = PathBuf::from(":memory:");
+        let dif = PathBuf::from("../tests/fixtures/files/geography-class-jpg-modified.mbtiles");
 
-        let diff_file =
-            PathBuf::from("../tests/fixtures/files/geography-class-jpg-modified.mbtiles");
-
-        let copy_opts = TileCopierOptions::new(src.clone(), dst.clone())
-            .diff_with_file(diff_file.clone())
+        let opt = TileCopierOptions::new(src, dst)
+            .diff_with_file(dif)
             .force_simple(true);
 
-        let mut dst_conn = copy_mbtiles_file(copy_opts).await.unwrap();
+        let mut conn = copy_mbtiles_file(opt).await.unwrap();
 
-        assert!(
-            query("SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles';")
-                .fetch_optional(&mut dst_conn)
-                .await
-                .unwrap()
-                .is_some()
-        );
+        let sql = "SELECT 1 FROM sqlite_schema WHERE type='table' AND tbl_name='tiles'";
+        assert!(query(sql)
+            .fetch_optional(&mut conn)
+            .await
+            .unwrap()
+            .is_some());
 
-        assert_eq!(
-            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles;").await,
-            3
-        );
+        let sql = "SELECT COUNT(*) FROM tiles";
+        assert_eq!(get_one::<i32>(&mut conn, sql).await, 3);
 
-        assert_eq!(
-            get_one::<i32>(
-                &mut dst_conn,
-                "SELECT tile_data FROM tiles WHERE zoom_level=2 AND tile_row=2 AND tile_column=2;"
-            )
-            .await,
-            2
-        );
+        let sql = "SELECT tile_data FROM tiles WHERE zoom_level=2 AND tile_row=2 AND tile_column=2";
+        assert_eq!(get_one::<i32>(&mut conn, sql).await, 2);
 
-        assert_eq!(
-            get_one::<String>(
-                &mut dst_conn,
-                "SELECT tile_data FROM tiles WHERE zoom_level=1 AND tile_row=1 AND tile_column=1;"
-            )
-            .await,
-            "4"
-        );
+        let sql = "SELECT tile_data FROM tiles WHERE zoom_level=1 AND tile_row=1 AND tile_column=1";
+        assert_eq!(get_one::<String>(&mut conn, sql).await, "4");
 
-        assert!(get_one::<Option<i32>>(
-            &mut dst_conn,
-            "SELECT tile_data FROM tiles WHERE zoom_level=0 AND tile_row=0 AND tile_column=0;"
-        )
-        .await
-        .is_none());
+        let sql = "SELECT tile_data FROM tiles WHERE zoom_level=0 AND tile_row=0 AND tile_column=0";
+        assert!(get_one::<Option<i32>>(&mut conn, sql).await.is_none());
     }
 
     #[actix_rt::test]
@@ -568,7 +543,7 @@ mod tests {
         let src = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
         let dst = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
 
-        let copy_opts = TileCopierOptions::new(src.clone(), dst.clone());
+        let copy_opts = TileCopierOptions::new(src, dst);
 
         assert!(matches!(
             copy_mbtiles_file(copy_opts).await.unwrap_err(),
@@ -581,11 +556,10 @@ mod tests {
         let src = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
         let dst = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
 
-        let copy_opts =
-            TileCopierOptions::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
+        let opt = TileCopierOptions::new(src, dst).on_duplicate(CopyDuplicateMode::Abort);
 
         assert!(matches!(
-            copy_mbtiles_file(copy_opts).await.unwrap_err(),
+            copy_mbtiles_file(opt).await.unwrap_err(),
             MbtError::DuplicateValues
         ));
     }
@@ -599,23 +573,24 @@ mod tests {
         let dst =
             PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
 
+        // TODO: removing  "let _dst_conn = " does not fail this test. Seems suspicious.
         let _dst_conn = copy_mbtiles_file(TileCopierOptions::new(dst_file.clone(), dst.clone()))
             .await
             .unwrap();
 
-        let mut dst_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), dst.clone()))
+        let mut dst_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), dst))
             .await
             .unwrap();
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
         query("ATTACH DATABASE ? AS otherDb")
-            .bind(src_file.clone().to_str().unwrap())
+            .bind(src_file.to_str().unwrap())
             .execute(&mut dst_conn)
             .await
             .unwrap();
 
         assert!(
-            query("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles;")
+            query("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles")
                 .fetch_optional(&mut dst_conn)
                 .await
                 .unwrap()
@@ -632,11 +607,13 @@ mod tests {
         let dst =
             PathBuf::from("file:copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
 
+        // TODO: need a detailed comment explaining that due to `let _var = copy`,
+        //   connection remains open and the second copy command reuses the same in-memory file.
         let _dst_conn = copy_mbtiles_file(TileCopierOptions::new(dst_file.clone(), dst.clone()))
             .await
             .unwrap();
 
-        let mut dst_conn = copy_mbtiles_file(
+        let mut conn = copy_mbtiles_file(
             TileCopierOptions::new(src_file.clone(), dst.clone())
                 .on_duplicate(CopyDuplicateMode::Ignore),
         )
@@ -645,26 +622,28 @@ mod tests {
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
         query("ATTACH DATABASE ? AS srcDb")
-            .bind(src_file.clone().to_str().unwrap())
-            .execute(&mut dst_conn)
+            .bind(src_file.to_str().unwrap())
+            .execute(&mut conn)
             .await
             .unwrap();
         query("ATTACH DATABASE ? AS originalDb")
-            .bind(dst_file.clone().to_str().unwrap())
-            .execute(&mut dst_conn)
+            .bind(dst_file.to_str().unwrap())
+            .execute(&mut conn)
             .await
             .unwrap();
         // Create a temporary table with all the tiles in the original database and
         // all the tiles in the source database except for those that conflict with tiles in the original database
         query("CREATE TEMP TABLE expected_tiles AS
                     SELECT COALESCE(t1.zoom_level, t2.zoom_level) as zoom_level,
-                                        COALESCE(t1.tile_column, t2.zoom_level) as tile_column,
-                                        COALESCE(t1.tile_row, t2.tile_row) as tile_row,
-                                        COALESCE(t1.tile_data, t2.tile_data) as tile_data
-                                FROM originalDb.tiles as t1 
-                                FULL OUTER JOIN srcDb.tiles as t2
-                                    ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row")
-            .execute(&mut dst_conn)
+                           COALESCE(t1.tile_column, t2.zoom_level) as tile_column,
+                           COALESCE(t1.tile_row, t2.tile_row) as tile_row,
+                           COALESCE(t1.tile_data, t2.tile_data) as tile_data
+                    FROM
+                        originalDb.tiles as t1 
+                      FULL OUTER JOIN
+                        srcDb.tiles as t2
+                      ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row")
+            .execute(&mut conn)
             .await
             .unwrap();
 
@@ -674,7 +653,7 @@ mod tests {
                  UNION 
                  SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
         )
-        .fetch_optional(&mut dst_conn)
+        .fetch_optional(&mut conn)
         .await
         .unwrap()
         .is_none());
@@ -686,7 +665,9 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
         let src = PathBuf::from("file::memory:?cache=shared");
 
-        let _src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), src.clone()))
+        // TODO: comment needed, same as the other location.
+        // FIXME: unstable test: after removing the "let _src_conn =", this test succeeds in current Rust, but fails in the grcov CI job
+        let _src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file, src.clone()))
             .await
             .unwrap();
 
@@ -702,7 +683,7 @@ mod tests {
             .unwrap();
 
         assert!(
-            query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
+            query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles")
                 .fetch_optional(&mut src_conn)
                 .await
                 .unwrap()
