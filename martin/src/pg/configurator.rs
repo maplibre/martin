@@ -96,7 +96,7 @@ impl PgBuilder {
             let id_column = match &self.id_column {
                 Some(v) => match v {
                     OneOrMany::One(s) => Some(s.to_string()),
-                    OneOrMany::Many(s) => todo!(),
+                    OneOrMany::Many(_s) => todo!(),
                 },
                 None => None,
             };
@@ -275,7 +275,7 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
     }
 }
 fn get_column_id(config: &PgConfig) -> Option<OneOrMany<String>> {
-    match config.to_owned().auto_publish {
+    match config.clone().auto_publish {
         Some(b) => match b {
             BoolOrObject::Bool(_) => None,
             BoolOrObject::Object(o) => match o.tables {
