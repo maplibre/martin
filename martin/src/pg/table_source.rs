@@ -217,7 +217,7 @@ pub fn merge_table_info(
 
     inf.id_column = match cfg_inf.clone().id_column {
         Some(v) => Some(v),
-        None => id_column.map(|v| v),
+        None => id_column,
     };
 
     match (&src_inf.geometry_type, &cfg_inf.geometry_type) {
