@@ -50,6 +50,7 @@ pub struct PgBuilder {
     id_resolver: IdResolver,
     tables: TableInfoSources,
     functions: FuncInfoSources,
+    id_column: Option<OneOrMany<String>>,
 }
 
 impl PgBuilder {
@@ -66,6 +67,7 @@ impl PgBuilder {
             functions: config.functions.clone().unwrap_or_default(),
             auto_functions: new_auto_publish(config, true),
             auto_tables: new_auto_publish(config, false),
+            id_column: get_column_id(config),
         })
     }
 
@@ -91,7 +93,14 @@ impl PgBuilder {
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf) else { continue };
+            let id_column = match &self.id_column {
+                Some(v) => match v {
+                    OneOrMany::One(s) => Some(s.to_string()),
+                    OneOrMany::Many(s) => todo!(),
+                },
+                None => None,
+            };
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf, id_column) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(
@@ -263,6 +272,21 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
         None
     } else {
         default(None)
+    }
+}
+fn get_column_id(config: &PgConfig) -> Option<OneOrMany<String>> {
+    match config.to_owned().auto_publish {
+        Some(b) => match b {
+            BoolOrObject::Bool(_) => None,
+            BoolOrObject::Object(o) => match o.tables {
+                Some(c) => match c {
+                    BoolOrObject::Bool(_) => None,
+                    BoolOrObject::Object(o) => o.id_column,
+                },
+                None => None,
+            },
+        },
+        None => None,
     }
 }
 

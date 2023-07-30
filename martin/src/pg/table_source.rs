@@ -199,6 +199,7 @@ pub fn merge_table_info(
     new_id: &String,
     cfg_inf: &TableInfo,
     src_inf: &TableInfo,
+    id_column: Option<String>,
 ) -> Option<TableInfo> {
     // Assume cfg_inf and src_inf have the same schema/table/geometry_column
     let table_id = src_inf.format_id();
@@ -212,6 +213,14 @@ pub fn merge_table_info(
         srid: calc_srid(&table_id, new_id, src_inf.srid, cfg_inf.srid, default_srid)?,
         prop_mapping: HashMap::new(),
         ..cfg_inf.clone()
+    };
+
+    inf.id_column = match cfg_inf.clone().id_column {
+        Some(v) => Some(v),
+        None => match id_column {
+            Some(v) => Some(v),
+            None => None,
+        },
     };
 
     match (&src_inf.geometry_type, &cfg_inf.geometry_type) {
