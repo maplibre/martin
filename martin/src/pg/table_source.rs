@@ -90,11 +90,21 @@ pub async fn table_to_query(
     pool: PgPool,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
+    id_column: Option<String>,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
+    let schema_literal = escape_literal(&info.schema);
+    let table_literal = escape_literal(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
+
+    if info.id_column.is_none() {
+        info.id_column = match id_column {
+            Some(v) => calc_id_column(&pool, &schema_literal, &table_literal, &v).await?,
+            None => None,
+        }
+    }
 
     if info.bounds.is_none() && !disable_bounds {
         info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
@@ -193,13 +203,42 @@ FROM {schema}.{table};
         .and_then(|p| polygon_to_bbox(&p)))
 }
 
+async fn calc_id_column(
+    pool: &PgPool,
+    schema: &str,
+    table: &str,
+    id_column: &str,
+) -> Result<Option<String>> {
+    let query = format!(
+        r#"
+    SELECT
+    column_name as colname
+FROM
+    information_schema.columns
+WHERE
+    table_name = {table}  AND table_schema = {schema} and data_type = 'integer' and column_name in ('{id_column}')
+    LIMIT 1
+     ;
+        "#
+    );
+    let row = pool
+        .get()
+        .await?
+        .query_opt(&query, &[])
+        .await
+        .map_err(|e| PostgresError(e, "querying table id column"))?;
+    match row {
+        Some(r) => Ok(r.get::<_, Option<String>>("colname")),
+        None => Ok(None),
+    }
+}
+
 #[must_use]
 pub fn merge_table_info(
     default_srid: Option<i32>,
     new_id: &String,
     cfg_inf: &TableInfo,
     src_inf: &TableInfo,
-    id_column: Option<String>,
 ) -> Option<TableInfo> {
     // Assume cfg_inf and src_inf have the same schema/table/geometry_column
     let table_id = src_inf.format_id();
@@ -213,11 +252,6 @@ pub fn merge_table_info(
         srid: calc_srid(&table_id, new_id, src_inf.srid, cfg_inf.srid, default_srid)?,
         prop_mapping: HashMap::new(),
         ..cfg_inf.clone()
-    };
-
-    inf.id_column = match cfg_inf.clone().id_column {
-        Some(v) => Some(v),
-        None => id_column,
     };
 
     match (&src_inf.geometry_type, &cfg_inf.geometry_type) {

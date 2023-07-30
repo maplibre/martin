@@ -77,6 +77,13 @@ impl PgBuilder {
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
         let mut pending = Vec::new();
+        let id_column = match &self.id_column {
+            Some(v) => match v {
+                OneOrMany::One(s) => Some(s.to_string()),
+                OneOrMany::Many(s) => Some(s.join("','")),
+            },
+            None => None,
+        };
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
             if let Some(extent) = cfg_inf.extent {
@@ -93,14 +100,7 @@ impl PgBuilder {
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let id_column = match &self.id_column {
-                Some(v) => match v {
-                    OneOrMany::One(s) => Some(s.to_string()),
-                    OneOrMany::Many(_s) => todo!(),
-                },
-                None => None,
-            };
-            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf, id_column) else { continue };
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(
@@ -109,6 +109,7 @@ impl PgBuilder {
                 self.pool.clone(),
                 self.disable_bounds,
                 self.max_feature_count,
+                id_column.clone(),
             ));
         }
 
@@ -142,6 +143,7 @@ impl PgBuilder {
                             self.pool.clone(),
                             self.disable_bounds,
                             self.max_feature_count,
+                            id_column.clone(),
                         ));
                     }
                 }
