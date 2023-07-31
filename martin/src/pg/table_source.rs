@@ -227,12 +227,11 @@ WHERE
         .query_opt(&query, &[])
         .await
         .map_err(|e| PostgresError(e, "querying table id column"))?;
-    match row {
-        Some(r) => Ok(r.get::<_, Option<String>>("colname")),
-        None => {
-            info!("No id column found for table {}.{}. Searched for columns with names '{}' and datatype integer.", schema, table, id_column);
-            Ok(None)
-        }
+    if let Some(r) = row {
+        Ok(r.get::<_, Option<String>>("colname"))
+    } else {
+        info!("No id column found for table {}.{}. Searched for columns with names '{}' and datatype integer.", schema, table, id_column);
+        Ok(None)
     }
 }
 
