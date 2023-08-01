@@ -65,6 +65,7 @@ spreet.workspace = true
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
+actix-web-prom.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 
 # Optional dependencies for ssl support

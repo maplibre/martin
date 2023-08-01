@@ -29,6 +29,9 @@ use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use crate::Error::BindingError;
 
+use actix_web_prom::PrometheusMetricsBuilder;
+use std::collections::HashMap;
+
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1")
 pub const RESERVED_KEYWORDS: &[&str] = &[
@@ -257,6 +260,9 @@ fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
     result
 }
 
+// TODO: Change here, to add an attribute to tell actix-web-prom that we want to keep the
+// cardinality of {source_ids}
+
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 async fn get_tile(
     req: HttpRequest,
@@ -407,6 +413,17 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 
 /// Create a new initialized Actix `App` instance together with the listening address.
 pub fn new_server(config: SrvConfig, all_sources: AllSources) -> crate::Result<(Server, String)> {
+    // metrics setup
+    let labels = HashMap::new();
+
+    // labels.insert("label_foo".to_string(), "value_barbarbbabbmiles".to_string());
+    let prometheus = PrometheusMetricsBuilder::new("martin")
+        .endpoint("/metrics")
+        .const_labels(labels)
+        .build()
+        .unwrap();
+    // end of metrics setup
+
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
@@ -424,6 +441,7 @@ pub fn new_server(config: SrvConfig, all_sources: AllSources) -> crate::Result<(
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
+            .wrap(prometheus.clone())
             .configure(router)
     })
     .bind(listen_addresses.clone())
