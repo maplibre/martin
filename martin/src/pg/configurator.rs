@@ -67,7 +67,7 @@ impl PgBuilder {
             functions: config.functions.clone().unwrap_or_default(),
             auto_functions: new_auto_publish(config, true),
             auto_tables: new_auto_publish(config, false),
-            id_column: get_column_id(config),
+            id_column: get_auto_publish_id_column(config),
         })
     }
 
@@ -242,7 +242,7 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
                 Some(bo_i) => match bo_i {
                     BoolOrObject::Object(item) => Some(PgBuilderPublish::new(
                         is_function,
-                        item.id_format.as_ref(),
+                        resolve_id_formats(item.source_id_format.as_ref(), item.id_format.as_ref()),
                         merge_opt_hs(&a.from_schemas, &item.from_schemas),
                     )),
                     BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
@@ -267,13 +267,31 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
         default(None)
     }
 }
-fn get_column_id(config: &PgConfig) -> Option<Vec<String>> {
+fn get_auto_publish_id_column(config: &PgConfig) -> Option<Vec<String>> {
     if let Some(BoolOrObject::Object(v)) = &config.auto_publish {
         if let Some(BoolOrObject::Object(v)) = &v.tables {
             return v.id_column.as_ref().map(|v| v.iter().cloned().collect());
         }
     }
     None
+}
+
+fn resolve_id_formats<'a>(
+    source_id_format: Option<&'a String>,
+    id_format: Option<&'a String>,
+) -> Option<&'a String> {
+    match (source_id_format, id_format) {
+        (Some(source_id_format), Some(_)) => {
+            warn!("source_id_format overrides id_format. Use only source_id_format.");
+            Some(source_id_format)
+        }
+        (Some(source_id_format), None) => Some(source_id_format),
+        (None, Some(id_format)) => {
+            warn!("id_format is deprecated. Use source_id_format instead.");
+            Some(id_format)
+        }
+        (None, None) => None,
+    }
 }
 
 fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {

@@ -68,6 +68,7 @@ pub struct PgCfgPublish {
 pub struct PgCfgPublishType {
     pub from_schemas: Option<OneOrMany<String>>,
     pub id_format: Option<String>,
+    pub source_id_format: Option<String>,
     pub id_column: Option<OneOrMany<String>>,
 }
 
