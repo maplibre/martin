@@ -90,21 +90,11 @@ pub async fn table_to_query(
     pool: PgPool,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
-    id_column: Option<String>,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
-    let schema_literal = escape_literal(&info.schema);
-    let table_literal = escape_literal(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
-
-    if info.id_column.is_none() {
-        info.id_column = match id_column {
-            Some(v) => calc_id_column(&pool, &schema_literal, &table_literal, &v).await?,
-            None => None,
-        }
-    }
 
     if info.bounds.is_none() && !disable_bounds {
         info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
@@ -203,44 +193,13 @@ FROM {schema}.{table};
         .and_then(|p| polygon_to_bbox(&p)))
 }
 
-async fn calc_id_column(
-    pool: &PgPool,
-    schema: &str,
-    table: &str,
-    id_column: &str,
-) -> Result<Option<String>> {
-    let query = format!(
-        r#"
-    SELECT
-    column_name as colname
-FROM
-    information_schema.columns
-WHERE
-    table_name = {table}  AND table_schema = {schema} and data_type = 'integer' and column_name in ('{id_column}')
-    LIMIT 1
-     ;
-        "#
-    );
-    let row = pool
-        .get()
-        .await?
-        .query_opt(&query, &[])
-        .await
-        .map_err(|e| PostgresError(e, "querying table id column"))?;
-    if let Some(r) = row {
-        Ok(r.get::<_, Option<String>>("colname"))
-    } else {
-        info!("No id column found for table {}.{}. Searched for columns with names '{}' and datatype integer.", schema, table, id_column);
-        Ok(None)
-    }
-}
-
 #[must_use]
 pub fn merge_table_info(
     default_srid: Option<i32>,
     new_id: &String,
     cfg_inf: &TableInfo,
     src_inf: &TableInfo,
+    id_column: Option<Vec<String>>,
 ) -> Option<TableInfo> {
     // Assume cfg_inf and src_inf have the same schema/table/geometry_column
     let table_id = src_inf.format_id();
@@ -269,6 +228,24 @@ pub fn merge_table_info(
     if let Some(id_column) = &cfg_inf.id_column {
         let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
         inf.prop_mapping.insert(id_column.clone(), prop);
+    } else {
+        if let Some(ids) = &id_column {
+            for s in ids {
+                if let Some(val) = props.get(s) {
+                    if val == "int4" {
+                        inf.id_column = Some(s.to_string());
+                        break;
+                    }
+                    warn!(
+                        "Cannot use property {} of type {} as id column for {}.{}. Id column should be of type integer.",
+                        s, val, inf.schema, inf.table
+                    );
+                }
+            }
+            if inf.id_column.is_none() {
+                info!("No id column found for table {}.{}. Searched for columns with names {} and datatype integer.", inf.schema, inf.table, &id_column.unwrap_or_default().join(", "));
+            }
+        }
     }
 
     if let Some(p) = &cfg_inf.properties {

@@ -50,7 +50,7 @@ pub struct PgBuilder {
     id_resolver: IdResolver,
     tables: TableInfoSources,
     functions: FuncInfoSources,
-    id_column: Option<OneOrMany<String>>,
+    id_column: Option<Vec<String>>,
 }
 
 impl PgBuilder {
@@ -77,13 +77,6 @@ impl PgBuilder {
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
         let mut pending = Vec::new();
-        let id_column = match &self.id_column {
-            Some(v) => match v {
-                OneOrMany::One(s) => Some(s.to_string()),
-                OneOrMany::Many(s) => Some(s.join("','")),
-            },
-            None => None,
-        };
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
             if let Some(extent) = cfg_inf.extent {
@@ -100,7 +93,7 @@ impl PgBuilder {
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf) else { continue };
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf, self.id_column.clone()) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(
@@ -109,7 +102,6 @@ impl PgBuilder {
                 self.pool.clone(),
                 self.disable_bounds,
                 self.max_feature_count,
-                id_column.clone(),
             ));
         }
 
@@ -143,7 +135,6 @@ impl PgBuilder {
                             self.pool.clone(),
                             self.disable_bounds,
                             self.max_feature_count,
-                            id_column.clone(),
                         ));
                     }
                 }
@@ -276,20 +267,13 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
         default(None)
     }
 }
-fn get_column_id(config: &PgConfig) -> Option<OneOrMany<String>> {
-    match config.clone().auto_publish {
-        Some(b) => match b {
-            BoolOrObject::Bool(_) => None,
-            BoolOrObject::Object(o) => match o.tables {
-                Some(c) => match c {
-                    BoolOrObject::Bool(_) => None,
-                    BoolOrObject::Object(o) => o.id_column,
-                },
-                None => None,
-            },
-        },
-        None => None,
+fn get_column_id(config: &PgConfig) -> Option<Vec<String>> {
+    if let Some(BoolOrObject::Object(v)) = &config.auto_publish {
+        if let Some(BoolOrObject::Object(v)) = &v.tables {
+            return v.id_column.as_ref().map(|v| v.iter().cloned().collect());
+        }
     }
+    None
 }
 
 fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
