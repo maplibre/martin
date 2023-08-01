@@ -228,23 +228,21 @@ pub fn merge_table_info(
     if let Some(id_column) = &cfg_inf.id_column {
         let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
         inf.prop_mapping.insert(id_column.clone(), prop);
-    } else {
-        if let Some(ids) = &id_column {
-            for s in ids {
-                if let Some(val) = props.get(s) {
-                    if val == "int4" {
-                        inf.id_column = Some(s.to_string());
-                        break;
-                    }
-                    warn!(
+    } else if let Some(ids) = &id_column {
+        for s in ids {
+            if let Some(val) = props.get(s) {
+                if val == "int4" {
+                    inf.id_column = Some(s.to_string());
+                    break;
+                }
+                warn!(
                         "Cannot use property {} of type {} as id column for {}.{}. Id column should be of type integer.",
                         s, val, inf.schema, inf.table
                     );
-                }
             }
-            if inf.id_column.is_none() {
-                info!("No id column found for table {}.{}. Searched for columns with names {} and datatype integer.", inf.schema, inf.table, &id_column.unwrap_or_default().join(", "));
-            }
+        }
+        if inf.id_column.is_none() {
+            info!("No id column found for table {}.{}. Searched for columns with names {} and datatype integer.", inf.schema, inf.table, &id_column.unwrap_or_default().join(", "));
         }
     }
 
