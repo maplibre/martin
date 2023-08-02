@@ -199,7 +199,7 @@ pub fn merge_table_info(
     new_id: &String,
     cfg_inf: &TableInfo,
     src_inf: &TableInfo,
-    id_column: Option<Vec<String>>,
+    auto_id_columns: &Vec<String>,
 ) -> Option<TableInfo> {
     // Assume cfg_inf and src_inf have the same schema/table/geometry_column
     let table_id = src_inf.format_id();
@@ -228,21 +228,18 @@ pub fn merge_table_info(
     if let Some(id_column) = &cfg_inf.id_column {
         let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
         inf.prop_mapping.insert(id_column.clone(), prop);
-    } else if let Some(ids) = &id_column {
-        for s in ids {
+    } else if !auto_id_columns.is_empty() {
+        for s in auto_id_columns.iter() {
             if let Some(val) = props.get(s) {
                 if val == "int4" {
                     inf.id_column = Some(s.to_string());
                     break;
                 }
-                warn!(
-                        "Cannot use property {} of type {} as id column for {}.{}. Id column should be of type integer.",
-                        s, val, inf.schema, inf.table
-                    );
+                warn!("Cannot use property {s} of type {val} as id column for {}.{}. Id column should be of type integer.", inf.schema, inf.table);
             }
         }
         if inf.id_column.is_none() {
-            info!("No id column found for table {}.{}. Searched for columns with names {} and datatype integer.", inf.schema, inf.table, &id_column.unwrap_or_default().join(", "));
+            info!("No id column found for table {}.{}. Searched for columns with names {} and datatype integer.", inf.schema, inf.table, auto_id_columns.join(", "));
         }
     }
 
