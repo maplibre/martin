@@ -50,7 +50,7 @@ pub struct PgBuilder {
     id_resolver: IdResolver,
     tables: TableInfoSources,
     functions: FuncInfoSources,
-    id_column: Option<Vec<String>>,
+    auto_id_columns: Vec<String>,
 }
 
 impl PgBuilder {
@@ -67,7 +67,7 @@ impl PgBuilder {
             functions: config.functions.clone().unwrap_or_default(),
             auto_functions: new_auto_publish(config, true),
             auto_tables: new_auto_publish(config, false),
-            id_column: get_auto_publish_id_column(config),
+            auto_id_columns: get_auto_publish_id_column(config),
         })
     }
 
@@ -93,7 +93,7 @@ impl PgBuilder {
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf, self.id_column.clone()) else { continue };
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf, &self.auto_id_columns) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(
@@ -267,13 +267,15 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
         default(None)
     }
 }
-fn get_auto_publish_id_column(config: &PgConfig) -> Option<Vec<String>> {
+fn get_auto_publish_id_column(config: &PgConfig) -> Vec<String> {
     if let Some(BoolOrObject::Object(v)) = &config.auto_publish {
         if let Some(BoolOrObject::Object(v)) = &v.tables {
-            return v.id_column.as_ref().map(|v| v.iter().cloned().collect());
+            if let Some(v) = &v.id_column {
+                return v.iter().cloned().collect();
+            }
         }
     }
-    None
+    Vec::new()
 }
 
 fn resolve_id_formats<'a>(
