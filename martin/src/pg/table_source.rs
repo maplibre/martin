@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use log::{info, warn};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
+use std::collections::HashMap;
 use tilejson::Bounds;
 
 use crate::pg::config::PgInfo;
@@ -90,6 +89,7 @@ pub async fn table_to_query(
     pool: PgPool,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
+    exclude_small_geometries: Option<bool>,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
@@ -139,6 +139,17 @@ pub async fn table_to_query(
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
+
+    let small_geometries_condition = if let Some(allow_exclude_geoms) = exclude_small_geometries {
+        if allow_exclude_geoms {
+            create_small_geomtries_condition(&geometry_column, &info.geometry_type)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
     let query = format!(
         r#"
 SELECT
@@ -154,7 +165,7 @@ FROM (
   FROM
     {schema}.{table}
   WHERE
-    {geometry_column} && ST_Transform({bbox_search}, {srid})
+    {geometry_column} && ST_Transform({bbox_search}, {srid}) {small_geometries_condition}
   {limit_clause}
 ) AS tile;
 "#
@@ -163,6 +174,25 @@ FROM (
     .to_string();
 
     Ok((id, PgSqlInfo::new(query, false, info.format_id()), info))
+}
+
+fn create_small_geomtries_condition(
+    geometry_column: &str,
+    geometry_type: &Option<String>,
+) -> String {
+    if let Some(t) = geometry_type {
+        match t.as_str() {
+            "LINESTRING" => format!(" AND ST_LENGTH(ST_Transform({geometry_column},3857)) >= ( 40075016.68 / ( 2 ^ $1::integer * 512 ) )"),
+            "MULTILineString" => format!(" AND ST_LENGTH(ST_Transform({geometry_column},3857)) >= ( 40075016.68 / ( 2 ^ $1::integer * 512 ))"),
+            "POLYGON" => format!(" AND ST_AREA(ST_Transform({geometry_column},3857)) >= ( 40075016.68 / ( 2 ^ $1::integer * 512 ) ) ^ 2 )"),
+            "MULTIPOLYGON" => format!(" AND ST_AREA(ST_Transform({geometry_column},3857)) >= ( 40075016.68 / ( 2 ^ $1::integer * 512 ) ) ^ 2)"),
+            _ =>{
+                String::new()
+            }
+        }
+    } else {
+        String::new()
+    }
 }
 
 async fn calc_bounds(
