@@ -91,6 +91,10 @@ fn find_info_kv<'a, T>(
     }
 }
 
+/// Find a key in a map, ignoring case.
+/// If there is no exact match, but there is a case-insensitive match, return that as `Ok(Some(value))`.
+/// If there is no exact match and there are multiple case-insensitive matches, return an error with a vector of the possible matches.
+/// If there is no match, return `Ok(None)`.
 pub fn find_kv_ignore_case<'a, T>(
     map: &'a InfoMap<T>,
     key: &str,

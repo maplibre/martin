@@ -24,22 +24,21 @@ pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
 #[derive(Debug, PartialEq)]
-pub struct PgBuilderPublish {
+pub struct PgBuilderAuto {
     source_id_format: String,
     schemas: Option<HashSet<String>>,
 }
 
-impl PgBuilderPublish {
+impl PgBuilderAuto {
     pub fn new(
         is_function: bool,
         source_id_format: Option<&String>,
         schemas: Option<HashSet<String>>,
     ) -> Self {
-        let source_id_format = source_id_format
-            .cloned()
-            .unwrap_or_else(|| (if is_function { "{function}" } else { "{table}" }).to_string());
         Self {
-            source_id_format,
+            source_id_format: source_id_format.cloned().unwrap_or_else(|| {
+                (if is_function { "{function}" } else { "{table}" }).to_string()
+            }),
             schemas,
         }
     }
@@ -51,8 +50,8 @@ pub struct PgBuilder {
     default_srid: Option<i32>,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
-    auto_functions: Option<PgBuilderPublish>,
-    auto_tables: Option<PgBuilderPublish>,
+    auto_functions: Option<PgBuilderAuto>,
+    auto_tables: Option<PgBuilderAuto>,
     id_resolver: IdResolver,
     tables: TableInfoSources,
     functions: FuncInfoSources,
@@ -237,14 +236,14 @@ impl PgBuilder {
     }
 }
 
-fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPublish> {
-    let default = |schemas| Some(PgBuilderPublish::new(is_function, None, schemas));
+fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAuto> {
+    let default = |schemas| Some(PgBuilderAuto::new(is_function, None, schemas));
 
     if let Some(bo_a) = &config.auto_publish {
         match bo_a {
             BoolOrObject::Object(a) => match if is_function { &a.functions } else { &a.tables } {
                 Some(bo_i) => match bo_i {
-                    BoolOrObject::Object(item) => Some(PgBuilderPublish::new(
+                    BoolOrObject::Object(item) => Some(PgBuilderAuto::new(
                         is_function,
                         item.source_id_format.as_ref(),
                         merge_opt_hs(&a.from_schemas, &item.from_schemas),
@@ -323,8 +322,8 @@ mod tests {
     use super::*;
 
     #[allow(clippy::unnecessary_wraps)]
-    fn builder(source_id_format: &str, schemas: Option<&[&str]>) -> Option<PgBuilderPublish> {
-        Some(PgBuilderPublish {
+    fn builder(source_id_format: &str, schemas: Option<&[&str]>) -> Option<PgBuilderAuto> {
+        Some(PgBuilderAuto {
             source_id_format: source_id_format.to_string(),
             schemas: schemas.map(|s| s.iter().map(|s| (*s).to_string()).collect()),
         })
