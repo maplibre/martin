@@ -229,17 +229,25 @@ pub fn merge_table_info(
         let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
         inf.prop_mapping.insert(id_column.clone(), prop);
     } else if !auto_id_columns.is_empty() {
-        for s in auto_id_columns.iter() {
-            if let Some(val) = props.get(s) {
-                if val == "int4" {
-                    inf.id_column = Some(s.to_string());
+        // FIXME: this should use fn find_kv_ignore_case
+        for id in auto_id_columns.iter() {
+            if let Some(typ) = props.get(id) {
+                // ID column can be any integer type as defined in
+                // https://github.com/postgis/postgis/blob/559c95d85564fb74fa9e3b7eafb74851810610da/postgis/mvt.c#L387C4-L387C66
+                if typ == "int4" || typ == "int8" || typ == "int2" {
+                    inf.id_column = Some(id.to_string());
                     break;
                 }
-                warn!("Cannot use property {s} of type {val} as id column for {}.{}. Id column should be of type integer.", inf.schema, inf.table);
+                warn!("Unable to use column `{id}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.", inf.schema, inf.table);
             }
         }
         if inf.id_column.is_none() {
-            info!("No id column found for table {}.{}. Searched for columns with names {} and datatype integer.", inf.schema, inf.table, auto_id_columns.join(", "));
+            info!(
+                "No ID column found for table {}.{} - searched for an integer column named {}.",
+                inf.schema,
+                inf.table,
+                auto_id_columns.join(", ")
+            );
         }
     }
 

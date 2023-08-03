@@ -63,6 +63,15 @@ impl PgBuilder {
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> Result<Self> {
         let pool = PgPool::new(config).await?;
 
+        let mut auto_id_columns = Vec::<String>::new();
+        if let Some(BoolOrObject::Object(v)) = &config.auto_publish {
+            if let Some(BoolOrObject::Object(v)) = &v.tables {
+                if let Some(v) = &v.id_column {
+                    auto_id_columns = v.iter().cloned().collect();
+                }
+            }
+        }
+
         Ok(Self {
             pool,
             default_srid: config.default_srid,
@@ -73,7 +82,7 @@ impl PgBuilder {
             functions: config.functions.clone().unwrap_or_default(),
             auto_functions: new_auto_publish(config, true),
             auto_tables: new_auto_publish(config, false),
-            auto_id_columns: get_auto_publish_id_column(config),
+            auto_id_columns,
         })
     }
 
@@ -272,17 +281,6 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
     } else {
         default(None)
     }
-}
-
-fn get_auto_publish_id_column(config: &PgConfig) -> Vec<String> {
-    if let Some(BoolOrObject::Object(v)) = &config.auto_publish {
-        if let Some(BoolOrObject::Object(v)) = &v.tables {
-            if let Some(v) = &v.id_column {
-                return v.iter().cloned().collect();
-            }
-        }
-    }
-    Vec::new()
 }
 
 fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
