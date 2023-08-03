@@ -199,7 +199,6 @@ pub fn merge_table_info(
     new_id: &String,
     cfg_inf: &TableInfo,
     db_inf: &TableInfo,
-    auto_id_columns: &Vec<String>,
 ) -> Option<TableInfo> {
     // Assume cfg_inf and db_inf have the same schema/table/geometry_column
     let table_id = db_inf.format_id();
@@ -228,27 +227,6 @@ pub fn merge_table_info(
     if let Some(id_column) = &cfg_inf.id_column {
         let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
         inf.prop_mapping.insert(id_column.clone(), prop);
-    } else if !auto_id_columns.is_empty() {
-        // FIXME: this should use fn find_kv_ignore_case
-        for id in auto_id_columns.iter() {
-            if let Some(typ) = props.get(id) {
-                // ID column can be any integer type as defined in
-                // https://github.com/postgis/postgis/blob/559c95d85564fb74fa9e3b7eafb74851810610da/postgis/mvt.c#L387C4-L387C66
-                if typ == "int4" || typ == "int8" || typ == "int2" {
-                    inf.id_column = Some(id.to_string());
-                    break;
-                }
-                warn!("Unable to use column `{id}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.", inf.schema, inf.table);
-            }
-        }
-        if inf.id_column.is_none() {
-            info!(
-                "No ID column found for table {}.{} - searched for an integer column named {}.",
-                inf.schema,
-                inf.table,
-                auto_id_columns.join(", ")
-            );
-        }
     }
 
     if let Some(p) = &cfg_inf.properties {

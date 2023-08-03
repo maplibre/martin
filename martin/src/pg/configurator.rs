@@ -14,7 +14,7 @@ use crate::pg::pool::PgPool;
 use crate::pg::table_source::{
     calc_srid, merge_table_info, query_available_tables, table_to_query,
 };
-use crate::pg::utils::{find_info, normalize_key, InfoMap};
+use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::Result;
 use crate::source::Sources;
@@ -27,6 +27,7 @@ pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 pub struct PgBuilderAuto {
     source_id_format: String,
     schemas: Option<HashSet<String>>,
+    id_columns: Option<Vec<String>>,
 }
 
 impl PgBuilderAuto {
@@ -34,12 +35,14 @@ impl PgBuilderAuto {
         is_function: bool,
         source_id_format: Option<&String>,
         schemas: Option<HashSet<String>>,
+        id_columns: Option<Vec<String>>,
     ) -> Self {
         Self {
             source_id_format: source_id_format.cloned().unwrap_or_else(|| {
                 (if is_function { "{function}" } else { "{table}" }).to_string()
             }),
             schemas,
+            id_columns,
         }
     }
 }
@@ -55,21 +58,11 @@ pub struct PgBuilder {
     id_resolver: IdResolver,
     tables: TableInfoSources,
     functions: FuncInfoSources,
-    auto_id_columns: Vec<String>,
 }
 
 impl PgBuilder {
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> Result<Self> {
         let pool = PgPool::new(config).await?;
-
-        let mut auto_id_columns = Vec::<String>::new();
-        if let Some(BoolOrObject::Object(v)) = &config.auto_publish {
-            if let Some(BoolOrObject::Object(v)) = &v.tables {
-                if let Some(v) = &v.id_column {
-                    auto_id_columns = v.iter().cloned().collect();
-                }
-            }
-        }
 
         Ok(Self {
             pool,
@@ -81,7 +74,6 @@ impl PgBuilder {
             functions: config.functions.clone().unwrap_or_default(),
             auto_functions: new_auto_publish(config, true),
             auto_tables: new_auto_publish(config, false),
-            auto_id_columns,
         })
     }
 
@@ -107,7 +99,7 @@ impl PgBuilder {
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(merged_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_inf, &self.auto_id_columns) else { continue };
+            let Some(merged_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_inf) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
             pending.push(table_to_query(
@@ -142,6 +134,7 @@ impl PgBuilder {
                         let id2 = self.resolve_id(&source_id, &db_inf);
                         let Some(srid) = calc_srid(&db_inf.format_id(), &id2, db_inf.srid, 0, self.default_srid) else { continue };
                         db_inf.srid = srid;
+                        update_id_column(&id2, &mut db_inf, auto_tables);
                         info!("Discovered source {id2} from {}", summary(&db_inf));
                         pending.push(table_to_query(
                             id2,
@@ -247,8 +240,49 @@ impl PgBuilder {
     }
 }
 
+/// Try to find any ID column in a list of table columns (properties) that match one of the given `id_column` values.
+/// If found, modify `id_column` value on the table info.
+fn update_id_column(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
+    let Some(props) = inf.properties.as_mut() else { return };
+    let Some(try_columns) = &auto_tables.id_columns else { return };
+
+    for key in try_columns.iter() {
+        let (column, typ) = if let Some(typ) = props.get(key) {
+            (key, typ)
+        } else {
+            match find_kv_ignore_case(props, key) {
+                Ok(Some(result)) => {
+                    info!("For source {id} from table {}.{}, feature ID '{key}' was not found, but found '{result}' instead.", inf.schema, inf.table);
+                    (result, props.get(result).unwrap())
+                }
+                Ok(None) => continue,
+                Err(multiple) => {
+                    error!("Unable to set feature ID from table {}.{} because `{key}` has no exact match and more than one potential matches: {}", inf.schema, inf.table, multiple.join(", "));
+                    continue;
+                }
+            }
+        };
+        // ID column can be any integer type as defined in
+        // https://github.com/postgis/postgis/blob/559c95d85564fb74fa9e3b7eafb74851810610da/postgis/mvt.c#L387C4-L387C66
+        if typ != "int4" && typ != "int8" && typ != "int2" {
+            warn!("Unable to use column `{key}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.", inf.schema, inf.table);
+            continue;
+        }
+
+        inf.id_column = Some(column.to_string());
+        return;
+    }
+
+    info!(
+        "No ID column found for table {}.{} - searched for an integer column named {}.",
+        inf.schema,
+        inf.table,
+        try_columns.join(", ")
+    );
+}
+
 fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAuto> {
-    let default = |schemas| Some(PgBuilderAuto::new(is_function, None, schemas));
+    let default = |schemas| Some(PgBuilderAuto::new(is_function, None, schemas, None));
 
     if let Some(bo_a) = &config.auto_publish {
         match bo_a {
@@ -258,6 +292,14 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAut
                         is_function,
                         item.source_id_format.as_ref(),
                         merge_opt_hs(&a.from_schemas, &item.from_schemas),
+                        item.id_column.as_ref().and_then(|v| {
+                            if is_function {
+                                error!("Configuration parameter auto_publish.functions.id_column is not supported");
+                                None
+                            } else {
+                                Some(v.iter().cloned().collect())
+                            }
+                        }),
                     )),
                     BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
                     BoolOrObject::Bool(false) => None,
@@ -293,6 +335,7 @@ fn summary(info: &TableInfo) -> String {
         Some(true) => "view",
         _ => "table",
     };
+    // TODO: add column_id to the summary if it is set
     format!(
         "{relkind} {}.{} with {} column ({}, SRID={})",
         info.schema,
@@ -337,6 +380,7 @@ mod tests {
         Some(PgBuilderAuto {
             source_id_format: source_id_format.to_string(),
             schemas: schemas.map(|s| s.iter().map(|s| (*s).to_string()).collect()),
+            id_columns: None,
         })
     }
 
