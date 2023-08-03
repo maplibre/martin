@@ -69,6 +69,9 @@ pub struct PgCfgPublishType {
     pub from_schemas: Option<OneOrMany<String>>,
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
+    /// A table column to use as the feature ID
+    /// If a table has no column with this name, `id_column` will not be set for that table.
+    /// If a list of strings is given, the first found column will be treated as a feature ID.
     pub id_column: Option<OneOrMany<String>>,
 }
 
