@@ -211,20 +211,6 @@ impl TileCopier {
             }
 
             mbtiles_type = dst_type;
-
-            if self.options.on_duplicate == CopyDuplicateMode::Abort
-                && query(
-                    "SELECT * FROM tiles t1 
-                        JOIN sourceDb.tiles t2 
-                        ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row AND t1.tile_data!=t2.tile_data
-                        LIMIT 1",
-                )
-                .fetch_optional(&mut conn)
-                .await?
-                .is_some()
-            {
-                return Err(MbtError::DuplicateValues);
-            }
         }
 
         if force_simple {
@@ -268,15 +254,28 @@ impl TileCopier {
             )
             .await
         } else {
+            let on_duplicate_sql = match &self.options.on_duplicate {
+                CopyDuplicateMode::Override => ("OR REPLACE", ""),
+                CopyDuplicateMode::Ignore => ("OR IGNORE", ""),
+                CopyDuplicateMode::Abort => (
+                    "OR ABORT",
+                    "AND NOT EXISTS (\
+                        SELECT 1 \
+                        FROM tiles \
+                        WHERE \
+                            tiles.zoom_level=sourceDb.tiles.zoom_level \
+                            AND tiles.tile_column=sourceDb.tiles.tile_column \
+                            AND tiles.tile_row=sourceDb.tiles.tile_row \
+                            AND tiles.tile_data!=sourceDb.tiles.tile_data\
+                     )",
+                ),
+            };
             self.run_query_with_options(
                 conn,
                 // Allows for adding clauses to query using "AND"
                 &format!(
-                    "INSERT {} INTO tiles SELECT * FROM sourceDb.tiles WHERE TRUE",
-                    match &self.options.on_duplicate {
-                        CopyDuplicateMode::Override => "OR REPLACE",
-                        CopyDuplicateMode::Ignore | CopyDuplicateMode::Abort => "OR IGNORE",
-                    }
+                    "INSERT {} INTO tiles SELECT * FROM sourceDb.tiles WHERE TRUE {}",
+                    on_duplicate_sql.0, on_duplicate_sql.1
                 ),
             )
             .await
@@ -285,14 +284,27 @@ impl TileCopier {
 
     async fn copy_deduplicated(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         let on_duplicate_sql = match &self.options.on_duplicate {
-            CopyDuplicateMode::Override => "OR REPLACE",
-            CopyDuplicateMode::Ignore | CopyDuplicateMode::Abort => "OR IGNORE",
+            CopyDuplicateMode::Override => ("OR REPLACE", ""),
+            CopyDuplicateMode::Ignore => ("OR IGNORE", ""),
+            CopyDuplicateMode::Abort => (
+                "OR ABORT",
+                "AND NOT EXISTS (\
+                        SELECT 1 \
+                        FROM map \
+                        WHERE \
+                            map.zoom_level=sourceDb.map.zoom_level \
+                            AND map.tile_column=sourceDb.map.tile_column \
+                            AND map.tile_row=sourceDb.map.tile_row \
+                            AND map.tile_data!=sourceDb.map.tile_data\
+                     )",
+            ),
         };
 
         query(&format!(
-            "INSERT {on_duplicate_sql} INTO images
+            "INSERT {} INTO images
                 SELECT images.tile_data, images.tile_id
-                FROM sourceDb.images"
+                FROM sourceDb.images",
+            on_duplicate_sql.0
         ))
         .execute(&mut *conn)
         .await?;
@@ -300,7 +312,10 @@ impl TileCopier {
         self.run_query_with_options(
             conn,
             // Allows for adding clauses to query using "AND"
-            &format!("INSERT {on_duplicate_sql} INTO map SELECT * FROM sourceDb.map WHERE TRUE"),
+            &format!(
+                "INSERT {} INTO map SELECT * FROM sourceDb.map WHERE TRUE {}",
+                on_duplicate_sql.0, on_duplicate_sql.1
+            ),
         )
         .await?;
 
@@ -586,7 +601,7 @@ mod tests {
 
         assert!(matches!(
             copy_mbtiles_file(copy_opts).await.unwrap_err(),
-            MbtError::DuplicateValues
+            MbtError::SqlError(..)
         ));
     }
 
