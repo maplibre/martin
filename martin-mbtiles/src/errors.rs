@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use crate::mbtiles::MbtType;
 use martin_tile_utils::TileInfo;
+
+use crate::mbtiles::MbtType;
 
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {

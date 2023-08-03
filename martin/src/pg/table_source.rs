@@ -10,18 +10,18 @@ use crate::pg::config_table::TableInfo;
 use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
-use crate::pg::utils::PgError::PostgresError;
-use crate::pg::utils::{json_to_hashmap, polygon_to_bbox, Result};
-use crate::utils::normalize_key;
+use crate::pg::utils::{json_to_hashmap, normalize_key, polygon_to_bbox};
+use crate::pg::PgError::PostgresError;
+use crate::pg::Result;
 
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-pub async fn get_table_sources(pool: &PgPool) -> Result<SqlTableInfoMapMapMap> {
+pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapMap> {
     let conn = pool.get().await?;
     let rows = conn
-        .query(include_str!("scripts/get_table_sources.sql"), &[])
+        .query(include_str!("scripts/query_available_tables.sql"), &[])
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
 

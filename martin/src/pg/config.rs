@@ -6,7 +6,7 @@ use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
-use crate::pg::utils::Result;
+use crate::pg::Result;
 use crate::source::Sources;
 use crate::utils::{sorted_opt_map, BoolOrObject, IdResolver, OneOrMany};
 
@@ -67,7 +67,8 @@ pub struct PgCfgPublish {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishType {
     pub from_schemas: Option<OneOrMany<String>>,
-    pub id_format: Option<String>,
+    #[serde(alias = "id_format")]
+    pub source_id_format: Option<String>,
 }
 
 impl PgConfig {

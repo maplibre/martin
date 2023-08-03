@@ -10,13 +10,12 @@ use openssl::ssl::SslFiletype;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use regex::Regex;
 
-use crate::pg::utils::PgError::BadConnectionString;
-#[cfg(feature = "ssl")]
-use crate::pg::utils::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
-use crate::pg::utils::Result;
+use crate::pg::PgError::BadConnectionString;
 #[cfg(feature = "ssl")]
 use crate::pg::PgError::{BadClientCertError, BadClientKeyError, UnknownSslMode};
-use crate::pg::PgSslCerts;
+#[cfg(feature = "ssl")]
+use crate::pg::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
+use crate::pg::{PgSslCerts, Result};
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

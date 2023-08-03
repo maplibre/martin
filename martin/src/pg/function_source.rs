@@ -10,18 +10,18 @@ use crate::pg::config_function::FunctionInfo;
 use crate::pg::configurator::SqlFuncInfoMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
-use crate::pg::utils::PgError::PostgresError;
-use crate::pg::utils::Result;
+use crate::pg::PgError::PostgresError;
+use crate::pg::Result;
 
 /// Get the list of functions from the database
 ///
 /// # Panics
 /// Panics if the built-in query returns unexpected results.
-pub async fn get_function_sources(pool: &PgPool) -> Result<SqlFuncInfoMapMap> {
+pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap> {
     let mut res = SqlFuncInfoMapMap::new();
     pool.get()
         .await?
-        .query(include_str!("scripts/get_function_sources.sql"), &[])
+        .query(include_str!("scripts/query_available_function.sql"), &[])
         .await
         .map_err(|e| PostgresError(e, "querying available functions"))?
         .into_iter()

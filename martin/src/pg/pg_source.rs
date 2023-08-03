@@ -10,7 +10,7 @@ use tilejson::TileJSON;
 
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
-use crate::pg::utils::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
+use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use crate::utils::{is_valid_zoom, Result};
 

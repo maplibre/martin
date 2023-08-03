@@ -170,7 +170,9 @@ async fn resolve_int<Fut>(
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
-    let Some(cfg) = config else { return Ok(Sources::default()) };
+    let Some(cfg) = config else {
+        return Ok(Sources::default());
+    };
     let cfg = cfg.extract_file_config();
 
     let mut results = Sources::default();
