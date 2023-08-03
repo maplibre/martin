@@ -56,6 +56,11 @@ docker-up name:
 alias _down := stop
 alias _stop-db := stop
 
+# Restart the test database
+restart:
+    just stop
+    just start
+
 # Stop the test database
 stop:
     docker-compose down

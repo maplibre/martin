@@ -19,6 +19,10 @@ postgres:
   # Maximum connections pool size [default: 20]
   pool_size: 20
 
+  auto_publish:
+    tables:
+      from_schemas: autodetect
+
   # Associative arrays of table sources
   tables:
     table_source:

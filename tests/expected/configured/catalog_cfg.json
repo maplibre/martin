@@ -5,6 +5,11 @@
     "description": "MixedCase.MixPoints.Geom"
   },
   {
+    "id": "auto_table",
+    "content_type": "application/x-protobuf",
+    "description": "autodetect.auto_table.geom"
+  },
+  {
     "id": "function_zxy_query",
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy_query"

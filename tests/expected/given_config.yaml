@@ -5,6 +5,9 @@ postgres:
   default_srid: 4326
   max_feature_count: 1000
   pool_size: 20
+  auto_publish:
+    tables:
+      from_schemas: autodetect
   tables:
     MixPoints:
       schema: MixedCase
@@ -20,6 +23,23 @@ postgres:
       geometry_type: POINT
       properties:
         taBLe: text
+    auto_table:
+      schema: autodetect
+      table: auto_table
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -166.87107126230424
+      - -53.44747249115674
+      - 168.14061220360549
+      - 84.22411861475385
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        feat_id: int4
+        gid: int4
     points1:
       layer_id: abc
       schema: public

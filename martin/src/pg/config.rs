@@ -59,14 +59,21 @@ pub struct PgConfig {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublish {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "from_schema")]
     pub from_schemas: Option<OneOrMany<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tables: Option<BoolOrObject<PgCfgPublishType>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub functions: Option<BoolOrObject<PgCfgPublishType>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishType {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "from_schema")]
     pub from_schemas: Option<OneOrMany<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
 }
