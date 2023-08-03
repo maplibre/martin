@@ -50,4 +50,4 @@ values (1, 71951, '0101000020E6100000211700C9E6DA6140F510E7C8F4DA2740'),
        (30, 98054, '0101000020E6100000FCB7E4474EBA6140468D5E7496BD43C0');
 
 CREATE INDEX ON autodetect.auto_table USING GIST (geom);
-CLUSTER autodetect.auto_table_geom_idx ON autodetect.auto_table;
+CLUSTER auto_table_geom_idx ON autodetect.auto_table;

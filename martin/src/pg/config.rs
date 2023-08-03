@@ -59,20 +59,29 @@ pub struct PgConfig {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublish {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "from_schema")]
     pub from_schemas: Option<OneOrMany<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tables: Option<BoolOrObject<PgCfgPublishType>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub functions: Option<BoolOrObject<PgCfgPublishType>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishType {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "from_schema")]
     pub from_schemas: Option<OneOrMany<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
     /// A table column to use as the feature ID
     /// If a table has no column with this name, `id_column` will not be set for that table.
     /// If a list of strings is given, the first found column will be treated as a feature ID.
-    pub id_column: Option<OneOrMany<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "id_column")]
+    pub id_columns: Option<OneOrMany<String>>,
 }
 
 impl PgConfig {
