@@ -76,7 +76,7 @@ impl PgBuilder {
     }
 
     pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources)> {
-        let mut found_pg_tables = query_available_tables(&self.pool).await?;
+        let mut db_tables_info = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -89,15 +89,15 @@ impl PgBuilder {
                 }
             }
 
-            let Some(found_schemas) = find_info(&found_pg_tables, &cfg_inf.schema, "schema", id) else { continue };
-            let Some(found_tables) = find_info(found_schemas, &cfg_inf.table, "table", id) else { continue };
-            let Some(found_inf) = find_info(found_tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
+            let Some(db_schemas) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(db_tables) = find_info(db_schemas, &cfg_inf.table, "table", id) else { continue };
+            let Some(db_infos) = find_info(db_tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
 
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, found_inf) else { continue };
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_infos) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(
@@ -115,12 +115,12 @@ impl PgBuilder {
                 .schemas
                 .as_ref()
                 .cloned()
-                .unwrap_or_else(|| found_pg_tables.keys().cloned().collect());
+                .unwrap_or_else(|| db_tables_info.keys().cloned().collect());
             for schema in schemas.iter().sorted() {
-                let Some(schema) = normalize_key(&found_pg_tables, schema, "schema", "") else { continue };
-                let found_tables = found_pg_tables.remove(&schema).unwrap();
-                for (table, geoms) in found_tables.into_iter().sorted_by(by_key) {
-                    for (column, mut found_tbl) in geoms.into_iter().sorted_by(by_key) {
+                let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else { continue };
+                let db_tables = db_tables_info.remove(&schema).unwrap();
+                for (table, geoms) in db_tables.into_iter().sorted_by(by_key) {
+                    for (column, mut db_table_inf) in geoms.into_iter().sorted_by(by_key) {
                         if used.contains(&(schema.as_str(), table.as_str(), column.as_str())) {
                             continue;
                         }
@@ -129,13 +129,13 @@ impl PgBuilder {
                             .replace("{schema}", &schema)
                             .replace("{table}", &table)
                             .replace("{column}", &column);
-                        let id2 = self.resolve_id(&source_id, &found_tbl);
-                        let Some(srid) = calc_srid(&found_tbl.format_id(), &id2, found_tbl.srid, 0, self.default_srid) else { continue };
-                        found_tbl.srid = srid;
-                        info!("Discovered source {id2} from {}", summary(&found_tbl));
+                        let id2 = self.resolve_id(&source_id, &db_table_inf);
+                        let Some(srid) = calc_srid(&db_table_inf.format_id(), &id2, db_table_inf.srid, 0, self.default_srid) else { continue };
+                        db_table_inf.srid = srid;
+                        info!("Discovered source {id2} from {}", summary(&db_table_inf));
                         pending.push(table_to_query(
                             id2,
-                            found_tbl,
+                            db_table_inf,
                             self.pool.clone(),
                             self.disable_bounds,
                             self.max_feature_count,
@@ -166,13 +166,13 @@ impl PgBuilder {
     }
 
     pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources)> {
-        let mut found_pg_funcs = query_available_function(&self.pool).await?;
+        let mut db_funcs_info = query_available_function(&self.pool).await?;
         let mut res = Sources::default();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Some(schemas) = find_info(&found_pg_funcs, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(schemas) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else { continue };
             if schemas.is_empty() {
                 warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
@@ -197,12 +197,12 @@ impl PgBuilder {
                 .schemas
                 .as_ref()
                 .cloned()
-                .unwrap_or_else(|| found_pg_funcs.keys().cloned().collect());
+                .unwrap_or_else(|| db_funcs_info.keys().cloned().collect());
 
             for schema in schemas.iter().sorted() {
-                let Some(schema) = normalize_key(&found_pg_funcs, schema, "schema", "") else { continue; };
-                let found_funcs = found_pg_funcs.remove(&schema).unwrap();
-                for (func, (pg_sql, src_inf)) in found_funcs.into_iter().sorted_by(by_key) {
+                let Some(schema) = normalize_key(&db_funcs_info, schema, "schema", "") else { continue; };
+                let db_funcs = db_funcs_info.remove(&schema).unwrap();
+                for (func, (pg_sql, db_inf)) in db_funcs.into_iter().sorted_by(by_key) {
                     if used.contains(&(schema.as_str(), func.as_str())) {
                         continue;
                     }
@@ -210,11 +210,11 @@ impl PgBuilder {
                         .source_id_format
                         .replace("{schema}", &schema)
                         .replace("{function}", &func);
-                    let id2 = self.resolve_id(&source_id, &src_inf);
-                    self.add_func_src(&mut res, id2.clone(), &src_inf, pg_sql.clone());
+                    let id2 = self.resolve_id(&source_id, &db_inf);
+                    self.add_func_src(&mut res, id2.clone(), &db_inf, pg_sql.clone());
                     info!("Discovered source {id2} from function {}", pg_sql.signature);
                     debug!("{}", pg_sql.query);
-                    info_map.insert(id2, src_inf);
+                    info_map.insert(id2, db_inf);
                 }
             }
         }
