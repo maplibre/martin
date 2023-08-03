@@ -475,12 +475,13 @@ postgres:
     # or setting it to false.  Setting one to true disables the other one as well.
     # E.g. `tables: false` enables just the functions auto-discovery.
     tables:
-      # Optionally set a custom source ID based on the table name
-      id_format: 'table.{schema}.{table}.{column}'
+      # Optionally set how source ID should be generated based on the table's name, schema, and geometry column
+      source_id_format: 'table.{schema}.{table}.{column}'
       # Add more schemas to the ones listed above
       from_schemas: my_other_schema
     functions:
-      id_format: '{schema}.{function}'
+      # Optionally set how source ID should be generated based on the function's name and schema
+      source_id_format: '{schema}.{function}'
       
   # Associative arrays of table sources
   tables:
