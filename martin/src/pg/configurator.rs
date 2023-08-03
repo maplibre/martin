@@ -89,20 +89,20 @@ impl PgBuilder {
                 }
             }
 
-            let Some(db_schemas) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else { continue };
-            let Some(db_tables) = find_info(db_schemas, &cfg_inf.table, "table", id) else { continue };
-            let Some(db_infos) = find_info(db_tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
+            let Some(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(db_geo_columns) = find_info(db_tables, &cfg_inf.table, "table", id) else { continue };
+            let Some(db_inf) = find_info(db_geo_columns, &cfg_inf.geometry_column, "geometry column", id) else { continue };
 
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_infos) else { continue };
+            let Some(merged_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_inf) else { continue };
             warn_on_rename(id, &id2, "Table");
-            info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
+            info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
             pending.push(table_to_query(
                 id2,
-                cfg_inf,
+                merged_inf,
                 self.pool.clone(),
                 self.disable_bounds,
                 self.max_feature_count,
@@ -120,22 +120,22 @@ impl PgBuilder {
                 let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else { continue };
                 let db_tables = db_tables_info.remove(&schema).unwrap();
                 for (table, geoms) in db_tables.into_iter().sorted_by(by_key) {
-                    for (column, mut db_table_inf) in geoms.into_iter().sorted_by(by_key) {
-                        if used.contains(&(schema.as_str(), table.as_str(), column.as_str())) {
+                    for (geom_column, mut db_inf) in geoms.into_iter().sorted_by(by_key) {
+                        if used.contains(&(schema.as_str(), table.as_str(), geom_column.as_str())) {
                             continue;
                         }
                         let source_id = auto_tables
                             .source_id_format
                             .replace("{schema}", &schema)
                             .replace("{table}", &table)
-                            .replace("{column}", &column);
-                        let id2 = self.resolve_id(&source_id, &db_table_inf);
-                        let Some(srid) = calc_srid(&db_table_inf.format_id(), &id2, db_table_inf.srid, 0, self.default_srid) else { continue };
-                        db_table_inf.srid = srid;
-                        info!("Discovered source {id2} from {}", summary(&db_table_inf));
+                            .replace("{column}", &geom_column);
+                        let id2 = self.resolve_id(&source_id, &db_inf);
+                        let Some(srid) = calc_srid(&db_inf.format_id(), &id2, db_inf.srid, 0, self.default_srid) else { continue };
+                        db_inf.srid = srid;
+                        info!("Discovered source {id2} from {}", summary(&db_inf));
                         pending.push(table_to_query(
                             id2,
-                            db_table_inf,
+                            db_inf,
                             self.pool.clone(),
                             self.disable_bounds,
                             self.max_feature_count,
@@ -172,12 +172,12 @@ impl PgBuilder {
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Some(schemas) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else { continue };
-            if schemas.is_empty() {
+            let Some(db_funcs) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else { continue };
+            if db_funcs.is_empty() {
                 warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
             }
-            let Some((pg_sql, _)) = find_info(schemas, &cfg_inf.function, "function", id) else { continue };
+            let Some((pg_sql, _)) = find_info(db_funcs, &cfg_inf.function, "function", id) else { continue };
 
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
             let dup = if dup { "duplicate " } else { "" };
