@@ -198,24 +198,24 @@ pub fn merge_table_info(
     default_srid: Option<i32>,
     new_id: &String,
     cfg_inf: &TableInfo,
-    src_inf: &TableInfo,
+    db_inf: &TableInfo,
     auto_id_columns: &Vec<String>,
 ) -> Option<TableInfo> {
-    // Assume cfg_inf and src_inf have the same schema/table/geometry_column
-    let table_id = src_inf.format_id();
+    // Assume cfg_inf and db_inf have the same schema/table/geometry_column
+    let table_id = db_inf.format_id();
     let mut inf = TableInfo {
         // These values must match the database exactly
-        schema: src_inf.schema.clone(),
-        table: src_inf.table.clone(),
-        geometry_column: src_inf.geometry_column.clone(),
-        geometry_index: src_inf.geometry_index,
-        is_view: src_inf.is_view,
-        srid: calc_srid(&table_id, new_id, src_inf.srid, cfg_inf.srid, default_srid)?,
+        schema: db_inf.schema.clone(),
+        table: db_inf.table.clone(),
+        geometry_column: db_inf.geometry_column.clone(),
+        geometry_index: db_inf.geometry_index,
+        is_view: db_inf.is_view,
+        srid: calc_srid(&table_id, new_id, db_inf.srid, cfg_inf.srid, default_srid)?,
         prop_mapping: HashMap::new(),
         ..cfg_inf.clone()
     };
 
-    match (&src_inf.geometry_type, &cfg_inf.geometry_type) {
+    match (&db_inf.geometry_type, &cfg_inf.geometry_type) {
         (Some(src), Some(cfg)) if src != cfg => {
             warn!(r#"Table {table_id} has geometry type={src}, but source {new_id} has {cfg}"#);
         }
@@ -223,7 +223,7 @@ pub fn merge_table_info(
     }
 
     let empty = HashMap::new();
-    let props = src_inf.properties.as_ref().unwrap_or(&empty);
+    let props = db_inf.properties.as_ref().unwrap_or(&empty);
 
     if let Some(id_column) = &cfg_inf.id_column {
         let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
@@ -265,11 +265,11 @@ pub fn merge_table_info(
 pub fn calc_srid(
     table_id: &str,
     new_id: &str,
-    src_srid: i32,
+    db_srid: i32,
     cfg_srid: i32,
     default_srid: Option<i32>,
 ) -> Option<i32> {
-    match (src_srid, cfg_srid, default_srid) {
+    match (db_srid, cfg_srid, default_srid) {
         (0, 0, Some(default_srid)) => {
             info!("Table {table_id} has SRID=0, using provided default SRID={default_srid}");
             Some(default_srid)
