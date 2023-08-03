@@ -4,11 +4,10 @@ use semver::Version;
 
 use crate::pg::config::PgConfig;
 use crate::pg::tls::{make_connector, parse_conn_str};
-use crate::pg::utils::PgError::{
-    BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolConnError,
+use crate::pg::PgError::{
+    BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError, PostgresPoolConnError,
 };
-use crate::pg::utils::Result;
-use crate::pg::PgError::PostgresPoolBuildError;
+use crate::pg::Result;
 
 pub const POOL_SIZE_DEFAULT: usize = 20;
 

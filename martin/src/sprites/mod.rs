@@ -63,7 +63,10 @@ pub fn resolve_sprites(config: &mut Option<FileConfigEnum>) -> Result<SpriteSour
     if let Some(paths) = cfg.paths {
         for path in paths {
             let Some(name) = path.file_name() else {
-                warn!("Ignoring sprite source with no name from {}", path.display());
+                warn!(
+                    "Ignoring sprite source with no name from {}",
+                    path.display()
+                );
                 continue;
             };
             directories.push(path.clone());

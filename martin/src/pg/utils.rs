@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 
 use deadpool_postgres::tokio_postgres::types::Json;
-use deadpool_postgres::tokio_postgres::Error;
-use deadpool_postgres::{BuildError, PoolError};
+use log::{error, info, warn};
 use postgis::{ewkb, LineString, Point, Polygon};
-use semver::Version;
 use tilejson::Bounds;
 
-use crate::source::{UrlQuery, Xyz};
-use crate::utils::InfoMap;
+use crate::source::UrlQuery;
 
 #[must_use]
 pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
@@ -53,57 +50,70 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     })
 }
 
-pub type Result<T> = std::result::Result<T, PgError>;
+pub type InfoMap<T> = HashMap<String, T>;
 
-#[derive(thiserror::Error, Debug)]
-pub enum PgError {
-    #[cfg(feature = "ssl")]
-    #[error("Can't build TLS connection: {0}")]
-    BuildSslConnectorError(#[from] openssl::error::ErrorStack),
+#[must_use]
+pub fn normalize_key<T>(map: &InfoMap<T>, key: &str, info: &str, id: &str) -> Option<String> {
+    find_info_kv(map, key, info, id).map(|(k, _)| k.to_string())
+}
 
-    #[cfg(feature = "ssl")]
-    #[error("Can't set trusted root certificate {}: {0}", .1.display())]
-    BadTrustedRootCertError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+#[must_use]
+pub fn find_info<'a, T>(map: &'a InfoMap<T>, key: &'a str, info: &str, id: &str) -> Option<&'a T> {
+    find_info_kv(map, key, info, id).map(|(_, v)| v)
+}
 
-    #[cfg(feature = "ssl")]
-    #[error("Can't set client certificate {}: {0}", .1.display())]
-    BadClientCertError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+#[must_use]
+fn find_info_kv<'a, T>(
+    map: &'a InfoMap<T>,
+    key: &'a str,
+    info: &str,
+    id: &str,
+) -> Option<(&'a str, &'a T)> {
+    if let Some(v) = map.get(key) {
+        return Some((key, v));
+    }
 
-    #[cfg(feature = "ssl")]
-    #[error("Can't set client certificate key {}: {0}", .1.display())]
-    BadClientKeyError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+    match find_kv_ignore_case(map, key) {
+        Ok(None) => {
+            warn!("Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
+                map.keys().map(String::as_str).collect::<Vec<_>>().join(", "));
+            None
+        }
+        Ok(Some(result)) => {
+            info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
+            Some((result.as_str(), map.get(result)?))
+        }
+        Err(multiple) => {
+            error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
+            multiple.join(", "));
+            None
+        }
+    }
+}
 
-    #[cfg(feature = "ssl")]
-    #[error("Unknown SSL mode: {0:?}")]
-    UnknownSslMode(deadpool_postgres::tokio_postgres::config::SslMode),
-
-    #[error("Postgres error while {1}: {0}")]
-    PostgresError(#[source] Error, &'static str),
-
-    #[error("Unable to build a Postgres connection pool {1}: {0}")]
-    PostgresPoolBuildError(#[source] BuildError, String),
-
-    #[error("Unable to get a Postgres connection from the pool {1}: {0}")]
-    PostgresPoolConnError(#[source] PoolError, String),
-
-    #[error("Unable to parse connection string {1}: {0}")]
-    BadConnectionString(#[source] Error, String),
-
-    #[error("Unable to parse PostGIS version {1}: {0}")]
-    BadPostgisVersion(#[source] semver::Error, String),
-
-    #[error("PostGIS version {0} is too old, minimum required is {1}")]
-    PostgisTooOld(Version, Version),
-
-    #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
-    InvalidTableExtent(String, String),
-
-    #[error("Error preparing a query for the tile '{1}' ({2}): {3} {0}")]
-    PrepareQueryError(#[source] Error, String, String, String),
-
-    #[error(r#"Unable to get tile {2:#} from {1}: {0}"#)]
-    GetTileError(#[source] Error, String, Xyz),
-
-    #[error(r#"Unable to get tile {2:#} with {:?} params from {1}: {0}"#, query_to_json(.3))]
-    GetTileWithQueryError(#[source] Error, String, Xyz, UrlQuery),
+pub fn find_kv_ignore_case<'a, T>(
+    map: &'a InfoMap<T>,
+    key: &str,
+) -> Result<Option<&'a String>, Vec<String>> {
+    let key = key.to_lowercase();
+    let mut result = None;
+    let mut multiple = Vec::new();
+    for k in map.keys() {
+        if k.to_lowercase() == key {
+            match result {
+                None => result = Some(k),
+                Some(result) => {
+                    if multiple.is_empty() {
+                        multiple.push(result.to_string());
+                    }
+                    multiple.push(k.to_string());
+                }
+            }
+        }
+    }
+    if multiple.is_empty() {
+        Ok(result)
+    } else {
+        Err(multiple)
+    }
 }

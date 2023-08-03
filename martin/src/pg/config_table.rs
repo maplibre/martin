@@ -5,7 +5,8 @@ use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
-use crate::utils::{sorted_opt_map, InfoMap};
+use crate::pg::utils::InfoMap;
+use crate::utils::sorted_opt_map;
 
 pub type TableInfoSources = InfoMap<TableInfo>;
 

@@ -2,6 +2,7 @@ mod config;
 mod config_function;
 mod config_table;
 mod configurator;
+mod errors;
 mod function_source;
 mod pg_source;
 mod pool;
@@ -12,8 +13,8 @@ mod utils;
 pub use config::{PgCfgPublish, PgCfgPublishType, PgConfig, PgSslCerts};
 pub use config_function::FunctionInfo;
 pub use config_table::TableInfo;
-pub use function_source::get_function_sources;
+pub use errors::{PgError, Result};
+pub use function_source::query_available_function;
 pub use pool::{PgPool, POOL_SIZE_DEFAULT};
-pub use utils::PgError;
 
 pub use crate::utils::BoolOrObject;
