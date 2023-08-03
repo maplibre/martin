@@ -14,6 +14,9 @@ psql -P pager=off -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS tiger CASCADE;"
 psql -P pager=off -v ON_ERROR_STOP=1 -t -c "select version();"
 psql -P pager=off -v ON_ERROR_STOP=1 -t -c "select PostGIS_Full_Version();"
 
+# On error, make sure do delete all the tables we created
+# TODO: see if we can have a fail-early service test to detect errors
+trap 'echo -e "\n\n\n!!!!!!!!!!!!!!!!!!!!!!!!\n\nDELETING DB $PGDATABASE DUE TO AN ERROR!\n\n\n" && psql -c "DROP SCHEMA IF EXISTS "MixedCase" CASCADE; DROP SCHEMA IF EXISTS autodetect CASCADE;"' ERR
 
 echo -e "\n\n\n"
 echo "################################################################################################"

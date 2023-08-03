@@ -29,21 +29,6 @@ pub struct PgBuilderAuto {
     schemas: Option<HashSet<String>>,
 }
 
-impl PgBuilderAuto {
-    pub fn new(
-        is_function: bool,
-        source_id_format: Option<&String>,
-        schemas: Option<HashSet<String>>,
-    ) -> Self {
-        Self {
-            source_id_format: source_id_format.cloned().unwrap_or_else(|| {
-                (if is_function { "{function}" } else { "{table}" }).to_string()
-            }),
-            schemas,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct PgBuilder {
     pool: PgPool,
@@ -115,6 +100,12 @@ impl PgBuilder {
                 .as_ref()
                 .cloned()
                 .unwrap_or_else(|| db_tables_info.keys().cloned().collect());
+            info!(
+                "Auto-publishing tables in schemas [{}] as '{}' sources",
+                schemas.iter().sorted().join(", "),
+                auto_tables.source_id_format,
+            );
+
             for schema in schemas.iter().sorted() {
                 let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else { continue };
                 let db_tables = db_tables_info.remove(&schema).unwrap();
@@ -186,7 +177,7 @@ impl PgBuilder {
             warn_on_rename(id, &id2, "Function");
             let signature = &pg_sql.signature;
             info!("Configured {dup}source {id2} from the function {signature}");
-            debug!("{}", pg_sql.query);
+            debug!("{id2} query: {}", pg_sql.query);
             info_map.insert(id2, cfg_inf.clone());
         }
 
@@ -197,6 +188,11 @@ impl PgBuilder {
                 .as_ref()
                 .cloned()
                 .unwrap_or_else(|| db_funcs_info.keys().cloned().collect());
+            info!(
+                "Auto-publishing functions in schemas [{}] as '{}' sources",
+                schemas.iter().sorted().join(", "),
+                auto_funcs.source_id_format,
+            );
 
             for schema in schemas.iter().sorted() {
                 let Some(schema) = normalize_key(&db_funcs_info, schema, "schema", "") else { continue; };
@@ -212,7 +208,7 @@ impl PgBuilder {
                     let id2 = self.resolve_id(&source_id, &db_inf);
                     self.add_func_src(&mut res, id2.clone(), &db_inf, pg_sql.clone());
                     info!("Discovered source {id2} from function {}", pg_sql.signature);
-                    debug!("{}", pg_sql.query);
+                    debug!("{id2} query: {}", pg_sql.query);
                     info_map.insert(id2, db_inf);
                 }
             }
@@ -237,17 +233,26 @@ impl PgBuilder {
 }
 
 fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAuto> {
-    let default = |schemas| Some(PgBuilderAuto::new(is_function, None, schemas));
+    let default_id_fmt = |is_func| (if is_func { "{function}" } else { "{table}" }).to_string();
+    let default = |schemas| {
+        Some(PgBuilderAuto {
+            source_id_format: default_id_fmt(is_function),
+            schemas,
+        })
+    };
 
     if let Some(bo_a) = &config.auto_publish {
         match bo_a {
             BoolOrObject::Object(a) => match if is_function { &a.functions } else { &a.tables } {
                 Some(bo_i) => match bo_i {
-                    BoolOrObject::Object(item) => Some(PgBuilderAuto::new(
-                        is_function,
-                        item.source_id_format.as_ref(),
-                        merge_opt_hs(&a.from_schemas, &item.from_schemas),
-                    )),
+                    BoolOrObject::Object(item) => Some(PgBuilderAuto {
+                        source_id_format: item
+                            .source_id_format
+                            .as_ref()
+                            .cloned()
+                            .unwrap_or_else(|| default_id_fmt(is_function)),
+                        schemas: merge_opt_hs(&a.from_schemas, &item.from_schemas),
+                    }),
                     BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
                     BoolOrObject::Bool(false) => None,
                 },
