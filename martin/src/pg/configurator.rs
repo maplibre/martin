@@ -8,34 +8,40 @@ use log::{debug, error, info, warn};
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
-use crate::pg::function_source::get_function_sources;
+use crate::pg::function_source::query_available_function;
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
-use crate::pg::table_source::{calc_srid, get_table_sources, merge_table_info, table_to_query};
-use crate::pg::utils::PgError::InvalidTableExtent;
-use crate::pg::utils::Result;
+use crate::pg::table_source::{
+    calc_srid, merge_table_info, query_available_tables, table_to_query,
+};
+use crate::pg::utils::{find_info, normalize_key, InfoMap};
+use crate::pg::PgError::InvalidTableExtent;
+use crate::pg::Result;
 use crate::source::Sources;
-use crate::utils::{find_info, normalize_key, BoolOrObject, IdResolver, InfoMap, OneOrMany};
+use crate::utils::{BoolOrObject, IdResolver, OneOrMany};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
 #[derive(Debug, PartialEq)]
 pub struct PgBuilderPublish {
-    id_format: String,
+    source_id_format: String,
     schemas: Option<HashSet<String>>,
 }
 
 impl PgBuilderPublish {
     pub fn new(
         is_function: bool,
-        id_format: Option<&String>,
+        source_id_format: Option<&String>,
         schemas: Option<HashSet<String>>,
     ) -> Self {
-        let id_format = id_format
+        let source_id_format = source_id_format
             .cloned()
             .unwrap_or_else(|| (if is_function { "{function}" } else { "{table}" }).to_string());
-        Self { id_format, schemas }
+        Self {
+            source_id_format,
+            schemas,
+        }
     }
 }
 
@@ -72,7 +78,7 @@ impl PgBuilder {
     }
 
     pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources)> {
-        let mut all_tables = get_table_sources(&self.pool).await?;
+        let mut found_pg_tables = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -85,15 +91,15 @@ impl PgBuilder {
                 }
             }
 
-            let Some(schemas) = find_info(&all_tables, &cfg_inf.schema, "schema", id) else { continue };
-            let Some(tables) = find_info(schemas, &cfg_inf.table, "table", id) else { continue };
-            let Some(src_inf) = find_info(tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
+            let Some(found_schemas) = find_info(&found_pg_tables, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(found_tables) = find_info(found_schemas, &cfg_inf.table, "table", id) else { continue };
+            let Some(found_inf) = find_info(found_tables, &cfg_inf.geometry_column, "geometry column", id) else { continue };
 
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, src_inf, &self.auto_id_columns) else { continue };
+            let Some(cfg_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, found_inf, &self.auto_id_columns) else { continue };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&cfg_inf));
             pending.push(table_to_query(
@@ -111,27 +117,27 @@ impl PgBuilder {
                 .schemas
                 .as_ref()
                 .cloned()
-                .unwrap_or_else(|| all_tables.keys().cloned().collect());
+                .unwrap_or_else(|| found_pg_tables.keys().cloned().collect());
             for schema in schemas.iter().sorted() {
-                let Some(schema) = normalize_key(&all_tables, schema, "schema", "") else { continue };
-                let tables = all_tables.remove(&schema).unwrap();
-                for (table, geoms) in tables.into_iter().sorted_by(by_key) {
-                    for (column, mut src_inf) in geoms.into_iter().sorted_by(by_key) {
+                let Some(schema) = normalize_key(&found_pg_tables, schema, "schema", "") else { continue };
+                let found_tables = found_pg_tables.remove(&schema).unwrap();
+                for (table, geoms) in found_tables.into_iter().sorted_by(by_key) {
+                    for (column, mut found_tbl) in geoms.into_iter().sorted_by(by_key) {
                         if used.contains(&(schema.as_str(), table.as_str(), column.as_str())) {
                             continue;
                         }
                         let source_id = auto_tables
-                            .id_format
+                            .source_id_format
                             .replace("{schema}", &schema)
                             .replace("{table}", &table)
                             .replace("{column}", &column);
-                        let id2 = self.resolve_id(&source_id, &src_inf);
-                        let Some(srid) = calc_srid(&src_inf.format_id(), &id2, src_inf.srid, 0, self.default_srid) else { continue };
-                        src_inf.srid = srid;
-                        info!("Discovered source {id2} from {}", summary(&src_inf));
+                        let id2 = self.resolve_id(&source_id, &found_tbl);
+                        let Some(srid) = calc_srid(&found_tbl.format_id(), &id2, found_tbl.srid, 0, self.default_srid) else { continue };
+                        found_tbl.srid = srid;
+                        info!("Discovered source {id2} from {}", summary(&found_tbl));
                         pending.push(table_to_query(
                             id2,
-                            src_inf,
+                            found_tbl,
                             self.pool.clone(),
                             self.disable_bounds,
                             self.max_feature_count,
@@ -162,13 +168,13 @@ impl PgBuilder {
     }
 
     pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources)> {
-        let mut all_funcs = get_function_sources(&self.pool).await?;
+        let mut found_pg_funcs = query_available_function(&self.pool).await?;
         let mut res = Sources::default();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Some(schemas) = find_info(&all_funcs, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(schemas) = find_info(&found_pg_funcs, &cfg_inf.schema, "schema", id) else { continue };
             if schemas.is_empty() {
                 warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
@@ -193,19 +199,19 @@ impl PgBuilder {
                 .schemas
                 .as_ref()
                 .cloned()
-                .unwrap_or_else(|| all_funcs.keys().cloned().collect());
+                .unwrap_or_else(|| found_pg_funcs.keys().cloned().collect());
 
             for schema in schemas.iter().sorted() {
-                let Some(schema) = normalize_key(&all_funcs, schema, "schema", "") else { continue; };
-                let funcs = all_funcs.remove(&schema).unwrap();
-                for (name, (pg_sql, src_inf)) in funcs.into_iter().sorted_by(by_key) {
-                    if used.contains(&(schema.as_str(), name.as_str())) {
+                let Some(schema) = normalize_key(&found_pg_funcs, schema, "schema", "") else { continue; };
+                let found_funcs = found_pg_funcs.remove(&schema).unwrap();
+                for (func, (pg_sql, src_inf)) in found_funcs.into_iter().sorted_by(by_key) {
+                    if used.contains(&(schema.as_str(), func.as_str())) {
                         continue;
                     }
                     let source_id = auto_funcs
-                        .id_format
+                        .source_id_format
                         .replace("{schema}", &schema)
-                        .replace("{function}", &name);
+                        .replace("{function}", &func);
                     let id2 = self.resolve_id(&source_id, &src_inf);
                     self.add_func_src(&mut res, id2.clone(), &src_inf, pg_sql.clone());
                     info!("Discovered source {id2} from function {}", pg_sql.signature);
@@ -242,7 +248,7 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
                 Some(bo_i) => match bo_i {
                     BoolOrObject::Object(item) => Some(PgBuilderPublish::new(
                         is_function,
-                        resolve_id_formats(item.source_id_format.as_ref(), item.id_format.as_ref()),
+                        item.source_id_format.as_ref(),
                         merge_opt_hs(&a.from_schemas, &item.from_schemas),
                     )),
                     BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
@@ -267,6 +273,7 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderPub
         default(None)
     }
 }
+
 fn get_auto_publish_id_column(config: &PgConfig) -> Vec<String> {
     if let Some(BoolOrObject::Object(v)) = &config.auto_publish {
         if let Some(BoolOrObject::Object(v)) = &v.tables {
@@ -276,24 +283,6 @@ fn get_auto_publish_id_column(config: &PgConfig) -> Vec<String> {
         }
     }
     Vec::new()
-}
-
-fn resolve_id_formats<'a>(
-    source_id_format: Option<&'a String>,
-    id_format: Option<&'a String>,
-) -> Option<&'a String> {
-    match (source_id_format, id_format) {
-        (Some(source_id_format), Some(_)) => {
-            warn!("source_id_format overrides id_format. Use only source_id_format.");
-            Some(source_id_format)
-        }
-        (Some(source_id_format), None) => Some(source_id_format),
-        (None, Some(id_format)) => {
-            warn!("id_format is deprecated. Use source_id_format instead.");
-            Some(id_format)
-        }
-        (None, None) => None,
-    }
 }
 
 fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
@@ -347,9 +336,9 @@ mod tests {
     use super::*;
 
     #[allow(clippy::unnecessary_wraps)]
-    fn builder(id_format: &str, schemas: Option<&[&str]>) -> Option<PgBuilderPublish> {
+    fn builder(source_id_format: &str, schemas: Option<&[&str]>) -> Option<PgBuilderPublish> {
         Some(PgBuilderPublish {
-            id_format: id_format.to_string(),
+            source_id_format: source_id_format.to_string(),
             schemas: schemas.map(|s| s.iter().map(|s| (*s).to_string()).collect()),
         })
     }
@@ -430,7 +419,20 @@ mod tests {
                 from_schemas: public
                 tables:
                     from_schemas: osm
-                    id_format: '{schema}.{table}'"});
+                    id_format: 'foo_{schema}.{table}_bar'"});
+        let res = new_auto_publish(&config, false);
+        assert_eq!(
+            res,
+            builder("foo_{schema}.{table}_bar", Some(&["public", "osm"]))
+        );
+        assert_eq!(new_auto_publish(&config, true), None);
+
+        let config = parse_yaml(indoc! {"
+            auto_publish:
+                from_schemas: public
+                tables:
+                    from_schemas: osm
+                    source_id_format: '{schema}.{table}'"});
         let res = new_auto_publish(&config, false);
         assert_eq!(res, builder("{schema}.{table}", Some(&["public", "osm"])));
         assert_eq!(new_auto_publish(&config, true), None);

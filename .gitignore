@@ -3,6 +3,7 @@
 target/
 **/*.rs.bk
 .idea/
+.vscode/
 test_log*
 *.profraw
 
