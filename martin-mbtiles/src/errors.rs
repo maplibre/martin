@@ -1,3 +1,4 @@
+use sqlite_hashes::rusqlite;
 use std::path::PathBuf;
 
 use martin_tile_utils::TileInfo;
@@ -7,7 +8,10 @@ use crate::mbtiles::MbtType;
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
     #[error("SQL Error {0}")]
-    SqlError(#[from] sqlx::Error),
+    SqlxError(#[from] sqlx::Error),
+
+    #[error("SQL Error {0}")]
+    RusqliteError(#[from] rusqlite::Error),
 
     #[error("MBTile filepath contains unsupported characters: {}", .0.display())]
     UnsupportedCharsInFilepath(PathBuf),

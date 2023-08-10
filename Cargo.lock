@@ -1078,6 +1078,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
 name = "fastrand"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1818,6 +1824,7 @@ dependencies = [
  "log",
  "martin-tile-utils",
  "serde_json",
+ "sqlite-hashes",
  "sqlx",
  "thiserror",
  "tilejson",
@@ -2629,6 +2636,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusqlite"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "549b9d036d571d42e6e85d1c1425e2ac83491075078ca9a15be021c56b1641f2"
+dependencies = [
+ "bitflags 2.3.3",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink",
+ "libsqlite3-sys",
+ "smallvec",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3028,6 +3049,19 @@ dependencies = [
  "itertools 0.10.5",
  "nom",
  "unicode_categories",
+]
+
+[[package]]
+name = "sqlite-hashes"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f600356eab3d8c80c0f7abd6e931d8a2b333fe917a5ead2dfb87a858cdfad9a"
+dependencies = [
+ "digest",
+ "md-5",
+ "rusqlite",
+ "sha1",
+ "sha2",
 ]
 
 [[package]]

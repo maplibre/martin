@@ -2,7 +2,7 @@ use sqlx::{query, SqliteExecutor};
 
 use crate::errors::MbtResult;
 
-pub async fn is_deduplicated_type<T>(conn: &mut T) -> MbtResult<bool>
+pub async fn is_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
@@ -16,12 +16,11 @@ where
            --
        ) AND (
            -- "map" table's columns and their types are as expected:
-           -- 4 non-null columns (zoom_level, tile_column, tile_row, tile_id).
+           -- 4 columns (zoom_level, tile_column, tile_row, tile_id).
            -- The order is not important
            SELECT COUNT(*) = 4
            FROM pragma_table_info('map')
-           WHERE "notnull" = 0
-             AND ((name = "zoom_level" AND type = "INTEGER")
+             WHERE ((name = "zoom_level" AND type = "INTEGER")
                OR (name = "tile_column" AND type = "INTEGER")
                OR (name = "tile_row" AND type = "INTEGER")
                OR (name = "tile_id" AND type = "TEXT"))
@@ -35,12 +34,11 @@ where
            --
        ) AND (
            -- "images" table's columns and their types are as expected:
-           -- 2 non-null columns (tile_id, tile_data).
+           -- 2 columns (tile_id, tile_data).
            -- The order is not important
            SELECT COUNT(*) = 2
            FROM pragma_table_info('images')
-           WHERE "notnull" = 0
-             AND ((name = "tile_id" AND type = "TEXT")
+             WHERE ((name = "tile_id" AND type = "TEXT")
                OR (name = "tile_data" AND type = "BLOB"))
            --
        ) AS is_valid;
@@ -55,7 +53,43 @@ where
         == 1)
 }
 
-pub async fn is_tile_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+pub async fn is_flat_hashed_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let sql = query!(
+        r#"SELECT (
+           -- Has a "hashed_tiles" table
+           SELECT COUNT(*) = 1
+           FROM sqlite_master
+           WHERE name = 'hashed_tiles'
+             AND type = 'table'
+           --
+       ) AND (
+           -- "hashed_tiles" table's columns and their types are as expected:
+           -- 5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
+           -- The order is not important
+           SELECT COUNT(*) = 5
+           FROM pragma_table_info('hashed_tiles')
+             WHERE ((name = "zoom_level" AND type = "INTEGER")
+               OR (name = "tile_column" AND type = "INTEGER")
+               OR (name = "tile_row" AND type = "INTEGER")
+               OR (name = "tile_data" AND type = "BLOB")
+               OR (name = "tile_hash" AND type = "TEXT"))
+           --
+       ) as is_valid;
+"#
+    );
+
+    Ok(sql
+        .fetch_one(&mut *conn)
+        .await?
+        .is_valid
+        .unwrap_or_default()
+        == 1)
+}
+
+pub async fn is_flat_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
@@ -69,12 +103,11 @@ where
            --
        ) AND (
            -- "tiles" table's columns and their types are as expected:
-           -- 4 non-null columns (zoom_level, tile_column, tile_row, tile_data).
+           -- 4 columns (zoom_level, tile_column, tile_row, tile_data).
            -- The order is not important
            SELECT COUNT(*) = 4
            FROM pragma_table_info('tiles')
-           WHERE "notnull" = 0
-             AND ((name = "zoom_level" AND type = "INTEGER")
+             WHERE ((name = "zoom_level" AND type = "INTEGER")
                OR (name = "tile_column" AND type = "INTEGER")
                OR (name = "tile_row" AND type = "INTEGER")
                OR (name = "tile_data" AND type = "BLOB"))

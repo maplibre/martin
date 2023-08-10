@@ -44,4 +44,4 @@ sqlite3 src_file.mbtiles \
   "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 ```
 
-**_NOTE:_** Both of these methods for applying a diff _only_ work for mbtiles files in the simple tables format; they do _not_ work for mbtiles files in deduplicated format.
+**_NOTE:_** Both of these methods for applying a diff _only_ work for mbtiles files in the simple tables format; they do _not_ work for mbtiles files in normalized_tables format.

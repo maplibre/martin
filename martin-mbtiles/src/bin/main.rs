@@ -232,14 +232,12 @@ mod tests {
                 "dst_file",
                 "--diff-with-file",
                 "no_file",
-                "--force-simple"
             ]),
             Args {
                 verbose: false,
                 command: Copy(
                     TileCopierOptions::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .diff_with_file(PathBuf::from("no_file"))
-                        .force_simple(true)
                 )
             }
         );
