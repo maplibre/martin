@@ -137,7 +137,7 @@ impl Mbtiles {
                     }
                     _ => {
                         let file = &self.filename;
-                        warn!("{file} has an unrecognized metadata value {name}={value}");
+                        info!("{file} has an unrecognized metadata value {name}={value}");
                         tj.other.insert(name, Value::String(value));
                     }
                 }
