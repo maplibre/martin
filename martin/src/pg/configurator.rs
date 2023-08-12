@@ -246,12 +246,12 @@ fn update_id_column(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) 
         } else {
             match find_kv_ignore_case(props, key) {
                 Ok(Some(result)) => {
-                    info!("For source {id} from table {}.{}, feature ID '{key}' was not found, but found '{result}' instead.", inf.schema, inf.table);
+                    info!("For source {id}, id_column '{key}' was not found, but found '{result}' instead.");
                     (result, props.get(result).unwrap())
                 }
                 Ok(None) => continue,
                 Err(multiple) => {
-                    error!("Unable to set feature ID from table {}.{} because `{key}` has no exact match and more than one potential matches: {}", inf.schema, inf.table, multiple.join(", "));
+                    error!("Unable to configure source {id} because id_column '{key}' has no exact match or more than one potential matches: {}", multiple.join(", "));
                     continue;
                 }
             }
