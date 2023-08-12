@@ -264,6 +264,9 @@ fn update_id_column(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) 
         }
 
         inf.id_column = Some(column.to_string());
+        let mut final_props = props.clone();
+        final_props.remove(column);
+        inf.properties = Some(final_props);
         return;
     }
 
