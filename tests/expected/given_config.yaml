@@ -40,7 +40,6 @@ postgres:
       clip_geom: true
       geometry_type: POINT
       properties:
-        feat_id: int4
         gid: int4
     points1:
       layer_id: abc
