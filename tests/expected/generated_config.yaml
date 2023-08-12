@@ -28,6 +28,18 @@ postgres:
       properties:
         feat_id: int4
         gid: int4
+    biginttype_table:
+      schema: biginttype
+      table: biginttype_table
+      srid: 4326
+      geometry_column: geom
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        big_feat_id: int8
+        id: int4
     points1:
       schema: public
       table: points1

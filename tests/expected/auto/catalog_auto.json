@@ -10,6 +10,11 @@
     "description": "autodetect.auto_table.geom"
   },
   {
+    "id": "biginttype_table",
+    "content_type": "application/x-protobuf",
+    "description": "biginttype.biginttype_table.geom"
+  },
+  {
     "id": "function_Mixed_Name",
     "content_type": "application/x-protobuf",
     "description": "MixedCase.function_Mixed_Name"
