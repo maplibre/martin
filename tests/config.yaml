@@ -22,7 +22,7 @@ postgres:
   auto_publish:
     tables:
       from_schemas: autodetect
-      id_column: feat_id
+      id_columns: feat_id
 
   # Associative arrays of table sources
   tables:

@@ -70,7 +70,7 @@ postgres:
       # A table column to use as the feature ID
       # If a table has no column with this name, `id_column` will not be set for that table.
       # If a list of strings is given, the first found column will be treated as a feature ID.
-      id_column: feature_id
+      id_columns: feature_id
     functions:
       # Optionally set how source ID should be generated based on the function's name and schema
       source_id_format: '{schema}.{function}'
