@@ -16,6 +16,12 @@ Martin data is available via the HTTP `GET` endpoints:
 ## Duplicate Source ID
 In case there is more than one source that has the same name, e.g. a PG function is available in two schemas/connections, or a table has more than one geometry columns, sources will be assigned unique IDs such as `/points`, `/points.1`, etc.
 
+## Reserved Source IDs
+Some source IDs are reserved for internal use. If you try to use them, they will be automatically renamed to a unique ID the same way as duplicate source IDs are handled, e.g. a `catalog` source will become `catalog.1`.
+
+Some of the reserved IDs: `_`, `catalog`, `config`, `font`, `health`, `help`, `index`, `manifest`, `metrics`, `refresh`,
+`reload`, `sprite`, `status`.
+
 ## Catalog
 
 A list of all available sources is available via catalogue endpoint:
