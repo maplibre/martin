@@ -741,6 +741,10 @@ sprites:
 </div>
 <h2 id="duplicate-source-id"><a class="header" href="#duplicate-source-id">Duplicate Source ID</a></h2>
 <p>In case there is more than one source that has the same name, e.g. a PG function is available in two schemas/connections, or a table has more than one geometry columns, sources will be assigned unique IDs such as <code>/points</code>, <code>/points.1</code>, etc.</p>
+<h2 id="reserved-source-ids"><a class="header" href="#reserved-source-ids">Reserved Source IDs</a></h2>
+<p>Some source IDs are reserved for internal use. If you try to use them, they will be automatically renamed to a unique ID the same way as duplicate source IDs are handled, e.g. a <code>catalog</code> source will become <code>catalog.1</code>.</p>
+<p>Some of the reserved IDs: <code>_</code>, <code>catalog</code>, <code>config</code>, <code>font</code>, <code>health</code>, <code>help</code>, <code>index</code>, <code>manifest</code>, <code>metrics</code>, <code>refresh</code>,
+<code>reload</code>, <code>sprite</code>, <code>status</code>.</p>
 <h2 id="catalog"><a class="header" href="#catalog">Catalog</a></h2>
 <p>A list of all available sources is available via catalogue endpoint:</p>
 <pre><code class="language-shell">curl localhost:3000/catalog | jq
