@@ -29,6 +29,10 @@ debug-page *ARGS: start
 psql *ARGS:
     psql {{ ARGS }} {{ DATABASE_URL }}
 
+# Run PSQL utility against the test database
+pg_dump *ARGS:
+    pg_dump {{ ARGS }} {{ DATABASE_URL }}
+
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop
     cargo clean

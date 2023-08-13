@@ -10,6 +10,11 @@
     "description": "autodetect.auto_table.geom"
   },
   {
+    "id": "bigint_table",
+    "content_type": "application/x-protobuf",
+    "description": "autodetect.bigint_table.geom"
+  },
+  {
     "id": "function_zxy_query",
     "content_type": "application/x-protobuf",
     "description": "public.function_zxy_query"

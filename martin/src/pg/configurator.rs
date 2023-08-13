@@ -14,7 +14,7 @@ use crate::pg::pool::PgPool;
 use crate::pg::table_source::{
     calc_srid, merge_table_info, query_available_tables, table_to_query,
 };
-use crate::pg::utils::{find_info, normalize_key, InfoMap};
+use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::Result;
 use crate::source::Sources;
@@ -27,6 +27,7 @@ pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 pub struct PgBuilderAuto {
     source_id_format: String,
     schemas: Option<HashSet<String>>,
+    id_columns: Option<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -122,6 +123,7 @@ impl PgBuilder {
                         let id2 = self.resolve_id(&source_id, &db_inf);
                         let Some(srid) = calc_srid(&db_inf.format_id(), &id2, db_inf.srid, 0, self.default_srid) else { continue };
                         db_inf.srid = srid;
+                        update_id_column(&id2, &mut db_inf, auto_tables);
                         info!("Discovered source {id2} from {}", summary(&db_inf));
                         pending.push(table_to_query(
                             id2,
@@ -232,12 +234,57 @@ impl PgBuilder {
     }
 }
 
+/// Try to find any ID column in a list of table columns (properties) that match one of the given `id_column` values.
+/// If found, modify `id_column` value on the table info.
+fn update_id_column(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
+    let Some(props) = inf.properties.as_mut() else { return };
+    let Some(try_columns) = &auto_tables.id_columns else { return };
+
+    for key in try_columns.iter() {
+        let (column, typ) = if let Some(typ) = props.get(key) {
+            (key, typ)
+        } else {
+            match find_kv_ignore_case(props, key) {
+                Ok(Some(result)) => {
+                    info!("For source {id}, id_column '{key}' was not found, but found '{result}' instead.");
+                    (result, props.get(result).unwrap())
+                }
+                Ok(None) => continue,
+                Err(multiple) => {
+                    error!("Unable to configure source {id} because id_column '{key}' has no exact match or more than one potential matches: {}", multiple.join(", "));
+                    continue;
+                }
+            }
+        };
+        // ID column can be any integer type as defined in
+        // https://github.com/postgis/postgis/blob/559c95d85564fb74fa9e3b7eafb74851810610da/postgis/mvt.c#L387C4-L387C66
+        if typ != "int4" && typ != "int8" && typ != "int2" {
+            warn!("Unable to use column `{key}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.", inf.schema, inf.table);
+            continue;
+        }
+
+        inf.id_column = Some(column.to_string());
+        let mut final_props = props.clone();
+        final_props.remove(column);
+        inf.properties = Some(final_props);
+        return;
+    }
+
+    info!(
+        "No ID column found for table {}.{} - searched for an integer column named {}.",
+        inf.schema,
+        inf.table,
+        try_columns.join(", ")
+    );
+}
+
 fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAuto> {
     let default_id_fmt = |is_func| (if is_func { "{function}" } else { "{table}" }).to_string();
     let default = |schemas| {
         Some(PgBuilderAuto {
             source_id_format: default_id_fmt(is_function),
             schemas,
+            id_columns: None,
         })
     };
 
@@ -252,6 +299,14 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAut
                             .cloned()
                             .unwrap_or_else(|| default_id_fmt(is_function)),
                         schemas: merge_opt_hs(&a.from_schemas, &item.from_schemas),
+                        id_columns: item.id_columns.as_ref().and_then(|ids| {
+                            if is_function {
+                                error!("Configuration parameter auto_publish.functions.id_columns is not supported");
+                                None
+                            } else {
+                                Some(ids.iter().cloned().collect())
+                            }
+                        }),
                     }),
                     BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
                     BoolOrObject::Bool(false) => None,
@@ -287,6 +342,7 @@ fn summary(info: &TableInfo) -> String {
         Some(true) => "view",
         _ => "table",
     };
+    // TODO: add column_id to the summary if it is set
     format!(
         "{relkind} {}.{} with {} column ({}, SRID={})",
         info.schema,
@@ -331,6 +387,7 @@ mod tests {
         Some(PgBuilderAuto {
             source_id_format: source_id_format.to_string(),
             schemas: schemas.map(|s| s.iter().map(|s| (*s).to_string()).collect()),
+            id_columns: None,
         })
     }
 
