@@ -21,7 +21,7 @@ postgres:
 
   auto_publish:
     tables:
-      from_schemas: [autodetect, biginttype]
+      from_schemas: autodetect
       id_columns: [feat_id, big_feat_id]
 
   # Associative arrays of table sources

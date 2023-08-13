@@ -28,9 +28,9 @@ postgres:
       properties:
         feat_id: int4
         gid: int4
-    biginttype_table:
-      schema: biginttype
-      table: biginttype_table
+    bigint_table:
+      schema: autodetect
+      table: bigint_table
       srid: 4326
       geometry_column: geom
       extent: 4096

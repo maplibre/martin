@@ -10,9 +10,9 @@
     "description": "autodetect.auto_table.geom"
   },
   {
-    "id": "biginttype_table",
+    "id": "bigint_table",
     "content_type": "application/x-protobuf",
-    "description": "biginttype.biginttype_table.geom"
+    "description": "autodetect.bigint_table.geom"
   },
   {
     "id": "function_Mixed_Name",
