@@ -16,6 +16,10 @@ CREATE TABLE autodetect.auto_table
 -- SELECT generate_series(4, 30) as id,
 --        (random() * 100000)::int as feat_id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
+--
+-- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+--   just restart
+--   just pg_dump --data-only --inserts --rows-per-insert=100 --table=autodetect.auto_table
 
 INSERT INTO autodetect.auto_table (gid, feat_id, geom)
 values (1, 71951, '0101000020E6100000211700C9E6DA6140F510E7C8F4DA2740'),
