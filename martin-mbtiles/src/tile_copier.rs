@@ -183,7 +183,7 @@ impl TileCopier {
             [self.src_mbtiles.filepath()],
         )?;
 
-        let on_duplicate_sql = self.get_on_duplicate_sql(&dst_mbttype);
+        let (on_dupl, sql_cond)  = self.get_on_duplicate_sql(&dst_mbttype);
 
         let (select_from, query_args) = {
             let select_from = if let Some(diff_file) = &self.options.diff_with_file {
@@ -205,32 +205,20 @@ impl TileCopier {
 
         match dst_mbttype {
             Flat => rusqlite_conn.execute(
-                &format!(
-                    "INSERT {} INTO tiles {} {}",
-                    on_duplicate_sql.0, select_from, on_duplicate_sql.1
-                ),
+                &format!("INSERT {on_dupl} INTO tiles {select_from} {sql_cond}"),
                 params_from_iter(query_args),
             )?,
             FlatWithHash => rusqlite_conn.execute(
-                &format!(
-                    "INSERT {} INTO tiles_with_hash {} {}",
-                    on_duplicate_sql.0, select_from, on_duplicate_sql.1
-                ),
+                &format!("INSERT {on_dupl} INTO tiles_with_hash {select_from} {sql_cond}"),
                 params_from_iter(query_args),
             )?,
             Normalized => {
                 rusqlite_conn.execute(
-                    &format!(
-                        "INSERT {} INTO map (zoom_level, tile_column, tile_row, tile_id) SELECT zoom_level, tile_column, tile_row, hash as tile_id FROM ({} {})",
-                        on_duplicate_sql.0, select_from, on_duplicate_sql.1
-                    ),
+                    &format!("INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id) SELECT zoom_level, tile_column, tile_row, hash as tile_id FROM ({select_from} {sql_cond})"),
                     params_from_iter(&query_args),
                 )?;
                 rusqlite_conn.execute(
-                    &format!(
-                        "INSERT OR IGNORE INTO images SELECT tile_data, hash FROM ({})",
-                        select_from
-                    ),
+                    &format!("INSERT OR IGNORE INTO images SELECT tile_data, hash FROM ({select_from})"),
                     params_from_iter(query_args),
                 )?
             }
