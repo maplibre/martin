@@ -6,7 +6,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: ["npm", "run", "preview"]
     depends_on:
       - tiles
     ports:
