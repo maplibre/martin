@@ -1,4 +1,4 @@
-FROM node:20-alpine as builder
+FROM node:alpine as builder
 
 WORKDIR /usr/src/app
 
@@ -7,4 +7,6 @@ COPY yarn.lock .
 RUN yarn install
 
 COPY . .
-CMD yarn run build
+RUN yarn run build
+
+CMD ["yarn", "run", "preview"]

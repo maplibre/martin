@@ -1,0 +1,21 @@
+#!/usr/bin/env just --justfile
+
+set shell := ["bash", "-c"]
+
+@_default:
+    just --list --unsorted
+
+clean:
+    rm -rf frontend/node_modules
+
+up:
+    docker-compose up
+
+up-build:
+    docker-compose up --build
+
+up-backend:
+    docker-compose up db tiles --detach
+
+frontend *ARGS:
+    docker-compose up frontend {{ ARGS }}
