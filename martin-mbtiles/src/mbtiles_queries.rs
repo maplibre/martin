@@ -53,24 +53,24 @@ where
         == 1)
 }
 
-pub async fn is_flat_hashed_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+pub async fn is_flat_with_hash_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     let sql = query!(
         r#"SELECT (
-           -- Has a "hashed_tiles" table
+           -- Has a "tiles_with_hash" table
            SELECT COUNT(*) = 1
            FROM sqlite_master
-           WHERE name = 'hashed_tiles'
+           WHERE name = 'tiles_with_hash'
              AND type = 'table'
            --
        ) AND (
-           -- "hashed_tiles" table's columns and their types are as expected:
+           -- "tiles_with_hash" table's columns and their types are as expected:
            -- 5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
            -- The order is not important
            SELECT COUNT(*) = 5
-           FROM pragma_table_info('hashed_tiles')
+           FROM pragma_table_info('tiles_with_hash')
              WHERE ((name = "zoom_level" AND type = "INTEGER")
                OR (name = "tile_column" AND type = "INTEGER")
                OR (name = "tile_row" AND type = "INTEGER")

@@ -8,6 +8,7 @@ use std::fmt::Display;
 use std::path::Path;
 use std::str::FromStr;
 
+#[cfg(feature = "cli")]
 use clap::ValueEnum;
 use futures::TryStreamExt;
 use log::{debug, info, warn};
@@ -18,7 +19,7 @@ use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles_queries::{
-    is_flat_hashed_tables_type, is_flat_tables_type, is_normalized_tables_type,
+    is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -34,7 +35,7 @@ pub struct Metadata {
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtType {
     Flat,
-    FlatHashed,
+    FlatWithHash,
     Normalized,
 }
 
@@ -288,8 +289,8 @@ impl Mbtiles {
     {
         let mbt_type = if is_normalized_tables_type(&mut *conn).await? {
             MbtType::Normalized
-        } else if is_flat_hashed_tables_type(&mut *conn).await? {
-            MbtType::FlatHashed
+        } else if is_flat_with_hash_tables_type(&mut *conn).await? {
+            MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
             MbtType::Flat
         } else {
@@ -312,7 +313,7 @@ impl Mbtiles {
     {
         let table_name = match mbt_type {
             MbtType::Flat => "tiles",
-            MbtType::FlatHashed => "hashed_tiles",
+            MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized => "map",
         };
 
@@ -448,7 +449,7 @@ mod tests {
 
         let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::FlatHashed);
+        assert_eq!(res, MbtType::FlatWithHash);
 
         let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();

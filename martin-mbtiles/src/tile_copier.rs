@@ -6,13 +6,13 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "cli")]
 use clap::{builder::ValueParser, error::ErrorKind, Args, ValueEnum};
 use sqlite_hashes::rusqlite::params_from_iter;
-use sqlite_hashes::{register_sha256_function, rusqlite::Connection as RusqliteConnection};
+use sqlite_hashes::{register_md5_function, rusqlite::Connection as RusqliteConnection};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType;
-use crate::mbtiles::MbtType::{Flat, FlatHashed, Normalized};
+use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::{MbtError, Mbtiles};
 
 #[derive(PartialEq, Eq, Default, Debug, Clone)]
@@ -177,7 +177,7 @@ impl TileCopier {
         };
 
         let rusqlite_conn = RusqliteConnection::open(Path::new(&self.dst_mbtiles.filepath()))?;
-        register_sha256_function(&rusqlite_conn)?;
+        register_md5_function(&rusqlite_conn)?;
         rusqlite_conn.execute(
             "ATTACH DATABASE ? AS sourceDb",
             [self.src_mbtiles.filepath()],
@@ -211,9 +211,9 @@ impl TileCopier {
                 ),
                 params_from_iter(query_args),
             )?,
-            FlatHashed => rusqlite_conn.execute(
+            FlatWithHash => rusqlite_conn.execute(
                 &format!(
-                    "INSERT {} INTO hashed_tiles {} {}",
+                    "INSERT {} INTO tiles_with_hash {} {}",
                     on_duplicate_sql.0, select_from, on_duplicate_sql.1
                 ),
                 params_from_iter(query_args),
@@ -256,7 +256,7 @@ impl TileCopier {
         if dst_mbttype != src_mbttype {
             match dst_mbttype {
                 Flat => self.create_flat_tables(&mut *conn).await?,
-                FlatHashed => self.create_flat_hashed_tables(&mut *conn).await?,
+                FlatWithHash => self.create_flat_with_hash_tables(&mut *conn).await?,
                 Normalized => self.create_normalized_tables(&mut *conn).await?,
             };
         } else {
@@ -265,7 +265,7 @@ impl TileCopier {
             for row in query(
                 "SELECT sql 
                         FROM sourceDb.sqlite_schema 
-                        WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'hashed_tiles') 
+                        WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash') 
                             AND type IN ('table', 'view', 'trigger', 'index')
                         ORDER BY CASE WHEN type = 'table' THEN 1
                           WHEN type = 'view' THEN 2
@@ -297,12 +297,12 @@ impl TileCopier {
         Ok(())
     }
 
-    async fn create_flat_hashed_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
+    async fn create_flat_with_hash_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         for statement in &[
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE hashed_tiles (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob, tile_hash text,
+            "CREATE TABLE tiles_with_hash (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob, tile_hash text,
                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
-            "CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM hashed_tiles;"] {
+            "CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;"] {
             query(statement).execute(&mut *conn).await?;
         }
         Ok(())
@@ -330,7 +330,7 @@ impl TileCopier {
             CopyDuplicateMode::Abort => ("OR ABORT".to_string(), {
                 let (main_table, tile_identifier) = match mbttype {
                     Flat => ("tiles", "tile_data"),
-                    FlatHashed => ("hashed_tiles", "tile_data"),
+                    FlatWithHash => ("tiles_with_hash", "tile_data"),
                     Normalized => ("map", "tile_id"),
                 };
 
@@ -354,8 +354,8 @@ impl TileCopier {
             ("", "newDb.tiles")
         } else {
             match *diff_mbttype {
-                Flat => (", hex(sha256(tile_data)) as hash", "newDb.tiles"),
-                FlatHashed => (", new_tiles_with_hash.tile_hash as hash", "newDb.hashed_tiles"),
+                Flat => (", hex(md5(tile_data)) as hash", "newDb.tiles"),
+                FlatWithHash => (", new_tiles_with_hash.tile_hash as hash", "newDb.tiles_with_hash"),
                 Normalized => (", new_tiles_with_hash.hash", "(SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
                                                                     FROM newDb.map JOIN newDb.images ON newDb.map.tile_id=newDb.images.tile_id )")
             }
@@ -380,8 +380,8 @@ impl TileCopier {
             "SELECT * FROM sourceDb.tiles "
         } else {
             match *src_mbttype {
-                Flat => "SELECT *, hex(sha256(tile_data)) as hash FROM sourceDb.tiles ",
-                FlatHashed => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.hashed_tiles",
+                Flat => "SELECT *, hex(md5(tile_data)) as hash FROM sourceDb.tiles ",
+                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.tiles_with_hash",
                 Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id=sourceDb.images.tile_id"
             }
         }.to_string();
@@ -441,15 +441,15 @@ pub async fn apply_mbtiles_diff(
     let diff_mbttype = open_and_detect_type(&diff_mbtiles).await?;
 
     let rusqlite_conn = RusqliteConnection::open(Path::new(&src_mbtiles.filepath()))?;
-    register_sha256_function(&rusqlite_conn)?;
+    register_md5_function(&rusqlite_conn)?;
     rusqlite_conn.execute("ATTACH DATABASE ? AS diffDb", [diff_mbtiles.filepath()])?;
 
     let select_from = if src_mbttype == Flat {
         "SELECT * FROM diffDb.tiles "
     } else {
         match diff_mbttype {
-            Flat => "SELECT *, hex(sha256(tile_data)) as hash FROM diffDb.tiles ",
-            FlatHashed => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM diffDb.hashed_tiles",
+            Flat => "SELECT *, hex(md5(tile_data)) as hash FROM diffDb.tiles ",
+            FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM diffDb.tiles_with_hash",
             Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM diffDb.map LEFT JOIN diffDb.images ON diffDb.map.tile_id=diffDb.images.tile_id"
         }
     }.to_string();
@@ -458,9 +458,9 @@ pub async fn apply_mbtiles_diff(
         Flat => (vec![format!(
             "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) {select_from}"
         )], "tiles".to_string()),
-        FlatHashed => (vec![format!(
-            "INSERT OR REPLACE INTO hashed_tiles {select_from}"
-        )], "hashed_tiles".to_string()),
+        FlatWithHash => (vec![format!(
+            "INSERT OR REPLACE INTO tiles_with_hash {select_from}"
+        )], "tiles_with_hash".to_string()),
         Normalized => (vec![format!("INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id) SELECT zoom_level, tile_column, tile_row, hash as tile_id FROM ({select_from})"), format!(
             "INSERT OR REPLACE INTO images SELECT tile_data, hash FROM ({select_from})"
         )], "map".to_string())
@@ -554,10 +554,11 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_flat_from_flat_hashed_tables() {
+    async fn copy_flat_from_flat_with_hash_tables() {
         let src = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
-        let dst =
-            PathBuf::from("file:copy_flat_from_flat_hashed_tables_mem_db?mode=memory&cache=shared");
+        let dst = PathBuf::from(
+            "file:copy_flat_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
+        );
         verify_copy_all(src, dst, Some(Flat), Flat).await;
     }
 
@@ -570,27 +571,28 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_flat_hashed_tables() {
+    async fn copy_flat_with_hash_tables() {
         let src = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
-        let dst = PathBuf::from("file:copy_flat_hashed_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, dst, None, FlatHashed).await;
+        let dst = PathBuf::from("file:copy_flat_with_hash_tables_mem_db?mode=memory&cache=shared");
+        verify_copy_all(src, dst, None, FlatWithHash).await;
     }
 
     #[actix_rt::test]
-    async fn copy_flat_hashed_from_flat_tables() {
+    async fn copy_flat_with_hash_from_flat_tables() {
         let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let dst =
-            PathBuf::from("file:copy_flat_hashed_from_flat_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, dst, Some(FlatHashed), FlatHashed).await;
+        let dst = PathBuf::from(
+            "file:copy_flat_with_hash_from_flat_tables_mem_db?mode=memory&cache=shared",
+        );
+        verify_copy_all(src, dst, Some(FlatWithHash), FlatWithHash).await;
     }
 
     #[actix_rt::test]
-    async fn copy_flat_hashed_from_normalized_tables() {
+    async fn copy_flat_with_hash_from_normalized_tables() {
         let src = PathBuf::from("../tests/fixtures/files/geography-class-png.mbtiles");
         let dst = PathBuf::from(
-            "file:copy_flat_hashed_from_normalized_tables_mem_db?mode=memory&cache=shared",
+            "file:copy_flat_with_hash_from_normalized_tables_mem_db?mode=memory&cache=shared",
         );
-        verify_copy_all(src, dst, Some(FlatHashed), FlatHashed).await;
+        verify_copy_all(src, dst, Some(FlatWithHash), FlatWithHash).await;
     }
 
     #[actix_rt::test]
@@ -609,10 +611,10 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_normalized_from_flat_hashed_tables() {
+    async fn copy_normalized_from_flat_with_hash_tables() {
         let src = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
         let dst = PathBuf::from(
-            "file:copy_normalized_from_flat_hashed_tables_mem_db?mode=memory&cache=shared",
+            "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
         verify_copy_all(src, dst, Some(Normalized), Normalized).await;
     }
