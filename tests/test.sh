@@ -296,7 +296,6 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     ./tests/fixtures/files/world_cities.mbtiles \
     "$TEST_TEMP_DIR/world_cities_diff.mbtiles" \
     --diff-with-file ./tests/fixtures/files/world_cities_modified.mbtiles \
-    --force-simple \
     2>&1 | tee "$TEST_OUT_DIR/copy_diff.txt"
 
   if command -v sqlite3 > /dev/null; then
@@ -313,7 +312,6 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     # Ensure that applying the diff resulted in the modified version of the file
     $MBTILES_BIN copy \
       --diff-with-file "$TEST_TEMP_DIR/world_cities_copy.mbtiles" \
-      --force-simple \
       ./tests/fixtures/files/world_cities_modified.mbtiles \
       "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" \
       2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"

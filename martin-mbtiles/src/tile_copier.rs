@@ -159,25 +159,22 @@ impl TileCopier {
             .await?
             .is_none();
 
-        let mut dst_mbttype = if is_empty {
-            self.options
+        let dst_mbttype = if is_empty {
+            let dst_mbttype = self
+                .options
                 .dst_mbttype
                 .clone()
-                .unwrap_or_else(|| src_mbttype.clone())
-        } else {
-            src_mbttype.clone()
-        };
+                .unwrap_or_else(|| src_mbttype.clone());
 
-        if !is_empty && self.options.diff_with_file.is_some() {
-            return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
-        }
-
-        if is_empty {
             self.create_new_mbtiles(&mut conn, &dst_mbttype, &src_mbttype)
                 .await?;
+
+            dst_mbttype
+        } else if self.options.diff_with_file.is_some() {
+            return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         } else {
-            dst_mbttype = open_and_detect_type(&self.dst_mbtiles).await?;
-        }
+            open_and_detect_type(&self.dst_mbtiles).await?
+        };
 
         let rusqlite_conn = RusqliteConnection::open(Path::new(&self.dst_mbtiles.filepath()))?;
         register_sha256_function(&rusqlite_conn)?;
@@ -189,22 +186,21 @@ impl TileCopier {
         let on_duplicate_sql = self.get_on_duplicate_sql(&dst_mbttype);
 
         let (select_from, query_args) = {
-            let select_from = if dst_mbttype == Flat {
-                "SELECT * FROM sourceDb.tiles "
+            let select_from = if let Some(diff_file) = &self.options.diff_with_file {
+                let diff_with_mbtiles = Mbtiles::new(diff_file)?;
+                let diff_mbttype = open_and_detect_type(&diff_with_mbtiles).await?;
+
+                rusqlite_conn
+                    .execute("ATTACH DATABASE ? AS newDb", [diff_with_mbtiles.filepath()])?;
+
+                self.get_select_from_with_diff(&dst_mbttype, &diff_mbttype)
             } else {
-                match src_mbttype {
-                    Flat => "SELECT *, hex(sha256(tile_data)) as hash FROM sourceDb.tiles ",
-                    FlatHashed => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.hashed_tiles",
-                    Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id=sourceDb.images.tile_id"
-                }
-            }.to_string();
+                self.get_select_from(&dst_mbttype, &src_mbttype)
+            };
 
             let (options_sql, query_args) = self.get_options_sql()?;
 
-            (
-                format!("{select_from} WHERE TRUE {options_sql}"),
-                query_args,
-            )
+            (format!("{select_from} {options_sql}"), query_args)
         };
 
         match dst_mbttype {
@@ -353,182 +349,46 @@ impl TileCopier {
         }
     }
 
-    /*    async fn copy_flat_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-            let (query, query_args) = if let Some(diff_with) = &self.options.diff_with_file {
-                let diff_with_mbtiles = Mbtiles::new(diff_with)?;
-                // Make sure file is of valid type; the specific type is irrelevant
-                // because all types will be used in the same way
-                open_and_detect_type(&diff_with_mbtiles).await?;
-
-                let path = diff_with_mbtiles.filepath();
-                query!("ATTACH DATABASE ? AS newDb", path)
-                    .execute(&mut *conn)
-                    .await?;
-
-                self.get_options_sql(
-                    "INSERT INTO tiles
-                            SELECT COALESCE(sourceDb.tiles.zoom_level, newDb.tiles.zoom_level) as zoom_level,
-                                   COALESCE(sourceDb.tiles.tile_column, newDb.tiles.tile_column) as tile_column,
-                                   COALESCE(sourceDb.tiles.tile_row, newDb.tiles.tile_row) as tile_row,
-                                   newDb.tiles.tile_data as tile_data
-                            FROM sourceDb.tiles FULL JOIN newDb.tiles
-                                 ON sourceDb.tiles.zoom_level = newDb.tiles.zoom_level
-                                 AND sourceDb.tiles.tile_column = newDb.tiles.tile_column
-                                 AND sourceDb.tiles.tile_row = newDb.tiles.tile_row
-                            WHERE (sourceDb.tiles.tile_data != newDb.tiles.tile_data
-                                OR sourceDb.tiles.tile_data ISNULL
-                                OR newDb.tiles.tile_data ISNULL)",
-                )?
-            } else {
-                let on_duplicate_sql = self.get_on_duplicate_sql(FlatTables);
-
-                self.get_options_sql(
-                    // Allows for adding clauses to query using "AND"
-                    &format!(
-                        "INSERT {} INTO tiles SELECT * FROM sourceDb.tiles WHERE TRUE {}",
-                        on_duplicate_sql.0, on_duplicate_sql.1
-                    ),
-                )?
-            };
-
-            let mut sqlite_arguments = SqliteArguments::default();
-            for query_arg in query_args {
-                sqlite_arguments.add(query_arg)
+    fn get_select_from_with_diff(&self, dst_mbttype: &MbtType, diff_mbttype: &MbtType) -> String {
+        let (hash_col_sql, new_tiles_with_hash) = if dst_mbttype == &Flat {
+            ("", "newDb.tiles")
+        } else {
+            match *diff_mbttype {
+                Flat => (", hex(sha256(tile_data)) as hash", "newDb.tiles"),
+                FlatHashed => (", new_tiles_with_hash.tile_hash as hash", "newDb.hashed_tiles"),
+                Normalized => (", new_tiles_with_hash.hash", "(SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
+                                                                    FROM newDb.map JOIN newDb.images ON newDb.map.tile_id=newDb.images.tile_id )")
             }
+        };
 
-            query_with(&query, sqlite_arguments)
-                .execute(&mut *conn)
-                .await?;
+        format!("SELECT COALESCE(sourceDb.tiles.zoom_level, new_tiles_with_hash.zoom_level) as zoom_level,
+                                     COALESCE(sourceDb.tiles.tile_column, new_tiles_with_hash.tile_column) as tile_column,
+                                     COALESCE(sourceDb.tiles.tile_row, new_tiles_with_hash.tile_row) as tile_row,
+                                     new_tiles_with_hash.tile_data as tile_data
+                                     {hash_col_sql}
+                              FROM sourceDb.tiles FULL JOIN {new_tiles_with_hash} AS new_tiles_with_hash
+                                   ON sourceDb.tiles.zoom_level = new_tiles_with_hash.zoom_level
+                                   AND sourceDb.tiles.tile_column = new_tiles_with_hash.tile_column
+                                   AND sourceDb.tiles.tile_row = new_tiles_with_hash.tile_row
+                              WHERE (sourceDb.tiles.tile_data != new_tiles_with_hash.tile_data
+                                  OR sourceDb.tiles.tile_data ISNULL
+                                  OR new_tiles_with_hash.tile_data ISNULL)")
+    }
 
-            Ok(())
-        }
+    fn get_select_from(&self, dst_mbttype: &MbtType, src_mbttype: &MbtType) -> String {
+        let select_from = if dst_mbttype == &Flat {
+            "SELECT * FROM sourceDb.tiles "
+        } else {
+            match *src_mbttype {
+                Flat => "SELECT *, hex(sha256(tile_data)) as hash FROM sourceDb.tiles ",
+                FlatHashed => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.hashed_tiles",
+                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id=sourceDb.images.tile_id"
+            }
+        }.to_string();
 
-        fn copy_from_flat_to_flat_hashed_tables(&self) -> MbtResult<()> {
-            let on_duplicate_sql = self.get_on_duplicate_sql(FlatHashedTables);
-            let (query, query_args) = self.get_options_sql(
-                // Allows for adding clauses to query using "AND"
-                &format!(
-                    "INSERT {} INTO hashed_tiles SELECT *, hex(sha256(tile_data))  FROM sourceDb.tiles WHERE TRUE {}",
-                    on_duplicate_sql.0, on_duplicate_sql.1
-                ),
-            )?;
+        format!("{select_from} WHERE TRUE ")
+    }
 
-            let conn = RusqliteConnection::open(Path::new(&self.dst_mbtiles.filepath()))?;
-            register_sha256_function(&conn)?;
-            conn.execute(
-                "ATTACH DATABASE ? AS sourceDb",
-                [self.src_mbtiles.filepath()],
-            )?;
-            conn.execute(&query, params![query_args.as_slice()])?;
-
-            Ok(())
-        }
-
-        fn copy_from_flat_to_normalized_tables(&self) -> MbtResult<()> {
-            let on_duplicate_sql = self.get_on_duplicate_sql(NormalizedTables);
-
-            let conn = RusqliteConnection::open(Path::new(&self.dst_mbtiles.filepath()))?;
-            register_sha256_function(&conn)?;
-
-            conn.execute(
-                "ATTACH DATABASE ? AS sourceDb",
-                [self.src_mbtiles.filepath()],
-            )?;
-
-            conn.execute(
-                &format!(
-                    "INSERT {} INTO images
-                    SELECT DISTINCT tile_data, hex(sha256(tile_data))
-                    FROM sourceDb.tiles",
-                    on_duplicate_sql.0
-                ),
-                (),
-            )?;
-
-            let (query, query_args) = self.get_options_sql(
-                // Allows for adding clauses to query using "AND"
-                &format!(
-                    "INSERT {} INTO map (zoom_level, tile_column, tile_row, tile_id) SELECT sourceDb.tiles.zoom_level, sourceDb.tiles.tile_column, sourceDb.tiles.tile_row, images.tile_id FROM sourceDb.tiles JOIN images ON sourceDb.tiles.tile_data=images.tile_data WHERE TRUE {}",
-                    on_duplicate_sql.0, on_duplicate_sql.1
-                ),
-            )?;
-            conn.execute(&query, params![query_args.as_slice()])?;
-            Ok(())
-        }
-
-        async fn copy_normalized_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-            /*        if let Some(diff_with) = &self.options.diff_with_file {
-                let diff_with_mbtiles = Mbtiles::new(diff_with)?;
-                // Make sure file is of valid type; the specific type is irrelevant
-                // because all types will be used in the same way
-                open_and_detect_type(&diff_with_mbtiles).await?;
-
-                let path = diff_with_mbtiles.filepath();
-                query!("ATTACH DATABASE ? AS newDb", path)
-                    .execute(&mut *conn)
-                    .await?;
-
-                query(&format!(
-                    "INSERT INTO images
-                        SELECT COALESCE(sourceDb.images.tile_id, newDb.images.tile_id) as tile_id,
-                               newDb.images.tile_data as tile_data
-                        FROM sourceDb.images FULL JOIN newDb.images
-                                 ON sourceDb.images.tile_id = newDb.images.tile_id
-                        WHERE (sourceDb.images.tile_data != newDb.images.tile_data
-                             OR sourceDb.images.tile_data ISNULL
-                             OR newDb.images.tile_data ISNULL)"
-                ))
-                .execute(&mut *conn)
-                .await?;
-
-                self.run_query_with_options(
-                    &mut *conn,
-                    "INSERT INTO map
-                            SELECT COALESCE(sourceDb.map.zoom_level, newDb.map.zoom_level) as zoom_level,
-                                   COALESCE(sourceDb.map.tile_column, newDb.map.tile_column) as tile_column,
-                                   COALESCE(sourceDb.map.tile_row, newDb.map.tile_row) as tile_row,
-                                   newDb.map.tile_id as tile_id,
-                                   'Something'
-                            FROM sourceDb.map FULL JOIN newDb.map
-                                 ON sourceDb.map.zoom_level = newDb.map.zoom_level
-                                 AND sourceDb.map.tile_column = newDb.map.tile_column
-                                 AND sourceDb.map.tile_row = newDb.map.tile_row
-                            WHERE (sourceDb.map.tile_id != newDb.map.tile_id
-                                OR sourceDb.map.tile_id ISNULL
-                                OR newDb.map.tile_id ISNULL)",
-                ) // TODO: missing the entries where the tile_id has not changed, could insert those as well, depends on applying diff
-                    .await?;
-
-                query("DELETE FROM images WHERE tile_id IS NULL OR tile_id IN (SELECT images.tile_id FROM images LEFT JOIN map ON images.tile_id=map.tile_id WHERE map.tile_id IS NULL)")
-                    .execute(&mut *conn)
-                    .await?;
-            } else {*/
-            let on_duplicate_sql = self.get_on_duplicate_sql(NormalizedTables);
-
-            query(&format!(
-                "INSERT {} INTO images
-                    SELECT images.tile_data, images.tile_id
-                    FROM sourceDb.images",
-                on_duplicate_sql.0
-            ))
-            .execute(&mut *conn)
-            .await?;
-
-            self.get_options_sql(
-                // Allows for adding clauses to query using "AND"
-                &format!(
-                    "INSERT {} INTO map SELECT * FROM sourceDb.map WHERE TRUE {}",
-                    on_duplicate_sql.0, on_duplicate_sql.1
-                ),
-            )?;
-
-            query("DELETE FROM images WHERE tile_id IS NULL OR tile_id IN (SELECT images.tile_id FROM images LEFT JOIN map ON images.tile_id=map.tile_id WHERE map.tile_id IS NULL)")
-                    .execute(&mut *conn)
-                    .await?;
-
-            Ok(())
-        }
-    */
     fn get_options_sql(&self) -> MbtResult<(String, Vec<u8>)> {
         let mut query_args = vec![];
 
@@ -793,7 +653,7 @@ mod tests {
             .is_some());
 
         assert_eq!(
-            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles;").await,
+            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM map;").await,
             3
         );
 
@@ -817,7 +677,7 @@ mod tests {
 
         assert!(get_one::<Option<i32>>(
             &mut dst_conn,
-            "SELECT tile_data FROM tiles WHERE zoom_level=0 AND tile_row=0 AND tile_column=0;"
+            "SELECT tile_id FROM map WHERE zoom_level=0 AND tile_row=0 AND tile_column=0;"
         )
         .await
         .is_none());

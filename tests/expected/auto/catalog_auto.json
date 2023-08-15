@@ -187,5 +187,12 @@
     "content_encoding": "gzip",
     "name": "Major cities from Natural Earth data",
     "description": "A modified version of major cities from Natural Earth data"
+  },
+  {
+    "id": "zoomed_world_cities",
+    "content_type": "application/x-protobuf",
+    "content_encoding": "gzip",
+    "name": "Major cities from Natural Earth data",
+    "description": "Major cities from Natural Earth data"
   }
 ]

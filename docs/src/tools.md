@@ -19,13 +19,13 @@ Copy an mbtiles file, optionally filtering its content by zoom levels. Can also 
 
 ```shell
 mbtiles copy src_file.mbtiles dst_file.mbtiles \
-        --min-zoom 0 --max-zoom 10 --force-simple
+        --min-zoom 0 --max-zoom 10
 ```
 
 Copy command can also be used to compare two mbtiles files and generate a diff.
 ```shell
 mbtiles copy src_file.mbtiles diff_file.mbtiles \
-        --force-simple --diff-with-file modified_file.mbtiles
+         --diff-with-file modified_file.mbtiles
 ```
 
 ### apply-diff
