@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{apply_mbtiles_diff, copy_mbtiles_file, Mbtiles, TileCopierOptions};
+use martin_mbtiles::{
+    apply_mbtiles_diff, copy_mbtiles_file, validate_mbtiles, Mbtiles, TileCopierOptions,
+};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -53,6 +55,12 @@ enum Commands {
         /// Diff file
         diff_file: PathBuf,
     },
+    /// Validate tile data if hash of tile data exists in file
+    #[command(name = "validate")]
+    Validate {
+        /// MBTiles file to validate
+        file: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -71,6 +79,9 @@ async fn main() -> Result<()> {
             diff_file,
         } => {
             apply_mbtiles_diff(src_file, diff_file).await?;
+        }
+        Commands::Validate { file } => {
+            validate_mbtiles(file).await?;
         }
     }
 
@@ -96,7 +107,7 @@ mod tests {
     use martin_mbtiles::{CopyDuplicateMode, TileCopierOptions};
 
     use crate::Args;
-    use crate::Commands::{ApplyDiff, Copy, MetaGetValue};
+    use crate::Commands::{ApplyDiff, Copy, MetaGetValue, Validate};
 
     #[test]
     fn test_copy_no_arguments() {
@@ -322,6 +333,19 @@ mod tests {
                 command: ApplyDiff {
                     src_file: PathBuf::from("src_file"),
                     diff_file: PathBuf::from("diff_file"),
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_validate() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "validate", "src_file"]),
+            Args {
+                verbose: false,
+                command: Validate {
+                    file: PathBuf::from("src_file"),
                 }
             }
         );

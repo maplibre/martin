@@ -105,6 +105,13 @@
     "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
   },
   {
+    "id": "invalid_zoomed_world_cities",
+    "content_type": "application/x-protobuf",
+    "content_encoding": "gzip",
+    "name": "Major cities from Natural Earth data",
+    "description": "Major cities from Natural Earth data"
+  },
+  {
     "id": "json",
     "content_type": "application/json",
     "name": "Dummy json data"

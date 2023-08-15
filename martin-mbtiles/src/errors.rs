@@ -22,8 +22,11 @@ pub enum MbtError {
     #[error("Invalid data format for MBTile file {0}")]
     InvalidDataFormat(String),
 
+    #[error("Invalid tile data for MBTile file {0}")]
+    InvalidTileData(String),
+
     #[error("Incorrect data format for MBTile file {0}; expected {1:?} and got {2:?}")]
-    IncorrectDataFormat(String, MbtType, MbtType),
+    IncorrectDataFormat(String, &'static [MbtType], MbtType),
 
     #[error(r#"Filename "{0}" passed to SQLite must be valid UTF-8"#)]
     InvalidFilenameType(PathBuf),

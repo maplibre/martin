@@ -13,6 +13,7 @@ use sqlx::{query, Connection, Row, SqliteConnection};
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType;
 use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::MbtError::{IncorrectDataFormat, InvalidTileData};
 use crate::{MbtError, Mbtiles};
 
 #[derive(PartialEq, Eq, Default, Debug, Clone)]
@@ -183,7 +184,7 @@ impl TileCopier {
             [self.src_mbtiles.filepath()],
         )?;
 
-        let (on_dupl, sql_cond)  = self.get_on_duplicate_sql(&dst_mbttype);
+        let (on_dupl, sql_cond) = self.get_on_duplicate_sql(&dst_mbttype);
 
         let (select_from, query_args) = {
             let select_from = if let Some(diff_file) = &self.options.diff_with_file {
@@ -218,7 +219,9 @@ impl TileCopier {
                     params_from_iter(&query_args),
                 )?;
                 rusqlite_conn.execute(
-                    &format!("INSERT OR IGNORE INTO images SELECT tile_data, hash FROM ({select_from})"),
+                    &format!(
+                        "INSERT OR IGNORE INTO images SELECT tile_data, hash FROM ({select_from})"
+                    ),
                     params_from_iter(query_args),
                 )?
             }
@@ -416,16 +419,11 @@ async fn open_and_detect_type(mbtiles: &Mbtiles) -> MbtResult<MbtType> {
     mbtiles.detect_type(&mut conn).await
 }
 
-pub async fn apply_mbtiles_diff(
-    src_file: PathBuf,
-    diff_file: PathBuf,
-) -> MbtResult<SqliteConnection> {
+pub async fn apply_mbtiles_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> {
     let src_mbtiles = Mbtiles::new(src_file)?;
     let diff_mbtiles = Mbtiles::new(diff_file)?;
 
-    let opt = SqliteConnectOptions::new().filename(src_mbtiles.filepath());
-    let mut conn = SqliteConnection::connect_with(&opt).await?;
-    let src_mbttype = src_mbtiles.detect_type(&mut conn).await?;
+    let src_mbttype = open_and_detect_type(&src_mbtiles).await?;
     let diff_mbttype = open_and_detect_type(&diff_mbtiles).await?;
 
     let rusqlite_conn = RusqliteConnection::open(Path::new(&src_mbtiles.filepath()))?;
@@ -464,7 +462,34 @@ pub async fn apply_mbtiles_diff(
         ),()
     )?;
 
-    Ok(conn)
+    Ok(())
+}
+
+pub async fn validate_mbtiles(file: PathBuf) -> MbtResult<()> {
+    let mbtiles = Mbtiles::new(file)?;
+    let mbttype = open_and_detect_type(&mbtiles).await?;
+
+    let sql = match mbttype {
+        Flat => {
+            return Err(IncorrectDataFormat(
+                mbtiles.filepath().to_string(),
+                &[FlatWithHash, Normalized],
+                Flat,
+            ));
+        }
+        FlatWithHash => "SELECT * FROM tiles_with_hash WHERE tile_hash!=hex(md5(tile_data));",
+        Normalized => "SELECT * FROM images WHERE tile_id!=hex(md5(tile_data));",
+    }
+    .to_string();
+
+    let rusqlite_conn = RusqliteConnection::open(Path::new(&mbtiles.filepath()))?;
+    register_md5_function(&rusqlite_conn)?;
+
+    if rusqlite_conn.prepare(&sql)?.exists(())? {
+        return Err(InvalidTileData(mbtiles.filepath().to_string()));
+    }
+
+    Ok(())
 }
 
 pub async fn copy_mbtiles_file(opts: TileCopierOptions) -> MbtResult<SqliteConnection> {
@@ -801,13 +826,13 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
         let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
 
-        let _src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), src.clone()))
+        let mut src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), src.clone()))
             .await
             .unwrap();
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/files/world_cities_diff.mbtiles");
-        let mut src_conn = apply_mbtiles_diff(src, diff_file).await.unwrap();
+        apply_mbtiles_diff(src, diff_file).await.unwrap();
 
         // Verify the data is the same as the file the diff was generated from
         let path = "../tests/fixtures/files/world_cities_modified.mbtiles";
@@ -831,13 +856,13 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
-        let _src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), src.clone()))
+        let mut src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), src.clone()))
             .await
             .unwrap();
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/files/geography-class-jpg-diff.mbtiles");
-        let mut src_conn = apply_mbtiles_diff(src, diff_file).await.unwrap();
+        apply_mbtiles_diff(src, diff_file).await.unwrap();
 
         // Verify the data is the same as the file the diff was generated from
         let path = "../tests/fixtures/files/geography-class-jpg-modified.mbtiles";
@@ -853,5 +878,22 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[actix_rt::test]
+    async fn validate_valid_file() {
+        let file = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
+
+        validate_mbtiles(file).await.unwrap();
+    }
+
+    #[actix_rt::test]
+    async fn validate_invalid_file() {
+        let file = PathBuf::from("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles");
+
+        assert!(matches!(
+            validate_mbtiles(file).await.unwrap_err(),
+            MbtError::InvalidTileData(..)
+        ));
     }
 }
