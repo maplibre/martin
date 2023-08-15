@@ -428,7 +428,6 @@ async fn open_and_detect_type(mbtiles: &Mbtiles) -> MbtResult<MbtType> {
     mbtiles.detect_type(&mut conn).await
 }
 
-// TODO: allow for applying to different types
 pub async fn apply_mbtiles_diff(
     src_file: PathBuf,
     diff_file: PathBuf,
@@ -438,38 +437,44 @@ pub async fn apply_mbtiles_diff(
 
     let opt = SqliteConnectOptions::new().filename(src_mbtiles.filepath());
     let mut conn = SqliteConnection::connect_with(&opt).await?;
-    let src_type = src_mbtiles.detect_type(&mut conn).await?;
+    let src_mbttype = src_mbtiles.detect_type(&mut conn).await?;
+    let diff_mbttype = open_and_detect_type(&diff_mbtiles).await?;
 
-    if src_type != Flat {
-        return Err(MbtError::IncorrectDataFormat(
-            src_mbtiles.filepath().to_string(),
-            Flat,
-            src_type,
-        ));
+    let rusqlite_conn = RusqliteConnection::open(Path::new(&src_mbtiles.filepath()))?;
+    register_sha256_function(&rusqlite_conn)?;
+    rusqlite_conn.execute("ATTACH DATABASE ? AS diffDb", [diff_mbtiles.filepath()])?;
+
+    let select_from = if src_mbttype == Flat {
+        "SELECT * FROM diffDb.tiles "
+    } else {
+        match diff_mbttype {
+            Flat => "SELECT *, hex(sha256(tile_data)) as hash FROM diffDb.tiles ",
+            FlatHashed => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM diffDb.hashed_tiles",
+            Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM diffDb.map LEFT JOIN diffDb.images ON diffDb.map.tile_id=diffDb.images.tile_id"
+        }
+    }.to_string();
+
+    let (insert_sql, main_table) = match src_mbttype {
+        Flat => (vec![format!(
+            "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) {select_from}"
+        )], "tiles".to_string()),
+        FlatHashed => (vec![format!(
+            "INSERT OR REPLACE INTO hashed_tiles {select_from}"
+        )], "hashed_tiles".to_string()),
+        Normalized => (vec![format!("INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id) SELECT zoom_level, tile_column, tile_row, hash as tile_id FROM ({select_from})"), format!(
+            "INSERT OR REPLACE INTO images SELECT tile_data, hash FROM ({select_from})"
+        )], "map".to_string())
+    };
+
+    for statement in insert_sql {
+        rusqlite_conn.execute(&format!("{statement} WHERE tile_data NOTNULL"), ())?;
     }
 
-    open_and_detect_type(&diff_mbtiles).await?;
-
-    let path = diff_mbtiles.filepath();
-    query!("ATTACH DATABASE ? AS diffDb", path)
-        .execute(&mut conn)
-        .await?;
-
-    query(
-        "
-    DELETE FROM tiles 
-    WHERE (zoom_level, tile_column, tile_row) IN 
-        (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);",
-    )
-    .execute(&mut conn)
-    .await?;
-
-    query(
-        "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) 
-    SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;",
-    )
-    .execute(&mut conn)
-    .await?;
+    rusqlite_conn.execute(
+        &format!(
+            "DELETE FROM {main_table} WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM ({select_from} WHERE tile_data ISNULL));"
+        ),()
+    )?;
 
     Ok(conn)
 }
@@ -657,23 +662,19 @@ mod tests {
             3
         );
 
-        assert_eq!(
-            get_one::<i32>(
-                &mut dst_conn,
-                "SELECT tile_data FROM tiles WHERE zoom_level=2 AND tile_row=2 AND tile_column=2;"
-            )
-            .await,
-            2
-        );
+        assert!(get_one::<Option<i32>>(
+            &mut dst_conn,
+            "SELECT * FROM tiles WHERE zoom_level=2 AND tile_row=2 AND tile_column=2;"
+        )
+        .await
+        .is_some());
 
-        assert_eq!(
-            get_one::<String>(
-                &mut dst_conn,
-                "SELECT tile_data FROM tiles WHERE zoom_level=1 AND tile_row=1 AND tile_column=1;"
-            )
-            .await,
-            "4"
-        );
+        assert!(get_one::<Option<i32>>(
+            &mut dst_conn,
+            "SELECT * FROM tiles WHERE zoom_level=1 AND tile_row=1 AND tile_column=1;"
+        )
+        .await
+        .is_some());
 
         assert!(get_one::<Option<i32>>(
             &mut dst_conn,
@@ -805,10 +806,10 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn apply_diff_file() {
+    async fn apply_flat_diff_file() {
         // Copy the src file to an in-memory DB
         let src_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
-        let src = PathBuf::from("file::memory:?cache=shared");
+        let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
 
         let _src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), src.clone()))
             .await
@@ -820,6 +821,36 @@ mod tests {
 
         // Verify the data is the same as the file the diff was generated from
         let path = "../tests/fixtures/files/world_cities_modified.mbtiles";
+        query!("ATTACH DATABASE ? AS otherDb", path)
+            .execute(&mut src_conn)
+            .await
+            .unwrap();
+
+        assert!(
+            query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
+                .fetch_optional(&mut src_conn)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn apply_normalized_diff_file() {
+        // Copy the src file to an in-memory DB
+        let src_file = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
+        let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
+
+        let _src_conn = copy_mbtiles_file(TileCopierOptions::new(src_file.clone(), src.clone()))
+            .await
+            .unwrap();
+
+        // Apply diff to the src data in in-memory DB
+        let diff_file = PathBuf::from("../tests/fixtures/files/geography-class-jpg-diff.mbtiles");
+        let mut src_conn = apply_mbtiles_diff(src, diff_file).await.unwrap();
+
+        // Verify the data is the same as the file the diff was generated from
+        let path = "../tests/fixtures/files/geography-class-jpg-modified.mbtiles";
         query!("ATTACH DATABASE ? AS otherDb", path)
             .execute(&mut src_conn)
             .await
