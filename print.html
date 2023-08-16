@@ -910,13 +910,17 @@ martin
 <pre><code class="language-shell">mbtiles meta-get my_file.mbtiles description
 </code></pre>
 <h3 id="copy"><a class="header" href="#copy">copy</a></h3>
-<p>Copy an mbtiles file, optionally filtering its content by zoom levels. Can also flatten mbtiles file from de-duplicated tiles to a simple table structure.</p>
+<p>Copy an mbtiles file, optionally filtering its content by zoom levels.</p>
 <pre><code class="language-shell">mbtiles copy src_file.mbtiles dst_file.mbtiles \
-        --min-zoom 0 --max-zoom 10 --force-simple
+        --min-zoom 0 --max-zoom 10
 </code></pre>
 <p>Copy command can also be used to compare two mbtiles files and generate a diff.</p>
 <pre><code class="language-shell">mbtiles copy src_file.mbtiles diff_file.mbtiles \
-        --force-simple --diff-with-file modified_file.mbtiles
+         --diff-with-file modified_file.mbtiles
+</code></pre>
+<p>This command can also be used to generate files of different <a href="tools.html##supported-schema">supported schema</a>.</p>
+<pre><code class="language-shell">mbtiles copy normalized.mbtiles dst.mbtiles \
+         --dst-mbttype flat-with-hash
 </code></pre>
 <h3 id="apply-diff"><a class="header" href="#apply-diff">apply-diff</a></h3>
 <p>Apply the diff file generated from <code>copy</code> command above to an mbtiles file. The diff file can be applied to the <code>src_file.mbtiles</code> elsewhere, to avoid copying/transmitting the entire modified dataset.</p>
@@ -930,7 +934,42 @@ martin
   &quot;DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);&quot; \
   &quot;INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;&quot;
 </code></pre>
-<p><strong><em>NOTE:</em></strong> Both of these methods for applying a diff <em>only</em> work for mbtiles files in the simple tables format; they do <em>not</em> work for mbtiles files in deduplicated format.</p>
+<p><strong><em>NOTE:</em></strong> Both of these methods for applying a diff <em>only</em> work for mbtiles files in the simple tables format; they do <em>not</em> work for mbtiles files in normalized_tables format.</p>
+<h3 id="validate"><a class="header" href="#validate">validate</a></h3>
+<p>If the <code>.mbtiles</code> file is of <code>flat_with_hash</code> or <code>normalized</code> type, then verify that the data stored in columns <code>tile_hash</code> and <code>tile_id</code> respectively are MD5 hashes of the <code>tile_data</code> column.</p>
+<pre><code class="language-shell">mbtiles validate src_file.mbtiles
+</code></pre>
+<h2 id="supported-schema"><a class="header" href="#supported-schema">Supported Schema</a></h2>
+<p>The <code>mbtiles</code> tool supports three different kinds of schema for <code>tiles</code> data in <code>.mbtiles</code> files:</p>
+<ul>
+<li><code>flat</code>: 
+<pre><code>CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
+CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);
+</code></pre>
+</li>
+<li><code>flat-with-hash</code>:
+<pre><code>CREATE TABLE tiles_with_hash (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob, tile_hash text);
+CREATE UNIQUE INDEX tiles_with_hash_index on tiles_with_hash (zoom_level, tile_column, tile_row);
+CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;
+</code></pre>
+</li>
+<li><code>normalized</code>:
+<pre><code>CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT); 
+CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
+CREATE TABLE images (tile_data blob, tile_id text);
+CREATE UNIQUE INDEX images_id ON images (tile_id);
+CREATE VIEW tiles AS
+  SELECT
+      map.zoom_level AS zoom_level,
+      map.tile_column AS tile_column,
+      map.tile_row AS tile_row,
+      images.tile_data AS tile_data
+  FROM map
+  JOIN images ON images.tile_id = map.tile_id;
+</code></pre>
+</li>
+</ul>
+<p>For more general spec information, see <a href="https://github.com/mapbox/mbtiles-spec#readme">here</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
 <p>Clone Martin, setting remote name to <code>upstream</code>. This way <code>main</code> branch will be updated automatically with the latest changes from the upstream repo.</p>
 <pre><code class="language-shell  ignore">git clone https://github.com/maplibre/martin.git -o upstream
