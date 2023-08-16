@@ -81,6 +81,12 @@
     "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
   },
   {
+    "id": "geography-class-jpg-diff",
+    "content_type": "image/jpeg",
+    "name": "Geography Class",
+    "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+  },
+  {
     "id": "geography-class-jpg-modified",
     "content_type": "image/jpeg",
     "name": "Geography Class",
@@ -97,6 +103,13 @@
     "content_type": "image/png",
     "name": "Geography Class",
     "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+  },
+  {
+    "id": "invalid_zoomed_world_cities",
+    "content_type": "application/x-protobuf",
+    "content_encoding": "gzip",
+    "name": "Major cities from Natural Earth data",
+    "description": "Major cities from Natural Earth data"
   },
   {
     "id": "json",
@@ -187,5 +200,12 @@
     "content_encoding": "gzip",
     "name": "Major cities from Natural Earth data",
     "description": "A modified version of major cities from Natural Earth data"
+  },
+  {
+    "id": "zoomed_world_cities",
+    "content_type": "application/x-protobuf",
+    "content_encoding": "gzip",
+    "name": "Major cities from Natural Earth data",
+    "description": "Major cities from Natural Earth data"
   }
 ]

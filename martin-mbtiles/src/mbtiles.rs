@@ -8,6 +8,8 @@ use std::fmt::Display;
 use std::path::Path;
 use std::str::FromStr;
 
+#[cfg(feature = "cli")]
+use clap::ValueEnum;
 use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
@@ -16,7 +18,9 @@ use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
-use crate::mbtiles_queries::{is_deduplicated_type, is_tile_tables_type};
+use crate::mbtiles_queries::{
+    is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
@@ -27,10 +31,12 @@ pub struct Metadata {
     pub json: Option<JSONValue>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtType {
-    TileTables,
-    DeDuplicated,
+    Flat,
+    FlatWithHash,
+    Normalized,
 }
 
 #[derive(Clone, Debug)]
@@ -281,10 +287,12 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let mbt_type = if is_deduplicated_type(&mut *conn).await? {
-            MbtType::DeDuplicated
-        } else if is_tile_tables_type(&mut *conn).await? {
-            MbtType::TileTables
+        let mbt_type = if is_normalized_tables_type(&mut *conn).await? {
+            MbtType::Normalized
+        } else if is_flat_with_hash_tables_type(&mut *conn).await? {
+            MbtType::FlatWithHash
+        } else if is_flat_tables_type(&mut *conn).await? {
+            MbtType::Flat
         } else {
             return Err(MbtError::InvalidDataFormat(self.filepath.clone()));
         };
@@ -304,8 +312,9 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let table_name = match mbt_type {
-            MbtType::TileTables => "tiles",
-            MbtType::DeDuplicated => "map",
+            MbtType::Flat => "tiles",
+            MbtType::FlatWithHash => "tiles_with_hash",
+            MbtType::Normalized => "map",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -436,11 +445,15 @@ mod tests {
     async fn detect_type() {
         let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::TileTables);
+        assert_eq!(res, MbtType::Flat);
+
+        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, MbtType::FlatWithHash);
 
         let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::DeDuplicated);
+        assert_eq!(res, MbtType::Normalized);
 
         let (mut conn, mbt) = open(":memory:").await;
         let res = mbt.detect_type(&mut conn).await;

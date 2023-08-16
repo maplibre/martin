@@ -10,5 +10,5 @@ pub use errors::MbtError;
 pub use mbtiles::{Mbtiles, Metadata};
 pub use mbtiles_pool::MbtilesPool;
 pub use tile_copier::{
-    apply_mbtiles_diff, copy_mbtiles_file, CopyDuplicateMode, TileCopierOptions,
+    apply_mbtiles_diff, copy_mbtiles_file, validate_mbtiles, CopyDuplicateMode, TileCopierOptions,
 };
