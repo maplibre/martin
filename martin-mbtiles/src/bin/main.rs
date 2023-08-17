@@ -38,12 +38,16 @@ enum Commands {
         /// Value to read
         key: String,
     },
-    // /// Sets a single value in the metadata table, or deletes it if no value.
-    // #[command(name = "meta-set")]
-    // MetaSetValue {
-    //     /// MBTiles file to modify
-    //     file: PathBuf,
-    // },
+    /// Sets a single value in the MBTiles' file metadata table or deletes it if no value.
+    #[command(name = "meta-set")]
+    MetaSetValue {
+        /// MBTiles file to modify
+        file: PathBuf,
+        /// Key to set
+        key: String,
+        /// Value to set
+        value: Option<String>,
+    },
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy")]
     Copy(TileCopierOptions),
@@ -70,6 +74,9 @@ async fn main() -> Result<()> {
     match args.command {
         Commands::MetaGetValue { file, key } => {
             meta_get_value(file.as_path(), &key).await?;
+        }
+        Commands::MetaSetValue { file, key, value } => {
+            meta_set_value(file.as_path(), &key, value).await?
         }
         Commands::Copy(opts) => {
             copy_mbtiles_file(opts).await?;
@@ -98,6 +105,14 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
     Ok(())
 }
 
+async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> Result<()> {
+    let mbt = Mbtiles::new(file)?;
+    let opt = SqliteConnectOptions::new().filename(file);
+    let mut conn = SqliteConnection::connect_with(&opt).await?;
+    mbt.set_metadata_value(&mut conn, key, value).await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -107,7 +122,7 @@ mod tests {
     use martin_mbtiles::{CopyDuplicateMode, TileCopierOptions};
 
     use crate::Args;
-    use crate::Commands::{ApplyDiff, Copy, MetaGetValue, Validate};
+    use crate::Commands::{ApplyDiff, Copy, MetaGetValue, MetaSetValue, Validate};
 
     #[test]
     fn test_copy_no_arguments() {
@@ -319,6 +334,46 @@ mod tests {
                 command: MetaGetValue {
                     file: PathBuf::from("src_file"),
                     key: "key".to_string(),
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_meta_set_no_arguments() {
+        assert_eq!(
+            Args::try_parse_from(["mbtiles", "meta-get"])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::MissingRequiredArgument
+        );
+    }
+
+    #[test]
+    fn test_meta_set_no_value_argument() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "meta-set", "src_file", "key"]),
+            Args {
+                verbose: false,
+                command: MetaSetValue {
+                    file: PathBuf::from("src_file"),
+                    key: "key".to_string(),
+                    value: None
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_meta_get_with_all_arguments() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "meta-set", "src_file", "key", "value"]),
+            Args {
+                verbose: false,
+                command: MetaSetValue {
+                    file: PathBuf::from("src_file"),
+                    key: "key".to_string(),
+                    value: Some("value".to_string())
                 }
             }
         );

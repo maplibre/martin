@@ -94,6 +94,31 @@ impl Mbtiles {
         Ok(None)
     }
 
+    pub async fn set_metadata_value<T>(
+        &self,
+        conn: &mut T,
+        key: &str,
+        value: Option<String>,
+    ) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        if let Some(value) = value {
+            query!(
+                "INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)",
+                key,
+                value
+            )
+            .execute(conn)
+            .await?;
+        } else {
+            query!("DELETE FROM metadata WHERE name=?", key)
+                .execute(conn)
+                .await?;
+        }
+        Ok(())
+    }
+
     pub async fn get_metadata<T>(&self, conn: &mut T) -> MbtResult<Metadata>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -439,6 +464,50 @@ mod tests {
         assert_eq!(res.unwrap(), None);
         let res = mbt.get_metadata_value(&mut conn, "").await;
         assert_eq!(res.unwrap(), None);
+    }
+
+    #[actix_rt::test]
+    async fn metadata_set_key() {
+        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await;
+
+        query("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+
+        mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0".to_string()))
+            .await
+            .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
+            "0.0, 0.0, 0.0, 0.0"
+        );
+
+        mbt.set_metadata_value(
+            &mut conn,
+            "bounds",
+            Some("-123.123590,-37.818085,174.763027,59.352706".to_string()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
+            "-123.123590,-37.818085,174.763027,59.352706"
+        );
+
+        mbt.set_metadata_value(&mut conn, "bounds", None)
+            .await
+            .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
+            None
+        );
     }
 
     #[actix_rt::test]

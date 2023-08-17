@@ -4,6 +4,7 @@ Usage: mbtiles <COMMAND>
 
 Commands:
   meta-get    Gets a single value from the MBTiles metadata table
+  meta-set    Sets a single value in the MBTiles' file metadata table or deletes it if no value
   copy        Copy tiles from one mbtiles file to another
   apply-diff  Apply diff file generated from 'copy' command
   validate    Validate tile data if hash of tile data exists in file
