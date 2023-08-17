@@ -181,6 +181,10 @@
 <p>Retrieve raw metadata value by its name. The value is printed to stdout without any modifications.  For example, to get the <code>description</code> value from an mbtiles file:</p>
 <pre><code class="language-shell">mbtiles meta-get my_file.mbtiles description
 </code></pre>
+<h3 id="meta-set"><a class="header" href="#meta-set">meta-set</a></h3>
+<p>Set metadata value by its name, or delete the key if no value is supplied. For example, to set the <code>description</code> value to <code>A vector tile dataset</code>:</p>
+<pre><code class="language-shell">mbtiles meta-set my_file.mbtiles description &quot;A vector tile dataset&quot;
+</code></pre>
 <h3 id="copy"><a class="header" href="#copy">copy</a></h3>
 <p>Copy an mbtiles file, optionally filtering its content by zoom levels.</p>
 <pre><code class="language-shell">mbtiles copy src_file.mbtiles dst_file.mbtiles \
