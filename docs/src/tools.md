@@ -14,6 +14,13 @@ Retrieve raw metadata value by its name. The value is printed to stdout without 
 mbtiles meta-get my_file.mbtiles description
 ```
 
+### meta-set
+Set metadata value by its name, or delete the key if no value is supplied. For example, to set the `description` value to `A vector tile dataset`:
+
+```shell
+mbtiles meta-set my_file.mbtiles description "A vector tile dataset"
+```
+
 ### copy
 Copy an mbtiles file, optionally filtering its content by zoom levels.
 
