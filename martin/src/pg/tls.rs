@@ -128,12 +128,13 @@ mod tests {
 
     #[test]
     fn test_parse_conn_str() {
-        let (cfg, mode) = parse_conn_str("postgresql://localhost:5432").unwrap();
+        let (cfg, mode) =
+            parse_conn_str("postgresql://user:password@localhost:5432/dbname").unwrap();
         assert_eq!(cfg.get_hosts(), &vec![Host::Tcp("localhost".to_string())]);
         assert_eq!(cfg.get_ports(), &vec![5432]);
-        assert_eq!(cfg.get_user(), None);
-        assert_eq!(cfg.get_dbname(), None);
-        assert_eq!(cfg.get_password(), None);
+        assert_eq!(cfg.get_user(), Some("user"));
+        assert_eq!(cfg.get_dbname(), Some("dbname"));
+        assert_eq!(cfg.get_password(), Some(b"password".as_ref()));
         assert_eq!(cfg.get_ssl_mode(), SslMode::Prefer);
         assert_eq!(mode, SslModeOverride::Unmodified(SslMode::Prefer));
 
