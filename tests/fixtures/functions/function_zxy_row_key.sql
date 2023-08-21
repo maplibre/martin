@@ -10,3 +10,28 @@ RETURNS TABLE(mvt bytea, key text) AS $$
         WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)
       ) as tile WHERE geom IS NOT NULL) src
 $$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION public.function_zxy_row_key (INT4, INT4, INT4) IS $tj$' || $$
+    {
+      "tilejson": "3.0.0",
+      "tiles": [],
+      "minzoom": 0,
+      "maxzoom": 18,
+      "bounds": [
+          -180,
+          -85,
+          180,
+          85
+      ],
+      "vector_layers": [
+        {
+            "id": "public.function_zxy_row_key",
+            "fields": {
+                "geom": ""
+            }
+        }
+      ]
+    }
+    $$::json || '$tj$';
+END $do$;

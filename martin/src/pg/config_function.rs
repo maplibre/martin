@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tilejson::{Bounds, TileJSON};
+use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
@@ -30,16 +30,30 @@ pub struct FunctionInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Bounds>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vector_layers: Option<Vec<VectorLayer>>,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl FunctionInfo {
     #[must_use]
-    pub fn new(schema: String, function: String) -> Self {
+    pub fn new(
+        schema: String,
+        function: String,
+        minzoom: Option<u8>,
+        maxzoom: Option<u8>,
+        bounds: Option<Bounds>,
+        vector_layers: Option<Vec<VectorLayer>>,
+    ) -> Self {
         Self {
             schema,
             function,
+            minzoom,
+            maxzoom,
+            bounds,
+            vector_layers,
             ..Default::default()
         }
     }
@@ -77,6 +91,7 @@ impl PgInfo for FunctionInfo {
         tilejson.minzoom = self.minzoom;
         tilejson.maxzoom = self.maxzoom;
         tilejson.bounds = self.bounds;
+        tilejson.vector_layers = self.vector_layers.clone();
         tilejson
     }
 }

@@ -16,3 +16,28 @@ BEGIN
   RETURN mvt;
 END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION public.function_zxy_query (INT4, INT4, INT4, JSON) IS $tj$' || $$
+    {
+      "tilejson": "3.0.0",
+      "tiles": [],
+      "minzoom": 0,
+      "maxzoom": 18,
+      "bounds": [
+        -180,
+        -85,
+        180,
+        85
+      ],
+      "vector_layers": [
+          {
+            "id": "public.function_zxy_query",
+            "fields": {
+              "geom": ""
+            }
+          }
+      ]
+    }
+    $$::json || '$tj$';
+END $do$;

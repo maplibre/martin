@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::iter::zip;
 
-use log::warn;
+use log::{debug, warn};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 
@@ -33,6 +33,19 @@ pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap
             let output_record_names = jsonb_to_vec(&row.get("output_record_names"));
             let input_types = jsonb_to_vec(&row.get("input_types")).expect("Can't get input types");
             let input_names = jsonb_to_vec(&row.get("input_names")).expect("Can't get input names");
+            let desc_text:Option<String> = row.get("description");
+            let desc: tilejson::TileJSON = if let Some(text) = desc_text{
+                match serde_json::from_str(text.as_str()){
+                    Ok(v) => v,
+                    Err(e) => {
+                        debug!("Can't descrialize comment of {}.{} as tilejson due to {}, a default description will be used",&schema,&function,e);
+                         tilejson::tilejson!(tiles:Vec::new())
+                    }
+                }
+            }else{
+                    debug!("Can't find comment of {}.{} as tilejson, a default description will be used",&schema,&function);
+                         tilejson::tilejson!(tiles:Vec::new())
+            };
 
             assert!(input_types.len() >= 3 && input_types.len() <= 4);
             assert_eq!(input_types.len(), input_names.len());
@@ -95,7 +108,7 @@ pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap
                                 input_types.join(", ")
                             ),
                         ),
-                        FunctionInfo::new(schema, function),
+                        FunctionInfo::new(schema, function,desc.minzoom,desc.maxzoom,desc.bounds,desc.vector_layers)
                     ),
                 )
             {
