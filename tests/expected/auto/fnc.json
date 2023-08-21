@@ -3,6 +3,8 @@
   "tiles": [
     "http://localhost:3111/function_zxy_query/{z}/{x}/{y}"
   ],
-  "description": "public.function_zxy_query",
-  "name": "function_zxy_query"
+  "name": "function_zxy_query",
+  "foo": {
+    "bar": "foo"
+  }
 }

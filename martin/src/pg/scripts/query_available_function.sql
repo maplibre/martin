@@ -29,17 +29,28 @@ WITH inputs AS (
                 jsonb_agg(parameter_name::text ORDER BY ordinal_position) as out_names
          FROM information_schema.parameters
          WHERE parameter_mode = 'OUT'
-         GROUP BY specific_name)
+         GROUP BY specific_name),
+    comments AS (
+        SELECT
+	        n.nspname AS schema,
+	        P.proname AS name,
+	        obj_description(P.oid, 'pg_proc') AS description
+	    FROM
+	    pg_proc P
+        JOIN pg_namespace n ON P.pronamespace = n.oid
+    )
 SELECT routines.specific_schema AS schema,
        routines.routine_name    AS name,
        routines.data_type       AS output_type,
        outputs.out_params       AS output_record_types,
        out_names                AS output_record_names,
        inputs.input_types       AS input_types,
-       inputs.input_names       AS input_names
+       inputs.input_names       AS input_names,
+       comments.description     AS  description
 FROM information_schema.routines
          JOIN inputs ON routines.specific_name = inputs.specific_name
          LEFT JOIN outputs ON routines.specific_name = outputs.specific_name
+         LEFT JOIN comments ON comments.schema = routines.specific_schema AND comments.name = routines.routine_name
 WHERE jsonb_array_length(input_names) IN (3, 4)
   AND lower(input_names ->> 0) IN ('z', 'zoom')
   AND lower(input_names ->> 1) = 'x'

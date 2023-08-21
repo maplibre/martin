@@ -17,7 +17,7 @@
   {
     "id": "function_Mixed_Name",
     "content_type": "application/x-protobuf",
-    "description": "MixedCase.function_Mixed_Name"
+    "description": "a function source with MixedCase name"
   },
   {
     "id": "function_null",
@@ -51,8 +51,7 @@
   },
   {
     "id": "function_zxy_query",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query"
+    "content_type": "application/x-protobuf"
   },
   {
     "id": "function_zxy_query_jsonb",

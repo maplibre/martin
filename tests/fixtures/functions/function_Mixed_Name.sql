@@ -13,3 +13,20 @@ RETURNS TABLE("mVt" bytea, key text) AS $$
       WHERE "Geom" && ST_Transform(ST_TileEnvelope("Z", x, y), 4326)
   ) as tile WHERE geom IS NOT NULL) src
 $$ LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION "MixedCase"."function_Mixed_Name" (INT4, INT4, INT4) IS $tj$' || $$
+    {
+        "description": "a function source with MixedCase name",
+        "vector_layers": [
+            {
+                "id": "MixedCase.function_Mixed_Name",
+                "fields": {
+                    "TABLE": "",
+                    "Geom": ""
+                }
+            }
+        ]
+    }
+    $$::json || '$tj$';
+END $do$;
