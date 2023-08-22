@@ -2,9 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{
-    apply_mbtiles_diff, copy_mbtiles_file, validate_mbtiles, Mbtiles, TileCopierOptions,
-};
+use martin_mbtiles::{apply_mbtiles_diff, copy_mbtiles_file, Mbtiles, TileCopierOptions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -88,7 +86,7 @@ async fn main() -> Result<()> {
             apply_mbtiles_diff(src_file, diff_file).await?;
         }
         Commands::Validate { file } => {
-            validate_mbtiles(file).await?;
+            validate_mbtiles(file.as_path()).await?;
         }
     }
 
@@ -110,6 +108,14 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> Result
     let opt = SqliteConnectOptions::new().filename(file);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
     mbt.set_metadata_value(&mut conn, key, value).await?;
+    Ok(())
+}
+
+async fn validate_mbtiles(file: &Path) -> Result<()> {
+    let mbt = Mbtiles::new(file)?;
+    let opt = SqliteConnectOptions::new().filename(file).read_only(true);
+    let mut conn = SqliteConnection::connect_with(&opt).await?;
+    mbt.validate_mbtiles(&mut conn).await?;
     Ok(())
 }
 

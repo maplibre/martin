@@ -14,6 +14,7 @@ use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
+use sqlite_hashes::{register_md5_function, rusqlite::Connection as RusqliteConnection};
 use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
@@ -21,6 +22,7 @@ use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles_queries::{
     is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
+use crate::MbtError::{IncorrectDataFormat, InvalidTileData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
@@ -374,6 +376,39 @@ impl Mbtiles {
 
         Err(MbtError::NoUniquenessConstraint(self.filepath.clone()))
     }
+
+    pub async fn validate_mbtiles<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let mbttype = self.detect_type(&mut *conn).await?;
+
+        let sql = match mbttype {
+            MbtType::Flat => {
+                return Err(IncorrectDataFormat(
+                    self.filepath().to_string(),
+                    &[MbtType::FlatWithHash, MbtType::Normalized],
+                    MbtType::Flat,
+                ));
+            }
+            MbtType::FlatWithHash => {
+                "SELECT * FROM tiles_with_hash WHERE tile_hash!=hex(md5(tile_data)) LIMIT 1;"
+            }
+            MbtType::Normalized => {
+                "SELECT * FROM images WHERE tile_id!=hex(md5(tile_data)) LIMIT 1;"
+            }
+        }
+        .to_string();
+
+        let rusqlite_conn = RusqliteConnection::open(Path::new(self.filepath()))?;
+        register_md5_function(&rusqlite_conn)?;
+
+        if rusqlite_conn.prepare(&sql)?.exists(())? {
+            return Err(InvalidTileData(self.filepath().to_string()));
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -527,5 +562,23 @@ mod tests {
         let (mut conn, mbt) = open(":memory:").await;
         let res = mbt.detect_type(&mut conn).await;
         assert!(matches!(res, Err(MbtError::InvalidDataFormat(_))));
+    }
+
+    #[actix_rt::test]
+    async fn validate_valid_file() {
+        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+
+        mbt.validate_mbtiles(&mut conn).await.unwrap();
+    }
+
+    #[actix_rt::test]
+    async fn validate_invalid_file() {
+        let (mut conn, mbt) =
+            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await;
+
+        assert!(matches!(
+            mbt.validate_mbtiles(&mut conn).await.unwrap_err(),
+            MbtError::InvalidTileData(..)
+        ));
     }
 }
