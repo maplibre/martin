@@ -93,7 +93,7 @@ The `mbtiles` tool supports three different kinds of schema for `tiles` data in 
       FROM map
       JOIN images ON images.tile_id = map.tile_id;
     ```
-  Optionally, `.mbtiles` files with this schema can also include the following view:
+  Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_hash` view:
   ```
   CREATE VIEW tiles_with_hash AS
       SELECT
