@@ -46,7 +46,7 @@ Apply the diff file generated from `copy` command above to an mbtiles file. The 
 mbtiles apply_diff src_file.mbtiles diff_file.mbtiles
 ```
 
-Another way to apply the diff is to use the `sqlite3` command line tool directly. This SQL will delete all tiles from `src_file.mbtiles` that are set to `NULL` in `diff_file.mbtiles`, and then insert or update all new tiles from `diff_file.mbtiles` into `src_file.mbtiles`. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.
+Another way to apply the diff is to use the `sqlite3` command line tool directly. This SQL will delete all tiles from `src_file.mbtiles` that are set to `NULL` in `diff_file.mbtiles`, and then insert or update all new tiles from `diff_file.mbtiles` into `src_file.mbtiles`, where both files are of `flat` type. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.
 ```shell
 sqlite3 src_file.mbtiles \
   -bail \
@@ -55,8 +55,6 @@ sqlite3 src_file.mbtiles \
   "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
   "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 ```
-
-**_NOTE:_** Both of these methods for applying a diff _only_ work for mbtiles files in the simple tables format; they do _not_ work for mbtiles files in normalized_tables format.
 
 ### validate
 If the `.mbtiles` file is of `flat_with_hash` or `normalized` type, then verify that the data stored in columns `tile_hash` and `tile_id` respectively are MD5 hashes of the `tile_data` column.

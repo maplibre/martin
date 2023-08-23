@@ -13,7 +13,6 @@ use sqlx::{query, Connection, Row, SqliteConnection};
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType;
 use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::MbtError::{IncorrectDataFormat, InvalidTileData};
 use crate::{MbtError, Mbtiles};
 
 #[derive(PartialEq, Eq, Default, Debug, Clone)]
@@ -465,33 +464,6 @@ pub async fn apply_mbtiles_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtRes
     Ok(())
 }
 
-pub async fn validate_mbtiles(file: PathBuf) -> MbtResult<()> {
-    let mbtiles = Mbtiles::new(file)?;
-    let mbttype = open_and_detect_type(&mbtiles).await?;
-
-    let sql = match mbttype {
-        Flat => {
-            return Err(IncorrectDataFormat(
-                mbtiles.filepath().to_string(),
-                &[FlatWithHash, Normalized],
-                Flat,
-            ));
-        }
-        FlatWithHash => "SELECT * FROM tiles_with_hash WHERE tile_hash!=hex(md5(tile_data));",
-        Normalized => "SELECT * FROM images WHERE tile_id!=hex(md5(tile_data));",
-    }
-    .to_string();
-
-    let rusqlite_conn = RusqliteConnection::open(Path::new(&mbtiles.filepath()))?;
-    register_md5_function(&rusqlite_conn)?;
-
-    if rusqlite_conn.prepare(&sql)?.exists(())? {
-        return Err(InvalidTileData(mbtiles.filepath().to_string()));
-    }
-
-    Ok(())
-}
-
 pub async fn copy_mbtiles_file(opts: TileCopierOptions) -> MbtResult<SqliteConnection> {
     let tile_copier = TileCopier::new(opts)?;
 
@@ -878,22 +850,5 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-    }
-
-    #[actix_rt::test]
-    async fn validate_valid_file() {
-        let file = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
-
-        validate_mbtiles(file).await.unwrap();
-    }
-
-    #[actix_rt::test]
-    async fn validate_invalid_file() {
-        let file = PathBuf::from("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles");
-
-        assert!(matches!(
-            validate_mbtiles(file).await.unwrap_err(),
-            MbtError::InvalidTileData(..)
-        ));
     }
 }
