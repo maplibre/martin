@@ -3,6 +3,22 @@
   "tiles": [
     "http://localhost:3111/function_zxy_query/{z}/{x}/{y}"
   ],
+  "vector_layers": [
+    {
+      "id": "public.function_zxy_query",
+      "fields": {
+        "geom": ""
+      }
+    }
+  ],
+  "bounds": [
+    -180,
+    -85,
+    180,
+    85
+  ],
   "description": "public.function_zxy_query",
+  "maxzoom": 18,
+  "minzoom": 0,
   "name": "function_zxy_query"
 }
