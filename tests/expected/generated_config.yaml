@@ -132,163 +132,39 @@ postgres:
     function_Mixed_Name:
       schema: MixedCase
       function: function_Mixed_Name
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: MixedCase.function_Mixed_Name
-        fields:
-          Geom: ''
-          TABLE: ''
     function_null:
       schema: public
       function: function_null
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers: []
     function_null_row:
       schema: public
       function: function_null_row
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers: []
     function_null_row2:
       schema: public
       function: function_null_row2
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers: []
     function_zoom_xy:
       schema: public
       function: function_zoom_xy
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zoom_xy
-        fields:
-          geom: ''
     function_zxy:
       schema: public
       function: function_zxy
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zxy
-        fields:
-          geom: ''
     function_zxy2:
       schema: public
       function: function_zxy2
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zxy2
-        fields:
-          geom: ''
     function_zxy_query:
       schema: public
       function: function_zxy_query
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zxy_query
-        fields:
-          geom: ''
     function_zxy_query_jsonb:
       schema: public
       function: function_zxy_query_jsonb
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zxy_query_jsonb
-        fields:
-          geom: ''
     function_zxy_query_test:
       schema: public
       function: function_zxy_query_test
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zxy_query_test
-        fields:
-          geom: ''
     function_zxy_row:
       schema: public
       function: function_zxy_row
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zxy_ROW
-        fields:
-          geom: ''
     function_zxy_row_key:
       schema: public
       function: function_zxy_row_key
-      minzoom: 0
-      maxzoom: 18
-      bounds:
-      - -180.0
-      - -85.0
-      - 180.0
-      - 85.0
-      vector_layers:
-      - id: public.function_zxy_row_key
-        fields:
-          geom: ''
 pmtiles:
   paths: tests/fixtures/files
   sources:

@@ -1,5 +1,6 @@
+use log::error;
 use serde::{Deserialize, Serialize};
-use tilejson::{Bounds, TileJSON, VectorLayer};
+use tilejson::{Bounds, TileJSON};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
@@ -30,8 +31,9 @@ pub struct FunctionInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Bounds>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vector_layers: Option<Vec<VectorLayer>>,
+    /// TileJSON provided by the SQL function comment. Not serialized.
+    #[serde(skip)]
+    pub tilejson: Option<serde_json::Value>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
@@ -39,21 +41,11 @@ pub struct FunctionInfo {
 
 impl FunctionInfo {
     #[must_use]
-    pub fn new(
-        schema: String,
-        function: String,
-        minzoom: Option<u8>,
-        maxzoom: Option<u8>,
-        bounds: Option<Bounds>,
-        vector_layers: Option<Vec<VectorLayer>>,
-    ) -> Self {
+    pub fn new(schema: String, function: String, tilejson: Option<serde_json::Value>) -> Self {
         Self {
             schema,
             function,
-            minzoom,
-            maxzoom,
-            bounds,
-            vector_layers,
+            tilejson,
             ..Default::default()
         }
     }
@@ -75,6 +67,34 @@ impl FunctionInfo {
             ..Default::default()
         }
     }
+
+    /// Merge the `self.tilejson` from the function comment into the generated tilejson (param)
+    fn merge_json(&self, tilejson: TileJSON) -> TileJSON {
+        let Some(tj) = &self.tilejson else {
+            // Nothing to merge in, keep the original
+            return tilejson;
+        };
+        // Not the most efficient, but this is only executed once per source:
+        // * Convert the TileJSON struct to a serde_json::Value
+        // * Merge the self.tilejson into the value
+        // * Convert the merged value back to a TileJSON struct
+        // * In case of errors, return the original tilejson
+        let mut tilejson2 = match serde_json::to_value(tilejson.clone()) {
+            Ok(v) => v,
+            Err(e) => {
+                error!("Failed to serialize tilejson, unable to merge function comment: {e}");
+                return tilejson;
+            }
+        };
+        json_patch::merge(&mut tilejson2, tj);
+        match serde_json::from_value(tilejson2.clone()) {
+            Ok(v) => v,
+            Err(e) => {
+                error!("Failed to deserialize merged function comment tilejson: {e}");
+                tilejson
+            }
+        }
+    }
 }
 
 impl PgInfo for FunctionInfo {
@@ -91,7 +111,6 @@ impl PgInfo for FunctionInfo {
         tilejson.minzoom = self.minzoom;
         tilejson.maxzoom = self.maxzoom;
         tilejson.bounds = self.bounds;
-        tilejson.vector_layers = self.vector_layers.clone();
-        tilejson
+        self.merge_json(tilejson)
     }
 }

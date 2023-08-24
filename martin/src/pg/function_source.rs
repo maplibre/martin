@@ -19,6 +19,7 @@ use crate::pg::Result;
 /// Panics if the built-in query returns unexpected results.
 pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap> {
     let mut res = SqlFuncInfoMapMap::new();
+
     pool.get()
         .await?
         .query(include_str!("scripts/query_available_function.sql"), &[])
@@ -33,18 +34,17 @@ pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap
             let output_record_names = jsonb_to_vec(&row.get("output_record_names"));
             let input_types = jsonb_to_vec(&row.get("input_types")).expect("Can't get input types");
             let input_names = jsonb_to_vec(&row.get("input_names")).expect("Can't get input names");
-            let desc_text:Option<String> = row.get("description");
-            let desc: tilejson::TileJSON = if let Some(text) = desc_text{
-                match serde_json::from_str(text.as_str()){
-                    Ok(v) => v,
+            let tilejson = if let Some(text) = row.get("description") {
+                match serde_json::from_str::<Value>(text) {
+                    Ok(v) => Some(v),
                     Err(e) => {
-                        debug!("Can't descrialize comment of {}.{} as tilejson due to {}, a default description will be used",&schema,&function,e);
-                         tilejson::tilejson!(tiles:Vec::new())
+                        warn!("Unable to deserialize SQL comment on {schema}.{function} as tilejson, a default description will be used: {e}");
+                        None
                     }
                 }
-            }else{
-                    debug!("Can't find comment of {}.{} as tilejson, a default description will be used",&schema,&function);
-                         tilejson::tilejson!(tiles:Vec::new())
+            } else {
+                debug!("Unable to find a SQL comment on {schema}.{function}, a default function description will be used");
+                None
             };
 
             assert!(input_types.len() >= 3 && input_types.len() <= 4);
@@ -63,7 +63,7 @@ pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap
 
             // Query preparation: the schema and function can't be part of a prepared query, so they
             // need to be escaped by hand.
-            // However schema and function comes from database introspection so they shall be safe.
+            // However schema and function comes from database introspection so they should be safe.
             let mut query = String::new();
             query.push_str(&escape_identifier(&schema));
             query.push('.');
@@ -108,7 +108,7 @@ pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap
                                 input_types.join(", ")
                             ),
                         ),
-                        FunctionInfo::new(schema, function,desc.minzoom,desc.maxzoom,desc.bounds,desc.vector_layers)
+                        FunctionInfo::new(schema, function, tilejson)
                     ),
                 )
             {
