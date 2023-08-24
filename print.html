@@ -970,7 +970,18 @@ CREATE VIEW tiles AS
   FROM map
   JOIN images ON images.tile_id = map.tile_id;
 </code></pre>
-</li>
+Optionally, <code>.mbtiles</code> files with <code>normalized</code> schema can include a <code>tiles_with_hash</code> view:
+<pre><code>CREATE VIEW tiles_with_hash AS
+    SELECT
+        map.zoom_level AS zoom_level,
+        map.tile_column AS tile_column,
+        map.tile_row AS tile_row,
+        images.tile_data AS tile_data,
+        images.tile_id AS tile_hash
+    FROM map
+    JOIN images ON images.tile_id = map.tile_id;
+</code></pre>
+<strong><strong>Note:</strong></strong> All <code>normalized</code> files created by the <code>mbtiles</code> tool will contain this view.</li>
 </ul>
 <p>For more general spec information, see <a href="https://github.com/mapbox/mbtiles-spec#readme">here</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
