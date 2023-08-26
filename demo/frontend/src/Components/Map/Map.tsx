@@ -1,8 +1,8 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import {MAP_STYLE} from '../../config/constants';
+import { MAP_STYLE } from '../../config/constants';
 import layers from '../../config/layers';
 import dateConverter from '../../utils/dateConverter';
 
