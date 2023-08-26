@@ -9,7 +9,7 @@ services:
     depends_on:
       - tiles
     ports:
-      - "80:8080"
+      - "80:80"
 
   tiles:
     image: ghcr.io/maplibre/martin
