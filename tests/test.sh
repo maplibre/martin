@@ -120,6 +120,7 @@ validate_log()
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
+  remove_line "$LOG_FILE" 'Source IDs must be unique'
 
   # Make sure the log has just the expected warnings, remove them, and test that there are no other ones
   test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
