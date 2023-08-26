@@ -1,10 +1,10 @@
 export default [
   {
     id: 'trips',
-    mapboxLayer: {
+    maplibreLayer: {
       id: 'trips',
       type: 'fill-extrusion',
-      source: 'public.get_trips',
+      source: 'trips_source',
       'source-layer': 'trips',
       layout: {
         visibility: 'visible'
@@ -78,10 +78,10 @@ export default [
   },
   {
     id: 'trips_price',
-    mapboxLayer: {
+    maplibreLayer: {
       id: 'trips_price',
       type: 'fill-extrusion',
-      source: 'public.get_trips',
+      source: 'trips_source',
       'source-layer': 'trips',
       layout: {
         visibility: 'none'
@@ -133,10 +133,10 @@ export default [
   },
   {
     id: 'trips_duration',
-    mapboxLayer: {
+    maplibreLayer: {
       id: 'trips_duration',
       type: 'fill-extrusion',
-      source: 'public.get_trips',
+      source: 'trips_source',
       'source-layer': 'trips',
       layout: {
         visibility: 'none'

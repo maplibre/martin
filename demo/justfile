@@ -19,3 +19,7 @@ up-backend:
 
 frontend *ARGS:
     docker-compose up frontend {{ ARGS }}
+
+[no-exit-message]
+frontend-sh:
+    docker-compose run --interactive --entrypoint sh frontend

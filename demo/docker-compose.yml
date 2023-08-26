@@ -9,7 +9,10 @@ services:
     depends_on:
       - tiles
     ports:
-      - "80:8080"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/ssl/certs
 
   tiles:
     image: ghcr.io/maplibre/martin

@@ -1,3 +1,7 @@
+*Dockerfile
+.dockerignore
+.vscode
+
 ### Node template
 # Logs
 logs
