@@ -1,7 +1,7 @@
-use sqlite_hashes::rusqlite;
 use std::path::PathBuf;
 
 use martin_tile_utils::TileInfo;
+use sqlite_hashes::rusqlite;
 
 use crate::mbtiles::MbtType;
 

@@ -97,9 +97,9 @@ You can access this params using [json operators](https://www.postgresql.org/doc
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
 ```
 
-## Tilejson
+## Modifying TileJSON
 
-Martin will generate a basic [tilejson](https://github.com/mapbox/tilejson-spec) for each `function source`, eg, if there is a function `public.function_zxy_query_jsonb` , the basic `tilejson` will be:
+Martin will automatically generate a basic [TileJSON](https://github.com/mapbox/tilejson-spec) manifest for each function source that will contain the name and description of the function, plus optionally `minzoom`, `maxzoom`, and `bounds` (if they were specified via one of the configuration methods).  For example, if there is a function `public.function_zxy_query_jsonb`, the default `TileJSON` might look like this (note that URL will be automatically adjusted to match the request host):
 
 ```json
 {
@@ -107,28 +107,32 @@ Martin will generate a basic [tilejson](https://github.com/mapbox/tilejson-spec)
   "tiles": [
     "http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}"
   ],
-  "description": "public.function_zxy_query_jsonb",
-  "name": "function_zxy_query_jsonb"
+  "name": "function_zxy_query_jsonb",
+  "description": "public.function_zxy_query_jsonb"
 }
 ```
 
-But it's not too helpful for clients like `maplibre`. There are no `bounds`, `minzoom`, `maxzoom`, and even `vector_layers`.
-### Comments as tilejson
+### TileJSON in SQL Comments
 
-For a helpful `tilejson`, Martin will read comments on function source as `tilejson`. This comment will be merged into the basic `tilejson` as a patch. 
+To modify automatically generated `TileJSON`, you can add a valid JSON as an SQL comment on the function. Martin will merge function comment into the generated `TileJSON` using [JSON Merge patch](https://www.rfc-editor.org/rfc/rfc7386). The following example adds `attribution` and `version` fields to the `TileJSON`.
 
-1. Martin will generate a basic `tilejson` for each `function source`.
-2. Matin will try to read comment on `function source` as `tilejson`.
-3. If `step 2`  failed, Martin will log a warn, and use the basic `tilejson` directly.
-4. Else, Martin uses the generated `tilejson` as the "base", and applies all fields from the comment's `tilejson` as a "patch". 
-
-To add a comment as `tilejson` with validation:
+**Note:** This example uses `EXECUTE` to ensure that the comment is a valid JSON (or else PostgreSQL will throw an error).  You can use other methods of creating SQL comments.
 
 ```sql
 DO $do$ BEGIN
-    EXECUTE 'COMMENT ON FUNCTION YOUR_FUNCTION (ARG1_TYPE,ARG2_TYPE,..ARGN_TYPE) IS $tj$' || $$
-    YOUR TILEJSO HERE
+    EXECUTE 'COMMENT ON FUNCTION my_function_name(INT4, INT4, INT4) IS $tj$' || $$
+    {
+        "description": "my new description",
+        "vector_layers": [
+            {
+                "id": "my_layer_id",
+                "fields": {
+                    "field1": "String",
+                    "field2": "Number"
+                }
+            }
+        ]
+    }
     $$::json || '$tj$';
 END $do$;
-
 ```

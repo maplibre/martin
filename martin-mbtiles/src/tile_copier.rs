@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 #[cfg(feature = "cli")]
 use clap::{builder::ValueParser, error::ErrorKind, Args, ValueEnum};
-use sqlite_hashes::rusqlite::params_from_iter;
-use sqlite_hashes::{register_md5_function, rusqlite::Connection as RusqliteConnection};
+use sqlite_hashes::register_md5_function;
+use sqlite_hashes::rusqlite::{params_from_iter, Connection as RusqliteConnection};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection, Row, SqliteConnection};
 
