@@ -60,6 +60,7 @@ brotli.workspace = true
 clap.workspace = true
 deadpool-postgres.workspace = true
 env_logger.workspace = true
+json-patch.workspace = true
 flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true

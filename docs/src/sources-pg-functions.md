@@ -96,3 +96,39 @@ You can access this params using [json operators](https://www.postgresql.org/doc
 ```sql, ignore
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
 ```
+
+## Tilejson
+
+Martin will generate a basic [tilejson](https://github.com/mapbox/tilejson-spec) for each `function source`, eg, if there is a function `public.function_zxy_query_jsonb` , the basic `tilejson` will be:
+
+```json
+{
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}"
+  ],
+  "description": "public.function_zxy_query_jsonb",
+  "name": "function_zxy_query_jsonb"
+}
+```
+
+But it's not too helpful for clients like `maplibre`. There are no `bounds`, `minzoom`, `maxzoom`, and even `vector_layers`.
+### Comments as tilejson
+
+For a helpful `tilejson`, Martin will read comments on function source as `tilejson`. This comment will be merged into the basic `tilejson` as a patch. 
+
+1. Martin will generate a basic `tilejson` for each `function source`.
+2. Matin will try to read comment on `function source` as `tilejson`.
+3. If `step 2`  failed, Martin will log a warn, and use the basic `tilejson` directly.
+4. Else, Martin uses the generated `tilejson` as the "base", and applies all fields from the comment's `tilejson` as a "patch". 
+
+To add a comment as `tilejson` with validation:
+
+```sql
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION YOUR_FUNCTION (ARG1_TYPE,ARG2_TYPE,..ARGN_TYPE) IS $tj$' || $$
+    YOUR TILEJSO HERE
+    $$::json || '$tj$';
+END $do$;
+
+```

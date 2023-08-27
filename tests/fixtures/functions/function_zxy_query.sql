@@ -16,3 +16,12 @@ BEGIN
   RETURN mvt;
 END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION public.function_zxy_query (INT4, INT4, INT4, JSON) IS $tj$' || $$
+    {
+      "description": null,
+      "foo": {"bar": "foo"}
+    }
+    $$::json || '$tj$';
+END $do$;
