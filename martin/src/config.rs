@@ -110,14 +110,18 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
+        // Minor in-efficiency:
+        // Sources are added to a BTreeMap, then iterated over into a sort structure and convert back to a BTreeMap.
+        // Ideally there should be a vector of values, which is then sorted (in-place?) and converted to a BTreeMap.
         Ok(AllSources {
-            sources: try_join_all(sources).await?.into_iter().fold(
-                Sources::default(),
-                |mut acc, hashmap| {
+            sources: try_join_all(sources)
+                .await?
+                .into_iter()
+                .fold(Sources::default(), |mut acc, hashmap| {
                     acc.extend(hashmap);
                     acc
-                },
-            ),
+                })
+                .sort(),
             sprites: resolve_sprites(&mut self.sprites)?,
         })
     }

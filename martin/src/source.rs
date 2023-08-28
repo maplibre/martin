@@ -1,14 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display, Formatter};
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
+use itertools::Itertools;
 use log::debug;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::utils::{sorted_map, Result};
+use crate::utils::Result;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Xyz {
@@ -34,6 +35,23 @@ pub type UrlQuery = HashMap<String, String>;
 pub struct Sources {
     tiles: HashMap<String, Box<dyn Source>>,
     catalog: SourceCatalog,
+}
+
+impl Sources {
+    #[must_use]
+    pub fn sort(self) -> Self {
+        Self {
+            tiles: self.tiles,
+            catalog: SourceCatalog {
+                tiles: self
+                    .catalog
+                    .tiles
+                    .into_iter()
+                    .sorted_by(|a, b| a.0.cmp(&b.0))
+                    .collect(),
+            },
+        }
+    }
 }
 
 impl Sources {
@@ -141,9 +159,7 @@ impl Clone for Box<dyn Source> {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SourceCatalog {
-    // TODO: Use pre-sorted BTreeMap instead
-    #[serde(serialize_with = "sorted_map")]
-    tiles: HashMap<String, SourceEntry>,
+    tiles: BTreeMap<String, SourceEntry>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

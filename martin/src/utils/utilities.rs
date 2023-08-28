@@ -27,14 +27,6 @@ pub fn sorted_opt_map<S: Serializer, T: Serialize>(
     value.as_ref().map(sorted_btree_map).serialize(serializer)
 }
 
-/// Sort a hashmap by key, case-insensitive first, then case-sensitive
-pub fn sorted_map<S: Serializer, T: Serialize>(
-    value: &HashMap<String, T>,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    sorted_btree_map(value).serialize(serializer)
-}
-
 pub fn sorted_btree_map<K: Serialize + Ord, V>(value: &HashMap<K, V>) -> BTreeMap<&K, &V> {
     let mut items: Vec<(_, _)> = value.iter().collect();
     items.sort_by(|a, b| a.0.cmp(b.0));
