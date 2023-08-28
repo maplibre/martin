@@ -1,8 +1,9 @@
-use log::warn;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::sync::{Arc, Mutex};
+
+use log::warn;
 
 #[derive(Debug, Default, Clone)]
 pub struct IdResolver {

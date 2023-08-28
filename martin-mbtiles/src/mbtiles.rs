@@ -14,7 +14,8 @@ use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
-use sqlite_hashes::{register_md5_function, rusqlite::Connection as RusqliteConnection};
+use sqlite_hashes::register_md5_function;
+use sqlite_hashes::rusqlite::Connection as RusqliteConnection;
 use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 

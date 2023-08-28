@@ -60,6 +60,8 @@ impl PgBuilder {
         })
     }
 
+    // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
+    #[allow(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources)> {
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
@@ -74,15 +76,29 @@ impl PgBuilder {
                 }
             }
 
-            let Some(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else { continue };
-            let Some(db_geo_columns) = find_info(db_tables, &cfg_inf.table, "table", id) else { continue };
-            let Some(db_inf) = find_info(db_geo_columns, &cfg_inf.geometry_column, "geometry column", id) else { continue };
+            let Some(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else {
+                continue;
+            };
+            let Some(db_geo_columns) = find_info(db_tables, &cfg_inf.table, "table", id) else {
+                continue;
+            };
+            let Some(db_inf) = find_info(
+                db_geo_columns,
+                &cfg_inf.geometry_column,
+                "geometry column",
+                id,
+            ) else {
+                continue;
+            };
 
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(merged_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_inf) else { continue };
+            let Some(merged_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_inf)
+            else {
+                continue;
+            };
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
             pending.push(table_to_query(
@@ -108,7 +124,9 @@ impl PgBuilder {
             );
 
             for schema in schemas.iter().sorted() {
-                let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else { continue };
+                let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else {
+                    continue;
+                };
                 let db_tables = db_tables_info.remove(&schema).unwrap();
                 for (table, geoms) in db_tables.into_iter().sorted_by(by_key) {
                     for (geom_column, mut db_inf) in geoms.into_iter().sorted_by(by_key) {
@@ -121,7 +139,11 @@ impl PgBuilder {
                             .replace("{table}", &table)
                             .replace("{column}", &geom_column);
                         let id2 = self.resolve_id(&source_id, &db_inf);
-                        let Some(srid) = calc_srid(&db_inf.format_id(), &id2, db_inf.srid, 0, self.default_srid) else { continue };
+                        let Some(srid) =
+                            calc_srid(&db_inf.format_id(), &id2, db_inf.srid, 0, self.default_srid)
+                        else {
+                            continue;
+                        };
                         db_inf.srid = srid;
                         update_id_column(&id2, &mut db_inf, auto_tables);
                         info!("Discovered source {id2} from {}", summary(&db_inf));
@@ -164,12 +186,16 @@ impl PgBuilder {
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Some(db_funcs) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else { continue };
+            let Some(db_funcs) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else {
+                continue;
+            };
             if db_funcs.is_empty() {
                 warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
             }
-            let Some((pg_sql, _)) = find_info(db_funcs, &cfg_inf.function, "function", id) else { continue };
+            let Some((pg_sql, _)) = find_info(db_funcs, &cfg_inf.function, "function", id) else {
+                continue;
+            };
 
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
             let dup = if dup { "duplicate " } else { "" };
@@ -197,7 +223,9 @@ impl PgBuilder {
             );
 
             for schema in schemas.iter().sorted() {
-                let Some(schema) = normalize_key(&db_funcs_info, schema, "schema", "") else { continue; };
+                let Some(schema) = normalize_key(&db_funcs_info, schema, "schema", "") else {
+                    continue;
+                };
                 let db_funcs = db_funcs_info.remove(&schema).unwrap();
                 for (func, (pg_sql, db_inf)) in db_funcs.into_iter().sorted_by(by_key) {
                     if used.contains(&(schema.as_str(), func.as_str())) {
@@ -237,10 +265,14 @@ impl PgBuilder {
 /// Try to find any ID column in a list of table columns (properties) that match one of the given `id_column` values.
 /// If found, modify `id_column` value on the table info.
 fn update_id_column(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
-    let Some(props) = inf.properties.as_mut() else { return };
-    let Some(try_columns) = &auto_tables.id_columns else { return };
+    let Some(props) = inf.properties.as_mut() else {
+        return;
+    };
+    let Some(try_columns) = &auto_tables.id_columns else {
+        return;
+    };
 
-    for key in try_columns.iter() {
+    for key in try_columns {
         let (column, typ) = if let Some(typ) = props.get(key) {
             (key, typ)
         } else {

@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = ["martin", "martin-tile-utils", "martin-mbtiles"]
 
 [workspace.package]
