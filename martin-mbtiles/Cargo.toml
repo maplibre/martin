@@ -29,6 +29,7 @@ tilejson.workspace = true
 # Bin dependencies
 anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
+sqlite-hashes.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 
 [dev-dependencies]

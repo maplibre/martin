@@ -23,7 +23,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
 #[must_use]
 pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<serde_json::Value>> {
     let mut query_as_json = HashMap::new();
-    for (k, v) in query.iter() {
+    for (k, v) in query {
         let json_value: serde_json::Value =
             serde_json::from_str(v).unwrap_or_else(|_| serde_json::Value::String(v.clone()));
 

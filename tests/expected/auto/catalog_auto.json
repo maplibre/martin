@@ -14,7 +14,7 @@
     },
     "function_Mixed_Name": {
       "content_type": "application/x-protobuf",
-      "description": "MixedCase.function_Mixed_Name"
+      "description": "a function source with MixedCase name"
     },
     "function_null": {
       "content_type": "application/x-protobuf",
@@ -41,8 +41,7 @@
       "description": "public.function_zxy2"
     },
     "function_zxy_query": {
-      "content_type": "application/x-protobuf",
-      "description": "public.function_zxy_query"
+      "content_type": "application/x-protobuf"
     },
     "function_zxy_query_jsonb": {
       "content_type": "application/x-protobuf",
@@ -65,6 +64,11 @@
       "name": "Geography Class",
       "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
     },
+    "geography-class-jpg-diff": {
+      "content_type": "image/jpeg",
+      "name": "Geography Class",
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+    },
     "geography-class-jpg-modified": {
       "content_type": "image/jpeg",
       "name": "Geography Class",
@@ -79,6 +83,12 @@
       "content_type": "image/png",
       "name": "Geography Class",
       "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+    },
+    "invalid_zoomed_world_cities": {
+      "content_type": "application/x-protobuf",
+      "content_encoding": "gzip",
+      "name": "Major cities from Natural Earth data",
+      "description": "Major cities from Natural Earth data"
     },
     "json": {
       "content_type": "application/json",
@@ -152,6 +162,12 @@
       "content_encoding": "gzip",
       "name": "Major cities from Natural Earth data",
       "description": "A modified version of major cities from Natural Earth data"
+    },
+    "zoomed_world_cities": {
+      "content_type": "application/x-protobuf",
+      "content_encoding": "gzip",
+      "name": "Major cities from Natural Earth data",
+      "description": "Major cities from Natural Earth data"
     }
   }
 }

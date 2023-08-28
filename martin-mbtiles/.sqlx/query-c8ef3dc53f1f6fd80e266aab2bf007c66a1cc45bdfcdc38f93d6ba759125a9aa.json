@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "c8ef3dc53f1f6fd80e266aab2bf007c66a1cc45bdfcdc38f93d6ba759125a9aa"
+}

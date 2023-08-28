@@ -50,14 +50,14 @@ impl PgPool {
         let version = get_conn(&pool, id.as_str())
             .await?
             .query_one(
-                r#"
+                r"
 SELECT
     (regexp_matches(
            PostGIS_Lib_Version(),
            '^(\d+\.\d+\.\d+)',
            'g'
     ))[1] as version;
-                "#,
+                ",
                 &[],
             )
             .await

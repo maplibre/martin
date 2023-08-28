@@ -96,3 +96,43 @@ You can access this params using [json operators](https://www.postgresql.org/doc
 ```sql, ignore
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
 ```
+
+## Modifying TileJSON
+
+Martin will automatically generate a basic [TileJSON](https://github.com/mapbox/tilejson-spec) manifest for each function source that will contain the name and description of the function, plus optionally `minzoom`, `maxzoom`, and `bounds` (if they were specified via one of the configuration methods).  For example, if there is a function `public.function_zxy_query_jsonb`, the default `TileJSON` might look like this (note that URL will be automatically adjusted to match the request host):
+
+```json
+{
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}"
+  ],
+  "name": "function_zxy_query_jsonb",
+  "description": "public.function_zxy_query_jsonb"
+}
+```
+
+### TileJSON in SQL Comments
+
+To modify automatically generated `TileJSON`, you can add a valid JSON as an SQL comment on the function. Martin will merge function comment into the generated `TileJSON` using [JSON Merge patch](https://www.rfc-editor.org/rfc/rfc7386). The following example adds `attribution` and `version` fields to the `TileJSON`.
+
+**Note:** This example uses `EXECUTE` to ensure that the comment is a valid JSON (or else PostgreSQL will throw an error).  You can use other methods of creating SQL comments.
+
+```sql
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION my_function_name(INT4, INT4, INT4) IS $tj$' || $$
+    {
+        "description": "my new description",
+        "vector_layers": [
+            {
+                "id": "my_layer_id",
+                "fields": {
+                    "field1": "String",
+                    "field2": "Number"
+                }
+            }
+        ]
+    }
+    $$::json || '$tj$';
+END $do$;
+```

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "ATTACH DATABASE ? AS diffDb",
+  "query": "DELETE FROM metadata WHERE name=?",
   "describe": {
     "columns": [],
     "parameters": {
@@ -8,5 +8,5 @@
     },
     "nullable": []
   },
-  "hash": "e13e2e17d5bf56287bc0fd7c55a1f52ce710d8978e3b35b59b724fc5bee9f55c"
+  "hash": "4d952966a8d8a030d2467c0701a6e16068c9897dd25d0ebd32929db9960596b4"
 }

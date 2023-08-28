@@ -3,10 +3,15 @@
 # See https://github.com/rhysd/cargo-husky#readme
 #
 
+echo "----------------------------------------------------------------------------------------"
+echo "These tests run automatically before the    git push"
+echo "If you want to push your changes without testing them first, use    git push --no-verify"
+echo "----------------------------------------------------------------------------------------"
+
 set -e
 
 if ! command -v just > /dev/null; then
-    echo "`just` is not installed. See https://github.com/casey/just#readme for installation instructions, or use"
+    echo "Command 'just' is not installed. See https://github.com/casey/just#readme for installation instructions, or use"
     echo ""
     echo "  cargo install just"
     echo ""

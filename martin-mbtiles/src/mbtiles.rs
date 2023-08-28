@@ -8,15 +8,22 @@ use std::fmt::Display;
 use std::path::Path;
 use std::str::FromStr;
 
+#[cfg(feature = "cli")]
+use clap::ValueEnum;
 use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
+use sqlite_hashes::register_md5_function;
+use sqlite_hashes::rusqlite::Connection as RusqliteConnection;
 use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
-use crate::mbtiles_queries::{is_deduplicated_type, is_tile_tables_type};
+use crate::mbtiles_queries::{
+    is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
+};
+use crate::MbtError::{IncorrectDataFormat, InvalidTileData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
@@ -27,10 +34,12 @@ pub struct Metadata {
     pub json: Option<JSONValue>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtType {
-    TileTables,
-    DeDuplicated,
+    Flat,
+    FlatWithHash,
+    Normalized,
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +95,31 @@ impl Mbtiles {
             }
         }
         Ok(None)
+    }
+
+    pub async fn set_metadata_value<T>(
+        &self,
+        conn: &mut T,
+        key: &str,
+        value: Option<String>,
+    ) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        if let Some(value) = value {
+            query!(
+                "INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)",
+                key,
+                value
+            )
+            .execute(conn)
+            .await?;
+        } else {
+            query!("DELETE FROM metadata WHERE name=?", key)
+                .execute(conn)
+                .await?;
+        }
+        Ok(())
     }
 
     pub async fn get_metadata<T>(&self, conn: &mut T) -> MbtResult<Metadata>
@@ -281,10 +315,12 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let mbt_type = if is_deduplicated_type(&mut *conn).await? {
-            MbtType::DeDuplicated
-        } else if is_tile_tables_type(&mut *conn).await? {
-            MbtType::TileTables
+        let mbt_type = if is_normalized_tables_type(&mut *conn).await? {
+            MbtType::Normalized
+        } else if is_flat_with_hash_tables_type(&mut *conn).await? {
+            MbtType::FlatWithHash
+        } else if is_flat_tables_type(&mut *conn).await? {
+            MbtType::Flat
         } else {
             return Err(MbtError::InvalidDataFormat(self.filepath.clone()));
         };
@@ -304,8 +340,9 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let table_name = match mbt_type {
-            MbtType::TileTables => "tiles",
-            MbtType::DeDuplicated => "map",
+            MbtType::Flat => "tiles",
+            MbtType::FlatWithHash => "tiles_with_hash",
+            MbtType::Normalized => "map",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -339,6 +376,39 @@ impl Mbtiles {
         }
 
         Err(MbtError::NoUniquenessConstraint(self.filepath.clone()))
+    }
+
+    pub async fn validate_mbtiles<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let mbttype = self.detect_type(&mut *conn).await?;
+
+        let sql = match mbttype {
+            MbtType::Flat => {
+                return Err(IncorrectDataFormat(
+                    self.filepath().to_string(),
+                    &[MbtType::FlatWithHash, MbtType::Normalized],
+                    MbtType::Flat,
+                ));
+            }
+            MbtType::FlatWithHash => {
+                "SELECT * FROM tiles_with_hash WHERE tile_hash!=hex(md5(tile_data)) LIMIT 1;"
+            }
+            MbtType::Normalized => {
+                "SELECT * FROM images WHERE tile_id!=hex(md5(tile_data)) LIMIT 1;"
+            }
+        }
+        .to_string();
+
+        let rusqlite_conn = RusqliteConnection::open(Path::new(self.filepath()))?;
+        register_md5_function(&rusqlite_conn)?;
+
+        if rusqlite_conn.prepare(&sql)?.exists(())? {
+            return Err(InvalidTileData(self.filepath().to_string()));
+        }
+
+        Ok(())
     }
 }
 
@@ -433,17 +503,83 @@ mod tests {
     }
 
     #[actix_rt::test]
+    async fn metadata_set_key() {
+        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await;
+
+        query("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+
+        mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0".to_string()))
+            .await
+            .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
+            "0.0, 0.0, 0.0, 0.0"
+        );
+
+        mbt.set_metadata_value(
+            &mut conn,
+            "bounds",
+            Some("-123.123590,-37.818085,174.763027,59.352706".to_string()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
+            "-123.123590,-37.818085,174.763027,59.352706"
+        );
+
+        mbt.set_metadata_value(&mut conn, "bounds", None)
+            .await
+            .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
+            None
+        );
+    }
+
+    #[actix_rt::test]
     async fn detect_type() {
         let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::TileTables);
+        assert_eq!(res, MbtType::Flat);
+
+        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, MbtType::FlatWithHash);
 
         let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::DeDuplicated);
+        assert_eq!(res, MbtType::Normalized);
 
         let (mut conn, mbt) = open(":memory:").await;
         let res = mbt.detect_type(&mut conn).await;
         assert!(matches!(res, Err(MbtError::InvalidDataFormat(_))));
+    }
+
+    #[actix_rt::test]
+    async fn validate_valid_file() {
+        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+
+        mbt.validate_mbtiles(&mut conn).await.unwrap();
+    }
+
+    #[actix_rt::test]
+    async fn validate_invalid_file() {
+        let (mut conn, mbt) =
+            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await;
+
+        assert!(matches!(
+            mbt.validate_mbtiles(&mut conn).await.unwrap_err(),
+            MbtError::InvalidTileData(..)
+        ));
     }
 }

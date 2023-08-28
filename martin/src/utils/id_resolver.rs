@@ -3,6 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 
+use log::warn;
+
 #[derive(Debug, Default, Clone)]
 pub struct IdResolver {
     /// name -> unique name
@@ -25,6 +27,22 @@ impl IdResolver {
     /// Only alphanumeric characters plus dashes/dots/underscores are allowed.
     #[must_use]
     pub fn resolve(&self, name: &str, unique_name: String) -> String {
+        let info = if name == unique_name {
+            None
+        } else {
+            Some(unique_name.clone())
+        };
+        let new_name = self.resolve_int(name, unique_name);
+        if name != new_name {
+            warn!("Source `{name}`{info} was renamed to `{new_name}`. Source IDs must be unique, cannot be reserved, and must contain alpha-numeric characters or `._-`",
+                 info = info.map_or(String::new(), |v| format!(" ({v})"))
+            );
+        }
+        new_name
+    }
+
+    #[must_use]
+    fn resolve_int(&self, name: &str, unique_name: String) -> String {
         // Ensure name has no prohibited characters like spaces, commas, slashes, or non-unicode etc.
         // Underscores, dashes, and dots are OK. All other characters will be replaced with dashes.
         let mut name = name.replace(
