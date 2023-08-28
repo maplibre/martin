@@ -1,10 +1,8 @@
-use std::cmp::Ordering::Equal;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read as _, Write as _};
 
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize, Serializer};
 
 #[must_use]
@@ -26,20 +24,13 @@ pub fn sorted_opt_map<S: Serializer, T: Serialize>(
     value: &Option<HashMap<String, T>>,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
-    value
-        .as_ref()
-        .map(|v| {
-            v.iter()
-                .sorted_by(|a, b| {
-                    let lower = a.0.to_lowercase().cmp(&b.0.to_lowercase());
-                    match lower {
-                        Equal => a.0.cmp(b.0),
-                        other => other,
-                    }
-                })
-                .collect::<BTreeMap<_, _>>()
-        })
-        .serialize(serializer)
+    value.as_ref().map(sorted_btree_map).serialize(serializer)
+}
+
+pub fn sorted_btree_map<K: Serialize + Ord, V>(value: &HashMap<K, V>) -> BTreeMap<&K, &V> {
+    let mut items: Vec<(_, _)> = value.iter().collect();
+    items.sort_by(|a, b| a.0.cmp(b.0));
+    BTreeMap::from_iter(items)
 }
 
 pub fn decode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {

@@ -4,7 +4,7 @@ use std::time::Duration;
 use actix_cors::Cors;
 use actix_http::ContentEncoding;
 use actix_web::dev::Server;
-use actix_web::error::ErrorBadRequest;
+use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound};
 use actix_web::http::header::{
     AcceptEncoding, ContentType, Encoding as HeaderEnc, HeaderValue, Preference, CACHE_CONTROL,
     CONTENT_ENCODING,
@@ -13,8 +13,8 @@ use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::{Data, Path, Query};
 use actix_web::{
-    error, middleware, route, web, App, HttpMessage, HttpRequest, HttpResponse, HttpServer,
-    Responder, Result,
+    middleware, route, web, App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder,
+    Result,
 };
 use futures::future::try_join_all;
 use log::error;
@@ -58,14 +58,14 @@ struct TileRequest {
 
 pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     error!("{e}");
-    error::ErrorInternalServerError(e.to_string())
+    ErrorInternalServerError(e.to_string())
 }
 
 pub fn map_sprite_error(e: SpriteError) -> actix_web::Error {
-    if let SpriteError::SpriteNotFound(_) = e {
-        error::ErrorNotFound(e.to_string())
-    } else {
-        map_internal_error(e)
+    use SpriteError::SpriteNotFound;
+    match e {
+        SpriteNotFound(_) => ErrorNotFound(e.to_string()),
+        _ => map_internal_error(e),
     }
 }
 
@@ -73,6 +73,7 @@ pub fn map_sprite_error(e: SpriteError) -> actix_web::Error {
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
 async fn get_index() -> &'static str {
+    // todo: once this becomes more substantial, add wrap = "middleware::Compress::default()"
     "Martin server is running. Eventually this will be a nice web front.\n\n\
     A list of all available sources is at /catalog\n\n\
     See documentation https://github.com/maplibre/martin"
@@ -112,7 +113,12 @@ async fn get_sprite_png(
         .body(sheet.encode_png().map_err(map_internal_error)?))
 }
 
-#[route("/sprite/{source_ids}.json", method = "GET", method = "HEAD")]
+#[route(
+    "/sprite/{source_ids}.json",
+    method = "GET",
+    method = "HEAD",
+    wrap = "middleware::Compress::default()"
+)]
 async fn get_sprite_json(
     path: Path<TileJsonRequest>,
     sprites: Data<SpriteSources>,
@@ -274,7 +280,7 @@ async fn get_tile(
     let (tile, info) = if path.source_ids.contains(',') {
         let (sources, use_url_query, info) = sources.get_sources(&path.source_ids, Some(path.z))?;
         if sources.is_empty() {
-            return Err(error::ErrorNotFound("No valid sources found"));
+            return Err(ErrorNotFound("No valid sources found"));
         }
         let query = if use_url_query {
             Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
@@ -290,7 +296,7 @@ async fn get_tile(
         let can_join = info.format == Format::Mvt
             && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
         if !can_join && tiles.iter().filter(|v| !v.is_empty()).count() > 1 {
-            return Err(error::ErrorBadRequest(format!(
+            return Err(ErrorBadRequest(format!(
                 "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
                 xyz.z
             )))?;
@@ -301,7 +307,7 @@ async fn get_tile(
         let zoom = xyz.z;
         let src = sources.get_source(id)?;
         if !Sources::check_zoom(src, id, zoom) {
-            return Err(error::ErrorNotFound(format!(
+            return Err(ErrorNotFound(format!(
                 "Zoom {zoom} is not valid for source {id}",
             )));
         }

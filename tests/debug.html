@@ -229,53 +229,53 @@
         ).then((r) => r.json()));
 
         // Set up the corresponding toggle button for each layer.
-        for (const source of sources) {
+        for (const [id, source] of Object.entries(sources.tiles)) {
           // Skip layers that already have a button set up.
-          if (document.getElementById(source.id)) {
+          if (document.getElementById(id)) {
             continue;
           }
 
           const layerType = geometryTypeToLayerType(source.geometry_type);
 
           map.addLayer({
-            id: source.id,
+            id: id,
             type: layerType,
             source: {
               type: 'vector',
-              url: `http://0.0.0.0:3000/${source.id}`
+              url: `http://0.0.0.0:3000/${id}`
             },
-            'source-layer': source.id,
+            'source-layer': id,
             layout: {
               visibility: 'none'
             },
             paint: {
-              [`${layerType}-color`]: stringToColour(source.id)
+              [`${layerType}-color`]: stringToColour(id)
             }
           });
 
-          map.on('click', source.id, (e) => {
+          map.on('click', id, (e) => {
             console.log(e.features);
           });
 
           const colorbox = document.createElement("input");
           colorbox.type = "color";
           colorbox.id = "colorbox";
-          colorbox.value = stringToColour(source.id);
-          colorbox.style.backgroundColor = stringToColour(source.id);
+          colorbox.value = stringToColour(id);
+          colorbox.style.backgroundColor = stringToColour(id);
           colorbox.onclick = function(e){
             e.stopPropagation();
           }
           colorbox.onchange = function(e){
-            map.setPaintProperty(source.id, `${layerType}-color`, e.target.value);
+            map.setPaintProperty(id, `${layerType}-color`, e.target.value);
             colorbox.style.backgroundColor = e.target.value;
           }
 
           // Create a link.
           const link = document.createElement('a');
-          link.id = source.id;
+          link.id = id;
           link.href = '#';
-          link.textContent = source.id;
-          link.title = source.id;
+          link.textContent = id;
+          link.title = id;
           link.appendChild(colorbox);
 
           // Show or hide layer when the toggle is clicked.

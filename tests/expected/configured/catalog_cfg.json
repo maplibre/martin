@@ -1,51 +1,43 @@
-[
-  {
-    "id": "MixPoints",
-    "content_type": "application/x-protobuf",
-    "description": "MixedCase.MixPoints.Geom"
-  },
-  {
-    "id": "auto_table",
-    "content_type": "application/x-protobuf",
-    "description": "autodetect.auto_table.geom"
-  },
-  {
-    "id": "bigint_table",
-    "content_type": "application/x-protobuf",
-    "description": "autodetect.bigint_table.geom"
-  },
-  {
-    "id": "function_zxy_query",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query"
-  },
-  {
-    "id": "function_zxy_query_test",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query_test"
-  },
-  {
-    "id": "pmt",
-    "content_type": "image/png"
-  },
-  {
-    "id": "points1",
-    "content_type": "application/x-protobuf",
-    "description": "public.points1.geom"
-  },
-  {
-    "id": "points2",
-    "content_type": "application/x-protobuf",
-    "description": "public.points2.geom"
-  },
-  {
-    "id": "points3857",
-    "content_type": "application/x-protobuf",
-    "description": "public.points3857.geom"
-  },
-  {
-    "id": "table_source",
-    "content_type": "application/x-protobuf",
-    "description": "public.table_source.geom"
+{
+  "tiles": {
+    "MixPoints": {
+      "content_type": "application/x-protobuf",
+      "description": "MixedCase.MixPoints.Geom"
+    },
+    "auto_table": {
+      "content_type": "application/x-protobuf",
+      "description": "autodetect.auto_table.geom"
+    },
+    "bigint_table": {
+      "content_type": "application/x-protobuf",
+      "description": "autodetect.bigint_table.geom"
+    },
+    "function_zxy_query": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy_query"
+    },
+    "function_zxy_query_test": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy_query_test"
+    },
+    "pmt": {
+      "content_type": "image/png"
+    },
+    "points1": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points1.geom"
+    },
+    "points2": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points2.geom"
+    },
+    "points3857": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points3857.geom"
+    },
+    "table_source": {
+      "content_type": "application/x-protobuf",
+      "description": "public.table_source.geom"
+    }
   }
-]
+}
