@@ -195,17 +195,19 @@
 <p>A list of all available sources is available via catalogue endpoint:</p>
 <pre><code class="language-shell">curl localhost:3000/catalog | jq
 </code></pre>
-<pre><code class="language-yaml">[
-  {
-    &quot;id&quot;: &quot;function_zxy_query&quot;,
-    &quot;name&quot;: &quot;public.function_zxy_query&quot;
+<pre><code class="language-yaml">{
+  &quot;tiles&quot; {
+    &quot;function_zxy_query&quot;: {
+      &quot;name&quot;: &quot;public.function_zxy_query&quot;,
+      &quot;content_type&quot;: &quot;application/x-protobuf&quot;
+    },
+    &quot;points1&quot;: {
+      &quot;name&quot;: &quot;public.points1.geom&quot;,
+      &quot;content_type&quot;: &quot;image/webp&quot;
+    },
+    ...
   },
-  {
-    &quot;id&quot;: &quot;points1&quot;,
-    &quot;name&quot;: &quot;public.points1.geom&quot;
-  },
-  ...
-]
+}
 </code></pre>
 <h2 id="source-tilejson"><a class="header" href="#source-tilejson">Source TileJSON</a></h2>
 <p>All tile sources have a <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> endpoint available at the <code>/{SourceID}</code>.</p>
