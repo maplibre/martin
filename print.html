@@ -674,33 +674,36 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 <p>You can access this params using <a href="https://www.postgresql.org/docs/current/functions-json.html">json operators</a>:</p>
 <pre><code class="language-sql  ignore">...WHERE answer = (query_params-&gt;'objectParam'-&gt;&gt;'answer')::int;
 </code></pre>
-<h2 id="tilejson"><a class="header" href="#tilejson">Tilejson</a></h2>
-<p>Martin will generate a basic <a href="https://github.com/mapbox/tilejson-spec">tilejson</a> for each <code>function source</code>, eg, if there is a function <code>public.function_zxy_query_jsonb</code> , the basic <code>tilejson</code> will be:</p>
+<h2 id="modifying-tilejson"><a class="header" href="#modifying-tilejson">Modifying TileJSON</a></h2>
+<p>Martin will automatically generate a basic <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> manifest for each function source that will contain the name and description of the function, plus optionally <code>minzoom</code>, <code>maxzoom</code>, and <code>bounds</code> (if they were specified via one of the configuration methods).  For example, if there is a function <code>public.function_zxy_query_jsonb</code>, the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
 <pre><code class="language-json">{
   &quot;tilejson&quot;: &quot;3.0.0&quot;,
   &quot;tiles&quot;: [
     &quot;http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}&quot;
   ],
-  &quot;description&quot;: &quot;public.function_zxy_query_jsonb&quot;,
-  &quot;name&quot;: &quot;function_zxy_query_jsonb&quot;
+  &quot;name&quot;: &quot;function_zxy_query_jsonb&quot;,
+  &quot;description&quot;: &quot;public.function_zxy_query_jsonb&quot;
 }
 </code></pre>
-<p>But it’s not too helpful for clients like <code>maplibre</code>. There are no <code>bounds</code>, <code>minzoom</code>, <code>maxzoom</code>, and even <code>vector_layers</code>.</p>
-<h3 id="comments-as-tilejson"><a class="header" href="#comments-as-tilejson">Comments as tilejson</a></h3>
-<p>For a helpful <code>tilejson</code>, Martin will read comments on function source as <code>tilejson</code>. This comment will be merged into the basic <code>tilejson</code> as a patch. </p>
-<ol>
-<li>Martin will generate a basic <code>tilejson</code> for each <code>function source</code>.</li>
-<li>Matin will try to read comment on <code>function source</code> as <code>tilejson</code>.</li>
-<li>If <code>step 2</code>  failed, Martin will log a warn, and use the basic <code>tilejson</code> directly.</li>
-<li>Else, Martin uses the generated <code>tilejson</code> as the “base”, and applies all fields from the comment’s <code>tilejson</code> as a “patch”. </li>
-</ol>
-<p>To add a comment as <code>tilejson</code> with validation:</p>
+<h3 id="tilejson-in-sql-comments"><a class="header" href="#tilejson-in-sql-comments">TileJSON in SQL Comments</a></h3>
+<p>To modify automatically generated <code>TileJSON</code>, you can add a valid JSON as an SQL comment on the function. Martin will merge function comment into the generated <code>TileJSON</code> using <a href="https://www.rfc-editor.org/rfc/rfc7386">JSON Merge patch</a>. The following example adds <code>attribution</code> and <code>version</code> fields to the <code>TileJSON</code>.</p>
+<p><strong>Note:</strong> This example uses <code>EXECUTE</code> to ensure that the comment is a valid JSON (or else PostgreSQL will throw an error).  You can use other methods of creating SQL comments.</p>
 <pre><code class="language-sql">DO $do$ BEGIN
-    EXECUTE 'COMMENT ON FUNCTION YOUR_FUNCTION (ARG1_TYPE,ARG2_TYPE,..ARGN_TYPE) IS $tj$' || $$
-    YOUR TILEJSO HERE
+    EXECUTE 'COMMENT ON FUNCTION my_function_name(INT4, INT4, INT4) IS $tj$' || $$
+    {
+        &quot;description&quot;: &quot;my new description&quot;,
+        &quot;vector_layers&quot;: [
+            {
+                &quot;id&quot;: &quot;my_layer_id&quot;,
+                &quot;fields&quot;: {
+                    &quot;field1&quot;: &quot;String&quot;,
+                    &quot;field2&quot;: &quot;Number&quot;
+                }
+            }
+        ]
+    }
     $$::json || '$tj$';
 END $do$;
-
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="mbtiles-and-pmtiles-file-sources"><a class="header" href="#mbtiles-and-pmtiles-file-sources">MBTiles and PMTiles File Sources</a></h1>
 <p>Martin can serve any type of tiles from <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTile</a> and <a href="https://github.com/mapbox/mbtiles-spec">MBTile</a> files.  To serve a file from CLI, simply put the path to the file or the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. For example:</p>
