@@ -12,8 +12,8 @@ export CARGO_TERM_COLOR := "always"
 @_default:
     just --list --unsorted
 
-# Start Martin server and a test database
-run *ARGS: start
+# Start Martin server
+run *ARGS:
     cargo run -- {{ ARGS }}
 
 # Start release-compiled Martin server and a test database
