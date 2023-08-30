@@ -224,12 +224,12 @@
       }
 
       map.on('load', async function () {
-        const sources = Object.values(await fetch(
-                'http://0.0.0.0:3000/catalog'
-        ).then((r) => r.json()));
+        const catalog = await fetch('http://0.0.0.0:3000/catalog');
+        const sources = (await catalog.json()).tiles;
 
         // Set up the corresponding toggle button for each layer.
-        for (const [id, source] of Object.entries(sources.tiles)) {
+        // TODO: we may want to show each source metadata on hover or some other way?
+        for (const [id, source] of Object.entries(sources)) {
           // Skip layers that already have a button set up.
           if (document.getElementById(id)) {
             continue;
