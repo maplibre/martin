@@ -31,11 +31,11 @@ pub struct TileCopierOptions {
     src_file: PathBuf,
     /// MBTiles file to write to
     dst_file: PathBuf,
-    /// TODO: add documentation Output format of the destination file, ignored if the file exists. if not specified, defaults to the type of source
+    /// Output format of the destination file, ignored if the file exists. if not specified, defaults to the type of source
     #[cfg_attr(feature = "cli", arg(long, value_enum))]
     dst_mbttype: Option<MbtType>,
     /// Specify copying behaviour when tiles with duplicate (zoom_level, tile_column, tile_row) values are found
-    #[cfg_attr(feature = "cli", arg(long, value_enum, default_value_t = CopyDuplicateMode::Override))]
+    #[cfg_attr(feature = "cli", arg(long, value_enum, default_value_t = CopyDuplicateMode::default()))]
     on_duplicate: CopyDuplicateMode,
     /// Minimum zoom level to copy
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]

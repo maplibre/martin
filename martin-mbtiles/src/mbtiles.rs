@@ -20,10 +20,11 @@ use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
+use crate::mbtiles::MbtType::Flat;
 use crate::mbtiles_queries::{
     is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
-use crate::MbtError::{IncorrectDataFormat, InvalidTileData};
+use crate::MbtError::{FailedIntegrityCheck, InvalidTileData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
@@ -40,6 +41,15 @@ pub enum MbtType {
     Flat,
     FlatWithHash,
     Normalized,
+}
+
+#[derive(PartialEq, Eq, Default, Debug, Clone)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
+pub enum IntegrityCheck {
+    Full,
+    #[default]
+    Quick,
+    Off,
 }
 
 #[derive(Clone, Debug)]
@@ -378,31 +388,101 @@ impl Mbtiles {
         Err(MbtError::NoUniquenessConstraint(self.filepath.clone()))
     }
 
-    pub async fn validate_mbtiles<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn generate_global_hash<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let mbttype = self.detect_type(&mut *conn).await?;
 
-        let sql = match mbttype {
-            MbtType::Flat => {
-                return Err(IncorrectDataFormat(
-                    self.filepath().to_string(),
-                    &[MbtType::FlatWithHash, MbtType::Normalized],
-                    MbtType::Flat,
-                ));
+        let select_from = match mbttype {
+            Flat => {
+                println!("Cannot generate global hash, no hash column in flat table format. Skipping global_hash generation...");
+                return Ok(());
             }
-            MbtType::FlatWithHash => {
-                "SELECT * FROM tiles_with_hash WHERE tile_hash!=hex(md5(tile_data)) LIMIT 1;"
+            MbtType::FlatWithHash => "SELECT 'global_hash', hex(md5_concat(tile_hash)) FROM tiles_with_hash ORDER BY zoom_level, tile_column, tile_row;",
+            MbtType::Normalized => "SELECT 'global_hash', hex(md5_concat(images.tile_id)) FROM images JOIN map ON images.tile_id=map.tile_id ORDER BY zoom_level, tile_column, tile_row;"
+
+        }.to_string();
+
+        let rusqlite_conn = RusqliteConnection::open(Path::new(&self.filepath()))?;
+        register_md5_function(&rusqlite_conn)?;
+        rusqlite_conn.execute(
+            format!("INSERT OR REPLACE INTO metadata(name, value) {select_from}").as_str(),
+            [],
+        )?;
+        Ok(())
+    }
+
+    pub async fn validate_mbtiles<T>(
+        &self,
+        integrity_check: IntegrityCheck,
+        conn: &mut T,
+    ) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        // SQLite Integrity check
+        if "ok"
+            != match integrity_check {
+                IntegrityCheck::Full => query("PRAGMA integrity_check;")
+                    .fetch_one(&mut *conn)
+                    .await?
+                    .get::<String, _>(0),
+                IntegrityCheck::Quick => query("PRAGMA integrity_check;")
+                    .fetch_one(&mut *conn)
+                    .await?
+                    .get::<String, _>(0),
+                IntegrityCheck::Off => "ok".to_string(),
             }
-            MbtType::Normalized => {
-                "SELECT * FROM images WHERE tile_id!=hex(md5(tile_data)) LIMIT 1;"
-            }
+        {
+            return Err(FailedIntegrityCheck(self.filepath().to_string()));
         }
-        .to_string();
+
+        let mbttype = self.detect_type(&mut *conn).await?;
+
+        if mbttype == MbtType::Flat {
+            println!(
+                "No hash column in flat table format, skipping hash-based validation steps..."
+            );
+            return Ok(());
+        }
 
         let rusqlite_conn = RusqliteConnection::open(Path::new(self.filepath()))?;
         register_md5_function(&rusqlite_conn)?;
+
+        // Global hash check
+        if self
+            .get_metadata_value(&mut *conn, "global_hash")
+            .await?
+            .is_none()
+        {
+            println!(
+                "No value for 'global_hash' key found in metadata, skipping global hash validation step..."
+            );
+        } else {
+            let sql = if mbttype == MbtType::FlatWithHash {
+                "SELECT * FROM metadata 
+                          WHERE name='global_hash' 
+                                AND value!=(SELECT hex(md5_concat(tile_hash)) FROM tiles_with_hash ORDER BY zoom_level, tile_column, tile_row);"
+            } else {
+                "SELECT * FROM metadata 
+                          WHERE name='global_hash' 
+                                AND value!=(hex(md5_concat(images.tile_id)) FROM images JOIN map ON images.tile_id=map.tile_id ORDER BY zoom_level, tile_column, tile_row);"
+            }
+                .to_string();
+
+            if rusqlite_conn.prepare(&sql)?.exists(())? {
+                return Err(InvalidTileData(self.filepath().to_string()));
+            }
+        }
+
+        // Per-tile hash check
+        let sql = if mbttype == MbtType::FlatWithHash {
+            "SELECT * FROM tiles_with_hash WHERE tile_hash!=hex(md5(tile_data)) LIMIT 1;"
+        } else {
+            "SELECT * FROM images WHERE tile_id!=hex(md5(tile_data)) LIMIT 1;"
+        }
+        .to_string();
 
         if rusqlite_conn.prepare(&sql)?.exists(())? {
             return Err(InvalidTileData(self.filepath().to_string()));
@@ -569,7 +649,9 @@ mod tests {
     async fn validate_valid_file() {
         let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
 
-        mbt.validate_mbtiles(&mut conn).await.unwrap();
+        mbt.validate_mbtiles(IntegrityCheck::Quick, &mut conn)
+            .await
+            .unwrap();
     }
 
     #[actix_rt::test]
@@ -578,8 +660,19 @@ mod tests {
             open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await;
 
         assert!(matches!(
-            mbt.validate_mbtiles(&mut conn).await.unwrap_err(),
+            mbt.validate_mbtiles(IntegrityCheck::Quick, &mut conn)
+                .await
+                .unwrap_err(),
             MbtError::InvalidTileData(..)
         ));
+    }
+
+    #[actix_rt::test]
+    async fn validate_file_with_global_hash() {
+        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+
+        mbt.validate_mbtiles(IntegrityCheck::Quick, &mut conn)
+            .await
+            .unwrap();
     }
 }
