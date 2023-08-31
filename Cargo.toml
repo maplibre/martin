@@ -46,7 +46,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 spreet = { version = "0.8", default-features = false }
-sqlite-hashes = "0.2"
+sqlite-hashes = "0.3"
 sqlx = { version = "0.7", features = ["sqlite"] }
 subst = { version = "0.2", features = ["yaml"] }
 thiserror = "1"
