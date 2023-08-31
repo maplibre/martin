@@ -30,7 +30,8 @@
             height: 100%;
             border-radius: 3px;
             font-family: 'Open Sans', sans-serif;
-            overflow: scroll;
+            overflow: auto;
+            user-select: none;
         }
 
         #menu a {
@@ -38,11 +39,9 @@
             color: #404040;
             display: block;
             margin: 0;
-            padding: 0;
             padding: 10px;
             text-decoration: none;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.25);
-            text-align: center;
+            border-bottom: 1px solid #0000003F;
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
@@ -79,6 +78,12 @@
             display: none;
         }
 
+        #menu label {
+            display: block;
+            margin: 5px;
+            font-weight: bold;
+        }
+
         #colorbox {
             -webkit-appearance: none;
             -moz-appearance: none;
@@ -105,8 +110,7 @@
             top: 10px;
             bottom: 10px;
             left: 10px;
-            width: 120px;
-            height: 95vh;
+            width: 250px;
         }
 
         .resizer {
@@ -117,6 +121,7 @@
             top: 0;
             width: 5px;
             z-index: 1;
+            background-color: #0000003F;
         }
     </style>
     <!-- style about popup -->
@@ -162,6 +167,7 @@
 <body>
 <div id="container">
     <nav id="menu">
+        <label for="menu-search">Tile Sources</label>
         <input oninput="handleSearch()" id="menu-search" type="search" placeholder="Search..."/>
     </nav>
     <div class="resizer"></div>
@@ -172,14 +178,11 @@
     const container = document.getElementById('container');
 
     let x = 0;
-    let y = 0;
     let w = 0;
 
     const mouseDownHandler = function (e) {
-        x = e.clientX;
-        y = e.clientY;
-
         const styles = window.getComputedStyle(container);
+        x = e.clientX;
         w = parseInt(styles.width, 10);
 
         document.addEventListener('mousemove', mouseMoveHandler);
@@ -188,8 +191,6 @@
 
     const mouseMoveHandler = function (e) {
         const dx = e.clientX - x;
-        const dy = e.clientY - y;
-
         container.style.width = `${w + dx}px`;
     };
 
@@ -276,17 +277,17 @@
 
     const renderProperty = function (pName, pValue) {
         return `<div class="inspect_property">
-                    <div class="inspect_property_name">
-                      ${pName}
-                    </div>
-                    <div class="inspect_property_value">
-                      ${pValue}
-                    </div>
-                  </div>`;
+                  <div class="inspect_property_name">
+                    ${pName}
+                  </div>
+                  <div class="inspect_property_value">
+                    ${pValue}
+                  </div>
+                </div>`;
     }
 
     const renderProperties = function (feature) {
-        const geomDiv = renderProperty("$type", feature.geometry.type); 
+        const geomDiv = renderProperty("$type", feature.geometry.type);
         const propertiesDivs = Object.keys(feature.properties).map(propName => {
             return renderProperty(propName, feature.properties[propName]);
         }).join('');
@@ -300,18 +301,18 @@
         const source = feature.layer.source;
         const layerName = `${source} ${layer}`
         return `<div class="inspect_feature">
-                    <div class="inspect_layer">
-                      ${layerName}
-                    </div>
-                    ${renderProperties(feature)}
-                  </div>`;
+                  <div class="inspect_layer">
+                    ${layerName}
+                  </div>
+                  ${renderProperties(feature)}
+                </div>`;
     }
 
     const renderFeatures = function (features) {
         const featureDOMS = features.map(feat => renderFeature(feat)).join('');
         return `<inspect_popup class="inspect_popup">
-                    ${featureDOMS}
-                  </inspect_popup>`;
+                  ${featureDOMS}
+                </inspect_popup>`;
     }
 
     let popupFixed = false;
