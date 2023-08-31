@@ -313,7 +313,14 @@
                   </inspect_popup>`;
     }
 
+    let popupFixed = false;
+    map.on("click", e => {
+        popupFixed = !popupFixed;
+    });
     map.on("mousemove", function (e) {
+        if (popupFixed) {
+            return;
+        }
         const queryBox = [
             [
                 e.point.x - QUERY_THRESHOLD,
