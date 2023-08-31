@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8"/>
@@ -238,15 +238,15 @@
     });
 
     const onSourceChanged = function () {
-        Object.keys(map.style.sourceCaches).forEach(sourceId => {
+        for (const sourceId of Object.keys(map.style.sourceCaches)) {
             let sourceCache = map.style.sourceCaches[sourceId];
             let layerIds = sourceCache._source.vectorLayerIds;
             if (layerIds === null || layerIds === undefined) {
                 console.log(`Can't find layers in ${sourceId}'s tilejson`);
                 return;
             }
-            layerIds.forEach(lyrId => {
-                [["circle", "Point"], ["line", "LineString"], ["fill", "Polygon"]].forEach(types => {
+            for (const lyrId of layerIds) {
+                for (const types of [["circle", "Point"], ["line", "LineString"], ["fill", "Polygon"]]) {
                     let layer = {
                         id: `${sourceId}_${lyrId}_${types[0]}`,
                         source: sourceId,
@@ -263,9 +263,9 @@
                     if (map.getLayer(`${sourceId}_${lyrId}_${types[0]}`) === undefined) {
                         map.addLayer(layer);
                     }
-                });
-            })
-        });
+                }
+            }
+        }
     }
 
     const QUERY_THRESHOLD = 5;
@@ -377,8 +377,8 @@
                     return;
                 }
 
-                layerNames.forEach(layerName => {
-                    [["circle", "Point"], ["line", "LineString"], ["fill", "Polygon"]].forEach(types => {
+                for (const layerName of layerNames) {
+                    for (const types of [["circle", "Point"], ["line", "LineString"], ["fill", "Polygon"]]) {
                         const clickedLayer = `${sourceName}_${layerName}_${types[0]}`;
                         const visibility = map.getLayoutProperty(
                             clickedLayer,
@@ -393,8 +393,8 @@
                             this.className = 'active';
                             map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
                         }
-                    });
-                });
+                    }
+                }
             };
 
             const layers = document.getElementById('menu');
