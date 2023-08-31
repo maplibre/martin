@@ -20,11 +20,14 @@ pub enum MbtError {
     #[error("Invalid data format for MBTile file {0}")]
     InvalidDataFormat(String),
 
-    #[error("Integrity check failed for MBTile file {0}")]
-    FailedIntegrityCheck(String),
+    #[error("Integrity check failed for MBTile file {0} for the following reasons: \n {1:?}")]
+    FailedIntegrityCheck(String, Vec<String>),
 
     #[error("Invalid tile data for MBTile file {0}")]
     InvalidTileData(String),
+
+    #[error("Expected global_hash value in metadata table for MBTiles file {0}")]
+    GlobalHashValueNotFound(String),
 
     #[error(r#"Filename "{0}" passed to SQLite must be valid UTF-8"#)]
     InvalidFilenameType(PathBuf),

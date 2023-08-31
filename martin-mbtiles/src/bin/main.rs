@@ -69,7 +69,7 @@ enum Commands {
         integrity_check: IntegrityCheck,
         /// Generate a hash of the tile data hashes and store under the 'global_hash' key in metadata
         #[arg(long)]
-        generate_global_hash: bool,
+        regenerate_global_hash: bool,
     },
 }
 
@@ -96,9 +96,9 @@ async fn main() -> Result<()> {
         Commands::Validate {
             file,
             integrity_check,
-            generate_global_hash,
+            regenerate_global_hash,
         } => {
-            validate_mbtiles(file.as_path(), integrity_check, generate_global_hash).await?;
+            validate_mbtiles(file.as_path(), integrity_check, regenerate_global_hash).await?;
         }
     }
 
@@ -126,13 +126,13 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> Result
 async fn validate_mbtiles(
     file: &Path,
     integrity_check: IntegrityCheck,
-    generate_global_hash: bool,
+    regenerate_global_hash: bool,
 ) -> Result<()> {
     let mbt = Mbtiles::new(file)?;
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
     mbt.validate_mbtiles(integrity_check, &mut conn).await?;
-    if generate_global_hash {
+    if regenerate_global_hash {
         mbt.generate_global_hash(&mut conn).await?;
     }
     Ok(())
@@ -427,7 +427,7 @@ mod tests {
                 command: Validate {
                     file: PathBuf::from("src_file"),
                     integrity_check: IntegrityCheck::Quick,
-                    generate_global_hash: false
+                    regenerate_global_hash: false
                 }
             }
         );

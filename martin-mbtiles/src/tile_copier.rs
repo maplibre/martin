@@ -31,7 +31,7 @@ pub struct TileCopierOptions {
     src_file: PathBuf,
     /// MBTiles file to write to
     dst_file: PathBuf,
-    /// Output format of the destination file, ignored if the file exists. if not specified, defaults to the type of source
+    /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[cfg_attr(feature = "cli", arg(long, value_enum))]
     dst_mbttype: Option<MbtType>,
     /// Specify copying behaviour when tiles with duplicate (zoom_level, tile_column, tile_row) values are found
@@ -49,6 +49,9 @@ pub struct TileCopierOptions {
     /// Compare source file with this file, and only copy non-identical tiles to destination
     #[cfg_attr(feature = "cli", arg(long))]
     diff_with_file: Option<PathBuf>,
+    /// Skip generating a global hash for mbtiles validation. By default, if dst_mbttype is flat-with-hash or normalized, generate a global hash and store in the metadata table
+    #[cfg_attr(feature = "cli", arg(long))]
+    skip_global_hash: bool,
 }
 
 #[cfg(feature = "cli")]
@@ -101,6 +104,7 @@ impl TileCopierOptions {
             min_zoom: None,
             max_zoom: None,
             diff_with_file: None,
+            skip_global_hash: false,
         }
     }
 
@@ -131,6 +135,11 @@ impl TileCopierOptions {
 
     pub fn diff_with_file(mut self, diff_with_file: PathBuf) -> Self {
         self.diff_with_file = Some(diff_with_file);
+        self
+    }
+
+    pub fn skip_global_hash(mut self, skip_global_hash: bool) -> Self {
+        self.skip_global_hash = skip_global_hash;
         self
     }
 }
@@ -225,6 +234,12 @@ impl TileCopier {
                 )?
             }
         };
+
+        if !self.options.skip_global_hash
+            && (dst_mbttype == FlatWithHash || dst_mbttype == Normalized)
+        {
+            self.dst_mbtiles.generate_global_hash(&mut conn).await?;
+        }
 
         Ok(conn)
     }

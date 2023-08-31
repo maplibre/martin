@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR REPLACE INTO metadata(name, value) VALUES('global_hash', ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "8450267c60816a13cc70ee0ff635917961ef736c030ac577a487091a9724049d"
+}
