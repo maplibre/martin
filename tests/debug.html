@@ -121,7 +121,7 @@
     </style>
     <!-- style about popup -->
     <style>
-        .maplibregl-popup-content{
+        .maplibregl-popup-content {
             max-height: 300px;
             overflow-y: auto;
         }
@@ -168,7 +168,7 @@
 </div>
 <div id="map"></div>
 <script>
-    //ignore this ,it's just to allow user resize menu by drag
+    //ignore this, it's just to allow user resize menu by drag
     const container = document.getElementById('container');
 
     let x = 0;
@@ -286,11 +286,12 @@
     }
 
     const renderProperties = function (feature) {
+        const geomDiv = renderProperty("$type", feature.geometry.type); 
         const propertiesDivs = Object.keys(feature.properties).map(propName => {
             return renderProperty(propName, feature.properties[propName]);
         }).join('');
 
-        return `${renderProperty("$type", feature.geometry.type)}
+        return `${geomDiv}
                 ${propertiesDivs}`;
     }
 
@@ -317,10 +318,12 @@
     map.on("click", e => {
         popupFixed = !popupFixed;
     });
+
     map.on("mousemove", function (e) {
         if (popupFixed) {
             return;
         }
+
         const queryBox = [
             [
                 e.point.x - QUERY_THRESHOLD,
@@ -331,6 +334,7 @@
                 e.point.y - QUERY_THRESHOLD
             ]
         ];
+
         let features = map.queryRenderedFeatures(queryBox) || [];
         features = features.filter(f => f.source !== 'carto');
         popup.setLngLat(e.lngLat);
