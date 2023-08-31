@@ -320,8 +320,9 @@
             ]
         ];
         let features = map.queryRenderedFeatures(queryBox) || [];
+        features = features.filter(f => f.source !== 'carto');
         popup.setLngLat(e.lngLat);
-        if (features !== null && features !== undefined && features.length !== 0) {
+        if (features.length !== 0) {
             const renderedPopup = renderFeatures(features);
             popup.setHTML(renderedPopup);
             popup.addTo(map);
