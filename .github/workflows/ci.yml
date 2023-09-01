@@ -308,6 +308,7 @@ jobs:
           cargo test --package martin-mbtiles --no-default-features --features rustls
           cargo test --package martin --features vendored-openssl
           cargo test --doc
+          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
           rm -rf target
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
