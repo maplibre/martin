@@ -7,6 +7,7 @@
     <meta name="viewport" content="initial-scale=1,width=device-width"/>
     <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" rel="stylesheet"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.6.1/randomColor.js"></script>
 
     <style>
         body {
@@ -202,7 +203,6 @@
     };
 </script>
 <script>
-
     function handleSearch() {
         const search = document.getElementById("menu-search").value;
         const links = document.querySelectorAll("#menu a");
@@ -215,19 +215,22 @@
         }
     }
 
-    // Reference from: https://stackoverflow.com/a/16348977/11522644
-    const stringToColour = function (str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = str.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        let colour = "#";
-        for (let i = 0; i < 3; i++) {
-            const value = (hash >> (i * 8)) & 0xff;
-            colour += ("00" + value.toString(16)).substr(-2);
-        }
-        return colour;
-    };
+    const string2RandColor = function (layerName) {
+        const luminosity = "bright";
+        const alpha = 1
+        const hues = ["pink", "blue", "orange", "monochrome", "yellow", "dark", "green"];
+        let hue = hues[Math.floor(Math.random() * hues.length)];
+
+        var rgb = randomColor({
+            luminosity: luminosity,
+            hue: hue,
+            seed: layerName,
+            format: 'rgbArray'
+        });
+
+        let rgba = rgb.concat([alpha]).join(', ');
+        return `rgba(${rgba})`;
+    }
 
     const map = new maplibregl.Map({
         container: 'map',
@@ -237,39 +240,28 @@
         hash: true
     });
 
-    const onSourceChanged = function () {
-        for (const sourceId of Object.keys(map.style.sourceCaches)) {
-            let sourceCache = map.style.sourceCaches[sourceId];
-            let layerIds = sourceCache._source.vectorLayerIds;
-            if (layerIds === null || layerIds === undefined) {
-                console.log(`Can't find layers in ${sourceId}'s tilejson`);
-                return;
-            }
-            for (const lyrId of layerIds) {
-                for (const [type, geoType] of [["circle", "Point"], ["line", "LineString"], ["fill", "Polygon"]]) {
-                    let layer = {
-                        id: `${sourceId}_${lyrId}_${type}`,
-                        source: sourceId,
-                        type: type,
-                        'source-layer': lyrId,
-                        filter: ['==', '$type', geoType],
-                        layout: {
-                            visibility: 'none'
-                        },
-                        paint: {
-                            [`${type}-color`]: stringToColour(`${sourceId}_${lyrId}_${type}`)
-                        }
-                    };
-                    if (map.getLayer(`${sourceId}_${lyrId}_${type}`) === undefined) {
-                        map.addLayer(layer);
-                    }
+    const showOrAddLayer = function (sourceId, sourceLayer, layerId, type, geoType) {
+        if (map.getLayer(layerId) === undefined || map.getLayer(layerId) === null) {
+            let layer = {
+                id: layerId,
+                source: sourceId,
+                type: type,
+                'source-layer': sourceLayer,
+                filter: ['==', '$type', geoType],
+                layout: {
+                    visibility: 'visible'
+                },
+                paint: {
+                    [`${type}-color`]: string2RandColor(layerId)
                 }
-            }
+            };
+            map.addLayer(layer);
+        } else {
+            map.setLayoutProperty(layerId, 'visibility', 'visible');
         }
     }
 
-    const QUERY_THRESHOLD = 5;
-
+    const QUERY_THRESHOLD = 10;
     const popup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false
@@ -315,16 +307,7 @@
                 </inspect_popup>`;
     }
 
-    let popupFixed = false;
-    map.on("click", e => {
-        popupFixed = !popupFixed;
-    });
-
-    map.on("mousemove", function (e) {
-        if (popupFixed) {
-            return;
-        }
-
+    const tryShowPopup = function (e) {
         const queryBox = [
             [
                 e.point.x - QUERY_THRESHOLD,
@@ -343,11 +326,36 @@
             const renderedPopup = renderFeatures(features);
             popup.setHTML(renderedPopup);
             popup.addTo(map);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+    let isPopupFixed = false;
+    map.on("click", e => {
+        //remove the popup immediately if it's benn shown already
+        if (popup.isOpen()) {
+            popup.remove();
+            isPopupFixed = false;
+        }
+        const showOk = tryShowPopup(e);
+        if (showOk) {
+            isPopupFixed = true;
+        } else {
+            isPopupFixed = false;
+        }
+    });
+
+    map.on("mousemove", function (e) {
+        if (isPopupFixed) return;
+        let showOk = tryShowPopup(e);
+        if (!showOk) {
+            popup.remove();
         }
     });
 
     map.on('load', async function () {
-        map.on("sourcedata", onSourceChanged);
         const catalog = await fetch('http://0.0.0.0:3000/catalog');
         const sources = (await catalog.json()).tiles;
         // Set up the corresponding toggle button for each layer.
@@ -372,29 +380,22 @@
             link.onclick = function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                const layerNames = map.style.sourceCaches[sourceName]._source.vectorLayerIds;
-                if (layerNames === undefined || layerNames === null) {
+                const sourceLayers = map.style.sourceCaches[sourceName]._source.vectorLayerIds;
+                if (sourceLayers === undefined || sourceLayers === null) {
                     return;
                 }
-
-                for (const layerName of layerNames) {
+                let isShowing = this.className !== null && this.className !== undefined && this.className !== '';
+                for (const sourceLayer of sourceLayers) {
                     for (const [type, geoType] of [["circle", "Point"], ["line", "LineString"], ["fill", "Polygon"]]) {
-                        const clickedLayer = `${sourceName}_${layerName}_${type}`;
-                        const visibility = map.getLayoutProperty(
-                            clickedLayer,
-                            'visibility'
-                        );
-
-                        // Toggle layer visibility by changing the layout object's visibility property.
-                        if (visibility === 'visible') {
+                        const clickedLayer = `${sourceName}_${sourceLayer}_${type}`;
+                        if (isShowing) {
                             map.setLayoutProperty(clickedLayer, 'visibility', 'none');
-                            this.className = '';
                         } else {
-                            this.className = 'active';
-                            map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+                            showOrAddLayer(sourceName, sourceLayer, clickedLayer, type, geoType);
                         }
                     }
                 }
+                this.className = isShowing ? '' : 'active';
             };
 
             const layers = document.getElementById('menu');
