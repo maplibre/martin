@@ -71,39 +71,10 @@
             width: 100%;
         }
 
-        #menu a.active #colorbox {
-            display: block;
-        }
-
-        #menu a #colorbox {
-            display: none;
-        }
-
         #menu label {
             display: block;
             margin: 5px;
             font-weight: bold;
-        }
-
-        #colorbox {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            height: 15px;
-            width: 15px;
-            border: 1px solid white;
-            outline: none;
-            float: right;
-            margin-left: 5px;
-            cursor: pointer;
-        }
-
-        #colorbox::-webkit-color-swatch {
-            border: none;
-        }
-
-        #colorbox::-moz-color-swatch {
-            border: none;
         }
 
         #container {
@@ -215,16 +186,16 @@
         }
     }
 
-    const string2RandColor = function (layerName) {
+    const string2RandColor = function (str) {
         const luminosity = "bright";
         const alpha = 1
         const hues = ["pink", "blue", "orange", "monochrome", "yellow", "dark", "green"];
         let hue = hues[Math.floor(Math.random() * hues.length)];
 
-        var rgb = randomColor({
+        const rgb = randomColor({
             luminosity: luminosity,
             hue: hue,
-            seed: layerName,
+            seed: str,
             format: 'rgbArray'
         });
 
@@ -339,12 +310,7 @@
             popup.remove();
             isPopupFixed = false;
         }
-        const showOk = tryShowPopup(e);
-        if (showOk) {
-            isPopupFixed = true;
-        } else {
-            isPopupFixed = false;
-        }
+        isPopupFixed = tryShowPopup(e);
     });
 
     map.on("mousemove", function (e) {
