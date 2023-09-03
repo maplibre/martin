@@ -36,6 +36,7 @@ pub struct PgBuilder {
     default_srid: Option<i32>,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
+    exclude_small_geometries: Option<bool>,
     auto_functions: Option<PgBuilderAuto>,
     auto_tables: Option<PgBuilderAuto>,
     id_resolver: IdResolver,
@@ -52,6 +53,7 @@ impl PgBuilder {
             default_srid: config.default_srid,
             disable_bounds: config.disable_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
+            exclude_small_geometries: config.exclude_small_geometries,
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
             functions: config.functions.clone().unwrap_or_default(),
@@ -107,6 +109,7 @@ impl PgBuilder {
                 self.pool.clone(),
                 self.disable_bounds,
                 self.max_feature_count,
+                self.exclude_small_geometries,
             ));
         }
 
@@ -153,6 +156,7 @@ impl PgBuilder {
                             self.pool.clone(),
                             self.disable_bounds,
                             self.max_feature_count,
+                            self.exclude_small_geometries,
                         ));
                     }
                 }

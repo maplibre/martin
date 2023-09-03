@@ -24,6 +24,9 @@ pub struct PgArgs {
     /// Limit the number of features in a tile from a PG table source.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
+    /// Hide geometries which can not fullfill one single pixel
+    #[arg(short, long)]
+    pub exclude_small_geometries: Option<bool>,
 }
 
 impl PgArgs {
@@ -48,6 +51,7 @@ impl PgArgs {
                     None
                 },
                 max_feature_count: self.max_feature_count,
+                exclude_small_geometries: self.exclude_small_geometries,
                 pool_size: self.pool_size,
                 auto_publish: None,
                 tables: None,
@@ -79,6 +83,16 @@ impl PgArgs {
             info!("Overriding maximum feature count to {} on all Postgres connections because of a CLI parameter", self.max_feature_count.unwrap());
             pg_config.iter_mut().for_each(|c| {
                 c.max_feature_count = self.max_feature_count;
+            });
+        }
+
+        if self.exclude_small_geometries.is_some() {
+            info!(
+                "Overriding exclude small geometries to {} because of a CLI parameter",
+                self.exclude_small_geometries.unwrap()
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.exclude_small_geometries = self.exclude_small_geometries;
             });
         }
 

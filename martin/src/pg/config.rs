@@ -46,6 +46,8 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_feature_count: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclude_small_geometries: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_publish: Option<BoolOrObject<PgCfgPublish>>,
