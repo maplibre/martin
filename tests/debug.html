@@ -1,308 +1,352 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
+<html lang="en">
+
+<head>
+    <meta charset="utf-8"/>
     <title>Martin Debug Page</title>
-    <meta
-      name="viewport"
-      content="initial-scale=1,maximum-scale=1,user-scalable=no"
-    />
-    <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
-    <link href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" rel="stylesheet" />
+    <meta name="viewport" content="initial-scale=1,width=device-width"/>
+    <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css" rel="stylesheet"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.6.1/randomColor.js"></script>
 
     <style>
-      body {
-        margin: 0;
-        padding: 0;
-      }
+        body {
+            margin: 0;
+            padding: 0;
+        }
 
-      #map {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        width: 100%;
-      }
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
 
-      #menu {
-        background: #fff;
-        position: absolute;
-        right: 5px;
-        z-index: 1;
-        width: 100%;
-        height: 100%;
-        border-radius: 3px;
-        font-family: 'Open Sans', sans-serif;
-        overflow: scroll;
-      }
+        #menu {
+            background: #fff;
+            position: absolute;
+            right: 5px;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            border-radius: 3px;
+            font-family: 'Open Sans', sans-serif;
+            overflow: auto;
+            user-select: none;
+        }
 
-      #menu a {
-        font-size: 13px;
-        color: #404040;
-        display: block;
-        margin: 0;
-        padding: 0;
-        padding: 10px;
-        text-decoration: none;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.25);
-        text-align: center;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-      }
+        #menu a {
+            font-size: 13px;
+            color: #404040;
+            display: block;
+            margin: 0;
+            padding: 10px;
+            text-decoration: none;
+            border-bottom: 1px solid #0000003F;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
 
-      #menu a:last-child {
-        border: none;
-      }
+        #menu a:last-child {
+            border: none;
+        }
 
-      #menu a:hover {
-        background-color: #f8f8f8;
-        color: #404040;
-      }
+        #menu a:hover {
+            background-color: #f8f8f8;
+            color: #a00043;
+        }
 
-      #menu a.active {
-        background-color: #3887be;
-        color: #ffffff;
-      }
+        #menu-search {
+            padding: 2px;
+            width: 100%;
+        }
 
-      #menu a.active:hover {
-        background: #3074a4;
-      }
+        #menu label {
+            display: block;
+            margin: 5px;
+            font-weight: bold;
+        }
 
-      #menu-search {
-        padding: 2px;
-        width: 100%;
-      }
+        #container {
+            position: absolute;
+            top: 10px;
+            bottom: 10px;
+            left: 10px;
+            width: 250px;
+        }
 
-      #menu a.active #colorbox {
-        display: block;
-      }
-
-      #menu a #colorbox {
-        display: none;
-      }
-
-      #colorbox {
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        height: 15px;
-        width: 15px;
-        border: 1px solid white;
-        outline: none;
-        float: right;
-        margin-left: 5px;
-        cursor: pointer;
-      }
-
-      #colorbox::-webkit-color-swatch {
-        border: none;
-      }
-
-      #colorbox::-moz-color-swatch {
-        border: none;
-      }
-
-      #container {
-        position: absolute;
-        top: 10px;
-        bottom: 10px;
-        left: 10px;
-        width: 120px;
-        height: 95vh;
-      }
-
-      .resizer {
-        position: absolute;
-        cursor: col-resize;
-        height: 100%;
-        right: 0;
-        top: 0;
-        width: 5px;
-        z-index: 1;
-      }
+        .resizer {
+            position: absolute;
+            cursor: col-resize;
+            height: 100%;
+            right: 0;
+            top: 0;
+            width: 5px;
+            z-index: 1;
+            background-color: #0000003F;
+        }
     </style>
-  </head>
+    <!-- style about popup -->
+    <style>
+        .maplibregl-popup-content {
+            overflow-y: auto;
+        }
 
-  <body>
-    <div id="container">
-      <nav id="menu">
-        <input
-          oninput="handleSearch()"
-          id="menu-search"
-          type="search"
-          placeholder="Search..."
-        />
-      </nav>
-      <div class="resizer"></div>
-      </div>
-    <div id="map"></div>
-    <script>
-      //ignore this ,it's just to allow user resize menu by drag
-      const container = document.getElementById('container');
+        .inspect_popup {
+            color: #333;
+            display: table;
+        }
 
-      let x = 0;
-      let y = 0;
-      let w = 0;
+        .inspect_feature:not(:last-child) {
+            border-bottom: 1px solid #ccc;
+        }
 
-      const mouseDownHandler = function (e) {
-        x = e.clientX;
-        y = e.clientY;
+        .inspect_layer {
+            display: block;
+            font-weight: bold;
+        }
 
+        .inspect_property {
+            display: table-row;
+        }
+
+        .inspect_property_name {
+            display: table-cell;
+            padding-right: 10px;
+        }
+
+        .inspect_property_value {
+            display: table-cell;
+        }
+    </style>
+</head>
+
+<body>
+<div id="container">
+    <nav id="menu">
+        <label for="menu-search">Tile Sources</label>
+        <input oninput="handleSearch()" id="menu-search" type="search" placeholder="Search..."/>
+    </nav>
+    <div class="resizer"></div>
+</div>
+<div id="map"></div>
+<script>
+    //ignore this, it's just to allow user resize menu by drag
+    const container = document.getElementById('container');
+
+    let x = 0;
+    let w = 0;
+
+    const mouseDownHandler = function (e) {
         const styles = window.getComputedStyle(container);
+        x = e.clientX;
         w = parseInt(styles.width, 10);
 
         document.addEventListener('mousemove', mouseMoveHandler);
         document.addEventListener('mouseup', mouseUpHandler);
-      };
+    };
 
-      const mouseMoveHandler = function (e) {
+    const mouseMoveHandler = function (e) {
         const dx = e.clientX - x;
-        const dy = e.clientY - y;
-
         container.style.width = `${w + dx}px`;
-      };
+    };
 
-      container.addEventListener('mousedown', mouseDownHandler)
+    container.addEventListener('mousedown', mouseDownHandler)
 
-      const mouseUpHandler = function () {
+    const mouseUpHandler = function () {
         document.removeEventListener('mousemove', mouseMoveHandler);
         document.removeEventListener('mouseup', mouseUpHandler);
-      };
-    </script>
-    <script>
-      function handleSearch() {
+    };
+</script>
+<script>
+    function handleSearch() {
         const search = document.getElementById("menu-search").value;
         const links = document.querySelectorAll("#menu a");
         for (const link of links) {
-          if (link.textContent.toLowerCase().includes(search.toLowerCase())) {
-            link.style.display = "block";
-          } else {
-            link.style.display = "none";
-          }
+            if (link.textContent.toLowerCase().includes(search.toLowerCase())) {
+                link.style.display = "block";
+            } else {
+                link.style.display = "none";
+            }
         }
-      }
+    }
 
-      // Reference from: https://stackoverflow.com/a/16348977/11522644
-      const stringToColour = function (str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-          hash = str.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        let colour = "#";
-        for (let i = 0; i < 3; i++) {
-          const value = (hash >> (i * 8)) & 0xff;
-          colour += ("00" + value.toString(16)).substr(-2);
-        }
-        return colour;
-      };
-      const map = new maplibregl.Map({
+    const string2RandColor = function (str) {
+        const luminosity = "bright";
+        const hues = ["pink", "blue", "orange", "monochrome", "yellow", "dark", "green"];
+        let hue = hues[Math.floor(Math.random() * hues.length)];
+
+        return randomColor({
+            luminosity: luminosity,
+            hue: hue,
+            seed: str,
+            format: 'rgbArray'
+        }).join(',');
+    }
+
+    const map = new maplibregl.Map({
         container: 'map',
         style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
         zoom: 0,
         center: [0, 0],
         hash: true
-      });
+    });
 
-      function geometryTypeToLayerType(geometryType) {
-        switch (geometryType) {
-          case 'POINT':
-          case 'GEOMETRY':
-            return 'circle';
-          case 'LINESTRING':
-          case 'MULTILINESTRING':
-          case 'COMPOUNDCURVE':
-            return 'line';
-          case 'POLYGON':
-          case 'MULTIPOLYGON':
-          case 'CURVEPOLYGON':
-          case 'SURFACE':
-          case 'MULTISURFACE':
-            return 'fill';
-          default:
-            return 'circle';
+    const QUERY_THRESHOLD = 10;
+    const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false
+    });
+
+    const renderProperty = function (pName, pValue) {
+        return `<div class="inspect_property">
+                  <div class="inspect_property_name">
+                    ${pName}
+                  </div>
+                  <div class="inspect_property_value">
+                    ${pValue}
+                  </div>
+                </div>`;
+    }
+
+    const renderProperties = function (feature) {
+        const geomDiv = renderProperty("$type", feature.geometry.type);
+        const propertiesDivs = Object.keys(feature.properties).map(propName => {
+            return renderProperty(propName, feature.properties[propName]);
+        }).join('');
+
+        return `${geomDiv}
+                ${propertiesDivs}`;
+    }
+
+    const renderFeature = function (feature) {
+        const srcLayer = feature.layer['source-layer'];
+        let layerName = feature.layer.source;
+        if (srcLayer && srcLayer !== layerName) {
+            layerName = `${layerName} / ${srcLayer}`;
         }
-      }
+        return `<div class="inspect_feature">
+                  <div class="inspect_layer">
+                    ${layerName}
+                  </div>
+                  ${renderProperties(feature)}
+                </div>`;
+    }
 
-      map.on('load', async function () {
+    const renderFeatures = function (features) {
+        const featureDOMS = features.map(feat => renderFeature(feat)).join('');
+        return `<inspect_popup class="inspect_popup">
+                  ${featureDOMS}
+                </inspect_popup>`;
+    }
+
+    const tryShowPopup = function (e) {
+        const queryBox = [
+            [
+                e.point.x - QUERY_THRESHOLD,
+                e.point.y + QUERY_THRESHOLD
+            ],
+            [
+                e.point.x + QUERY_THRESHOLD,
+                e.point.y - QUERY_THRESHOLD
+            ]
+        ];
+
+        let features = map.queryRenderedFeatures(queryBox) || [];
+        features = features.filter(f => f.source !== 'carto');
+        popup.setLngLat(e.lngLat);
+        if (features.length !== 0) {
+            const renderedPopup = renderFeatures(features);
+            popup.setHTML(renderedPopup);
+            popup.addTo(map);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    let isPopupFixed = false;
+    map.on("click", e => {
+        //remove the popup immediately if it's benn shown already
+        if (popup.isOpen()) {
+            popup.remove();
+            isPopupFixed = false;
+        }
+        isPopupFixed = tryShowPopup(e);
+    });
+
+    map.on("mousemove", function (e) {
+        if (isPopupFixed) return;
+        let showOk = tryShowPopup(e);
+        if (!showOk) {
+            popup.remove();
+        }
+    });
+
+    map.on('load', async function () {
         const catalog = await fetch('http://0.0.0.0:3000/catalog');
         const sources = (await catalog.json()).tiles;
-
         // Set up the corresponding toggle button for each layer.
-        // TODO: we may want to show each source metadata on hover or some other way?
-        for (const [id, source] of Object.entries(sources)) {
-          // Skip layers that already have a button set up.
-          if (document.getElementById(id)) {
-            continue;
-          }
-
-          const layerType = geometryTypeToLayerType(source.geometry_type);
-
-          map.addLayer({
-            id: id,
-            type: layerType,
-            source: {
-              type: 'vector',
-              url: `http://0.0.0.0:3000/${id}`
-            },
-            'source-layer': id,
-            layout: {
-              visibility: 'none'
-            },
-            paint: {
-              [`${layerType}-color`]: stringToColour(id)
+        for (const sourceName of Object.keys(sources)) {
+            // Skip layers that already have a button set up.
+            if (document.getElementById(sourceName)) {
+                continue;
             }
-          });
+            map.addSource(sourceName, {
+                type: 'vector',
+                url: `http://0.0.0.0:3000/${sourceName}`
+            });
 
-          map.on('click', id, (e) => {
-            console.log(e.features);
-          });
+            // Create a link.
+            const link = document.createElement('a');
+            link.id = sourceName;
+            link.href = '#';
+            link.textContent = sourceName;
+            link.title = sourceName;
 
-          const colorbox = document.createElement("input");
-          colorbox.type = "color";
-          colorbox.id = "colorbox";
-          colorbox.value = stringToColour(id);
-          colorbox.style.backgroundColor = stringToColour(id);
-          colorbox.onclick = function(e){
-            e.stopPropagation();
-          }
-          colorbox.onchange = function(e){
-            map.setPaintProperty(id, `${layerType}-color`, e.target.value);
-            colorbox.style.backgroundColor = e.target.value;
-          }
+            // Show or hide layer when the toggle is clicked.
+            link.onclick = function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const sourceLayers = map.style.sourceCaches[sourceName]._source.vectorLayerIds;
+                if (!sourceLayers) {
+                    return;
+                }
+                const isShowing = this.classList.contains('active')
+                const color = string2RandColor(sourceName);
+                for (const sourceLayer of sourceLayers) {
+                    for (const [type, geoType, alpha] of [["circle", "Point", 0.8], ["line", "LineString", 0.8], ["fill", "Polygon", 0.4]]) {
+                        const layerId = `${sourceName}_${sourceLayer}_${type}`;
+                        if (isShowing) {
+                            map.removeLayer(layerId)
+                        } else {
+                            map.addLayer({
+                                id: layerId,
+                                source: sourceName,
+                                type: type,
+                                'source-layer': sourceLayer,
+                                filter: ['==', '$type', geoType],
+                                paint: {[`${type}-color`]: `rgba(${color},${alpha})`}
+                            });
+                        }
+                    }
+                }
+                if (isShowing) {
+                    this.classList.remove('active');
+                    link.style.cssText = '';
+                } else {
+                    this.classList.add('active');
+                    link.style.cssText = `background: rgb(${color});
+                                          background: linear-gradient(90deg, rgba(${color},0) 15%, rgba(${color},1) 100%);`;
+                }
+            };
 
-          // Create a link.
-          const link = document.createElement('a');
-          link.id = id;
-          link.href = '#';
-          link.textContent = id;
-          link.title = id;
-          link.appendChild(colorbox);
-
-          // Show or hide layer when the toggle is clicked.
-          link.onclick = function (e) {
-            const clickedLayer = this.textContent;
-            e.preventDefault();
-            e.stopPropagation();
-
-            const visibility = map.getLayoutProperty(
-              clickedLayer,
-              'visibility'
-            );
-
-            // Toggle layer visibility by changing the layout object's visibility property.
-            if (visibility === 'visible') {
-              map.setLayoutProperty(clickedLayer, 'visibility', 'none');
-              this.className = '';
-            } else {
-              this.className = 'active';
-              map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
-            }
-          };
-
-          const layers = document.getElementById('menu');
-          layers.appendChild(link);
+            const layers = document.getElementById('menu');
+            layers.appendChild(link);
         }
-      });
-    </script>
-  </body>
+    });
+</script>
+</body>
+
 </html>
