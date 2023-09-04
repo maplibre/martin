@@ -38,7 +38,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Rust Versions
         shell: bash
         run: |
@@ -126,7 +126,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Start postgres
         if: matrix.target != 'aarch64-apple-darwin'
         uses: nyurik/action-setup-postgis@v1
@@ -289,7 +289,7 @@ jobs:
           -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup database
         run: |
           # sudo apt-get install postgresql-client
