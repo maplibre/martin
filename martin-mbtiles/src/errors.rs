@@ -26,8 +26,11 @@ pub enum MbtError {
     #[error("Invalid tile data for MBTile file {0}")]
     InvalidTileData(String),
 
-    #[error("Expected global_hash value in metadata table for MBTiles file {0}")]
-    GlobalHashValueNotFound(String),
+    #[error("Computed aggregate tiles hash {0} does not match tile data in metadata {1} for MBTile file {2}")]
+    AggHashMismatch(String, String, String),
+
+    #[error("Metadata value `agg_tiles_hash` is not set in MBTiles file {0}")]
+    AggHashValueNotFound(String),
 
     #[error(r#"Filename "{0}" passed to SQLite must be valid UTF-8"#)]
     InvalidFilenameType(PathBuf),

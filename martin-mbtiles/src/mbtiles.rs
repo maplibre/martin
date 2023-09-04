@@ -15,7 +15,7 @@ use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
 use sqlite_hashes::register_md5_function;
-use sqlite_hashes::rusqlite::Connection as RusqliteConnection;
+use sqlite_hashes::rusqlite::{Connection as RusqliteConnection, OpenFlags};
 use sqlx::sqlite::SqliteRow;
 use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
@@ -24,7 +24,9 @@ use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles_queries::{
     is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
-use crate::MbtError::{FailedIntegrityCheck, GlobalHashValueNotFound, InvalidTileData};
+use crate::MbtError::{
+    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, InvalidTileData,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metadata {
@@ -45,10 +47,10 @@ pub enum MbtType {
 
 #[derive(PartialEq, Eq, Default, Debug, Clone)]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
-pub enum IntegrityCheck {
-    Full,
+pub enum IntegrityCheckType {
     #[default]
     Quick,
+    Full,
     Off,
 }
 
@@ -388,96 +390,110 @@ impl Mbtiles {
         Err(MbtError::NoUniquenessConstraint(self.filepath.clone()))
     }
 
-    async fn get_global_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        let rusqlite_conn = RusqliteConnection::open(Path::new(&self.filepath()))?;
+    /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
+    /// This should work on all mbtiles files perf MBTiles specification.
+    async fn calc_agg_tiles_hash(&self) -> MbtResult<Option<String>> {
+        let rusqlite_conn =
+            RusqliteConnection::open_with_flags(self.filepath(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         register_md5_function(&rusqlite_conn)?;
-        let mbttype = self.detect_type(&mut *conn).await?;
-
-        let sql = match mbttype {
-            MbtType::Flat => {
-                println!("Cannot generate global hash, no hash column in flat table format. Skipping global_hash generation...");
-                return Ok(None);
-            }
-            MbtType::FlatWithHash => "SELECT hex(md5_concat(cast(zoom_level AS text), cast(tile_column AS text), cast(tile_row AS text), tile_hash)) FROM tiles_with_hash ORDER BY zoom_level, tile_column, tile_row;",
-            MbtType::Normalized => "SELECT hex(md5_concat(cast(zoom_level AS text), cast(tile_column AS text), cast(tile_row AS text), tile_id)) FROM map ORDER BY zoom_level, tile_column, tile_row;"
-        };
-
-        Ok(Some(rusqlite_conn.query_row_and_then(sql, [], |row| {
-            row.get::<_, String>(0)
-        })?))
+        Ok(Some(rusqlite_conn.query_row_and_then(
+            "SELECT hex(md5_concat(
+                               cast(zoom_level AS text),
+                               cast(tile_column AS text),
+                               cast(tile_row AS text),
+                               tile_data))
+             FROM tiles
+             ORDER BY zoom_level, tile_column, tile_row;",
+            [],
+            |row| row.get(0),
+        )?))
     }
 
-    pub async fn generate_global_hash<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn generate_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        if let Some(global_hash) = self.get_global_hash(&mut *conn).await? {
-            self.set_metadata_value(conn, "global_hash", Some(global_hash))
+        if let Some(agg_tiles_hash) = self.calc_agg_tiles_hash().await? {
+            self.set_metadata_value(conn, "agg_tiles_hash", Some(agg_tiles_hash))
                 .await
         } else {
             Ok(())
         }
     }
 
-    pub async fn validate_mbtiles<T>(
+    /// Perform SQLIte internal integrity check
+    pub async fn integrity_check<T>(
         &self,
-        integrity_check: IntegrityCheck,
         conn: &mut T,
+        integrity_check: IntegrityCheckType,
     ) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        // SQLite Integrity check
-        if integrity_check != IntegrityCheck::Off {
-            let sql = if integrity_check == IntegrityCheck::Full {
-                "PRAGMA integrity_check;"
-            } else {
-                "PRAGMA quick_check;"
-            };
-
-            let result = query(sql)
-                .map(|row: SqliteRow| row.get::<String, _>(0))
-                .fetch_all(&mut *conn)
-                .await?;
-
-            if result.len() > 1
-                || result.get(0).ok_or(FailedIntegrityCheck(
-                    self.filepath().to_string(),
-                    vec!["SQLite could not perform integrity check".to_string()],
-                ))? != "ok"
-            {
-                return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
-            }
-        }
-
-        let mbttype = self.detect_type(&mut *conn).await?;
-
-        if mbttype == MbtType::Flat {
-            println!(
-                "No hash column in flat table format, skipping hash-based validation steps..."
-            );
+        if integrity_check == IntegrityCheckType::Off {
             return Ok(());
         }
 
+        let sql = if integrity_check == IntegrityCheckType::Full {
+            "PRAGMA integrity_check;"
+        } else {
+            "PRAGMA quick_check;"
+        };
+
+        let result: Vec<String> = query(sql)
+            .map(|row: SqliteRow| row.get(0))
+            .fetch_all(&mut *conn)
+            .await?;
+
+        if result.len() > 1
+            || result.get(0).ok_or(FailedIntegrityCheck(
+                self.filepath().to_string(),
+                vec!["SQLite could not perform integrity check".to_string()],
+            ))? != "ok"
+        {
+            return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
+        }
+
+        Ok(())
+    }
+
+    pub async fn validate_tile_hashes<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let Some(stored) = self
+            .get_metadata_value(&mut *conn, "agg_tiles_hash")
+            .await?
+        else {
+            return Err(AggHashValueNotFound(self.filepath().to_string()));
+        };
+
+        if let Some(computed) = self.calc_agg_tiles_hash().await? {
+            if stored != computed {
+                let file = self.filepath().to_string();
+                return Err(AggHashMismatch(computed, stored, file));
+            }
+        } else {
+            println!("UNIMPLEMENTED: Not handling empty tiles table yet")
+        }
+
+        Ok(())
+    }
+
+    pub async fn validate_each_tile_hash<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
         let rusqlite_conn = RusqliteConnection::open(Path::new(self.filepath()))?;
         register_md5_function(&rusqlite_conn)?;
 
-        // Global hash check
-        if let Some(global_hash) = self.get_metadata_value(&mut *conn, "global_hash").await? {
-            if let Some(new_global_hash) = self.get_global_hash(&mut *conn).await? {
-                if global_hash != new_global_hash {
-                    return Err(InvalidTileData(self.filepath().to_string()));
-                }
-            }
-        } else {
-            return Err(GlobalHashValueNotFound(self.filepath().to_string()));
+        let mbt_type = self.detect_type(&mut *conn).await?;
+        if mbt_type == MbtType::Flat {
+            println!("Skipping per-tile hash validation because this is a flat MBTiles file");
+            return Ok(());
         }
 
-        // Per-tile hash check
-        let sql = if mbttype == MbtType::FlatWithHash {
+        let sql = if mbt_type == MbtType::FlatWithHash {
             "SELECT 1 FROM tiles_with_hash WHERE tile_hash != hex(md5(tile_data)) LIMIT 1;"
         } else {
             "SELECT 1 FROM images WHERE tile_id != hex(md5(tile_data)) LIMIT 1;"
@@ -648,7 +664,7 @@ mod tests {
     async fn validate_valid_file() {
         let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
 
-        mbt.validate_mbtiles(IntegrityCheck::Quick, &mut conn)
+        mbt.integrity_check(&mut conn, IntegrityCheckType::Quick)
             .await
             .unwrap();
     }
@@ -656,17 +672,8 @@ mod tests {
     #[actix_rt::test]
     async fn validate_invalid_file() {
         let (mut conn, mbt) =
-            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await;
-
-        print!(
-            "VLAUE {:?}",
-            mbt.validate_mbtiles(IntegrityCheck::Quick, &mut conn).await
-        );
-        assert!(matches!(
-            mbt.validate_mbtiles(IntegrityCheck::Quick, &mut conn)
-                .await
-                .unwrap_err(),
-            MbtError::InvalidTileData(..)
-        ));
+            open("../tests/fixtures/files/invalid/invalid_zoomed_world_cities.mbtiles").await;
+        let result = mbt.validate_tile_hashes(&mut conn).await;
+        assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
     }
 }
