@@ -1,12 +1,11 @@
 extern crate core;
 
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
 use clap::{builder::ValueParser, error::ErrorKind, Args, ValueEnum};
-use sqlite_hashes::register_md5_function;
-use sqlite_hashes::rusqlite::{params_from_iter, Connection as RusqliteConnection};
+use sqlite_hashes::rusqlite::params_from_iter;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection, Row, SqliteConnection};
 
@@ -185,8 +184,7 @@ impl TileCopier {
             open_and_detect_type(&self.dst_mbtiles).await?
         };
 
-        let rusqlite_conn = RusqliteConnection::open(Path::new(&self.dst_mbtiles.filepath()))?;
-        register_md5_function(&rusqlite_conn)?;
+        let rusqlite_conn = self.dst_mbtiles.open_with_hashes(false)?;
         rusqlite_conn.execute(
             "ATTACH DATABASE ? AS sourceDb",
             [self.src_mbtiles.filepath()],
@@ -456,8 +454,7 @@ pub async fn apply_mbtiles_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtRes
     let src_mbttype = open_and_detect_type(&src_mbtiles).await?;
     let diff_mbttype = open_and_detect_type(&diff_mbtiles).await?;
 
-    let rusqlite_conn = RusqliteConnection::open(Path::new(&src_mbtiles.filepath()))?;
-    register_md5_function(&rusqlite_conn)?;
+    let rusqlite_conn = src_mbtiles.open_with_hashes(false)?;
     rusqlite_conn.execute("ATTACH DATABASE ? AS diffDb", [diff_mbtiles.filepath()])?;
 
     let select_from = if src_mbttype == Flat {

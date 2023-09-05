@@ -393,7 +393,7 @@ impl Mbtiles {
     /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
     /// This should work on all mbtiles files perf MBTiles specification.
     async fn calc_agg_tiles_hash(&self) -> MbtResult<String> {
-        Ok(self.open_with_hashes()?.query_row_and_then(
+        Ok(self.open_with_hashes(true)?.query_row_and_then(
             // The md5_concat func will return NULL if there are no rows in the tiles table.
             // For our use case, we will treat it as an empty string, and hash that.
             "SELECT hex(
@@ -414,9 +414,13 @@ impl Mbtiles {
         )?)
     }
 
-    fn open_with_hashes(&self) -> MbtResult<Connection> {
-        let rusqlite_conn =
-            RusqliteConnection::open_with_flags(self.filepath(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    pub(crate) fn open_with_hashes(&self, is_readonly: bool) -> MbtResult<Connection> {
+        let flags = if is_readonly {
+            OpenFlags::SQLITE_OPEN_READ_ONLY
+        } else {
+            OpenFlags::default()
+        };
+        let rusqlite_conn = RusqliteConnection::open_with_flags(self.filepath(), flags)?;
         register_md5_function(&rusqlite_conn)?;
         Ok(rusqlite_conn)
     }
@@ -504,7 +508,7 @@ impl Mbtiles {
             }
         };
 
-        if self.open_with_hashes()?.prepare(sql)?.exists(())? {
+        if self.open_with_hashes(true)?.prepare(sql)?.exists(())? {
             return Err(InvalidTileData(self.filepath().to_string()));
         }
 
