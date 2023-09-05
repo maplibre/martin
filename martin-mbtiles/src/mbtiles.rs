@@ -491,16 +491,17 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let mbt_type = self.detect_type(&mut *conn).await?;
-        if mbt_type == MbtType::Flat {
-            println!("Skipping per-tile hash validation because this is a flat MBTiles file");
-            return Ok(());
-        }
-
-        let sql = if mbt_type == MbtType::FlatWithHash {
-            "SELECT 1 FROM tiles_with_hash WHERE tile_hash != hex(md5(tile_data)) LIMIT 1;"
-        } else {
-            "SELECT 1 FROM images WHERE tile_id != hex(md5(tile_data)) LIMIT 1;"
+        let sql = match self.detect_type(&mut *conn).await? {
+            MbtType::Flat => {
+                println!("Skipping per-tile hash validation because this is a flat MBTiles file");
+                return Ok(());
+            }
+            MbtType::FlatWithHash => {
+                "SELECT 1 FROM tiles_with_hash WHERE tile_hash != hex(md5(tile_data)) LIMIT 1;"
+            }
+            MbtType::Normalized => {
+                "SELECT 1 FROM images WHERE tile_id != hex(md5(tile_data)) LIMIT 1;"
+            }
         };
 
         if self.open_with_hashes()?.prepare(sql)?.exists(())? {
