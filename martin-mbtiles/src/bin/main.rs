@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use martin_mbtiles::{
-    apply_mbtiles_diff, copy_mbtiles_file, IntegrityCheck, Mbtiles, TileCopierOptions,
+    apply_mbtiles_diff, copy_mbtiles_file, IntegrityCheckType, Mbtiles, TileCopierOptions,
 };
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
@@ -65,11 +65,11 @@ enum Commands {
         /// MBTiles file to validate
         file: PathBuf,
         /// Value to specify the extent of the SQLite integrity check performed
-        #[arg(long, value_enum, default_value_t=IntegrityCheck::default())]
-        integrity_check: IntegrityCheck,
-        /// Generate a hash of the tile data hashes and store under the 'global_hash' key in metadata
+        #[arg(long, value_enum, default_value_t=IntegrityCheckType::default())]
+        integrity_check: IntegrityCheckType,
+        /// Generate a hash of the tile data hashes and store under the 'agg_tiles_hash' key in metadata
         #[arg(long)]
-        regenerate_global_hash: bool,
+        update_agg_tiles_hash: bool,
     },
 }
 
@@ -96,9 +96,9 @@ async fn main() -> Result<()> {
         Commands::Validate {
             file,
             integrity_check,
-            regenerate_global_hash,
+            update_agg_tiles_hash,
         } => {
-            validate_mbtiles(file.as_path(), integrity_check, regenerate_global_hash).await?;
+            validate_mbtiles(file.as_path(), integrity_check, update_agg_tiles_hash).await?;
         }
     }
 
@@ -125,15 +125,18 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> Result
 
 async fn validate_mbtiles(
     file: &Path,
-    integrity_check: IntegrityCheck,
-    regenerate_global_hash: bool,
+    check_type: IntegrityCheckType,
+    update_agg_tiles_hash: bool,
 ) -> Result<()> {
     let mbt = Mbtiles::new(file)?;
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
-    mbt.validate_mbtiles(integrity_check, &mut conn).await?;
-    if regenerate_global_hash {
-        mbt.generate_global_hash(&mut conn).await?;
+    mbt.check_integrity(&mut conn, check_type).await?;
+    mbt.check_each_tile_hash(&mut conn).await?;
+    if update_agg_tiles_hash {
+        mbt.update_agg_tiles_hash(&mut conn).await?;
+    } else {
+        mbt.check_agg_tile_hashes(&mut conn).await?;
     }
     Ok(())
 }
@@ -147,7 +150,7 @@ mod tests {
     use martin_mbtiles::{CopyDuplicateMode, TileCopierOptions};
 
     use crate::Commands::{ApplyDiff, Copy, MetaGetValue, MetaSetValue, Validate};
-    use crate::{Args, IntegrityCheck};
+    use crate::{Args, IntegrityCheckType};
 
     #[test]
     fn test_copy_no_arguments() {
@@ -426,8 +429,8 @@ mod tests {
                 verbose: false,
                 command: Validate {
                     file: PathBuf::from("src_file"),
-                    integrity_check: IntegrityCheck::Quick,
-                    regenerate_global_hash: false
+                    integrity_check: IntegrityCheckType::Quick,
+                    update_agg_tiles_hash: false
                 }
             }
         );

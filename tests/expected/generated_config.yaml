@@ -179,7 +179,6 @@ mbtiles:
     geography-class-jpg-modified: tests/fixtures/files/geography-class-jpg-modified.mbtiles
     geography-class-png: tests/fixtures/files/geography-class-png.mbtiles
     geography-class-png-no-bounds: tests/fixtures/files/geography-class-png-no-bounds.mbtiles
-    invalid_zoomed_world_cities: tests/fixtures/files/invalid_zoomed_world_cities.mbtiles
     json: tests/fixtures/files/json.mbtiles
     uncompressed_mvt: tests/fixtures/files/uncompressed_mvt.mbtiles
     webp: tests/fixtures/files/webp.mbtiles
