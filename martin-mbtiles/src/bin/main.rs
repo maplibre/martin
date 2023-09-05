@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
             meta_get_value(file.as_path(), &key).await?;
         }
         Commands::MetaSetValue { file, key, value } => {
-            meta_set_value(file.as_path(), &key, value).await?
+            meta_set_value(file.as_path(), &key, value).await?;
         }
         Commands::Copy(opts) => {
             copy_mbtiles_file(opts).await?;
@@ -122,7 +122,7 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
     if let Some(s) = mbt.get_metadata_value(&mut conn, key).await? {
-        println!("{s}")
+        println!("{s}");
     }
     Ok(())
 }

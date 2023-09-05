@@ -94,10 +94,12 @@ impl Mbtiles {
         })
     }
 
+    #[must_use]
     pub fn filepath(&self) -> &str {
         &self.filepath
     }
 
+    #[must_use]
     pub fn filename(&self) -> &str {
         &self.filename
     }
@@ -417,8 +419,8 @@ impl Mbtiles {
     }
 
     /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
-    /// This should work on all mbtiles files perf MBTiles specification.
-    async fn calc_agg_tiles_hash(&self) -> MbtResult<String> {
+    /// This should work on all mbtiles files perf `MBTiles` specification.
+    fn calc_agg_tiles_hash(&self) -> MbtResult<String> {
         Ok(self.open_with_hashes(true)?.query_row_and_then(
             // The md5_concat func will return NULL if there are no rows in the tiles table.
             // For our use case, we will treat it as an empty string, and hash that.
@@ -451,7 +453,7 @@ impl Mbtiles {
         Ok(rusqlite_conn)
     }
 
-    /// Perform SQLIte internal integrity check
+    /// Perform `SQLite` internal integrity check
     pub async fn check_integrity<T>(
         &self,
         conn: &mut T,
@@ -495,7 +497,7 @@ impl Mbtiles {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
 
-        let computed = self.calc_agg_tiles_hash().await?;
+        let computed = self.calc_agg_tiles_hash()?;
         if stored != computed {
             let file = self.filepath().to_string();
             return Err(AggHashMismatch(computed, stored, file));
@@ -510,7 +512,7 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
-        let hash = self.calc_agg_tiles_hash().await?;
+        let hash = self.calc_agg_tiles_hash()?;
         if old_hash.as_ref() == Some(&hash) {
             info!(
                 "agg_tiles_hash is already set to the correct value `{hash}` in {}",

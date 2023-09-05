@@ -38,7 +38,7 @@ impl Arguments {
     {
         let mut result = Vec::new();
         for (i, name) in self.values.iter().enumerate() {
-            if matches!(self.state[i], State::Take(_)) {
+            if matches!(self.state[i], State::Take(())) {
                 continue;
             }
             let state = handle(name);
