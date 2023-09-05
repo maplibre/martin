@@ -392,13 +392,21 @@ impl Mbtiles {
 
     /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
     /// This should work on all mbtiles files perf MBTiles specification.
-    async fn calc_agg_tiles_hash(&self) -> MbtResult<Option<String>> {
+    async fn calc_agg_tiles_hash(&self) -> MbtResult<String> {
         Ok(self.open_with_hashes()?.query_row_and_then(
-            "SELECT hex(md5_concat(
-                               cast(zoom_level AS text),
-                               cast(tile_column AS text),
-                               cast(tile_row AS text),
-                               tile_data))
+            // The md5_concat func will return NULL if there are no rows in the tiles table.
+            // For our use case, we will treat it as an empty string, and hash that.
+            "SELECT hex(
+               coalesce(
+                 md5_concat(
+                   cast(zoom_level AS text),
+                   cast(tile_column AS text),
+                   cast(tile_row AS text),
+                   tile_data
+                 ),
+                 md5('')
+               )
+             )
              FROM tiles
              ORDER BY zoom_level, tile_column, tile_row;",
             [],
@@ -413,16 +421,14 @@ impl Mbtiles {
         Ok(rusqlite_conn)
     }
 
+    /// Compute new aggregate tiles hash and save it to the metadata table
     pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        if let Some(agg_tiles_hash) = self.calc_agg_tiles_hash().await? {
-            self.set_metadata_value(conn, "agg_tiles_hash", Some(agg_tiles_hash))
-                .await
-        } else {
-            Ok(())
-        }
+        let hash = self.calc_agg_tiles_hash().await?;
+        self.set_metadata_value(conn, "agg_tiles_hash", Some(hash))
+            .await
     }
 
     /// Perform SQLIte internal integrity check
@@ -472,13 +478,10 @@ impl Mbtiles {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
 
-        if let Some(computed) = self.calc_agg_tiles_hash().await? {
-            if stored != computed {
-                let file = self.filepath().to_string();
-                return Err(AggHashMismatch(computed, stored, file));
-            }
-        } else {
-            println!("UNIMPLEMENTED: Not handling empty tiles table yet")
+        let computed = self.calc_agg_tiles_hash().await?;
+        if stored != computed {
+            let file = self.filepath().to_string();
+            return Err(AggHashMismatch(computed, stored, file));
         }
 
         Ok(())
