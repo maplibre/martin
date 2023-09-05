@@ -109,6 +109,14 @@ impl Mbtiles {
         Ok(None)
     }
 
+    /// Get the aggregate tiles hash value from the metadata table
+    pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        self.get_metadata_value(&mut *conn, "agg_tiles_hash").await
+    }
+
     pub async fn set_metadata_value<T>(
         &self,
         conn: &mut T,
@@ -425,18 +433,8 @@ impl Mbtiles {
         Ok(rusqlite_conn)
     }
 
-    /// Compute new aggregate tiles hash and save it to the metadata table
-    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        let hash = self.calc_agg_tiles_hash().await?;
-        self.set_metadata_value(conn, "agg_tiles_hash", Some(hash))
-            .await
-    }
-
     /// Perform SQLIte internal integrity check
-    pub async fn integrity_check<T>(
+    pub async fn check_integrity<T>(
         &self,
         conn: &mut T,
         integrity_check: IntegrityCheckType,
@@ -475,10 +473,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let Some(stored) = self
-            .get_metadata_value(&mut *conn, "agg_tiles_hash")
-            .await?
-        else {
+        let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
 
@@ -489,6 +484,36 @@ impl Mbtiles {
         }
 
         Ok(())
+    }
+
+    /// Compute new aggregate tiles hash and save it to the metadata table (if needed)
+    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
+        let hash = self.calc_agg_tiles_hash().await?;
+        if old_hash.as_ref() == Some(&hash) {
+            info!(
+                "agg_tiles_hash is already set to the correct value `{hash}` in {}",
+                self.filepath()
+            );
+            Ok(())
+        } else {
+            if let Some(old_hash) = old_hash {
+                info!(
+                    "Updating agg_tiles_hash from {old_hash} to {hash} in {}",
+                    self.filepath()
+                );
+            } else {
+                info!(
+                    "Initializing agg_tiles_hash to {hash} in {}",
+                    self.filepath()
+                );
+            }
+            self.set_metadata_value(&mut *conn, "agg_tiles_hash", Some(hash))
+                .await
+        }
     }
 
     pub async fn check_each_tile_hash<T>(&self, conn: &mut T) -> MbtResult<()>
@@ -673,7 +698,7 @@ mod tests {
     async fn validate_valid_file() {
         let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
 
-        mbt.integrity_check(&mut conn, IntegrityCheckType::Quick)
+        mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
             .await
             .unwrap();
     }
