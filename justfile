@@ -29,7 +29,7 @@ debug-page *ARGS: start
 psql *ARGS:
     psql {{ ARGS }} {{ DATABASE_URL }}
 
-# Run PSQL utility against the test database
+# Run pg_dump utility against the test database
 pg_dump *ARGS:
     pg_dump {{ ARGS }} {{ DATABASE_URL }}
 
