@@ -393,7 +393,7 @@ impl Mbtiles {
     /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
     /// This should work on all mbtiles files perf MBTiles specification.
     async fn calc_agg_tiles_hash(&self) -> MbtResult<Option<String>> {
-        Ok(Some(self.open_with_hashes()?.query_row_and_then(
+        Ok(self.open_with_hashes()?.query_row_and_then(
             "SELECT hex(md5_concat(
                                cast(zoom_level AS text),
                                cast(tile_column AS text),
@@ -403,7 +403,7 @@ impl Mbtiles {
              ORDER BY zoom_level, tile_column, tile_row;",
             [],
             |row| row.get(0),
-        )?))
+        )?)
     }
 
     fn open_with_hashes(&self) -> MbtResult<Connection> {
