@@ -45,7 +45,7 @@ enum Commands {
         file: PathBuf,
         /// Key to set
         key: String,
-        /// Value to set
+        /// Value to set, or nothing if the key should be deleted.
         value: Option<String>,
     },
     /// Copy tiles from one mbtiles file to another.

@@ -47,7 +47,7 @@ impl PgPool {
             .build()
             .map_err(|e| PostgresPoolBuildError(e, id.clone()))?;
 
-        let version = get_conn(&pool, id.as_str())
+        let version: String = get_conn(&pool, id.as_str())
             .await?
             .query_one(
                 r"
@@ -61,7 +61,7 @@ SELECT
                 &[],
             )
             .await
-            .map(|row| row.get::<_, String>("version"))
+            .map(|row| row.get("version"))
             .map_err(|e| PostgresError(e, "querying postgis version"))?;
 
         let version: Version = version.parse().map_err(|e| BadPostgisVersion(e, version))?;
