@@ -1,5 +1,3 @@
-extern crate core;
-
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -202,7 +200,7 @@ impl TileCopier {
 
                 self.get_select_from_with_diff(&dst_mbttype, &diff_mbttype)
             } else {
-                self.get_select_from(&dst_mbttype, &src_mbttype)
+                self.get_select_from(&dst_mbttype, &src_mbttype).to_string()
             };
 
             let (options_sql, query_args) = self.get_options_sql()?;
@@ -221,7 +219,11 @@ impl TileCopier {
             )?,
             Normalized => {
                 rusqlite_conn.execute(
-                    &format!("INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id) SELECT zoom_level, tile_column, tile_row, hash as tile_id FROM ({select_from} {sql_cond})"),
+                    &format!(
+                        "INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id)
+                         SELECT zoom_level, tile_column, tile_row, hash as tile_id
+                         FROM ({select_from} {sql_cond})"
+                    ),
                     params_from_iter(&query_args),
                 )?;
                 rusqlite_conn.execute(
@@ -266,15 +268,16 @@ impl TileCopier {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
 
             for row in query(
-                "SELECT sql 
-                        FROM sourceDb.sqlite_schema 
-                        WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash') 
-                            AND type IN ('table', 'view', 'trigger', 'index')
-                        ORDER BY CASE WHEN type = 'table' THEN 1
-                          WHEN type = 'view' THEN 2
-                          WHEN type = 'trigger' THEN 3
-                          WHEN type = 'index' THEN 4
-                          ELSE 5 END",
+                "SELECT sql
+                 FROM sourceDb.sqlite_schema
+                 WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
+                     AND type IN ('table', 'view', 'trigger', 'index')
+                 ORDER BY CASE
+                     WHEN type = 'table' THEN 1
+                     WHEN type = 'view' THEN 2
+                     WHEN type = 'trigger' THEN 3
+                     WHEN type = 'index' THEN 4
+                     ELSE 5 END",
             )
             .fetch_all(&mut *conn)
             .await?
@@ -286,14 +289,14 @@ impl TileCopier {
         if *dst_mbttype == Normalized {
             query(
                 "CREATE VIEW tiles_with_hash AS
-                          SELECT
-                              map.zoom_level AS zoom_level,
-                              map.tile_column AS tile_column,
-                              map.tile_row AS tile_row,
-                              images.tile_data AS tile_data,
-                              images.tile_id AS tile_hash
-                          FROM map
-                          JOIN images ON images.tile_id = map.tile_id",
+                     SELECT
+                         map.zoom_level AS zoom_level,
+                         map.tile_column AS tile_column,
+                         map.tile_row AS tile_row,
+                         images.tile_data AS tile_data,
+                         images.tile_id AS tile_hash
+                     FROM map
+                     JOIN images ON images.tile_id = map.tile_id",
             )
             .execute(&mut *conn)
             .await?;
@@ -310,7 +313,7 @@ impl TileCopier {
         for statement in &[
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
             "CREATE TABLE tiles (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob,
-                PRIMARY KEY(zoom_level, tile_column, tile_row));"] {
+                 PRIMARY KEY(zoom_level, tile_column, tile_row));"] {
             query(statement).execute(&mut *conn).await?;
         }
         Ok(())
@@ -320,7 +323,7 @@ impl TileCopier {
         for statement in &[
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
             "CREATE TABLE tiles_with_hash (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob, tile_hash text,
-                PRIMARY KEY(zoom_level, tile_column, tile_row));",
+                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
             "CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;"] {
             query(statement).execute(&mut *conn).await?;
         }
@@ -330,13 +333,16 @@ impl TileCopier {
     async fn create_normalized_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         for statement in &[
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE map (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_id text,
-                                  PRIMARY KEY(zoom_level, tile_column, tile_row));",
+            "CREATE TABLE map (zoom_level integer NOT NULL,
+                               tile_column integer NOT NULL,
+                               tile_row integer NOT NULL,
+                               tile_id text,
+                               PRIMARY KEY(zoom_level, tile_column, tile_row));",
             "CREATE TABLE images (tile_data blob, tile_id text NOT NULL PRIMARY KEY);",
-            "CREATE VIEW tiles AS 
-                SELECT map.zoom_level AS zoom_level, map.tile_column AS tile_column, map.tile_row AS tile_row, images.tile_data AS tile_data
-                FROM map
-                JOIN images ON images.tile_id = map.tile_id"] {
+            "CREATE VIEW tiles AS
+                 SELECT map.zoom_level AS zoom_level, map.tile_column AS tile_column, map.tile_row AS tile_row, images.tile_data AS tile_data
+                 FROM map
+                 JOIN images ON images.tile_id = map.tile_id"] {
             query(statement).execute(&mut *conn).await?;
         }
         Ok(())
@@ -354,10 +360,10 @@ impl TileCopier {
                 };
 
                 format!(
-                        "AND NOT EXISTS (\
-                        SELECT 1 \
-                        FROM {main_table} \
-                        WHERE \
+                        "AND NOT EXISTS (
+                        SELECT 1
+                        FROM {main_table}
+                        WHERE
                             {main_table}.zoom_level=sourceDb.{main_table}.zoom_level \
                             AND {main_table}.tile_column=sourceDb.{main_table}.tile_column \
                             AND {main_table}.tile_row=sourceDb.{main_table}.tile_row \
@@ -381,31 +387,29 @@ impl TileCopier {
         };
 
         format!("SELECT COALESCE(sourceDb.tiles.zoom_level, new_tiles_with_hash.zoom_level) as zoom_level,
-                                     COALESCE(sourceDb.tiles.tile_column, new_tiles_with_hash.tile_column) as tile_column,
-                                     COALESCE(sourceDb.tiles.tile_row, new_tiles_with_hash.tile_row) as tile_row,
-                                     new_tiles_with_hash.tile_data as tile_data
-                                     {hash_col_sql}
-                              FROM sourceDb.tiles FULL JOIN {new_tiles_with_hash} AS new_tiles_with_hash
-                                   ON sourceDb.tiles.zoom_level = new_tiles_with_hash.zoom_level
-                                   AND sourceDb.tiles.tile_column = new_tiles_with_hash.tile_column
-                                   AND sourceDb.tiles.tile_row = new_tiles_with_hash.tile_row
-                              WHERE (sourceDb.tiles.tile_data != new_tiles_with_hash.tile_data
-                                  OR sourceDb.tiles.tile_data ISNULL
-                                  OR new_tiles_with_hash.tile_data ISNULL)")
+                        COALESCE(sourceDb.tiles.tile_column, new_tiles_with_hash.tile_column) as tile_column,
+                        COALESCE(sourceDb.tiles.tile_row, new_tiles_with_hash.tile_row) as tile_row,
+                        new_tiles_with_hash.tile_data as tile_data
+                        {hash_col_sql}
+                 FROM sourceDb.tiles FULL JOIN {new_tiles_with_hash} AS new_tiles_with_hash
+                      ON sourceDb.tiles.zoom_level = new_tiles_with_hash.zoom_level
+                      AND sourceDb.tiles.tile_column = new_tiles_with_hash.tile_column
+                      AND sourceDb.tiles.tile_row = new_tiles_with_hash.tile_row
+                 WHERE (sourceDb.tiles.tile_data != new_tiles_with_hash.tile_data
+                     OR sourceDb.tiles.tile_data ISNULL
+                     OR new_tiles_with_hash.tile_data ISNULL)")
     }
 
-    fn get_select_from(&self, dst_mbttype: &MbtType, src_mbttype: &MbtType) -> String {
-        let select_from = if dst_mbttype == &Flat {
-            "SELECT * FROM sourceDb.tiles "
+    fn get_select_from(&self, dst_mbttype: &MbtType, src_mbttype: &MbtType) -> &str {
+        if *dst_mbttype == Flat {
+            "SELECT * FROM sourceDb.tiles WHERE TRUE "
         } else {
             match *src_mbttype {
-                Flat => "SELECT *, hex(md5(tile_data)) as hash FROM sourceDb.tiles ",
-                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.tiles_with_hash",
-                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id=sourceDb.images.tile_id"
+                Flat => "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash FROM sourceDb.tiles WHERE TRUE ",
+                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.tiles_with_hash WHERE TRUE ",
+                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id=sourceDb.images.tile_id WHERE TRUE "
             }
-        }.to_string();
-
-        format!("{select_from} WHERE TRUE ")
+        }
     }
 
     fn get_options_sql(&self) -> MbtResult<(String, Vec<u8>)> {
@@ -797,13 +801,13 @@ mod tests {
         // Create a temporary table with all the tiles in the original database and
         // all the tiles in the source database except for those that conflict with tiles in the original database
         query("CREATE TEMP TABLE expected_tiles AS
-                    SELECT COALESCE(t1.zoom_level, t2.zoom_level) as zoom_level,
-                                        COALESCE(t1.tile_column, t2.zoom_level) as tile_column,
-                                        COALESCE(t1.tile_row, t2.tile_row) as tile_row,
-                                        COALESCE(t1.tile_data, t2.tile_data) as tile_data
-                                FROM originalDb.tiles as t1 
-                                FULL OUTER JOIN srcDb.tiles as t2
-                                    ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row")
+                   SELECT COALESCE(t1.zoom_level, t2.zoom_level) as zoom_level,
+                          COALESCE(t1.tile_column, t2.zoom_level) as tile_column,
+                          COALESCE(t1.tile_row, t2.tile_row) as tile_row,
+                          COALESCE(t1.tile_data, t2.tile_data) as tile_data
+                   FROM originalDb.tiles as t1
+                   FULL OUTER JOIN srcDb.tiles as t2
+                       ON t1.zoom_level=t2.zoom_level AND t1.tile_column=t2.tile_column AND t1.tile_row=t2.tile_row")
             .execute(&mut dst_conn)
             .await
             .unwrap();
@@ -811,8 +815,8 @@ mod tests {
         // Ensure all entries in expected_tiles are in tiles and vice versa
         assert!(query(
             "SELECT * FROM expected_tiles EXCEPT SELECT * FROM tiles
-                 UNION 
-                 SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
+               UNION
+             SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
         )
         .fetch_optional(&mut dst_conn)
         .await

@@ -1,7 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
 
-extern crate core;
-
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Display;
