@@ -132,11 +132,11 @@ async fn validate_mbtiles(
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
     mbt.integrity_check(&mut conn, check_type).await?;
-    mbt.validate_each_tile_hash(&mut conn).await?;
+    mbt.check_each_tile_hash(&mut conn).await?;
     if update_agg_tiles_hash {
-        mbt.generate_agg_tiles_hash(&mut conn).await?;
+        mbt.update_agg_tiles_hash(&mut conn).await?;
     } else {
-        mbt.validate_tile_hashes(&mut conn).await?;
+        mbt.check_agg_tile_hashes(&mut conn).await?;
     }
     Ok(())
 }

@@ -238,7 +238,7 @@ impl TileCopier {
         if !self.options.skip_agg_tiles_hash
             && (dst_mbttype == FlatWithHash || dst_mbttype == Normalized)
         {
-            self.dst_mbtiles.generate_agg_tiles_hash(&mut conn).await?;
+            self.dst_mbtiles.update_agg_tiles_hash(&mut conn).await?;
         }
 
         Ok(conn)
