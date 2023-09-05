@@ -15,7 +15,7 @@ use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde_json::{Value as JSONValue, Value};
 use sqlite_hashes::register_md5_function;
-use sqlite_hashes::rusqlite::{Connection as RusqliteConnection, OpenFlags};
+use sqlite_hashes::rusqlite::{Connection as RusqliteConnection, Connection, OpenFlags};
 use sqlx::sqlite::SqliteRow;
 use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
@@ -393,10 +393,7 @@ impl Mbtiles {
     /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
     /// This should work on all mbtiles files perf MBTiles specification.
     async fn calc_agg_tiles_hash(&self) -> MbtResult<Option<String>> {
-        let rusqlite_conn =
-            RusqliteConnection::open_with_flags(self.filepath(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        register_md5_function(&rusqlite_conn)?;
-        Ok(Some(rusqlite_conn.query_row_and_then(
+        Ok(Some(self.open_with_hashes()?.query_row_and_then(
             "SELECT hex(md5_concat(
                                cast(zoom_level AS text),
                                cast(tile_column AS text),
@@ -407,6 +404,13 @@ impl Mbtiles {
             [],
             |row| row.get(0),
         )?))
+    }
+
+    fn open_with_hashes(&self) -> MbtResult<Connection> {
+        let rusqlite_conn =
+            RusqliteConnection::open_with_flags(self.filepath(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        register_md5_function(&rusqlite_conn)?;
+        Ok(rusqlite_conn)
     }
 
     pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
@@ -484,9 +488,6 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let rusqlite_conn = RusqliteConnection::open(Path::new(self.filepath()))?;
-        register_md5_function(&rusqlite_conn)?;
-
         let mbt_type = self.detect_type(&mut *conn).await?;
         if mbt_type == MbtType::Flat {
             println!("Skipping per-tile hash validation because this is a flat MBTiles file");
@@ -499,7 +500,7 @@ impl Mbtiles {
             "SELECT 1 FROM images WHERE tile_id != hex(md5(tile_data)) LIMIT 1;"
         };
 
-        if rusqlite_conn.prepare(sql)?.exists(())? {
+        if self.open_with_hashes()?.prepare(sql)?.exists(())? {
             return Err(InvalidTileData(self.filepath().to_string()));
         }
 
