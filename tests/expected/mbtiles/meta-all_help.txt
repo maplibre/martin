@@ -1,0 +1,9 @@
+Prints all values in the metadata table in a free-style, unstable YAML format
+
+Usage: mbtiles meta-all <FILE>
+
+Arguments:
+  <FILE>  MBTiles file to read from
+
+Options:
+  -h, --help  Print help

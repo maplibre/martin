@@ -24,12 +24,12 @@ pub struct Args {
 
 #[derive(Subcommand, PartialEq, Eq, Debug)]
 enum Commands {
-    // /// Prints all values in the metadata table.
-    // #[command(name = "meta-all")]
-    // MetaAll {
-    //     /// MBTiles file to read from
-    //     file: PathBuf,
-    // },
+    /// Prints all values in the metadata table in a free-style, unstable YAML format
+    #[command(name = "meta-all")]
+    MetaAll {
+        /// MBTiles file to read from
+        file: PathBuf,
+    },
     /// Gets a single value from the MBTiles metadata table.
     #[command(name = "meta-get")]
     MetaGetValue {
@@ -78,6 +78,9 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.command {
+        Commands::MetaAll { file } => {
+            meta_print_all(file.as_path()).await?;
+        }
         Commands::MetaGetValue { file, key } => {
             meta_get_value(file.as_path(), &key).await?;
         }
@@ -102,6 +105,15 @@ async fn main() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+async fn meta_print_all(file: &Path) -> Result<()> {
+    let mbt = Mbtiles::new(file)?;
+    let opt = SqliteConnectOptions::new().filename(file).read_only(true);
+    let mut conn = SqliteConnection::connect_with(&opt).await?;
+    let metadata = mbt.get_metadata(&mut conn).await?;
+    println!("{}", serde_yaml::to_string(&metadata)?);
     Ok(())
 }
 
