@@ -59,9 +59,9 @@ pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapM
 
         if let Some(v) = res
             .entry(info.schema.clone())
-            .or_insert_with(HashMap::new)
+            .or_default()
             .entry(info.table.clone())
-            .or_insert_with(HashMap::new)
+            .or_default()
             .insert(info.geometry_column.clone(), info)
         {
             warn!("Unexpected duplicate table {}", v.format_id());

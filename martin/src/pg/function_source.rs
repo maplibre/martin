@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Write;
 use std::iter::zip;
 
@@ -96,7 +95,7 @@ pub async fn query_available_function(pool: &PgPool) -> Result<SqlFuncInfoMapMap
 
             if let Some(v) = res
                 .entry(schema.clone())
-                .or_insert_with(HashMap::new)
+                .or_default()
                 .insert(
                     function.clone(),
                     (
