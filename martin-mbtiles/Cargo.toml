@@ -21,6 +21,7 @@ rustls = ["sqlx/runtime-tokio-rustls"]
 futures.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
@@ -29,6 +30,7 @@ tilejson.workspace = true
 # Bin dependencies
 anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
+serde_yaml.workspace = true
 sqlite-hashes.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 

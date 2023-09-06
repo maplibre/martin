@@ -11,6 +11,8 @@ use clap::ValueEnum;
 use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
+use serde::ser::SerializeStruct;
+use serde::Serialize;
 use serde_json::{Value as JSONValue, Value};
 use sqlite_hashes::register_md5_function;
 use sqlite_hashes::rusqlite::{Connection as RusqliteConnection, Connection, OpenFlags};
@@ -26,13 +28,31 @@ use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, InvalidTileData,
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Metadata {
     pub id: String,
+    #[serde(serialize_with = "serialize_ti")]
     pub tile_info: TileInfo,
     pub layer_type: Option<String>,
     pub tilejson: TileJSON,
     pub json: Option<JSONValue>,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn serialize_ti<S>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let mut s = serializer.serialize_struct("TileInfo", 2)?;
+    s.serialize_field("format", &ti.format.to_string())?;
+    s.serialize_field(
+        "encoding",
+        match ti.encoding.content_encoding() {
+            None => "",
+            Some(v) => v,
+        },
+    )?;
+    s.end()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
