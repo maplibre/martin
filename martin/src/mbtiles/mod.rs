@@ -99,7 +99,7 @@ impl Source for MbtSource {
                 "Couldn't find tile data in {}/{}/{} of {}",
                 xyz.z, xyz.x, xyz.y, &self.id
             );
-            Ok(Vec::new())
+            Ok(Vec::default())
         }
     }
 }
