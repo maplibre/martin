@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::warn;
+use log::{debug, warn};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::mmap::MmapBackend;
@@ -12,7 +12,7 @@ use pmtiles::{Compression, TileType};
 use tilejson::TileJSON;
 
 use crate::file_config::FileError;
-use crate::file_config::FileError::{GetTileError, InvalidMetadata, IoError};
+use crate::file_config::FileError::{InvalidMetadata, IoError};
 use crate::source::{Source, Tile, UrlQuery, Xyz};
 use crate::utils::is_valid_zoom;
 use crate::Error;
@@ -136,12 +136,18 @@ impl Source for PmtSource {
 
     async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
         // TODO: optimize to return Bytes
-        Ok(self
+        if let Some(t) = self
             .pmtiles
             .get_tile(xyz.z, u64::from(xyz.x), u64::from(xyz.y))
             .await
-            .ok_or_else(|| GetTileError(*xyz, self.id.clone()))?
-            .data
-            .to_vec())
+        {
+            Ok(t.data.to_vec())
+        } else {
+            debug!(
+                "Couldn't find tile data in {}/{}/{} of {}",
+                xyz.z, xyz.x, xyz.y, &self.id
+            );
+            Ok(Vec::new())
+        }
     }
 }

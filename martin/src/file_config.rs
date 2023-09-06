@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
-use crate::source::{Source, Sources, Xyz};
+use crate::source::{Source, Sources};
 use crate::utils::{sorted_opt_map, Error, IdResolver, OneOrMany};
 use crate::OneOrMany::{Many, One};
 
@@ -27,8 +27,8 @@ pub enum FileError {
     #[error(r"Unable to parse metadata in file {}: {0}", .1.display())]
     InvalidMetadata(String, PathBuf),
 
-    #[error(r#"Tile {0:#} not found in {1}"#)]
-    GetTileError(Xyz, String),
+    #[error(r#"Unable to aquire connection to file: {0}"#)]
+    AquireConnError(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
