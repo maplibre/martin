@@ -532,9 +532,9 @@ checksum = "a3e2c3daef883ecc1b5d58c15adae93470a91d425f3532ba1695849656af3fc1"
 
 [[package]]
 name = "bytemuck"
-version = "1.13.1"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17febce684fd15d89027105661fec94afb475cb995fbc59d2865198446ba2eea"
+checksum = "374d28ec25809ee0e23827c2ab573d729e293f281dfe393500e7ad618baa61c6"
 
 [[package]]
 name = "byteorder"
@@ -3050,9 +3050,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-hashes"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73f60eaba33ed5ad1e3cceb991e04cf10ecd13ebe7f651c4dd5d346efc371b9a"
+checksum = "f756a7c1f66e2d70c9acb5881776ba0ae25ba2aaf68e2f69ed32d96c42313fab"
 dependencies = [
  "digest",
  "md-5",
@@ -3310,9 +3310,9 @@ dependencies = [
 
 [[package]]
 name = "subst"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "922e6f425703ed15913f82181de327ddef53057291b58a2fec24ecf9de0d14b8"
+checksum = "ca1318e5d6716d6541696727c88d9b8dfc8cfe6afd6908e186546fd4af7f5b98"
 dependencies = [
  "memchr",
  "serde",
@@ -3856,9 +3856,9 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "walkdir"
-version = "2.3.3"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36df944cda56c7d8d8b7496af378e6b16de9284591917d307c9b4d313c44e698"
+checksum = "d71d857dc86794ca4c280d616f7da00d2dbfd8cd788846559a6813e6aa4b54ee"
 dependencies = [
  "same-file",
  "winapi-util",

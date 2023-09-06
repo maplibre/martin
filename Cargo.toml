@@ -48,7 +48,7 @@ serde_yaml = "0.9"
 spreet = { version = "0.8", default-features = false }
 sqlite-hashes = "0.3"
 sqlx = { version = "0.7", features = ["sqlite"] }
-subst = { version = "0.2", features = ["yaml"] }
+subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
 tokio = { version = "1.32.0", features = ["macros"] }
