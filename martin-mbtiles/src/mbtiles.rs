@@ -55,7 +55,7 @@ where
     s.end()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtType {
     Flat,
@@ -365,7 +365,7 @@ impl Mbtiles {
             return Err(MbtError::InvalidDataFormat(self.filepath.clone()));
         };
 
-        self.check_for_uniqueness_constraint(&mut *conn, &mbt_type)
+        self.check_for_uniqueness_constraint(&mut *conn, mbt_type)
             .await?;
 
         Ok(mbt_type)
@@ -374,7 +374,7 @@ impl Mbtiles {
     async fn check_for_uniqueness_constraint<T>(
         &self,
         conn: &mut T,
-        mbt_type: &MbtType,
+        mbt_type: MbtType,
     ) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
