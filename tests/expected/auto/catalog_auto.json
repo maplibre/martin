@@ -2,7 +2,7 @@
   "tiles": {
     "MixPoints": {
       "content_type": "application/x-protobuf",
-      "description": "MixedCase.MixPoints.Geom"
+      "description": "a description from comment on table"
     },
     "auto_table": {
       "content_type": "application/x-protobuf",
@@ -116,8 +116,7 @@
       "content_type": "image/png"
     },
     "table_source": {
-      "content_type": "application/x-protobuf",
-      "description": "public.table_source.geom"
+      "content_type": "application/x-protobuf"
     },
     "table_source_multiple_geom": {
       "content_type": "application/x-protobuf",

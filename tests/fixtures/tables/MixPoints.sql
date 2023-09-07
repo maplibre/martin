@@ -54,3 +54,20 @@ values (1, '02daedc70702ec68753fde38351f5d9d', '0101000020E610000050C4D38CE9DA61
        (30, '404175d17b08782edc9d316c378adc86', '0101000020E6100000F9B5A5ADB7265BC0EE07F81F2F284840');
 
 CREATE INDEX ON "MixedCase"."MixPoints" USING GIST ("Geom");
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON TABLE "MixedCase"."MixPoints" IS $tj$' || $$
+    {
+        "description": "a description from comment on table",
+        "vector_layers": [
+            {
+                "id":"MixPoints",
+                "fields":{
+                    "Gid":"int4",
+                    "TABLE":"text"
+                }
+            }
+        ]
+    }
+    $$::json || '$tj$';
+END $do$;

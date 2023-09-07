@@ -23,6 +23,6 @@
       }
     }
   ],
-  "description": "public.table_source.geom\npublic.points1.geom\npublic.points2.geom",
+  "description": "public.points1.geom\npublic.points2.geom",
   "name": "table_source,points1,points2"
 }

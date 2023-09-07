@@ -11,6 +11,8 @@
       }
     }
   ],
-  "description": "public.table_source.geom",
-  "name": "table_source"
+  "name": "table_source",
+  "foo": {
+    "bar": "foo"
+  }
 }
