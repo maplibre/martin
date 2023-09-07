@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::{debug, warn};
+use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::mmap::MmapBackend;
@@ -143,11 +143,14 @@ impl Source for PmtSource {
         {
             Ok(t.data.to_vec())
         } else {
-            debug!(
+            trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
+                xyz.z,
+                xyz.x,
+                xyz.y,
+                &self.id
             );
-            Ok(Vec::default())
+            Ok(Vec::new())
         }
     }
 }

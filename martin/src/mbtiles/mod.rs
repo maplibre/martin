@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::debug;
+use log::trace;
 use martin_mbtiles::MbtilesPool;
 use martin_tile_utils::TileInfo;
 use tilejson::TileJSON;
@@ -95,11 +95,14 @@ impl Source for MbtSource {
         {
             Ok(tile)
         } else {
-            debug!(
+            trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
+                xyz.z,
+                xyz.x,
+                xyz.y,
+                &self.id
             );
-            Ok(Vec::default())
+            Ok(Vec::new())
         }
     }
 }
