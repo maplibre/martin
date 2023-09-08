@@ -36,7 +36,7 @@ services:
       - ./pg_data:/var/lib/postgresql/data
 ```
 
-You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
+You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).
 
 ## Rewriting URLs
 
