@@ -363,7 +363,7 @@ services:
     volumes:
       - ./pg_data:/var/lib/postgresql/data
 </code></pre>
-<p>You can find an example NGINX configuration file <a href="https://github.com/maplibre/martin/blob/main/nginx.conf">here</a>.</p>
+<p>You can find an example NGINX configuration file <a href="https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf">here</a>.</p>
 <h2 id="rewriting-urls"><a class="header" href="#rewriting-urls">Rewriting URLs</a></h2>
 <p>If you are running Martin behind NGINX proxy, you may want to rewrite the request URL to properly handle tile URLs in <a href="using.html#source-tilejson">TileJSON</a>.</p>
 <pre><code class="language-nginx">location ~ /tiles/(?&lt;fwd_path&gt;.*) {
