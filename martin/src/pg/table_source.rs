@@ -53,8 +53,7 @@ pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapM
             id_column: None,
             minzoom: None,
             maxzoom: None,
-            srid: row.get("srid"), //
-            // casting i32 to u32?
+            srid: row.get("srid"), // casting i32 to u32?
             extent: Some(DEFAULT_EXTENT),
             buffer: Some(DEFAULT_BUFFER),
             clip_geom: Some(DEFAULT_CLIP_GEOM),
