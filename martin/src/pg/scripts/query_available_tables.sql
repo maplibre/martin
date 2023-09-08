@@ -55,7 +55,7 @@ WITH
         SELECT
             pg_namespace.nspname AS schema_name,
             relname AS table_name,
-            CAST ( obj_description ( relfilenode, 'pg_class' ) AS VARCHAR ) AS description
+            CAST(obj_description(relfilenode, 'pg_class') AS VARCHAR) AS description
         FROM pg_class
             JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
         WHERE relkind = 'r' OR relkind = 'v' 
