@@ -692,6 +692,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
     EXECUTE 'COMMENT ON FUNCTION my_function_name(INT4, INT4, INT4) IS $tj$' || $$
     {
         &quot;description&quot;: &quot;my new description&quot;,
+        &quot;attribution&quot;: &quot;my attribution&quot;,
         &quot;vector_layers&quot;: [
             {
                 &quot;id&quot;: &quot;my_layer_id&quot;,
