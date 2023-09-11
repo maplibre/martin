@@ -123,6 +123,7 @@ DO $do$ BEGIN
     EXECUTE 'COMMENT ON FUNCTION my_function_name(INT4, INT4, INT4) IS $tj$' || $$
     {
         "description": "my new description",
+        "attribution": "my attribution",
         "vector_layers": [
             {
                 "id": "my_layer_id",
