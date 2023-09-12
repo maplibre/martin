@@ -4,12 +4,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use log::trace;
 use martin_mbtiles::MbtilesPool;
 use martin_tile_utils::TileInfo;
 use tilejson::TileJSON;
 
 use crate::file_config::FileError;
-use crate::file_config::FileError::{GetTileError, InvalidMetadata, IoError};
+use crate::file_config::FileError::{AquireConnError, InvalidMetadata, IoError};
 use crate::source::{Tile, UrlQuery};
 use crate::utils::is_valid_zoom;
 use crate::{Error, Source, Xyz};
@@ -86,11 +87,22 @@ impl Source for MbtSource {
     }
 
     async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
-        Ok(self
+        if let Some(tile) = self
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|_| GetTileError(*xyz, self.id.clone()))?
-            .unwrap_or_default())
+            .map_err(|_| AquireConnError(self.id.clone()))?
+        {
+            Ok(tile)
+        } else {
+            trace!(
+                "Couldn't find tile data in {}/{}/{} of {}",
+                xyz.z,
+                xyz.x,
+                xyz.y,
+                &self.id
+            );
+            Ok(Vec::new())
+        }
     }
 }
