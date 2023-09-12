@@ -49,7 +49,17 @@ WITH
                     geometry_columns.f_table_schema = sic.table_schema AND
                     geometry_columns.f_table_name = sic.table_name AND
                     geometry_columns.f_geometry_column = sic.column_name
-        GROUP BY 1, 2, 3, 4, 5, 6)
+        GROUP BY 1, 2, 3, 4, 5, 6),
+    descriptions AS (
+        -- comments on table/views
+        SELECT
+            pg_namespace.nspname AS schema_name,
+            relname AS table_name,
+            CAST(obj_description(relfilenode, 'pg_class') AS VARCHAR) AS description
+        FROM pg_class
+            JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
+        WHERE relkind = 'r' OR relkind = 'v' 
+    )
 SELECT schema,
        name,
        geom,
@@ -61,10 +71,14 @@ SELECT schema,
                        jsonb_object_agg(columns.column_name, columns.type_name)
                        FILTER (WHERE columns.column_name IS NOT NULL AND columns.type_name != 'geometry'),
                        '{}'::jsonb
-           ) as properties
+           ) as properties,
+      dc.description
 FROM annotated_geometry_columns AS gc
          LEFT JOIN columns ON
             gc.schema = columns.table_schema AND
             gc.name = columns.table_name AND
             gc.geom != columns.column_name
-GROUP BY gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx;
+         LEFT JOIN descriptions AS dc on
+            gc.schema = dc.schema_name AND
+            gc.name = dc.table_name
+GROUP BY gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx,dc.description;

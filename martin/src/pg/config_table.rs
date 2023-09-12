@@ -5,7 +5,7 @@ use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
-use crate::pg::utils::InfoMap;
+use crate::pg::utils::{patch_json, InfoMap};
 use crate::utils::sorted_opt_map;
 
 pub type TableInfoSources = InfoMap<TableInfo>;
@@ -81,6 +81,10 @@ pub struct TableInfo {
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
+
+    /// TileJSON provider by the SQL comment. Shouldn't be serialized
+    #[serde(skip)]
+    pub tilejson: Option<serde_json::Value>,
 }
 
 impl PgInfo for TableInfo {
@@ -106,6 +110,6 @@ impl PgInfo for TableInfo {
             other: HashMap::default(),
         };
         tilejson.vector_layers = Some(vec![layer]);
-        tilejson
+        patch_json(tilejson, &self.tilejson)
     }
 }

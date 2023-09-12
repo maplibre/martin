@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use log::{info, warn};
+use log::{debug, info, warn};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
+use serde_json::Value;
 use tilejson::Bounds;
 
 use crate::pg::config::PgInfo;
@@ -27,10 +28,25 @@ pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapM
 
     let mut res = SqlTableInfoMapMapMap::new();
     for row in &rows {
+        let schema: String = row.get("schema");
+        let table: String = row.get("name");
+        let tilejson = if let Some(text) = row.get("description") {
+            match serde_json::from_str::<Value>(text) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    warn!("Unable to deserialize SQL comment on {schema}.{table} as tilejson, the automatically generated tilejson would be used: {e}");
+                    None
+                }
+            }
+        } else {
+            debug!("Unable to find a  SQL comment on {schema}.{table}, the tilejson would be generated automatically");
+            None
+        };
+
         let info = TableInfo {
             layer_id: None,
-            schema: row.get("schema"),
-            table: row.get("name"),
+            schema,
+            table,
             geometry_column: row.get("geom"),
             geometry_index: row.get("geom_idx"),
             is_view: row.get("is_view"),
@@ -46,6 +62,7 @@ pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapM
             prop_mapping: HashMap::new(),
             unrecognized: HashMap::new(),
             bounds: None,
+            tilejson,
         };
 
         // Warn for missing geometry indices. Ignore views since those can't have indices
