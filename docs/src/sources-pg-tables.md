@@ -4,7 +4,7 @@ Table Source is a database table which can be used to query [vector tiles](https
 
 # Modifying Tilejson
 
-Martin will automatically generate a `TileJSON` manifest for each table source, that will contain the name, description, minzoom, maxzoom, bounds and vector_layer.
+Martin will automatically generate a `TileJSON` manifest for each table source. It will contain the `name`, `description`, `minzoom`, `maxzoom`, `bounds` and `vector_layer` information.
 For example, if there is a table `public.table_source`:
  the default `TileJSON` might look like this (note that URL will be automatically adjusted to match the request host):
 
@@ -24,7 +24,6 @@ The TileJSON:
         {
             "id": "table_source",
             "fields": {
-                "f1": "varchar",
                 "gid": "int4"
             }
         }
