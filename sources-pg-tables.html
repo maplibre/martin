@@ -174,6 +174,52 @@
                     <main>
                         <h1 id="table-sources"><a class="header" href="#table-sources">Table Sources</a></h1>
 <p>Table Source is a database table which can be used to query <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a>. If a <a href="pg-connections.html">PostgreSQL connection string</a> is given, Martin will publish all tables as data sources if they have at least one geometry column. If geometry column SRID is 0, a default SRID must be set, or else that geo-column/table will be ignored. All non-geometry table columns will be published as vector tile feature tags (properties).</p>
+<h1 id="modifying-tilejson"><a class="header" href="#modifying-tilejson">Modifying Tilejson</a></h1>
+<p>Martin will automatically generate a <code>TileJSON</code> manifest for each table source. It will contain the <code>name</code>, <code>description</code>, <code>minzoom</code>, <code>maxzoom</code>, <code>bounds</code> and <code>vector_layer</code> information.
+For example, if there is a table <code>public.table_source</code>:
+the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
+<p>The table:</p>
+<pre><code class="language-sql">CREATE TABLE &quot;public&quot;.&quot;table_source&quot; ( &quot;gid&quot; int4 NOT NULL, &quot;geom&quot; &quot;public&quot;.&quot;geometry&quot; );
+</code></pre>
+<p>The TileJSON:</p>
+<pre><code class="language-json">{
+    &quot;tilejson&quot;: &quot;3.0.0&quot;,
+    &quot;tiles&quot;: [
+        &quot;http://localhost:3000/table_source/{z}/{x}/{y}&quot;
+    ],
+    &quot;vector_layers&quot;: [
+        {
+            &quot;id&quot;: &quot;table_source&quot;,
+            &quot;fields&quot;: {
+                &quot;gid&quot;: &quot;int4&quot;
+            }
+        }
+    ],
+    &quot;bounds&quot;: [
+        -2.0,
+        -1.0,
+        142.84131509869133,
+        45.0
+    ],
+    &quot;description&quot;: &quot;public.table_source.geom&quot;,
+    &quot;name&quot;: &quot;table_source&quot;
+}
+</code></pre>
+<p>By default the <code>description</code> and <code>name</code> is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting <code>auto_publish</code> section in <a href="https://maplibre.org/martin/config-file.html#config-example">configuration file</a>.</p>
+<h2 id="tilejson-in-sql-comments"><a class="header" href="#tilejson-in-sql-comments">TileJSON in SQL Comments</a></h2>
+<p>Other than adjusting <code>auto_publish</code> section in configuration file, you can fine tune the <code>TileJSON</code> on the database side directly: Add a valid JSON as an SQL comment on the table.</p>
+<p>Martin will merge table comment into the generated TileJSON using JSON Merge patch. The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON. </p>
+<pre><code class="language-sql">DO $do$ BEGIN
+    EXECUTE 'COMMENT ON TABLE table_source IS $tj$' || $$
+    {
+        &quot;version&quot;: &quot;1.2.3&quot;,
+        &quot;attribution&quot;: &quot;osm&quot;,
+        &quot;description&quot;: &quot;a description from table comment&quot;,
+        &quot;foo&quot;: {&quot;bar&quot;: &quot;foo&quot;}
+    }
+    $$::json || '$tj$';
+END $do$;
+</code></pre>
 
                     </main>
 
