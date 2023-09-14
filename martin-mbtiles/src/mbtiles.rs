@@ -15,7 +15,9 @@ use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::{Value as JSONValue, Value};
 use sqlite_hashes::register_md5_function;
-use sqlite_hashes::rusqlite::{Connection as RusqliteConnection, Connection, OpenFlags};
+use sqlite_hashes::rusqlite::{
+    Connection as RusqliteConnection, Connection, OpenFlags, OptionalExtension,
+};
 use sqlx::sqlite::SqliteRow;
 use sqlx::{query, Row, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
@@ -25,7 +27,7 @@ use crate::mbtiles_queries::{
     is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
 use crate::MbtError::{
-    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, InvalidTileData,
+    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -540,24 +542,40 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        // Note that hex() always returns upper-case HEX values
         let sql = match self.detect_type(&mut *conn).await? {
             MbtType::Flat => {
                 println!("Skipping per-tile hash validation because this is a flat MBTiles file");
                 return Ok(());
             }
             MbtType::FlatWithHash => {
-                "SELECT 1 FROM tiles_with_hash WHERE tile_hash != hex(md5(tile_data)) LIMIT 1;"
+                "SELECT expected, computed FROM (
+                    SELECT
+                        upper(tile_hash) AS expected,
+                        hex(md5(tile_data)) AS computed
+                    FROM tiles_with_hash
+                ) AS t
+                WHERE expected != computed
+                LIMIT 1;"
             }
             MbtType::Normalized => {
-                "SELECT 1 FROM images WHERE tile_id != hex(md5(tile_data)) LIMIT 1;"
+                "SELECT expected, computed FROM (
+                    SELECT
+                        upper(tile_id) AS expected,
+                        hex(md5(tile_data)) AS computed
+                    FROM images
+                ) AS t
+                WHERE expected != computed
+                LIMIT 1;"
             }
         };
 
-        if self.open_with_hashes(true)?.prepare(sql)?.exists(())? {
-            return Err(InvalidTileData(self.filepath().to_string()));
-        }
-
-        Ok(())
+        self.open_with_hashes(true)?
+            .query_row_and_then(sql, [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .optional()?
+            .map_or(Ok(()), |v: (String, String)| {
+                Err(IncorrectTileHash(self.filepath().to_string(), v.0, v.1))
+            })
     }
 }
 

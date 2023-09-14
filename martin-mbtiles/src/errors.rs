@@ -23,8 +23,8 @@ pub enum MbtError {
     #[error("Integrity check failed for MBTile file {0} for the following reasons: \n {1:?}")]
     FailedIntegrityCheck(String, Vec<String>),
 
-    #[error("Invalid tile data for MBTile file {0}")]
-    InvalidTileData(String),
+    #[error("At least one tile has mismatching hash: stored value is `{1}` != computed value `{2}` in MBTile file {0}")]
+    IncorrectTileHash(String, String, String),
 
     #[error("Computed aggregate tiles hash {0} does not match tile data in metadata {1} for MBTile file {2}")]
     AggHashMismatch(String, String, String),
