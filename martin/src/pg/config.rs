@@ -82,6 +82,12 @@ pub struct PgCfgPublishType {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_column")]
     pub id_columns: Option<OneOrMany<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clip_geom: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buffer: Option<u32>,
 }
 
 impl PgConfig {
