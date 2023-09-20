@@ -180,9 +180,13 @@ cd martin
 <p>Fork Martin repo into your own GitHub account, and add your fork as a remote</p>
 <pre><code class="language-shell  ignore">git remote add origin  _URL_OF_YOUR_FORK_
 </code></pre>
-<p>Install <a href="https://docs.docker.com/get-docker/">docker</a>, <a href="https://docs.docker.com/compose/">docker-compose</a>, and <a href="https://www.openssl.org/">openssl</a>:</p>
+<p>Install <a href="https://docs.docker.com/get-docker/">docker</a> and <a href="https://docs.docker.com/compose/">docker-compose</a></p>
+<pre><code class="language-shell  ignore"># Ubuntu-based distros have an older version that might also work:
+sudo apt install -y  docker.io docker-compose
+</code></pre>
+<p>Install a few libs and tools like <a href="https://www.openssl.org/">openssl</a>:</p>
 <pre><code class="language-shell  ignore"># For Ubuntu-based distros
-sudo apt install -y  docker.io  docker-compose  libssl-dev
+sudo apt install -y  libssl-dev build-essential pkg-config jq file
 </code></pre>
 <p>Install <a href="https://github.com/casey/just#readme">Just</a> (improved makefile processor). Note that some Linux and Homebrew distros have outdated versions of Just, so you should install it from source:</p>
 <pre><code class="language-shell  ignore">cargo install just
