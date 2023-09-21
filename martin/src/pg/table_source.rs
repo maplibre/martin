@@ -54,9 +54,9 @@ pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapM
             minzoom: None,
             maxzoom: None,
             srid: row.get("srid"), // casting i32 to u32?
-            extent: Some(DEFAULT_EXTENT),
-            buffer: Some(DEFAULT_BUFFER),
-            clip_geom: Some(DEFAULT_CLIP_GEOM),
+            extent: None,
+            buffer: None,
+            clip_geom: None,
             geometry_type: row.get("type"),
             properties: Some(json_to_hashmap(&row.get("properties"))),
             prop_mapping: HashMap::new(),

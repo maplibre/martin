@@ -30,6 +30,7 @@ pub struct PgBuilderAuto {
     id_columns: Option<Vec<String>>,
     clip_geom: Option<bool>,
     buffer: Option<u32>,
+    extent: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -264,22 +265,19 @@ impl PgBuilder {
     }
 }
 
-// Should we borrow the hand of tableinfo to update its status, like tableinfo.update(...)
 fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
-    update_id_column(id, inf, auto_tables);
-
-    // for fine tuning the auto-discovered sources, maybe there will be more auto fileds be setted/merged here
-    if auto_tables.buffer.is_some() {
-        inf.buffer = auto_tables.buffer;
-    }
-    if auto_tables.clip_geom.is_some() {
+    if inf.clip_geom.is_none() {
         inf.clip_geom = auto_tables.clip_geom;
     }
-}
+    if inf.buffer.is_none() {
+        inf.buffer = auto_tables.buffer;
+    }
+    if inf.extent.is_none() {
+        inf.extent = auto_tables.extent;
+    }
 
-/// Try to find any ID column in a list of table columns (properties) that match one of the given `id_column` values.
-/// If found, modify `id_column` value on the table info.
-fn update_id_column(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
+    // Try to find any ID column in a list of table columns (properties) that match one of the given `id_column` values.
+    // If found, modify `id_column` value on the table info.
     let Some(props) = inf.properties.as_mut() else {
         return;
     };
@@ -334,6 +332,7 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAut
             id_columns: None,
             clip_geom: None,
             buffer: None,
+            extent: None,
         })
     };
 
@@ -370,6 +369,14 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAut
                                 None
                             } else {
                                 item.buffer
+                            }
+                        },
+                        extent: {
+                            if is_function {
+                                error!("Configuration parameter auto_publish.functions.extent is not supported");
+                                None
+                            } else {
+                                item.extent
                             }
                         },
                     }),
@@ -455,6 +462,7 @@ mod tests {
             id_columns: None,
             clip_geom: None,
             buffer: None,
+            extent: None,
         })
     }
 

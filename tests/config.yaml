@@ -23,6 +23,9 @@ postgres:
     tables:
       from_schemas: autodetect
       id_columns: [feat_id, big_feat_id]
+      clip_geom: false
+      buffer: 3
+      extent: 9000
 
   # Associative arrays of table sources
   tables:
