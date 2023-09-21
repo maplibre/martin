@@ -73,24 +73,19 @@ pub struct PgCfgPublishType {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "from_schema")]
     pub from_schemas: Option<OneOrMany<String>>,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
-
     /// A table column to use as the feature ID
     /// If a table has no column with this name, `id_column` will not be set for that table.
     /// If a list of strings is given, the first found column will be treated as a feature ID.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_column")]
     pub id_columns: Option<OneOrMany<String>>,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
-    
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extent: Option<u32>,
 }
