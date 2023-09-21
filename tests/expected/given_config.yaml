@@ -11,6 +11,9 @@ postgres:
       id_columns:
       - feat_id
       - big_feat_id
+      clip_geom: false
+      buffer: 3
+      extent: 9000
   tables:
     MixPoints:
       schema: MixedCase
@@ -37,9 +40,9 @@ postgres:
       - -53.44747249115674
       - 168.14061220360549
       - 84.22411861475385
-      extent: 4096
-      buffer: 64
-      clip_geom: true
+      extent: 9000
+      buffer: 3
+      clip_geom: false
       geometry_type: POINT
       properties:
         gid: int4
@@ -54,9 +57,9 @@ postgres:
       - -77.2579745396886
       - 174.72753224514435
       - 73.80785950599903
-      extent: 4096
-      buffer: 64
-      clip_geom: true
+      extent: 9000
+      buffer: 3
+      clip_geom: false
       geometry_type: POINT
       properties:
         id: int4

@@ -28,6 +28,9 @@ pub struct PgBuilderAuto {
     source_id_format: String,
     schemas: Option<HashSet<String>>,
     id_columns: Option<Vec<String>>,
+    clip_geom: Option<bool>,
+    buffer: Option<u32>,
+    extent: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -145,7 +148,7 @@ impl PgBuilder {
                             continue;
                         };
                         db_inf.srid = srid;
-                        update_id_column(&id2, &mut db_inf, auto_tables);
+                        update_auto_fields(&id2, &mut db_inf, auto_tables);
                         info!("Discovered source {id2} from {}", summary(&db_inf));
                         pending.push(table_to_query(
                             id2,
@@ -262,9 +265,19 @@ impl PgBuilder {
     }
 }
 
-/// Try to find any ID column in a list of table columns (properties) that match one of the given `id_column` values.
-/// If found, modify `id_column` value on the table info.
-fn update_id_column(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
+fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
+    if inf.clip_geom.is_none() {
+        inf.clip_geom = auto_tables.clip_geom;
+    }
+    if inf.buffer.is_none() {
+        inf.buffer = auto_tables.buffer;
+    }
+    if inf.extent.is_none() {
+        inf.extent = auto_tables.extent;
+    }
+
+    // Try to find any ID column in a list of table columns (properties) that match one of the given `id_column` values.
+    // If found, modify `id_column` value on the table info.
     let Some(props) = inf.properties.as_mut() else {
         return;
     };
@@ -317,6 +330,9 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAut
             source_id_format: default_id_fmt(is_function),
             schemas,
             id_columns: None,
+            clip_geom: None,
+            buffer: None,
+            extent: None,
         })
     };
 
@@ -339,6 +355,30 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAut
                                 Some(ids.iter().cloned().collect())
                             }
                         }),
+                        clip_geom: {
+                            if is_function {
+                                error!("Configuration parameter auto_publish.functions.clip_geom is not supported");
+                                None
+                            } else {
+                                item.clip_geom
+                            }
+                        },
+                        buffer: {
+                            if is_function {
+                                error!("Configuration parameter auto_publish.functions.buffer is not supported");
+                                None
+                            } else {
+                                item.buffer
+                            }
+                        },
+                        extent: {
+                            if is_function {
+                                error!("Configuration parameter auto_publish.functions.extent is not supported");
+                                None
+                            } else {
+                                item.extent
+                            }
+                        },
                     }),
                     BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
                     BoolOrObject::Bool(false) => None,
@@ -420,6 +460,9 @@ mod tests {
             source_id_format: source_id_format.to_string(),
             schemas: schemas.map(|s| s.iter().map(|s| (*s).to_string()).collect()),
             id_columns: None,
+            clip_geom: None,
+            buffer: None,
+            extent: None,
         })
     }
 
