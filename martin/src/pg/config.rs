@@ -82,12 +82,12 @@ pub struct PgCfgPublishType {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_column")]
     pub id_columns: Option<OneOrMany<String>>,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extent: Option<u32>,
 }
 
 impl PgConfig {
@@ -202,9 +202,9 @@ mod tests {
                   minzoom: 0
                   maxzoom: 30
                   bounds: [-180.0, -90.0, 180.0, 90.0]
-                  extent: 4096
-                  buffer: 64
-                  clip_geom: true
+                  extent: 2048
+                  buffer: 10
+                  clip_geom: false
                   geometry_type: GEOMETRY
                   properties:
                     gid: int4
@@ -233,9 +233,9 @@ mod tests {
                             minzoom: Some(0),
                             maxzoom: Some(30),
                             bounds: Some([-180, -90, 180, 90].into()),
-                            extent: Some(4096),
-                            buffer: Some(64),
-                            clip_geom: Some(true),
+                            extent: Some(2048),
+                            buffer: Some(10),
+                            clip_geom: Some(false),
                             geometry_type: some("GEOMETRY"),
                             properties: Some(HashMap::from([(
                                 "gid".to_string(),

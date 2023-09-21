@@ -44,25 +44,16 @@ pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapM
         };
 
         let info = TableInfo {
-            layer_id: None,
             schema,
             table,
             geometry_column: row.get("geom"),
             geometry_index: row.get("geom_idx"),
             is_view: row.get("is_view"),
-            id_column: None,
-            minzoom: None,
-            maxzoom: None,
             srid: row.get("srid"), // casting i32 to u32?
-            extent: Some(DEFAULT_EXTENT),
-            buffer: Some(DEFAULT_BUFFER),
-            clip_geom: Some(DEFAULT_CLIP_GEOM),
             geometry_type: row.get("type"),
             properties: Some(json_to_hashmap(&row.get("properties"))),
-            prop_mapping: HashMap::new(),
-            unrecognized: HashMap::new(),
-            bounds: None,
             tilejson,
+            ..Default::default()
         };
 
         // Warn for missing geometry indices. Ignore views since those can't have indices

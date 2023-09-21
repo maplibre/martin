@@ -9,9 +9,6 @@ postgres:
       table: MixPoints
       srid: 4326
       geometry_column: Geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         Gid: int4
@@ -21,9 +18,6 @@ postgres:
       table: auto_table
       srid: 4326
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         feat_id: int4
@@ -33,9 +27,6 @@ postgres:
       table: bigint_table
       srid: 4326
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         big_feat_id: int8
@@ -45,9 +36,6 @@ postgres:
       table: points1
       srid: 4326
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         gid: int4
@@ -56,9 +44,6 @@ postgres:
       table: points1_vw
       srid: 4326
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         gid: int4
@@ -67,9 +52,6 @@ postgres:
       table: points2
       srid: 4326
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         gid: int4
@@ -78,9 +60,6 @@ postgres:
       table: points3857
       srid: 3857
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         gid: int4
@@ -89,9 +68,6 @@ postgres:
       table: points_empty_srid
       srid: 900913
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: GEOMETRY
       properties:
         gid: int4
@@ -100,9 +76,6 @@ postgres:
       table: table_source
       srid: 4326
       geometry_column: geom
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: GEOMETRY
       properties:
         gid: int4
@@ -111,9 +84,6 @@ postgres:
       table: table_source_multiple_geom
       srid: 4326
       geometry_column: geom1
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         gid: int4
@@ -122,9 +92,6 @@ postgres:
       table: table_source_multiple_geom
       srid: 4326
       geometry_column: geom2
-      extent: 4096
-      buffer: 64
-      clip_geom: true
       geometry_type: POINT
       properties:
         gid: int4
