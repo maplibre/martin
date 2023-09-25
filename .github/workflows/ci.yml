@@ -19,6 +19,10 @@ on:
     types: [ published ]
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     # Don't change this name - it is used by the merge protection rules
@@ -30,22 +34,25 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            build_deb: 'true'
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            cross: 'true'
           - os: windows-latest
-            ext: '.exe'
             target: x86_64-pc-windows-msvc
+            ext: '.exe'
           - os: macOS-latest
             target: x86_64-apple-darwin
           - os: macOS-latest
             target: aarch64-apple-darwin
+            cross: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Rust Versions
-        shell: bash
         run: rustc --version && cargo --version
-      - name: Lint
+      - name: Lint (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        shell: bash
         run: |
           set -x
           cargo fmt --all -- --check
@@ -58,27 +65,34 @@ jobs:
           cargo clippy --package martin --features bless-tests -- -D warnings
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
+        shell: powershell
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
-      - name: Run build
-        shell: bash
+      - name: Install Native Dependencies (Linux)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
-            rustup target add aarch64-apple-darwin
-            # compile without debug symbols
-            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
-            RUSTFLAGS='-C link-arg=-s' cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
-          else
-            cargo build --release --target ${{ matrix.target }} --features=ssl --package martin
-            cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
-          fi
-          mkdir target_releases
+          sudo apt install -y gcc-aarch64-linux-gnu
+      - name: Run build (native)
+        if: matrix.cross != 'true'
+        run: |
+          cargo build --release --target ${{ matrix.target }} --features=ssl --package martin
+          cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
+      - name: Run build (cross-platform, vendored-openssl)
+        # compile without debug symbols because stripping them with `strip` does not work cross-platform
+        if: matrix.cross == 'true'
+        run: |
+          rustup target add "${{ matrix.target }}"
+          export RUSTFLAGS='-C link-arg=-s'
+          cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
+          cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
+      - name: Save build artifacts
+        run: |
+          mkdir -p target_releases
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
       - name: Run build (debian package)
-        if: matrix.os == 'ubuntu-latest'
-        shell: bash
+        if: matrix.build_deb == 'true'
         run: |
           sudo apt install -y dpkg dpkg-dev liblzma-dev
           cargo install cargo-deb
@@ -102,8 +116,8 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
           - os: windows-latest
-            ext: '.exe'
             target: x86_64-pc-windows-msvc
+            ext: '.exe'
           - os: macOS-latest
             target: x86_64-apple-darwin
     steps:
@@ -118,7 +132,6 @@ jobs:
           database: test
           rights: --superuser
       - name: Init database
-        shell: bash
         run: |
           echo "DATABASE_URL=$DATABASE_URL"
           echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
@@ -128,7 +141,6 @@ jobs:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Unit Tests (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        shell: bash
         run: |
           set -x
           cargo test --package martin-tile-utils
@@ -144,7 +156,6 @@ jobs:
           name: build-${{ matrix.target }}
           path: target/
       - name: Integration Tests
-        shell: bash
         run: |
           export MARTIN_BUILD=-
           export MARTIN_BIN=target/martin${{ matrix.ext }}
@@ -158,7 +169,6 @@ jobs:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Integration Tests (with debian package)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        shell: bash
         run: |
           sudo dpkg -i target/martin.deb
           export MARTIN_BUILD=-
@@ -237,7 +247,6 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
       - name: Unit Tests (Linux)
-        shell: bash
         run: |
           echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
           echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
@@ -286,18 +295,23 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             name: martin-Linux-x86_64.tar.gz
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            name: martin-Linux-aarch64.tar.gz
+            cross: 'true'
           - os: windows-latest
-            ext: '.exe'
             target: x86_64-pc-windows-msvc
             name: martin-Windows-x86_64.zip
+            ext: '.exe'
           - os: macOS-latest
-            sha: 'true'
             target: x86_64-apple-darwin
             name: martin-Darwin-x86_64.tar.gz
-          - os: ubuntu-latest
             sha: 'true'
+          - os: ubuntu-latest
             target: aarch64-apple-darwin
             name: martin-Darwin-aarch64.tar.gz
+            sha: 'true'
+            cross: 'true'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -305,28 +319,27 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Package
-        shell: bash
+      - name: Strip symbols
+        # Symbol stripping does not work cross-platform
+        # For cross, symbols were already removed during build
+        if: matrix.cross != 'true'
         run: |
           cd target/
-          # Symbol stripping does not work cross-platform
-          if [[ "${{ matrix.target }}" != "aarch64-apple-darwin" ]]; then
-            strip martin${{ matrix.ext }}
-            strip mbtiles${{ matrix.ext }}
-          fi
+          strip martin${{ matrix.ext }}
+          strip mbtiles${{ matrix.ext }}
+      - name: Package
+        run: |
+          cd target/
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             7z a ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           else
             tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           fi
-          cd -
       - name: Package (debian)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        shell: bash
         run: |
           cd target/
           tar czvf ../martin-debian-x86_64.tar.gz martin.deb
-          cd -
       - name: Generate SHA-256 (MacOS)
         if: matrix.sha == 'true'
         run: shasum -a 256 ${{ matrix.name }}
