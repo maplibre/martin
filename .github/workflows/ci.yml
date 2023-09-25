@@ -23,6 +23,7 @@ jobs:
   build:
     # Don't change this name - it is used by the merge protection rules
     name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
@@ -30,20 +31,18 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
           - os: windows-latest
+            ext: '.exe'
             target: x86_64-pc-windows-msvc
           - os: macOS-latest
             target: x86_64-apple-darwin
           - os: macOS-latest
             target: aarch64-apple-darwin
-    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Rust Versions
         shell: bash
-        run: |
-          rustc --version
-          cargo --version
+        run: rustc --version && cargo --version
       - name: Lint
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
@@ -62,11 +61,6 @@ jobs:
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
-      - name: Install cargo-deb
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt install -y dpkg dpkg-dev liblzma-dev
-          cargo install cargo-deb
       - name: Run build
         shell: bash
         run: |
@@ -80,17 +74,14 @@ jobs:
             cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
           fi
           mkdir target_releases
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            mv target/${{ matrix.target }}/release/martin.exe target_releases
-            mv target/${{ matrix.target }}/release/mbtiles.exe target_releases
-          else
-            mv target/${{ matrix.target }}/release/martin target_releases
-            mv target/${{ matrix.target }}/release/mbtiles target_releases
-          fi
+          mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
+          mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
       - name: Run build (debian package)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
+          sudo apt install -y dpkg dpkg-dev liblzma-dev
+          cargo install cargo-deb
           cargo deb -v -p martin --output target/debian/martin.deb
           mv target/debian/martin.deb target_releases
       - name: Save build artifact build-${{ matrix.target }}
@@ -101,34 +92,24 @@ jobs:
 
   test:
     # Don't change this name - it is used by the merge protection rules
-    name: Test & package ${{ matrix.target }}
+    name: Test ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
     needs: [ build ]
     strategy:
       fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest
-            ext: ''
             target: x86_64-unknown-linux-gnu
-            name: martin-Linux-x86_64.tar.gz
           - os: windows-latest
             ext: '.exe'
             target: x86_64-pc-windows-msvc
-            name: martin-Windows-x86_64.zip
           - os: macOS-latest
-            ext: ''
             target: x86_64-apple-darwin
-            name: martin-Darwin-x86_64.tar.gz
-          - os: ubuntu-latest
-            ext: ''
-            target: aarch64-apple-darwin
-            name: martin-Darwin-aarch64.tar.gz
-    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Start postgres
-        if: matrix.target != 'aarch64-apple-darwin'
         uses: nyurik/action-setup-postgis@v1
         id: pg
         with:
@@ -136,18 +117,13 @@ jobs:
           password: test
           database: test
           rights: --superuser
-      - name: Log DATABASE_URL string
+      - name: Init database
         shell: bash
         run: |
           echo "DATABASE_URL=$DATABASE_URL"
-          echo "And in base64 to bypass Github's obfuscation:"
+          echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
           echo "$DATABASE_URL" | base64
-        env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Init database
-        if: matrix.target != 'aarch64-apple-darwin'
-        shell: bash
-        run: tests/fixtures/initdb.sh
+          tests/fixtures/initdb.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Unit Tests (Linux)
@@ -168,32 +144,30 @@ jobs:
           name: build-${{ matrix.target }}
           path: target/
       - name: Integration Tests
-        if: matrix.target != 'aarch64-apple-darwin'
         shell: bash
         run: |
+          export MARTIN_BUILD=-
+          export MARTIN_BIN=target/martin${{ matrix.ext }}
+          export MBTILES_BUILD=-
+          export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
           if [[ "${{ runner.os }}" != "Windows" ]]; then
-            chmod +x target/martin${{ matrix.ext }}
-            chmod +x target/mbtiles${{ matrix.ext }}
+            chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
           fi
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-          MARTIN_BUILD: "-"
-          MARTIN_BIN: target/martin${{ matrix.ext }}
-          MBTILES_BUILD: "-"
-          MBTILES_BIN: target/mbtiles${{ matrix.ext }}
       - name: Integration Tests (with debian package)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
           sudo dpkg -i target/martin.deb
+          export MARTIN_BUILD=-
+          export MARTIN_BIN=/usr/bin/martin
+          export MBTILES_BUILD=-
+          export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-          MARTIN_BUILD: "-"
-          MARTIN_BIN: /usr/bin/martin
-          MBTILES_BUILD: "-"
-          MBTILES_BIN: target/mbtiles${{ matrix.ext }}
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: diff --brief --recursive --new-file tests/output tests/expected
@@ -204,46 +178,12 @@ jobs:
           name: failed-test-output
           path: tests/output/*
           retention-days: 5
-      - name: Package
-        shell: bash
-        run: |
-          cd target/
-          # Symbol stripping does not work cross-platform
-          if [[ "${{ matrix.target }}" != "aarch64-apple-darwin" ]]; then
-            strip martin${{ matrix.ext }}
-            strip mbtiles${{ matrix.ext }}
-          fi
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            7z a ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
-          else
-            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
-          fi
-          cd -
-      - name: Package (debian)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        shell: bash
-        run: |
-          cd target/
-          tar czvf ../martin-debian-x86_64.tar.gz martin.deb
-          cd -
-      - name: Generate SHA-256 (MacOS)
-        if: matrix.target == 'x86_64-apple-darwin' || matrix.target == 'aarch64-apple-darwin'
-        run: shasum -a 256 ${{ matrix.name }}
-      - name: Publish
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          files: 'martin*'
-          body_path: CHANGELOG.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-legacy:
     # Don't change this name - it is used by the merge protection rules
     name: Test Legacy DB
-    needs: [ build ]
     runs-on: ubuntu-latest
+    needs: [ build ]
     strategy:
       fail-fast: true
       matrix:
@@ -325,11 +265,77 @@ jobs:
           path: target/
       - name: Integration Tests
         run: |
-          chmod +x target/martin target/mbtiles
+          export MARTIN_BUILD=-
+          export MARTIN_BIN=target/martin
+          export MBTILES_BUILD=-
+          export MBTILES_BIN=target/mbtiles
+          chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-          MARTIN_BUILD: "-"
-          MARTIN_BIN: target/martin
-          MBTILES_BUILD: "-"
-          MBTILES_BIN: target/mbtiles
+
+  package:
+    # Don't change this name - it is used by the merge protection rules
+    name: Package ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    needs: [ test, test-legacy ]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: martin-Linux-x86_64.tar.gz
+          - os: windows-latest
+            ext: '.exe'
+            target: x86_64-pc-windows-msvc
+            name: martin-Windows-x86_64.zip
+          - os: macOS-latest
+            sha: 'true'
+            target: x86_64-apple-darwin
+            name: martin-Darwin-x86_64.tar.gz
+          - os: ubuntu-latest
+            sha: 'true'
+            target: aarch64-apple-darwin
+            name: martin-Darwin-aarch64.tar.gz
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-${{ matrix.target }}
+          path: target/
+      - name: Package
+        shell: bash
+        run: |
+          cd target/
+          # Symbol stripping does not work cross-platform
+          if [[ "${{ matrix.target }}" != "aarch64-apple-darwin" ]]; then
+            strip martin${{ matrix.ext }}
+            strip mbtiles${{ matrix.ext }}
+          fi
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            7z a ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
+          else
+            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
+          fi
+          cd -
+      - name: Package (debian)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          cd target/
+          tar czvf ../martin-debian-x86_64.tar.gz martin.deb
+          cd -
+      - name: Generate SHA-256 (MacOS)
+        if: matrix.sha == 'true'
+        run: shasum -a 256 ${{ matrix.name }}
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: 'martin*'
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
