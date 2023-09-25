@@ -32,20 +32,20 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            build_deb: 'true'
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
+          - target: aarch64-apple-darwin
+            os: macOS-latest
             cross: 'true'
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: 'true'
+          - target: x86_64-apple-darwin
+            os: macOS-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
             ext: '.exe'
-          - os: macOS-latest
-            target: x86_64-apple-darwin
-          - os: macOS-latest
-            target: aarch64-apple-darwin
-            cross: 'true'
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            build_deb: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
       - name: Install Native Dependencies (Linux)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          sudo apt install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Run build (native)
         if: matrix.cross != 'true'
         run: |
@@ -94,7 +94,7 @@ jobs:
       - name: Run build (debian package)
         if: matrix.build_deb == 'true'
         run: |
-          sudo apt install -y dpkg dpkg-dev liblzma-dev
+          sudo apt-get install -y dpkg dpkg-dev liblzma-dev
           cargo install cargo-deb
           cargo deb -v -p martin --output target/debian/martin.deb
           mv target/debian/martin.deb target_releases
@@ -113,13 +113,13 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+          - target: x86_64-apple-darwin
+            os: macOS-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
             ext: '.exe'
-          - os: macOS-latest
-            target: x86_64-apple-darwin
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -292,26 +292,26 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            name: martin-Linux-x86_64.tar.gz
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            name: martin-Linux-aarch64.tar.gz
-            cross: 'true'
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: martin-Windows-x86_64.zip
-            ext: '.exe'
-          - os: macOS-latest
-            target: x86_64-apple-darwin
-            name: martin-Darwin-x86_64.tar.gz
-            sha: 'true'
-          - os: ubuntu-latest
-            target: aarch64-apple-darwin
+          - target: aarch64-apple-darwin
+            os: ubuntu-latest
             name: martin-Darwin-aarch64.tar.gz
             sha: 'true'
             cross: 'true'
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: martin-Linux-aarch64.tar.gz
+            cross: 'true'
+          - target: x86_64-apple-darwin
+            os: macOS-latest
+            name: martin-Darwin-x86_64.tar.gz
+            sha: 'true'
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: martin-Windows-x86_64.zip
+            ext: '.exe'
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: martin-Linux-x86_64.tar.gz
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
