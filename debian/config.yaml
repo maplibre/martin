@@ -22,7 +22,7 @@ worker_processes: 8
 #     - /path/to/pmtiles.pmtiles
 #   sources:
 #     pm-src1: /path/to/pmtiles1.pmtiles
-    
+
 # mbtiles:
 #   paths:
 #     - /dir-path
