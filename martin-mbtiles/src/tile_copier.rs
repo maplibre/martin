@@ -312,8 +312,13 @@ impl TileCopier {
     async fn create_flat_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         for statement in &[
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE tiles (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob,
-                 PRIMARY KEY(zoom_level, tile_column, tile_row));"] {
+            "CREATE TABLE tiles (
+                 zoom_level integer NOT NULL,
+                 tile_column integer NOT NULL,
+                 tile_row integer NOT NULL,
+                 tile_data blob,
+                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
+        ] {
             query(statement).execute(&mut *conn).await?;
         }
         Ok(())
@@ -322,9 +327,16 @@ impl TileCopier {
     async fn create_flat_with_hash_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         for statement in &[
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE tiles_with_hash (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob, tile_hash text,
+            "CREATE TABLE tiles_with_hash (
+                 zoom_level integer NOT NULL,
+                 tile_column integer NOT NULL,
+                 tile_row integer NOT NULL,
+                 tile_data blob,
+                 tile_hash text,
                  PRIMARY KEY(zoom_level, tile_column, tile_row));",
-            "CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;"] {
+            "CREATE VIEW tiles AS
+                 SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;",
+        ] {
             query(statement).execute(&mut *conn).await?;
         }
         Ok(())
@@ -333,16 +345,17 @@ impl TileCopier {
     async fn create_normalized_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
         for statement in &[
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE map (zoom_level integer NOT NULL,
-                               tile_column integer NOT NULL,
-                               tile_row integer NOT NULL,
-                               tile_id text,
-                               PRIMARY KEY(zoom_level, tile_column, tile_row));",
+            "CREATE TABLE map (
+                 zoom_level integer NOT NULL,
+                 tile_column integer NOT NULL,
+                 tile_row integer NOT NULL,
+                 tile_id text,
+                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
             "CREATE TABLE images (tile_data blob, tile_id text NOT NULL PRIMARY KEY);",
             "CREATE VIEW tiles AS
                  SELECT map.zoom_level AS zoom_level, map.tile_column AS tile_column, map.tile_row AS tile_row, images.tile_data AS tile_data
                  FROM map
-                 JOIN images ON images.tile_id = map.tile_id"] {
+                 JOIN images ON images.tile_id = map.tile_id;"] {
             query(statement).execute(&mut *conn).await?;
         }
         Ok(())
