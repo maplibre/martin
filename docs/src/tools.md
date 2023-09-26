@@ -8,7 +8,7 @@ A small utility that allows users to interact with the `*.mbtiles` files from th
 This tool can be installed by compiling the latest released version with `cargo install martin-mbtiles`, or by downloading a pre-built binary from the [releases page](https://github.com/maplibre/martin/releases/latest).
 
 ### meta-all
-Print all metadata values to stdout, as well as the results of tile detection. The format of the values printed is not stable, and should only be used for visual inspection. 
+Print all metadata values to stdout, as well as the results of tile detection. The format of the values printed is not stable, and should only be used for visual inspection.
 
 ```shell
 mbtiles meta-all my_file.mbtiles
@@ -72,7 +72,7 @@ mbtiles validate src_file.mbtiles
 ## Supported Schema
 The `mbtiles` tool supports three different kinds of schema for `tiles` data in `.mbtiles` files:
 
-- `flat`: 
+- `flat`:
     ```
     CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
     CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);
@@ -85,7 +85,7 @@ The `mbtiles` tool supports three different kinds of schema for `tiles` data in 
     ```
 - `normalized`:
     ```
-    CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT); 
+    CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT);
     CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
     CREATE TABLE images (tile_data blob, tile_id text);
     CREATE UNIQUE INDEX images_id ON images (tile_id);

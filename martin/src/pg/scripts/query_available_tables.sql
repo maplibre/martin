@@ -58,7 +58,7 @@ WITH
             CAST(obj_description(relfilenode, 'pg_class') AS VARCHAR) AS description
         FROM pg_class
             JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
-        WHERE relkind = 'r' OR relkind = 'v' 
+        WHERE relkind = 'r' OR relkind = 'v'
     )
 SELECT schema,
        name,

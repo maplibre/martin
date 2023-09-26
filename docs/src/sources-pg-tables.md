@@ -43,9 +43,9 @@ By default the `description` and `name` is database identifies about this table,
 
 ## TileJSON in SQL Comments
 
-Other than adjusting `auto_publish` section in configuration file, you can fine tune the `TileJSON` on the database side directly: Add a valid JSON as an SQL comment on the table.  
+Other than adjusting `auto_publish` section in configuration file, you can fine tune the `TileJSON` on the database side directly: Add a valid JSON as an SQL comment on the table.
 
-Martin will merge table comment into the generated TileJSON using JSON Merge patch. The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON. 
+Martin will merge table comment into the generated TileJSON using JSON Merge patch. The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON.
 
 ```sql
 DO $do$ BEGIN
