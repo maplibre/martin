@@ -293,12 +293,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Docker meta
-        id: docker_meta
-        uses: docker/metadata-action@v5
-        # https://github.com/docker/metadata-action
-        with:
-          images: ghcr.io/${{ github.repository }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         # https://github.com/docker/setup-qemu-action
@@ -390,6 +384,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        # https://github.com/docker/metadata-action
+        with:
+          images: ghcr.io/${{ github.repository }}
       - name: Push the Docker image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
