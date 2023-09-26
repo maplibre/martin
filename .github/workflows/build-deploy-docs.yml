@@ -1,4 +1,4 @@
-name: Build documentation
+name: Documentation
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-docs:
-    name: Build
+    name: Build Docs
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
