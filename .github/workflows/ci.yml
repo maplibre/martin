@@ -159,7 +159,7 @@ jobs:
           rm -rf target
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Download build result
+      - name: Download build artifact build-${{ matrix.target }}
         uses: actions/download-artifact@v3
         with:
           name: build-${{ matrix.target }}
@@ -308,8 +308,8 @@ jobs:
           - target: aarch64-apple-darwin
             os: ubuntu-latest
             name: martin-Darwin-aarch64.tar.gz
-            sha: 'true'
             cross: 'true'
+            sha: 'true'
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             name: martin-Linux-aarch64.tar.gz
@@ -332,7 +332,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - name: Download build artifact build-${{ matrix.target }}
+        uses: actions/download-artifact@v3
         with:
           name: build-${{ matrix.target }}
           path: target/

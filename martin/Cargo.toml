@@ -20,12 +20,15 @@ homepage.workspace = true
 
 [package.metadata.deb]
 name = "martin"
-maintainer = "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>, Yuri Astrakhan <YuriAstrakhan@gmail.com>, MapLibre contributors"
-depends = "$auto"
+revision = ""
+maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan.kuzmin@gmail.com>, MapLibre contributors"
 maintainer-scripts = "../debian"
+depends = "$auto"
+features = ["ssl"]
 assets = [
     ["target/release/martin", "/usr/bin/martin", "755"],
-    ["../README.md","/usr/share/doc/martin/README.md","644"],
+    ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
+    ["../README.md", "/usr/share/doc/martin/README.md", "644"],
     ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
     ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
 ]
