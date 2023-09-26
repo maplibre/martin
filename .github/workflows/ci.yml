@@ -37,6 +37,9 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             cross: 'true'
+          - target: debian-x86_64
+            os: ubuntu-latest
+            cross: 'true'
           - target: x86_64-apple-darwin
             os: macOS-latest
           - target: x86_64-pc-windows-msvc
@@ -44,7 +47,6 @@ jobs:
             ext: '.exe'
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            build_deb: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,18 +92,21 @@ jobs:
           export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-gnu-gcc'
           cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
           cargo build --release --target ${{ matrix.target }} --no-default-features --features=rustls,cli --package martin-mbtiles
-      - name: Move build artifacts
-        run: |
-          mkdir -p target_releases
-          mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
-          mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
-      - name: Build debian package
-        if: matrix.build_deb == 'true'
+      - name: Build (debian package)
+        if: matrix.target == 'debian-x86_64'
         run: |
           sudo apt-get install -y dpkg dpkg-dev liblzma-dev
           cargo install cargo-deb
-          cargo deb -v -p martin --output target/debian/martin.deb
-          mv target/debian/martin.deb target_releases
+          cargo deb -v -p martin --output target/debian/debian-x86_64.deb
+      - name: Move build artifacts
+        run: |
+          mkdir -p target_releases
+          if [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
+            mv target/debian/debian-x86_64.deb target_releases
+          else
+            mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
+            mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
+          fi
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
         with:
@@ -154,7 +159,8 @@ jobs:
           rm -rf target
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - uses: actions/download-artifact@v3
+      - name: Download build result
+        uses: actions/download-artifact@v3
         with:
           name: build-${{ matrix.target }}
           path: target/
@@ -170,20 +176,26 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Integration Tests (with debian package)
+      - name: Compare test output results (Linux)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: diff --brief --recursive --new-file tests/output tests/expected
+      - name: Download Debian package (Linux)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/download-artifact@v3
+        with:
+          name: build-debian-x86_64
+          path: target/
+      - name: Tests Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          sudo dpkg -i target/martin.deb
+          sudo dpkg -i target/debian-x86_64.deb
           export MARTIN_BUILD=-
-          export MARTIN_BIN=/usr/bin/martin
+          export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
           export MBTILES_BUILD=-
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Compare test output results (Linux)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: diff --brief --recursive --new-file tests/output tests/expected
       - name: Save test output on failure (Linux)
         if: failure() && matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/upload-artifact@v3
@@ -313,6 +325,10 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: martin-Linux-x86_64.tar.gz
+          - target: debian-x86_64
+            os: ubuntu-latest
+            name: martin-Debian-x86_64.deb
+            cross: 'true'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -333,14 +349,11 @@ jobs:
           cd target/
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             7z a ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
+          elif [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
+            mv debian-x86_64.deb ../${{ matrix.name }}
           else
-            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
+            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}          
           fi
-      - name: Package (debian)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          cd target/
-          tar czvf ../martin-debian-x86_64.tar.gz martin.deb
       - name: Generate SHA-256 (MacOS)
         if: matrix.sha == 'true'
         run: shasum -a 256 ${{ matrix.name }}
