@@ -208,7 +208,7 @@ the default <code>TileJSON</code> might look like this (note that URL will be au
 <p>By default the <code>description</code> and <code>name</code> is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting <code>auto_publish</code> section in <a href="https://maplibre.org/martin/config-file.html#config-example">configuration file</a>.</p>
 <h2 id="tilejson-in-sql-comments"><a class="header" href="#tilejson-in-sql-comments">TileJSON in SQL Comments</a></h2>
 <p>Other than adjusting <code>auto_publish</code> section in configuration file, you can fine tune the <code>TileJSON</code> on the database side directly: Add a valid JSON as an SQL comment on the table.</p>
-<p>Martin will merge table comment into the generated TileJSON using JSON Merge patch. The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON. </p>
+<p>Martin will merge table comment into the generated TileJSON using JSON Merge patch. The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON.</p>
 <pre><code class="language-sql">DO $do$ BEGIN
     EXECUTE 'COMMENT ON TABLE table_source IS $tj$' || $$
     {

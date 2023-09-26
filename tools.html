@@ -178,7 +178,7 @@
 <p>A small utility that allows users to interact with the <code>*.mbtiles</code> files from the command line. Use <code>mbtiles --help</code> to see a list of available commands, and <code>mbtiles &lt;command&gt; --help</code> to see help for a specific command.</p>
 <p>This tool can be installed by compiling the latest released version with <code>cargo install martin-mbtiles</code>, or by downloading a pre-built binary from the <a href="https://github.com/maplibre/martin/releases/latest">releases page</a>.</p>
 <h3 id="meta-all"><a class="header" href="#meta-all">meta-all</a></h3>
-<p>Print all metadata values to stdout, as well as the results of tile detection. The format of the values printed is not stable, and should only be used for visual inspection. </p>
+<p>Print all metadata values to stdout, as well as the results of tile detection. The format of the values printed is not stable, and should only be used for visual inspection.</p>
 <pre><code class="language-shell">mbtiles meta-all my_file.mbtiles
 </code></pre>
 <h3 id="meta-get"><a class="header" href="#meta-get">meta-get</a></h3>
@@ -221,7 +221,7 @@
 <h2 id="supported-schema"><a class="header" href="#supported-schema">Supported Schema</a></h2>
 <p>The <code>mbtiles</code> tool supports three different kinds of schema for <code>tiles</code> data in <code>.mbtiles</code> files:</p>
 <ul>
-<li><code>flat</code>: 
+<li><code>flat</code>:
 <pre><code>CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
 CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);
 </code></pre>
@@ -233,7 +233,7 @@ CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM ti
 </code></pre>
 </li>
 <li><code>normalized</code>:
-<pre><code>CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT); 
+<pre><code>CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT);
 CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
 CREATE TABLE images (tile_data blob, tile_id text);
 CREATE UNIQUE INDEX images_id ON images (tile_id);
