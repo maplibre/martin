@@ -29,7 +29,7 @@ jobs:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
-      # fail-fast: true
+      fail-fast: true
       matrix:
         include:
           - target: aarch64-apple-darwin
@@ -69,12 +69,12 @@ jobs:
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
-      - name: Run build (${{ matrix.target }})
+      - name: Run build (native)
         if: matrix.cross != 'true'
         run: |
           cargo build --release --target ${{ matrix.target }} --features=ssl --package martin
           cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
-      - name: Run build (${{ matrix.target }})
+      - name: Run build (aarch64-apple-darwin)
         if: matrix.target == 'aarch64-apple-darwin'
         run: |
           rustup target add "${{ matrix.target }}"
@@ -82,7 +82,7 @@ jobs:
           export RUSTFLAGS='-C link-arg=-s'
           cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
           cargo build --release --target ${{ matrix.target }} --no-default-features --features=rustls,cli --package martin-mbtiles
-      - name: Run build (${{ matrix.target }})
+      - name: Run build (aarch64-unknown-linux-gnu)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
@@ -96,7 +96,7 @@ jobs:
           mkdir -p target_releases
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
-      - name: Run build (debian package)
+      - name: Build debian package
         if: matrix.build_deb == 'true'
         run: |
           sudo apt-get install -y dpkg dpkg-dev liblzma-dev
@@ -115,7 +115,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: [ build ]
     strategy:
-      # fail-fast: true
+      fail-fast: true
       matrix:
         include:
           - target: x86_64-apple-darwin
@@ -200,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build ]
     strategy:
-      # fail-fast: true
+      fail-fast: true
       matrix:
         include:
           # These must match the versions of postgres used in the docker-compose.yml
@@ -294,7 +294,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: [ test, test-legacy ]
     strategy:
-      # fail-fast: true
+      fail-fast: true
       matrix:
         include:
           - target: aarch64-apple-darwin
