@@ -2,7 +2,7 @@
 name = "martin"
 # Make sure to update /home/nyurik/dev/rust/martin/homebrew-formula/martin.rb version
 # Once the release is published with the hash
-version = "0.8.7"
+version = "0.9.0-pre.1"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
