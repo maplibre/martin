@@ -46,7 +46,7 @@ pub struct TileCopierOptions {
     /// Compare source file with this file, and only copy non-identical tiles to destination
     #[cfg_attr(feature = "cli", arg(long))]
     diff_with_file: Option<PathBuf>,
-    /// Skip generating a global hash for mbtiles validation. By default, if dst_type is flat-with-hash or normalized, generate a global hash and store in the metadata table
+    /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     #[cfg_attr(feature = "cli", arg(long))]
     skip_agg_tiles_hash: bool,
 }
@@ -237,8 +237,7 @@ impl TileCopier {
             }
         };
 
-        if !self.options.skip_agg_tiles_hash && (dst_type == FlatWithHash || dst_type == Normalized)
-        {
+        if !self.options.skip_agg_tiles_hash {
             self.dst_mbtiles.update_agg_tiles_hash(&mut conn).await?;
         }
 

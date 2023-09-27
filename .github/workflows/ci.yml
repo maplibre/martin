@@ -506,7 +506,7 @@ jobs:
           elif [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
             mv debian-x86_64.deb ../${{ matrix.name }}
           else
-            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}          
+            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           fi
       - name: Generate SHA-256 (MacOS)
         if: matrix.sha == 'true'

@@ -491,7 +491,7 @@ impl Mbtiles {
         Ok(())
     }
 
-    pub async fn check_agg_tile_hashes<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn check_agg_tiles_hashes<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -745,7 +745,7 @@ mod tests {
     async fn validate_invalid_file() {
         let (mut conn, mbt) =
             open("../tests/fixtures/files/invalid/invalid_zoomed_world_cities.mbtiles").await;
-        let result = mbt.check_agg_tile_hashes(&mut conn).await;
+        let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
     }
 }
