@@ -15,11 +15,8 @@ use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::{Value as JSONValue, Value};
 use sqlite_hashes::register_md5_function;
-use sqlite_hashes::rusqlite::{
-    Connection as RusqliteConnection, Connection, OpenFlags, OptionalExtension,
-};
-use sqlx::sqlite::SqliteRow;
-use sqlx::{query, Row, SqliteExecutor};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
+use sqlx::{query, Connection as _, Row, SqliteConnection, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
@@ -94,6 +91,24 @@ impl Mbtiles {
                 .to_string_lossy()
                 .to_string(),
         })
+    }
+
+    pub async fn open_with_hashes(&self, readonly: bool) -> MbtResult<SqliteConnection> {
+        let opt = SqliteConnectOptions::new()
+            .filename(self.filepath())
+            .read_only(readonly);
+        let mut conn = SqliteConnection::connect_with(&opt).await?;
+        self.attach_hash_fn(&mut conn).await?;
+        Ok(conn)
+    }
+
+    async fn attach_hash_fn(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
+        let handle = conn.lock_handle().await?.as_raw_handle().as_ptr();
+        // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
+        // The registered functions will be dropped when SQLX drops DB connection.
+        let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
+        register_md5_function(&rc)?;
+        Ok(())
     }
 
     #[must_use]
@@ -420,41 +435,6 @@ impl Mbtiles {
         Err(MbtError::NoUniquenessConstraint(self.filepath.clone()))
     }
 
-    /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
-    /// This should work on all mbtiles files perf `MBTiles` specification.
-    fn calc_agg_tiles_hash(&self) -> MbtResult<String> {
-        Ok(self.open_with_hashes(true)?.query_row_and_then(
-            // The md5_concat func will return NULL if there are no rows in the tiles table.
-            // For our use case, we will treat it as an empty string, and hash that.
-            "SELECT hex(
-               coalesce(
-                 md5_concat(
-                   cast(zoom_level AS text),
-                   cast(tile_column AS text),
-                   cast(tile_row AS text),
-                   tile_data
-                 ),
-                 md5('')
-               )
-             )
-             FROM tiles
-             ORDER BY zoom_level, tile_column, tile_row;",
-            [],
-            |row| row.get(0),
-        )?)
-    }
-
-    pub(crate) fn open_with_hashes(&self, is_readonly: bool) -> MbtResult<Connection> {
-        let flags = if is_readonly {
-            OpenFlags::SQLITE_OPEN_READ_ONLY
-        } else {
-            OpenFlags::default()
-        };
-        let rusqlite_conn = RusqliteConnection::open_with_flags(self.filepath(), flags)?;
-        register_md5_function(&rusqlite_conn)?;
-        Ok(rusqlite_conn)
-    }
-
     /// Perform `SQLite` internal integrity check
     pub async fn check_integrity<T>(
         &self,
@@ -499,7 +479,8 @@ impl Mbtiles {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
 
-        let computed = self.calc_agg_tiles_hash()?;
+        // let conn = self.open_with_hashes(true)?;
+        let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
             let file = self.filepath().to_string();
             return Err(AggHashMismatch(computed, stored, file));
@@ -509,12 +490,12 @@ impl Mbtiles {
     }
 
     /// Compute new aggregate tiles hash and save it to the metadata table (if needed)
-    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub(crate) async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
-        let hash = self.calc_agg_tiles_hash()?;
+        let hash = calc_agg_tiles_hash(&mut *conn).await?;
         if old_hash.as_ref() == Some(&hash) {
             info!(
                 "agg_tiles_hash is already set to the correct value `{hash}` in {}",
@@ -570,13 +551,43 @@ impl Mbtiles {
             }
         };
 
-        self.open_with_hashes(true)?
-            .query_row_and_then(sql, [], |r| Ok((r.get(0)?, r.get(1)?)))
-            .optional()?
-            .map_or(Ok(()), |v: (String, String)| {
-                Err(IncorrectTileHash(self.filepath().to_string(), v.0, v.1))
+        query(sql)
+            .fetch_optional(&mut *conn)
+            .await?
+            .map_or(Ok(()), |v| {
+                Err(IncorrectTileHash(
+                    self.filepath().to_string(),
+                    v.get(0),
+                    v.get(1),
+                ))
             })
     }
+}
+
+/// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
+/// This should work on all mbtiles files perf `MBTiles` specification.
+async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let query = query(
+        // The md5_concat func will return NULL if there are no rows in the tiles table.
+        // For our use case, we will treat it as an empty string, and hash that.
+        "SELECT hex(
+               coalesce(
+                 md5_concat(
+                   cast(zoom_level AS text),
+                   cast(tile_column AS text),
+                   cast(tile_row AS text),
+                   tile_data
+                 ),
+                 md5('')
+               )
+             )
+             FROM tiles
+             ORDER BY zoom_level, tile_column, tile_row;",
+    );
+    return Ok(query.fetch_one(conn).await?.get::<String, _>(0));
 }
 
 #[cfg(test)]
@@ -584,7 +595,6 @@ mod tests {
     use std::collections::HashMap;
 
     use martin_tile_utils::Encoding;
-    use sqlx::{Connection, SqliteConnection};
     use tilejson::VectorLayer;
 
     use super::*;

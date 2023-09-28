@@ -175,21 +175,15 @@ impl TileCopier {
 
         let dst_type = if is_empty {
             let dst_type = self.options.dst_type.unwrap_or(src_type);
-            self.create_new_mbtiles(&mut conn, dst_type, src_type)
-                .await?;
+            self.init_new_mbtiles(&mut conn, src_type, dst_type).await?;
             dst_type
         } else if self.options.diff_with_file.is_some() {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         } else {
-            open_and_detect_type(&self.dst_mbtiles).await?
+            self.dst_mbtiles.detect_type(&mut conn).await?
         };
 
-        let rusqlite_conn = self.dst_mbtiles.open_with_hashes(false)?;
-        rusqlite_conn.execute(
-            "ATTACH DATABASE ? AS sourceDb",
-            [self.src_mbtiles.filepath()],
-        )?;
-
+        self.attach_source_db(&mut conn, &self.src_mbtiles).await?;
         let (on_dupl, sql_cond) = self.get_on_duplicate_sql(dst_type);
 
         let (select_from, query_args) = {
@@ -197,8 +191,10 @@ impl TileCopier {
                 let diff_with_mbtiles = Mbtiles::new(diff_file)?;
                 let diff_type = open_and_detect_type(&diff_with_mbtiles).await?;
 
-                rusqlite_conn
-                    .execute("ATTACH DATABASE ? AS newDb", [diff_with_mbtiles.filepath()])?;
+                let path = diff_with_mbtiles.filepath();
+                query!("ATTACH DATABASE ? AS newDb", path)
+                    .execute(&mut *conn)
+                    .await?;
 
                 Self::get_select_from_with_diff(dst_type, diff_type)
             } else {
@@ -238,29 +234,31 @@ impl TileCopier {
         };
 
         if !self.options.skip_agg_tiles_hash {
-            self.dst_mbtiles.update_agg_tiles_hash(&mut conn).await?;
+            self.dst_mbtiles
+                .update_agg_tiles_hash_conn(&mut conn, &rusqlite_conn)
+                .await?;
         }
 
         Ok(conn)
     }
 
-    async fn create_new_mbtiles(
+    async fn init_new_mbtiles(
         &self,
         conn: &mut SqliteConnection,
-        dst_type: MbtType,
-        src_type: MbtType,
+        src: MbtType,
+        dst: MbtType,
     ) -> MbtResult<()> {
+        query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
+        query!("VACUUM").execute(&mut *conn).await?;
+
         let path = self.src_mbtiles.filepath();
         query!("ATTACH DATABASE ? AS sourceDb", path)
             .execute(&mut *conn)
             .await?;
 
-        query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
-        query!("VACUUM").execute(&mut *conn).await?;
-
-        if dst_type == src_type {
+        if src == dst {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
-            for row in query(
+            let sql_objects = query(
                 "SELECT sql
                  FROM sourceDb.sqlite_schema
                  WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
@@ -273,19 +271,20 @@ impl TileCopier {
                      ELSE 5 END",
             )
             .fetch_all(&mut *conn)
-            .await?
-            {
+            .await?;
+
+            for row in sql_objects {
                 query(row.get(0)).execute(&mut *conn).await?;
             }
         } else {
-            match dst_type {
+            match dst {
                 Flat => self.create_flat_tables(&mut *conn).await?,
                 FlatWithHash => self.create_flat_with_hash_tables(&mut *conn).await?,
                 Normalized => self.create_normalized_tables(&mut *conn).await?,
             };
         };
 
-        if dst_type == Normalized {
+        if dst == Normalized {
             query(
                 "CREATE VIEW tiles_with_hash AS
                      SELECT
@@ -372,7 +371,7 @@ impl TileCopier {
                 };
 
                 format!(
-                        "AND NOT EXISTS (
+                    "AND NOT EXISTS (
                              SELECT 1
                              FROM {main_table}
                              WHERE
@@ -381,7 +380,7 @@ impl TileCopier {
                                  AND {main_table}.tile_row = sourceDb.{main_table}.tile_row
                                  AND {main_table}.{tile_identifier} != sourceDb.{main_table}.{tile_identifier}
                          )"
-                    )
+                )
             }),
         }
     }
@@ -454,6 +453,22 @@ impl TileCopier {
 
         (sql, query_args)
     }
+}
+
+async fn attach_source_db<T>(conn: &mut SqliteConnection, src: &Mbtiles) -> MbtResult<()> {
+    let path = src.filepath();
+    query!("ATTACH DATABASE ? AS sourceDb", path)
+        .execute(&mut *conn)
+        .await?;
+    Ok(())
+}
+
+async fn attach_other_db<T>(conn: &mut SqliteConnection, other: &Mbtiles) -> MbtResult<()> {
+    let path = other.filepath();
+    query!("ATTACH DATABASE ? AS otherDb", path)
+        .execute(&mut *conn)
+        .await?;
+    Ok(())
 }
 
 async fn open_and_detect_type(mbtiles: &Mbtiles) -> MbtResult<MbtType> {
