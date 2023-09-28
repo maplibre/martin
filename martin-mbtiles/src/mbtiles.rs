@@ -564,7 +564,8 @@ where
     let query = query(
         // The md5_concat func will return NULL if there are no rows in the tiles table.
         // For our use case, we will treat it as an empty string, and hash that.
-        // Note that in some weird rare cases, a column with blob type may be stored as an integer value
+        // `tile_data` values must be stored as a blob per MBTiles spec
+        // `md5` functions will fail if the value is not text/blob/null
         "SELECT
          hex(
            coalesce(
@@ -572,7 +573,7 @@ where
                cast(zoom_level AS text),
                cast(tile_column AS text),
                cast(tile_row AS text),
-               cast(tile_data as blob)
+               tile_data
              ),
              md5('')
            )
