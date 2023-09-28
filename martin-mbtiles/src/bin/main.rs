@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{apply_mbtiles_diff, IntegrityCheckType, Mbtiles, TileCopierOptions};
+use martin_mbtiles::{
+    apply_mbtiles_diff, IntegrityCheckType, MbtResult, Mbtiles, TileCopierOptions,
+};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -72,7 +73,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     match args.command {
@@ -106,7 +107,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn meta_print_all(file: &Path) -> Result<()> {
+async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
     let mbt = Mbtiles::new(file)?;
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
@@ -115,7 +116,7 @@ async fn meta_print_all(file: &Path) -> Result<()> {
     Ok(())
 }
 
-async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
+async fn meta_get_value(file: &Path, key: &str) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
@@ -125,30 +126,28 @@ async fn meta_get_value(file: &Path, key: &str) -> Result<()> {
     Ok(())
 }
 
-async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> Result<()> {
+async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
     let opt = SqliteConnectOptions::new().filename(file);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
-    mbt.set_metadata_value(&mut conn, key, value).await?;
-    Ok(())
+    mbt.set_metadata_value(&mut conn, key, value).await
 }
 
 async fn validate_mbtiles(
     file: &Path,
     check_type: IntegrityCheckType,
     update_agg_tiles_hash: bool,
-) -> Result<()> {
+) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
     let opt = SqliteConnectOptions::new().filename(file).read_only(true);
     let mut conn = SqliteConnection::connect_with(&opt).await?;
     mbt.check_integrity(&mut conn, check_type).await?;
     mbt.check_each_tile_hash(&mut conn).await?;
     if update_agg_tiles_hash {
-        mbt.update_agg_tiles_hash(&mut conn).await?;
+        mbt.update_agg_tiles_hash(&mut conn).await
     } else {
-        mbt.check_agg_tiles_hashes(&mut conn).await?;
+        mbt.check_agg_tiles_hashes(&mut conn).await
     }
-    Ok(())
 }
 
 #[cfg(test)]

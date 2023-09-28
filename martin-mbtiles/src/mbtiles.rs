@@ -470,7 +470,6 @@ impl Mbtiles {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
 
-        // let conn = self.open_with_hashes(true)?;
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
             let file = self.filepath().to_string();
