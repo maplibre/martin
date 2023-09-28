@@ -2,9 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{
-    apply_mbtiles_diff, copy_mbtiles_file, IntegrityCheckType, Mbtiles, TileCopierOptions,
-};
+use martin_mbtiles::{apply_mbtiles_diff, IntegrityCheckType, Mbtiles, TileCopierOptions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -67,7 +65,7 @@ enum Commands {
         /// Value to specify the extent of the SQLite integrity check performed
         #[arg(long, value_enum, default_value_t=IntegrityCheckType::default())]
         integrity_check: IntegrityCheckType,
-        /// Generate a hash of the tile data hashes and store under the 'agg_tiles_hash' key in metadata
+        /// Update `agg_tiles_hash` metadata value instead of using it to validate if the entire tile store is valid.
         #[arg(long)]
         update_agg_tiles_hash: bool,
     },
@@ -88,7 +86,7 @@ async fn main() -> Result<()> {
             meta_set_value(file.as_path(), &key, value).await?;
         }
         Commands::Copy(opts) => {
-            copy_mbtiles_file(opts).await?;
+            opts.run().await?;
         }
         Commands::ApplyDiff {
             src_file,
@@ -148,7 +146,7 @@ async fn validate_mbtiles(
     if update_agg_tiles_hash {
         mbt.update_agg_tiles_hash(&mut conn).await?;
     } else {
-        mbt.check_agg_tile_hashes(&mut conn).await?;
+        mbt.check_agg_tiles_hashes(&mut conn).await?;
     }
     Ok(())
 }
