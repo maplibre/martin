@@ -564,20 +564,21 @@ where
     let query = query(
         // The md5_concat func will return NULL if there are no rows in the tiles table.
         // For our use case, we will treat it as an empty string, and hash that.
+        // Note that in some weird rare cases, a column with blob type may be stored as an integer value
         "SELECT
-             hex(
-               coalesce(
-                 md5_concat(
-                   cast(zoom_level AS text),
-                   cast(tile_column AS text),
-                   cast(tile_row AS text),
-                   tile_data
-                 ),
-                 md5('')
-               )
-             )
-             FROM tiles
-             ORDER BY zoom_level, tile_column, tile_row;",
+         hex(
+           coalesce(
+             md5_concat(
+               cast(zoom_level AS text),
+               cast(tile_column AS text),
+               cast(tile_row AS text),
+               cast(tile_data as blob)
+             ),
+             md5('')
+           )
+         )
+         FROM tiles
+         ORDER BY zoom_level, tile_column, tile_row;",
     );
     Ok(query.fetch_one(conn).await?.get::<String, _>(0))
 }
