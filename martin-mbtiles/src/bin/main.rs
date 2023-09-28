@@ -2,9 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use martin_mbtiles::{
-    apply_mbtiles_diff, copy_mbtiles_file, IntegrityCheckType, Mbtiles, TileCopierOptions,
-};
+use martin_mbtiles::{apply_mbtiles_diff, IntegrityCheckType, Mbtiles, TileCopierOptions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 
@@ -88,7 +86,7 @@ async fn main() -> Result<()> {
             meta_set_value(file.as_path(), &key, value).await?;
         }
         Commands::Copy(opts) => {
-            copy_mbtiles_file(opts).await?;
+            opts.run().await?;
         }
         Commands::ApplyDiff {
             src_file,

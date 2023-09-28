@@ -98,17 +98,8 @@ impl Mbtiles {
             .filename(self.filepath())
             .read_only(readonly);
         let mut conn = SqliteConnection::connect_with(&opt).await?;
-        self.attach_hash_fn(&mut conn).await?;
+        attach_hash_fn(&mut conn).await?;
         Ok(conn)
-    }
-
-    async fn attach_hash_fn(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        let handle = conn.lock_handle().await?.as_raw_handle().as_ptr();
-        // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
-        // The registered functions will be dropped when SQLX drops DB connection.
-        let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
-        register_md5_function(&rc)?;
-        Ok(())
     }
 
     #[must_use]
@@ -490,7 +481,7 @@ impl Mbtiles {
     }
 
     /// Compute new aggregate tiles hash and save it to the metadata table (if needed)
-    pub(crate) async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -573,7 +564,8 @@ where
     let query = query(
         // The md5_concat func will return NULL if there are no rows in the tiles table.
         // For our use case, we will treat it as an empty string, and hash that.
-        "SELECT hex(
+        "SELECT
+             hex(
                coalesce(
                  md5_concat(
                    cast(zoom_level AS text),
@@ -587,7 +579,16 @@ where
              FROM tiles
              ORDER BY zoom_level, tile_column, tile_row;",
     );
-    return Ok(query.fetch_one(conn).await?.get::<String, _>(0));
+    Ok(query.fetch_one(conn).await?.get::<String, _>(0))
+}
+
+pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
+    let handle = conn.lock_handle().await?.as_raw_handle().as_ptr();
+    // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
+    // The registered functions will be dropped when SQLX drops DB connection.
+    let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
+    register_md5_function(&rc)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -601,10 +602,9 @@ mod tests {
 
     async fn open(filepath: &str) -> (SqliteConnection, Mbtiles) {
         let mbt = Mbtiles::new(filepath).unwrap();
-        (
-            SqliteConnection::connect(mbt.filepath()).await.unwrap(),
-            mbt,
-        )
+        let mut conn = SqliteConnection::connect(mbt.filepath()).await.unwrap();
+        attach_hash_fn(&mut conn).await.unwrap();
+        (conn, mbt)
     }
 
     #[actix_rt::test]

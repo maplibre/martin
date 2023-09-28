@@ -9,6 +9,4 @@ mod tile_copier;
 pub use errors::MbtError;
 pub use mbtiles::{IntegrityCheckType, Mbtiles, Metadata};
 pub use mbtiles_pool::MbtilesPool;
-pub use tile_copier::{
-    apply_mbtiles_diff, copy_mbtiles_file, CopyDuplicateMode, TileCopierOptions,
-};
+pub use tile_copier::{apply_mbtiles_diff, CopyDuplicateMode, TileCopierOptions};
