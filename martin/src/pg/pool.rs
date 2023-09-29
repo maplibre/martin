@@ -3,7 +3,7 @@ use log::{info, warn};
 use semver::Version;
 
 use crate::pg::config::PgConfig;
-use crate::pg::tls::{make_connector, parse_conn_str};
+use crate::pg::tls::{make_connector, parse_conn_str, SslModeOverride};
 use crate::pg::PgError::{
     BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError, PostgresPoolConnError,
 };
@@ -28,8 +28,12 @@ pub struct PgPool {
 impl PgPool {
     pub async fn new(config: &PgConfig) -> Result<Self> {
         let conn_str = config.connection_string.as_ref().unwrap().as_str();
-        info!("Connecting to {conn_str}");
         let (pg_cfg, ssl_mode) = parse_conn_str(conn_str)?;
+        if matches!(ssl_mode, SslModeOverride::Unmodified(_)) {
+            info!("Connecting to {pg_cfg:?}");
+        } else {
+            info!("Connecting to {pg_cfg:?} with ssl_mode={ssl_mode:?}");
+        }
 
         let id = pg_cfg.get_dbname().map_or_else(
             || format!("{:?}", pg_cfg.get_hosts()[0]),
