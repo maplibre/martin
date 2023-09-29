@@ -94,6 +94,18 @@ jobs:
           export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-gnu-gcc'
           cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
           cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
+      - name: Build (cross - aarch64-unknown-linux-musl)
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS='-C link-arg=-s' cross build --target aarch64-unknown-linux-musl --package martin-mbtiles
+
+          # sudo apt-get install -y gcc-aarch64-linux-musl binutils-aarch64-linux-musl
+          rustup target add "${{ matrix.target }}"
+          # compile without debug symbols because stripping them with `strip` does not work cross-platform
+          export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-musl-gcc'
+          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
+          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
       - name: Build (debian package)
         if: matrix.target == 'debian-x86_64'
         run: |
