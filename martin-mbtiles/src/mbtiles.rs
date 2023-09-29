@@ -609,7 +609,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn mbtiles_meta() {
-        let filepath = "../tests/fixtures/files/geography-class-jpg.mbtiles";
+        let filepath = "../tests/fixtures/mbtiles/geography-class-jpg.mbtiles";
         let mbt = Mbtiles::new(filepath).unwrap();
         assert_eq!(mbt.filepath(), filepath);
         assert_eq!(mbt.filename(), "geography-class-jpg");
@@ -617,7 +617,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_jpeg() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await;
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -634,7 +634,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_mvt() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -665,7 +665,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_get_key() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
 
         let res = mbt.get_metadata_value(&mut conn, "bounds").await.unwrap();
         assert_eq!(res.unwrap(), "-123.123590,-37.818085,174.763027,59.352706");
@@ -725,15 +725,15 @@ mod tests {
 
     #[actix_rt::test]
     async fn detect_type() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Flat);
 
-        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::FlatWithHash);
 
-        let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Normalized);
 
@@ -744,7 +744,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn validate_valid_file() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await;
 
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
             .await
@@ -754,7 +754,7 @@ mod tests {
     #[actix_rt::test]
     async fn validate_invalid_file() {
         let (mut conn, mbt) =
-            open("../tests/fixtures/files/invalid/invalid_zoomed_world_cities.mbtiles").await;
+            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
     }

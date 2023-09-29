@@ -8,12 +8,6 @@
       "content_type": "application/x-protobuf",
       "description": "autodetect.auto_table.geom"
     },
-    "bad_hash": {
-      "content_type": "application/x-protobuf",
-      "content_encoding": "gzip",
-      "name": "Major cities from Natural Earth data",
-      "description": "Major cities from Natural Earth data"
-    },
     "bigint_table": {
       "content_type": "application/x-protobuf",
       "description": "autodetect.bigint_table.geom"

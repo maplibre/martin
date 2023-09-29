@@ -603,14 +603,14 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_flat_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_flat_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, dst, None, Flat).await
     }
 
     #[actix_rt::test]
     async fn copy_flat_from_flat_with_hash_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles");
         let dst = PathBuf::from(
             "file:copy_flat_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
@@ -619,7 +619,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_flat_from_normalized_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/geography-class-png.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.mbtiles");
         let dst =
             PathBuf::from("file:copy_flat_from_normalized_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, dst, Some(Flat), Flat).await
@@ -627,14 +627,14 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_flat_with_hash_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_flat_with_hash_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, dst, None, FlatWithHash).await
     }
 
     #[actix_rt::test]
     async fn copy_flat_with_hash_from_flat_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from(
             "file:copy_flat_with_hash_from_flat_tables_mem_db?mode=memory&cache=shared",
         );
@@ -643,7 +643,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_flat_with_hash_from_normalized_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/geography-class-png.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.mbtiles");
         let dst = PathBuf::from(
             "file:copy_flat_with_hash_from_normalized_tables_mem_db?mode=memory&cache=shared",
         );
@@ -652,14 +652,14 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_normalized_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/geography-class-png.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.mbtiles");
         let dst = PathBuf::from("file:copy_normalized_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, dst, None, Normalized).await
     }
 
     #[actix_rt::test]
     async fn copy_normalized_from_flat_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst =
             PathBuf::from("file:copy_normalized_from_flat_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, dst, Some(Normalized), Normalized).await
@@ -667,7 +667,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_normalized_from_flat_with_hash_tables() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/zoomed_world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles");
         let dst = PathBuf::from(
             "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
@@ -676,7 +676,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_min_max_zoom() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_min_max_zoom_mem_db?mode=memory&cache=shared");
         let opt = TileCopierOptions::new(src, dst)
             .min_zoom(Some(2))
@@ -686,7 +686,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_zoom_levels() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_zoom_levels_mem_db?mode=memory&cache=shared");
         let opt = TileCopierOptions::new(src, dst)
             .min_zoom(Some(2))
@@ -697,11 +697,11 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_diff_with_file() -> MbtResult<()> {
-        let src = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
         let dst = PathBuf::from("file:copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
 
         let diff_file =
-            PathBuf::from("../tests/fixtures/files/geography-class-jpg-modified.mbtiles");
+            PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles");
 
         let copy_opts =
             TileCopierOptions::new(src.clone(), dst.clone()).diff_with_file(diff_file.clone());
@@ -744,10 +744,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn ignore_dst_type_when_copy_to_existing() -> MbtResult<()> {
-        let src_file = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
+        let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_modified.mbtiles");
 
         // Copy the dst file to an in-memory DB
-        let dst_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let dst_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from(
             "file:ignore_dst_type_when_copy_to_existing_mem_db?mode=memory&cache=shared",
         );
@@ -761,8 +761,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_to_existing_abort_mode() {
-        let src = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
-        let dst = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities_modified.mbtiles");
+        let dst = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
 
         let copy_opts =
             TileCopierOptions::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
@@ -775,10 +775,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_to_existing_override_mode() -> MbtResult<()> {
-        let src_file = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
+        let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_modified.mbtiles");
 
         // Copy the dst file to an in-memory DB
-        let dst_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let dst_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst =
             PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
 
@@ -804,10 +804,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_to_existing_ignore_mode() -> MbtResult<()> {
-        let src_file = PathBuf::from("../tests/fixtures/files/world_cities_modified.mbtiles");
+        let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_modified.mbtiles");
 
         // Copy the dst file to an in-memory DB
-        let dst_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let dst_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst =
             PathBuf::from("file:copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
 
@@ -858,7 +858,7 @@ mod tests {
     #[actix_rt::test]
     async fn apply_flat_diff_file() -> MbtResult<()> {
         // Copy the src file to an in-memory DB
-        let src_file = PathBuf::from("../tests/fixtures/files/world_cities.mbtiles");
+        let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
 
         let mut src_conn = TileCopierOptions::new(src_file.clone(), src.clone())
@@ -866,11 +866,11 @@ mod tests {
             .await?;
 
         // Apply diff to the src data in in-memory DB
-        let diff_file = PathBuf::from("../tests/fixtures/files/world_cities_diff.mbtiles");
+        let diff_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_diff.mbtiles");
         apply_mbtiles_diff(src, diff_file).await?;
 
         // Verify the data is the same as the file the diff was generated from
-        let path = "../tests/fixtures/files/world_cities_modified.mbtiles";
+        let path = "../tests/fixtures/mbtiles/world_cities_modified.mbtiles";
         attach_other_db(&mut src_conn, path).await?;
 
         assert!(
@@ -886,7 +886,7 @@ mod tests {
     #[actix_rt::test]
     async fn apply_normalized_diff_file() -> MbtResult<()> {
         // Copy the src file to an in-memory DB
-        let src_file = PathBuf::from("../tests/fixtures/files/geography-class-jpg.mbtiles");
+        let src_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
         let mut src_conn = TileCopierOptions::new(src_file.clone(), src.clone())
@@ -894,11 +894,11 @@ mod tests {
             .await?;
 
         // Apply diff to the src data in in-memory DB
-        let diff_file = PathBuf::from("../tests/fixtures/files/geography-class-jpg-diff.mbtiles");
+        let diff_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles");
         apply_mbtiles_diff(src, diff_file).await?;
 
         // Verify the data is the same as the file the diff was generated from
-        let path = "../tests/fixtures/files/geography-class-jpg-modified.mbtiles";
+        let path = "../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles";
         attach_other_db(&mut src_conn, path).await?;
 
         assert!(
