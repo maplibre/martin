@@ -37,6 +37,9 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             cross: 'true'
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: 'true'
           - target: debian-x86_64
             os: ubuntu-latest
             cross: 'true'
