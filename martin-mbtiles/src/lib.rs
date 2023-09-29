@@ -1,12 +1,15 @@
 #![allow(clippy::missing_errors_doc)]
 
 mod errors;
-mod mbtiles;
-mod mbtiles_pool;
-mod mbtiles_queries;
-mod tile_copier;
-
 pub use errors::{MbtError, MbtResult};
+
+mod mbtiles;
 pub use mbtiles::{IntegrityCheckType, Mbtiles, Metadata};
+
+mod mbtiles_pool;
 pub use mbtiles_pool::MbtilesPool;
+
+mod tile_copier;
 pub use tile_copier::{apply_mbtiles_diff, CopyDuplicateMode, TileCopierOptions};
+
+mod mbtiles_queries;
