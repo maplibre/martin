@@ -113,5 +113,5 @@ async fn table_source_schemas() {
           functions: false
     "});
     let sources = mock_sources(cfg).await.0;
-    assert_eq!(sources.keys().collect::<Vec<_>>(), vec!["MixPoints"],);
+    assert_eq!(sources.keys().collect::<Vec<_>>(), vec!["MixPoints"]);
 }

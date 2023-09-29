@@ -150,7 +150,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/files)
+ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
 PROCESS_ID=`jobs -p`
@@ -289,21 +289,34 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 
   $MBTILES_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
   $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
-  $MBTILES_BIN meta-all ./tests/fixtures/files/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
+  $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
   $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
+  $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
+  $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
+  $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
+
+  set +e
+  $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad.txt"
+  if [[ $? -eq 0 ]]; then
+    echo "ERROR: validate with bad_hash should have failed"
+    exit 1
+  fi
+  set -e
+
+  cp ./tests/fixtures/files/bad_hash.mbtiles "$TEST_TEMP_DIR/fix_bad_hash.mbtiles"
+  $MBTILES_BIN validate --update-agg-tiles-hash "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
+  $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
 
   # Create diff file
   $MBTILES_BIN copy \
-    ./tests/fixtures/files/world_cities.mbtiles \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
     "$TEST_TEMP_DIR/world_cities_diff.mbtiles" \
-    --diff-with-file ./tests/fixtures/files/world_cities_modified.mbtiles \
+    --diff-with-file ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
     2>&1 | tee "$TEST_OUT_DIR/copy_diff.txt"
 
   if command -v sqlite3 > /dev/null; then
     # Apply this diff to the original version of the file
-    cp ./tests/fixtures/files/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"
+    cp ./tests/fixtures/mbtiles/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"
 
     sqlite3 "$TEST_TEMP_DIR/world_cities_copy.mbtiles" \
       -bail \
@@ -315,7 +328,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     # Ensure that applying the diff resulted in the modified version of the file
     $MBTILES_BIN copy \
       --diff-with-file "$TEST_TEMP_DIR/world_cities_copy.mbtiles" \
-      ./tests/fixtures/files/world_cities_modified.mbtiles \
+      ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
       "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" \
       2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"
 

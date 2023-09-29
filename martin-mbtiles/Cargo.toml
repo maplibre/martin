@@ -12,7 +12,7 @@ rust-version.workspace = true
 [features]
 # TODO: Disable "cli" feature in default builds
 default = ["cli", "native-tls"]
-cli = ["dep:anyhow", "dep:clap", "dep:tokio"]
+cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:tokio"]
 # One of the following two must be used
 native-tls = ["sqlx/runtime-tokio-native-tls"]
 rustls = ["sqlx/runtime-tokio-rustls"]
@@ -30,6 +30,7 @@ tilejson.workspace = true
 # Bin dependencies
 anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
+env_logger = { workspace = true, optional = true }
 serde_yaml.workspace = true
 sqlite-hashes.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }

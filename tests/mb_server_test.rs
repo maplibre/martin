@@ -34,10 +34,10 @@ fn test_get(path: &str) -> TestRequest {
 const CONFIG: &str = indoc! {"
         mbtiles:
             sources:
-                m_json: tests/fixtures/files/json.mbtiles
-                m_mvt: tests/fixtures/files/world_cities.mbtiles
-                m_raw_mvt: tests/fixtures/files/uncompressed_mvt.mbtiles
-                m_webp: tests/fixtures/files/webp.mbtiles
+                m_json: tests/fixtures/mbtiles/json.mbtiles
+                m_mvt: tests/fixtures/mbtiles/world_cities.mbtiles
+                m_raw_mvt: tests/fixtures/mbtiles/uncompressed_mvt.mbtiles
+                m_webp: tests/fixtures/mbtiles/webp.mbtiles
     "};
 
 #[actix_rt::test]

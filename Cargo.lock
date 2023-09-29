@@ -1799,6 +1799,7 @@ dependencies = [
  "actix-rt",
  "anyhow",
  "clap",
+ "env_logger",
  "futures",
  "log",
  "martin-tile-utils",

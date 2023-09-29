@@ -435,7 +435,9 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        let filepath = self.filepath();
         if integrity_check == IntegrityCheckType::Off {
+            info!("Skipping integrity check for {filepath}");
             return Ok(());
         }
 
@@ -452,13 +454,14 @@ impl Mbtiles {
 
         if result.len() > 1
             || result.get(0).ok_or(FailedIntegrityCheck(
-                self.filepath().to_string(),
+                filepath.to_string(),
                 vec!["SQLite could not perform integrity check".to_string()],
             ))? != "ok"
         {
             return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
         }
 
+        info!("{integrity_check:?} integrity check passed for {filepath}");
         Ok(())
     }
 
@@ -466,16 +469,17 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        let filepath = self.filepath();
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
-            return Err(AggHashValueNotFound(self.filepath().to_string()));
+            return Err(AggHashValueNotFound(filepath.to_string()));
         };
-
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
-            let file = self.filepath().to_string();
+            let file = filepath.to_string();
             return Err(AggHashMismatch(computed, stored, file));
         }
 
+        info!("The agg_tiles_hashes={computed} has been verified for {filepath}");
         Ok(())
     }
 
@@ -486,23 +490,15 @@ impl Mbtiles {
     {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
+        let path = self.filepath();
         if old_hash.as_ref() == Some(&hash) {
-            info!(
-                "agg_tiles_hash is already set to the correct value `{hash}` in {}",
-                self.filepath()
-            );
+            info!("agg_tiles_hash is already set to the correct value `{hash}` in {path}");
             Ok(())
         } else {
             if let Some(old_hash) = old_hash {
-                info!(
-                    "Updating agg_tiles_hash from {old_hash} to {hash} in {}",
-                    self.filepath()
-                );
+                info!("Updating agg_tiles_hash from {old_hash} to {hash} in {path}");
             } else {
-                info!(
-                    "Initializing agg_tiles_hash to {hash} in {}",
-                    self.filepath()
-                );
+                info!("Creating new metadata value agg_tiles_hash = {hash} in {path}");
             }
             self.set_metadata_value(&mut *conn, "agg_tiles_hash", Some(hash))
                 .await
@@ -550,7 +546,10 @@ impl Mbtiles {
                     v.get(0),
                     v.get(1),
                 ))
-            })
+            })?;
+
+        info!("All tile hashes are valid for {}", self.filepath());
+        Ok(())
     }
 }
 
@@ -610,7 +609,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn mbtiles_meta() {
-        let filepath = "../tests/fixtures/files/geography-class-jpg.mbtiles";
+        let filepath = "../tests/fixtures/mbtiles/geography-class-jpg.mbtiles";
         let mbt = Mbtiles::new(filepath).unwrap();
         assert_eq!(mbt.filepath(), filepath);
         assert_eq!(mbt.filename(), "geography-class-jpg");
@@ -618,7 +617,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_jpeg() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await;
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -635,7 +634,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_mvt() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -666,7 +665,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_get_key() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
 
         let res = mbt.get_metadata_value(&mut conn, "bounds").await.unwrap();
         assert_eq!(res.unwrap(), "-123.123590,-37.818085,174.763027,59.352706");
@@ -726,15 +725,15 @@ mod tests {
 
     #[actix_rt::test]
     async fn detect_type() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Flat);
 
-        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::FlatWithHash);
 
-        let (mut conn, mbt) = open("../tests/fixtures/files/geography-class-jpg.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Normalized);
 
@@ -745,7 +744,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn validate_valid_file() {
-        let (mut conn, mbt) = open("../tests/fixtures/files/zoomed_world_cities.mbtiles").await;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await;
 
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
             .await
@@ -755,7 +754,7 @@ mod tests {
     #[actix_rt::test]
     async fn validate_invalid_file() {
         let (mut conn, mbt) =
-            open("../tests/fixtures/files/invalid/invalid_zoomed_world_cities.mbtiles").await;
+            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
     }

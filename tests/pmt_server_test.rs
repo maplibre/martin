@@ -34,12 +34,12 @@ fn test_get(path: &str) -> TestRequest {
 const CONFIG: &str = indoc! {"
         pmtiles:
             sources:
-                p_png: tests/fixtures/files/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+                p_png: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
     "};
 
 #[actix_rt::test]
 async fn pmt_get_catalog() {
-    let path = "pmtiles: tests/fixtures/files/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
+    let path = "pmtiles: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
     let app = create_app! { path };
 
     let req = test_get("/catalog").to_request();
