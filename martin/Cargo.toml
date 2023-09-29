@@ -70,7 +70,7 @@ futures.workspace = true
 itertools.workspace = true
 json-patch.workspace = true
 log.workspace = true
-martin-mbtiles = { workspace = true, default-features = false }
+martin-mbtiles.workspace = true
 martin-tile-utils.workspace = true
 num_cpus.workspace = true
 pmtiles.workspace = true

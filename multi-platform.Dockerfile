@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM alpine
 ARG TARGETPLATFORM
 
 LABEL org.opencontainers.image.description="Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"

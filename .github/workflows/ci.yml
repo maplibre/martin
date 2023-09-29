@@ -34,12 +34,9 @@ jobs:
           - target: aarch64-apple-darwin
             os: macOS-latest
             cross: 'true'
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            cross: 'true'
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            cross: 'true'
+#          - target: aarch64-unknown-linux-gnu
+#            os: ubuntu-latest
+#            cross: 'true'
           - target: debian-x86_64
             os: ubuntu-latest
             cross: 'true'
@@ -75,37 +72,25 @@ jobs:
       - name: Build (native)
         if: matrix.cross != 'true'
         run: |
-          cargo build --release --target ${{ matrix.target }} --package martin --features=ssl --package martin
           cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
+          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
       - name: Build (cross - aarch64-apple-darwin)
         if: matrix.target == 'aarch64-apple-darwin'
         run: |
           rustup target add "${{ matrix.target }}"
           # compile without debug symbols because stripping them with `strip` does not work cross-platform
           export RUSTFLAGS='-C link-arg=-s'
-          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
           cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-      - name: Build (cross - aarch64-unknown-linux-gnu)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
-          rustup target add "${{ matrix.target }}"
-          # compile without debug symbols because stripping them with `strip` does not work cross-platform
-          export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-gnu-gcc'
           cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
-          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-      - name: Build (cross - aarch64-unknown-linux-musl)
-        if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: |
-
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS='-C link-arg=-s' cross build --target aarch64-unknown-linux-musl --package martin-mbtiles
-
-          # sudo apt-get install -y gcc-aarch64-linux-musl binutils-aarch64-linux-musl
-          rustup target add "${{ matrix.target }}"
-          # compile without debug symbols because stripping them with `strip` does not work cross-platform
-          export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-musl-gcc'
-          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
-          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
+#      - name: Build (cross - aarch64-unknown-linux-gnu)
+#        if: matrix.target == 'aarch64-unknown-linux-gnu'
+#        run: |
+#          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+#          rustup target add "${{ matrix.target }}"
+#          # compile without debug symbols because stripping them with `strip` does not work cross-platform
+#          export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-gnu-gcc'
+#          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
+#          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
       - name: Build (debian package)
         if: matrix.target == 'debian-x86_64'
         run: |
@@ -125,6 +110,40 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-${{ matrix.target }}
+          path: target_releases/*
+
+  build-cross:
+    name: Cross-platform builds
+    runs-on: ubuntu-latest
+    env:
+      TARGETS: "aarch64-unknown-linux-musl x86_64-unknown-linux-musl aarch64-unknown-linux-gnu"
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cross
+        run: |
+          cargo install cross
+          # Install latest cross version from git (disabled as it is probably less stable)
+          # cargo install cross --git https://github.com/cross-rs/cross
+          cross --version
+      - name: Build targets
+        run: |
+          for target in $TARGETS; do
+            echo -e "\n----------------------------------------------"
+            echo "Building $target"
+            mkdir -p target_releases/$target
+            export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C link-arg=-s'
+            cross build --release --target $target --package martin-mbtiles
+            mv target/$target/release/mbtiles target_releases/$target
+            cross build --release --target $target --package martin --features=vendored-openssl
+            mv target/$target/release/martin target_releases/$target
+          done
+      - name: Save build artifacts to build-${{ matrix.target }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-cross
           path: target_releases/*
 
   test:
@@ -328,7 +347,7 @@ jobs:
   docker:
     name: Build docker images
     runs-on: ubuntu-latest
-    needs: [ build ]
+    needs: [ build, build-cross ]
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
@@ -377,19 +396,20 @@ jobs:
           install: true
           platforms: linux/amd64,linux/arm64
 
-      - run: rm -rf target_releases
-      - name: Download build artifact build-aarch64-unknown-linux-gnu
+      - run: rm -rf target_releases2
+      - name: Download build-cross artifacts
         uses: actions/download-artifact@v3
         with:
-          name: build-aarch64-unknown-linux-gnu
-          path: target_releases/linux/arm64
-      - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@v3
-        with:
-          name: build-x86_64-unknown-linux-gnu
-          path: target_releases/linux/amd64
-      - name: Reset permissions
-        run: chmod -R +x target_releases/
+          name: build-cross
+          path: target_releases2
+      - name: Reorganize build artifacts
+        run: |
+          chmod -R +x target_releases2/
+          mkdir -p target_releases/linux/arm64
+          mv target_releases2/aarch64-unknown-linux-musl/* target_releases/linux/arm64/
+          mkdir -p target_releases/linux/amd64
+          mv target_releases2/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
+          rm -rf target_releases2
 
       - name: Build linux/arm64 Docker image
         id: docker_aarch64-unknown-linux-gnu
