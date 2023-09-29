@@ -435,7 +435,9 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        let filepath = self.filepath();
         if integrity_check == IntegrityCheckType::Off {
+            info!("Skipping integrity check for {filepath}");
             return Ok(());
         }
 
@@ -452,13 +454,14 @@ impl Mbtiles {
 
         if result.len() > 1
             || result.get(0).ok_or(FailedIntegrityCheck(
-                self.filepath().to_string(),
+                filepath.to_string(),
                 vec!["SQLite could not perform integrity check".to_string()],
             ))? != "ok"
         {
             return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
         }
 
+        info!("{integrity_check:?} integrity check passed for {filepath}");
         Ok(())
     }
 
@@ -466,16 +469,17 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        let filepath = self.filepath();
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
-            return Err(AggHashValueNotFound(self.filepath().to_string()));
+            return Err(AggHashValueNotFound(filepath.to_string()));
         };
-
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
-            let file = self.filepath().to_string();
+            let file = filepath.to_string();
             return Err(AggHashMismatch(computed, stored, file));
         }
 
+        info!("The agg_tiles_hashes={computed} has been verified for {filepath}");
         Ok(())
     }
 
@@ -486,23 +490,15 @@ impl Mbtiles {
     {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
+        let path = self.filepath();
         if old_hash.as_ref() == Some(&hash) {
-            info!(
-                "agg_tiles_hash is already set to the correct value `{hash}` in {}",
-                self.filepath()
-            );
+            info!("agg_tiles_hash is already set to the correct value `{hash}` in {path}");
             Ok(())
         } else {
             if let Some(old_hash) = old_hash {
-                info!(
-                    "Updating agg_tiles_hash from {old_hash} to {hash} in {}",
-                    self.filepath()
-                );
+                info!("Updating agg_tiles_hash from {old_hash} to {hash} in {path}");
             } else {
-                info!(
-                    "Initializing agg_tiles_hash to {hash} in {}",
-                    self.filepath()
-                );
+                info!("Creating new metadata value agg_tiles_hash = {hash} in {path}");
             }
             self.set_metadata_value(&mut *conn, "agg_tiles_hash", Some(hash))
                 .await
@@ -550,7 +546,10 @@ impl Mbtiles {
                     v.get(0),
                     v.get(1),
                 ))
-            })
+            })?;
+
+        info!("All tile hashes are valid for {}", self.filepath());
+        Ok(())
     }
 }
 

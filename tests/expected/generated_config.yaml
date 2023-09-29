@@ -141,6 +141,7 @@ pmtiles:
 mbtiles:
   paths: tests/fixtures/files
   sources:
+    bad_hash: tests/fixtures/files/bad_hash.mbtiles
     geography-class-jpg: tests/fixtures/files/geography-class-jpg.mbtiles
     geography-class-jpg-diff: tests/fixtures/files/geography-class-jpg-diff.mbtiles
     geography-class-jpg-modified: tests/fixtures/files/geography-class-jpg-modified.mbtiles

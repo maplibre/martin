@@ -1,0 +1,1 @@
+[INFO ] Creating new metadata value agg_tiles_hash = C7E2E5A9BA04693994DB1F57D1DF5646 in tests/temp/world_cities_diff.mbtiles

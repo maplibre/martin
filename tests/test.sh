@@ -293,6 +293,19 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/files/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
+  $MBTILES_BIN validate ./tests/fixtures/files/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
+
+  set +e
+  $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad.txt"
+  if [[ $? -eq 0 ]]; then
+    echo "ERROR: validate with bad_hash should have failed"
+    exit 1
+  fi
+  set -e
+
+  cp ./tests/fixtures/files/bad_hash.mbtiles "$TEST_TEMP_DIR/fix_bad_hash.mbtiles"
+  $MBTILES_BIN validate --update-agg-tiles-hash "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
+  $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
 
   # Create diff file
   $MBTILES_BIN copy \
