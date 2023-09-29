@@ -28,7 +28,7 @@ pub struct PgPool {
 impl PgPool {
     pub async fn new(config: &PgConfig) -> Result<Self> {
         let conn_str = config.connection_string.as_ref().unwrap().as_str();
-        info!("Connecting to {conn_str}");
+        info!("Connecting to {}", hide_pwd(conn_str));
         let (pg_cfg, ssl_mode) = parse_conn_str(conn_str)?;
 
         let id = pg_cfg.get_dbname().map_or_else(
@@ -95,4 +95,59 @@ async fn get_conn(pool: &Pool, id: &str) -> Result<Object> {
     pool.get()
         .await
         .map_err(|e| PostgresPoolConnError(e, id.to_string()))
+}
+
+fn hide_pwd(conn_string: &str) -> String {
+    let mut new_str = conn_string.to_owned();
+
+    if let Some(at_idx) = conn_string.find('@') {
+        if let Some(colon_idx) = &conn_string[..at_idx].find("://") {
+            if let Some(pwd_idx) = &conn_string[colon_idx + 3..at_idx].find(':') {
+                let start = pwd_idx + colon_idx + 4;
+                let end = at_idx;
+                new_str.replace_range(start..end, &"*".repeat(end - start));
+            }
+        }
+    } else if let Some(pwd_idx) = conn_string.find("password=") {
+        let start = pwd_idx + "password=".len();
+        let mut end = start;
+        while end < conn_string.len() - 1 && !conn_string[end..].starts_with('&') {
+            end += 1;
+        }
+        new_str.replace_range(start..end, &"*".repeat(end - start));
+    }
+    new_str
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hide_pwd() {
+        let conn_strs = [
+            "abcdefghij...xyz",
+            ";@",
+            "password=",
+            "postgresql://localhost/mydb?k1=v1&k2=v2",
+            "postgresql://localhost/mydb?password=",
+            "postgresql://localhost/mydb?password=pwd123",
+            "postgresql://localhost/mydb?password=pwd123&key2=value2",
+            "postgresql://user@localhost:5432/mydb",
+            "postgresql://user:password@localhost:5432/mydb",
+        ];
+        let expecteds = [
+            "abcdefghij...xyz",
+            ";@",
+            "password=",
+            "postgresql://localhost/mydb?k1=v1&k2=v2",
+            "postgresql://localhost/mydb?password=",
+            "postgresql://localhost/mydb?password=******",
+            "postgresql://localhost/mydb?password=pwd123&key2=value2",
+            "postgresql://user@localhost:5432/mydb",
+            "postgresql://user:password@localhost:5432/mydb",
+        ];
+        for (conn_str, expected) in conn_strs.iter().zip(expecteds.iter()) {
+            assert_eq!(hide_pwd(conn_str), *expected);
+        }
+    }
 }
