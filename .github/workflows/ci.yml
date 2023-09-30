@@ -49,6 +49,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Rust Versions
         run: rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@v2
       - name: Lint (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
@@ -60,34 +61,35 @@ jobs:
           cargo clippy --package martin -- -D warnings
           cargo clippy --package martin --features vendored-openssl -- -D warnings
           cargo clippy --package martin --features bless-tests -- -D warnings
+          mkdir -p target_releases
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         shell: powershell
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
-      - name: Build
+      - name: Build (.deb)
+        if: matrix.target == 'debian-x86_64'
         run: |
-          mkdir -p target_releases
-          if [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
-            sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-            cargo install cargo-deb
-            cargo deb -v -p martin --output target/debian/debian-x86_64.deb
-            mv target/debian/debian-x86_64.deb target_releases
-          elif [[ "${{ runner.os }}" == "windows" ]]; then
-            export RUSTFLAGS='-C strip=debuginfo'
-            cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-            mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
-            cargo build --release --target ${{ matrix.target }} --package martin --features=ssl
-            mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
+          sudo apt-get install -y dpkg dpkg-dev liblzma-dev
+          cargo install cargo-deb
+          cargo deb -v -p martin --output target/debian/debian-x86_64.deb
+          mv target/debian/debian-x86_64.deb target_releases
+      - name: Build
+        if: matrix.target != 'debian-x86_64'
+        run: |
+          rustup target add "${{ matrix.target }}"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            FEATURES="ssl"
           else
-            rustup target add "${{ matrix.target }}"
-            export RUSTFLAGS='-C strip=debuginfo'
-            cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-            mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
-            cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
-            mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
+            FEATURES="vendored-openssl"
           fi
+          set -x
+          export RUSTFLAGS='-C strip=debuginfo'
+          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
+          mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
+          cargo build --release --target ${{ matrix.target }} --package martin --features=$FEATURES
+          mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
         with:
@@ -146,6 +148,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Start postgres
         uses: nyurik/action-setup-postgis@v1
         id: pg
@@ -271,6 +274,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Setup database
         run: tests/fixtures/initdb.sh
         env:
@@ -361,6 +365,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Setup database
         run: tests/fixtures/initdb.sh
         env:
@@ -474,12 +479,13 @@ jobs:
           - target: aarch64-apple-darwin
             os: ubuntu-latest
             name: martin-Darwin-aarch64.tar.gz
-            cross: 'true'
             sha: 'true'
-          - target: aarch64-unknown-linux-gnu
+          - target: debian-x86_64
             os: ubuntu-latest
-            name: martin-Linux-aarch64.tar.gz
-            cross: 'true'
+            name: martin-Debian-x86_64.deb
+          # - target: aarch64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   name: martin-Linux-aarch64.tar.gz
           - target: x86_64-apple-darwin
             os: macOS-latest
             name: martin-Darwin-x86_64.tar.gz
@@ -491,26 +497,30 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: martin-Linux-x86_64.tar.gz
-          - target: debian-x86_64
+          # From the cross build
+          - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
-            name: martin-Debian-x86_64.deb
             cross: 'true'
+            name: martin-Linux-aarch64-musl.tar.gz
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: 'true'
+            name: martin-Linux-x86_64-musl.tar.gz
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Download build artifact build-${{ matrix.target }}
+        if: matrix.cross != 'true'
         uses: actions/download-artifact@v3
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Strip symbols
-        # Symbol stripping does not work cross-platform
-        # For cross, symbols were already removed during build
-        if: matrix.cross != 'true'
-        run: |
-          cd target/
-          strip martin${{ matrix.ext }}
-          strip mbtiles${{ matrix.ext }}
+      - name: Download cross-build artifact build-${{ matrix.target }}
+        if: matrix.cross == 'true'
+        uses: actions/download-artifact@v3
+        with:
+          name: build-cross
+          path: target/
       - name: Package
         run: |
           cd target/
@@ -519,11 +529,15 @@ jobs:
           elif [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
             mv debian-x86_64.deb ../${{ matrix.name }}
           else
+            if [[ "${{ matrix.cross }}" == "true" ]]; then
+              mv ${{ matrix.target }}/* .
+            fi
             tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
           fi
-      - name: Generate SHA-256 (MacOS)
-        if: matrix.sha == 'true'
-        run: shasum -a 256 ${{ matrix.name }}
+      # TODO: why is this needed and where should the result go?
+      # - name: Generate SHA-256 (MacOS)
+      #   if: matrix.sha == 'true'
+      #   run: shasum -a 256 ${{ matrix.name }}
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
