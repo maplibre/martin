@@ -74,6 +74,12 @@ jobs:
             cargo install cargo-deb
             cargo deb -v -p martin --output target/debian/debian-x86_64.deb
             mv target/debian/debian-x86_64.deb target_releases
+          elif [[ "${{ runner.os }}" == "windows" ]]; then
+            export RUSTFLAGS='-C strip=debuginfo'
+            cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
+            mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
+            cargo build --release --target ${{ matrix.target }} --package martin --features=ssl
+            mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
           else
             rustup target add "${{ matrix.target }}"
             export RUSTFLAGS='-C strip=debuginfo'
