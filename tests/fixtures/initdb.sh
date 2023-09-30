@@ -33,3 +33,9 @@ echo "##########################################################################
 for sql_file in "$FIXTURES_DIR"/functions/*.sql; do
   psql -e -P pager=off -v ON_ERROR_STOP=1 -f "$sql_file"
 done
+
+echo -e "\n\n\n"
+echo "################################################################################################"
+echo "Active pg_hba.conf configuration"
+echo "################################################################################################"
+psql -P pager=off -v ON_ERROR_STOP=1 -c "select * from pg_hba_file_rules;"

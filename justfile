@@ -81,14 +81,14 @@ bench-http: (cargo-install "oha")
     oha -z 120s  http://localhost:3000/function_zxy_query/18/235085/122323
 
 # Run all tests using a test database
-test: (docker-up "db") test-unit test-int
+test: start test-unit test-int
 
 # Run all tests using an SSL connection to a test database. Expected output won't match.
-test-ssl: (docker-up "ssl") test-unit clean-test
+test-ssl: start-ssl test-unit clean-test
     tests/test.sh
 
 # Run all tests using the oldest supported version of the database
-test-legacy: (docker-up "db-legacy") test-unit test-int
+test-legacy: start-legacy test-unit test-int
 
 # Run Rust unit and doc tests (cargo test)
 test-unit *ARGS:
