@@ -14,13 +14,13 @@ pub type Result<T> = std::result::Result<T, PgError>;
 #[derive(thiserror::Error, Debug)]
 pub enum PgError {
     #[error("Cannot load platform root certificates: {0}")]
-    CantLoadRoots(#[source] io::Error),
+    CannotLoadRoots(#[source] io::Error),
 
     #[error("Cannot open certificate file {}: {0}", .1.display())]
-    CantOpenCert(#[source] io::Error, PathBuf),
+    CannotOpenCert(#[source] io::Error, PathBuf),
 
     #[error("Cannot parse certificate file {}: {0}", .1.display())]
-    CantParseCert(#[source] io::Error, PathBuf),
+    CannotParseCert(#[source] io::Error, PathBuf),
 
     #[error("Unable to parse PEM RSA key file {}", .0.display())]
     InvalidPrivateKey(PathBuf),

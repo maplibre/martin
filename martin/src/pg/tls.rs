@@ -13,7 +13,7 @@ use rustls_pemfile::Item::RSAKey;
 use tokio_postgres_rustls::MakeRustlsConnect;
 
 use crate::pg::PgError::{
-    BadConnectionString, CannotUseClientKey, CantLoadRoots, CantOpenCert, CantParseCert,
+    BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
     InvalidPrivateKey, UnknownSslMode,
 };
 use crate::pg::{PgSslCerts, Result};
@@ -69,7 +69,7 @@ impl rustls::client::ServerCertVerifier for NoCertificateVerification {
 
 fn read_certs(file: &PathBuf) -> Result<Vec<Certificate>> {
     Ok(rustls_pemfile::certs(&mut cert_reader(file)?)
-        .map_err(|e| CantParseCert(e, file.clone()))?
+        .map_err(|e| CannotParseCert(e, file.clone()))?
         .into_iter()
         .map(Certificate)
         .collect())
@@ -77,7 +77,7 @@ fn read_certs(file: &PathBuf) -> Result<Vec<Certificate>> {
 
 fn cert_reader(file: &PathBuf) -> Result<BufReader<File>> {
     Ok(BufReader::new(
-        File::open(file).map_err(|e| CantOpenCert(e, file.clone()))?,
+        File::open(file).map_err(|e| CannotOpenCert(e, file.clone()))?,
     ))
 }
 
@@ -114,7 +114,7 @@ pub fn make_connector(
     }
 
     if verify_ca || pg_certs.ssl_root_cert.is_some() || pg_certs.ssl_cert.is_some() {
-        let certs = load_native_certs().map_err(CantLoadRoots)?;
+        let certs = load_native_certs().map_err(CannotLoadRoots)?;
         for cert in certs {
             roots.add(&Certificate(cert.0))?;
         }
@@ -126,7 +126,7 @@ pub fn make_connector(
 
     let mut builder = if let (Some(cert), Some(key)) = (&pg_certs.ssl_cert, &pg_certs.ssl_key) {
         match rustls_pemfile::read_one(&mut cert_reader(key)?)
-            .map_err(|e| CantParseCert(e, key.clone()))?
+            .map_err(|e| CannotParseCert(e, key.clone()))?
         {
             Some(RSAKey(rsa_key)) => builder
                 .with_client_auth_cert(read_certs(cert)?, PrivateKey(rsa_key))
