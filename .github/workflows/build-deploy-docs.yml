@@ -13,6 +13,7 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
