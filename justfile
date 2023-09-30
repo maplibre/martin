@@ -205,6 +205,7 @@ fmt2:
 # Run cargo clippy
 clippy:
     cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
 
 # These steps automatically run before git push via a git hook
 [private]

@@ -4,12 +4,11 @@ WORKDIR /usr/src/martin
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    libssl-dev \
     perl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .
-RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo build --release --features=vendored-openssl
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo build --release
 
 
 FROM debian:bullseye-slim

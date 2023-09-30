@@ -1,5 +1,6 @@
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use log::{info, warn};
+use postgres::config::SslMode;
 use semver::Version;
 
 use crate::pg::config::PgConfig;
@@ -27,25 +28,8 @@ pub struct PgPool {
 
 impl PgPool {
     pub async fn new(config: &PgConfig) -> Result<Self> {
-        let conn_str = config.connection_string.as_ref().unwrap().as_str();
-        let (pg_cfg, ssl_mode) = parse_conn_str(conn_str)?;
-        if matches!(ssl_mode, SslModeOverride::Unmodified(_)) {
-            info!("Connecting to {pg_cfg:?}");
-        } else {
-            info!("Connecting to {pg_cfg:?} with ssl_mode={ssl_mode:?}");
-        }
+        let (id, mgr) = Self::parse_config(config)?;
 
-        let id = pg_cfg.get_dbname().map_or_else(
-            || format!("{:?}", pg_cfg.get_hosts()[0]),
-            ToString::to_string,
-        );
-
-        let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
-
-        let mgr_config = ManagerConfig {
-            recycling_method: RecyclingMethod::Fast,
-        };
-        let mgr = Manager::from_config(pg_cfg, connector, mgr_config);
         let pool = Pool::builder(mgr)
             .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
             .build()
@@ -78,6 +62,42 @@ SELECT
 
         let margin = version >= RECOMMENDED_POSTGIS_VER;
         Ok(Self { id, pool, margin })
+    }
+
+    fn parse_config(config: &PgConfig) -> Result<(String, Manager)> {
+        let conn_str = config.connection_string.as_ref().unwrap().as_str();
+        let (pg_cfg, ssl_mode) = parse_conn_str(conn_str)?;
+
+        let id = pg_cfg.get_dbname().map_or_else(
+            || format!("{:?}", pg_cfg.get_hosts()[0]),
+            ToString::to_string,
+        );
+
+        let mgr_config = ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        };
+
+        let mgr = if pg_cfg.get_ssl_mode() == SslMode::Disable {
+            info!("Connecting without SSL support: {pg_cfg:?}");
+            let connector = deadpool_postgres::tokio_postgres::NoTls {};
+            Manager::from_config(pg_cfg, connector, mgr_config)
+        } else {
+            match ssl_mode {
+                SslModeOverride::Unmodified(_) => {
+                    info!("Connecting with SSL support: {pg_cfg:?}");
+                }
+                SslModeOverride::VerifyCa => {
+                    info!("Using sslmode=verify-ca to connect: {pg_cfg:?}");
+                }
+                SslModeOverride::VerifyFull => {
+                    info!("Using sslmode=verify-full to connect: {pg_cfg:?}");
+                }
+            };
+            let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
+            Manager::from_config(pg_cfg, connector, mgr_config)
+        };
+
+        Ok((id, mgr))
     }
 
     pub async fn get(&self) -> Result<Object> {

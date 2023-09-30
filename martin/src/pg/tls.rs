@@ -1,20 +1,20 @@
+use std::fs::File;
+use std::io::BufReader;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use deadpool_postgres::tokio_postgres::config::SslMode;
 use deadpool_postgres::tokio_postgres::Config;
-#[cfg(feature = "ssl")]
 use log::{info, warn};
-#[cfg(feature = "ssl")]
-use openssl::ssl::SslFiletype;
-#[cfg(feature = "ssl")]
-use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use regex::Regex;
+use rustls::{Certificate, PrivateKey};
+use rustls_native_certs::load_native_certs;
+use rustls_pemfile::Item::RSAKey;
+use tokio_postgres_rustls::MakeRustlsConnect;
 
-use crate::pg::PgError::BadConnectionString;
-#[cfg(feature = "ssl")]
 use crate::pg::PgError::{
-    BadClientCertError, BadClientKeyError, BadTrustedRootCertError, BuildSslConnectorError,
-    UnknownSslMode,
+    BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
+    InvalidPrivateKey, UnknownSslMode,
 };
 use crate::pg::{PgSslCerts, Result};
 
@@ -51,21 +51,41 @@ pub fn parse_conn_str(conn_str: &str) -> Result<(Config, SslModeOverride)> {
     Ok((pg_cfg, mode))
 }
 
-#[cfg(not(feature = "ssl"))]
-#[allow(clippy::unnecessary_wraps)]
-pub fn make_connector(
-    _pg_certs: &PgSslCerts,
-    _ssl_mode: SslModeOverride,
-) -> Result<deadpool_postgres::tokio_postgres::NoTls> {
-    Ok(deadpool_postgres::tokio_postgres::NoTls)
+struct NoCertificateVerification {}
+
+impl rustls::client::ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &Certificate,
+        _intermediates: &[Certificate],
+        _server_name: &rustls::ServerName,
+        _scts: &mut dyn Iterator<Item = &[u8]>,
+        _ocsp: &[u8],
+        _now: std::time::SystemTime,
+    ) -> std::result::Result<rustls::client::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::ServerCertVerified::assertion())
+    }
 }
 
-#[cfg(feature = "ssl")]
+fn read_certs(file: &PathBuf) -> Result<Vec<Certificate>> {
+    Ok(rustls_pemfile::certs(&mut cert_reader(file)?)
+        .map_err(|e| CannotParseCert(e, file.clone()))?
+        .into_iter()
+        .map(Certificate)
+        .collect())
+}
+
+fn cert_reader(file: &PathBuf) -> Result<BufReader<File>> {
+    Ok(BufReader::new(
+        File::open(file).map_err(|e| CannotOpenCert(e, file.clone()))?,
+    ))
+}
+
 pub fn make_connector(
     pg_certs: &PgSslCerts,
     ssl_mode: SslModeOverride,
-) -> Result<postgres_openssl::MakeTlsConnector> {
-    let (verify_ca, verify_hostname) = match ssl_mode {
+) -> Result<MakeRustlsConnect> {
+    let (verify_ca, _verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),
             SslMode::Require => match pg_certs.ssl_root_cert {
@@ -84,39 +104,57 @@ pub fn make_connector(
         SslModeOverride::VerifyFull => (true, true),
     };
 
-    let tls = SslMethod::tls_client();
-    let mut builder = SslConnector::builder(tls).map_err(BuildSslConnectorError)?;
-
-    if let (Some(cert), Some(key)) = (&pg_certs.ssl_cert, &pg_certs.ssl_key) {
-        builder
-            .set_certificate_file(cert, SslFiletype::PEM)
-            .map_err(|e| BadClientCertError(e, cert.clone()))?;
-        builder
-            .set_private_key_file(key, SslFiletype::PEM)
-            .map_err(|e| BadClientKeyError(e, key.clone()))?;
-    } else if pg_certs.ssl_key.is_some() || pg_certs.ssl_key.is_some() {
-        warn!("SSL client certificate and key files must be set to use client certificate with Postgres. Only one of them was set.");
-    }
+    let mut roots = rustls::RootCertStore::empty();
 
     if let Some(file) = &pg_certs.ssl_root_cert {
-        builder
-            .set_ca_file(file)
-            .map_err(|e| BadTrustedRootCertError(e, file.clone()))?;
+        for cert in read_certs(file)? {
+            roots.add(&cert)?;
+        }
         info!("Using {} as a root certificate", file.display());
     }
 
+    if verify_ca || pg_certs.ssl_root_cert.is_some() || pg_certs.ssl_cert.is_some() {
+        let certs = load_native_certs().map_err(CannotLoadRoots)?;
+        for cert in certs {
+            roots.add(&Certificate(cert.0))?;
+        }
+    }
+
+    let builder = rustls::ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(roots);
+
+    let mut builder = if let (Some(cert), Some(key)) = (&pg_certs.ssl_cert, &pg_certs.ssl_key) {
+        match rustls_pemfile::read_one(&mut cert_reader(key)?)
+            .map_err(|e| CannotParseCert(e, key.clone()))?
+        {
+            Some(RSAKey(rsa_key)) => builder
+                .with_client_auth_cert(read_certs(cert)?, PrivateKey(rsa_key))
+                .map_err(|e| CannotUseClientKey(e, cert.clone(), key.clone()))?,
+            _ => Err(InvalidPrivateKey(key.clone()))?,
+        }
+    } else {
+        if pg_certs.ssl_key.is_some() || pg_certs.ssl_key.is_some() {
+            warn!("SSL client certificate and key files must be set to use client certificate with Postgres. Only one of them was set.");
+        }
+        builder.with_no_client_auth()
+    };
+
     if !verify_ca {
-        builder.set_verify(SslVerifyMode::NONE);
+        builder
+            .dangerous()
+            .set_certificate_verifier(std::sync::Arc::new(NoCertificateVerification {}));
     }
 
-    let mut connector = postgres_openssl::MakeTlsConnector::new(builder.build());
+    let connector = MakeRustlsConnect::new(builder);
 
-    if !verify_hostname {
-        connector.set_callback(|cfg, _domain| {
-            cfg.set_verify_hostname(false);
-            Ok(())
-        });
-    }
+    // TODO: ???
+    // if !verify_hostname {
+    //     connector.set_callback(|cfg, _domain| {
+    //         cfg.set_verify_hostname(false);
+    //         Ok(())
+    //     });
+    // }
 
     Ok(connector)
 }
