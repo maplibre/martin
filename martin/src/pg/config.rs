@@ -19,17 +19,14 @@ pub trait PgInfo {
 pub struct PgSslCerts {
     /// Same as PGSSLCERT
     /// https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT
-    #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssl_cert: Option<std::path::PathBuf>,
     /// Same as PGSSLKEY
     /// https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY
-    #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssl_key: Option<std::path::PathBuf>,
     /// Same as PGSSLROOTCERT
     /// https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT
-    #[cfg(feature = "ssl")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssl_root_cert: Option<std::path::PathBuf>,
 }

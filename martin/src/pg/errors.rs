@@ -1,3 +1,6 @@
+use std::io;
+use std::path::PathBuf;
+
 use deadpool_postgres::tokio_postgres::Error as TokioPgError;
 use deadpool_postgres::{BuildError, PoolError};
 use semver::Version;
@@ -10,23 +13,24 @@ pub type Result<T> = std::result::Result<T, PgError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum PgError {
-    #[cfg(feature = "ssl")]
-    #[error("Can't build TLS connection: {0}")]
-    BuildSslConnectorError(#[from] openssl::error::ErrorStack),
+    #[error("Cannot load platform root certificates: {0}")]
+    CantLoadRoots(#[source] io::Error),
 
-    #[cfg(feature = "ssl")]
-    #[error("Can't set trusted root certificate {}: {0}", .1.display())]
-    BadTrustedRootCertError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+    #[error("Cannot open certificate file {}: {0}", .1.display())]
+    CantOpenCert(#[source] io::Error, PathBuf),
 
-    #[cfg(feature = "ssl")]
-    #[error("Can't set client certificate {}: {0}", .1.display())]
-    BadClientCertError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+    #[error("Cannot parse certificate file {}: {0}", .1.display())]
+    CantParseCert(#[source] io::Error, PathBuf),
 
-    #[cfg(feature = "ssl")]
-    #[error("Can't set client certificate key {}: {0}", .1.display())]
-    BadClientKeyError(#[source] openssl::error::ErrorStack, std::path::PathBuf),
+    #[error("Unable to parse PEM RSA key file {}", .0.display())]
+    InvalidPrivateKey(PathBuf),
 
-    #[cfg(feature = "ssl")]
+    #[error("Unable to use client certificate pair {} / {}: {0}", .1.display(), .2.display())]
+    CannotUseClientKey(#[source] rustls::Error, PathBuf, PathBuf),
+
+    #[error("Rustls Error: {0:?}")]
+    RustlsError(#[from] rustls::Error),
+
     #[error("Unknown SSL mode: {0:?}")]
     UnknownSslMode(deadpool_postgres::tokio_postgres::config::SslMode),
 

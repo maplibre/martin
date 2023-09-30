@@ -34,13 +34,14 @@ log = "0.4"
 martin-mbtiles = { path = "./martin-mbtiles", version = "0.5.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 num_cpus = "1"
-openssl = "0.10"
 pmtiles = { version = "0.3", features = ["mmap-async-tokio", "tilejson"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
-postgres-openssl = "0.5"
 postgres-protocol = "0.6"
 regex = "1"
+rustls = { version = "0.21", features = ["dangerous_configuration"] }
+rustls-native-certs = "0.6"
+rustls-pemfile = "1"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -52,6 +53,7 @@ subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
 tokio = { version = "1.32.0", features = ["macros"] }
+tokio-postgres-rustls = "0.10"
 
 [profile.dev.package.sqlx-macros]
 # See https://github.com/launchbadge/sqlx#compile-time-verification

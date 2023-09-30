@@ -13,7 +13,6 @@ pub struct PgArgs {
     #[arg(short = 'b', long)]
     pub disable_bounds: bool,
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
-    #[cfg(feature = "ssl")]
     #[arg(long)]
     pub ca_root_file: Option<std::path::PathBuf>,
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
@@ -82,7 +81,6 @@ impl PgArgs {
             });
         }
 
-        #[cfg(feature = "ssl")]
         if self.ca_root_file.is_some() {
             info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
                 self.ca_root_file.as_ref().unwrap().display());
@@ -145,13 +143,6 @@ impl PgArgs {
             })
     }
 
-    #[cfg(not(feature = "ssl"))]
-    #[allow(clippy::unused_self)]
-    fn get_certs<'a>(&self, _env: &impl Env<'a>) -> PgSslCerts {
-        PgSslCerts {}
-    }
-
-    #[cfg(feature = "ssl")]
     fn get_certs<'a>(&self, env: &impl Env<'a>) -> PgSslCerts {
         let mut result = PgSslCerts {
             ssl_cert: Self::parse_env_var(env, "PGSSLCERT", "ssl certificate"),
@@ -172,7 +163,6 @@ impl PgArgs {
         result
     }
 
-    #[cfg(feature = "ssl")]
     fn parse_env_var<'a>(
         env: &impl Env<'a>,
         env_var: &str,
@@ -194,7 +184,6 @@ fn is_postgresql_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "ssl")]
     use std::path::PathBuf;
 
     use super::*;
@@ -262,7 +251,6 @@ mod tests {
             Some(OneOrMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(10),
-                #[cfg(feature = "ssl")]
                 ssl_certificates: PgSslCerts {
                     ssl_root_cert: Some(PathBuf::from("file")),
                     ..Default::default()
@@ -297,7 +285,6 @@ mod tests {
             Some(OneOrMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(20),
-                #[cfg(feature = "ssl")]
                 ssl_certificates: PgSslCerts {
                     ssl_cert: Some(PathBuf::from("cert")),
                     ssl_key: Some(PathBuf::from("key")),

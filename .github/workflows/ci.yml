@@ -216,14 +216,7 @@ jobs:
           cargo clippy --package martin-mbtiles --no-default-features -- -D warnings
           cargo clippy --package martin-mbtiles -- -D warnings
           cargo clippy --package martin -- -D warnings
-          cargo clippy --package martin --features vendored-openssl -- -D warnings
           cargo clippy --package martin --features bless-tests -- -D warnings
-      - name: Install OpenSSL (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          vcpkg install openssl:x64-windows-static-md
       - name: Build (.deb)
         if: matrix.target == 'debian-x86_64'
         run: |
@@ -236,12 +229,6 @@ jobs:
         if: matrix.target != 'debian-x86_64'
         run: |
           rustup target add "${{ matrix.target }}"
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            FEATURES="ssl"
-          else
-            FEATURES="vendored-openssl"
-          fi
-
           set -x
           export RUSTFLAGS='-C strip=debuginfo'
           cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
@@ -300,7 +287,6 @@ jobs:
           cargo test --package martin-mbtiles --no-default-features
           cargo test --package martin-mbtiles
           cargo test --package martin
-          cargo test --package martin --features vendored-openssl
           cargo test --doc
           RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
           cargo clean
@@ -526,7 +512,7 @@ jobs:
 
             export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
             cross build --release --target $target --package martin-mbtiles
-            cross build --release --target $target --package martin --features=vendored-openssl
+            cross build --release --target $target --package martin
 
             mkdir -p target_releases/$target
             mv target/$target/release/mbtiles target_releases/$target

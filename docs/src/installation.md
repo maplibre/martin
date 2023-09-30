@@ -25,8 +25,6 @@ cargo install martin
 martin --help
 ```
 
-If your PostgreSQL connection requires SSL, you would need to install OpenSSL and run `cargo install martin --features ssl`, or even install with `--features vendored-openssl` to [statically link OpenSSL](https://docs.rs/openssl/latest/openssl/#vendored) into the binary.
-
 ## Homebrew
 
 If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.

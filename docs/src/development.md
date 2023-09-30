@@ -20,11 +20,11 @@ Install [docker](https://docs.docker.com/get-docker/) and [docker-compose](https
 sudo apt install -y  docker.io docker-compose
 ```
 
-Install a few libs and tools like [openssl](https://www.openssl.org/):
+Install a few required libs and tools:
 
 ```shell, ignore
 # For Ubuntu-based distros
-sudo apt install -y  libssl-dev build-essential pkg-config jq file
+sudo apt install -y  build-essential pkg-config jq file
 ```
 
 Install [Just](https://github.com/casey/just#readme) (improved makefile processor). Note that some Linux and Homebrew distros have outdated versions of Just, so you should install it from source:

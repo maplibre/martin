@@ -24,7 +24,6 @@ revision = ""
 maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan.kuzmin@gmail.com>, MapLibre contributors"
 maintainer-scripts = "../debian"
 depends = "$auto"
-features = ["ssl"]
 assets = [
     ["target/release/martin", "/usr/bin/martin", "755"],
     ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
@@ -50,8 +49,6 @@ path = "src/bin/main.rs"
 
 [features]
 default = []
-vendored-openssl = ["ssl", "openssl?/vendored"]
-ssl = ["dep:openssl", "dep:postgres-openssl"]
 bless-tests = []
 
 [dependencies]
@@ -78,6 +75,9 @@ postgis.workspace = true
 postgres-protocol.workspace = true
 postgres.workspace = true
 regex.workspace = true
+rustls-native-certs.workspace = true
+rustls-pemfile.workspace = true
+rustls.workspace = true
 semver.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
@@ -87,10 +87,7 @@ subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
-
-# Optional dependencies for ssl support
-openssl = { workspace = true, optional = true }
-postgres-openssl = { workspace = true, optional = true }
+tokio-postgres-rustls.workspace = true
 
 [dev-dependencies]
 cargo-husky.workspace = true

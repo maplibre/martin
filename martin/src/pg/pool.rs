@@ -1,5 +1,6 @@
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use log::{info, warn};
+use postgres::config::SslMode;
 use semver::Version;
 
 use crate::pg::config::PgConfig;
@@ -40,12 +41,31 @@ impl PgPool {
             ToString::to_string,
         );
 
-        let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
+        // let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
+        //
+        // let mgr_config = ManagerConfig {
+        //     recycling_method: RecyclingMethod::Fast,
+        // };
+        // let mgr = Manager::from_config(pg_cfg, connector, mgr_config);
 
         let mgr_config = ManagerConfig {
             recycling_method: RecyclingMethod::Fast,
         };
-        let mgr = Manager::from_config(pg_cfg, connector, mgr_config);
+
+        let enable_ssl = pg_cfg.get_ssl_mode() != SslMode::Disable;
+        info!(
+            "Connecting {} SSL support to {conn_str:?}",
+            if enable_ssl { "with" } else { "without" }
+        );
+
+        let mgr = if enable_ssl {
+            let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
+            Manager::from_config(pg_cfg, connector, mgr_config)
+        } else {
+            let connector = deadpool_postgres::tokio_postgres::NoTls {};
+            Manager::from_config(pg_cfg, connector, mgr_config)
+        };
+
         let pool = Pool::builder(mgr)
             .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
             .build()
