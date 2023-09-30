@@ -538,7 +538,7 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
-    needs: [ docker, package ]
+    needs: [ package ]
     steps:
       - name: Finished
         run: echo "CI finished successfully"
