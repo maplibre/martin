@@ -1734,7 +1734,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "martin"
-version = "0.9.0-pre.1"
+version = "0.9.0-pre.3"
 dependencies = [
  "actix",
  "actix-cors",
