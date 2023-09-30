@@ -61,7 +61,6 @@ jobs:
           cargo clippy --package martin -- -D warnings
           cargo clippy --package martin --features vendored-openssl -- -D warnings
           cargo clippy --package martin --features bless-tests -- -D warnings
-          mkdir -p target_releases
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         shell: powershell
@@ -74,7 +73,8 @@ jobs:
           sudo apt-get install -y dpkg dpkg-dev liblzma-dev
           cargo install cargo-deb
           cargo deb -v -p martin --output target/debian/debian-x86_64.deb
-          mv target/debian/debian-x86_64.deb target_releases
+          mkdir -p target_releases
+          mv target/debian/debian-x86_64.deb target_releases/
       - name: Build
         if: matrix.target != 'debian-x86_64'
         run: |
@@ -84,12 +84,15 @@ jobs:
           else
             FEATURES="vendored-openssl"
           fi
+
           set -x
           export RUSTFLAGS='-C strip=debuginfo'
           cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-          mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
           cargo build --release --target ${{ matrix.target }} --package martin --features=$FEATURES
-          mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
+
+          mkdir -p target_releases
+          mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
+          mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
         with:
@@ -117,11 +120,13 @@ jobs:
           for target in $TARGETS; do
             echo -e "\n----------------------------------------------"
             echo "Building $target"
-            mkdir -p target_releases/$target
+
             export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
             cross build --release --target $target --package martin-mbtiles
-            mv target/$target/release/mbtiles target_releases/$target
             cross build --release --target $target --package martin --features=vendored-openssl
+
+            mkdir -p target_releases/$target
+            mv target/$target/release/mbtiles target_releases/$target
             mv target/$target/release/martin target_releases/$target
           done
       - name: Save build artifacts to build-${{ matrix.target }}
