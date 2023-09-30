@@ -10,6 +10,9 @@ class Martin < Formula
   sha256 "92f660b1bef3a54dc84e4794a5ba02a8817c25f21ce7000783749bbae9e50de1"
   version "#{current_version}"
 
+  # FIXME: remove this for the 0.9 version
+  depends_on "openssl@3"
+
   def install
     bin.install "martin"
   end
