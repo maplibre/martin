@@ -99,8 +99,8 @@ jobs:
           name: build-${{ matrix.target }}
           path: target_releases/*
 
-  build-cross:
-    name: Cross-platform builds
+  cross-build:
+    name: Cross-build for other platforms
     runs-on: ubuntu-latest
     env:
       TARGETS: "aarch64-unknown-linux-musl x86_64-unknown-linux-musl"
@@ -132,7 +132,7 @@ jobs:
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
         with:
-          name: build-cross
+          name: cross-build
           path: target_releases/*
 
   test:
@@ -338,7 +338,7 @@ jobs:
   docker:
     name: Build docker images
     runs-on: ubuntu-latest
-    needs: [ build, build-cross ]
+    needs: [ cross-build ]
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
@@ -389,22 +389,21 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - run: rm -rf target_releases2
-      - name: Download build-cross artifacts
+      - name: Download cross-build artifacts
         uses: actions/download-artifact@v3
         with:
-          name: build-cross
-          path: target_releases2
+          name: cross-build
+          path: target_releases_tmp
       - name: Reorganize build artifacts
         run: |
-          chmod -R +x target_releases2/
+          chmod -R +x target_releases_tmp/
           mkdir -p target_releases/linux/arm64
-          mv target_releases2/aarch64-unknown-linux-musl/* target_releases/linux/arm64/
+          mv target_releases_tmp/aarch64-unknown-linux-musl/* target_releases/linux/arm64/
           mkdir -p target_releases/linux/amd64
-          mv target_releases2/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
-          rm -rf target_releases2
+          mv target_releases_tmp/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
+          rm -rf target_releases_tmp
 
       - name: Build linux/arm64 Docker image
-        id: docker_aarch64-unknown-linux-gnu
         uses: docker/build-push-action@v5
         # https://github.com/docker/build-push-action
         with:
@@ -426,7 +425,6 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
       - name: Build linux/amd64 Docker image
-        id: docker_x86_64-unknown-linux-gnu
         uses: docker/build-push-action@v5
         # https://github.com/docker/build-push-action
         with:
@@ -476,7 +474,7 @@ jobs:
   package:
     name: Package ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    needs: [ test, test-legacy ]
+    needs: [ test, test-legacy, docker, cross-build ]
     strategy:
       fail-fast: true
       matrix:
@@ -488,9 +486,6 @@ jobs:
           - target: debian-x86_64
             os: ubuntu-latest
             name: martin-Debian-x86_64.deb
-          # - target: aarch64-unknown-linux-gnu
-          #   os: ubuntu-latest
-          #   name: martin-Linux-aarch64.tar.gz
           - target: x86_64-apple-darwin
             os: macOS-latest
             name: martin-Darwin-x86_64.tar.gz
@@ -502,7 +497,9 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: martin-Linux-x86_64.tar.gz
-          # From the cross build
+          #
+          # From the cross-build
+          #
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             cross: 'true'
@@ -524,7 +521,7 @@ jobs:
         if: matrix.cross == 'true'
         uses: actions/download-artifact@v3
         with:
-          name: build-cross
+          name: cross-build
           path: target/
       - name: Package
         run: |
