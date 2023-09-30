@@ -256,6 +256,42 @@ jobs:
           name: build-${{ matrix.target }}
           path: target_releases/*
 
+  cross-build:
+    name: Cross-build for other platforms
+    runs-on: ubuntu-latest
+    env:
+      TARGETS: "aarch64-unknown-linux-musl x86_64-unknown-linux-musl"
+      # TODO:  aarch64-unknown-linux-gnu
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cross
+        run: |
+          cargo install cross
+          # Install latest cross version from git (disabled as it is probably less stable)
+          # cargo install cross --git https://github.com/cross-rs/cross
+          cross --version
+      - name: Build targets
+        run: |
+          for target in $TARGETS; do
+            echo -e "\n----------------------------------------------"
+            echo "Building $target"
+
+            export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
+            cross build --release --target $target --package martin-mbtiles
+            cross build --release --target $target --package martin --features=vendored-openssl
+
+            mkdir -p target_releases/$target
+            mv target/$target/release/mbtiles target_releases/$target
+            mv target/$target/release/martin target_releases/$target
+          done
+      - name: Save build artifacts to build-${{ matrix.target }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: cross-build
+          path: target_releases/*
+
   test:
     name: Test ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -457,6 +493,142 @@ jobs:
           name: test-output
           path: tests/output/*
           retention-days: 5
+
+  docker:
+    name: Build docker images
+    runs-on: ubuntu-latest
+    needs: [ cross-build ]
+    env:
+      # PG_* variables are used by psql
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        ports:
+          # will assign a random free host port
+          - 5432/tcp
+        # Sadly there is currently no way to pass arguments to the service image other than this hack
+        # See also https://stackoverflow.com/a/62720566/177275
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --entrypoint sh
+          postgis/postgis:15-3.3
+          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Setup database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        # https://github.com/docker/setup-qemu-action
+        with:
+          platforms: linux/amd64,linux/arm64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        # https://github.com/docker/setup-buildx-action
+        with:
+          install: true
+          platforms: linux/amd64,linux/arm64
+
+      - run: rm -rf target_releases2
+      - name: Download cross-build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: cross-build
+          path: target_releases_tmp
+      - name: Reorganize build artifacts
+        run: |
+          chmod -R +x target_releases_tmp/
+          mkdir -p target_releases/linux/arm64
+          mv target_releases_tmp/aarch64-unknown-linux-musl/* target_releases/linux/arm64/
+          mkdir -p target_releases/linux/amd64
+          mv target_releases_tmp/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
+          rm -rf target_releases_tmp
+
+      - name: Build linux/arm64 Docker image
+        uses: docker/build-push-action@v5
+        # https://github.com/docker/build-push-action
+        with:
+          context: .
+          file: multi-platform.Dockerfile
+          load: true
+          tags: ${{ github.repository }}:linux-arm64
+          platforms: linux/arm64
+      - name: Test linux/arm64 Docker image
+        run: |
+          PLATFORM=linux/arm64
+          TAG=${{ github.repository }}:linux-arm64
+          export MBTILES_BUILD=-
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BUILD=-
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests $TAG"
+          tests/test.sh
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+
+      - name: Build linux/amd64 Docker image
+        uses: docker/build-push-action@v5
+        # https://github.com/docker/build-push-action
+        with:
+          context: .
+          file: multi-platform.Dockerfile
+          load: true
+          tags: ${{ github.repository }}:linux-amd64
+          platforms: linux/amd64
+      - name: Test linux/amd64 Docker image
+        run: |
+          PLATFORM=linux/amd64
+          TAG=${{ github.repository }}:linux-amd64
+          export MBTILES_BUILD=-
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BUILD=-
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests $TAG"
+          tests/test.sh
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+
+      - name: Login to GitHub Docker registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        # https://github.com/docker/login-action
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        # https://github.com/docker/metadata-action
+        with:
+          images: ghcr.io/${{ github.repository }}
+      - name: Push the Docker image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: multi-platform.Dockerfile
+          push: true
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
 
   package:
     name: Package ${{ matrix.target }}
