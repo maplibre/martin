@@ -58,9 +58,8 @@ jobs:
           set -x
           cargo fmt --all -- --check
           cargo clippy --package martin-tile-utils -- -D warnings
+          cargo clippy --package martin-mbtiles --no-default-features -- -D warnings
           cargo clippy --package martin-mbtiles -- -D warnings
-          cargo clippy --package martin-mbtiles --no-default-features --features native-tls -- -D warnings
-          cargo clippy --package martin-mbtiles --no-default-features --features rustls -- -D warnings
           cargo clippy --package martin -- -D warnings
           cargo clippy --package martin --features vendored-openssl -- -D warnings
           cargo clippy --package martin --features bless-tests -- -D warnings
@@ -73,16 +72,16 @@ jobs:
       - name: Build (native)
         if: matrix.cross != 'true'
         run: |
-          cargo build --release --target ${{ matrix.target }} --features=ssl --package martin
-          cargo build --release --target ${{ matrix.target }} --features=cli --package martin-mbtiles
+          cargo build --release --target ${{ matrix.target }} --package martin --features=ssl --package martin
+          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
       - name: Build (cross - aarch64-apple-darwin)
         if: matrix.target == 'aarch64-apple-darwin'
         run: |
           rustup target add "${{ matrix.target }}"
           # compile without debug symbols because stripping them with `strip` does not work cross-platform
           export RUSTFLAGS='-C link-arg=-s'
-          cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
-          cargo build --release --target ${{ matrix.target }} --no-default-features --features=rustls,cli --package martin-mbtiles
+          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
+          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
       - name: Build (cross - aarch64-unknown-linux-gnu)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
@@ -90,8 +89,8 @@ jobs:
           rustup target add "${{ matrix.target }}"
           # compile without debug symbols because stripping them with `strip` does not work cross-platform
           export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-gnu-gcc'
-          cargo build --release --target ${{ matrix.target }} --features=vendored-openssl --package martin
-          cargo build --release --target ${{ matrix.target }} --no-default-features --features=rustls,cli --package martin-mbtiles
+          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
+          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
       - name: Build (debian package)
         if: matrix.target == 'debian-x86_64'
         run: |
@@ -152,10 +151,12 @@ jobs:
         run: |
           set -x
           cargo test --package martin-tile-utils
+          cargo test --package martin-mbtiles --no-default-features
           cargo test --package martin-mbtiles
-          cargo test --package martin-mbtiles --no-default-features --features rustls
+          cargo test --package martin
           cargo test --package martin --features vendored-openssl
           cargo test --doc
+          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
           cargo clean
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
@@ -297,12 +298,7 @@ jobs:
           echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
           echo "$DATABASE_URL" | base64
           set -x
-          cargo test --package martin-tile-utils
-          cargo test --package martin-mbtiles
-          cargo test --package martin-mbtiles --no-default-features --features rustls
-          cargo test --package martin --features vendored-openssl
-          cargo test --doc
-          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
+          cargo test --package martin
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
