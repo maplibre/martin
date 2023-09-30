@@ -34,9 +34,6 @@ jobs:
           - target: aarch64-apple-darwin
             os: macOS-latest
             cross: 'true'
-#          - target: aarch64-unknown-linux-gnu
-#            os: ubuntu-latest
-#            cross: 'true'
           - target: debian-x86_64
             os: ubuntu-latest
             cross: 'true'
@@ -69,42 +66,21 @@ jobs:
         run: |
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           vcpkg install openssl:x64-windows-static-md
-      - name: Build (native)
-        if: matrix.cross != 'true'
-        run: |
-          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
-      - name: Build (cross - aarch64-apple-darwin)
-        if: matrix.target == 'aarch64-apple-darwin'
-        run: |
-          rustup target add "${{ matrix.target }}"
-          # compile without debug symbols because stripping them with `strip` does not work cross-platform
-          export RUSTFLAGS='-C link-arg=-s'
-          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
-#      - name: Build (cross - aarch64-unknown-linux-gnu)
-#        if: matrix.target == 'aarch64-unknown-linux-gnu'
-#        run: |
-#          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
-#          rustup target add "${{ matrix.target }}"
-#          # compile without debug symbols because stripping them with `strip` does not work cross-platform
-#          export RUSTFLAGS='-C link-arg=-s -C linker=aarch64-linux-gnu-gcc'
-#          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
-#          cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
-      - name: Build (debian package)
-        if: matrix.target == 'debian-x86_64'
-        run: |
-          sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-          cargo install cargo-deb
-          cargo deb -v -p martin --output target/debian/debian-x86_64.deb
-      - name: Move build artifacts
+      - name: Build
         run: |
           mkdir -p target_releases
           if [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
+            sudo apt-get install -y dpkg dpkg-dev liblzma-dev
+            cargo install cargo-deb
+            cargo deb -v -p martin --output target/debian/debian-x86_64.deb
             mv target/debian/debian-x86_64.deb target_releases
           else
-            mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
+            rustup target add "${{ matrix.target }}"
+            export RUSTFLAGS='-C strip=debuginfo'
+            cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
             mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases
+            cargo build --release --target ${{ matrix.target }} --package martin --features=vendored-openssl
+            mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases
           fi
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v3
@@ -116,8 +92,8 @@ jobs:
     name: Cross-platform builds
     runs-on: ubuntu-latest
     env:
-      TARGETS: "aarch64-unknown-linux-musl x86_64-unknown-linux-musl aarch64-unknown-linux-gnu"
-
+      TARGETS: "aarch64-unknown-linux-musl x86_64-unknown-linux-musl"
+      # TODO:  aarch64-unknown-linux-gnu
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -134,7 +110,7 @@ jobs:
             echo -e "\n----------------------------------------------"
             echo "Building $target"
             mkdir -p target_releases/$target
-            export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C link-arg=-s'
+            export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
             cross build --release --target $target --package martin-mbtiles
             mv target/$target/release/mbtiles target_releases/$target
             cross build --release --target $target --package martin --features=vendored-openssl
