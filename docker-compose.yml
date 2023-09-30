@@ -72,6 +72,7 @@ services:
       - PGPASSWORD=postgres
     volumes:
       - ./tests/fixtures:/fixtures
+      - ./tests/fixtures/initdb-dc-ssl.sh:/docker-entrypoint-initdb.d/10_martin.sh
       - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
 
   db-legacy:
