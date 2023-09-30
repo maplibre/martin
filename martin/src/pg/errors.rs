@@ -1,4 +1,4 @@
-use deadpool_postgres::tokio_postgres::Error;
+use deadpool_postgres::tokio_postgres::Error as TokioPgError;
 use deadpool_postgres::{BuildError, PoolError};
 use semver::Version;
 
@@ -31,7 +31,7 @@ pub enum PgError {
     UnknownSslMode(deadpool_postgres::tokio_postgres::config::SslMode),
 
     #[error("Postgres error while {1}: {0}")]
-    PostgresError(#[source] Error, &'static str),
+    PostgresError(#[source] TokioPgError, &'static str),
 
     #[error("Unable to build a Postgres connection pool {1}: {0}")]
     PostgresPoolBuildError(#[source] BuildError, String),
@@ -40,7 +40,7 @@ pub enum PgError {
     PostgresPoolConnError(#[source] PoolError, String),
 
     #[error("Unable to parse connection string {1}: {0}")]
-    BadConnectionString(#[source] Error, String),
+    BadConnectionString(#[source] TokioPgError, String),
 
     #[error("Unable to parse PostGIS version {1}: {0}")]
     BadPostgisVersion(#[source] semver::Error, String),
@@ -52,11 +52,11 @@ pub enum PgError {
     InvalidTableExtent(String, String),
 
     #[error("Error preparing a query for the tile '{1}' ({2}): {3} {0}")]
-    PrepareQueryError(#[source] Error, String, String, String),
+    PrepareQueryError(#[source] TokioPgError, String, String, String),
 
     #[error(r#"Unable to get tile {2:#} from {1}: {0}"#)]
-    GetTileError(#[source] Error, String, Xyz),
+    GetTileError(#[source] TokioPgError, String, Xyz),
 
     #[error(r#"Unable to get tile {2:#} with {:?} params from {1}: {0}"#, query_to_json(.3))]
-    GetTileWithQueryError(#[source] Error, String, Xyz, UrlQuery),
+    GetTileWithQueryError(#[source] TokioPgError, String, Xyz, UrlQuery),
 }

@@ -12,9 +12,10 @@ use regex::Regex;
 
 use crate::pg::PgError::BadConnectionString;
 #[cfg(feature = "ssl")]
-use crate::pg::PgError::{BadClientCertError, BadClientKeyError, UnknownSslMode};
-#[cfg(feature = "ssl")]
-use crate::pg::PgError::{BadTrustedRootCertError, BuildSslConnectorError};
+use crate::pg::PgError::{
+    BadClientCertError, BadClientKeyError, BadTrustedRootCertError, BuildSslConnectorError,
+    UnknownSslMode,
+};
 use crate::pg::{PgSslCerts, Result};
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
@@ -53,7 +54,7 @@ pub fn parse_conn_str(conn_str: &str) -> Result<(Config, SslModeOverride)> {
 #[cfg(not(feature = "ssl"))]
 #[allow(clippy::unnecessary_wraps)]
 pub fn make_connector(
-    _certs: &PgSslCerts,
+    _pg_certs: &PgSslCerts,
     _ssl_mode: SslModeOverride,
 ) -> Result<deadpool_postgres::tokio_postgres::NoTls> {
     Ok(deadpool_postgres::tokio_postgres::NoTls)
@@ -61,13 +62,13 @@ pub fn make_connector(
 
 #[cfg(feature = "ssl")]
 pub fn make_connector(
-    certs: &PgSslCerts,
+    pg_certs: &PgSslCerts,
     ssl_mode: SslModeOverride,
 ) -> Result<postgres_openssl::MakeTlsConnector> {
     let (verify_ca, verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),
-            SslMode::Require => match certs.ssl_root_cert {
+            SslMode::Require => match pg_certs.ssl_root_cert {
                 // If a root CA file exists, the behavior of sslmode=require will be the same as
                 // that of verify-ca, meaning the server certificate is validated against the CA.
                 // For more details, check out the note about backwards compatibility in
@@ -86,18 +87,18 @@ pub fn make_connector(
     let tls = SslMethod::tls_client();
     let mut builder = SslConnector::builder(tls).map_err(BuildSslConnectorError)?;
 
-    if let (Some(cert), Some(key)) = (&certs.ssl_cert, &certs.ssl_key) {
+    if let (Some(cert), Some(key)) = (&pg_certs.ssl_cert, &pg_certs.ssl_key) {
         builder
             .set_certificate_file(cert, SslFiletype::PEM)
             .map_err(|e| BadClientCertError(e, cert.clone()))?;
         builder
             .set_private_key_file(key, SslFiletype::PEM)
             .map_err(|e| BadClientKeyError(e, key.clone()))?;
-    } else if certs.ssl_key.is_some() || certs.ssl_key.is_some() {
+    } else if pg_certs.ssl_key.is_some() || pg_certs.ssl_key.is_some() {
         warn!("SSL client certificate and key files must be set to use client certificate with Postgres. Only one of them was set.");
     }
 
-    if let Some(file) = &certs.ssl_root_cert {
+    if let Some(file) = &pg_certs.ssl_root_cert {
         builder
             .set_ca_file(file)
             .map_err(|e| BadTrustedRootCertError(e, file.clone()))?;
