@@ -13,6 +13,9 @@ MARTIN_BIN="${MARTIN_BIN:-cargo run --} ${MARTIN_ARGS}"
 MBTILES_BUILD="${MBTILES_BUILD:-cargo build -p martin-mbtiles}"
 MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
+TMP_DIR="${TMP_DIR:-target/tmp}"
+mkdir -p "$TMP_DIR"
+
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
@@ -152,7 +155,7 @@ mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--default-srid 900913 --disable-bounds --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles)
 set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_1.txt &
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${TMP_DIR}/test_log_1.txt" &
 PROCESS_ID=`jobs -p`
 
 { set +x; } 2> /dev/null
@@ -227,7 +230,7 @@ test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
-validate_log test_log_1.txt
+validate_log "${TMP_DIR}/test_log_1.txt"
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
@@ -237,7 +240,7 @@ mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
 set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee test_log_2.txt &
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${TMP_DIR}/test_log_2.txt" &
 PROCESS_ID=`jobs -p`
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
@@ -266,7 +269,7 @@ test_jsn spr_cmp_2x   sprite/src1,mysrc@2x.json
 test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
 
 kill_process $PROCESS_ID
-validate_log test_log_2.txt
+validate_log "${TMP_DIR}/test_log_2.txt"
 
 remove_line "$(dirname "$0")/output/given_config.yaml"       " connection_string: "
 remove_line "$(dirname "$0")/output/generated_config.yaml"   " connection_string: "

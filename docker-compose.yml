@@ -75,6 +75,34 @@ services:
       - ./tests/fixtures/initdb-dc-ssl.sh:/docker-entrypoint-initdb.d/10_martin.sh
       - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
 
+  db-ssl-cert:
+    # This should match the version of postgres used in the CI workflow
+    image: postgis/postgis:15-3.3
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=on"
+      - "-c"
+      - "ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem"
+      - "-c"
+      - "ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
+    restart: unless-stopped
+    ports:
+      - "${PGPORT:-5411}:5432"
+    environment:
+      # POSTGRES_* variables are used by the postgis/postgres image
+      # PG_* variables are used by psql
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - PGDATABASE=db
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+    volumes:
+      - ./tests/fixtures:/fixtures
+      - ./tests/fixtures/initdb-dc-ssl-cert.sh:/docker-entrypoint-initdb.d/10_martin.sh
+      - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
+
   db-legacy:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:11-3.0-alpine

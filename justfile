@@ -43,18 +43,25 @@ clean-test:
     rm -rf tests/output
 
 # Start a test database
-start: (docker-up "db")
+start: (docker-up "db") docker-is-ready
 
 # Start an ssl-enabled test database
-start-ssl: (docker-up "db-ssl")
+start-ssl: (docker-up "db-ssl") docker-is-ready
+
+# Start an ssl-enabled test database that requires a client certificate
+start-ssl-cert: (docker-up "db-ssl-cert") docker-is-ready
 
 # Start a legacy test database
-start-legacy: (docker-up "db-legacy")
+start-legacy: (docker-up "db-legacy") docker-is-ready
 
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name:
     docker-compose up -d {{ name }}
+
+# Wait for the test database to be ready
+[private]
+docker-is-ready:
     docker-compose run -T --rm db-is-ready
 
 alias _down := stop
@@ -85,6 +92,22 @@ test: start test-unit test-int
 
 # Run all tests using an SSL connection to a test database. Expected output won't match.
 test-ssl: start-ssl test-unit clean-test
+    tests/test.sh
+
+# Run all tests using an SSL connection with client cert to a test database. Expected output won't match.
+test-ssl-cert: start-ssl-cert
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    # copy client cert to the tests folder from the docker container
+    KEY_DIR=target/certs
+    mkdir -p $KEY_DIR
+    docker cp martin-db-ssl-cert-1:/etc/ssl/certs/ssl-cert-snakeoil.pem $KEY_DIR/ssl-cert-snakeoil.pem
+    docker cp martin-db-ssl-cert-1:/etc/ssl/private/ssl-cert-snakeoil.key $KEY_DIR/ssl-cert-snakeoil.key
+    #    export DATABASE_URL="$DATABASE_URL?sslmode=verify-full&sslrootcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslkey=$KEY_DIR/ssl-cert-snakeoil.key"
+    export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
+    export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
+    export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
+    {{just_executable()}} test-unit clean-test
     tests/test.sh
 
 # Run all tests using the oldest supported version of the database

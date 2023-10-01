@@ -24,7 +24,68 @@ defaults:
     shell: bash
 
 jobs:
-  docker:
+  lint-debug-test:
+    name: Lint and Unit test
+    runs-on: ubuntu-latest
+    env:
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        ports:
+          # will assign a random free host port
+          - 5432/tcp
+        # Sadly there is currently no way to pass arguments to the service image other than this hack
+        # See also https://stackoverflow.com/a/62720566/177275
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --entrypoint sh
+          postgis/postgis:16-3.4
+          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust Versions
+        run: rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --package martin-tile-utils -- -D warnings
+      - run: cargo clippy --package martin-mbtiles --no-default-features -- -D warnings
+      - run: cargo clippy --package martin-mbtiles -- -D warnings
+      - run: cargo clippy --package martin -- -D warnings
+      - run: cargo clippy --package martin --features bless-tests -- -D warnings
+      - run: cargo doc --no-deps --workspace
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+      - name: Init database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+      - name: Run cargo test
+        run: |
+          set -x
+          cargo test --package martin-tile-utils
+          cargo test --package martin-mbtiles --no-default-features
+          cargo test --package martin-mbtiles
+          cargo test --package martin
+          cargo test --doc
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+
+  docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
     env:
@@ -39,10 +100,7 @@ jobs:
       postgres:
         image: postgis/postgis:15-3.3
         ports:
-          # will assign a random free host port
           - 5432/tcp
-        # Sadly there is currently no way to pass arguments to the service image other than this hack
-        # See also https://stackoverflow.com/a/62720566/177275
         options: >-
           -e POSTGRES_DB=test
           -e POSTGRES_USER=postgres
@@ -68,7 +126,7 @@ jobs:
           # Install latest cross version from git (disabled as it is probably less stable)
           # cargo install cross --git https://github.com/cross-rs/cross
           cross --version
-      - name: Setup database
+      - name: Init database
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
@@ -207,19 +265,10 @@ jobs:
         run: rustc --version && cargo --version
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - name: Lint (Linux)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          set -x
-          cargo fmt --all -- --check
-          cargo clippy --package martin-tile-utils -- -D warnings
-          cargo clippy --package martin-mbtiles --no-default-features -- -D warnings
-          cargo clippy --package martin-mbtiles -- -D warnings
-          cargo clippy --package martin -- -D warnings
-          cargo clippy --package martin --features bless-tests -- -D warnings
       - name: Build (.deb)
         if: matrix.target == 'debian-x86_64'
         run: |
+          set -x
           sudo apt-get install -y dpkg dpkg-dev liblzma-dev
           cargo install cargo-deb
           cargo deb -v -p martin --output target/debian/debian-x86_64.deb
@@ -233,7 +282,6 @@ jobs:
           export RUSTFLAGS='-C strip=debuginfo'
           cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
           cargo build --release --target ${{ matrix.target }} --package martin
-
           mkdir -p target_releases
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
@@ -243,8 +291,8 @@ jobs:
           name: build-${{ matrix.target }}
           path: target_releases/*
 
-  test:
-    name: Test ${{ matrix.target }}
+  test-multi-os:
+    name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [ build ]
     strategy:
@@ -277,19 +325,6 @@ jobs:
           echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
           echo "$DATABASE_URL" | base64
           tests/fixtures/initdb.sh
-        env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Unit Tests (Linux)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          set -x
-          cargo test --package martin-tile-utils
-          cargo test --package martin-mbtiles --no-default-features
-          cargo test --package martin-mbtiles
-          cargo test --package martin
-          cargo test --doc
-          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
-          cargo clean
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Download build artifact build-${{ matrix.target }}
@@ -337,8 +372,8 @@ jobs:
           path: tests/output/*
           retention-days: 5
 
-  test-legacy:
-    name: Test Legacy DB
+  test-with-svc:
+    name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
     needs: [ build ]
     strategy:
@@ -346,30 +381,35 @@ jobs:
       matrix:
         include:
           # These must match the versions of postgres used in the docker-compose.yml
-          - image: postgis/postgis:11-3.0-alpine
+          - img_ver: 11-3.0-alpine
             args: postgres
             sslmode: disable
-          - image: postgis/postgis:14-3.3-alpine
+          - img_ver: 14-3.3-alpine
             args: postgres
             sslmode: disable
           # alpine images don't support SSL, so for this we use the debian images
-          - image: postgis/postgis:15-3.3
+          - img_ver: 15-3.3
             args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
             sslmode: require
+          #
+          # FIXME!
+          # DISABLED because Rustls fails to validate name (CN?) with the NotValidForName error
+          #- img_ver: 15-3.3
+          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+          #  sslmode: verify-ca
+          #- img_ver: 15-3.3
+          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+          #  sslmode: verify-full
     env:
-      # PG_* variables are used by psql
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
     services:
       postgres:
-        image: ${{ matrix.image }}
+        image: postgis/postgis:${{ matrix.img_ver }}
         ports:
-          # will assign a random free host port
           - 5432/tcp
-        # Sadly there is currently no way to pass arguments to the service image other than this hack
-        # See also https://stackoverflow.com/a/62720566/177275
         options: >-
           -e POSTGRES_DB=test
           -e POSTGRES_USER=postgres
@@ -382,17 +422,24 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          ${{ matrix.image }}
+          postgis/postgis:${{ matrix.img_ver }}
           -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - name: Setup database
+      - name: Init database
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
+      - name: Get DB SSL cert (sslmode=verify-*)
+        if: matrix.sslmode == 'verify-ca' || matrix.sslmode == 'verify-full'
+        run: |
+          set -x
+          mkdir -p target/certs
+          docker cp ${{ job.services.postgres.id }}:/etc/ssl/certs/ssl-cert-snakeoil.pem target/certs/server.crt
+          docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@v3
         with:
@@ -400,6 +447,9 @@ jobs:
           path: target_releases/
       - name: Integration Tests
         run: |
+          if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
+            export PGSSLROOTCERT=target/certs/server.crt
+          fi
           export MARTIN_BUILD=-
           export MARTIN_BIN=target_releases/martin
           export MBTILES_BUILD=-
@@ -417,6 +467,9 @@ jobs:
       - name: Tests Debian package
         run: |
           sudo dpkg -i target_releases/debian-x86_64.deb
+          if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
+            export PGSSLROOTCERT=target/certs/server.crt
+          fi
           export MARTIN_BUILD=-
           export MARTIN_BIN=/usr/bin/martin
           export MBTILES_BUILD=-
@@ -427,6 +480,7 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Unit Tests
+        if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
         run: |
           echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
           echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
@@ -447,7 +501,7 @@ jobs:
   package:
     name: Package ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    needs: [ docker, test, test-legacy ]
+    needs: [ lint-debug-test, docker-build-test, test-multi-os, test-with-svc ]
     strategy:
       fail-fast: true
       matrix:
