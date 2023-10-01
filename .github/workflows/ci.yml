@@ -41,7 +41,7 @@ jobs:
       - run: cargo clippy --package martin -- -D warnings
       - run: cargo clippy --package martin --features bless-tests -- -D warnings
 
-  docker:
+  docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
     env:
@@ -250,8 +250,8 @@ jobs:
           name: build-${{ matrix.target }}
           path: target_releases/*
 
-  test:
-    name: Test ${{ matrix.target }}
+  test-multi-os:
+    name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [ build ]
     strategy:
@@ -344,7 +344,7 @@ jobs:
           path: tests/output/*
           retention-days: 5
 
-  test-service:
+  test-with-svc:
     name: Test with PG ${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
     needs: [ build ]
@@ -475,7 +475,7 @@ jobs:
   package:
     name: Package ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    needs: [ lint, docker, test, test-service ]
+    needs: [ lint, docker-build-test, test-multi-os, test-with-svc ]
     strategy:
       fail-fast: true
       matrix:
