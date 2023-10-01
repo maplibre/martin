@@ -74,7 +74,8 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - run: |
+      - name: Run cargo test
+        run: |
           set -x
           cargo test --package martin-tile-utils
           cargo test --package martin-mbtiles --no-default-features
@@ -372,7 +373,7 @@ jobs:
           retention-days: 5
 
   test-with-svc:
-    name: Test with PG ${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
+    name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
     needs: [ build ]
     strategy:
