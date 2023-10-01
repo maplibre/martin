@@ -74,7 +74,7 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - run:
+      - run: |
           set -x
           cargo test --package martin-tile-utils
           cargo test --package martin-mbtiles --no-default-features
