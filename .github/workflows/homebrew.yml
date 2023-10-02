@@ -7,7 +7,10 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - run: brew version
+      - run: brew --version
+      - run: brew tap maplibre/martin https://github.com/maplibre/martin.git
+      - run: brew install maplibre/martin/martin
+
 #      - name: Checkout code
 #        uses: actions/checkout@v2
 #
