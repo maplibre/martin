@@ -123,6 +123,19 @@ impl Mbtiles {
         }
     }
 
+    /// Attach this MBTiles file to the given SQLite connection as a given name
+    pub async fn attach_to<T>(&self, conn: &mut T, name: &str) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        query(&format!("ATTACH DATABASE ? AS {name}"))
+            .bind(self.filepath())
+            .execute(conn)
+            .await?;
+        Ok(())
+    }
+
+    /// Get a single metadata value from the metadata table
     pub async fn get_metadata_value<T>(&self, conn: &mut T, key: &str) -> MbtResult<Option<String>>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -359,6 +372,11 @@ impl Mbtiles {
         Ok(None)
     }
 
+    pub async fn open_and_detect_type(&self) -> MbtResult<MbtType> {
+        let mut conn = self.open_with_hashes(true).await?;
+        self.detect_type(&mut conn).await
+    }
+
     pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -583,7 +601,8 @@ where
 }
 
 pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
-    let handle = conn.lock_handle().await?.as_raw_handle().as_ptr();
+    let mut handle_lock = conn.lock_handle().await?;
+    let handle = handle_lock.as_raw_handle().as_ptr();
     // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
     // The registered functions will be dropped when SQLX drops DB connection.
     let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
@@ -600,25 +619,26 @@ mod tests {
 
     use super::*;
 
-    async fn open(filepath: &str) -> (SqliteConnection, Mbtiles) {
-        let mbt = Mbtiles::new(filepath).unwrap();
-        let mut conn = SqliteConnection::connect(mbt.filepath()).await.unwrap();
-        attach_hash_fn(&mut conn).await.unwrap();
-        (conn, mbt)
+    async fn open(filepath: &str) -> MbtResult<(SqliteConnection, Mbtiles)> {
+        let mbt = Mbtiles::new(filepath)?;
+        let mut conn = SqliteConnection::connect(mbt.filepath()).await?;
+        attach_hash_fn(&mut conn).await?;
+        Ok((conn, mbt))
     }
 
     #[actix_rt::test]
-    async fn mbtiles_meta() {
+    async fn mbtiles_meta() -> MbtResult<()> {
         let filepath = "../tests/fixtures/mbtiles/geography-class-jpg.mbtiles";
-        let mbt = Mbtiles::new(filepath).unwrap();
+        let mbt = Mbtiles::new(filepath)?;
         assert_eq!(mbt.filepath(), filepath);
         assert_eq!(mbt.filename(), "geography-class-jpg");
+        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_jpeg() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await;
-        let metadata = mbt.get_metadata(&mut conn).await.unwrap();
+    async fn metadata_jpeg() -> MbtResult<()> {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await?;
+        let metadata = mbt.get_metadata(&mut conn).await?;
         let tj = metadata.tilejson;
 
         assert_eq!(tj.description.unwrap(), "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ");
@@ -630,12 +650,13 @@ mod tests {
         assert_eq!(tj.version.unwrap(), "1.0.0");
         assert_eq!(metadata.id, "geography-class-jpg");
         assert_eq!(metadata.tile_info, Format::Jpeg.into());
+        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_mvt() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
-        let metadata = mbt.get_metadata(&mut conn).await.unwrap();
+    async fn metadata_mvt() -> MbtResult<()> {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
+        let metadata = mbt.get_metadata(&mut conn).await?;
         let tj = metadata.tilejson;
 
         assert_eq!(tj.maxzoom.unwrap(), 6);
@@ -661,41 +682,38 @@ mod tests {
             TileInfo::new(Format::Mvt, Encoding::Gzip)
         );
         assert_eq!(metadata.layer_type, Some("overlay".to_string()));
+        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_get_key() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
+    async fn metadata_get_key() -> MbtResult<()> {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
 
-        let res = mbt.get_metadata_value(&mut conn, "bounds").await.unwrap();
-        assert_eq!(res.unwrap(), "-123.123590,-37.818085,174.763027,59.352706");
-        let res = mbt.get_metadata_value(&mut conn, "name").await.unwrap();
-        assert_eq!(res.unwrap(), "Major cities from Natural Earth data");
-        let res = mbt.get_metadata_value(&mut conn, "maxzoom").await.unwrap();
-        assert_eq!(res.unwrap(), "6");
-        let res = mbt.get_metadata_value(&mut conn, "nonexistent_key").await;
-        assert_eq!(res.unwrap(), None);
-        let res = mbt.get_metadata_value(&mut conn, "").await;
-        assert_eq!(res.unwrap(), None);
+        let res = mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap();
+        assert_eq!(res, "-123.123590,-37.818085,174.763027,59.352706");
+        let res = mbt.get_metadata_value(&mut conn, "name").await?.unwrap();
+        assert_eq!(res, "Major cities from Natural Earth data");
+        let res = mbt.get_metadata_value(&mut conn, "maxzoom").await?.unwrap();
+        assert_eq!(res, "6");
+        let res = mbt.get_metadata_value(&mut conn, "nonexistent_key").await?;
+        assert_eq!(res, None);
+        let res = mbt.get_metadata_value(&mut conn, "").await?;
+        assert_eq!(res, None);
+        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_set_key() {
-        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await;
+    async fn metadata_set_key() -> MbtResult<()> {
+        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await?;
 
         query("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
             .execute(&mut conn)
-            .await
-            .unwrap();
+            .await?;
 
         mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0".to_string()))
-            .await
-            .unwrap();
+            .await?;
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds")
-                .await
-                .unwrap()
-                .unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
             "0.0, 0.0, 0.0, 0.0"
         );
 
@@ -704,58 +722,53 @@ mod tests {
             "bounds",
             Some("-123.123590,-37.818085,174.763027,59.352706".to_string()),
         )
-        .await
-        .unwrap();
+        .await?;
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds")
-                .await
-                .unwrap()
-                .unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
             "-123.123590,-37.818085,174.763027,59.352706"
         );
 
-        mbt.set_metadata_value(&mut conn, "bounds", None)
-            .await
-            .unwrap();
-        assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
-            None
-        );
+        mbt.set_metadata_value(&mut conn, "bounds", None).await?;
+        assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await?, None);
+
+        Ok(())
     }
 
     #[actix_rt::test]
-    async fn detect_type() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+    async fn detect_type() -> MbtResult<()> {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
+        let res = mbt.detect_type(&mut conn).await?;
         assert_eq!(res, MbtType::Flat);
 
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
+        let res = mbt.detect_type(&mut conn).await?;
         assert_eq!(res, MbtType::FlatWithHash);
 
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await?;
+        let res = mbt.detect_type(&mut conn).await?;
         assert_eq!(res, MbtType::Normalized);
 
-        let (mut conn, mbt) = open(":memory:").await;
+        let (mut conn, mbt) = open(":memory:").await?;
         let res = mbt.detect_type(&mut conn).await;
         assert!(matches!(res, Err(MbtError::InvalidDataFormat(_))));
+
+        Ok(())
     }
 
     #[actix_rt::test]
-    async fn validate_valid_file() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await;
-
+    async fn validate_valid_file() -> MbtResult<()> {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
-            .await
-            .unwrap();
+            .await?;
+        Ok(())
     }
 
     #[actix_rt::test]
-    async fn validate_invalid_file() {
+    async fn validate_invalid_file() -> MbtResult<()> {
         let (mut conn, mbt) =
-            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await;
+            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await?;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
+        Ok(())
     }
 }

@@ -1781,7 +1781,7 @@ dependencies = [
 
 [[package]]
 name = "martin-mbtiles"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "actix-rt",
  "anyhow",

@@ -10,6 +10,6 @@ mod mbtiles_pool;
 pub use mbtiles_pool::MbtilesPool;
 
 mod tile_copier;
-pub use tile_copier::{apply_mbtiles_diff, CopyDuplicateMode, TileCopierOptions};
+pub use tile_copier::{apply_mbtiles_diff, CopyDuplicateMode, TileCopier};
 
 mod mbtiles_queries;
