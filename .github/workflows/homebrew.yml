@@ -1,0 +1,21 @@
+name: Homebrew
+
+on: [pull_request]
+
+jobs:
+  test:
+    runs-on: macos-latest
+
+    steps:
+      - run: brew version
+#      - name: Checkout code
+#        uses: actions/checkout@v2
+#
+#      - name: Set up Homebrew
+#        run: |
+#          brew update
+#          brew install --build-bottle formula # Replace 'formula' with the name of your formula
+#
+#      - name: Test Formula Installation
+#        run: |
+#          brew install --verbose formula # Replace 'formula' with the name of your formula
