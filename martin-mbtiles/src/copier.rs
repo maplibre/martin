@@ -11,7 +11,7 @@ use sqlx::{query, Connection, Row, SqliteConnection};
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::mbtiles::{attach_hash_fn, MbtType};
-use crate::mbtiles_queries::{
+use crate::queries::{
     create_flat_tables, create_flat_with_hash_tables, create_metadata_table,
     create_normalized_tables, create_tiles_with_hash_view,
 };
@@ -28,7 +28,7 @@ pub enum CopyDuplicateMode {
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "cli", derive(Args))]
-pub struct TileCopier {
+pub struct MbtilesCopier {
     /// MBTiles file to read from
     src_file: PathBuf,
     /// MBTiles file to write to
@@ -89,13 +89,13 @@ impl clap::builder::TypedValueParser for HashSetValueParser {
 }
 
 #[derive(Clone, Debug)]
-struct TileCopierInt {
+struct MbtileCopierInt {
     src_mbtiles: Mbtiles,
     dst_mbtiles: Mbtiles,
-    options: TileCopier,
+    options: MbtilesCopier,
 }
 
-impl TileCopier {
+impl MbtilesCopier {
     #[must_use]
     pub fn new(src_filepath: PathBuf, dst_filepath: PathBuf) -> Self {
         Self {
@@ -154,13 +154,13 @@ impl TileCopier {
     }
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        TileCopierInt::new(self)?.run().await
+        MbtileCopierInt::new(self)?.run().await
     }
 }
 
-impl TileCopierInt {
-    pub fn new(options: TileCopier) -> MbtResult<Self> {
-        Ok(TileCopierInt {
+impl MbtileCopierInt {
+    pub fn new(options: MbtilesCopier) -> MbtResult<Self> {
+        Ok(MbtileCopierInt {
             src_mbtiles: Mbtiles::new(&options.src_file)?,
             dst_mbtiles: Mbtiles::new(&options.dst_file)?,
             options,
@@ -475,7 +475,7 @@ mod tests {
         dst_type: Option<MbtType>,
         expected_dst_type: MbtType,
     ) -> MbtResult<()> {
-        let mut dst_conn = TileCopier::new(src_filepath.clone(), dst_filepath.clone())
+        let mut dst_conn = MbtilesCopier::new(src_filepath.clone(), dst_filepath.clone())
             .dst_type(dst_type)
             .run()
             .await?;
@@ -502,7 +502,7 @@ mod tests {
     }
 
     async fn verify_copy_with_zoom_filter(
-        opts: TileCopier,
+        opts: MbtilesCopier,
         expected_zoom_levels: u8,
     ) -> MbtResult<()> {
         let mut dst_conn = opts.run().await?;
@@ -596,7 +596,7 @@ mod tests {
     async fn copy_with_min_max_zoom() -> MbtResult<()> {
         let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_min_max_zoom_mem_db?mode=memory&cache=shared");
-        let opt = TileCopier::new(src, dst)
+        let opt = MbtilesCopier::new(src, dst)
             .min_zoom(Some(2))
             .max_zoom(Some(4));
         verify_copy_with_zoom_filter(opt, 3).await
@@ -606,7 +606,7 @@ mod tests {
     async fn copy_with_zoom_levels() -> MbtResult<()> {
         let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_zoom_levels_mem_db?mode=memory&cache=shared");
-        let opt = TileCopier::new(src, dst)
+        let opt = MbtilesCopier::new(src, dst)
             .min_zoom(Some(2))
             .max_zoom(Some(4))
             .zoom_levels(vec![1, 6]);
@@ -621,7 +621,8 @@ mod tests {
         let diff_file =
             PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles");
 
-        let copy_opts = TileCopier::new(src.clone(), dst.clone()).diff_with_file(diff_file.clone());
+        let copy_opts =
+            MbtilesCopier::new(src.clone(), dst.clone()).diff_with_file(diff_file.clone());
 
         let mut dst_conn = copy_opts.run().await?;
 
@@ -669,7 +670,9 @@ mod tests {
             "file:ignore_dst_type_when_copy_to_existing_mem_db?mode=memory&cache=shared",
         );
 
-        let _dst_conn = TileCopier::new(dst_file.clone(), dst.clone()).run().await?;
+        let _dst_conn = MbtilesCopier::new(dst_file.clone(), dst.clone())
+            .run()
+            .await?;
 
         verify_copy_all(src_file, dst, Some(Normalized), Flat).await
     }
@@ -680,7 +683,7 @@ mod tests {
         let dst = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
 
         let copy_opts =
-            TileCopier::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
+            MbtilesCopier::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
 
         assert!(matches!(
             copy_opts.run().await.unwrap_err(),
@@ -697,9 +700,13 @@ mod tests {
         let dst =
             PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
 
-        let _dst_conn = TileCopier::new(dst_file.clone(), dst.clone()).run().await?;
+        let _dst_conn = MbtilesCopier::new(dst_file.clone(), dst.clone())
+            .run()
+            .await?;
 
-        let mut dst_conn = TileCopier::new(src_file.clone(), dst.clone()).run().await?;
+        let mut dst_conn = MbtilesCopier::new(src_file.clone(), dst.clone())
+            .run()
+            .await?;
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
         Mbtiles::new(src_file)?
@@ -724,9 +731,11 @@ mod tests {
         let dst =
             PathBuf::from("file:copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
 
-        let _dst_conn = TileCopier::new(dst_file.clone(), dst.clone()).run().await?;
+        let _dst_conn = MbtilesCopier::new(dst_file.clone(), dst.clone())
+            .run()
+            .await?;
 
-        let mut dst_conn = TileCopier::new(src_file.clone(), dst.clone())
+        let mut dst_conn = MbtilesCopier::new(src_file.clone(), dst.clone())
             .on_duplicate(CopyDuplicateMode::Ignore)
             .run()
             .await?;
@@ -771,7 +780,9 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
 
-        let mut src_conn = TileCopier::new(src_file.clone(), src.clone()).run().await?;
+        let mut src_conn = MbtilesCopier::new(src_file.clone(), src.clone())
+            .run()
+            .await?;
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_diff.mbtiles");
@@ -798,7 +809,9 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
-        let mut src_conn = TileCopier::new(src_file.clone(), src.clone()).run().await?;
+        let mut src_conn = MbtilesCopier::new(src_file.clone(), src.clone())
+            .run()
+            .await?;
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles");

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use log::{error, LevelFilter};
-use martin_mbtiles::{apply_mbtiles_diff, IntegrityCheckType, MbtResult, Mbtiles, TileCopier};
+use martin_mbtiles::{apply_mbtiles_diff, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
 
 #[derive(Parser, PartialEq, Eq, Debug)]
 #[command(
@@ -46,7 +46,7 @@ enum Commands {
     },
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy")]
-    Copy(TileCopier),
+    Copy(MbtilesCopier),
     /// Apply diff file generated from 'copy' command
     #[command(name = "apply-diff")]
     ApplyDiff {
@@ -163,7 +163,7 @@ mod tests {
 
     use clap::error::ErrorKind;
     use clap::Parser;
-    use martin_mbtiles::{CopyDuplicateMode, TileCopier};
+    use martin_mbtiles::{CopyDuplicateMode, MbtilesCopier};
 
     use crate::Commands::{ApplyDiff, Copy, MetaGetValue, MetaSetValue, Validate};
     use crate::{Args, IntegrityCheckType};
@@ -184,7 +184,7 @@ mod tests {
             Args::parse_from(["mbtiles", "copy", "src_file", "dst_file"]),
             Args {
                 verbose: false,
-                command: Copy(TileCopier::new(
+                command: Copy(MbtilesCopier::new(
                     PathBuf::from("src_file"),
                     PathBuf::from("dst_file")
                 ))
@@ -208,7 +208,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(
-                    TileCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .min_zoom(Some(1))
                         .max_zoom(Some(100))
                 )
@@ -268,7 +268,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(
-                    TileCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .zoom_levels(vec![1, 3, 7])
                 )
             }
@@ -289,7 +289,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(
-                    TileCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .diff_with_file(PathBuf::from("no_file"))
                 )
             }
@@ -310,7 +310,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(
-                    TileCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .on_duplicate(CopyDuplicateMode::Override)
                 )
             }
@@ -331,7 +331,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(
-                    TileCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .on_duplicate(CopyDuplicateMode::Ignore)
                 )
             }
@@ -352,7 +352,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(
-                    TileCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
+                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
                         .on_duplicate(CopyDuplicateMode::Abort)
                 )
             }

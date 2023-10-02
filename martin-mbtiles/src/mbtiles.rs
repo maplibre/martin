@@ -20,7 +20,7 @@ use sqlx::{query, Connection as _, Row, SqliteConnection, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
-use crate::mbtiles_queries::{
+use crate::queries::{
     is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
 use crate::MbtError::{
