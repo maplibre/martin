@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (\n             -- Has a 'map' table\n             SELECT COUNT(*) = 1\n             FROM sqlite_master\n             WHERE name = 'map'\n                 AND type = 'table'\n             --\n         ) AND (\n             -- 'map' table's columns and their types are as expected:\n             -- 4 columns (zoom_level, tile_column, tile_row, tile_id).\n             -- The order is not important\n             SELECT COUNT(*) = 4\n             FROM pragma_table_info('map')\n             WHERE ((name = 'zoom_level' AND type = 'INTEGER')\n                 OR (name = 'tile_column' AND type = 'INTEGER')\n                 OR (name = 'tile_row' AND type = 'INTEGER')\n                 OR (name = 'tile_id' AND type = 'TEXT'))\n             --\n         ) AND (\n             -- Has a 'images' table\n             SELECT COUNT(*) = 1\n             FROM sqlite_master\n             WHERE name = 'images'\n                 AND type = 'table'\n             --\n         ) AND (\n             -- 'images' table's columns and their types are as expected:\n             -- 2 columns (tile_id, tile_data).\n             -- The order is not important\n             SELECT COUNT(*) = 2\n             FROM pragma_table_info('images')\n             WHERE ((name = 'tile_id' AND type = 'TEXT')\n                 OR (name = 'tile_data' AND type = 'BLOB'))\n             --\n         ) AS is_valid;",
+  "describe": {
+    "columns": [
+      {
+        "name": "is_valid",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "809e89c3b223e28c6716d405e13ba30fbf018805fe9ca2acd2b2e225183d1f13"
+}

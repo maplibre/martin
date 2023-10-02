@@ -11,6 +11,10 @@ use sqlx::{query, Connection, Row, SqliteConnection};
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::mbtiles::{attach_hash_fn, MbtType};
+use crate::mbtiles_queries::{
+    create_flat_tables, create_flat_with_hash_tables, create_metadata_table,
+    create_normalized_tables, create_tiles_with_hash_view,
+};
 use crate::{MbtError, Mbtiles};
 
 #[derive(PartialEq, Eq, Default, Debug, Clone)]
@@ -24,7 +28,7 @@ pub enum CopyDuplicateMode {
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "cli", derive(Args))]
-pub struct TileCopierOptions {
+pub struct TileCopier {
     /// MBTiles file to read from
     src_file: PathBuf,
     /// MBTiles file to write to
@@ -85,13 +89,13 @@ impl clap::builder::TypedValueParser for HashSetValueParser {
 }
 
 #[derive(Clone, Debug)]
-struct TileCopier {
+struct TileCopierInt {
     src_mbtiles: Mbtiles,
     dst_mbtiles: Mbtiles,
-    options: TileCopierOptions,
+    options: TileCopier,
 }
 
-impl TileCopierOptions {
+impl TileCopier {
     #[must_use]
     pub fn new(src_filepath: PathBuf, dst_filepath: PathBuf) -> Self {
         Self {
@@ -150,13 +154,13 @@ impl TileCopierOptions {
     }
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        TileCopier::new(self)?.run().await
+        TileCopierInt::new(self)?.run().await
     }
 }
 
-impl TileCopier {
-    pub fn new(options: TileCopierOptions) -> MbtResult<Self> {
-        Ok(TileCopier {
+impl TileCopierInt {
+    pub fn new(options: TileCopier) -> MbtResult<Self> {
+        Ok(TileCopierInt {
             src_mbtiles: Mbtiles::new(&options.src_file)?,
             dst_mbtiles: Mbtiles::new(&options.dst_file)?,
             options,
@@ -164,7 +168,8 @@ impl TileCopier {
     }
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        let src_type = open_and_detect_type(&self.src_mbtiles).await?;
+        // src file connection is not needed after this point, as it will be attached to the dst file
+        let src_type = self.src_mbtiles.open_and_detect_type().await?;
 
         let mut conn = SqliteConnection::connect_with(
             &SqliteConnectOptions::new()
@@ -189,7 +194,7 @@ impl TileCopier {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         } else {
             let dst_type = self.dst_mbtiles.detect_type(&mut conn).await?;
-            attach_source_db(&mut conn, self.src_mbtiles.filepath()).await?;
+            self.src_mbtiles.attach_to(&mut conn, "sourceDb").await?;
             dst_type
         };
 
@@ -198,11 +203,8 @@ impl TileCopier {
         let (select_from, query_args) = {
             let select_from = if let Some(diff_file) = &self.options.diff_with_file {
                 let diff_with_mbtiles = Mbtiles::new(diff_file)?;
-                let diff_type = open_and_detect_type(&diff_with_mbtiles).await?;
-                let path = diff_with_mbtiles.filepath();
-                query!("ATTACH DATABASE ? AS newDb", path)
-                    .execute(&mut conn)
-                    .await?;
+                let diff_type = diff_with_mbtiles.open_and_detect_type().await?;
+                diff_with_mbtiles.attach_to(&mut conn, "newDb").await?;
                 Self::get_select_from_with_diff(dst_type, diff_type)
             } else {
                 Self::get_select_from(dst_type, src_type).to_string()
@@ -213,34 +215,40 @@ impl TileCopier {
             (format!("{select_from} {options_sql}"), query_args)
         };
 
-        let handle = conn.lock_handle().await?.as_raw_handle().as_ptr();
-        let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
-        match dst_type {
-            Flat => rusqlite_conn.execute(
-                &format!("INSERT {on_dupl} INTO tiles {select_from} {sql_cond}"),
-                params_from_iter(query_args),
-            )?,
-            FlatWithHash => rusqlite_conn.execute(
-                &format!("INSERT {on_dupl} INTO tiles_with_hash {select_from} {sql_cond}"),
-                params_from_iter(query_args),
-            )?,
-            Normalized => {
-                rusqlite_conn.execute(
-                    &format!(
-                        "INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id)
+        {
+            // Make sure not to execute any other queries while the handle is locked
+            let mut handle_lock = conn.lock_handle().await?;
+            let handle = handle_lock.as_raw_handle().as_ptr();
+
+            // SAFETY: this is safe as long as handle_lock is valid
+            let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
+            match dst_type {
+                Flat => rusqlite_conn.execute(
+                    &format!("INSERT {on_dupl} INTO tiles {select_from} {sql_cond}"),
+                    params_from_iter(query_args),
+                )?,
+                FlatWithHash => rusqlite_conn.execute(
+                    &format!("INSERT {on_dupl} INTO tiles_with_hash {select_from} {sql_cond}"),
+                    params_from_iter(query_args),
+                )?,
+                Normalized => {
+                    rusqlite_conn.execute(
+                        &format!(
+                            "INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id)
                          SELECT zoom_level, tile_column, tile_row, hash as tile_id
                          FROM ({select_from} {sql_cond})"
-                    ),
-                    params_from_iter(&query_args),
-                )?;
-                rusqlite_conn.execute(
-                    &format!(
-                        "INSERT OR IGNORE INTO images SELECT tile_data, hash FROM ({select_from})"
-                    ),
-                    params_from_iter(query_args),
-                )?
-            }
-        };
+                        ),
+                        params_from_iter(&query_args),
+                    )?;
+                    rusqlite_conn.execute(
+                        &format!(
+                            "INSERT OR IGNORE INTO images SELECT tile_data, hash FROM ({select_from})"
+                        ),
+                        params_from_iter(query_args),
+                    )?
+                }
+            };
+        }
 
         if !self.options.skip_agg_tiles_hash {
             self.dst_mbtiles.update_agg_tiles_hash(&mut conn).await?;
@@ -258,7 +266,7 @@ impl TileCopier {
         query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
         query!("VACUUM").execute(&mut *conn).await?;
 
-        attach_source_db(&mut *conn, self.src_mbtiles.filepath()).await?;
+        self.src_mbtiles.attach_to(&mut *conn, "sourceDb").await?;
 
         if src == dst {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
@@ -281,27 +289,17 @@ impl TileCopier {
                 query(row.get(0)).execute(&mut *conn).await?;
             }
         } else {
+            create_metadata_table(&mut *conn).await?;
             match dst {
-                Flat => self.create_flat_tables(&mut *conn).await?,
-                FlatWithHash => self.create_flat_with_hash_tables(&mut *conn).await?,
-                Normalized => self.create_normalized_tables(&mut *conn).await?,
+                Flat => create_flat_tables(&mut *conn).await?,
+                FlatWithHash => create_flat_with_hash_tables(&mut *conn).await?,
+                Normalized => create_normalized_tables(&mut *conn).await?,
             };
         };
 
         if dst == Normalized {
-            query(
-                "CREATE VIEW tiles_with_hash AS
-                     SELECT
-                         map.zoom_level AS zoom_level,
-                         map.tile_column AS tile_column,
-                         map.tile_row AS tile_row,
-                         images.tile_data AS tile_data,
-                         images.tile_id AS tile_hash
-                     FROM map
-                     JOIN images ON images.tile_id = map.tile_id",
-            )
-            .execute(&mut *conn)
-            .await?;
+            // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
+            create_tiles_with_hash_view(&mut *conn).await?;
         }
 
         query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
@@ -311,64 +309,13 @@ impl TileCopier {
         Ok(())
     }
 
-    async fn create_flat_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        for statement in &[
-            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE tiles (
-                 zoom_level integer NOT NULL,
-                 tile_column integer NOT NULL,
-                 tile_row integer NOT NULL,
-                 tile_data blob,
-                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
-        ] {
-            query(statement).execute(&mut *conn).await?;
-        }
-        Ok(())
-    }
-
-    async fn create_flat_with_hash_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        for statement in &[
-            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE tiles_with_hash (
-                 zoom_level integer NOT NULL,
-                 tile_column integer NOT NULL,
-                 tile_row integer NOT NULL,
-                 tile_data blob,
-                 tile_hash text,
-                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
-            "CREATE VIEW tiles AS
-                 SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;",
-        ] {
-            query(statement).execute(&mut *conn).await?;
-        }
-        Ok(())
-    }
-
-    async fn create_normalized_tables(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        for statement in &[
-            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-            "CREATE TABLE map (
-                 zoom_level integer NOT NULL,
-                 tile_column integer NOT NULL,
-                 tile_row integer NOT NULL,
-                 tile_id text,
-                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
-            "CREATE TABLE images (tile_data blob, tile_id text NOT NULL PRIMARY KEY);",
-            "CREATE VIEW tiles AS
-                 SELECT map.zoom_level AS zoom_level, map.tile_column AS tile_column, map.tile_row AS tile_row, images.tile_data AS tile_data
-                 FROM map
-                 JOIN images ON images.tile_id = map.tile_id;"] {
-            query(statement).execute(&mut *conn).await?;
-        }
-        Ok(())
-    }
-
-    fn get_on_duplicate_sql(&self, mbttype: MbtType) -> (String, String) {
+    /// Returns (ON DUPLICATE SQL, WHERE condition SQL)
+    fn get_on_duplicate_sql(&self, dst_type: MbtType) -> (String, String) {
         match &self.options.on_duplicate {
             CopyDuplicateMode::Override => ("OR REPLACE".to_string(), String::new()),
             CopyDuplicateMode::Ignore => ("OR IGNORE".to_string(), String::new()),
             CopyDuplicateMode::Abort => ("OR ABORT".to_string(), {
-                let (main_table, tile_identifier) = match mbttype {
+                let (main_table, tile_identifier) = match dst_type {
                     Flat => ("tiles", "tile_data"),
                     FlatWithHash => ("tiles_with_hash", "tile_data"),
                     Normalized => ("map", "tile_id"),
@@ -418,12 +365,12 @@ impl TileCopier {
 
     fn get_select_from(dst_type: MbtType, src_type: MbtType) -> &'static str {
         if dst_type == Flat {
-            "SELECT * FROM sourceDb.tiles WHERE TRUE "
+            "SELECT * FROM sourceDb.tiles WHERE TRUE"
         } else {
             match src_type {
-                Flat => "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash FROM sourceDb.tiles WHERE TRUE ",
-                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.tiles_with_hash WHERE TRUE ",
-                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id = sourceDb.images.tile_id WHERE TRUE "
+                Flat => "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash FROM sourceDb.tiles WHERE TRUE",
+                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.tiles_with_hash WHERE TRUE",
+                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id = sourceDb.images.tile_id WHERE TRUE"
             }
         }
     }
@@ -459,34 +406,15 @@ impl TileCopier {
     }
 }
 
-async fn attach_source_db(conn: &mut SqliteConnection, path: &str) -> MbtResult<()> {
-    query!("ATTACH DATABASE ? AS sourceDb", path)
-        .execute(&mut *conn)
-        .await?;
-    Ok(())
-}
-
-async fn open_and_detect_type(mbtiles: &Mbtiles) -> MbtResult<MbtType> {
-    let opt = SqliteConnectOptions::new()
-        .read_only(true)
-        .filename(mbtiles.filepath());
-    let mut conn = SqliteConnection::connect_with(&opt).await?;
-    mbtiles.detect_type(&mut conn).await
-}
-
 pub async fn apply_mbtiles_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> {
     let src_mbtiles = Mbtiles::new(src_file)?;
     let diff_mbtiles = Mbtiles::new(diff_file)?;
-
-    let src_type = open_and_detect_type(&src_mbtiles).await?;
-    let diff_type = open_and_detect_type(&diff_mbtiles).await?;
+    let diff_type = diff_mbtiles.open_and_detect_type().await?;
 
     let mut conn = src_mbtiles.open_with_hashes(false).await?;
-    let path = diff_mbtiles.filepath();
-    query!("ATTACH DATABASE ? AS diffDb", path)
-        .execute(&mut conn)
-        .await?;
+    diff_mbtiles.attach_to(&mut conn, "diffDb").await?;
 
+    let src_type = src_mbtiles.detect_type(&mut conn).await?;
     let select_from = if src_type == Flat {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM diffDb.tiles"
     } else {
@@ -534,20 +462,6 @@ mod tests {
 
     use super::*;
 
-    async fn attach_other_db(conn: &mut SqliteConnection, path: &str) -> MbtResult<()> {
-        query!("ATTACH DATABASE ? AS otherDb", path)
-            .execute(&mut *conn)
-            .await?;
-        Ok(())
-    }
-
-    async fn attach_src_db(conn: &mut SqliteConnection, path: &str) -> MbtResult<()> {
-        query!("ATTACH DATABASE ? AS srcDb", path)
-            .execute(&mut *conn)
-            .await?;
-        Ok(())
-    }
-
     async fn get_one<T>(conn: &mut SqliteConnection, sql: &str) -> T
     where
         for<'r> T: Decode<'r, Sqlite> + Type<Sqlite>,
@@ -561,15 +475,19 @@ mod tests {
         dst_type: Option<MbtType>,
         expected_dst_type: MbtType,
     ) -> MbtResult<()> {
-        let mut dst_conn = TileCopierOptions::new(src_filepath.clone(), dst_filepath.clone())
+        let mut dst_conn = TileCopier::new(src_filepath.clone(), dst_filepath.clone())
             .dst_type(dst_type)
             .run()
             .await?;
 
-        attach_src_db(&mut dst_conn, src_filepath.to_str().unwrap()).await?;
+        Mbtiles::new(src_filepath)?
+            .attach_to(&mut dst_conn, "srcDb")
+            .await?;
 
         assert_eq!(
-            open_and_detect_type(&Mbtiles::new(dst_filepath)?).await?,
+            Mbtiles::new(dst_filepath)?
+                .detect_type(&mut dst_conn)
+                .await?,
             expected_dst_type
         );
 
@@ -584,7 +502,7 @@ mod tests {
     }
 
     async fn verify_copy_with_zoom_filter(
-        opts: TileCopierOptions,
+        opts: TileCopier,
         expected_zoom_levels: u8,
     ) -> MbtResult<()> {
         let mut dst_conn = opts.run().await?;
@@ -678,7 +596,7 @@ mod tests {
     async fn copy_with_min_max_zoom() -> MbtResult<()> {
         let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_min_max_zoom_mem_db?mode=memory&cache=shared");
-        let opt = TileCopierOptions::new(src, dst)
+        let opt = TileCopier::new(src, dst)
             .min_zoom(Some(2))
             .max_zoom(Some(4));
         verify_copy_with_zoom_filter(opt, 3).await
@@ -688,7 +606,7 @@ mod tests {
     async fn copy_with_zoom_levels() -> MbtResult<()> {
         let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_zoom_levels_mem_db?mode=memory&cache=shared");
-        let opt = TileCopierOptions::new(src, dst)
+        let opt = TileCopier::new(src, dst)
             .min_zoom(Some(2))
             .max_zoom(Some(4))
             .zoom_levels(vec![1, 6]);
@@ -703,8 +621,7 @@ mod tests {
         let diff_file =
             PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles");
 
-        let copy_opts =
-            TileCopierOptions::new(src.clone(), dst.clone()).diff_with_file(diff_file.clone());
+        let copy_opts = TileCopier::new(src.clone(), dst.clone()).diff_with_file(diff_file.clone());
 
         let mut dst_conn = copy_opts.run().await?;
 
@@ -752,9 +669,7 @@ mod tests {
             "file:ignore_dst_type_when_copy_to_existing_mem_db?mode=memory&cache=shared",
         );
 
-        let _dst_conn = TileCopierOptions::new(dst_file.clone(), dst.clone())
-            .run()
-            .await?;
+        let _dst_conn = TileCopier::new(dst_file.clone(), dst.clone()).run().await?;
 
         verify_copy_all(src_file, dst, Some(Normalized), Flat).await
     }
@@ -765,7 +680,7 @@ mod tests {
         let dst = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
 
         let copy_opts =
-            TileCopierOptions::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
+            TileCopier::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
 
         assert!(matches!(
             copy_opts.run().await.unwrap_err(),
@@ -782,16 +697,14 @@ mod tests {
         let dst =
             PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
 
-        let _dst_conn = TileCopierOptions::new(dst_file.clone(), dst.clone())
-            .run()
-            .await?;
+        let _dst_conn = TileCopier::new(dst_file.clone(), dst.clone()).run().await?;
 
-        let mut dst_conn = TileCopierOptions::new(src_file.clone(), dst.clone())
-            .run()
-            .await?;
+        let mut dst_conn = TileCopier::new(src_file.clone(), dst.clone()).run().await?;
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
-        attach_other_db(&mut dst_conn, src_file.to_str().unwrap()).await?;
+        Mbtiles::new(src_file)?
+            .attach_to(&mut dst_conn, "otherDb")
+            .await?;
         assert!(
             query("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles;")
                 .fetch_optional(&mut dst_conn)
@@ -811,21 +724,19 @@ mod tests {
         let dst =
             PathBuf::from("file:copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
 
-        let _dst_conn = TileCopierOptions::new(dst_file.clone(), dst.clone())
-            .run()
-            .await?;
+        let _dst_conn = TileCopier::new(dst_file.clone(), dst.clone()).run().await?;
 
-        let mut dst_conn = TileCopierOptions::new(src_file.clone(), dst.clone())
+        let mut dst_conn = TileCopier::new(src_file.clone(), dst.clone())
             .on_duplicate(CopyDuplicateMode::Ignore)
             .run()
             .await?;
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
-        attach_src_db(&mut dst_conn, src_file.to_str().unwrap()).await?;
-
-        let path = dst_file.to_str().unwrap();
-        query!("ATTACH DATABASE ? AS originalDb", path)
-            .execute(&mut dst_conn)
+        Mbtiles::new(src_file)?
+            .attach_to(&mut dst_conn, "srcDb")
+            .await?;
+        Mbtiles::new(dst_file)?
+            .attach_to(&mut dst_conn, "originalDb")
             .await?;
 
         // Create a temporary table with all the tiles in the original database and
@@ -839,8 +750,7 @@ mod tests {
                    FULL OUTER JOIN srcDb.tiles as t2
                        ON t1.zoom_level = t2.zoom_level AND t1.tile_column = t2.tile_column AND t1.tile_row = t2.tile_row")
             .execute(&mut dst_conn)
-            .await
-            ?;
+            .await?;
 
         // Ensure all entries in expected_tiles are in tiles and vice versa
         assert!(query(
@@ -861,17 +771,16 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
 
-        let mut src_conn = TileCopierOptions::new(src_file.clone(), src.clone())
-            .run()
-            .await?;
+        let mut src_conn = TileCopier::new(src_file.clone(), src.clone()).run().await?;
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_diff.mbtiles");
         apply_mbtiles_diff(src, diff_file).await?;
 
         // Verify the data is the same as the file the diff was generated from
-        let path = "../tests/fixtures/mbtiles/world_cities_modified.mbtiles";
-        attach_other_db(&mut src_conn, path).await?;
+        Mbtiles::new("../tests/fixtures/mbtiles/world_cities_modified.mbtiles")?
+            .attach_to(&mut src_conn, "otherDb")
+            .await?;
 
         assert!(
             query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
@@ -889,17 +798,16 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
-        let mut src_conn = TileCopierOptions::new(src_file.clone(), src.clone())
-            .run()
-            .await?;
+        let mut src_conn = TileCopier::new(src_file.clone(), src.clone()).run().await?;
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles");
         apply_mbtiles_diff(src, diff_file).await?;
 
         // Verify the data is the same as the file the diff was generated from
-        let path = "../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles";
-        attach_other_db(&mut src_conn, path).await?;
+        Mbtiles::new("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles")?
+            .attach_to(&mut src_conn, "otherDb")
+            .await?;
 
         assert!(
             query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
