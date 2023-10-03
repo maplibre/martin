@@ -36,7 +36,10 @@ mbtiles copy src_file.mbtiles dst_file.mbtiles \
         --min-zoom 0 --max-zoom 10
 ```
 
-Copy command can also be used to compare two mbtiles files and generate a diff.
+Copy command can also be used to compare two mbtiles files and generate a delta (diff) file. The diff file can be applied to the `src_file.mbtiles` elsewhere, to avoid copying/transmitting the entire modified dataset.  The delta file will contain all tiles that are different between the two files (modifications, insertions, and deletions as `NULL` values), for both the tile and metadata tables.  
+
+There is one exception: `agg_tiles_hash` metadata value will be renamed to `agg_tiles_hash_in_diff`, and a new `agg_tiles_hash` will be generated for the diff file itself. This is done to avoid confusion when applying the diff file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied. The `apply-diff` command will automatically rename the `agg_tiles_hash_in_diff` value back to `agg_tiles_hash` when applying the diff.
+
 ```shell
 mbtiles copy src_file.mbtiles diff_file.mbtiles \
          --diff-with-file modified_file.mbtiles
@@ -49,6 +52,9 @@ mbtiles copy normalized.mbtiles dst.mbtiles \
 ```
 ### apply-diff
 Apply the diff file generated from `copy` command above to an mbtiles file. The diff file can be applied to the `src_file.mbtiles` elsewhere, to avoid copying/transmitting the entire modified dataset.
+
+Note that the `agg_tiles_hash_in_diff` metadata value will be renamed to `agg_tiles_hash` when applying the diff. This is done to avoid confusion when applying the diff file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied.
+
 ```shell
 mbtiles apply_diff src_file.mbtiles diff_file.mbtiles
 ```

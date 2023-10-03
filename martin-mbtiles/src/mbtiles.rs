@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
+use enum_display::EnumDisplay;
 use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
@@ -54,7 +55,15 @@ where
     s.end()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Metadata key for the aggregate tiles hash value
+pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
+
+/// Metadata key for a diff file,
+/// describing the eventual AGG_TILES_HASH value once the diff is applied
+pub const AGG_TILES_HASH_IN_DIFF: &str = "agg_tiles_hash_after_apply";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
+#[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtType {
     Flat,
@@ -62,7 +71,8 @@ pub enum MbtType {
     Normalized,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone)]
+#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum IntegrityCheckType {
     #[default]
@@ -94,11 +104,13 @@ impl Mbtiles {
     }
 
     pub async fn open(&self) -> MbtResult<SqliteConnection> {
+        debug!("Opening w/ defaults {}", self.filepath());
         let opt = SqliteConnectOptions::new().filename(self.filepath());
         Self::open_int(&opt).await
     }
 
     pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
+        debug!("Opening or creating {}", self.filepath());
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .create_if_missing(true);
@@ -106,6 +118,7 @@ impl Mbtiles {
     }
 
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
+        debug!("Opening as readonly {}", self.filepath());
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .read_only(true);
@@ -144,6 +157,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        debug!("Attaching {} as {name}", self.filepath());
         query(&format!("ATTACH DATABASE ? AS {name}"))
             .bind(self.filepath())
             .execute(conn)
@@ -171,7 +185,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        self.get_metadata_value(&mut *conn, "agg_tiles_hash").await
+        self.get_metadata_value(&mut *conn, AGG_TILES_HASH).await
     }
 
     pub async fn set_metadata_value<T>(
@@ -397,6 +411,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        debug!("Detecting MBTiles type for {}", self.filepath());
         let mbt_type = if is_normalized_tables_type(&mut *conn).await? {
             MbtType::Normalized
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
@@ -534,7 +549,7 @@ impl Mbtiles {
             } else {
                 info!("Creating new metadata value agg_tiles_hash = {hash} in {path}");
             }
-            self.set_metadata_value(&mut *conn, "agg_tiles_hash", Some(hash))
+            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, Some(hash))
                 .await
         }
     }
@@ -546,7 +561,7 @@ impl Mbtiles {
         // Note that hex() always returns upper-case HEX values
         let sql = match self.detect_type(&mut *conn).await? {
             MbtType::Flat => {
-                println!("Skipping per-tile hash validation because this is a flat MBTiles file");
+                info!("Skipping per-tile hash validation because this is a flat MBTiles file");
                 return Ok(());
             }
             MbtType::FlatWithHash => {
@@ -593,6 +608,7 @@ async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    debug!("Calculating agg_tiles_hash");
     let query = query(
         // The md5_concat func will return NULL if there are no rows in the tiles table.
         // For our use case, we will treat it as an empty string, and hash that.
@@ -626,6 +642,17 @@ pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
+pub async fn detach_db<T>(conn: &mut T, name: &str) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    debug!("Detaching {name}");
+    query(&format!("DETACH DATABASE {name}"))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -638,9 +665,7 @@ mod tests {
 
     async fn open(filepath: &str) -> MbtResult<(SqliteConnection, Mbtiles)> {
         let mbt = Mbtiles::new(filepath)?;
-        let mut conn = SqliteConnection::connect(mbt.filepath()).await?;
-        attach_hash_fn(&mut conn).await?;
-        Ok((conn, mbt))
+        mbt.open().await.map(|conn| (conn, mbt))
     }
 
     #[actix_rt::test]

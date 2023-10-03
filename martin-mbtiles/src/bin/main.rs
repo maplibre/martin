@@ -198,24 +198,25 @@ mod tests {
 
     #[test]
     fn test_copy_min_max_zoom_arguments() {
+        let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
+        opt.min_zoom = Some(1);
+        opt.max_zoom = Some(100);
+
+        let args = Args::parse_from([
+            "mbtiles",
+            "copy",
+            "src_file",
+            "dst_file",
+            "--max-zoom",
+            "100",
+            "--min-zoom",
+            "1",
+        ]);
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--max-zoom",
-                "100",
-                "--min-zoom",
-                "1"
-            ]),
+            args,
             Args {
                 verbose: false,
-                command: Copy(
-                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
-                        .min_zoom(Some(1))
-                        .max_zoom(Some(100))
-                )
+                command: Copy(opt)
             }
         );
     }
@@ -260,6 +261,8 @@ mod tests {
 
     #[test]
     fn test_copy_zoom_levels_arguments() {
+        let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
+        opt.zoom_levels.extend(&[1, 3, 7]);
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -271,16 +274,15 @@ mod tests {
             ]),
             Args {
                 verbose: false,
-                command: Copy(
-                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
-                        .zoom_levels(vec![1, 3, 7])
-                )
+                command: Copy(opt)
             }
         );
     }
 
     #[test]
     fn test_copy_diff_with_file_arguments() {
+        let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
+        opt.diff_with_file = Some(PathBuf::from("no_file"));
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -292,16 +294,15 @@ mod tests {
             ]),
             Args {
                 verbose: false,
-                command: Copy(
-                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
-                        .diff_with_file(PathBuf::from("no_file"))
-                )
+                command: Copy(opt)
             }
         );
     }
 
     #[test]
     fn test_copy_diff_with_override_copy_duplicate_mode() {
+        let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
+        opt.on_duplicate = CopyDuplicateMode::Override;
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -313,16 +314,15 @@ mod tests {
             ]),
             Args {
                 verbose: false,
-                command: Copy(
-                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
-                        .on_duplicate(CopyDuplicateMode::Override)
-                )
+                command: Copy(opt)
             }
         );
     }
 
     #[test]
     fn test_copy_diff_with_ignore_copy_duplicate_mode() {
+        let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
+        opt.on_duplicate = CopyDuplicateMode::Ignore;
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -334,16 +334,15 @@ mod tests {
             ]),
             Args {
                 verbose: false,
-                command: Copy(
-                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
-                        .on_duplicate(CopyDuplicateMode::Ignore)
-                )
+                command: Copy(opt)
             }
         );
     }
 
     #[test]
     fn test_copy_diff_with_abort_copy_duplicate_mode() {
+        let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
+        opt.on_duplicate = CopyDuplicateMode::Abort;
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -355,10 +354,7 @@ mod tests {
             ]),
             Args {
                 verbose: false,
-                command: Copy(
-                    MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"))
-                        .on_duplicate(CopyDuplicateMode::Abort)
-                )
+                command: Copy(opt)
             }
         );
     }

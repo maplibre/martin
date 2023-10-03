@@ -3,21 +3,23 @@ use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
 use clap::{builder::ValueParser, error::ErrorKind, Args, ValueEnum};
+use enum_display::EnumDisplay;
+use log::{debug, info};
 use sqlite_hashes::rusqlite;
 use sqlite_hashes::rusqlite::params_from_iter;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query, Connection, Executor as _, Row, SqliteConnection};
+use sqlx::{query, Executor as _, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::mbtiles::{attach_hash_fn, MbtType};
+use crate::mbtiles::{detach_db, MbtType};
 use crate::queries::{
     create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
     create_tiles_with_hash_view,
 };
-use crate::{MbtError, Mbtiles};
+use crate::{MbtError, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
 
-#[derive(PartialEq, Eq, Default, Debug, Clone)]
+#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum CopyDuplicateMode {
     #[default]
@@ -30,30 +32,31 @@ pub enum CopyDuplicateMode {
 #[cfg_attr(feature = "cli", derive(Args))]
 pub struct MbtilesCopier {
     /// MBTiles file to read from
-    src_file: PathBuf,
+    pub src_file: PathBuf,
     /// MBTiles file to write to
-    dst_file: PathBuf,
+    pub dst_file: PathBuf,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[cfg_attr(feature = "cli", arg(long, value_enum))]
-    dst_type: Option<MbtType>,
+    pub dst_type: Option<MbtType>,
     /// Specify copying behaviour when tiles with duplicate (zoom_level, tile_column, tile_row) values are found
     #[cfg_attr(feature = "cli", arg(long, value_enum, default_value_t = CopyDuplicateMode::default()))]
-    on_duplicate: CopyDuplicateMode,
+    pub on_duplicate: CopyDuplicateMode,
     /// Minimum zoom level to copy
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
-    min_zoom: Option<u8>,
+    pub min_zoom: Option<u8>,
     /// Maximum zoom level to copy
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
-    max_zoom: Option<u8>,
+    pub max_zoom: Option<u8>,
     /// List of zoom levels to copy
     #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{})), default_value=""))]
-    zoom_levels: HashSet<u8>,
-    /// Compare source file with this file, and only copy non-identical tiles to destination
+    pub zoom_levels: HashSet<u8>,
+    /// Compare source file with this file, and only copy non-identical tiles to destination.
+    /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
     #[cfg_attr(feature = "cli", arg(long))]
-    diff_with_file: Option<PathBuf>,
+    pub diff_with_file: Option<PathBuf>,
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     #[cfg_attr(feature = "cli", arg(long))]
-    skip_agg_tiles_hash: bool,
+    pub skip_agg_tiles_hash: bool,
 }
 
 #[cfg(feature = "cli")]
@@ -111,48 +114,6 @@ impl MbtilesCopier {
         }
     }
 
-    #[must_use]
-    pub fn dst_type(mut self, dst_type: Option<MbtType>) -> Self {
-        self.dst_type = dst_type;
-        self
-    }
-
-    #[must_use]
-    pub fn on_duplicate(mut self, on_duplicate: CopyDuplicateMode) -> Self {
-        self.on_duplicate = on_duplicate;
-        self
-    }
-
-    #[must_use]
-    pub fn zoom_levels(mut self, zoom_levels: Vec<u8>) -> Self {
-        self.zoom_levels.extend(zoom_levels);
-        self
-    }
-
-    #[must_use]
-    pub fn min_zoom(mut self, min_zoom: Option<u8>) -> Self {
-        self.min_zoom = min_zoom;
-        self
-    }
-
-    #[must_use]
-    pub fn max_zoom(mut self, max_zoom: Option<u8>) -> Self {
-        self.max_zoom = max_zoom;
-        self
-    }
-
-    #[must_use]
-    pub fn diff_with_file(mut self, diff_with_file: PathBuf) -> Self {
-        self.diff_with_file = Some(diff_with_file);
-        self
-    }
-
-    #[must_use]
-    pub fn skip_agg_tiles_hash(mut self, skip_global_hash: bool) -> Self {
-        self.skip_agg_tiles_hash = skip_global_hash;
-        self
-    }
-
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         MbtileCopierInt::new(self)?.run().await
     }
@@ -160,6 +121,15 @@ impl MbtilesCopier {
 
 impl MbtileCopierInt {
     pub fn new(options: MbtilesCopier) -> MbtResult<Self> {
+        // We may want to resolve the files to absolute paths here, but will need to avoid various non-file cases
+        if options.src_file == options.dst_file {
+            return Err(MbtError::SameSourceAndDestination(options.src_file));
+        }
+        if let Some(diff_file) = &options.diff_with_file {
+            if options.src_file == *diff_file || options.dst_file == *diff_file {
+                return Err(MbtError::SameDiffAndSourceOrDestination(options.src_file));
+            }
+        }
         Ok(MbtileCopierInt {
             src_mbtiles: Mbtiles::new(&options.src_file)?,
             dst_mbtiles: Mbtiles::new(&options.dst_file)?,
@@ -170,15 +140,7 @@ impl MbtileCopierInt {
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         // src file connection is not needed after this point, as it will be attached to the dst file
         let src_type = self.src_mbtiles.open_and_detect_type().await?;
-
-        let mut conn = SqliteConnection::connect_with(
-            &SqliteConnectOptions::new()
-                .create_if_missing(true)
-                .filename(&self.options.dst_file),
-        )
-        .await?;
-
-        attach_hash_fn(&mut conn).await?;
+        let mut conn = self.dst_mbtiles.open_or_new().await?;
 
         let is_empty = query!("SELECT 1 as has_rows FROM sqlite_schema LIMIT 1")
             .fetch_optional(&mut conn)
@@ -187,12 +149,22 @@ impl MbtileCopierInt {
 
         let dst_type = if is_empty {
             let dst_type = self.options.dst_type.unwrap_or(src_type);
-            self.copy_to_new(&mut conn, src_type, dst_type).await?;
+            info!(
+                "Copying {} ({src_type}) to a new file {} ({dst_type})",
+                self.options.src_file.display(),
+                self.options.dst_file.display()
+            );
+            self.init_new_schema(&mut conn, src_type, dst_type).await?;
             dst_type
         } else if self.options.diff_with_file.is_some() {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         } else {
             let dst_type = self.dst_mbtiles.detect_type(&mut conn).await?;
+            info!(
+                "Copying {} ({src_type}) to an existing file {} ({dst_type})",
+                self.options.src_file.display(),
+                self.options.dst_file.display()
+            );
             self.src_mbtiles.attach_to(&mut conn, "sourceDb").await?;
             dst_type
         };
@@ -200,11 +172,15 @@ impl MbtileCopierInt {
         let (on_dupl, sql_cond) = self.get_on_duplicate_sql(dst_type);
 
         let (select_from, query_args) = {
-            let select_from = if let Some(diff_file) = &self.options.diff_with_file {
-                let diff_with_mbtiles = Mbtiles::new(diff_file)?;
-                let diff_type = diff_with_mbtiles.open_and_detect_type().await?;
-                diff_with_mbtiles.attach_to(&mut conn, "newDb").await?;
-                Self::get_select_from_with_diff(dst_type, diff_type)
+            let select_from = if let Some(dif_file) = &self.options.diff_with_file {
+                let dif_file = Mbtiles::new(dif_file)?;
+                let dif_type = dif_file.open_and_detect_type().await?;
+                info!(
+                    "Copying only the data not found in {} ({dif_type})",
+                    dif_file.filepath(),
+                );
+                dif_file.attach_to(&mut conn, "diffDb").await?;
+                Self::get_select_from_with_diff(dst_type, dif_type)
             } else {
                 Self::get_select_from(dst_type, src_type).to_string()
             };
@@ -215,6 +191,7 @@ impl MbtileCopierInt {
         };
 
         {
+            debug!("Copying tiles with 'INSERT {on_dupl}' {src_type} -> {dst_type} ({sql_cond})");
             // Make sure not to execute any other queries while the handle is locked
             let mut handle_lock = conn.lock_handle().await?;
             let handle = handle_lock.as_raw_handle().as_ptr();
@@ -247,21 +224,51 @@ impl MbtileCopierInt {
                     )?
                 }
             };
+
+            let sql = if self.options.diff_with_file.is_some() {
+                debug!("Copying metadata with 'INSERT {on_dupl}', taking into account diff file");
+                // Insert all rows from diffDb.metadata if they do not exist or are different in sourceDb.metadata.
+                // Also insert all names from sourceDb.metadata that do not exist in diffDb.metadata, with their value set to NULL.
+                // Rename agg_tiles_hash to agg_tiles_hash_in_diff because agg_tiles_hash will be auto-added later
+                format!(
+                    "INSERT {on_dupl} INTO metadata (name, value)
+                         SELECT CASE WHEN dif.name = '{AGG_TILES_HASH}' THEN '{AGG_TILES_HASH_IN_DIFF}' ELSE dif.name END as name,
+                                dif.value as value
+                         FROM diffDb.metadata AS dif LEFT JOIN sourceDb.metadata AS src
+                           ON dif.name = src.name
+                         WHERE (dif.value != src.value OR src.value ISNULL)
+                           AND dif.name != '{AGG_TILES_HASH_IN_DIFF}'
+                     UNION ALL
+                         SELECT src.name as name, NULL as value
+                         FROM sourceDb.metadata AS src LEFT JOIN diffDb.metadata AS dif
+                           ON src.name = dif.name
+                         WHERE dif.value ISNULL AND src.name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_IN_DIFF}');"
+                )
+            } else {
+                debug!("Copying metadata with 'INSERT {on_dupl}'");
+                format!("INSERT {on_dupl} INTO metadata SELECT name, value FROM sourceDb.metadata")
+            };
+            rusqlite_conn.execute(&sql, [])?;
         }
 
         if !self.options.skip_agg_tiles_hash {
             self.dst_mbtiles.update_agg_tiles_hash(&mut conn).await?;
         }
 
+        detach_db(&mut conn, "sourceDb").await?;
+        // Ignore error because we might not have attached diffDb
+        let _ = detach_db(&mut conn, "diffDb").await;
+
         Ok(conn)
     }
 
-    async fn copy_to_new(
+    async fn init_new_schema(
         &self,
         conn: &mut SqliteConnection,
         src: MbtType,
         dst: MbtType,
     ) -> MbtResult<()> {
+        debug!("Resetting PRAGMA settings and vacuuming");
         query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
         query!("PRAGMA encoding = 'UTF-8'")
             .execute(&mut *conn)
@@ -272,12 +279,13 @@ impl MbtileCopierInt {
 
         if src == dst {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
+            debug!("Copying DB schema verbatim");
             let sql_objects = conn
                 .fetch_all(
                     "SELECT sql
                      FROM sourceDb.sqlite_schema
                      WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
-                         AND type IN ('table', 'view', 'trigger', 'index')
+                         AND type    IN ('table', 'view', 'trigger', 'index')
                      ORDER BY CASE
                          WHEN type = 'table' THEN 1
                          WHEN type = 'view' THEN 2
@@ -302,9 +310,6 @@ impl MbtileCopierInt {
             // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
             create_tiles_with_hash_view(&mut *conn).await?;
         }
-
-        conn.execute("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
-            .await?;
 
         Ok(())
     }
@@ -338,14 +343,14 @@ impl MbtileCopierInt {
 
     fn get_select_from_with_diff(dst_type: MbtType, diff_type: MbtType) -> String {
         let (hash_col_sql, new_tiles_with_hash) = if dst_type == Flat {
-            ("", "newDb.tiles")
+            ("", "diffDb.tiles")
         } else {
             match diff_type {
-                Flat => (", hex(md5(tile_data)) as hash", "newDb.tiles"),
-                FlatWithHash => (", new_tiles_with_hash.tile_hash as hash", "newDb.tiles_with_hash"),
+                Flat => (", hex(md5(tile_data)) as hash", "diffDb.tiles"),
+                FlatWithHash => (", new_tiles_with_hash.tile_hash as hash", "diffDb.tiles_with_hash"),
                 Normalized => (", new_tiles_with_hash.hash",
                                "(SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
-                                 FROM newDb.map JOIN newDb.images ON newDb.map.tile_id = newDb.images.tile_id)"),
+                                 FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"),
             }
         };
 
@@ -453,7 +458,27 @@ pub async fn apply_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> 
     .execute(&mut conn)
     .await?;
 
-    Ok(())
+    // Copy metadata from diffDb to the destination file, replacing existing values
+    // Convert 'agg_tiles_hash_in_diff' into 'agg_tiles_hash'
+    // Delete metadata entries if the value is NULL in diffDb
+    query(&format!(
+        "INSERT OR REPLACE INTO metadata (name, value)
+         SELECT CASE WHEN name = '{AGG_TILES_HASH_IN_DIFF}' THEN '{AGG_TILES_HASH}' ELSE name END as name,
+                value
+         FROM diffDb.metadata
+         WHERE name NOTNULL AND name != '{AGG_TILES_HASH}';"
+    ))
+    .execute(&mut conn)
+    .await?;
+
+    query(
+        "DELETE FROM metadata
+         WHERE name IN (SELECT name FROM diffDb.metadata WHERE value ISNULL);",
+    )
+    .execute(&mut conn)
+    .await?;
+
+    detach_db(&mut conn, "diffDb").await
 }
 
 #[cfg(test)]
@@ -475,10 +500,9 @@ mod tests {
         dst_type: Option<MbtType>,
         expected_dst_type: MbtType,
     ) -> MbtResult<()> {
-        let mut dst_conn = MbtilesCopier::new(src_filepath.clone(), dst_filepath.clone())
-            .dst_type(dst_type)
-            .run()
-            .await?;
+        let mut opt = MbtilesCopier::new(src_filepath.clone(), dst_filepath.clone());
+        opt.dst_type = dst_type;
+        let mut dst_conn = opt.run().await?;
 
         Mbtiles::new(src_filepath)?
             .attach_to(&mut dst_conn, "srcDb")
@@ -500,10 +524,10 @@ mod tests {
     }
 
     async fn verify_copy_with_zoom_filter(
-        opts: MbtilesCopier,
+        opt: MbtilesCopier,
         expected_zoom_levels: u8,
     ) -> MbtResult<()> {
-        let mut dst_conn = opts.run().await?;
+        let mut dst_conn = opt.run().await?;
 
         assert_eq!(
             get_one::<u8>(
@@ -594,9 +618,9 @@ mod tests {
     async fn copy_with_min_max_zoom() -> MbtResult<()> {
         let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_min_max_zoom_mem_db?mode=memory&cache=shared");
-        let opt = MbtilesCopier::new(src, dst)
-            .min_zoom(Some(2))
-            .max_zoom(Some(4));
+        let mut opt = MbtilesCopier::new(src, dst);
+        opt.min_zoom = Some(2);
+        opt.max_zoom = Some(4);
         verify_copy_with_zoom_filter(opt, 3).await
     }
 
@@ -604,10 +628,10 @@ mod tests {
     async fn copy_with_zoom_levels() -> MbtResult<()> {
         let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let dst = PathBuf::from("file:copy_with_zoom_levels_mem_db?mode=memory&cache=shared");
-        let opt = MbtilesCopier::new(src, dst)
-            .min_zoom(Some(2))
-            .max_zoom(Some(4))
-            .zoom_levels(vec![1, 6]);
+        let mut opt = MbtilesCopier::new(src, dst);
+        opt.min_zoom = Some(2);
+        opt.max_zoom = Some(4);
+        opt.zoom_levels.extend(&[1, 6]);
         verify_copy_with_zoom_filter(opt, 2).await
     }
 
@@ -619,10 +643,9 @@ mod tests {
         let diff_file =
             PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles");
 
-        let copy_opts =
-            MbtilesCopier::new(src.clone(), dst.clone()).diff_with_file(diff_file.clone());
-
-        let mut dst_conn = copy_opts.run().await?;
+        let mut opt = MbtilesCopier::new(src.clone(), dst.clone());
+        opt.diff_with_file = Some(diff_file.clone());
+        let mut dst_conn = opt.run().await?;
 
         assert!(dst_conn
             .fetch_optional("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
@@ -680,11 +703,11 @@ mod tests {
         let src = PathBuf::from("../tests/fixtures/mbtiles/world_cities_modified.mbtiles");
         let dst = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
 
-        let copy_opts =
-            MbtilesCopier::new(src.clone(), dst.clone()).on_duplicate(CopyDuplicateMode::Abort);
+        let mut opt = MbtilesCopier::new(src.clone(), dst.clone());
+        opt.on_duplicate = CopyDuplicateMode::Abort;
 
         assert!(matches!(
-            copy_opts.run().await.unwrap_err(),
+            opt.run().await.unwrap_err(),
             MbtError::RusqliteError(..)
         ));
     }
@@ -731,10 +754,9 @@ mod tests {
             .run()
             .await?;
 
-        let mut dst_conn = MbtilesCopier::new(src_file.clone(), dst.clone())
-            .on_duplicate(CopyDuplicateMode::Ignore)
-            .run()
-            .await?;
+        let mut opt = MbtilesCopier::new(src_file.clone(), dst.clone());
+        opt.on_duplicate = CopyDuplicateMode::Ignore;
+        let mut dst_conn = opt.run().await?;
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
         Mbtiles::new(src_file)?

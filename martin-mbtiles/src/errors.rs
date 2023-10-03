@@ -5,6 +5,12 @@ use sqlite_hashes::rusqlite;
 
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
+    #[error("The source and destination MBTiles files are the same: {}", .0.display())]
+    SameSourceAndDestination(PathBuf),
+
+    #[error("The diff file and source or destination MBTiles files are the same: {}", .0.display())]
+    SameDiffAndSourceOrDestination(PathBuf),
+
     #[error("SQL Error {0}")]
     SqlxError(#[from] sqlx::Error),
 

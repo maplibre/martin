@@ -1,3 +1,4 @@
+use log::debug;
 use sqlx::{query, Executor as _, SqliteExecutor};
 
 use crate::errors::MbtResult;
@@ -125,6 +126,7 @@ pub async fn create_metadata_table<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    debug!("Creating metadata table if it doesn't already exist");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS metadata (
              name text NOT NULL PRIMARY KEY,
@@ -141,6 +143,7 @@ where
 {
     create_metadata_table(&mut *conn).await?;
 
+    debug!("Creating if needed flat table: tiles(z,x,y,data)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles (
              zoom_level integer NOT NULL,
@@ -160,6 +163,7 @@ where
 {
     create_metadata_table(&mut *conn).await?;
 
+    debug!("Creating if needed flat-with-hash table: tiles_with_hash(z,x,y,data,hash)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles_with_hash (
              zoom_level integer NOT NULL,
@@ -171,6 +175,7 @@ where
     )
     .await?;
 
+    debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles AS
              SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;",
@@ -186,6 +191,7 @@ where
 {
     create_metadata_table(&mut *conn).await?;
 
+    debug!("Creating if needed normalized table: map(z,x,y,id)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS map (
              zoom_level integer NOT NULL,
@@ -196,6 +202,7 @@ where
     )
     .await?;
 
+    debug!("Creating if needed normalized table: images(id,data)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS images (
              tile_data blob,
@@ -203,6 +210,7 @@ where
     )
     .await?;
 
+    debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles AS
              SELECT map.zoom_level AS zoom_level,
@@ -221,6 +229,7 @@ pub async fn create_tiles_with_hash_view<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    debug!("Creating if needed tiles_with_hash view for normalized map+images structure");
     conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles_with_hash AS
              SELECT

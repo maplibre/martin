@@ -1,0 +1,40 @@
+---
+source: martin-mbtiles/tests/mbtiles.rs
+expression: result
+---
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "edit", "value - v1"  )',
+    '(  "remove", "value - remove"  )',
+    '(  "same", "value - same"  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles'
+sql = '''
+CREATE TABLE tiles (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  1, 0, 0, "same"  )',
+    '(  1, 0, 1, "edit-v1"  )',
+    '(  1, 1, 1, "remove"  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles'
