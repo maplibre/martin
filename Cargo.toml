@@ -55,6 +55,6 @@ tilejson = "0.3"
 tokio = { version = "1.32.0", features = ["macros"] }
 tokio-postgres-rustls = "0.10"
 
-[profile.dev.package.sqlx-macros]
+[profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
-opt-level = 3
+sqlx-macros.opt-level = 3

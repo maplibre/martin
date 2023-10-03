@@ -6,14 +6,14 @@ use clap::{builder::ValueParser, error::ErrorKind, Args, ValueEnum};
 use sqlite_hashes::rusqlite;
 use sqlite_hashes::rusqlite::params_from_iter;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query, Connection, Row, SqliteConnection};
+use sqlx::{query, Connection, Executor as _, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
 use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::mbtiles::{attach_hash_fn, MbtType};
 use crate::queries::{
-    create_flat_tables, create_flat_with_hash_tables, create_metadata_table,
-    create_normalized_tables, create_tiles_with_hash_view,
+    create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
+    create_tiles_with_hash_view,
 };
 use crate::{MbtError, Mbtiles};
 
@@ -187,8 +187,7 @@ impl MbtileCopierInt {
 
         let dst_type = if is_empty {
             let dst_type = self.options.dst_type.unwrap_or(src_type);
-            self.create_new_mbtiles(&mut conn, src_type, dst_type)
-                .await?;
+            self.copy_to_new(&mut conn, src_type, dst_type).await?;
             dst_type
         } else if self.options.diff_with_file.is_some() {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
@@ -257,39 +256,41 @@ impl MbtileCopierInt {
         Ok(conn)
     }
 
-    async fn create_new_mbtiles(
+    async fn copy_to_new(
         &self,
         conn: &mut SqliteConnection,
         src: MbtType,
         dst: MbtType,
     ) -> MbtResult<()> {
         query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
+        query!("PRAGMA encoding = 'UTF-8'")
+            .execute(&mut *conn)
+            .await?;
         query!("VACUUM").execute(&mut *conn).await?;
 
         self.src_mbtiles.attach_to(&mut *conn, "sourceDb").await?;
 
         if src == dst {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
-            let sql_objects = query(
-                "SELECT sql
-                 FROM sourceDb.sqlite_schema
-                 WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
-                     AND type IN ('table', 'view', 'trigger', 'index')
-                 ORDER BY CASE
-                     WHEN type = 'table' THEN 1
-                     WHEN type = 'view' THEN 2
-                     WHEN type = 'trigger' THEN 3
-                     WHEN type = 'index' THEN 4
-                     ELSE 5 END",
-            )
-            .fetch_all(&mut *conn)
-            .await?;
+            let sql_objects = conn
+                .fetch_all(
+                    "SELECT sql
+                     FROM sourceDb.sqlite_schema
+                     WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
+                         AND type IN ('table', 'view', 'trigger', 'index')
+                     ORDER BY CASE
+                         WHEN type = 'table' THEN 1
+                         WHEN type = 'view' THEN 2
+                         WHEN type = 'trigger' THEN 3
+                         WHEN type = 'index' THEN 4
+                         ELSE 5 END",
+                )
+                .await?;
 
             for row in sql_objects {
                 query(row.get(0)).execute(&mut *conn).await?;
             }
         } else {
-            create_metadata_table(&mut *conn).await?;
             match dst {
                 Flat => create_flat_tables(&mut *conn).await?,
                 FlatWithHash => create_flat_with_hash_tables(&mut *conn).await?,
@@ -302,8 +303,7 @@ impl MbtileCopierInt {
             create_tiles_with_hash_view(&mut *conn).await?;
         }
 
-        query("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
-            .execute(&mut *conn)
+        conn.execute("INSERT INTO metadata SELECT * FROM sourceDb.metadata")
             .await?;
 
         Ok(())
@@ -406,12 +406,12 @@ impl MbtileCopierInt {
     }
 }
 
-pub async fn apply_mbtiles_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> {
+pub async fn apply_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> {
     let src_mbtiles = Mbtiles::new(src_file)?;
     let diff_mbtiles = Mbtiles::new(diff_file)?;
     let diff_type = diff_mbtiles.open_and_detect_type().await?;
 
-    let mut conn = src_mbtiles.open_with_hashes(false).await?;
+    let mut conn = src_mbtiles.open().await?;
     diff_mbtiles.attach_to(&mut conn, "diffDb").await?;
 
     let src_type = src_mbtiles.detect_type(&mut conn).await?;
@@ -491,12 +491,10 @@ mod tests {
             expected_dst_type
         );
 
-        assert!(
-            query("SELECT * FROM srcDb.tiles EXCEPT SELECT * FROM tiles")
-                .fetch_optional(&mut dst_conn)
-                .await?
-                .is_none()
-        );
+        assert!(dst_conn
+            .fetch_optional("SELECT * FROM srcDb.tiles EXCEPT SELECT * FROM tiles")
+            .await?
+            .is_none());
 
         Ok(())
     }
@@ -626,8 +624,8 @@ mod tests {
 
         let mut dst_conn = copy_opts.run().await?;
 
-        assert!(query("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
-            .fetch_optional(&mut dst_conn)
+        assert!(dst_conn
+            .fetch_optional("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
             .await?
             .is_some());
 
@@ -712,12 +710,10 @@ mod tests {
         Mbtiles::new(src_file)?
             .attach_to(&mut dst_conn, "otherDb")
             .await?;
-        assert!(
-            query("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles;")
-                .fetch_optional(&mut dst_conn)
-                .await?
-                .is_none()
-        );
+        assert!(dst_conn
+            .fetch_optional("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles;")
+            .await?
+            .is_none());
 
         Ok(())
     }
@@ -750,7 +746,8 @@ mod tests {
 
         // Create a temporary table with all the tiles in the original database and
         // all the tiles in the source database except for those that conflict with tiles in the original database
-        query("CREATE TEMP TABLE expected_tiles AS
+        dst_conn.execute(
+            "CREATE TEMP TABLE expected_tiles AS
                    SELECT COALESCE(t1.zoom_level, t2.zoom_level) as zoom_level,
                           COALESCE(t1.tile_column, t2.zoom_level) as tile_column,
                           COALESCE(t1.tile_row, t2.tile_row) as tile_row,
@@ -758,7 +755,6 @@ mod tests {
                    FROM originalDb.tiles as t1
                    FULL OUTER JOIN srcDb.tiles as t2
                        ON t1.zoom_level = t2.zoom_level AND t1.tile_column = t2.tile_column AND t1.tile_row = t2.tile_row")
-            .execute(&mut dst_conn)
             .await?;
 
         // Ensure all entries in expected_tiles are in tiles and vice versa
@@ -786,19 +782,17 @@ mod tests {
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_diff.mbtiles");
-        apply_mbtiles_diff(src, diff_file).await?;
+        apply_diff(src, diff_file).await?;
 
         // Verify the data is the same as the file the diff was generated from
         Mbtiles::new("../tests/fixtures/mbtiles/world_cities_modified.mbtiles")?
             .attach_to(&mut src_conn, "otherDb")
             .await?;
 
-        assert!(
-            query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
-                .fetch_optional(&mut src_conn)
-                .await?
-                .is_none()
-        );
+        assert!(src_conn
+            .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
+            .await?
+            .is_none());
 
         Ok(())
     }
@@ -815,19 +809,17 @@ mod tests {
 
         // Apply diff to the src data in in-memory DB
         let diff_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles");
-        apply_mbtiles_diff(src, diff_file).await?;
+        apply_diff(src, diff_file).await?;
 
         // Verify the data is the same as the file the diff was generated from
         Mbtiles::new("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles")?
             .attach_to(&mut src_conn, "otherDb")
             .await?;
 
-        assert!(
-            query("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
-                .fetch_optional(&mut src_conn)
-                .await?
-                .is_none()
-        );
+        assert!(src_conn
+            .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM otherDb.tiles;")
+            .await?
+            .is_none());
 
         Ok(())
     }

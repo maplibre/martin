@@ -1,4 +1,4 @@
-use sqlx::{query, SqliteExecutor};
+use sqlx::{query, Executor as _, SqliteExecutor};
 
 use crate::errors::MbtResult;
 
@@ -125,12 +125,11 @@ pub async fn create_metadata_table<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    query(
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS metadata (
              name text NOT NULL PRIMARY KEY,
              value text);",
     )
-    .execute(&mut *conn)
     .await?;
 
     Ok(())
@@ -140,7 +139,9 @@ pub async fn create_flat_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    query(
+    create_metadata_table(&mut *conn).await?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
@@ -148,7 +149,6 @@ where
              tile_data blob,
              PRIMARY KEY(zoom_level, tile_column, tile_row));",
     )
-    .execute(&mut *conn)
     .await?;
 
     Ok(())
@@ -158,7 +158,9 @@ pub async fn create_flat_with_hash_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    query(
+    create_metadata_table(&mut *conn).await?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles_with_hash (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
@@ -167,14 +169,12 @@ where
              tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row));",
     )
-    .execute(&mut *conn)
     .await?;
 
-    query(
+    conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles AS
              SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;",
     )
-    .execute(&mut *conn)
     .await?;
 
     Ok(())
@@ -184,7 +184,9 @@ pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    query(
+    create_metadata_table(&mut *conn).await?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS map (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
@@ -192,18 +194,16 @@ where
              tile_id text,
              PRIMARY KEY(zoom_level, tile_column, tile_row));",
     )
-    .execute(&mut *conn)
     .await?;
 
-    query(
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS images (
              tile_data blob,
              tile_id text NOT NULL PRIMARY KEY);",
     )
-    .execute(&mut *conn)
     .await?;
 
-    query(
+    conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles AS
              SELECT map.zoom_level AS zoom_level,
                     map.tile_column AS tile_column,
@@ -212,7 +212,6 @@ where
              FROM map
              JOIN images ON images.tile_id = map.tile_id;",
     )
-    .execute(&mut *conn)
     .await?;
 
     Ok(())
@@ -222,7 +221,7 @@ pub async fn create_tiles_with_hash_view<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    query(
+    conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles_with_hash AS
              SELECT
                  map.zoom_level AS zoom_level,
@@ -233,7 +232,6 @@ where
              FROM map
              JOIN images ON images.tile_id = map.tile_id",
     )
-    .execute(&mut *conn)
     .await?;
 
     Ok(())

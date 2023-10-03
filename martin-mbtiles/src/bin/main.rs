@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use log::{error, LevelFilter};
-use martin_mbtiles::{apply_mbtiles_diff, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
+use martin_mbtiles::{apply_diff, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
 
 #[derive(Parser, PartialEq, Eq, Debug)]
 #[command(
@@ -104,14 +104,14 @@ async fn main_int() -> anyhow::Result<()> {
             src_file,
             diff_file,
         } => {
-            apply_mbtiles_diff(src_file, diff_file).await?;
+            apply_diff(src_file, diff_file).await?;
         }
         Commands::Validate {
             file,
             integrity_check,
             update_agg_tiles_hash,
         } => {
-            validate_mbtiles(file.as_path(), integrity_check, update_agg_tiles_hash).await?;
+            validate(file.as_path(), integrity_check, update_agg_tiles_hash).await?;
         }
     }
 
@@ -120,7 +120,7 @@ async fn main_int() -> anyhow::Result<()> {
 
 async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
     let mbt = Mbtiles::new(file)?;
-    let mut conn = mbt.open_with_hashes(true).await?;
+    let mut conn = mbt.open_readonly().await?;
     let metadata = mbt.get_metadata(&mut conn).await?;
     println!("{}", serde_yaml::to_string(&metadata)?);
     Ok(())
@@ -128,7 +128,7 @@ async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
 
 async fn meta_get_value(file: &Path, key: &str) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
-    let mut conn = mbt.open_with_hashes(true).await?;
+    let mut conn = mbt.open_readonly().await?;
     if let Some(s) = mbt.get_metadata_value(&mut conn, key).await? {
         println!("{s}");
     }
@@ -137,17 +137,21 @@ async fn meta_get_value(file: &Path, key: &str) -> MbtResult<()> {
 
 async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
-    let mut conn = mbt.open_with_hashes(false).await?;
+    let mut conn = mbt.open().await?;
     mbt.set_metadata_value(&mut conn, key, value).await
 }
 
-async fn validate_mbtiles(
+async fn validate(
     file: &Path,
     check_type: IntegrityCheckType,
     update_agg_tiles_hash: bool,
 ) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
-    let mut conn = mbt.open_with_hashes(!update_agg_tiles_hash).await?;
+    let mut conn = if update_agg_tiles_hash {
+        mbt.open().await?
+    } else {
+        mbt.open_readonly().await?
+    };
     mbt.check_integrity(&mut conn, check_type).await?;
     mbt.check_each_tile_hash(&mut conn).await?;
     if update_agg_tiles_hash {
