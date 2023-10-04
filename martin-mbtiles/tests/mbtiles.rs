@@ -4,32 +4,38 @@ use std::str::from_utf8;
 use ctor::ctor;
 use insta::assert_toml_snapshot;
 use martin_mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
-use martin_mbtiles::{apply_diff, create_flat_tables, MbtResult, Mbtiles, MbtilesCopier};
+use martin_mbtiles::{apply_diff, create_flat_tables, MbtResult, MbtType, Mbtiles, MbtilesCopier};
 use serde::Serialize;
 use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
 
-const INSERT_TILES_V1: &str = "
+const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
         (1, 0, 0, cast('same' as blob))
       , (1, 0, 1, cast('edit-v1' as blob))
       , (1, 1, 1, cast('remove' as blob))
+      , (2, 0, 0, cast('z2-same' as blob))
+      , (2, 0, 1, cast('z2-edit-v1' as blob))
+      , (2, 1, 1, cast('z2-remove' as blob))
       ;";
 
-const INSERT_TILES_V2: &str = "
+const TILES_V2: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
         (1, 0, 0, cast('same' as blob))
       , (1, 0, 1, cast('edit-v2' as blob))
       , (1, 1, 0, cast('new' as blob))
+      , (2, 0, 0, cast('z2-same' as blob))
+      , (2, 0, 1, cast('z2-edit-v2' as blob))
+      , (2, 1, 0, cast('z2-new' as blob))
       ;";
 
-const INSERT_METADATA_V1: &str = "
+const METADATA_V1: &str = "
     INSERT INTO metadata (name, value) VALUES
         ('md-same', 'value - same')
       , ('md-edit', 'value - v1')
       , ('md-remove', 'value - remove')
       ;";
 
-const INSERT_METADATA_V2: &str = "
+const METADATA_V2: &str = "
     INSERT INTO metadata (name, value) VALUES
         ('md-same', 'value - same')
       , ('md-edit', 'value - v2')
@@ -55,16 +61,24 @@ async fn open(file: &str) -> MbtResult<(Mbtiles, SqliteConnection)> {
     Ok((mbtiles, conn))
 }
 
+fn shorten(v: &MbtType) -> &'static str {
+    match *v {
+        Flat => "flat",
+        FlatWithHash => "hash",
+        Normalized => "norm",
+    }
+}
+
 macro_rules! assert_snapshot {
     ($prefix:expr, $name:expr, $actual:expr) => {
         let mut settings = insta::Settings::clone_current();
         let name = if $name != "" {
-            format!("{}-{}", $prefix, $name)
+            format!("{}__{}", $prefix, $name)
         } else {
             $prefix.to_string()
         };
         settings.set_snapshot_suffix(name);
-        let result = $actual;
+        let result = &$actual;
         settings.bind(|| assert_toml_snapshot!(result));
     };
 }
@@ -86,7 +100,6 @@ macro_rules! new_source {
         create_flat_tables(&mut cn_dst).await?;
         cn_dst.execute($sql_data).await?;
         cn_dst.execute($sql_meta).await?;
-        assert_snapshot!(name, "", dump(&mut cn_dst).await?);
         (dst, cn_dst)
     }};
 }
@@ -115,7 +128,6 @@ macro_rules! cp_exact {
         opt.skip_agg_tiles_hash = $skip_agg;
         opt.dst_type = Some($dst_type);
         let dmp = dump(&mut opt.run().await?).await?;
-        assert_snapshot!(name, "", &dmp);
         (dst, cn_dst, dmp)
     }};
 }
@@ -124,33 +136,47 @@ macro_rules! cp_exact {
 async fn copy_and_convert() -> MbtResult<()> {
     let mem = Mbtiles::new(":memory:")?;
 
-    let (orig, _cn_orig) = new_source!(cp_conv, orig, INSERT_METADATA_V1, INSERT_TILES_V1);
+    let (orig, _cn_orig) = new_source!(cp_conv, orig, METADATA_V1, TILES_V1);
     let (flat, _cn_flat, _) = cp_exact!(cp_conv, orig, flat, Flat);
     let (hash, _cn_hash, _) = cp_exact!(cp_conv, orig, hash, FlatWithHash);
     let (norm, _cn_norm, _) = cp_exact!(cp_conv, orig, norm, Normalized);
 
-    let types = &[
-        ("flat", Flat, &flat),
-        ("hash", FlatWithHash, &hash),
-        ("norm", Normalized, &norm),
-    ];
+    let types = &[(Flat, &flat), (FlatWithHash, &hash), (Normalized, &norm)];
 
-    for (frm, _, src) in types {
+    for (frm, src) in types {
         // Same content, but also will include agg_tiles_hash metadata value
+        let frm_str = shorten(frm);
         let opt = copier(src, &mem);
-        assert_snapshot!(frm, "cp", dump(&mut opt.run().await?).await?);
+        assert_snapshot!("cp", frm_str, dump(&mut opt.run().await?).await?);
 
         // Identical content to the source
         let mut opt = copier(src, &mem);
         opt.skip_agg_tiles_hash = true;
-        assert_snapshot!(frm, "cp-skip-agg", dump(&mut opt.run().await?).await?);
+        assert_snapshot!("cp-no_agg", frm_str, dump(&mut opt.run().await?).await?);
 
         // Convert to other types
-        for (to, to_type, _) in types {
-            let pair = format!("{frm}-{to}");
+        for (to_type, _) in types {
+            let pair = format!("{}-{}", shorten(frm), shorten(to_type));
             let mut opt = copier(src, &mem);
             opt.dst_type = Some(*to_type);
             assert_snapshot!("convert", pair, dump(&mut opt.run().await?).await?);
+
+            let mut opt = copier(src, &mem);
+            opt.dst_type = Some(*to_type);
+            opt.zoom_levels.insert(2);
+            let z2only = dump(&mut opt.run().await?).await?;
+            assert_snapshot!("convert-z2", pair, z2only);
+
+            let mut opt = copier(src, &mem);
+            opt.dst_type = Some(*to_type);
+            opt.min_zoom = Some(2);
+            pretty_assertions::assert_eq!(&z2only, &dump(&mut opt.run().await?).await?);
+
+            let mut opt = copier(src, &mem);
+            opt.dst_type = Some(*to_type);
+            opt.min_zoom = Some(2);
+            opt.max_zoom = Some(2);
+            pretty_assertions::assert_eq!(&z2only, &dump(&mut opt.run().await?).await?);
         }
     }
 
@@ -162,14 +188,12 @@ async fn copy_and_convert() -> MbtResult<()> {
 /// For different variants, create a delta v2-v1, and re-apply the diff to v1 to get v2a - which should be identical to v2.
 #[actix_rt::test]
 async fn diff_and_apply() -> MbtResult<()> {
-    let (orig_v1, _cn_orig_v1) =
-        new_source!(dif_aply, orig_v1, INSERT_METADATA_V1, INSERT_TILES_V1);
+    let (orig_v1, _cn_orig_v1) = new_source!(dif_aply, orig_v1, METADATA_V1, TILES_V1);
     let (flat_v1, _cn_flat_v1, _) = cp_w_hash!(dif_aply, orig_v1, flat_v1, Flat);
     let (hash_v1, _cn_hash_v1, _) = cp_w_hash!(dif_aply, orig_v1, hash_v1, FlatWithHash);
     let (norm_v1, _cn_norm_v1, _) = cp_w_hash!(dif_aply, orig_v1, norm_v1, Normalized);
 
-    let (orig_v2, _cn_orig_v2) =
-        new_source!(dif_aply, orig_v2, INSERT_METADATA_V2, INSERT_TILES_V2);
+    let (orig_v2, _cn_orig_v2) = new_source!(dif_aply, orig_v2, METADATA_V2, TILES_V2);
     let (flat_v2, _cn_flat_v2, dmp_flat_v2) = cp_w_hash!(dif_aply, orig_v2, flat_v2, Flat);
     let (hash_v2, _cn_hash_v2, dmp_hash_v2) = cp_w_hash!(dif_aply, orig_v2, hash_v2, FlatWithHash);
     let (norm_v2, _cn_norm_v2, dmp_norm_v2) = cp_w_hash!(dif_aply, orig_v2, norm_v2, Normalized);
@@ -181,38 +205,47 @@ async fn diff_and_apply() -> MbtResult<()> {
     ];
 
     for (frm_type, v1, _, _) in types {
-        for (to_type, _, v2, dump_v2) in types {
-            let pair = format!("{frm_type}-{to_type}");
-            let (dff, _cn_dff) = open!(dif_aply, format!("{pair}-dff"));
-            let (v2a, mut cn_v2a) = open!(dif_aply, format!("{pair}-v2a"));
+        for (dif_type, _, v2, dump_v2) in types {
+            for dst_type in &[None, Some(Flat), Some(FlatWithHash), Some(Normalized)] {
+                let pair = if let Some(dst_type) = dst_type {
+                    format!("{frm_type}-{dif_type}={}", shorten(dst_type))
+                } else {
+                    format!("{frm_type}-{dif_type}=dflt")
+                };
+                let (dff, _cn_dff) = open!(dif_aply, format!("{pair}-dff"));
+                let (v2a, mut cn_v2a) = open!(dif_aply, format!("{pair}-v2a"));
 
-            // Diff v1 with v2, and copy to diff anything that's different (i.e. mathematically: v2-v1)
-            let mut diff_with = copier(v1, &dff);
-            diff_with.diff_with_file = Some(path(v2));
-            assert_snapshot!("delta", pair, dump(&mut diff_with.run().await?).await?);
+                // Diff v1 with v2, and copy to diff anything that's different (i.e. mathematically: v2-v1)
+                let mut diff_with = copier(v1, &dff);
+                diff_with.diff_with_file = Some(path(v2));
+                if let Some(dst_type) = dst_type {
+                    diff_with.dst_type = Some(*dst_type);
+                }
+                assert_snapshot!("delta", pair, dump(&mut diff_with.run().await?).await?);
 
-            // Copy v1 -> v2a, and apply dff to v2a
-            copier(v1, &v2a).run().await?;
-            apply_diff(path(&v2a), path(&dff)).await?;
+                // Copy v1 -> v2a, and apply dff to v2a
+                copier(v1, &v2a).run().await?;
+                apply_diff(path(&v2a), path(&dff)).await?;
 
-            let dump_v2a = dump(&mut cn_v2a).await?;
-            assert_snapshot!("applied", pair, &dump_v2a);
+                let dump_v2a = dump(&mut cn_v2a).await?;
+                assert_snapshot!("applied", pair, &dump_v2a);
 
-            let expected_dump = if frm_type != to_type {
-                eprintln!("TODO: implement convert copying {frm_type} -> {to_type}");
-                continue;
-            } else if frm_type == &"norm" {
-                eprintln!("FIXME: norm->norm diff is not working yet");
-                continue;
-            } else {
-                dump_v2
-            };
+                let expected_dump = if frm_type != dif_type {
+                    eprintln!("TODO: implement convert copying {frm_type} -> {dif_type}");
+                    continue;
+                } else if frm_type == &"norm" {
+                    eprintln!("FIXME: norm->norm diff is not working yet");
+                    continue;
+                } else {
+                    dump_v2
+                };
 
-            pretty_assertions::assert_eq!(
-                &dump_v2a,
-                expected_dump,
-                "v2a should be identical to v2 (type {frm_type} -> {to_type})"
-            );
+                pretty_assertions::assert_eq!(
+                    &dump_v2a,
+                    expected_dump,
+                    "v2a should be identical to v2 (type {frm_type} -> {dif_type})"
+                );
+            }
         }
     }
 

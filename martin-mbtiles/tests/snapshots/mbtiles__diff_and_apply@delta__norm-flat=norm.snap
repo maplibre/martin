@@ -1,0 +1,90 @@
+---
+source: martin-mbtiles/tests/mbtiles.rs
+expression: result
+---
+[[]]
+type = 'table'
+tbl_name = 'images'
+sql = '''
+CREATE TABLE images (
+             tile_id text NOT NULL PRIMARY KEY,
+             tile_data blob)'''
+values = [
+    '(  "", NULL  )',
+    '(  "22AF645D1859CB5CA6DA0C484F1F37EA", blob(new)  )',
+    '(  "8FF2EF577CE68CA2A07E6382D8A4C5FF", blob(z2-new)  )',
+    '(  "E848A12B5761ED5E713D8286F7460C98", blob(z2-edit-v2)  )',
+    '(  "FF76830FF90D79BB335884F256031731", blob(edit-v2)  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'map'
+sql = '''
+CREATE TABLE map (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_id text,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  1, 0, 1, "FF76830FF90D79BB335884F256031731"  )',
+    '(  1, 1, 0, "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  1, 1, 1, ""  )',
+    '(  2, 0, 1, "E848A12B5761ED5E713D8286F7460C98"  )',
+    '(  2, 1, 0, "8FF2EF577CE68CA2A07E6382D8A4C5FF"  )',
+    '(  2, 1, 1, ""  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "14B153DD59C83002812530F047000CF1"  )',
+    '(  "agg_tiles_hash_after_apply", "E3919F24AF46757C7B060150071FB0D9"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-remove", NULL  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'images'
+
+[[]]
+type = 'index'
+tbl_name = 'map'
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'view'
+tbl_name = 'tiles'
+sql = '''
+CREATE VIEW tiles AS
+             SELECT map.zoom_level AS zoom_level,
+                    map.tile_column AS tile_column,
+                    map.tile_row AS tile_row,
+                    images.tile_data AS tile_data
+             FROM map
+             JOIN images ON images.tile_id = map.tile_id'''
+
+[[]]
+type = 'view'
+tbl_name = 'tiles_with_hash'
+sql = '''
+CREATE VIEW tiles_with_hash AS
+             SELECT
+                 map.zoom_level AS zoom_level,
+                 map.tile_column AS tile_column,
+                 map.tile_row AS tile_row,
+                 images.tile_data AS tile_data,
+                 images.tile_id AS tile_hash
+             FROM map
+             JOIN images ON images.tile_id = map.tile_id'''
