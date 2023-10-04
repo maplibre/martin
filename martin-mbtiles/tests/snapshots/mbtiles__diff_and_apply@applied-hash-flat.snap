@@ -11,9 +11,9 @@ CREATE TABLE metadata (
              value text)'''
 values = [
     '(  "agg_tiles_hash", "4CB1879C4A84910F25B9272B6E5B6E7C"  )',
-    '(  "edit", "value - v2"  )',
-    '(  "new", "value - new"  )',
-    '(  "same", "value - same"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-same", "value - same"  )',
 ]
 
 [[]]
@@ -28,9 +28,9 @@ CREATE TABLE tiles_with_hash (
              tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
-    '(  1, 0, 0, "same", "51037A4A37730F52C8732586D3AAA316"  )',
-    '(  1, 0, 1, "edit-v2", "FF76830FF90D79BB335884F256031731"  )',
-    '(  1, 1, 0, "new", "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  1, 0, 0, blob(same), "51037A4A37730F52C8732586D3AAA316"  )',
+    '(  1, 0, 1, blob(edit-v2), "FF76830FF90D79BB335884F256031731"  )',
+    '(  1, 1, 0, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
 ]
 
 [[]]

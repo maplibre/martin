@@ -111,7 +111,7 @@ CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM ti
 ```sql, ignore
 CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT);
 CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
-CREATE TABLE images (tile_data blob, tile_id text);
+CREATE TABLE images (tile_id text, tile_data blob);
 CREATE UNIQUE INDEX images_id ON images (tile_id);
 CREATE VIEW tiles AS
   SELECT

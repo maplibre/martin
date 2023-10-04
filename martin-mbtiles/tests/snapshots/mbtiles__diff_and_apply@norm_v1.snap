@@ -7,12 +7,12 @@ type = 'table'
 tbl_name = 'images'
 sql = '''
 CREATE TABLE images (
-             tile_data blob,
-             tile_id text NOT NULL PRIMARY KEY)'''
+             tile_id text NOT NULL PRIMARY KEY,
+             tile_data blob)'''
 values = [
-    '(  "edit-v1", "EFE0AE5FD114DE99855BC2838BE97E1D"  )',
-    '(  "remove", "0F6969D7052DA9261E31DDB6E88C136E"  )',
-    '(  "same", "51037A4A37730F52C8732586D3AAA316"  )',
+    '(  "0F6969D7052DA9261E31DDB6E88C136E", blob(remove)  )',
+    '(  "51037A4A37730F52C8732586D3AAA316", blob(same)  )',
+    '(  "EFE0AE5FD114DE99855BC2838BE97E1D", blob(edit-v1)  )',
 ]
 
 [[]]
@@ -40,9 +40,9 @@ CREATE TABLE metadata (
              value text)'''
 values = [
     '(  "agg_tiles_hash", "810E134831F46B3A60D425EF11B5FBE9"  )',
-    '(  "edit", "value - v1"  )',
-    '(  "remove", "value - remove"  )',
-    '(  "same", "value - same"  )',
+    '(  "md-edit", "value - v1"  )',
+    '(  "md-remove", "value - remove"  )',
+    '(  "md-same", "value - same"  )',
 ]
 
 [[]]

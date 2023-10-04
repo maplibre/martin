@@ -10,8 +10,10 @@ CREATE TABLE images (
              tile_id text NOT NULL PRIMARY KEY,
              tile_data blob)'''
 values = [
+    '(  "0F6969D7052DA9261E31DDB6E88C136E", blob(remove)  )',
     '(  "22AF645D1859CB5CA6DA0C484F1F37EA", blob(new)  )',
     '(  "51037A4A37730F52C8732586D3AAA316", blob(same)  )',
+    '(  "EFE0AE5FD114DE99855BC2838BE97E1D", blob(edit-v1)  )',
     '(  "FF76830FF90D79BB335884F256031731", blob(edit-v2)  )',
 ]
 

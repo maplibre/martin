@@ -10,9 +10,9 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "edit", "value - v2"  )',
-    '(  "new", "value - new"  )',
-    '(  "same", "value - same"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-same", "value - same"  )',
 ]
 
 [[]]
@@ -26,9 +26,9 @@ CREATE TABLE tiles (
              tile_data blob,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
-    '(  1, 0, 0, "same"  )',
-    '(  1, 0, 1, "edit-v2"  )',
-    '(  1, 1, 0, "new"  )',
+    '(  1, 0, 0, blob(same)  )',
+    '(  1, 0, 1, blob(edit-v2)  )',
+    '(  1, 1, 0, blob(new)  )',
 ]
 
 [[]]

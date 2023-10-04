@@ -1,3 +1,2 @@
-[INFO ] Copying ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) to a new file tests/temp/world_cities_diff.mbtiles (flat)
-[INFO ] Copying only the data not found in ./tests/fixtures/mbtiles/world_cities_modified.mbtiles (flat)
+[INFO ] Comparing ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) and ./tests/fixtures/mbtiles/world_cities_modified.mbtiles (flat) into a new file tests/temp/world_cities_diff.mbtiles (flat)
 [INFO ] Creating new metadata value agg_tiles_hash = C7E2E5A9BA04693994DB1F57D1DF5646 in tests/temp/world_cities_diff.mbtiles

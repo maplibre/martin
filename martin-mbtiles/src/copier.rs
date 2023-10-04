@@ -14,7 +14,7 @@ use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::mbtiles::{detach_db, MbtType};
 use crate::queries::{
     create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
-    create_tiles_with_hash_view,
+    create_tiles_with_hash_view, is_empty_database,
 };
 use crate::{MbtError, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
 
@@ -138,49 +138,48 @@ impl MbtileCopierInt {
     }
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        // src file connection is not needed after this point, as it will be attached to the dst file
+        // src and diff file connections are not needed later, as they will be attached to the dst file
         let src_type = self.src_mbtiles.open_and_detect_type().await?;
-        let mut conn = self.dst_mbtiles.open_or_new().await?;
-
-        let is_empty = query!("SELECT 1 as has_rows FROM sqlite_schema LIMIT 1")
-            .fetch_optional(&mut conn)
-            .await?
-            .is_none();
-
-        let dst_type = if is_empty {
-            let dst_type = self.options.dst_type.unwrap_or(src_type);
-            info!(
-                "Copying {} ({src_type}) to a new file {} ({dst_type})",
-                self.options.src_file.display(),
-                self.options.dst_file.display()
-            );
-            self.init_new_schema(&mut conn, src_type, dst_type).await?;
-            dst_type
-        } else if self.options.diff_with_file.is_some() {
-            return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
+        let dif = if let Some(dif_file) = &self.options.diff_with_file {
+            let dif_file = Mbtiles::new(dif_file)?;
+            let dif_type = dif_file.open_and_detect_type().await?;
+            Some((dif_file, dif_type))
         } else {
-            let dst_type = self.dst_mbtiles.detect_type(&mut conn).await?;
-            info!(
-                "Copying {} ({src_type}) to an existing file {} ({dst_type})",
-                self.options.src_file.display(),
-                self.options.dst_file.display()
-            );
-            self.src_mbtiles.attach_to(&mut conn, "sourceDb").await?;
-            dst_type
+            None
         };
+
+        let mut conn = self.dst_mbtiles.open_or_new().await?;
+        let is_empty_db = is_empty_database(&mut conn).await?;
+        self.src_mbtiles.attach_to(&mut conn, "sourceDb").await?;
+
+        let src_path = self.src_mbtiles.filepath();
+        let dst_path = self.dst_mbtiles.filepath();
+        let dst_type;
+        if let Some((dif_mbt, dif_type)) = &dif {
+            if !is_empty_db {
+                return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
+            }
+            dst_type = self.options.dst_type.unwrap_or(src_type);
+            dif_mbt.attach_to(&mut conn, "diffDb").await?;
+            let dif_path = dif_mbt.filepath();
+            info!("Comparing {src_path} ({src_type}) and {dif_path} ({dif_type}) into a new file {dst_path} ({dst_type})");
+        } else if is_empty_db {
+            dst_type = self.options.dst_type.unwrap_or(src_type);
+            info!("Copying {src_path} ({src_type}) to a new file {dst_path} ({dst_type})");
+        } else {
+            dst_type = self.dst_mbtiles.detect_type(&mut conn).await?;
+            info!("Copying {src_path} ({src_type}) to an existing file {dst_path} ({dst_type})");
+        }
+
+        if is_empty_db {
+            self.init_new_schema(&mut conn, src_type, dst_type).await?;
+        }
 
         let (on_dupl, sql_cond) = self.get_on_duplicate_sql(dst_type);
 
         let (select_from, query_args) = {
-            let select_from = if let Some(dif_file) = &self.options.diff_with_file {
-                let dif_file = Mbtiles::new(dif_file)?;
-                let dif_type = dif_file.open_and_detect_type().await?;
-                info!(
-                    "Copying only the data not found in {} ({dif_type})",
-                    dif_file.filepath(),
-                );
-                dif_file.attach_to(&mut conn, "diffDb").await?;
-                Self::get_select_from_with_diff(dst_type, dif_type)
+            let select_from = if let Some((_, dif_type)) = &dif {
+                Self::get_select_from_with_diff(dst_type, *dif_type)
             } else {
                 Self::get_select_from(dst_type, src_type).to_string()
             };
@@ -198,30 +197,34 @@ impl MbtileCopierInt {
 
             // SAFETY: this is safe as long as handle_lock is valid
             let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
+
             match dst_type {
-                Flat => rusqlite_conn.execute(
-                    &format!("INSERT {on_dupl} INTO tiles {select_from} {sql_cond}"),
-                    params_from_iter(query_args),
-                )?,
-                FlatWithHash => rusqlite_conn.execute(
-                    &format!("INSERT {on_dupl} INTO tiles_with_hash {select_from} {sql_cond}"),
-                    params_from_iter(query_args),
-                )?,
+                Flat => {
+                    let sql = format!("INSERT {on_dupl} INTO tiles {select_from} {sql_cond}");
+                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                    rusqlite_conn.execute(&sql, params_from_iter(query_args))?
+                }
+                FlatWithHash => {
+                    let sql =
+                        format!("INSERT {on_dupl} INTO tiles_with_hash {select_from} {sql_cond}");
+                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                    rusqlite_conn.execute(&sql, params_from_iter(query_args))?
+                }
                 Normalized => {
-                    rusqlite_conn.execute(
-                        &format!(
-                            "INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id)
+                    let sql = format!(
+                        "INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id)
                          SELECT zoom_level, tile_column, tile_row, hash as tile_id
                          FROM ({select_from} {sql_cond})"
-                        ),
-                        params_from_iter(&query_args),
-                    )?;
-                    rusqlite_conn.execute(
-                        &format!(
-                            "INSERT OR IGNORE INTO images SELECT tile_data, hash FROM ({select_from})"
-                        ),
-                        params_from_iter(query_args),
-                    )?
+                    );
+                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                    rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
+                    let sql = format!(
+                        "INSERT OR IGNORE INTO images (tile_id, tile_data)
+                         SELECT hash as tile_id, tile_data
+                         FROM ({select_from})"
+                    );
+                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                    rusqlite_conn.execute(&sql, params_from_iter(query_args))?
                 }
             };
 
@@ -274,8 +277,6 @@ impl MbtileCopierInt {
             .execute(&mut *conn)
             .await?;
         query!("VACUUM").execute(&mut *conn).await?;
-
-        self.src_mbtiles.attach_to(&mut *conn, "sourceDb").await?;
 
         if src == dst {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
@@ -342,40 +343,49 @@ impl MbtileCopierInt {
     }
 
     fn get_select_from_with_diff(dst_type: MbtType, diff_type: MbtType) -> String {
-        let (hash_col_sql, new_tiles_with_hash) = if dst_type == Flat {
+        let (hash_col_sql, diff_tiles) = if dst_type == Flat {
             ("", "diffDb.tiles")
         } else {
             match diff_type {
-                Flat => (", hex(md5(tile_data)) as hash", "diffDb.tiles"),
-                FlatWithHash => (", new_tiles_with_hash.tile_hash as hash", "diffDb.tiles_with_hash"),
-                Normalized => (", new_tiles_with_hash.hash",
+                Flat => (", hex(md5(diffTiles.tile_data)) as hash", "diffDb.tiles"),
+                FlatWithHash => (", diffTiles.tile_hash as hash", "diffDb.tiles_with_hash"),
+                Normalized => (", diffTiles.hash",
                                "(SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
                                  FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"),
             }
         };
 
-        format!("SELECT COALESCE(sourceDb.tiles.zoom_level, new_tiles_with_hash.zoom_level) as zoom_level,
-                        COALESCE(sourceDb.tiles.tile_column, new_tiles_with_hash.tile_column) as tile_column,
-                        COALESCE(sourceDb.tiles.tile_row, new_tiles_with_hash.tile_row) as tile_row,
-                        new_tiles_with_hash.tile_data as tile_data
-                        {hash_col_sql}
-                 FROM sourceDb.tiles FULL JOIN {new_tiles_with_hash} AS new_tiles_with_hash
-                      ON sourceDb.tiles.zoom_level = new_tiles_with_hash.zoom_level
-                      AND sourceDb.tiles.tile_column = new_tiles_with_hash.tile_column
-                      AND sourceDb.tiles.tile_row = new_tiles_with_hash.tile_row
-                 WHERE (sourceDb.tiles.tile_data != new_tiles_with_hash.tile_data
-                     OR sourceDb.tiles.tile_data ISNULL
-                     OR new_tiles_with_hash.tile_data ISNULL)")
+        format!(
+            "SELECT COALESCE(sourceTiles.zoom_level, diffTiles.zoom_level) as zoom_level
+                  , COALESCE(sourceTiles.tile_column, diffTiles.tile_column) as tile_column
+                  , COALESCE(sourceTiles.tile_row, diffTiles.tile_row) as tile_row
+                  , diffTiles.tile_data as tile_data
+                  {hash_col_sql}
+             FROM sourceDb.tiles AS sourceTiles FULL JOIN {diff_tiles} AS diffTiles
+                  ON sourceTiles.zoom_level = diffTiles.zoom_level
+                     AND sourceTiles.tile_column = diffTiles.tile_column
+                     AND sourceTiles.tile_row = diffTiles.tile_row
+             WHERE (sourceTiles.tile_data != diffTiles.tile_data
+                    OR sourceTiles.tile_data ISNULL
+                    OR diffTiles.tile_data ISNULL)"
+        )
     }
 
     fn get_select_from(dst_type: MbtType, src_type: MbtType) -> &'static str {
         if dst_type == Flat {
-            "SELECT * FROM sourceDb.tiles WHERE TRUE"
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
         } else {
             match src_type {
-                Flat => "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash FROM sourceDb.tiles WHERE TRUE",
-                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM sourceDb.tiles_with_hash WHERE TRUE",
-                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM sourceDb.map JOIN sourceDb.images ON sourceDb.map.tile_id = sourceDb.images.tile_id WHERE TRUE"
+                Flat => "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash
+                         FROM sourceDb.tiles
+                         WHERE TRUE",
+                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
+                                 FROM sourceDb.tiles_with_hash
+                                 WHERE TRUE",
+                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
+                               FROM sourceDb.map JOIN sourceDb.images
+                                 ON sourceDb.map.tile_id = sourceDb.images.tile_id
+                               WHERE TRUE"
             }
         }
     }
@@ -424,22 +434,35 @@ pub async fn apply_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> 
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM diffDb.tiles"
     } else {
         match diff_type {
-            Flat => "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash FROM diffDb.tiles",
-            FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash FROM diffDb.tiles_with_hash",
-            Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash FROM diffDb.map LEFT JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id",
+            Flat => {
+                "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash
+                 FROM diffDb.tiles"
+            }
+            FlatWithHash => {
+                "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
+                 FROM diffDb.tiles_with_hash"
+            }
+            Normalized => {
+                "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
+                 FROM diffDb.map LEFT JOIN diffDb.images
+                   ON diffDb.map.tile_id = diffDb.images.tile_id"
+            }
         }
-    }.to_string();
+    }
+    .to_string();
 
     let (main_table, insert_sql) = match src_type {
         Flat => ("tiles", vec![
             format!("INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) {select_from}")]),
         FlatWithHash => ("tiles_with_hash", vec![
-            format!("INSERT OR REPLACE INTO tiles_with_hash {select_from}")]),
+            format!("INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) {select_from}")]),
         Normalized => ("map", vec![
             format!("INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id)
                      SELECT zoom_level, tile_column, tile_row, hash as tile_id
                      FROM ({select_from})"),
-            format!("INSERT OR REPLACE INTO images SELECT tile_data, hash FROM ({select_from})"),
+            format!("INSERT OR REPLACE INTO images (tile_id, tile_data)
+                     SELECT hash as tile_id, tile_data
+                     FROM ({select_from})"),
         ])
     };
 

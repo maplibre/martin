@@ -3,6 +3,17 @@ use sqlx::{query, Executor as _, SqliteExecutor};
 
 use crate::errors::MbtResult;
 
+/// Returns true if the database is empty (no tables/indexes/...)
+pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    Ok(query!("SELECT 1 as has_rows FROM sqlite_schema LIMIT 1")
+        .fetch_optional(&mut *conn)
+        .await?
+        .is_none())
+}
+
 pub async fn is_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -205,8 +216,8 @@ where
     debug!("Creating if needed normalized table: images(id,data)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS images (
-             tile_data blob,
-             tile_id text NOT NULL PRIMARY KEY);",
+             tile_id text NOT NULL PRIMARY KEY,
+             tile_data blob);",
     )
     .await?;
 

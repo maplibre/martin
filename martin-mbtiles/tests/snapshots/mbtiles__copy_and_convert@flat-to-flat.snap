@@ -11,9 +11,9 @@ CREATE TABLE metadata (
              value text)'''
 values = [
     '(  "agg_tiles_hash", "810E134831F46B3A60D425EF11B5FBE9"  )',
-    '(  "edit", "value - v1"  )',
-    '(  "remove", "value - remove"  )',
-    '(  "same", "value - same"  )',
+    '(  "md-edit", "value - v1"  )',
+    '(  "md-remove", "value - remove"  )',
+    '(  "md-same", "value - same"  )',
 ]
 
 [[]]
@@ -27,9 +27,9 @@ CREATE TABLE tiles (
              tile_data blob,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
-    '(  1, 0, 0, "same"  )',
-    '(  1, 0, 1, "edit-v1"  )',
-    '(  1, 1, 1, "remove"  )',
+    '(  1, 0, 0, blob(same)  )',
+    '(  1, 0, 1, blob(edit-v1)  )',
+    '(  1, 1, 1, blob(remove)  )',
 ]
 
 [[]]

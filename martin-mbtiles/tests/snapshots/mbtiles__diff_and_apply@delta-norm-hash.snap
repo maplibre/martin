@@ -7,14 +7,11 @@ type = 'table'
 tbl_name = 'images'
 sql = '''
 CREATE TABLE images (
-             tile_data blob,
-             tile_id text NOT NULL PRIMARY KEY)'''
+             tile_id text NOT NULL PRIMARY KEY,
+             tile_data blob)'''
 values = [
-    '(  "edit-v1", "EFE0AE5FD114DE99855BC2838BE97E1D"  )',
-    '(  "edit-v2", "FF76830FF90D79BB335884F256031731"  )',
-    '(  "new", "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
-    '(  "remove", "0F6969D7052DA9261E31DDB6E88C136E"  )',
-    '(  "same", "51037A4A37730F52C8732586D3AAA316"  )',
+    '(  "22AF645D1859CB5CA6DA0C484F1F37EA", blob(new)  )',
+    '(  "FF76830FF90D79BB335884F256031731", blob(edit-v2)  )',
 ]
 
 [[]]
@@ -28,9 +25,9 @@ CREATE TABLE map (
              tile_id text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
-    '(  1, 0, 0, "51037A4A37730F52C8732586D3AAA316"  )',
     '(  1, 0, 1, "FF76830FF90D79BB335884F256031731"  )',
     '(  1, 1, 0, "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  1, 1, 1, NULL  )',
 ]
 
 [[]]
@@ -41,10 +38,11 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "agg_tiles_hash", "4CB1879C4A84910F25B9272B6E5B6E7C"  )',
-    '(  "edit", "value - v2"  )',
-    '(  "new", "value - new"  )',
-    '(  "same", "value - same"  )',
+    '(  "agg_tiles_hash", "5E37A28AFE35EA0BFF6703CB3ECE8B2F"  )',
+    '(  "agg_tiles_hash_after_apply", "4CB1879C4A84910F25B9272B6E5B6E7C"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-remove", NULL  )',
 ]
 
 [[]]
