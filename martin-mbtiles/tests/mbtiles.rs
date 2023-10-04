@@ -93,18 +93,18 @@ macro_rules! new_source {
 
 /// Copy SQLite from $src to $dst, and add agg_tiles_hash metadata value
 /// Returns the destination Mbtiles, the SQLite connection, and the dump of the SQLite
-macro_rules! copy_hash {
+macro_rules! cp_w_hash {
     ($function:tt, $src:expr, $dst:tt, $dst_type:expr) => {{
-        copy_to!($function, $src, $dst, $dst_type, false)
+        cp_exact!($function, $src, $dst, $dst_type, false)
     }};
 }
 
 /// Copy SQLite from $src to $dst, no changes by default, or add agg_tiles_hash metadata if last arg is false
 /// The result is dumped to a snapshot
 /// Returns the destination Mbtiles, the SQLite connection, and the dump of the SQLite
-macro_rules! copy_to {
+macro_rules! cp_exact {
     ($function:tt, $src:expr, $dst:tt, $dst_type:expr) => {{
-        copy_to!($function, $src, $dst, $dst_type, true)
+        cp_exact!($function, $src, $dst, $dst_type, true)
     }};
     ($function:tt, $src:expr, $dst:tt, $dst_type:expr, $skip_agg:expr) => {{
         let func = stringify!($function);
@@ -125,11 +125,17 @@ async fn copy_and_convert() -> MbtResult<()> {
     let mem = Mbtiles::new(":memory:")?;
 
     let (orig, _cn_orig) = new_source!(cp_conv, orig, INSERT_METADATA_V1, INSERT_TILES_V1);
-    let (flat, _cn_flat, _) = copy_to!(cp_conv, orig, flat, Flat);
-    let (hash, _cn_hash, _) = copy_to!(cp_conv, orig, hash, FlatWithHash);
-    let (norm, _cn_norm, _) = copy_to!(cp_conv, orig, norm, Normalized);
+    let (flat, _cn_flat, _) = cp_exact!(cp_conv, orig, flat, Flat);
+    let (hash, _cn_hash, _) = cp_exact!(cp_conv, orig, hash, FlatWithHash);
+    let (norm, _cn_norm, _) = cp_exact!(cp_conv, orig, norm, Normalized);
 
-    for (frm, src) in &[("flat", &flat), ("hash", &hash), ("norm", &norm)] {
+    let types = &[
+        ("flat", Flat, &flat),
+        ("hash", FlatWithHash, &hash),
+        ("norm", Normalized, &norm),
+    ];
+
+    for (frm, _, src) in types {
         // Same content, but also will include agg_tiles_hash metadata value
         let opt = copier(src, &mem);
         assert_snapshot!(frm, "cp", dump(&mut opt.run().await?).await?);
@@ -139,20 +145,13 @@ async fn copy_and_convert() -> MbtResult<()> {
         opt.skip_agg_tiles_hash = true;
         assert_snapshot!(frm, "cp-skip-agg", dump(&mut opt.run().await?).await?);
 
-        // Copy to a flat-with-hash schema
-        let mut opt = copier(src, &mem);
-        opt.dst_type = Some(FlatWithHash);
-        assert_snapshot!(frm, "to-hash", dump(&mut opt.run().await?).await?);
-
-        // Copy to a flat schema
-        let mut opt = copier(src, &mem);
-        opt.dst_type = Some(Flat);
-        assert_snapshot!(frm, "to-flat", dump(&mut opt.run().await?).await?);
-
-        // Copy to a normalized schema
-        let mut opt = copier(src, &mem);
-        opt.dst_type = Some(Normalized);
-        assert_snapshot!(frm, "to-norm", dump(&mut opt.run().await?).await?);
+        // Convert to other types
+        for (to, to_type, _) in types {
+            let pair = format!("{frm}-{to}");
+            let mut opt = copier(src, &mem);
+            opt.dst_type = Some(*to_type);
+            assert_snapshot!("convert", pair, dump(&mut opt.run().await?).await?);
+        }
     }
 
     Ok(())
@@ -165,15 +164,15 @@ async fn copy_and_convert() -> MbtResult<()> {
 async fn diff_and_apply() -> MbtResult<()> {
     let (orig_v1, _cn_orig_v1) =
         new_source!(dif_aply, orig_v1, INSERT_METADATA_V1, INSERT_TILES_V1);
-    let (flat_v1, _cn_flat_v1, _) = copy_hash!(dif_aply, orig_v1, flat_v1, Flat);
-    let (hash_v1, _cn_hash_v1, _) = copy_hash!(dif_aply, orig_v1, hash_v1, FlatWithHash);
-    let (norm_v1, _cn_norm_v1, _) = copy_hash!(dif_aply, orig_v1, norm_v1, Normalized);
+    let (flat_v1, _cn_flat_v1, _) = cp_w_hash!(dif_aply, orig_v1, flat_v1, Flat);
+    let (hash_v1, _cn_hash_v1, _) = cp_w_hash!(dif_aply, orig_v1, hash_v1, FlatWithHash);
+    let (norm_v1, _cn_norm_v1, _) = cp_w_hash!(dif_aply, orig_v1, norm_v1, Normalized);
 
     let (orig_v2, _cn_orig_v2) =
         new_source!(dif_aply, orig_v2, INSERT_METADATA_V2, INSERT_TILES_V2);
-    let (flat_v2, _cn_flat_v2, dmp_flat_v2) = copy_hash!(dif_aply, orig_v2, flat_v2, Flat);
-    let (hash_v2, _cn_hash_v2, dmp_hash_v2) = copy_hash!(dif_aply, orig_v2, hash_v2, FlatWithHash);
-    let (norm_v2, _cn_norm_v2, dmp_norm_v2) = copy_hash!(dif_aply, orig_v2, norm_v2, Normalized);
+    let (flat_v2, _cn_flat_v2, dmp_flat_v2) = cp_w_hash!(dif_aply, orig_v2, flat_v2, Flat);
+    let (hash_v2, _cn_hash_v2, dmp_hash_v2) = cp_w_hash!(dif_aply, orig_v2, hash_v2, FlatWithHash);
+    let (norm_v2, _cn_norm_v2, dmp_norm_v2) = cp_w_hash!(dif_aply, orig_v2, norm_v2, Normalized);
 
     let types = &[
         ("flat", &flat_v1, &flat_v2, dmp_flat_v2),
