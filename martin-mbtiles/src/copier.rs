@@ -201,26 +201,35 @@ impl MbtileCopierInt {
 
             match dst_type {
                 Flat => {
-                    let sql = format!("INSERT {on_dupl} INTO tiles {select_from} {sql_cond}");
+                    let sql = format!(
+                        "INSERT {on_dupl} INTO tiles
+                           (zoom_level, tile_column, tile_row, tile_data)
+                         {select_from} {sql_cond}"
+                    );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(query_args))?
                 }
                 FlatWithHash => {
-                    let sql =
-                        format!("INSERT {on_dupl} INTO tiles_with_hash {select_from} {sql_cond}");
+                    let sql = format!(
+                        "INSERT {on_dupl} INTO tiles_with_hash
+                           (zoom_level, tile_column, tile_row, tile_data, tile_hash)
+                         {select_from} {sql_cond}"
+                    );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(query_args))?
                 }
                 Normalized => {
                     let sql = format!(
-                        "INSERT {on_dupl} INTO map (zoom_level, tile_column, tile_row, tile_id)
+                        "INSERT {on_dupl} INTO map
+                           (zoom_level, tile_column, tile_row, tile_id)
                          SELECT zoom_level, tile_column, tile_row, hash as tile_id
                          FROM ({select_from} {sql_cond})"
                     );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
                     let sql = format!(
-                        "INSERT OR IGNORE INTO images (tile_id, tile_data)
+                        "INSERT OR IGNORE INTO images
+                           (tile_id, tile_data)
                          SELECT hash as tile_id, tile_data
                          FROM ({select_from})"
                     );
