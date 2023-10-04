@@ -10,27 +10,31 @@ use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
 
 const INSERT_TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
-        (1, 0, 0, cast('same' as blob)),
-        (1, 0, 1, cast('edit-v1' as blob)),
-        (1, 1, 1, cast('remove' as blob))";
+        (1, 0, 0, cast('same' as blob))
+      , (1, 0, 1, cast('edit-v1' as blob))
+      , (1, 1, 1, cast('remove' as blob))
+      ;";
 
 const INSERT_TILES_V2: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
-        (1, 0, 0, cast('same' as blob)),
-        (1, 0, 1, cast('edit-v2' as blob)),
-        (1, 1, 0, cast('new' as blob))";
+        (1, 0, 0, cast('same' as blob))
+      , (1, 0, 1, cast('edit-v2' as blob))
+      , (1, 1, 0, cast('new' as blob))
+      ;";
 
 const INSERT_METADATA_V1: &str = "
     INSERT INTO metadata (name, value) VALUES
-        ('md-same', 'value - same'),
-        ('md-edit', 'value - v1'),
-        ('md-remove', 'value - remove')";
+        ('md-same', 'value - same')
+      , ('md-edit', 'value - v1')
+      , ('md-remove', 'value - remove')
+      ;";
 
 const INSERT_METADATA_V2: &str = "
     INSERT INTO metadata (name, value) VALUES
-        ('md-same', 'value - same'),
-        ('md-edit', 'value - v2'),
-        ('md-new', 'value - new')";
+        ('md-same', 'value - same')
+      , ('md-edit', 'value - v2')
+      , ('md-new', 'value - new')
+      ;";
 
 #[ctor]
 fn init() {

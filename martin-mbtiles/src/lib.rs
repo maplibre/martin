@@ -12,7 +12,10 @@ mod pool;
 pub use pool::MbtilesPool;
 
 mod copier;
-pub use copier::{apply_diff, CopyDuplicateMode, MbtilesCopier};
+pub use copier::{CopyDuplicateMode, MbtilesCopier};
+
+mod applier;
+pub use applier::apply_diff;
 
 mod queries;
 pub use queries::{

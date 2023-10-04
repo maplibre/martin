@@ -642,17 +642,6 @@ pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
-pub async fn detach_db<T>(conn: &mut T, name: &str) -> MbtResult<()>
-where
-    for<'e> &'e mut T: SqliteExecutor<'e>,
-{
-    debug!("Detaching {name}");
-    query(&format!("DETACH DATABASE {name}"))
-        .execute(conn)
-        .await?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
