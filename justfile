@@ -134,7 +134,7 @@ test-int: clean-test install-sqlx
 # Run integration tests and save its output as the new expected output
 bless: start clean-test
     rm -rf tests/temp
-    cargo test --features bless-tests
+    cargo test -p martin --features bless-tests
     tests/test.sh
     rm -rf tests/expected
     mv tests/output tests/expected

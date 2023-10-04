@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "PRAGMA encoding = 'UTF-8'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "428a035a55a07cbb9daac42c3ab05f2a7999788167f41c685af3ca6f5a1359f4"
+}

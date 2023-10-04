@@ -93,11 +93,27 @@ impl Mbtiles {
         })
     }
 
-    pub async fn open_with_hashes(&self, readonly: bool) -> MbtResult<SqliteConnection> {
+    pub async fn open(&self) -> MbtResult<SqliteConnection> {
+        let opt = SqliteConnectOptions::new().filename(self.filepath());
+        Self::open_int(&opt).await
+    }
+
+    pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
-            .read_only(readonly);
-        let mut conn = SqliteConnection::connect_with(&opt).await?;
+            .create_if_missing(true);
+        Self::open_int(&opt).await
+    }
+
+    pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
+        let opt = SqliteConnectOptions::new()
+            .filename(self.filepath())
+            .read_only(true);
+        Self::open_int(&opt).await
+    }
+
+    async fn open_int(opt: &SqliteConnectOptions) -> Result<SqliteConnection, MbtError> {
+        let mut conn = SqliteConnection::connect_with(opt).await?;
         attach_hash_fn(&mut conn).await?;
         Ok(conn)
     }
@@ -373,7 +389,7 @@ impl Mbtiles {
     }
 
     pub async fn open_and_detect_type(&self) -> MbtResult<MbtType> {
-        let mut conn = self.open_with_hashes(true).await?;
+        let mut conn = self.open_readonly().await?;
         self.detect_type(&mut conn).await
     }
 
@@ -615,6 +631,7 @@ mod tests {
     use std::collections::HashMap;
 
     use martin_tile_utils::Encoding;
+    use sqlx::Executor as _;
     use tilejson::VectorLayer;
 
     use super::*;
@@ -706,8 +723,7 @@ mod tests {
     async fn metadata_set_key() -> MbtResult<()> {
         let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await?;
 
-        query("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
-            .execute(&mut conn)
+        conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
             .await?;
 
         mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0".to_string()))
