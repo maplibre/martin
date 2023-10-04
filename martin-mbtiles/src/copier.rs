@@ -348,27 +348,27 @@ impl MbtileCopierInt {
             ("", "diffDb.tiles")
         } else {
             match diff_type {
-                Flat => (", hex(md5(diffTiles.tile_data)) as hash", "diffDb.tiles"),
-                FlatWithHash => (", diffTiles.tile_hash as hash", "diffDb.tiles_with_hash"),
-                Normalized => (", diffTiles.hash",
+                Flat => (", hex(md5(difTiles.tile_data)) as hash", "diffDb.tiles"),
+                FlatWithHash => (", difTiles.tile_hash as hash", "diffDb.tiles_with_hash"),
+                Normalized => (", difTiles.hash",
                                "(SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
                                  FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"),
             }
         };
 
         format!(
-            "SELECT COALESCE(sourceTiles.zoom_level, diffTiles.zoom_level) as zoom_level
-                  , COALESCE(sourceTiles.tile_column, diffTiles.tile_column) as tile_column
-                  , COALESCE(sourceTiles.tile_row, diffTiles.tile_row) as tile_row
-                  , diffTiles.tile_data as tile_data
+            "SELECT COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
+                  , COALESCE(srcTiles.tile_column, difTiles.tile_column) as tile_column
+                  , COALESCE(srcTiles.tile_row, difTiles.tile_row) as tile_row
+                  , difTiles.tile_data as tile_data
                   {hash_col_sql}
-             FROM sourceDb.tiles AS sourceTiles FULL JOIN {diff_tiles} AS diffTiles
-                  ON sourceTiles.zoom_level = diffTiles.zoom_level
-                     AND sourceTiles.tile_column = diffTiles.tile_column
-                     AND sourceTiles.tile_row = diffTiles.tile_row
-             WHERE (sourceTiles.tile_data != diffTiles.tile_data
-                    OR sourceTiles.tile_data ISNULL
-                    OR diffTiles.tile_data ISNULL)"
+             FROM sourceDb.tiles AS srcTiles FULL JOIN {diff_tiles} AS difTiles
+                  ON srcTiles.zoom_level = difTiles.zoom_level
+                     AND srcTiles.tile_column = difTiles.tile_column
+                     AND srcTiles.tile_row = difTiles.tile_row
+             WHERE (srcTiles.tile_data != difTiles.tile_data
+                    OR srcTiles.tile_data ISNULL
+                    OR difTiles.tile_data ISNULL)"
         )
     }
 

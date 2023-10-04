@@ -68,6 +68,13 @@ pub async fn apply_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> 
     .execute(&mut conn)
     .await?;
 
+    if src_type == Normalized {
+        debug!("Removing unused tiles from the images table (normalized schema)");
+        query("DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)")
+            .execute(&mut conn)
+            .await?;
+    }
+
     // Copy metadata from diffDb to the destination file, replacing existing values
     // Convert 'agg_tiles_hash_in_diff' into 'agg_tiles_hash'
     // Delete metadata entries if the value is NULL in diffDb
