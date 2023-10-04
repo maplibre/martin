@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use log::{debug, info};
 use sqlx::query;
 
 use crate::queries::detach_db;
@@ -7,14 +8,15 @@ use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::{MbtResult, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
 
 pub async fn apply_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> {
-    let src_mbtiles = Mbtiles::new(src_file)?;
-    let diff_mbtiles = Mbtiles::new(diff_file)?;
-    let diff_type = diff_mbtiles.open_and_detect_type().await?;
+    let src_mbt = Mbtiles::new(src_file)?;
+    let diff_mbt = Mbtiles::new(diff_file)?;
+    let diff_type = diff_mbt.open_and_detect_type().await?;
 
-    let mut conn = src_mbtiles.open().await?;
-    diff_mbtiles.attach_to(&mut conn, "diffDb").await?;
+    let mut conn = src_mbt.open().await?;
+    let src_type = src_mbt.detect_type(&mut conn).await?;
+    diff_mbt.attach_to(&mut conn, "diffDb").await?;
 
-    let src_type = src_mbtiles.detect_type(&mut conn).await?;
+    info!("Applying diff file {diff_mbt} ({diff_type}) to {src_mbt} ({src_type})");
     let select_from = if src_type == Flat {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM diffDb.tiles"
     } else {
@@ -91,9 +93,10 @@ pub async fn apply_diff(src_file: PathBuf, diff_file: PathBuf) -> MbtResult<()> 
 
 #[cfg(test)]
 mod tests {
+    use sqlx::Executor as _;
+
     use super::*;
     use crate::MbtilesCopier;
-    use sqlx::Executor as _;
 
     #[actix_rt::test]
     async fn apply_flat_diff_file() -> MbtResult<()> {

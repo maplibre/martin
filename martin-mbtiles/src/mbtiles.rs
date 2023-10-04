@@ -87,6 +87,12 @@ pub struct Mbtiles {
     filename: String,
 }
 
+impl Display for Mbtiles {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.filepath)
+    }
+}
+
 impl Mbtiles {
     pub fn new<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let path = filepath.as_ref();
@@ -104,13 +110,13 @@ impl Mbtiles {
     }
 
     pub async fn open(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening w/ defaults {}", self.filepath());
+        debug!("Opening w/ defaults {self}");
         let opt = SqliteConnectOptions::new().filename(self.filepath());
         Self::open_int(&opt).await
     }
 
     pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening or creating {}", self.filepath());
+        debug!("Opening or creating {self}");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .create_if_missing(true);
@@ -118,7 +124,7 @@ impl Mbtiles {
     }
 
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening as readonly {}", self.filepath());
+        debug!("Opening as readonly {self}");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .read_only(true);
@@ -157,7 +163,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        debug!("Attaching {} as {name}", self.filepath());
+        debug!("Attaching {self} as {name}");
         query(&format!("ATTACH DATABASE ? AS {name}"))
             .bind(self.filepath())
             .execute(conn)
@@ -411,7 +417,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        debug!("Detecting MBTiles type for {}", self.filepath());
+        debug!("Detecting MBTiles type for {self}");
         let mbt_type = if is_normalized_tables_type(&mut *conn).await? {
             MbtType::Normalized
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
@@ -484,9 +490,8 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let filepath = self.filepath();
         if integrity_check == IntegrityCheckType::Off {
-            info!("Skipping integrity check for {filepath}");
+            info!("Skipping integrity check for {self}");
             return Ok(());
         }
 
@@ -503,14 +508,14 @@ impl Mbtiles {
 
         if result.len() > 1
             || result.get(0).ok_or(FailedIntegrityCheck(
-                filepath.to_string(),
+                self.filepath.to_string(),
                 vec!["SQLite could not perform integrity check".to_string()],
             ))? != "ok"
         {
             return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
         }
 
-        info!("{integrity_check:?} integrity check passed for {filepath}");
+        info!("{integrity_check:?} integrity check passed for {self}");
         Ok(())
     }
 
@@ -518,17 +523,16 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let filepath = self.filepath();
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
-            return Err(AggHashValueNotFound(filepath.to_string()));
+            return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
-            let file = filepath.to_string();
+            let file = self.filepath().to_string();
             return Err(AggHashMismatch(computed, stored, file));
         }
 
-        info!("The agg_tiles_hashes={computed} has been verified for {filepath}");
+        info!("The agg_tiles_hashes={computed} has been verified for {self}");
         Ok(())
     }
 
@@ -539,15 +543,14 @@ impl Mbtiles {
     {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
-        let path = self.filepath();
         if old_hash.as_ref() == Some(&hash) {
-            info!("agg_tiles_hash is already set to the correct value `{hash}` in {path}");
+            info!("agg_tiles_hash is already set to the correct value `{hash}` in {self}");
             Ok(())
         } else {
             if let Some(old_hash) = old_hash {
-                info!("Updating agg_tiles_hash from {old_hash} to {hash} in {path}");
+                info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
             } else {
-                info!("Creating new metadata value agg_tiles_hash = {hash} in {path}");
+                info!("Creating new metadata value agg_tiles_hash = {hash} in {self}");
             }
             self.set_metadata_value(&mut *conn, AGG_TILES_HASH, Some(hash))
                 .await
@@ -597,7 +600,7 @@ impl Mbtiles {
                 ))
             })?;
 
-        info!("All tile hashes are valid for {}", self.filepath());
+        info!("All tile hashes are valid for {self}");
         Ok(())
     }
 }

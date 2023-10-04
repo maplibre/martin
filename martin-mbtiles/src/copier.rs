@@ -139,7 +139,10 @@ impl MbtileCopierInt {
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         // src and diff file connections are not needed later, as they will be attached to the dst file
-        let src_type = self.src_mbtiles.open_and_detect_type().await?;
+        let src_mbt = &self.src_mbtiles;
+        let dst_mbt = &self.dst_mbtiles;
+
+        let src_type = src_mbt.open_and_detect_type().await?;
         let dif = if let Some(dif_file) = &self.options.diff_with_file {
             let dif_file = Mbtiles::new(dif_file)?;
             let dif_type = dif_file.open_and_detect_type().await?;
@@ -148,12 +151,10 @@ impl MbtileCopierInt {
             None
         };
 
-        let mut conn = self.dst_mbtiles.open_or_new().await?;
+        let mut conn = dst_mbt.open_or_new().await?;
         let is_empty_db = is_empty_database(&mut conn).await?;
-        self.src_mbtiles.attach_to(&mut conn, "sourceDb").await?;
+        src_mbt.attach_to(&mut conn, "sourceDb").await?;
 
-        let src_path = self.src_mbtiles.filepath();
-        let dst_path = self.dst_mbtiles.filepath();
         let dst_type;
         if let Some((dif_mbt, dif_type)) = &dif {
             if !is_empty_db {
@@ -162,13 +163,13 @@ impl MbtileCopierInt {
             dst_type = self.options.dst_type.unwrap_or(src_type);
             dif_mbt.attach_to(&mut conn, "diffDb").await?;
             let dif_path = dif_mbt.filepath();
-            info!("Comparing {src_path} ({src_type}) and {dif_path} ({dif_type}) into a new file {dst_path} ({dst_type})");
+            info!("Comparing {src_mbt} ({src_type}) and {dif_path} ({dif_type}) into a new file {dst_mbt} ({dst_type})");
         } else if is_empty_db {
             dst_type = self.options.dst_type.unwrap_or(src_type);
-            info!("Copying {src_path} ({src_type}) to a new file {dst_path} ({dst_type})");
+            info!("Copying {src_mbt} ({src_type}) to a new file {dst_mbt} ({dst_type})");
         } else {
-            dst_type = self.dst_mbtiles.detect_type(&mut conn).await?;
-            info!("Copying {src_path} ({src_type}) to an existing file {dst_path} ({dst_type})");
+            dst_type = dst_mbt.detect_type(&mut conn).await?;
+            info!("Copying {src_mbt} ({src_type}) to an existing file {dst_mbt} ({dst_type})");
         }
 
         if is_empty_db {
@@ -255,7 +256,7 @@ impl MbtileCopierInt {
         }
 
         if !self.options.skip_agg_tiles_hash {
-            self.dst_mbtiles.update_agg_tiles_hash(&mut conn).await?;
+            dst_mbt.update_agg_tiles_hash(&mut conn).await?;
         }
 
         detach_db(&mut conn, "sourceDb").await?;
