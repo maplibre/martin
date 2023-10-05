@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 
 use ctor::ctor;
-use insta::assert_display_snapshot;
+use insta::{allow_duplicates, assert_display_snapshot};
 use martin_mbtiles::IntegrityCheckType::Off;
 use martin_mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use martin_mbtiles::{apply_diff, create_flat_tables, MbtResult, MbtType, Mbtiles, MbtilesCopier};
@@ -159,13 +159,17 @@ fn databases() -> Databases {
             copier(&raw_mbt, &v1_mbt).run().await.unwrap();
             let dmp = assert_dump!(&mut v1_cn, "v1__{typ}");
             let hash = v1_mbt.validate(Off, false).await.unwrap();
-            // assert_display_snapshot!(hash, @"F144D5265985B9D7AC14E7F1F336C6E5");
+            allow_duplicates! {
+                assert_display_snapshot!(hash, @"F144D5265985B9D7AC14E7F1F336C6E5");
+            }
             result.insert(("v1", typ), dmp);
 
             let (v2_mbt, mut v2_cn) = new_file!(databases, typ, METADATA_V2, TILES_V2, "v2-{typ}");
             let dmp = assert_dump!(&mut v2_cn, "v2__{typ}");
             let hash = v2_mbt.validate(Off, false).await.unwrap();
-            // assert_display_snapshot!(hash, @"D80BDADB720F2FAD831D3FB0F45408A6");
+            allow_duplicates! {
+                assert_display_snapshot!(hash, @"D80BDADB720F2FAD831D3FB0F45408A6");
+            }
             result.insert(("v2", typ), dmp);
         }
         result
@@ -213,53 +217,54 @@ async fn convert(
 #[trace]
 #[actix_rt::test]
 async fn diff_apply(
-    #[values(Flat, FlatWithHash, Normalized)] src_type: MbtType,
-    #[values(Flat, FlatWithHash, Normalized)] dif_type: MbtType,
-    #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dst_type: Option<MbtType>,
+    #[values(Flat, FlatWithHash, Normalized)] v1_type: MbtType,
+    #[values(Flat, FlatWithHash, Normalized)] v2_type: MbtType,
+    #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtType>,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
-    let (src, dif) = (shorten(src_type), shorten(dif_type));
-    let dst = dst_type.map(shorten).unwrap_or("dflt");
+    let (v1, v2) = (shorten(v1_type), shorten(v2_type));
+    let dif = dif_type.map(shorten).unwrap_or("dflt");
 
-    let (src_mbt, _src_cn) =
-        new_file! {diff_apply, src_type, METADATA_V1, TILES_V1, "v1__{src}@{dif}={dst}"};
-    let (dif_mbt, _dif_cn) =
-        new_file! {diff_apply, dif_type, METADATA_V2, TILES_V2, "v2__{src}@{dif}={dst}"};
-    let (dst_mbt, _dst_cn) = open!(diff_apply, "dif__{src}-{dst}={dif}");
+    let (v1_mbt, _v1_cn) =
+        new_file! {diff_apply, v1_type, METADATA_V1, TILES_V1, "v1__{v2}-{v1}={dif}"};
+    let (v2_mbt, _v2_cn) =
+        new_file! {diff_apply, v2_type, METADATA_V2, TILES_V2, "v2__{v2}-{v1}={dif}"};
+    let (dif_mbt, _dif_cn) = open!(diff_apply, "dif__{v2}-{v1}={dif}");
 
-    // Diff v1 with v2, and copy to diff anything that's different (i.e. mathematically: v2-v1)
-    let mut opt = copier(&src_mbt, &dst_mbt);
-    opt.diff_with_file = Some(path(&dif_mbt));
-    if let Some(dst_type) = dst_type {
-        opt.dst_type = Some(dst_type);
+    // Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)
+    let mut opt = copier(&v1_mbt, &dif_mbt);
+    opt.diff_with_file = Some(path(&v2_mbt));
+    if let Some(dif_type) = dif_type {
+        opt.dst_type = Some(dif_type);
     }
-    assert_dump!(&mut opt.run().await?, "delta__{src}@{dif}={dst}");
+    assert_dump!(&mut opt.run().await?, "delta__{v2}-{v1}={dif}");
 
     for target_type in &[Flat, FlatWithHash, Normalized] {
-        let tar = shorten(*target_type);
+        let trg = shorten(*target_type);
         let expected_v2 = databases.get(&("v2", *target_type)).unwrap();
 
-        let (tar1_mbt, mut tar1_cn) = new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "apply__{src}@{dif}={dst}__to__{tar}-v1"};
-        apply_diff(path(&tar1_mbt), path(&dst_mbt)).await?;
+        let (tar1_mbt, mut tar1_cn) = new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "after__{v2}-{v1}={dif}__to__{trg}-v1"};
+        apply_diff(path(&tar1_mbt), path(&dif_mbt)).await?;
         let dmp = dump(&mut tar1_cn).await?;
         // pretty_assert_eq!(&dmp, expected_v2);
         if &dmp != expected_v2 {
-            assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__bad_from_v1");
+            assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__bad_from_v1");
         }
 
-        let (tar2_mbt, mut tar2_cn) = new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "apply__{src}@{dif}={dst}__to__{tar}-v2"};
-        apply_diff(path(&tar2_mbt), path(&dst_mbt)).await?;
+        let (tar2_mbt, mut tar2_cn) = new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "after__{v2}-{v1}={dif}__to__{trg}-v2"};
+        apply_diff(path(&tar2_mbt), path(&dif_mbt)).await?;
         let dmp = dump(&mut tar2_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
         // if &dmp != expected_v2 {
-        //     assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__bad_from_v2");
+        //     assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__bad_from_v2");
         // }
 
+        // tar2_mbt.validate(Off, false).await.unwrap();
         // if tar2_mbt.validate(Off, false).await.is_err() {
-        //     assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__validation");
+        //     assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__validation");
         //     assert_snapshot!(
         //         expected_v2,
-        //         "v2_applied__{src}@{dif}={dst}__to__{tar}__validation_expected"
+        //         "v2_applied__{v2}-{v1}={dif}__to__{trg}__validation_expected"
         //     );
         // }
     }
