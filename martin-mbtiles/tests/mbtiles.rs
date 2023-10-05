@@ -5,11 +5,10 @@ use std::str::from_utf8;
 use ctor::ctor;
 use martin_mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use martin_mbtiles::{apply_diff, create_flat_tables, MbtResult, MbtType, Mbtiles, MbtilesCopier};
+use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
 use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
-
-use pretty_assertions::assert_eq as pretty_assert_eq;
 const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
         (5, 0, 0, cast('same' as blob))
@@ -139,40 +138,24 @@ type Databases = HashMap<(&'static str, MbtType), Vec<SqliteEntry>>;
 #[once]
 fn databases() -> Databases {
     futures::executor::block_on(async {
+        let mem = Mbtiles::new(":memory:").unwrap();
         let mut result = HashMap::new();
         for &typ in &[Flat, FlatWithHash, Normalized] {
-            let (_, mut cn) =
+            let (mbt, mut cn) =
                 new_file_no_hash!(databases, typ, METADATA_V1, TILES_V1, "v1-no-hash-{typ}");
-            result.insert(("v1_no_hash", typ), dump(&mut cn).await.unwrap());
+            let dmp = assert_dump!(&mut cn, "v1-no-hash__{typ}");
+            result.insert(("v1_no_hash", typ), dmp);
 
-            let (_, mut cn) = new_file!(databases, typ, METADATA_V1, TILES_V1, "v1-{typ}");
-            result.insert(("v1", typ), dump(&mut cn).await.unwrap());
+            let mut cn = copier(&mbt, &mem).run().await.unwrap();
+            let dmp = assert_dump!(&mut cn, "v1__{typ}");
+            result.insert(("v1", typ), dmp);
 
             let (_, mut cn) = new_file!(databases, typ, METADATA_V2, TILES_V2, "v2-{typ}");
-            result.insert(("v2", typ), dump(&mut cn).await.unwrap());
+            let dmp = assert_dump!(&mut cn, "v2__{typ}");
+            result.insert(("v2", typ), dmp);
         }
         result
     })
-}
-
-#[rstest]
-#[actix_rt::test]
-async fn copy(
-    #[values(Flat, FlatWithHash, Normalized)] frm_type: MbtType,
-    databases: &Databases,
-) -> MbtResult<()> {
-    let frm = shorten(frm_type);
-    let mem = Mbtiles::new(":memory:")?;
-    let (frm_mbt, mut frm_cn) = new_file_no_hash!(copy, frm_type, METADATA_V1, TILES_V1, "{frm}");
-
-    let dmp = assert_dump!(&mut frm_cn, "v1_orig__{frm}");
-    pretty_assert_eq!(databases.get(&("v1_no_hash", frm_type)).unwrap(), &dmp);
-
-    let opt = copier(&frm_mbt, &mem);
-    let dmp = assert_dump!(&mut opt.run().await?, "v1_cp__{frm}");
-    pretty_assert_eq!(databases.get(&("v1", frm_type)).unwrap(), &dmp);
-
-    Ok(())
 }
 
 #[rstest]
@@ -196,7 +179,7 @@ async fn convert(
     opt.dst_type = Some(dst_type);
     opt.zoom_levels.insert(6);
     let z6only = dump(&mut opt.run().await?).await?;
-    assert_snapshot!(z6only, "v1_z2__{frm}-{to}");
+    assert_snapshot!(z6only, "v1__z6__{frm}-{to}");
 
     let mut opt = copier(&frm_mbt, &mem);
     opt.dst_type = Some(dst_type);
@@ -245,7 +228,7 @@ async fn diff_apply(
         let (tar1_mbt, mut tar1_cn) = new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "apply__{src}@{dif}={dst}__to__{tar}-v1"};
         apply_diff(path(&tar1_mbt), path(&dst_mbt)).await?;
         let dmp = dump(&mut tar1_cn).await?;
-        // pretty_assert_eq!(databases.get(&("v2", *target_type)).unwrap(), &dmp);
+        // pretty_assert_eq!(&dmp, expected_v2);
         if &dmp != expected_v2 {
             assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__bad_from_v1");
         }
@@ -253,9 +236,10 @@ async fn diff_apply(
         let (tar2_mbt, mut tar2_cn) = new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "apply__{src}@{dif}={dst}__to__{tar}-v2"};
         apply_diff(path(&tar2_mbt), path(&dst_mbt)).await?;
         let dmp = dump(&mut tar2_cn).await?;
-        if &dmp != expected_v2 {
-            assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__bad_from_v2");
-        }
+        pretty_assert_eq!(&dmp, expected_v2);
+        // if &dmp != expected_v2 {
+        //     assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__bad_from_v2");
+        // }
     }
 
     Ok(())

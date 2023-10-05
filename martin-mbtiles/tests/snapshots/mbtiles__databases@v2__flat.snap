@@ -1,0 +1,45 @@
+---
+source: martin-mbtiles/tests/mbtiles.rs
+expression: actual_value
+---
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "5364C57282B73C341D5D801B8F7675C4"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-same", "value - same"  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles'
+sql = '''
+CREATE TABLE tiles (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  5, 0, 0, blob(same)  )',
+    '(  5, 0, 1, blob(edit-v2)  )',
+    '(  5, 1, 0, blob(new)  )',
+    '(  6, 0, 0, blob(same)  )',
+    '(  6, 0, 1, blob(edit-v2a)  )',
+    '(  6, 1, 4, blob(one-keep-one-remove)  )',
+    '(  6, 1, 6, blob(new)  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles'
