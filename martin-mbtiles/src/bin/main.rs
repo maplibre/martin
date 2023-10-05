@@ -111,7 +111,8 @@ async fn main_int() -> anyhow::Result<()> {
             integrity_check,
             update_agg_tiles_hash,
         } => {
-            validate(file.as_path(), integrity_check, update_agg_tiles_hash).await?;
+            let mbt = Mbtiles::new(file.as_path())?;
+            mbt.validate(integrity_check, update_agg_tiles_hash).await?;
         }
     }
 
@@ -139,26 +140,6 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> MbtRes
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
     mbt.set_metadata_value(&mut conn, key, value).await
-}
-
-async fn validate(
-    file: &Path,
-    check_type: IntegrityCheckType,
-    update_agg_tiles_hash: bool,
-) -> MbtResult<()> {
-    let mbt = Mbtiles::new(file)?;
-    let mut conn = if update_agg_tiles_hash {
-        mbt.open().await?
-    } else {
-        mbt.open_readonly().await?
-    };
-    mbt.check_integrity(&mut conn, check_type).await?;
-    mbt.check_each_tile_hash(&mut conn).await?;
-    if update_agg_tiles_hash {
-        mbt.update_agg_tiles_hash(&mut conn).await
-    } else {
-        mbt.check_agg_tiles_hashes(&mut conn).await
-    }
 }
 
 #[cfg(test)]

@@ -3,12 +3,14 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 
 use ctor::ctor;
+use martin_mbtiles::IntegrityCheckType::Off;
 use martin_mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use martin_mbtiles::{apply_diff, create_flat_tables, MbtResult, MbtType, Mbtiles, MbtilesCopier};
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
 use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
+
 const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
       --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2   
@@ -23,7 +25,6 @@ const TILES_V1: &str = "
 
 const TILES_V2: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
-      --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2, new if x=3   
         (5, 0, 0, cast('same' as blob))        -- no changes
       , (5, 1, 1, cast('edit-v2' as blob))     -- edited in-place
    -- , (5, 2, 2, cast('remove' as blob))      -- this row is deleted
@@ -31,8 +32,16 @@ const TILES_V2: &str = "
       , (6, 1, 4, cast('edit-v2a' as blob))    -- edited, used to be same as 5/1/1
       , (6, 0, 5, cast('1-keep-1-rm' as blob)) -- this row is kept (same content as next)
    -- , (6, 2, 6, cast('1-keep-1-rm' as blob)) -- this row is deleted
-      , (5, 3, 7, cast('new' as blob))         -- this row is added, net reusing
-      , (6, 2, 6, cast('new' as blob))         -- this row is added, reusing deleted 6/2/6 
+      , (5, 3, 7, cast('new' as blob))         -- this row is added, dup value
+      , (5, 3, 8, cast('new' as blob))         -- this row is added, dup value
+      
+      -- Expected delta:
+      --   5/1/1 edit
+      --   5/2/2 remove
+      --   5/3/7 add
+      --   5/3/8 add
+      --   6/1/4 edit
+      --   6/2/6 remove
       ;";
 
 const METADATA_V1: &str = "
@@ -138,20 +147,22 @@ type Databases = HashMap<(&'static str, MbtType), Vec<SqliteEntry>>;
 #[once]
 fn databases() -> Databases {
     futures::executor::block_on(async {
-        let mem = Mbtiles::new(":memory:").unwrap();
         let mut result = HashMap::new();
         for &typ in &[Flat, FlatWithHash, Normalized] {
-            let (mbt, mut cn) =
+            let (raw_mbt, mut cn) =
                 new_file_no_hash!(databases, typ, METADATA_V1, TILES_V1, "v1-no-hash-{typ}");
             let dmp = assert_dump!(&mut cn, "v1-no-hash__{typ}");
             result.insert(("v1_no_hash", typ), dmp);
 
-            let mut cn = copier(&mbt, &mem).run().await.unwrap();
-            let dmp = assert_dump!(&mut cn, "v1__{typ}");
+            let (v1_mbt, mut v1_cn) = open!(databases, "v1-{typ}");
+            copier(&raw_mbt, &v1_mbt).run().await.unwrap();
+            let dmp = assert_dump!(&mut v1_cn, "v1__{typ}");
+            v1_mbt.validate(Off, false).await.unwrap();
             result.insert(("v1", typ), dmp);
 
-            let (_, mut cn) = new_file!(databases, typ, METADATA_V2, TILES_V2, "v2-{typ}");
-            let dmp = assert_dump!(&mut cn, "v2__{typ}");
+            let (v2_mbt, mut v2_cn) = new_file!(databases, typ, METADATA_V2, TILES_V2, "v2-{typ}");
+            let dmp = assert_dump!(&mut v2_cn, "v2__{typ}");
+            v2_mbt.validate(Off, false).await.unwrap();
             result.insert(("v2", typ), dmp);
         }
         result
@@ -164,7 +175,7 @@ fn databases() -> Databases {
 async fn convert(
     #[values(Flat, FlatWithHash, Normalized)] frm_type: MbtType,
     #[values(Flat, FlatWithHash, Normalized)] dst_type: MbtType,
-    databases: &Databases,
+    #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (frm, to) = (shorten(frm_type), shorten(dst_type));
     let mem = Mbtiles::new(":memory:")?;
@@ -202,7 +213,7 @@ async fn diff_apply(
     #[values(Flat, FlatWithHash, Normalized)] src_type: MbtType,
     #[values(Flat, FlatWithHash, Normalized)] dif_type: MbtType,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dst_type: Option<MbtType>,
-    databases: &Databases,
+    #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (src, dif) = (shorten(src_type), shorten(dif_type));
     let dst = dst_type.map(shorten).unwrap_or("dflt");
@@ -240,6 +251,8 @@ async fn diff_apply(
         // if &dmp != expected_v2 {
         //     assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__bad_from_v2");
         // }
+
+        // tar2_mbt.validate(Off, false).await?;
     }
 
     Ok(())

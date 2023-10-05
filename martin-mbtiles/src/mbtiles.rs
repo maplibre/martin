@@ -186,6 +186,25 @@ impl Mbtiles {
         Ok(None)
     }
 
+    pub async fn validate(
+        &self,
+        check_type: IntegrityCheckType,
+        update_agg_tiles_hash: bool,
+    ) -> MbtResult<()> {
+        let mut conn = if update_agg_tiles_hash {
+            self.open().await?
+        } else {
+            self.open_readonly().await?
+        };
+        self.check_integrity(&mut conn, check_type).await?;
+        self.check_each_tile_hash(&mut conn).await?;
+        if update_agg_tiles_hash {
+            self.update_agg_tiles_hash(&mut conn).await
+        } else {
+            self.check_agg_tiles_hashes(&mut conn).await
+        }
+    }
+
     /// Get the aggregate tiles hash value from the metadata table
     pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
     where
