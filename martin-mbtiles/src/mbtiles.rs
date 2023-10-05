@@ -626,7 +626,7 @@ impl Mbtiles {
 
 /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
 /// This should work on all mbtiles files perf `MBTiles` specification.
-async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
+pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
@@ -636,6 +636,11 @@ where
         // For our use case, we will treat it as an empty string, and hash that.
         // `tile_data` values must be stored as a blob per MBTiles spec
         // `md5` functions will fail if the value is not text/blob/null
+        //
+        // Note that ORDER BY controls the output ordering, which is important for the hash value,
+        // and having it at the top level would not order values properly.
+        // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
+        // Sadly, this is still not a guaranteed solution as it is possible, in the future, for the optimizer to change.
         "SELECT
          hex(
            coalesce(
@@ -648,8 +653,14 @@ where
              md5('')
            )
          )
-         FROM tiles
-         ORDER BY zoom_level, tile_column, tile_row;",
+         FROM (
+           SELECT zoom_level,
+                  tile_column,
+                  tile_row,
+                  tile_data
+           FROM tiles
+           ORDER BY zoom_level, tile_column, tile_row
+         );",
     );
     Ok(query.fetch_one(conn).await?.get::<String, _>(0))
 }

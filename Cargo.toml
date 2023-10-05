@@ -65,3 +65,6 @@ sqlx-macros.opt-level = 3
 # See https://docs.rs/insta/latest/insta/#optional-faster-runs
 insta.opt-level = 3
 similar.opt-level = 3
+
+#[patch.crates-io]
+#sqlite-hashes = { path = "/home/nyurik/dev/rust/sqlite-hashes" }

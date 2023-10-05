@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use log::{error, LevelFilter};
+use log::error;
 use martin_mbtiles::{apply_diff, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
 
 #[derive(Parser, PartialEq, Eq, Debug)]
@@ -71,8 +71,8 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
-    env_logger::builder()
-        .filter_level(LevelFilter::Info)
+    let env = env_logger::Env::default().default_filter_or("info");
+    env_logger::Builder::from_env(env)
         .format_indent(None)
         .format_module_path(false)
         .format_target(false)

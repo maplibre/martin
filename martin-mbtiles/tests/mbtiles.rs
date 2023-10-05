@@ -160,7 +160,7 @@ fn databases() -> Databases {
             let dmp = assert_dump!(&mut v1_cn, "v1__{typ}");
             let hash = v1_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"F144D5265985B9D7AC14E7F1F336C6E5");
+                assert_display_snapshot!(hash, @"0063DADF9C78A376418DB0D2B00A5F80");
             }
             result.insert(("v1", typ), dmp);
 
@@ -168,9 +168,16 @@ fn databases() -> Databases {
             let dmp = assert_dump!(&mut v2_cn, "v2__{typ}");
             let hash = v2_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"D80BDADB720F2FAD831D3FB0F45408A6");
+                assert_display_snapshot!(hash, @"5C90855D70120501451BDD08CA71341A");
             }
             result.insert(("v2", typ), dmp);
+
+            // FIXME! delete me
+            // let path = format!(
+            //     "/home/nyurik/dev/rust/martin/martin-mbtiles/tests/temp/mbt__{typ}-v2.mbtiles"
+            // );
+            // let new_mbt = Mbtiles::new(&path).unwrap();
+            // copier(&v2_mbt, &new_mbt).run().await.unwrap();
         }
         result
     })
@@ -253,19 +260,14 @@ async fn diff_apply(
 
         let (tar2_mbt, mut tar2_cn) = new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "after__{v2}-{v1}={dif}__to__{trg}-v2"};
         apply_diff(path(&tar2_mbt), path(&dif_mbt)).await?;
+        let hash = tar2_mbt.validate(Off, false).await?;
+        allow_duplicates! {
+            assert_display_snapshot!(hash, @"5C90855D70120501451BDD08CA71341A");
+        }
         let dmp = dump(&mut tar2_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
         // if &dmp != expected_v2 {
         //     assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__bad_from_v2");
-        // }
-
-        // tar2_mbt.validate(Off, false).await.unwrap();
-        // if tar2_mbt.validate(Off, false).await.is_err() {
-        //     assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__validation");
-        //     assert_snapshot!(
-        //         expected_v2,
-        //         "v2_applied__{v2}-{v1}={dif}__to__{trg}__validation_expected"
-        //     );
         // }
     }
 

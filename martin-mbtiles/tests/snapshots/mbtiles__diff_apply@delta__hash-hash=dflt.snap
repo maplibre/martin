@@ -10,8 +10,8 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "agg_tiles_hash", "C9669FE8F1D2686CCB1A8EBEB863F3D9"  )',
-    '(  "agg_tiles_hash_after_apply", "D80BDADB720F2FAD831D3FB0F45408A6"  )',
+    '(  "agg_tiles_hash", "AB9EE21538C1D28BB357ABB3A45BD6BD"  )',
+    '(  "agg_tiles_hash_after_apply", "5C90855D70120501451BDD08CA71341A"  )',
     '(  "md-edit", "value - v2"  )',
     '(  "md-new", "value - new"  )',
     '(  "md-remove", NULL  )',

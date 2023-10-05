@@ -58,7 +58,7 @@ async fn start(args: Args) -> Result<Server> {
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "martin=info");
+    let env = env_logger::Env::default().default_filter_or("martin=info");
     env_logger::Builder::from_env(env).init();
 
     start(Args::parse())
