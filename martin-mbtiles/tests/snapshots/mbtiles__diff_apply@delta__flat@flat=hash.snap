@@ -10,8 +10,8 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "agg_tiles_hash", "397DFD1A5FC67717672ECAB8375B20B3"  )',
-    '(  "agg_tiles_hash_after_apply", "5364C57282B73C341D5D801B8F7675C4"  )',
+    '(  "agg_tiles_hash", "C947FAB11400078239A264C798124564"  )',
+    '(  "agg_tiles_hash_after_apply", "9DD093B730A00C9FF719C3EE29C92C2B"  )',
     '(  "md-edit", "value - v2"  )',
     '(  "md-new", "value - new"  )',
     '(  "md-remove", NULL  )',
@@ -29,12 +29,11 @@ CREATE TABLE tiles_with_hash (
              tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
-    '(  5, 0, 1, blob(edit-v2), "FF76830FF90D79BB335884F256031731"  )',
-    '(  5, 1, 0, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
-    '(  5, 1, 1, NULL, ""  )',
-    '(  6, 0, 1, blob(edit-v2a), "03132BFACDB00CC63D6B7DD98D974DD5"  )',
-    '(  6, 1, 5, NULL, ""  )',
-    '(  6, 1, 6, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  5, 1, 1, blob(edit-v2), "FF76830FF90D79BB335884F256031731"  )',
+    '(  5, 2, 2, NULL, ""  )',
+    '(  5, 3, 7, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  6, 1, 4, blob(edit-v2a), "03132BFACDB00CC63D6B7DD98D974DD5"  )',
+    '(  6, 2, 6, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
 ]
 
 [[]]

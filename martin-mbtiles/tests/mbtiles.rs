@@ -11,28 +11,28 @@ use serde::Serialize;
 use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
 const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
+      --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2   
         (5, 0, 0, cast('same' as blob))
-      , (5, 0, 1, cast('edit-v1' as blob))
-      , (5, 1, 1, cast('remove' as blob))
-
-      -- Identical content gets modified differently in V2 
-      , (6, 0, 0, cast('same' as blob))
-      , (6, 0, 1, cast('edit-v1' as blob))
-      , (6, 1, 4, cast('one-keep-one-remove' as blob))
-      , (6, 1, 5, cast('one-keep-one-remove' as blob))
+      , (5, 1, 1, cast('edit-v1' as blob))
+      , (5, 2, 2, cast('remove' as blob))
+      , (6, 0, 3, cast('same' as blob))
+      , (6, 1, 4, cast('edit-v1' as blob))
+      , (6, 0, 5, cast('1-keep-1-rm' as blob))
+      , (6, 2, 6, cast('1-keep-1-rm' as blob))
       ;";
 
 const TILES_V2: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
-        (5, 0, 0, cast('same' as blob))
-      , (5, 0, 1, cast('edit-v2' as blob))
-      , (5, 1, 0, cast('new' as blob))
-      
-      -- Identical content gets modified differently in V2 
-      , (6, 0, 0, cast('same' as blob))
-      , (6, 0, 1, cast('edit-v2a' as blob))
-      , (6, 1, 4, cast('one-keep-one-remove' as blob))
-      , (6, 1, 6, cast('new' as blob))
+      --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2, new if x=3   
+        (5, 0, 0, cast('same' as blob))        -- no changes
+      , (5, 1, 1, cast('edit-v2' as blob))     -- edited in-place
+   -- , (5, 2, 2, cast('remove' as blob))      -- this row is deleted
+      , (6, 0, 3, cast('same' as blob))        -- no changes, same content as 5/0/0
+      , (6, 1, 4, cast('edit-v2a' as blob))    -- edited, used to be same as 5/1/1
+      , (6, 0, 5, cast('1-keep-1-rm' as blob)) -- this row is kept (same content as next)
+   -- , (6, 2, 6, cast('1-keep-1-rm' as blob)) -- this row is deleted
+      , (5, 3, 7, cast('new' as blob))         -- this row is added, net reusing
+      , (6, 2, 6, cast('new' as blob))         -- this row is added, reusing deleted 6/2/6 
       ;";
 
 const METADATA_V1: &str = "
