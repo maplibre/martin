@@ -39,6 +39,7 @@ ctor.workspace = true
 env_logger.workspace = true
 insta.workspace = true
 pretty_assertions.workspace = true
+rstest.workspace = true
 
 [lib]
 path = "src/lib.rs"

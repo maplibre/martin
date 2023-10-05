@@ -62,7 +62,7 @@ pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
 /// describing the eventual AGG_TILES_HASH value once the diff is applied
 pub const AGG_TILES_HASH_IN_DIFF: &str = "agg_tiles_hash_after_apply";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtType {
