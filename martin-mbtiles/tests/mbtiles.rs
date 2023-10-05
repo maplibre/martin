@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 
 use ctor::ctor;
+use insta::assert_display_snapshot;
 use martin_mbtiles::IntegrityCheckType::Off;
 use martin_mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
 use martin_mbtiles::{apply_diff, create_flat_tables, MbtResult, MbtType, Mbtiles, MbtilesCopier};
@@ -157,12 +158,14 @@ fn databases() -> Databases {
             let (v1_mbt, mut v1_cn) = open!(databases, "v1-{typ}");
             copier(&raw_mbt, &v1_mbt).run().await.unwrap();
             let dmp = assert_dump!(&mut v1_cn, "v1__{typ}");
-            v1_mbt.validate(Off, false).await.unwrap();
+            let hash = v1_mbt.validate(Off, false).await.unwrap();
+            // assert_display_snapshot!(hash, @"F144D5265985B9D7AC14E7F1F336C6E5");
             result.insert(("v1", typ), dmp);
 
             let (v2_mbt, mut v2_cn) = new_file!(databases, typ, METADATA_V2, TILES_V2, "v2-{typ}");
             let dmp = assert_dump!(&mut v2_cn, "v2__{typ}");
-            v2_mbt.validate(Off, false).await.unwrap();
+            let hash = v2_mbt.validate(Off, false).await.unwrap();
+            // assert_display_snapshot!(hash, @"D80BDADB720F2FAD831D3FB0F45408A6");
             result.insert(("v2", typ), dmp);
         }
         result
@@ -252,7 +255,13 @@ async fn diff_apply(
         //     assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__bad_from_v2");
         // }
 
-        // tar2_mbt.validate(Off, false).await?;
+        // if tar2_mbt.validate(Off, false).await.is_err() {
+        //     assert_snapshot!(dmp, "v2_applied__{src}@{dif}={dst}__to__{tar}__validation");
+        //     assert_snapshot!(
+        //         expected_v2,
+        //         "v2_applied__{src}@{dif}={dst}__to__{tar}__validation_expected"
+        //     );
+        // }
     }
 
     Ok(())

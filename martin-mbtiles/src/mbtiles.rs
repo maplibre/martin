@@ -190,7 +190,7 @@ impl Mbtiles {
         &self,
         check_type: IntegrityCheckType,
         update_agg_tiles_hash: bool,
-    ) -> MbtResult<()> {
+    ) -> MbtResult<String> {
         let mut conn = if update_agg_tiles_hash {
             self.open().await?
         } else {
@@ -217,7 +217,7 @@ impl Mbtiles {
         &self,
         conn: &mut T,
         key: &str,
-        value: Option<String>,
+        value: Option<&str>,
     ) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -538,7 +538,7 @@ impl Mbtiles {
         Ok(())
     }
 
-    pub async fn check_agg_tiles_hashes<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn check_agg_tiles_hashes<T>(&self, conn: &mut T) -> MbtResult<String>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -552,11 +552,11 @@ impl Mbtiles {
         }
 
         info!("The agg_tiles_hashes={computed} has been verified for {self}");
-        Ok(())
+        Ok(computed)
     }
 
     /// Compute new aggregate tiles hash and save it to the metadata table (if needed)
-    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<String>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -564,16 +564,16 @@ impl Mbtiles {
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
         if old_hash.as_ref() == Some(&hash) {
             info!("agg_tiles_hash is already set to the correct value `{hash}` in {self}");
-            Ok(())
         } else {
             if let Some(old_hash) = old_hash {
                 info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
             } else {
                 info!("Creating new metadata value agg_tiles_hash = {hash} in {self}");
             }
-            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, Some(hash))
-                .await
+            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, Some(&hash))
+                .await?;
         }
+        Ok(hash)
     }
 
     pub async fn check_each_tile_hash<T>(&self, conn: &mut T) -> MbtResult<()>
@@ -762,7 +762,7 @@ mod tests {
         conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
             .await?;
 
-        mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0".to_string()))
+        mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0"))
             .await?;
         assert_eq!(
             mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
@@ -772,7 +772,7 @@ mod tests {
         mbt.set_metadata_value(
             &mut conn,
             "bounds",
-            Some("-123.123590,-37.818085,174.763027,59.352706".to_string()),
+            Some("-123.123590,-37.818085,174.763027,59.352706"),
         )
         .await?;
         assert_eq!(

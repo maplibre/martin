@@ -95,7 +95,7 @@ async fn main_int() -> anyhow::Result<()> {
             meta_get_value(file.as_path(), &key).await?;
         }
         Commands::MetaSetValue { file, key, value } => {
-            meta_set_value(file.as_path(), &key, value).await?;
+            meta_set_value(file.as_path(), &key, value.as_deref()).await?;
         }
         Commands::Copy(opts) => {
             opts.run().await?;
@@ -136,7 +136,7 @@ async fn meta_get_value(file: &Path, key: &str) -> MbtResult<()> {
     Ok(())
 }
 
-async fn meta_set_value(file: &Path, key: &str, value: Option<String>) -> MbtResult<()> {
+async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
     mbt.set_metadata_value(&mut conn, key, value).await
