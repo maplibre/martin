@@ -7,14 +7,14 @@ on:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
-      - 'homebrew-formula/**'
+      - 'HomebrewFormula/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
-      - 'homebrew-formula/**'
+      - 'HomebrewFormula/**'
   release:
     types: [ published ]
   workflow_dispatch:
