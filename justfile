@@ -145,6 +145,7 @@ bless: start clean-test bless-insta
     rm -rf tests/expected
     mv tests/output tests/expected
 
+# Run integration tests and save its output as the new expected output
 bless-insta *ARGS: (cargo-install "insta" "cargo-insta")
     #rm -rf martin-mbtiles/tests/snapshots
     cargo insta test --accept --unreferenced=auto -p martin-mbtiles {{ ARGS }}

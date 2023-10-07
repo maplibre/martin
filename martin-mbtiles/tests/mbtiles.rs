@@ -246,29 +246,47 @@ async fn diff_apply(
     }
     assert_dump!(&mut opt.run().await?, "delta__{v2}-{v1}={dif}");
 
+    // if &format!("{v2}-{v1}={dif}") == "hash-flat=norm" {
+    //     save_to_file(&v1_mbt, &format!("v1__{v2}-{v1}={dif}.mbtiles")).await?;
+    //     save_to_file(&v2_mbt, &format!("v2__{v2}-{v1}={dif}.mbtiles")).await?;
+    //     save_to_file(&dif_mbt, &format!("dif__{v2}-{v1}={dif}.mbtiles")).await?;
+    // }
+
     for target_type in &[Flat, FlatWithHash, Normalized] {
         let trg = shorten(*target_type);
         let expected_v2 = databases.get(&("v2", *target_type)).unwrap();
 
         let (tar1_mbt, mut tar1_cn) = new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "after__{v2}-{v1}={dif}__to__{trg}-v1"};
         apply_diff(path(&tar1_mbt), path(&dif_mbt)).await?;
+        // let hash_v1 = tar1_mbt.validate(Off, false).await?;
+        // allow_duplicates! {
+        //     assert_display_snapshot!(hash_v1, @"5C90855D70120501451BDD08CA71341A");
+        // }
         let dmp = dump(&mut tar1_cn).await?;
         // pretty_assert_eq!(&dmp, expected_v2);
         if &dmp != expected_v2 {
             assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__bad_from_v1");
+
+            // save_to_file(
+            //     &tar1_mbt,
+            //     &format!("{v2}-{v1}={dif}__to__{trg}__src.mbtiles"),
+            // )
+            // .await?;
+            // save_to_file(
+            //     &dif_mbt,
+            //     &format!("{v2}-{v1}={dif}__to__{trg}__diff.mbtiles"),
+            // )
+            // .await?;
         }
 
         let (tar2_mbt, mut tar2_cn) = new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "after__{v2}-{v1}={dif}__to__{trg}-v2"};
         apply_diff(path(&tar2_mbt), path(&dif_mbt)).await?;
-        let hash = tar2_mbt.validate(Off, false).await?;
+        let hash_v2 = tar2_mbt.validate(Off, false).await?;
         allow_duplicates! {
-            assert_display_snapshot!(hash, @"5C90855D70120501451BDD08CA71341A");
+            assert_display_snapshot!(hash_v2, @"5C90855D70120501451BDD08CA71341A");
         }
         let dmp = dump(&mut tar2_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
-        // if &dmp != expected_v2 {
-        //     assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__bad_from_v2");
-        // }
     }
 
     Ok(())
@@ -376,4 +394,12 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
     }
 
     Ok(result)
+}
+
+#[allow(dead_code)]
+async fn save_to_file(source_mbt: &Mbtiles, path: &str) -> MbtResult<()> {
+    let mut opt = copier(source_mbt, &Mbtiles::new(path)?);
+    opt.skip_agg_tiles_hash = true;
+    opt.run().await?;
+    Ok(())
 }
