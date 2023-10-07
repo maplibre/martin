@@ -4,7 +4,6 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tilejson::TileJSON;
-use tokio::time::timeout;
 
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::pg::config_function::FuncInfoSources;
@@ -114,23 +113,30 @@ impl PgConfig {
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {
         let pg = PgBuilder::new(self, id_resolver).await?;
-
-        let instantiate_tables = pg.instantiate_tables();
-        pin_mut!(instantiate_tables);
-        if timeout(Duration::from_secs(5), &mut instantiate_tables)
-            .await
-            .is_err()
-        {
-            warn!("PostgreSQL table discovery is taking too long. Make sure your table geo columns have a GIS index, or use --disabling-bounds.");
-        }
-
         let ((mut tables, tbl_info), (funcs, func_info)) =
-            try_join(instantiate_tables, pg.instantiate_functions()).await?;
+            try_join(Self::instantiate_tables(&pg), pg.instantiate_functions()).await?;
 
         self.tables = Some(tbl_info);
         self.functions = Some(func_info);
         tables.extend(funcs);
         Ok(tables)
+    }
+
+    async fn instantiate_tables(pg: &PgBuilder) -> Result<(Sources, TableInfoSources)> {
+        let instantiate_tables = pg.instantiate_tables();
+        pin_mut!(instantiate_tables);
+
+        let timeout_future = tokio::time::sleep(Duration::from_secs(5));
+
+        tokio::select! {
+            result = &mut instantiate_tables => {
+                result
+            }
+            () = timeout_future => {
+                warn!("PostgreSQL table discovery is taking too long. Make sure your table geo columns have a GIS index, or use --disabling-bounds.");
+                instantiate_tables.await
+            }
+        }
     }
 }
 
