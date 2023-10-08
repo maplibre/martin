@@ -2625,7 +2625,7 @@ dependencies = [
  "regex",
  "relative-path",
  "rustc_version",
- "syn 2.0.37",
+ "syn 2.0.38",
  "unicode-ident",
 ]
 
