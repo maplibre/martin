@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use futures::future::try_join;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
@@ -8,7 +11,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::Result;
 use crate::source::Sources;
-use crate::utils::{sorted_opt_map, BoolOrObject, IdResolver, OneOrMany};
+use crate::utils::{on_slow, sorted_opt_map, BoolOrObject, IdResolver, OneOrMany};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -110,8 +113,15 @@ impl PgConfig {
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {
         let pg = PgBuilder::new(self, id_resolver).await?;
+        let inst_tables = on_slow(pg.instantiate_tables(), Duration::from_secs(5), || {
+            if pg.disable_bounds() {
+                warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.", pg.get_id());
+            } else {
+                warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use --disable-bounds CLI/config to skip bbox calculation.", pg.get_id());
+            }
+        });
         let ((mut tables, tbl_info), (funcs, func_info)) =
-            try_join(pg.instantiate_tables(), pg.instantiate_functions()).await?;
+            try_join(inst_tables, pg.instantiate_functions()).await?;
 
         self.tables = Some(tbl_info);
         self.functions = Some(func_info);
