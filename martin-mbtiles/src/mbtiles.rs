@@ -640,27 +640,21 @@ where
         // Note that ORDER BY controls the output ordering, which is important for the hash value,
         // and having it at the top level would not order values properly.
         // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
-        // Sadly, this is still not a guaranteed solution as it is possible, in the future, for the optimizer to change.
-        "SELECT
-         hex(
-           coalesce(
-             md5_concat(
+        "
+SELECT coalesce(
+    (SELECT md5_concat_hex(
                cast(zoom_level AS text),
                cast(tile_column AS text),
                cast(tile_row AS text),
                tile_data
-             ),
-             md5('')
            )
-         )
-         FROM (
-           SELECT zoom_level,
-                  tile_column,
-                  tile_row,
-                  tile_data
-           FROM tiles
-           ORDER BY zoom_level, tile_column, tile_row
-         );",
+           OVER (ORDER BY zoom_level, tile_column, tile_row ROWS
+                 BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+     FROM tiles
+     LIMIT 1),
+    md5_hex('')
+);
+",
     );
     Ok(query.fetch_one(conn).await?.get::<String, _>(0))
 }
