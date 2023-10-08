@@ -1,9 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
+use std::future::Future;
 use std::io::{Read as _, Write as _};
+use std::time::Duration;
 
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use futures::pin_mut;
 use serde::{Deserialize, Serialize, Serializer};
+use tokio::time::timeout;
 
 #[must_use]
 pub fn is_valid_zoom(zoom: u8, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
@@ -57,4 +61,18 @@ pub fn encode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut encoder = brotli::CompressorWriter::new(Vec::new(), 4096, 11, 22);
     encoder.write_all(data)?;
     Ok(encoder.into_inner())
+}
+
+pub async fn on_slow<T, S: FnOnce()>(
+    future: impl Future<Output = T>,
+    duration: Duration,
+    fn_on_slow: S,
+) -> T {
+    pin_mut!(future);
+    if let Ok(result) = timeout(duration, &mut future).await {
+        result
+    } else {
+        fn_on_slow();
+        future.await
+    }
 }
