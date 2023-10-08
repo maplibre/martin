@@ -63,6 +63,14 @@ impl PgBuilder {
         })
     }
 
+    pub fn disable_bounds(&self) -> bool {
+        self.disable_bounds
+    }
+
+    pub fn get_id(&self) -> &str {
+        self.pool.get_id()
+    }
+
     // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
     #[allow(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources)> {
