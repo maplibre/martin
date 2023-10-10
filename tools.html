@@ -199,7 +199,8 @@
 <pre><code class="language-shell">mbtiles copy src_file.mbtiles dst_file.mbtiles \
         --min-zoom 0 --max-zoom 10
 </code></pre>
-<p>Copy command can also be used to compare two mbtiles files and generate a diff.</p>
+<p>Copy command can also be used to compare two mbtiles files and generate a delta (diff) file. The diff file can be applied to the <code>src_file.mbtiles</code> elsewhere, to avoid copying/transmitting the entire modified dataset.  The delta file will contain all tiles that are different between the two files (modifications, insertions, and deletions as <code>NULL</code> values), for both the tile and metadata tables.</p>
+<p>There is one exception: <code>agg_tiles_hash</code> metadata value will be renamed to <code>agg_tiles_hash_in_diff</code>, and a new <code>agg_tiles_hash</code> will be generated for the diff file itself. This is done to avoid confusion when applying the diff file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied. The <code>apply-diff</code> command will automatically rename the <code>agg_tiles_hash_in_diff</code> value back to <code>agg_tiles_hash</code> when applying the diff.</p>
 <pre><code class="language-shell">mbtiles copy src_file.mbtiles diff_file.mbtiles \
          --diff-with-file modified_file.mbtiles
 </code></pre>
@@ -209,6 +210,7 @@
 </code></pre>
 <h3 id="apply-diff"><a class="header" href="#apply-diff">apply-diff</a></h3>
 <p>Apply the diff file generated from <code>copy</code> command above to an mbtiles file. The diff file can be applied to the <code>src_file.mbtiles</code> elsewhere, to avoid copying/transmitting the entire modified dataset.</p>
+<p>Note that the <code>agg_tiles_hash_in_diff</code> metadata value will be renamed to <code>agg_tiles_hash</code> when applying the diff. This is done to avoid confusion when applying the diff file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied.</p>
 <pre><code class="language-shell">mbtiles apply_diff src_file.mbtiles diff_file.mbtiles
 </code></pre>
 <p>Another way to apply the diff is to use the <code>sqlite3</code> command line tool directly. This SQL will delete all tiles from <code>src_file.mbtiles</code> that are set to <code>NULL</code> in <code>diff_file.mbtiles</code>, and then insert or update all new tiles from <code>diff_file.mbtiles</code> into <code>src_file.mbtiles</code>, where both files are of <code>flat</code> type. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.</p>
@@ -249,7 +251,7 @@ CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM ti
 <h4 id="normalized"><a class="header" href="#normalized">normalized</a></h4>
 <pre><code class="language-sql  ignore">CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT);
 CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
-CREATE TABLE images (tile_data blob, tile_id text);
+CREATE TABLE images (tile_id text, tile_data blob);
 CREATE UNIQUE INDEX images_id ON images (tile_id);
 CREATE VIEW tiles AS
   SELECT
@@ -268,8 +270,7 @@ CREATE VIEW tiles AS
       map.tile_row AS tile_row,
       images.tile_data AS tile_data,
       images.tile_id AS tile_hash
-  FROM map
-  JOIN images ON images.tile_id = map.tile_id;
+  FROM map LEFT JOIN images ON map.tile_id = images.tile_id;
 </code></pre>
 <p><strong><strong>Note:</strong></strong> All <code>normalized</code> files created by the <code>mbtiles</code> tool will contain this view.</p>
 
