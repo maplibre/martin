@@ -255,7 +255,9 @@ async fn diff_apply(
     if let Some(dif_type) = dif_type {
         opt.dst_type = Some(dif_type);
     }
-    opt.run().await?;
+    // opt.run().await?;
+    assert_dump!(&mut opt.run().await?, "{prefix}__delta");
+
     // pretty_assert_eq!(
     //     &dump(&mut dif_cn).await?,
     //     databases
