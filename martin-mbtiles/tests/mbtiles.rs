@@ -150,11 +150,17 @@ type Databases = HashMap<(&'static str, MbtType), Vec<SqliteEntry>>;
 fn databases() -> Databases {
     futures::executor::block_on(async {
         let mut result = HashMap::new();
-        for &typ in &[Flat, FlatWithHash, Normalized] {
-            let (raw_mbt, mut cn) =
-                new_file_no_hash!(databases, typ, METADATA_V1, TILES_V1, "v1-no-hash-{typ}");
+        for &mbt_typ in &[Flat, FlatWithHash, Normalized] {
+            let typ = shorten(mbt_typ);
+            let (raw_mbt, mut cn) = new_file_no_hash!(
+                databases,
+                mbt_typ,
+                METADATA_V1,
+                TILES_V1,
+                "v1-no-hash-{typ}"
+            );
             let dmp = assert_dump!(&mut cn, "v1-no-hash__{typ}");
-            result.insert(("v1_no_hash", typ), dmp);
+            result.insert(("v1_no_hash", mbt_typ), dmp);
 
             let (v1_mbt, mut v1_cn) = open!(databases, "v1-{typ}");
             copier(&raw_mbt, &v1_mbt).run().await.unwrap();
@@ -163,15 +169,16 @@ fn databases() -> Databases {
             allow_duplicates! {
                 assert_display_snapshot!(hash, @"0063DADF9C78A376418DB0D2B00A5F80");
             }
-            result.insert(("v1", typ), dmp);
+            result.insert(("v1", mbt_typ), dmp);
 
-            let (v2_mbt, mut v2_cn) = new_file!(databases, typ, METADATA_V2, TILES_V2, "v2-{typ}");
+            let (v2_mbt, mut v2_cn) =
+                new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "v2-{typ}");
             let dmp = assert_dump!(&mut v2_cn, "v2__{typ}");
             let hash = v2_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
                 assert_display_snapshot!(hash, @"5C90855D70120501451BDD08CA71341A");
             }
-            result.insert(("v2", typ), dmp);
+            result.insert(("v2", mbt_typ), dmp);
 
             // FIXME! delete me
             // let path = format!(
@@ -232,12 +239,11 @@ async fn diff_apply(
 ) -> MbtResult<()> {
     let (v1, v2) = (shorten(v1_type), shorten(v2_type));
     let dif = dif_type.map(shorten).unwrap_or("dflt");
+    let prefix = format!("{v2}-{v1}={dif}");
 
-    let (v1_mbt, _v1_cn) =
-        new_file! {diff_apply, v1_type, METADATA_V1, TILES_V1, "v1__{v2}-{v1}={dif}"};
-    let (v2_mbt, _v2_cn) =
-        new_file! {diff_apply, v2_type, METADATA_V2, TILES_V2, "v2__{v2}-{v1}={dif}"};
-    let (dif_mbt, _dif_cn) = open!(diff_apply, "dif__{v2}-{v1}={dif}");
+    let (v1_mbt, _v1_cn) = new_file! {diff_apply, v1_type, METADATA_V1, TILES_V1, "{prefix}__v1"};
+    let (v2_mbt, _v2_cn) = new_file! {diff_apply, v2_type, METADATA_V2, TILES_V2, "{prefix}__v2"};
+    let (dif_mbt, _dif_cn) = open!(diff_apply, "{prefix}__dif");
 
     info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
     let mut opt = copier(&v1_mbt, &dif_mbt);
@@ -245,20 +251,22 @@ async fn diff_apply(
     if let Some(dif_type) = dif_type {
         opt.dst_type = Some(dif_type);
     }
-    assert_dump!(&mut opt.run().await?, "delta__{v2}-{v1}={dif}");
-    // if &format!("{v2}-{v1}={dif}") == "hash-flat=norm" {
-    // save_to_file(&v1_mbt, &format!("v1__{v2}-{v1}={dif}.mbtiles")).await?;
-    // save_to_file(&v2_mbt, &format!("v2__{v2}-{v1}={dif}.mbtiles")).await?;
-    // save_to_file(&dif_mbt, &format!("dif__{v2}-{v1}={dif}.mbtiles")).await?;
+    assert_dump!(&mut opt.run().await?, "{prefix}__delta");
+    // if prefix == "hash-flat=norm" {
+    // save_to_file(&v1_mbt, &format!("{prefix}__v1.mbtiles")).await?;
+    // save_to_file(&v2_mbt, &format!("{prefix}__v2.mbtiles")).await?;
+    // save_to_file(&dif_mbt, &format!("{prefix}__dif.mbtiles")).await?;
     // }
 
     // panic!();
 
     for target_type in &[Flat, FlatWithHash, Normalized] {
         let trg = shorten(*target_type);
+        let prefix = format!("{prefix}__to__{trg}");
         let expected_v2 = databases.get(&("v2", *target_type)).unwrap();
 
-        let (tar1_mbt, mut tar1_cn) = new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "after__{v2}-{v1}={dif}__to__{trg}-v1"};
+        let (tar1_mbt, mut tar1_cn) =
+            new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "{prefix}__v1"};
         apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
         // let hash_v1 = tar1_mbt.validate(Off, false).await?;
         // allow_duplicates! {
@@ -267,21 +275,22 @@ async fn diff_apply(
         let dmp = dump(&mut tar1_cn).await?;
         // pretty_assert_eq!(&dmp, expected_v2);
         if &dmp != expected_v2 {
-            assert_snapshot!(dmp, "v2_applied__{v2}-{v1}={dif}__to__{trg}__bad_from_v1");
+            assert_snapshot!(dmp, "{prefix}__v2_applied__bad_from_v1");
 
             // save_to_file(
             //     &tar1_mbt,
-            //     &format!("{v2}-{v1}={dif}__to__{trg}__src.mbtiles"),
+            //     &format!("{prefix}__src.mbtiles"),
             // )
             // .await?;
             // save_to_file(
             //     &dif_mbt,
-            //     &format!("{v2}-{v1}={dif}__to__{trg}__diff.mbtiles"),
+            //     &format!("{prefix}__diff.mbtiles"),
             // )
             // .await?;
         }
 
-        let (tar2_mbt, mut tar2_cn) = new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "after__{v2}-{v1}={dif}__to__{trg}-v2"};
+        let (tar2_mbt, mut tar2_cn) =
+            new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "{prefix}__v2"};
         apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
         let hash_v2 = tar2_mbt.validate(Off, false).await?;
         allow_duplicates! {
