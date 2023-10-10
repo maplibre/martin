@@ -157,14 +157,14 @@ fn databases() -> Databases {
                 mbt_typ,
                 METADATA_V1,
                 TILES_V1,
-                "v1-no-hash-{typ}"
+                "{typ}__v1-no-hash"
             );
-            let dmp = assert_dump!(&mut cn, "v1-no-hash__{typ}");
+            let dmp = assert_dump!(&mut cn, "{typ}__v1-no-hash");
             result.insert(("v1_no_hash", mbt_typ), dmp);
 
-            let (v1_mbt, mut v1_cn) = open!(databases, "v1-{typ}");
+            let (v1_mbt, mut v1_cn) = open!(databases, "{typ}__v1");
             copier(&raw_mbt, &v1_mbt).run().await.unwrap();
-            let dmp = assert_dump!(&mut v1_cn, "v1__{typ}");
+            let dmp = assert_dump!(&mut v1_cn, "{typ}__v1");
             let hash = v1_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
                 assert_display_snapshot!(hash, @"0063DADF9C78A376418DB0D2B00A5F80");
@@ -172,20 +172,24 @@ fn databases() -> Databases {
             result.insert(("v1", mbt_typ), dmp);
 
             let (v2_mbt, mut v2_cn) =
-                new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "v2-{typ}");
-            let dmp = assert_dump!(&mut v2_cn, "v2__{typ}");
+                new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
+            let dmp = assert_dump!(&mut v2_cn, "{typ}__v2");
             let hash = v2_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
                 assert_display_snapshot!(hash, @"5C90855D70120501451BDD08CA71341A");
             }
             result.insert(("v2", mbt_typ), dmp);
 
-            // FIXME! delete me
-            // let path = format!(
-            //     "/home/nyurik/dev/rust/martin/martin-mbtiles/tests/temp/mbt__{typ}-v2.mbtiles"
-            // );
-            // let new_mbt = Mbtiles::new(&path).unwrap();
-            // copier(&v2_mbt, &new_mbt).run().await.unwrap();
+            let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif");
+            let mut opt = copier(&v1_mbt, &dif_mbt);
+            opt.diff_with_file = Some(path(&v2_mbt));
+            opt.run().await.unwrap();
+            let dmp = assert_dump!(&mut dif_cn, "{typ}__dif");
+            // let hash = dif_mbt.validate(Off, false).await.unwrap();
+            // allow_duplicates! {
+            //     assert_display_snapshot!(hash, @"AB9EE21538C1D28BB357ABB3A45BD6BD");
+            // }
+            result.insert(("dif", mbt_typ), dmp);
         }
         result
     })
@@ -251,44 +255,31 @@ async fn diff_apply(
     if let Some(dif_type) = dif_type {
         opt.dst_type = Some(dif_type);
     }
-    assert_dump!(&mut opt.run().await?, "{prefix}__delta");
-    // if prefix == "hash-flat=norm" {
-    // save_to_file(&v1_mbt, &format!("{prefix}__v1.mbtiles")).await?;
-    // save_to_file(&v2_mbt, &format!("{prefix}__v2.mbtiles")).await?;
-    // save_to_file(&dif_mbt, &format!("{prefix}__dif.mbtiles")).await?;
-    // }
-
-    // panic!();
+    opt.run().await?;
+    // pretty_assert_eq!(
+    //     &dump(&mut dif_cn).await?,
+    //     databases
+    //         .get(&("dif", dif_type.unwrap_or(v1_type)))
+    //         .unwrap()
+    // );
 
     for target_type in &[Flat, FlatWithHash, Normalized] {
         let trg = shorten(*target_type);
         let prefix = format!("{prefix}__to__{trg}");
         let expected_v2 = databases.get(&("v2", *target_type)).unwrap();
 
+        info!("TEST: Applying the difference (v2-v1=diff) to v1, should get v2");
         let (tar1_mbt, mut tar1_cn) =
             new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "{prefix}__v1"};
         apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
-        // let hash_v1 = tar1_mbt.validate(Off, false).await?;
-        // allow_duplicates! {
-        //     assert_display_snapshot!(hash_v1, @"5C90855D70120501451BDD08CA71341A");
-        // }
-        let dmp = dump(&mut tar1_cn).await?;
-        // pretty_assert_eq!(&dmp, expected_v2);
-        if &dmp != expected_v2 {
-            assert_snapshot!(dmp, "{prefix}__v2_applied__bad_from_v1");
-
-            // save_to_file(
-            //     &tar1_mbt,
-            //     &format!("{prefix}__src.mbtiles"),
-            // )
-            // .await?;
-            // save_to_file(
-            //     &dif_mbt,
-            //     &format!("{prefix}__diff.mbtiles"),
-            // )
-            // .await?;
+        let hash_v1 = tar1_mbt.validate(Off, false).await?;
+        allow_duplicates! {
+            assert_display_snapshot!(hash_v1, @"5C90855D70120501451BDD08CA71341A");
         }
+        let dmp = dump(&mut tar1_cn).await?;
+        pretty_assert_eq!(&dmp, expected_v2);
 
+        info!("TEST: Applying the difference (v2-v1=diff) to v2, should not modify it");
         let (tar2_mbt, mut tar2_cn) =
             new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "{prefix}__v2"};
         apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
@@ -303,17 +294,17 @@ async fn diff_apply(
     Ok(())
 }
 
-#[actix_rt::test]
-// #[ignore]
-async fn test_one() {
-    // let dif_type = FlatWithHash;
-    // let src_type = Flat;
-    // let dst_type = Some(Normalized);
-    // let db = databases();
-    //
-    // diff_apply(src_type, dif_type, dst_type, &db).await.unwrap();
-    // panic!()
-}
+// /// A simple tester to run specific values
+// #[actix_rt::test]
+// async fn test_one() {
+//     let dif_type = FlatWithHash;
+//     let src_type = Flat;
+//     let dst_type = Some(Normalized);
+//     let db = databases();
+//
+//     diff_apply(src_type, dif_type, dst_type, &db).await.unwrap();
+//     panic!()
+// }
 
 #[derive(Debug, sqlx::FromRow, Serialize, PartialEq)]
 struct SqliteEntry {

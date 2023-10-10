@@ -177,9 +177,9 @@ impl MbtileCopierInt {
         }
 
         let select_from = if let Some((_, dif_type)) = &dif {
-            Self::get_select_from_with_diff(dst_type, *dif_type)
+            Self::get_select_from_with_diff(*dif_type, dst_type)
         } else {
-            Self::get_select_from(dst_type, src_type).to_string()
+            Self::get_select_from(src_type, dst_type).to_string()
         };
 
         let (where_clause, query_args) = self.get_where_clause();
@@ -356,18 +356,29 @@ impl MbtileCopierInt {
         }
     }
 
-    fn get_select_from_with_diff(dst_type: MbtType, diff_type: MbtType) -> String {
-        let (hash_col_sql, diff_tiles) = if dst_type == Flat {
-            ("", "diffDb.tiles")
+    fn get_select_from_with_diff(dif_type: MbtType, dst_type: MbtType) -> String {
+        let hash_col_sql;
+        let diff_tiles;
+        if dst_type == Flat {
+            hash_col_sql = String::new();
+            diff_tiles = "diffDb.tiles";
         } else {
-            match diff_type {
-                Flat => (", md5_hex(difTiles.tile_data) as hash", "diffDb.tiles"),
-                FlatWithHash => (", difTiles.tile_hash as hash", "diffDb.tiles_with_hash"),
-                Normalized => (", difTiles.hash",
-                               "(SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
-                                 FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"),
-            }
-        };
+            let dif_hash = match dif_type {
+                Flat => "md5_hex(difTiles.tile_data)",
+                FlatWithHash => "difTiles.tile_hash",
+                Normalized => "difTiles.hash",
+            };
+            hash_col_sql = format!(", COALESCE({dif_hash}, md5_hex(srcTiles.tile_data)) as hash",);
+            diff_tiles = match dif_type {
+                Flat => "diffDb.tiles",
+                FlatWithHash => "diffDb.tiles_with_hash",
+                Normalized => {
+                    "
+        (SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
+        FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"
+                }
+            };
+        }
 
         format!(
             "
@@ -386,7 +397,7 @@ impl MbtileCopierInt {
         )
     }
 
-    fn get_select_from(dst_type: MbtType, src_type: MbtType) -> &'static str {
+    fn get_select_from(src_type: MbtType, dst_type: MbtType) -> &'static str {
         if dst_type == Flat {
             "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
         } else {
@@ -637,10 +648,10 @@ mod tests {
 
         assert!(get_one::<Option<i32>>(
             &mut dst_conn,
-            "SELECT tile_id FROM map WHERE zoom_level = 0 AND tile_row = 0 AND tile_column = 0;"
+            "SELECT * FROM map WHERE zoom_level = 0 AND tile_row = 0 AND tile_column = 0;",
         )
         .await
-        .is_none());
+        .is_some());
 
         Ok(())
     }
