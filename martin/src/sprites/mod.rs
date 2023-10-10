@@ -6,9 +6,8 @@ use std::path::PathBuf;
 use futures::future::try_join_all;
 use log::{info, warn};
 use spreet::fs::get_svg_input_paths;
-use spreet::resvg::tiny_skia::Pixmap;
 use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
-use spreet::sprite::{generate_pixmap_from_svg, sprite_name, Spritesheet, SpritesheetBuilder};
+use spreet::sprite::{sprite_name, Sprite, Spritesheet, SpritesheetBuilder};
 use tokio::io::AsyncReadExt;
 
 use crate::file_config::{FileConfigEnum, FileError};
@@ -132,7 +131,7 @@ async fn parse_sprite(
     name: String,
     path: PathBuf,
     pixel_ratio: u8,
-) -> Result<(String, Pixmap), SpriteError> {
+) -> Result<(String, Sprite), SpriteError> {
     let on_err = |e| SpriteError::IoError(e, path.clone());
 
     let mut file = tokio::fs::File::open(&path).await.map_err(on_err)?;
@@ -143,10 +142,7 @@ async fn parse_sprite(
     let tree = Tree::from_data(&buffer, &Options::default())
         .map_err(|e| SpriteError::SpriteParsingError(e, path.clone()))?;
 
-    let pixmap = generate_pixmap_from_svg(&tree, pixel_ratio)
-        .ok_or_else(|| SpriteError::UnableToReadSprite(path.clone()))?;
-
-    Ok((name, pixmap))
+    Ok((name, Sprite { tree, pixel_ratio }))
 }
 
 pub async fn get_spritesheet(
