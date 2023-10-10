@@ -29,7 +29,7 @@ flate2 = "1"
 futures = "0.3"
 indoc = "2"
 itertools = "0.11"
-json-patch = "1.1"
+json-patch = "1.2"
 log = "0.4"
 martin-mbtiles = { path = "./martin-mbtiles", version = "0.6.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
