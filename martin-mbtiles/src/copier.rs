@@ -176,79 +176,74 @@ impl MbtileCopierInt {
             self.init_new_schema(&mut conn, src_type, dst_type).await?;
         }
 
-        let (on_dupl, sql_cond) = self.get_on_duplicate_sql(dst_type);
-
-        let (select_from, query_args) = {
-            let select_from = if let Some((_, dif_type)) = &dif {
-                Self::get_select_from_with_diff(dst_type, *dif_type)
-            } else {
-                Self::get_select_from(dst_type, src_type).to_string()
-            };
-
-            let (options_sql, query_args) = self.get_options_sql();
-
-            (format!("{select_from} {options_sql}"), query_args)
+        let select_from = if let Some((_, dif_type)) = &dif {
+            Self::get_select_from_with_diff(dst_type, *dif_type)
+        } else {
+            Self::get_select_from(dst_type, src_type).to_string()
         };
 
-        {
-            debug!("Copying tiles with 'INSERT {on_dupl}' {src_type} -> {dst_type} ({sql_cond})");
-            // Make sure not to execute any other queries while the handle is locked
-            let mut handle_lock = conn.lock_handle().await?;
-            let handle = handle_lock.as_raw_handle().as_ptr();
+        let (where_clause, query_args) = self.get_where_clause();
+        let select_from = format!("{select_from} {where_clause}");
+        let (on_dupl, sql_cond) = self.get_on_duplicate_sql(dst_type);
 
-            // SAFETY: this is safe as long as handle_lock is valid
-            let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
+        debug!("Copying tiles with 'INSERT {on_dupl}' {src_type} -> {dst_type} ({sql_cond})");
+        // Make sure not to execute any other queries while the handle is locked
+        let mut handle_lock = conn.lock_handle().await?;
+        let handle = handle_lock.as_raw_handle().as_ptr();
 
-            match dst_type {
-                Flat => {
-                    let sql = format!(
-                        "
+        // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
+        let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
+
+        match dst_type {
+            Flat => {
+                let sql = format!(
+                    "
     INSERT {on_dupl} INTO tiles
            (zoom_level, tile_column, tile_row, tile_data)
     {select_from} {sql_cond}"
-                    );
-                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                    rusqlite_conn.execute(&sql, params_from_iter(query_args))?
-                }
-                FlatWithHash => {
-                    let sql = format!(
-                        "
+                );
+                debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                rusqlite_conn.execute(&sql, params_from_iter(query_args))?
+            }
+            FlatWithHash => {
+                let sql = format!(
+                    "
     INSERT {on_dupl} INTO tiles_with_hash
            (zoom_level, tile_column, tile_row, tile_data, tile_hash)
     {select_from} {sql_cond}"
-                    );
-                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                    rusqlite_conn.execute(&sql, params_from_iter(query_args))?
-                }
-                Normalized => {
-                    let sql = format!(
-                        "
+                );
+                debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                rusqlite_conn.execute(&sql, params_from_iter(query_args))?
+            }
+            Normalized => {
+                let sql = format!(
+                    "
     INSERT OR IGNORE INTO images
            (tile_id, tile_data)
     SELECT hash as tile_id, tile_data
     FROM ({select_from})"
-                    );
-                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                    rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
+                );
+                debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
 
-                    let sql = format!(
-                        "
+                let sql = format!(
+                    "
     INSERT {on_dupl} INTO map
            (zoom_level, tile_column, tile_row, tile_id)
     SELECT zoom_level, tile_column, tile_row, hash as tile_id
     FROM ({select_from} {sql_cond})"
-                    );
-                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                    rusqlite_conn.execute(&sql, params_from_iter(query_args))?
-                }
-            };
+                );
+                debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                rusqlite_conn.execute(&sql, params_from_iter(query_args))?
+            }
+        };
 
-            let sql = if self.options.diff_with_file.is_some() {
-                debug!("Copying metadata with 'INSERT {on_dupl}', taking into account diff file");
-                // Insert all rows from diffDb.metadata if they do not exist or are different in sourceDb.metadata.
-                // Also insert all names from sourceDb.metadata that do not exist in diffDb.metadata, with their value set to NULL.
-                // Rename agg_tiles_hash to agg_tiles_hash_in_diff because agg_tiles_hash will be auto-added later
-                format!(
+        let sql = if self.options.diff_with_file.is_some() {
+            debug!("Copying metadata with 'INSERT {on_dupl}', taking into account diff file");
+            // Insert all rows from diffDb.metadata if they do not exist or are different in sourceDb.metadata.
+            // Also insert all names from sourceDb.metadata that do not exist in diffDb.metadata, with their value set to NULL.
+            // Rename agg_tiles_hash to agg_tiles_hash_in_diff because agg_tiles_hash will be auto-added later
+            format!(
                     "
     INSERT {on_dupl} INTO metadata (name, value)
         SELECT IIF(dif.name = '{AGG_TILES_HASH}','{AGG_TILES_HASH_IN_DIFF}', dif.name) as name,
@@ -263,12 +258,15 @@ impl MbtileCopierInt {
           ON src.name = dif.name
         WHERE dif.value ISNULL AND src.name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_IN_DIFF}');"
                 )
-            } else {
-                debug!("Copying metadata with 'INSERT {on_dupl}'");
-                format!("INSERT {on_dupl} INTO metadata SELECT name, value FROM sourceDb.metadata")
-            };
-            rusqlite_conn.execute(&sql, [])?;
-        }
+        } else {
+            debug!("Copying metadata with 'INSERT {on_dupl}'");
+            format!("INSERT {on_dupl} INTO metadata SELECT name, value FROM sourceDb.metadata")
+        };
+        rusqlite_conn.execute(&sql, [])?;
+
+        // SAFETY: must drop rusqlite_conn before handle_lock, or place the code since lock in a separate scope
+        drop(rusqlite_conn);
+        drop(handle_lock);
 
         if !self.options.skip_agg_tiles_hash {
             dst_mbt.update_agg_tiles_hash(&mut conn).await?;
@@ -380,8 +378,8 @@ impl MbtileCopierInt {
              {hash_col_sql}
         FROM sourceDb.tiles AS srcTiles FULL JOIN {diff_tiles} AS difTiles
              ON srcTiles.zoom_level = difTiles.zoom_level
-                AND srcTiles.tile_column = difTiles.tile_column
-                AND srcTiles.tile_row = difTiles.tile_row
+               AND srcTiles.tile_column = difTiles.tile_column
+               AND srcTiles.tile_row = difTiles.tile_row
         WHERE (srcTiles.tile_data != difTiles.tile_data
                OR srcTiles.tile_data ISNULL
                OR difTiles.tile_data ISNULL)"
@@ -416,7 +414,7 @@ impl MbtileCopierInt {
         }
     }
 
-    fn get_options_sql(&self) -> (String, Vec<u8>) {
+    fn get_where_clause(&self) -> (String, Vec<u8>) {
         let mut query_args = vec![];
 
         let sql = if !&self.options.zoom_levels.is_empty() {
