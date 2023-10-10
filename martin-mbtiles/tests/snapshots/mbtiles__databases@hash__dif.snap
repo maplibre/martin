@@ -30,11 +30,11 @@ CREATE TABLE tiles_with_hash (
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
     '(  5, 1, 1, blob(edit-v2), "FF76830FF90D79BB335884F256031731"  )',
-    '(  5, 2, 2, NULL, "0F6969D7052DA9261E31DDB6E88C136E"  )',
+    '(  5, 2, 2, NULL, ""  )',
     '(  5, 3, 7, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
     '(  5, 3, 8, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
     '(  6, 1, 4, blob(edit-v2a), "03132BFACDB00CC63D6B7DD98D974DD5"  )',
-    '(  6, 2, 6, NULL, "535A5575B48444EDEB926815AB26EC9B"  )',
+    '(  6, 2, 6, NULL, ""  )',
 ]
 
 [[]]

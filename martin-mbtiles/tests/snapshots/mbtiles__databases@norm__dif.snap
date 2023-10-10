@@ -10,10 +10,9 @@ CREATE TABLE images (
              tile_id text NOT NULL PRIMARY KEY,
              tile_data blob)'''
 values = [
+    '(  "", NULL  )',
     '(  "03132BFACDB00CC63D6B7DD98D974DD5", blob(edit-v2a)  )',
-    '(  "0F6969D7052DA9261E31DDB6E88C136E", NULL  )',
     '(  "22AF645D1859CB5CA6DA0C484F1F37EA", blob(new)  )',
-    '(  "535A5575B48444EDEB926815AB26EC9B", NULL  )',
     '(  "FF76830FF90D79BB335884F256031731", blob(edit-v2)  )',
 ]
 
@@ -29,11 +28,11 @@ CREATE TABLE map (
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
     '(  5, 1, 1, "FF76830FF90D79BB335884F256031731"  )',
-    '(  5, 2, 2, "0F6969D7052DA9261E31DDB6E88C136E"  )',
+    '(  5, 2, 2, ""  )',
     '(  5, 3, 7, "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
     '(  5, 3, 8, "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
     '(  6, 1, 4, "03132BFACDB00CC63D6B7DD98D974DD5"  )',
-    '(  6, 2, 6, "535A5575B48444EDEB926815AB26EC9B"  )',
+    '(  6, 2, 6, ""  )',
 ]
 
 [[]]

@@ -185,10 +185,10 @@ fn databases() -> Databases {
             opt.diff_with_file = Some(path(&v2_mbt));
             opt.run().await.unwrap();
             let dmp = assert_dump!(&mut dif_cn, "{typ}__dif");
-            // let hash = dif_mbt.validate(Off, false).await.unwrap();
-            // allow_duplicates! {
-            //     assert_display_snapshot!(hash, @"AB9EE21538C1D28BB357ABB3A45BD6BD");
-            // }
+            let hash = dif_mbt.validate(Off, false).await.unwrap();
+            allow_duplicates! {
+                assert_display_snapshot!(hash, @"AB9EE21538C1D28BB357ABB3A45BD6BD");
+            }
             result.insert(("dif", mbt_typ), dmp);
         }
         result
@@ -247,7 +247,7 @@ async fn diff_apply(
 
     let (v1_mbt, _v1_cn) = new_file! {diff_apply, v1_type, METADATA_V1, TILES_V1, "{prefix}__v1"};
     let (v2_mbt, _v2_cn) = new_file! {diff_apply, v2_type, METADATA_V2, TILES_V2, "{prefix}__v2"};
-    let (dif_mbt, _dif_cn) = open!(diff_apply, "{prefix}__dif");
+    let (dif_mbt, mut dif_cn) = open!(diff_apply, "{prefix}__dif");
 
     info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
     let mut opt = copier(&v1_mbt, &dif_mbt);
@@ -255,15 +255,13 @@ async fn diff_apply(
     if let Some(dif_type) = dif_type {
         opt.dst_type = Some(dif_type);
     }
-    // opt.run().await?;
-    assert_dump!(&mut opt.run().await?, "{prefix}__delta");
-
-    // pretty_assert_eq!(
-    //     &dump(&mut dif_cn).await?,
-    //     databases
-    //         .get(&("dif", dif_type.unwrap_or(v1_type)))
-    //         .unwrap()
-    // );
+    opt.run().await?;
+    pretty_assert_eq!(
+        &dump(&mut dif_cn).await?,
+        databases
+            .get(&("dif", dif_type.unwrap_or(v1_type)))
+            .unwrap()
+    );
 
     for target_type in &[Flat, FlatWithHash, Normalized] {
         let trg = shorten(*target_type);

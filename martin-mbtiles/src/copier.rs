@@ -360,15 +360,14 @@ impl MbtileCopierInt {
         let hash_col_sql;
         let diff_tiles;
         if dst_type == Flat {
-            hash_col_sql = String::new();
+            hash_col_sql = "";
             diff_tiles = "diffDb.tiles";
         } else {
-            let dif_hash = match dif_type {
-                Flat => "md5_hex(difTiles.tile_data)",
-                FlatWithHash => "difTiles.tile_hash",
-                Normalized => "difTiles.hash",
+            hash_col_sql = match dif_type {
+                Flat => ", COALESCE(md5_hex(difTiles.tile_data), '') as hash",
+                FlatWithHash => ", COALESCE(difTiles.tile_hash, '') as hash",
+                Normalized => ", COALESCE(difTiles.hash, '') as hash",
             };
-            hash_col_sql = format!(", COALESCE({dif_hash}, md5_hex(srcTiles.tile_data)) as hash",);
             diff_tiles = match dif_type {
                 Flat => "diffDb.tiles",
                 FlatWithHash => "diffDb.tiles_with_hash",
