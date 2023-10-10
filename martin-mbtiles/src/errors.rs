@@ -5,6 +5,12 @@ use sqlite_hashes::rusqlite;
 
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
+    #[error("The source and destination MBTiles files are the same: {}", .0.display())]
+    SameSourceAndDestination(PathBuf),
+
+    #[error("The diff file and source or destination MBTiles files are the same: {}", .0.display())]
+    SameDiffAndSourceOrDestination(PathBuf),
+
     #[error("SQL Error {0}")]
     SqlxError(#[from] sqlx::Error),
 
@@ -38,7 +44,7 @@ pub enum MbtError {
     #[error("No tiles found")]
     NoTilesFound,
 
-    #[error("The destination file {0} is non-empty")]
+    #[error("The destination file {0} is not empty. Some operations like creating a diff file require the destination file to be non-existent or empty.")]
     NonEmptyTargetFile(PathBuf),
 
     #[error("The file {0} does not have the required uniqueness constraint")]

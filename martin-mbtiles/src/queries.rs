@@ -1,6 +1,18 @@
+use log::debug;
 use sqlx::{query, Executor as _, SqliteExecutor};
 
 use crate::errors::MbtResult;
+
+/// Returns true if the database is empty (no tables/indexes/...)
+pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    Ok(query!("SELECT 1 as has_rows FROM sqlite_schema LIMIT 1")
+        .fetch_optional(&mut *conn)
+        .await?
+        .is_none())
+}
 
 pub async fn is_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
@@ -52,20 +64,14 @@ where
         == 1)
 }
 
-pub async fn is_flat_with_hash_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+/// Check if MBTiles has a table or a view named 'tiles_with_hash' with needed fields
+pub async fn has_tiles_with_hash<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     let sql = query!(
         "SELECT (
-           -- Has a 'tiles_with_hash' table
-           SELECT COUNT(*) = 1
-           FROM sqlite_master
-           WHERE name = 'tiles_with_hash'
-               AND type = 'table'
-           --
-       ) AND (
-           -- 'tiles_with_hash' table's columns and their types are as expected:
+           -- 'tiles_with_hash' table or view columns and their types are as expected:
            -- 5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
            -- The order is not important
            SELECT COUNT(*) = 5
@@ -85,6 +91,26 @@ where
         .is_valid
         .unwrap_or_default()
         == 1)
+}
+
+pub async fn is_flat_with_hash_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let sql = query!(
+        "SELECT (
+           -- Has a 'tiles_with_hash' table
+           SELECT COUNT(*) = 1
+           FROM sqlite_master
+           WHERE name = 'tiles_with_hash'
+               AND type = 'table'
+           --
+       ) as is_valid;"
+    );
+
+    let is_valid = sql.fetch_one(&mut *conn).await?.is_valid;
+
+    Ok(is_valid.unwrap_or_default() == 1 && has_tiles_with_hash(&mut *conn).await?)
 }
 
 pub async fn is_flat_tables_type<T>(conn: &mut T) -> MbtResult<bool>
@@ -125,6 +151,7 @@ pub async fn create_metadata_table<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    debug!("Creating metadata table if it doesn't already exist");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS metadata (
              name text NOT NULL PRIMARY KEY,
@@ -141,6 +168,7 @@ where
 {
     create_metadata_table(&mut *conn).await?;
 
+    debug!("Creating if needed flat table: tiles(z,x,y,data)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles (
              zoom_level integer NOT NULL,
@@ -160,6 +188,7 @@ where
 {
     create_metadata_table(&mut *conn).await?;
 
+    debug!("Creating if needed flat-with-hash table: tiles_with_hash(z,x,y,data,hash)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles_with_hash (
              zoom_level integer NOT NULL,
@@ -171,6 +200,7 @@ where
     )
     .await?;
 
+    debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles AS
              SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;",
@@ -186,6 +216,7 @@ where
 {
     create_metadata_table(&mut *conn).await?;
 
+    debug!("Creating if needed normalized table: map(z,x,y,id)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS map (
              zoom_level integer NOT NULL,
@@ -196,13 +227,15 @@ where
     )
     .await?;
 
+    debug!("Creating if needed normalized table: images(id,data)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS images (
-             tile_data blob,
-             tile_id text NOT NULL PRIMARY KEY);",
+             tile_id text NOT NULL PRIMARY KEY,
+             tile_data blob);",
     )
     .await?;
 
+    debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles AS
              SELECT map.zoom_level AS zoom_level,
@@ -221,6 +254,7 @@ pub async fn create_tiles_with_hash_view<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    debug!("Creating if needed tiles_with_hash view for normalized map+images structure");
     conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles_with_hash AS
              SELECT
@@ -234,5 +268,16 @@ where
     )
     .await?;
 
+    Ok(())
+}
+
+pub async fn detach_db<T>(conn: &mut T, name: &str) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    debug!("Detaching {name}");
+    query(&format!("DETACH DATABASE {name}"))
+        .execute(conn)
+        .await?;
     Ok(())
 }

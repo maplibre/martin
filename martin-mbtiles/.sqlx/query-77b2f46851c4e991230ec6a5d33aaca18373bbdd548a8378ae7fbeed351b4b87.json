@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (\n           -- Has a 'tiles_with_hash' table\n           SELECT COUNT(*) = 1\n           FROM sqlite_master\n           WHERE name = 'tiles_with_hash'\n               AND type = 'table'\n           --\n       ) as is_valid;",
+  "describe": {
+    "columns": [
+      {
+        "name": "is_valid",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "77b2f46851c4e991230ec6a5d33aaca18373bbdd548a8378ae7fbeed351b4b87"
+}

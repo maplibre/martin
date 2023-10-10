@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
+use enum_display::EnumDisplay;
 use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
@@ -54,7 +55,15 @@ where
     s.end()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Metadata key for the aggregate tiles hash value
+pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
+
+/// Metadata key for a diff file,
+/// describing the eventual AGG_TILES_HASH value once the diff is applied
+pub const AGG_TILES_HASH_IN_DIFF: &str = "agg_tiles_hash_after_apply";
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
+#[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtType {
     Flat,
@@ -62,7 +71,8 @@ pub enum MbtType {
     Normalized,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone)]
+#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum IntegrityCheckType {
     #[default]
@@ -75,6 +85,12 @@ pub enum IntegrityCheckType {
 pub struct Mbtiles {
     filepath: String,
     filename: String,
+}
+
+impl Display for Mbtiles {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.filepath)
+    }
 }
 
 impl Mbtiles {
@@ -94,11 +110,13 @@ impl Mbtiles {
     }
 
     pub async fn open(&self) -> MbtResult<SqliteConnection> {
+        debug!("Opening w/ defaults {self}");
         let opt = SqliteConnectOptions::new().filename(self.filepath());
         Self::open_int(&opt).await
     }
 
     pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
+        debug!("Opening or creating {self}");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .create_if_missing(true);
@@ -106,6 +124,7 @@ impl Mbtiles {
     }
 
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
+        debug!("Opening as readonly {self}");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .read_only(true);
@@ -144,6 +163,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        debug!("Attaching {self} as {name}");
         query(&format!("ATTACH DATABASE ? AS {name}"))
             .bind(self.filepath())
             .execute(conn)
@@ -166,19 +186,38 @@ impl Mbtiles {
         Ok(None)
     }
 
+    pub async fn validate(
+        &self,
+        check_type: IntegrityCheckType,
+        update_agg_tiles_hash: bool,
+    ) -> MbtResult<String> {
+        let mut conn = if update_agg_tiles_hash {
+            self.open().await?
+        } else {
+            self.open_readonly().await?
+        };
+        self.check_integrity(&mut conn, check_type).await?;
+        self.check_each_tile_hash(&mut conn).await?;
+        if update_agg_tiles_hash {
+            self.update_agg_tiles_hash(&mut conn).await
+        } else {
+            self.check_agg_tiles_hashes(&mut conn).await
+        }
+    }
+
     /// Get the aggregate tiles hash value from the metadata table
     pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        self.get_metadata_value(&mut *conn, "agg_tiles_hash").await
+        self.get_metadata_value(&mut *conn, AGG_TILES_HASH).await
     }
 
     pub async fn set_metadata_value<T>(
         &self,
         conn: &mut T,
         key: &str,
-        value: Option<String>,
+        value: Option<&str>,
     ) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -397,6 +436,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
+        debug!("Detecting MBTiles type for {self}");
         let mbt_type = if is_normalized_tables_type(&mut *conn).await? {
             MbtType::Normalized
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
@@ -469,9 +509,8 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let filepath = self.filepath();
         if integrity_check == IntegrityCheckType::Off {
-            info!("Skipping integrity check for {filepath}");
+            info!("Skipping integrity check for {self}");
             return Ok(());
         }
 
@@ -488,55 +527,53 @@ impl Mbtiles {
 
         if result.len() > 1
             || result.get(0).ok_or(FailedIntegrityCheck(
-                filepath.to_string(),
+                self.filepath.to_string(),
                 vec!["SQLite could not perform integrity check".to_string()],
             ))? != "ok"
         {
             return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
         }
 
-        info!("{integrity_check:?} integrity check passed for {filepath}");
+        info!("{integrity_check:?} integrity check passed for {self}");
         Ok(())
     }
 
-    pub async fn check_agg_tiles_hashes<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn check_agg_tiles_hashes<T>(&self, conn: &mut T) -> MbtResult<String>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let filepath = self.filepath();
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
-            return Err(AggHashValueNotFound(filepath.to_string()));
+            return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
-            let file = filepath.to_string();
+            let file = self.filepath().to_string();
             return Err(AggHashMismatch(computed, stored, file));
         }
 
-        info!("The agg_tiles_hashes={computed} has been verified for {filepath}");
-        Ok(())
+        info!("The agg_tiles_hashes={computed} has been verified for {self}");
+        Ok(computed)
     }
 
     /// Compute new aggregate tiles hash and save it to the metadata table (if needed)
-    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<String>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
-        let path = self.filepath();
         if old_hash.as_ref() == Some(&hash) {
-            info!("agg_tiles_hash is already set to the correct value `{hash}` in {path}");
-            Ok(())
+            info!("Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}");
         } else {
             if let Some(old_hash) = old_hash {
-                info!("Updating agg_tiles_hash from {old_hash} to {hash} in {path}");
+                info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
             } else {
-                info!("Creating new metadata value agg_tiles_hash = {hash} in {path}");
+                info!("Adding a new metadata value agg_tiles_hash = {hash} in {self}");
             }
-            self.set_metadata_value(&mut *conn, "agg_tiles_hash", Some(hash))
-                .await
+            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, Some(&hash))
+                .await?;
         }
+        Ok(hash)
     }
 
     pub async fn check_each_tile_hash<T>(&self, conn: &mut T) -> MbtResult<()>
@@ -546,14 +583,14 @@ impl Mbtiles {
         // Note that hex() always returns upper-case HEX values
         let sql = match self.detect_type(&mut *conn).await? {
             MbtType::Flat => {
-                println!("Skipping per-tile hash validation because this is a flat MBTiles file");
+                info!("Skipping per-tile hash validation because this is a flat MBTiles file");
                 return Ok(());
             }
             MbtType::FlatWithHash => {
                 "SELECT expected, computed FROM (
                     SELECT
                         upper(tile_hash) AS expected,
-                        hex(md5(tile_data)) AS computed
+                        md5_hex(tile_data) AS computed
                     FROM tiles_with_hash
                 ) AS t
                 WHERE expected != computed
@@ -563,7 +600,7 @@ impl Mbtiles {
                 "SELECT expected, computed FROM (
                     SELECT
                         upper(tile_id) AS expected,
-                        hex(md5(tile_data)) AS computed
+                        md5_hex(tile_data) AS computed
                     FROM images
                 ) AS t
                 WHERE expected != computed
@@ -582,36 +619,42 @@ impl Mbtiles {
                 ))
             })?;
 
-        info!("All tile hashes are valid for {}", self.filepath());
+        info!("All tile hashes are valid for {self}");
         Ok(())
     }
 }
 
 /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
 /// This should work on all mbtiles files perf `MBTiles` specification.
-async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
+pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    debug!("Calculating agg_tiles_hash");
     let query = query(
         // The md5_concat func will return NULL if there are no rows in the tiles table.
         // For our use case, we will treat it as an empty string, and hash that.
         // `tile_data` values must be stored as a blob per MBTiles spec
         // `md5` functions will fail if the value is not text/blob/null
-        "SELECT
-         hex(
-           coalesce(
-             md5_concat(
+        //
+        // Note that ORDER BY controls the output ordering, which is important for the hash value,
+        // and having it at the top level would not order values properly.
+        // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
+        "
+SELECT coalesce(
+    (SELECT md5_concat_hex(
                cast(zoom_level AS text),
                cast(tile_column AS text),
                cast(tile_row AS text),
                tile_data
-             ),
-             md5('')
            )
-         )
-         FROM tiles
-         ORDER BY zoom_level, tile_column, tile_row;",
+           OVER (ORDER BY zoom_level, tile_column, tile_row ROWS
+                 BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+     FROM tiles
+     LIMIT 1),
+    md5_hex('')
+);
+",
     );
     Ok(query.fetch_one(conn).await?.get::<String, _>(0))
 }
@@ -638,9 +681,7 @@ mod tests {
 
     async fn open(filepath: &str) -> MbtResult<(SqliteConnection, Mbtiles)> {
         let mbt = Mbtiles::new(filepath)?;
-        let mut conn = SqliteConnection::connect(mbt.filepath()).await?;
-        attach_hash_fn(&mut conn).await?;
-        Ok((conn, mbt))
+        mbt.open().await.map(|conn| (conn, mbt))
     }
 
     #[actix_rt::test]
@@ -726,7 +767,7 @@ mod tests {
         conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
             .await?;
 
-        mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0".to_string()))
+        mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0"))
             .await?;
         assert_eq!(
             mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
@@ -736,7 +777,7 @@ mod tests {
         mbt.set_metadata_value(
             &mut conn,
             "bounds",
-            Some("-123.123590,-37.818085,174.763027,59.352706".to_string()),
+            Some("-123.123590,-37.818085,174.763027,59.352706"),
         )
         .await?;
         assert_eq!(

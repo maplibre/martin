@@ -6,8 +6,9 @@ export PGPORT := "5411"
 export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
 export CARGO_TERM_COLOR := "always"
 
-# export RUST_LOG := "debug"
-# export RUST_BACKTRACE := "1"
+#export RUST_LOG := "debug"
+#export RUST_LOG := "sqlx::query=info,trace"
+#export RUST_BACKTRACE := "1"
 
 @_default:
     just --list --unsorted
@@ -88,10 +89,10 @@ bench-http: (cargo-install "oha")
     oha -z 120s  http://localhost:3000/function_zxy_query/18/235085/122323
 
 # Run all tests using a test database
-test: start test-unit test-int
+test: start (test-cargo "--all-targets") test-doc test-int
 
 # Run all tests using an SSL connection to a test database. Expected output won't match.
-test-ssl: start-ssl test-unit clean-test
+test-ssl: start-ssl (test-cargo "--all-targets") test-doc clean-test
     tests/test.sh
 
 # Run all tests using an SSL connection with client cert to a test database. Expected output won't match.
@@ -107,16 +108,21 @@ test-ssl-cert: start-ssl-cert
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just_executable()}} test-unit clean-test
+    {{just_executable()}} test-cargo --all-targets
+    {{just_executable()}} clean-test
+    {{just_executable()}} test-doc
     tests/test.sh
 
 # Run all tests using the oldest supported version of the database
-test-legacy: start-legacy test-unit test-int
+test-legacy: start-legacy (test-cargo "--all-targets") test-doc test-int
 
-# Run Rust unit and doc tests (cargo test)
-test-unit *ARGS:
-    cargo test --all-targets {{ ARGS }}
-    cargo test --doc
+# Run Rust unit tests (cargo test)
+test-cargo *ARGS:
+    cargo test {{ ARGS }}
+
+# Run Rust doc tests
+test-doc *ARGS:
+    cargo test --doc {{ ARGS }}
 
 # Run integration tests
 test-int: clean-test install-sqlx
@@ -132,12 +138,17 @@ test-int: clean-test install-sqlx
     fi
 
 # Run integration tests and save its output as the new expected output
-bless: start clean-test
+bless: start clean-test bless-insta
     rm -rf tests/temp
     cargo test -p martin --features bless-tests
     tests/test.sh
     rm -rf tests/expected
     mv tests/output tests/expected
+
+# Run integration tests and save its output as the new expected output
+bless-insta *ARGS: (cargo-install "insta" "cargo-insta")
+    #rm -rf martin-mbtiles/tests/snapshots
+    cargo insta test --accept --unreferenced=auto -p martin-mbtiles {{ ARGS }}
 
 # Build and open mdbook documentation
 book: (cargo-install "mdbook")

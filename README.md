@@ -23,11 +23,11 @@ _See [installation instructions](https://maplibre.org/martin/installation.html) 
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
-| Platform | AMD-64                                                                                       | ARM-64                              |
-|----------|----------------------------------------------------------------------------------------------|-------------------------------------|
+| Platform | AMD-64                                                                                           | ARM-64                              |
+|----------|--------------------------------------------------------------------------------------------------|-------------------------------------|
 | Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-musl] (musl) |
-| macOS    | [.tar.gz][rl-macos-x64]                                                                      | [.tar.gz][rl-macos-a64]             |
-| Windows  | [.zip][rl-win64-zip]                                                                         |                                     |
+| macOS    | [.tar.gz][rl-macos-x64]                                                                          | [.tar.gz][rl-macos-a64]             |
+| Windows  | [.zip][rl-win64-zip]                                                                             |                                     |
 
 [rl-linux-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-Linux-x86_64.tar.gz
 [rl-linux-x64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-Linux-x86_64-musl.tar.gz

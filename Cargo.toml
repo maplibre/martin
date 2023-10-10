@@ -24,10 +24,12 @@ clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.2"
 deadpool-postgres = "0.11"
+enum-display = "0.1"
 env_logger = "0.10"
 flate2 = "1"
 futures = "0.3"
 indoc = "2"
+insta = { version = "1", features = ["toml"] }
 itertools = "0.11"
 json-patch = "1.2"
 log = "0.4"
@@ -38,7 +40,9 @@ pmtiles = { version = "0.3", features = ["mmap-async-tokio", "tilejson"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
+pretty_assertions = "1"
 regex = "1"
+rstest = "0.18"
 rustls = { version = "0.21", features = ["dangerous_configuration"] }
 rustls-native-certs = "0.6"
 rustls-pemfile = "1"
@@ -47,7 +51,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 spreet = { version = "0.9", default-features = false }
-sqlite-hashes = "0.5"
+sqlite-hashes = { version = "0.5", default-features = false, features = ["md5", "window", "hex"] }
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"
@@ -58,3 +62,9 @@ tokio-postgres-rustls = "0.10"
 [profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
 sqlx-macros.opt-level = 3
+# See https://docs.rs/insta/latest/insta/#optional-faster-runs
+insta.opt-level = 3
+similar.opt-level = 3
+
+#[patch.crates-io]
+#sqlite-hashes = { path = "/home/nyurik/dev/rust/sqlite-hashes" }

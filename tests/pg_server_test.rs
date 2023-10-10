@@ -877,7 +877,6 @@ postgres:
 
     let req = test_get("/function_zxy_query_test/0/0/0");
     let response = call_service(&app, req).await;
-    println!("response.status = {:?}", response.status());
     assert!(response.status().is_server_error());
 
     let req = test_get("/function_zxy_query_test/0/0/0?token=martin");
@@ -990,7 +989,9 @@ tables:
     )
     .await;
 
-    let OneOrMany::One(cfg) = cfg.postgres.unwrap() else { panic!() };
+    let OneOrMany::One(cfg) = cfg.postgres.unwrap() else {
+        panic!()
+    };
     for (name, _) in cfg.tables.unwrap_or_default() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;
