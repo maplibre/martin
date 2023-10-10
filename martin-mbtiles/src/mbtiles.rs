@@ -563,12 +563,12 @@ impl Mbtiles {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
         if old_hash.as_ref() == Some(&hash) {
-            info!("agg_tiles_hash is already set to the correct value `{hash}` in {self}");
+            info!("Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}");
         } else {
             if let Some(old_hash) = old_hash {
                 info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
             } else {
-                info!("Creating new metadata value agg_tiles_hash = {hash} in {self}");
+                info!("Adding a new metadata value agg_tiles_hash = {hash} in {self}");
             }
             self.set_metadata_value(&mut *conn, AGG_TILES_HASH, Some(&hash))
                 .await?;
@@ -590,7 +590,7 @@ impl Mbtiles {
                 "SELECT expected, computed FROM (
                     SELECT
                         upper(tile_hash) AS expected,
-                        hex(md5(tile_data)) AS computed
+                        md5_hex(tile_data) AS computed
                     FROM tiles_with_hash
                 ) AS t
                 WHERE expected != computed
@@ -600,7 +600,7 @@ impl Mbtiles {
                 "SELECT expected, computed FROM (
                     SELECT
                         upper(tile_id) AS expected,
-                        hex(md5(tile_data)) AS computed
+                        md5_hex(tile_data) AS computed
                     FROM images
                 ) AS t
                 WHERE expected != computed

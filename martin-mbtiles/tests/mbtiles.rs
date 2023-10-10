@@ -4,9 +4,10 @@ use std::str::from_utf8;
 
 use ctor::ctor;
 use insta::{allow_duplicates, assert_display_snapshot};
+use log::info;
 use martin_mbtiles::IntegrityCheckType::Off;
 use martin_mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
-use martin_mbtiles::{apply_diff, create_flat_tables, MbtResult, MbtType, Mbtiles, MbtilesCopier};
+use martin_mbtiles::{apply_patch, create_flat_tables, MbtResult, MbtType, Mbtiles, MbtilesCopier};
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
@@ -238,26 +239,27 @@ async fn diff_apply(
         new_file! {diff_apply, v2_type, METADATA_V2, TILES_V2, "v2__{v2}-{v1}={dif}"};
     let (dif_mbt, _dif_cn) = open!(diff_apply, "dif__{v2}-{v1}={dif}");
 
-    // Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)
+    info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
     let mut opt = copier(&v1_mbt, &dif_mbt);
     opt.diff_with_file = Some(path(&v2_mbt));
     if let Some(dif_type) = dif_type {
         opt.dst_type = Some(dif_type);
     }
     assert_dump!(&mut opt.run().await?, "delta__{v2}-{v1}={dif}");
-
     // if &format!("{v2}-{v1}={dif}") == "hash-flat=norm" {
-    //     save_to_file(&v1_mbt, &format!("v1__{v2}-{v1}={dif}.mbtiles")).await?;
-    //     save_to_file(&v2_mbt, &format!("v2__{v2}-{v1}={dif}.mbtiles")).await?;
-    //     save_to_file(&dif_mbt, &format!("dif__{v2}-{v1}={dif}.mbtiles")).await?;
+    // save_to_file(&v1_mbt, &format!("v1__{v2}-{v1}={dif}.mbtiles")).await?;
+    // save_to_file(&v2_mbt, &format!("v2__{v2}-{v1}={dif}.mbtiles")).await?;
+    // save_to_file(&dif_mbt, &format!("dif__{v2}-{v1}={dif}.mbtiles")).await?;
     // }
+
+    // panic!();
 
     for target_type in &[Flat, FlatWithHash, Normalized] {
         let trg = shorten(*target_type);
         let expected_v2 = databases.get(&("v2", *target_type)).unwrap();
 
         let (tar1_mbt, mut tar1_cn) = new_file! {diff_apply, *target_type, METADATA_V1, TILES_V1, "after__{v2}-{v1}={dif}__to__{trg}-v1"};
-        apply_diff(path(&tar1_mbt), path(&dif_mbt)).await?;
+        apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
         // let hash_v1 = tar1_mbt.validate(Off, false).await?;
         // allow_duplicates! {
         //     assert_display_snapshot!(hash_v1, @"5C90855D70120501451BDD08CA71341A");
@@ -280,7 +282,7 @@ async fn diff_apply(
         }
 
         let (tar2_mbt, mut tar2_cn) = new_file! {diff_apply, *target_type, METADATA_V2, TILES_V2, "after__{v2}-{v1}={dif}__to__{trg}-v2"};
-        apply_diff(path(&tar2_mbt), path(&dif_mbt)).await?;
+        apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
         let hash_v2 = tar2_mbt.validate(Off, false).await?;
         allow_duplicates! {
             assert_display_snapshot!(hash_v2, @"5C90855D70120501451BDD08CA71341A");
@@ -293,13 +295,15 @@ async fn diff_apply(
 }
 
 #[actix_rt::test]
-#[ignore]
+// #[ignore]
 async fn test_one() {
-    let src_type = Flat;
-    let dif_type = FlatWithHash;
-    let dst_type = Some(Normalized);
-    let db = databases();
-    diff_apply(src_type, dif_type, dst_type, &db).await.unwrap();
+    // let src_type = Flat;
+    // let dif_type = Flat;
+    // let dst_type = Some(Normalized);
+    // let db = databases();
+
+    // diff_apply(src_type, dif_type, dst_type, &db).await.unwrap();
+    // panic!()
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize, PartialEq)]

@@ -133,8 +133,7 @@ CREATE VIEW tiles_with_hash AS
       map.tile_row AS tile_row,
       images.tile_data AS tile_data,
       images.tile_id AS tile_hash
-  FROM map
-  JOIN images ON images.tile_id = map.tile_id;
+  FROM map LEFT JOIN images ON map.tile_id = images.tile_id;
 ```
 
 **__Note:__** All `normalized` files created by the `mbtiles` tool will contain this view.

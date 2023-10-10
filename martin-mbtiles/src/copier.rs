@@ -202,36 +202,40 @@ impl MbtileCopierInt {
             match dst_type {
                 Flat => {
                     let sql = format!(
-                        "INSERT {on_dupl} INTO tiles
-                           (zoom_level, tile_column, tile_row, tile_data)
-                         {select_from} {sql_cond}"
+                        "
+    INSERT {on_dupl} INTO tiles
+           (zoom_level, tile_column, tile_row, tile_data)
+    {select_from} {sql_cond}"
                     );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(query_args))?
                 }
                 FlatWithHash => {
                     let sql = format!(
-                        "INSERT {on_dupl} INTO tiles_with_hash
-                           (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-                         {select_from} {sql_cond}"
+                        "
+    INSERT {on_dupl} INTO tiles_with_hash
+           (zoom_level, tile_column, tile_row, tile_data, tile_hash)
+    {select_from} {sql_cond}"
                     );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(query_args))?
                 }
                 Normalized => {
                     let sql = format!(
-                        "INSERT {on_dupl} INTO map
-                           (zoom_level, tile_column, tile_row, tile_id)
-                         SELECT zoom_level, tile_column, tile_row, hash as tile_id
-                         FROM ({select_from} {sql_cond})"
+                        "
+    INSERT {on_dupl} INTO map
+           (zoom_level, tile_column, tile_row, tile_id)
+    SELECT zoom_level, tile_column, tile_row, hash as tile_id
+    FROM ({select_from} {sql_cond})"
                     );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
                     let sql = format!(
-                        "INSERT OR IGNORE INTO images
-                           (tile_id, tile_data)
-                         SELECT hash as tile_id, tile_data
-                         FROM ({select_from})"
+                        "
+    INSERT OR IGNORE INTO images
+           (tile_id, tile_data)
+    SELECT hash as tile_id, tile_data
+    FROM ({select_from})"
                     );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(query_args))?
@@ -244,18 +248,19 @@ impl MbtileCopierInt {
                 // Also insert all names from sourceDb.metadata that do not exist in diffDb.metadata, with their value set to NULL.
                 // Rename agg_tiles_hash to agg_tiles_hash_in_diff because agg_tiles_hash will be auto-added later
                 format!(
-                    "INSERT {on_dupl} INTO metadata (name, value)
-                         SELECT CASE WHEN dif.name = '{AGG_TILES_HASH}' THEN '{AGG_TILES_HASH_IN_DIFF}' ELSE dif.name END as name,
-                                dif.value as value
-                         FROM diffDb.metadata AS dif LEFT JOIN sourceDb.metadata AS src
-                           ON dif.name = src.name
-                         WHERE (dif.value != src.value OR src.value ISNULL)
-                           AND dif.name != '{AGG_TILES_HASH_IN_DIFF}'
-                     UNION ALL
-                         SELECT src.name as name, NULL as value
-                         FROM sourceDb.metadata AS src LEFT JOIN diffDb.metadata AS dif
-                           ON src.name = dif.name
-                         WHERE dif.value ISNULL AND src.name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_IN_DIFF}');"
+                    "
+    INSERT {on_dupl} INTO metadata (name, value)
+        SELECT IIF(dif.name = '{AGG_TILES_HASH}','{AGG_TILES_HASH_IN_DIFF}', dif.name) as name,
+               dif.value as value
+        FROM diffDb.metadata AS dif LEFT JOIN sourceDb.metadata AS src
+          ON dif.name = src.name
+        WHERE (dif.value != src.value OR src.value ISNULL)
+          AND dif.name != '{AGG_TILES_HASH_IN_DIFF}'
+    UNION ALL
+        SELECT src.name as name, NULL as value
+        FROM sourceDb.metadata AS src LEFT JOIN diffDb.metadata AS dif
+          ON src.name = dif.name
+        WHERE dif.value ISNULL AND src.name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_IN_DIFF}');"
                 )
             } else {
                 debug!("Copying metadata with 'INSERT {on_dupl}'");
@@ -302,7 +307,7 @@ impl MbtileCopierInt {
                          WHEN type = 'view' THEN 2
                          WHEN type = 'trigger' THEN 3
                          WHEN type = 'index' THEN 4
-                         ELSE 5 END",
+                         ELSE 5 END;",
                 )
                 .await?;
 
@@ -357,7 +362,7 @@ impl MbtileCopierInt {
             ("", "diffDb.tiles")
         } else {
             match diff_type {
-                Flat => (", hex(md5(difTiles.tile_data)) as hash", "diffDb.tiles"),
+                Flat => (", md5_hex(difTiles.tile_data) as hash", "diffDb.tiles"),
                 FlatWithHash => (", difTiles.tile_hash as hash", "diffDb.tiles_with_hash"),
                 Normalized => (", difTiles.hash",
                                "(SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
@@ -366,18 +371,19 @@ impl MbtileCopierInt {
         };
 
         format!(
-            "SELECT COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
-                  , COALESCE(srcTiles.tile_column, difTiles.tile_column) as tile_column
-                  , COALESCE(srcTiles.tile_row, difTiles.tile_row) as tile_row
-                  , difTiles.tile_data as tile_data
-                  {hash_col_sql}
-             FROM sourceDb.tiles AS srcTiles FULL JOIN {diff_tiles} AS difTiles
-                  ON srcTiles.zoom_level = difTiles.zoom_level
-                     AND srcTiles.tile_column = difTiles.tile_column
-                     AND srcTiles.tile_row = difTiles.tile_row
-             WHERE (srcTiles.tile_data != difTiles.tile_data
-                    OR srcTiles.tile_data ISNULL
-                    OR difTiles.tile_data ISNULL)"
+            "
+        SELECT COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
+             , COALESCE(srcTiles.tile_column, difTiles.tile_column) as tile_column
+             , COALESCE(srcTiles.tile_row, difTiles.tile_row) as tile_row
+             , difTiles.tile_data as tile_data
+             {hash_col_sql}
+        FROM sourceDb.tiles AS srcTiles FULL JOIN {diff_tiles} AS difTiles
+             ON srcTiles.zoom_level = difTiles.zoom_level
+                AND srcTiles.tile_column = difTiles.tile_column
+                AND srcTiles.tile_row = difTiles.tile_row
+        WHERE (srcTiles.tile_data != difTiles.tile_data
+               OR srcTiles.tile_data ISNULL
+               OR difTiles.tile_data ISNULL)"
         )
     }
 
@@ -386,16 +392,22 @@ impl MbtileCopierInt {
             "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
         } else {
             match src_type {
-                Flat => "SELECT zoom_level, tile_column, tile_row, tile_data, hex(md5(tile_data)) as hash
+                Flat => {
+                    "SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
                          FROM sourceDb.tiles
-                         WHERE TRUE",
-                FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
+                         WHERE TRUE"
+                }
+                FlatWithHash => {
+                    "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
                                  FROM sourceDb.tiles_with_hash
-                                 WHERE TRUE",
-                Normalized => "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
+                                 WHERE TRUE"
+                }
+                Normalized => {
+                    "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
                                FROM sourceDb.map JOIN sourceDb.images
                                  ON sourceDb.map.tile_id = sourceDb.images.tile_id
                                WHERE TRUE"
+                }
             }
         }
     }
@@ -455,7 +467,7 @@ mod tests {
         let mut dst_conn = opt.run().await?;
 
         Mbtiles::new(src_filepath)?
-            .attach_to(&mut dst_conn, "srcDb")
+            .attach_to(&mut dst_conn, "testSrcDb")
             .await?;
 
         assert_eq!(
@@ -466,7 +478,7 @@ mod tests {
         );
 
         assert!(dst_conn
-            .fetch_optional("SELECT * FROM srcDb.tiles EXCEPT SELECT * FROM tiles")
+            .fetch_optional("SELECT * FROM testSrcDb.tiles EXCEPT SELECT * FROM tiles")
             .await?
             .is_none());
 
@@ -681,10 +693,10 @@ mod tests {
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
         Mbtiles::new(src_file)?
-            .attach_to(&mut dst_conn, "otherDb")
+            .attach_to(&mut dst_conn, "testOtherDb")
             .await?;
         assert!(dst_conn
-            .fetch_optional("SELECT * FROM otherDb.tiles EXCEPT SELECT * FROM tiles;")
+            .fetch_optional("SELECT * FROM testOtherDb.tiles EXCEPT SELECT * FROM tiles;")
             .await?
             .is_none());
 
@@ -710,10 +722,10 @@ mod tests {
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
         Mbtiles::new(src_file)?
-            .attach_to(&mut dst_conn, "srcDb")
+            .attach_to(&mut dst_conn, "testSrcDb")
             .await?;
         Mbtiles::new(dst_file)?
-            .attach_to(&mut dst_conn, "originalDb")
+            .attach_to(&mut dst_conn, "testOriginalDb")
             .await?;
 
         // Create a temporary table with all the tiles in the original database and
@@ -724,8 +736,8 @@ mod tests {
                           COALESCE(t1.tile_column, t2.zoom_level) as tile_column,
                           COALESCE(t1.tile_row, t2.tile_row) as tile_row,
                           COALESCE(t1.tile_data, t2.tile_data) as tile_data
-                   FROM originalDb.tiles as t1
-                   FULL OUTER JOIN srcDb.tiles as t2
+                   FROM testOriginalDb.tiles as t1
+                   FULL OUTER JOIN testSrcDb.tiles as t2
                        ON t1.zoom_level = t2.zoom_level AND t1.tile_column = t2.tile_column AND t1.tile_row = t2.tile_row")
             .await?;
 

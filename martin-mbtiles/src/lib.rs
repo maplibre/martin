@@ -16,7 +16,7 @@ mod copier;
 pub use copier::{CopyDuplicateMode, MbtilesCopier};
 
 mod patcher;
-pub use patcher::apply_diff;
+pub use patcher::apply_patch;
 
 mod queries;
 pub use queries::{

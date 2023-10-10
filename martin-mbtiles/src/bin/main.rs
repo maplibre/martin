@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use log::error;
-use martin_mbtiles::{apply_diff, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
+use martin_mbtiles::{apply_patch, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
 
 #[derive(Parser, PartialEq, Eq, Debug)]
 #[command(
@@ -104,7 +104,7 @@ async fn main_int() -> anyhow::Result<()> {
             src_file,
             diff_file,
         } => {
-            apply_diff(src_file, diff_file).await?;
+            apply_patch(src_file, diff_file).await?;
         }
         Commands::Validate {
             file,
