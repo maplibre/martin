@@ -223,19 +223,20 @@ impl MbtileCopierInt {
                 Normalized => {
                     let sql = format!(
                         "
-    INSERT {on_dupl} INTO map
-           (zoom_level, tile_column, tile_row, tile_id)
-    SELECT zoom_level, tile_column, tile_row, hash as tile_id
-    FROM ({select_from} {sql_cond})"
-                    );
-                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                    rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
-                    let sql = format!(
-                        "
     INSERT OR IGNORE INTO images
            (tile_id, tile_data)
     SELECT hash as tile_id, tile_data
     FROM ({select_from})"
+                    );
+                    debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                    rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
+
+                    let sql = format!(
+                        "
+    INSERT {on_dupl} INTO map
+           (zoom_level, tile_column, tile_row, tile_id)
+    SELECT zoom_level, tile_column, tile_row, hash as tile_id
+    FROM ({select_from} {sql_cond})"
                     );
                     debug!("Copying to {dst_type} with {sql} {query_args:?}");
                     rusqlite_conn.execute(&sql, params_from_iter(query_args))?
@@ -301,7 +302,7 @@ impl MbtileCopierInt {
                     "SELECT sql
                      FROM sourceDb.sqlite_schema
                      WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
-                         AND type    IN ('table', 'view', 'trigger', 'index')
+                       AND type     IN ('table', 'view', 'trigger', 'index')
                      ORDER BY CASE
                          WHEN type = 'table' THEN 1
                          WHEN type = 'view' THEN 2
@@ -393,20 +394,23 @@ impl MbtileCopierInt {
         } else {
             match src_type {
                 Flat => {
-                    "SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
-                         FROM sourceDb.tiles
-                         WHERE TRUE"
+                    "
+        SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
+        FROM sourceDb.tiles
+        WHERE TRUE"
                 }
                 FlatWithHash => {
-                    "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
-                                 FROM sourceDb.tiles_with_hash
-                                 WHERE TRUE"
+                    "
+        SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
+        FROM sourceDb.tiles_with_hash
+        WHERE TRUE"
                 }
                 Normalized => {
-                    "SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
-                               FROM sourceDb.map JOIN sourceDb.images
-                                 ON sourceDb.map.tile_id = sourceDb.images.tile_id
-                               WHERE TRUE"
+                    "
+        SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
+        FROM sourceDb.map JOIN sourceDb.images
+          ON sourceDb.map.tile_id = sourceDb.images.tile_id
+        WHERE TRUE"
                 }
             }
         }

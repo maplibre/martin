@@ -64,20 +64,14 @@ where
         == 1)
 }
 
-pub async fn is_flat_with_hash_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+/// Check if MBTiles has a table or a view named 'tiles_with_hash' with needed fields
+pub async fn has_tiles_with_hash<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     let sql = query!(
         "SELECT (
-           -- Has a 'tiles_with_hash' table
-           SELECT COUNT(*) = 1
-           FROM sqlite_master
-           WHERE name = 'tiles_with_hash'
-               AND type = 'table'
-           --
-       ) AND (
-           -- 'tiles_with_hash' table's columns and their types are as expected:
+           -- 'tiles_with_hash' table or view columns and their types are as expected:
            -- 5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
            -- The order is not important
            SELECT COUNT(*) = 5
@@ -97,6 +91,26 @@ where
         .is_valid
         .unwrap_or_default()
         == 1)
+}
+
+pub async fn is_flat_with_hash_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let sql = query!(
+        "SELECT (
+           -- Has a 'tiles_with_hash' table
+           SELECT COUNT(*) = 1
+           FROM sqlite_master
+           WHERE name = 'tiles_with_hash'
+               AND type = 'table'
+           --
+       ) as is_valid;"
+    );
+
+    let is_valid = sql.fetch_one(&mut *conn).await?.is_valid;
+
+    Ok(is_valid.unwrap_or_default() == 1 && has_tiles_with_hash(&mut *conn).await?)
 }
 
 pub async fn is_flat_tables_type<T>(conn: &mut T) -> MbtResult<bool>

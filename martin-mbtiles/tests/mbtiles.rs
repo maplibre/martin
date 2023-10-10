@@ -306,11 +306,11 @@ async fn diff_apply(
 #[actix_rt::test]
 // #[ignore]
 async fn test_one() {
+    // let dif_type = FlatWithHash;
     // let src_type = Flat;
-    // let dif_type = Flat;
     // let dst_type = Some(Normalized);
     // let db = databases();
-
+    //
     // diff_apply(src_type, dif_type, dst_type, &db).await.unwrap();
     // panic!()
 }
