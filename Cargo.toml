@@ -52,7 +52,7 @@ sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"
 tilejson = "0.3"
-tokio = { version = "1.32.0", features = ["macros"] }
+tokio = { version = "1.33.0", features = ["macros"] }
 tokio-postgres-rustls = "0.10"
 
 [profile.dev.package]
