@@ -1,15 +1,15 @@
 class Martin < Formula
-  current_version="0.9.0"
+  current_version="0.9.1"
 
-  desc "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
+  desc "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support, plus an mbtiles tool"
   homepage "https://github.com/maplibre/martin"
 
   on_arm do
-    sha256 "d1a64d4707e3f1fdb41b3e445c462465e6150d3b30f7520af262548184a4d08b"
+    sha256 "00828eb3490664eba767323da98d2847238b65b7bea1e235267e43a67277d8e5"
     url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-Darwin-aarch64.tar.gz"
   end
   on_intel do
-    sha256 "ab581373a9fe699ba8e6640b587669391c6d5901ce816c3acb154f8410775068"
+    sha256 "75b52bd89ba397267080e938dd261f57c1eabdaa1d27ac13bf4904031672a6e9"
     url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-Darwin-x86_64.tar.gz"
   end
   
@@ -17,6 +17,7 @@ class Martin < Formula
 
   def install
     bin.install "martin"
+    bin.install "mbtiles"
   end
 
   def caveats; <<~EOS
@@ -28,5 +29,6 @@ class Martin < Formula
 
   test do
     `#{bin}/martin --version`
+    `#{bin}/mbtiles --version`
   end
 end

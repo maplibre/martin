@@ -520,7 +520,6 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             name: martin-Windows-x86_64.zip
-            ext: '.exe'
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: martin-Linux-x86_64.tar.gz
@@ -554,14 +553,15 @@ jobs:
         run: |
           cd target/
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            7z a ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
+            7z a ../${{ matrix.name }} martin.exe mbtiles.exe
           elif [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
             mv debian-x86_64.deb ../${{ matrix.name }}
           else
             if [[ "${{ matrix.cross }}" == "true" ]]; then
               mv ${{ matrix.target }}/* .
             fi
-            tar czvf ../${{ matrix.name }} martin${{ matrix.ext }} mbtiles${{ matrix.ext }}
+            chmod +x martin mbtiles
+            tar czvf ../${{ matrix.name }} martin mbtiles
           fi
       # TODO: why is this needed and where should the result go?
       # - name: Generate SHA-256 (MacOS)
