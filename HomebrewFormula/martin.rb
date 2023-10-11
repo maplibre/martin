@@ -1,17 +1,19 @@
 class Martin < Formula
-  current_version="0.8.7"
+  current_version="0.9.0"
 
   desc "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
   homepage "https://github.com/maplibre/martin"
-  url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-Darwin-x86_64.tar.gz"
 
-  # This is the sha256 checksum of the martin-Darwin-x86_64.tar.gz file
-  # I am not certain if arch64 should have a different sha256 somewhere
-  sha256 "92f660b1bef3a54dc84e4794a5ba02a8817c25f21ce7000783749bbae9e50de1"
+  on_arm do
+    sha256 "d1a64d4707e3f1fdb41b3e445c462465e6150d3b30f7520af262548184a4d08b"
+    url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-Darwin-aarch64.tar.gz"
+  end
+  on_intel do
+    sha256 "ab581373a9fe699ba8e6640b587669391c6d5901ce816c3acb154f8410775068"
+    url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-Darwin-x86_64.tar.gz"
+  end
+  
   version "#{current_version}"
-
-  # FIXME: remove this for the 0.9 version
-  depends_on "openssl@3"
 
   def install
     bin.install "martin"
