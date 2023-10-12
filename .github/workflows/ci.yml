@@ -635,9 +635,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: peter-evans/create-pull-request@v3
         with:
-          # This PTA token is generated with:
-          #   Repository: maplibre/homebrew-martin
-          #   Access Contents: Read-only
+          # Create a personal access token
+          #     Gen:  https://github.com/settings/personal-access-tokens/new
+          #     Set:  https://github.com/maplibre/martin/settings/secrets/actions/GH_HOMEBREW_MARTIN_TOKEN
+          #     Docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token
+          #   Name: anything descriptive
+          #   One year long (sadly that's max)
+          #   Repository owner and repo: maplibre/homebrew-martin
+          #   Access Contents: Read and write
           #   Access Metadata: Read-only
           #   Access Pull requests: Read and write
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
