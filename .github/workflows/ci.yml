@@ -587,8 +587,8 @@ jobs:
           # Extract Github release version only without the "v" prefix
           MARTIN_VERSION=$(echo "${{ github.ref }}" | sed -e 's/refs\/tags\/v//')
           
+          mkdir -p target/homebrew
           cd target
-          mkdir homebrew
           
           cat << EOF > homebrew_config.yaml
           version: "$MARTIN_VERSION"
@@ -597,6 +597,13 @@ jobs:
           linux_arm_sha256: "$(shasum -a 256 files/martin-Linux-aarch64-musl.tar.gz | cut -d' ' -f1)"
           linux_intel_sha256: "$(shasum -a 256 files/martin-Linux-x86_64-musl.tar.gz | cut -d' ' -f1)"          
           EOF
+
+      - name: Save Homebrew Config
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v3
+        with:
+          name: homebrew-config
+          path: target/homebrew_config.yaml
 
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
@@ -628,6 +635,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: peter-evans/create-pull-request@v3
         with:
+          # This PTA token is generated with:
+          #   Repository: maplibre/homebrew-martin
+          #   Access Contents: Read-only
+          #   Access Metadata: Read-only
+          #   Access Pull requests: Read and write
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
           commit-message: "Update to ${{ github.ref }}"
           title: "Update to ${{ github.ref }}"
