@@ -49,7 +49,7 @@ jobs:
           postgis/postgis:16-3.4
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
-      - name: Checkout
+      - name: Checkout sources
         uses: actions/checkout@v4
       - name: Rust Versions
         run: rustc --version && cargo --version
@@ -253,7 +253,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout sources
         uses: actions/checkout@v4
       - name: Rust Versions
         run: rustc --version && cargo --version
@@ -493,83 +493,142 @@ jobs:
           retention-days: 5
 
   package:
-    name: Package ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+    name: Package
+    runs-on: ubuntu-latest
     needs: [ lint-debug-test, docker-build-test, test-multi-os, test-with-svc ]
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - target: aarch64-apple-darwin
-            os: ubuntu-latest
-            name: martin-Darwin-aarch64.tar.gz
-            sha: 'true'
-          - target: debian-x86_64
-            os: ubuntu-latest
-            name: martin-Debian-x86_64.deb
-          - target: x86_64-apple-darwin
-            os: macOS-latest
-            name: martin-Darwin-x86_64.tar.gz
-            sha: 'true'
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            name: martin-Windows-x86_64.zip
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            name: martin-Linux-x86_64.tar.gz
-          #
-          # From the cross-build
-          #
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            cross: 'true'
-            name: martin-Linux-aarch64-musl.tar.gz
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            cross: 'true'
-            name: martin-Linux-x86_64-musl.tar.gz
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Download build artifact build-${{ matrix.target }}
-        if: matrix.cross != 'true'
+      - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@v3
         with:
-          name: build-${{ matrix.target }}
-          path: target/
-      - name: Download cross-build artifact build-${{ matrix.target }}
-        if: matrix.cross == 'true'
+          name: build-aarch64-apple-darwin
+          path: target/aarch64-apple-darwin
+      - name: Download build artifact build-x86_64-apple-darwin
+        uses: actions/download-artifact@v3
+        with:
+          name: build-x86_64-apple-darwin
+          path: target/x86_64-apple-darwin
+      - name: Download build artifact build-x86_64-unknown-linux-gnu
+        uses: actions/download-artifact@v3
+        with:
+          name: build-x86_64-unknown-linux-gnu
+          path: target/x86_64-unknown-linux-gnu
+
+      - name: Download cross-build artifacts
         uses: actions/download-artifact@v3
         with:
           name: cross-build
-          path: target/
+          path: target/cross
+
+      - name: Download build artifact build-x86_64-pc-windows-msvc
+        uses: actions/download-artifact@v3
+        with:
+          name: build-x86_64-pc-windows-msvc
+          path: target/x86_64-pc-windows-msvc
+      - name: Download build artifact build-debian-x86_64
+        uses: actions/download-artifact@v3
+        with:
+          name: build-debian-x86_64
+          path: target/debian-x86_64
+
       - name: Package
         run: |
-          cd target/
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            7z a ../${{ matrix.name }} martin.exe mbtiles.exe
-          elif [[ "${{ matrix.target }}" == "debian-x86_64" ]]; then
-            mv debian-x86_64.deb ../${{ matrix.name }}
-          else
-            if [[ "${{ matrix.cross }}" == "true" ]]; then
-              mv ${{ matrix.target }}/* .
-            fi
-            chmod +x martin mbtiles
-            tar czvf ../${{ matrix.name }} martin mbtiles
-          fi
-      # TODO: why is this needed and where should the result go?
-      # - name: Generate SHA-256 (MacOS)
-      #   if: matrix.sha == 'true'
-      #   run: shasum -a 256 ${{ matrix.name }}
+          set -x
+          
+          cd target
+          mkdir files
+          mv cross/* .
+
+          cd aarch64-apple-darwin
+          chmod +x martin mbtiles
+          tar czvf ../files/martin-Darwin-aarch64.tar.gz martin mbtiles
+          cd ..
+          
+          cd x86_64-apple-darwin
+          chmod +x martin mbtiles
+          tar czvf ../files/martin-Darwin-x86_64.tar.gz martin mbtiles
+          cd ..
+          
+          cd x86_64-unknown-linux-gnu
+          chmod +x martin mbtiles
+          tar czvf ../files/martin-Linux-x86_64.tar.gz martin mbtiles
+          cd ..
+                    
+          cd aarch64-unknown-linux-musl
+          chmod +x martin mbtiles
+          tar czvf ../files/martin-Linux-aarch64-musl.tar.gz martin mbtiles
+          cd ..
+        
+          cd x86_64-unknown-linux-musl
+          chmod +x martin mbtiles
+          tar czvf ../files/martin-Linux-x86_64-musl.tar.gz martin mbtiles
+          cd ..
+          
+          #
+          # Special case for Windows    
+          #
+          cd x86_64-pc-windows-msvc
+          7z a ../files/martin-Windows-x86_64.zip martin.exe mbtiles.exe
+          cd ..
+          
+          #
+          # Special case for Debian .deb package
+          #
+          cd debian-x86_64
+          mv debian-x86_64.deb ../files/martin-Debian-x86_64.deb
+          cd ..
+
+          mkdir homebrew
+          cat << EOF > homebrew_config.yaml
+          version: "${{ github.ref }}"
+          macos_arm_sha256: "$(shasum -a 256 files/martin-Darwin-aarch64.tar.gz | cut -d' ' -f1)"
+          macos_intel_sha256: "$(shasum -a 256 files/martin-Darwin-x86_64.tar.gz | cut -d' ' -f1)"
+          linux_arm_sha256: "$(shasum -a 256 files/martin-Linux-aarch64-musl.tar.gz | cut -d' ' -f1)"
+          linux_intel_sha256: "$(shasum -a 256 files/martin-Linux-x86_64-musl.tar.gz | cut -d' ' -f1)"          
+          EOF          
+
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          files: 'martin*'
+          files: 'target/files/*'
           body_path: CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout maplibre/homebrew-martin
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/checkout@v4
+        with:
+          repository: maplibre/homebrew-martin
+          path: target/homebrew
+
+      - name: Create Homebrew formula
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: cuchi/jinja2-action@v1.2.0
+        with:
+          template: .github/templates/homebrew.martin.rb.j2
+          output_file: target/homebrew/martin.rb
+          data_file: target/homebrew_config.yaml
+
+      - name: Create a PR for maplibre/homebrew-martin
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update to ${{ github.ref }}"
+          title: "Update to ${{ github.ref }}"
+          body: "Update to ${{ github.ref }}"
+          branch: "update-to-${{ github.ref }}"
+          branch-suffix: timestamp
+          base: "main"
+          labels: "auto-update"
+          assignees: "nyurik"
+          draft: false
+          delete-branch: true
+          path: target/homebrew
 
   # This final step is needed to mark the whole workflow as successful
   # Don't change its name - it is used by the merge protection rules
