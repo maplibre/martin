@@ -3,18 +3,12 @@ name: CI
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - 'demo/**'
-      - 'docs/**'
-      - 'HomebrewFormula/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'demo/**'
       - 'docs/**'
-      - 'HomebrewFormula/**'
   release:
     types: [ published ]
   workflow_dispatch:
