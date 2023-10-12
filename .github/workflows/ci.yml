@@ -595,7 +595,7 @@ jobs:
           macos_arm_sha256: "$(shasum -a 256 files/martin-Darwin-aarch64.tar.gz | cut -d' ' -f1)"
           macos_intel_sha256: "$(shasum -a 256 files/martin-Darwin-x86_64.tar.gz | cut -d' ' -f1)"
           linux_arm_sha256: "$(shasum -a 256 files/martin-Linux-aarch64-musl.tar.gz | cut -d' ' -f1)"
-          linux_intel_sha256: "$(shasum -a 256 files/martin-Linux-x86_64-musl.tar.gz | cut -d' ' -f1)"          
+          linux_intel_sha256: "$(shasum -a 256 files/martin-Linux-x86_64-musl.tar.gz | cut -d' ' -f1)"
           EOF
 
       - name: Save Homebrew Config

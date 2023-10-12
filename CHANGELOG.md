@@ -3,7 +3,7 @@
 <!-- next-header -->
 
 # ATTENTION
-This file is currently not maintained. See [release](https://github.com/maplibre/martin/releases) instead. 
+This file is currently not maintained. See [release](https://github.com/maplibre/martin/releases) instead.
 
 ## [Unreleased] - ReleaseDate
 
