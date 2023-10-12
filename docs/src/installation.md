@@ -30,8 +30,8 @@ martin --help
 If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
 
 ```shell
-brew tap maplibre/martin https://github.com/maplibre/martin.git
-brew install maplibre/martin/martin
+brew tap maplibre/martin
+brew install martin
 ```
 
 ## Docker
