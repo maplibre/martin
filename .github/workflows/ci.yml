@@ -627,7 +627,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: peter-evans/create-pull-request@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
           commit-message: "Update to ${{ github.ref }}"
           title: "Update to ${{ github.ref }}"
           body: "Update to ${{ github.ref }}"
