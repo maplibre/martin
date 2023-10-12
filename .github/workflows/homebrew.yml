@@ -8,8 +8,61 @@ jobs:
 
     steps:
       - run: brew --version
-      - run: brew tap maplibre/martin https://github.com/maplibre/martin.git
-      - run: brew install maplibre/martin/martin
+      - run: brew tap maplibre/martin
+      - run: brew install martin
+
+      - name: Checkout maplibre/homebrew-martin
+        # if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/checkout@v4
+        with:
+          repository: maplibre/homebrew-martin
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+          path: target/homebrew
+
+      - name: Create Homebrew config
+        # if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -x
+
+          # Extract Github release version only without the "v" prefix
+          MARTIN_VERSION=$(echo "refs/tags/v0.9.4" | sed -e 's/refs\/tags\/v//')
+          
+          mkdir -p target/homebrew
+          cd target
+          
+          cat << EOF > homebrew_config.yaml
+          version: "$MARTIN_VERSION"
+          macos_arm_sha256: "TEST_macos_arm_sha256"
+          macos_intel_sha256: "TEST_macos_intel_sha256"
+          linux_arm_sha256: "TEST_linux_arm_sha256"
+          linux_intel_sha256: "TEST_linux_intel_sha256"          
+          EOF
+
+      - name: Create Homebrew formula
+        # if: startsWith(github.ref, 'refs/tags/')
+        uses: cuchi/jinja2-action@v1.2.0
+        with:
+          template: .github/templates/homebrew.martin.rb.j2
+          output_file: target/homebrew/martin.rb
+          data_file: target/homebrew_config.yaml
+
+      - name: Create a PR for maplibre/homebrew-martin
+        # if: startsWith(github.ref, 'refs/tags/')
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+          commit-message: "Update to ${{ github.ref }}"
+          title: "Update to ${{ github.ref }}"
+          body: "Update to ${{ github.ref }}"
+          branch: "update-to-${{ github.ref }}"
+          branch-suffix: timestamp
+          base: "main"
+          labels: "auto-update"
+          assignees: "nyurik"
+          draft: false
+          delete-branch: true
+          path: target/homebrew
+
 
 #      - name: Checkout code
 #        uses: actions/checkout@v2
