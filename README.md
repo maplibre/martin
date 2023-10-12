@@ -37,11 +37,11 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 [rl-macos-a64]: https://github.com/maplibre/martin/releases/latest/download/martin-Darwin-aarch64.tar.gz
 [rl-win64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-Windows-x86_64.zip
 
-If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
+If you are using macOS and [Homebrew](https://brew.sh/) you can install `martin` and `mbtiles` using Homebrew tap.
 
 ```shell
-brew tap maplibre/martin https://github.com/maplibre/martin.git
-brew install maplibre/martin/martin
+brew tap maplibre/martin
+brew install martin
 ```
 
 ## Running Martin Service
