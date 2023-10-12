@@ -613,6 +613,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: maplibre/homebrew-martin
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
           path: target/homebrew
 
       - name: Create Homebrew formula
