@@ -579,7 +579,7 @@ jobs:
           mv debian-x86_64.deb ../files/martin-Debian-x86_64.deb
           cd ..
 
-      - name: Publish
+      - name: Create Homebrew config
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           set -x
