@@ -579,14 +579,24 @@ jobs:
           mv debian-x86_64.deb ../files/martin-Debian-x86_64.deb
           cd ..
 
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -x
+
+          # Extract Github release version only without the "v" prefix
+          MARTIN_VERSION=$(echo "${{ github.ref }}" | sed -e 's/refs\/tags\/v//')
+          
+          cd target
           mkdir homebrew
+          
           cat << EOF > homebrew_config.yaml
-          version: "${{ github.ref }}"
+          version: "$MARTIN_VERSION"
           macos_arm_sha256: "$(shasum -a 256 files/martin-Darwin-aarch64.tar.gz | cut -d' ' -f1)"
           macos_intel_sha256: "$(shasum -a 256 files/martin-Darwin-x86_64.tar.gz | cut -d' ' -f1)"
           linux_arm_sha256: "$(shasum -a 256 files/martin-Linux-aarch64-musl.tar.gz | cut -d' ' -f1)"
           linux_intel_sha256: "$(shasum -a 256 files/martin-Linux-x86_64-musl.tar.gz | cut -d' ' -f1)"          
-          EOF          
+          EOF
 
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
