@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 // Bounds struct derives PartialEq, but not Eq,
 // so all containing types must also derive PartialEq without Eq
