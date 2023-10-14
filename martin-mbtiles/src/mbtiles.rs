@@ -22,7 +22,8 @@ use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::{MbtError, MbtResult};
 use crate::queries::{
-    is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
+    has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
+    is_normalized_tables_type,
 };
 use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
@@ -65,10 +66,28 @@ pub const AGG_TILES_HASH_IN_DIFF: &str = "agg_tiles_hash_after_apply";
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
-pub enum MbtType {
+pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
     Normalized,
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+pub enum MbtType {
+    Flat,
+    FlatWithHash,
+    Normalized { hash_view: bool },
+}
+
+impl MbtType {
+    pub fn is_normalized(&self) -> bool {
+        matches!(self, Self::Normalized { .. })
+    }
+
+    pub fn is_normalized_with_view(&self) -> bool {
+        matches!(self, Self::Normalized { hash_view: true })
+    }
 }
 
 #[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
@@ -437,8 +456,10 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         debug!("Detecting MBTiles type for {self}");
-        let mbt_type = if is_normalized_tables_type(&mut *conn).await? {
-            MbtType::Normalized
+        let typ = if is_normalized_tables_type(&mut *conn).await? {
+            MbtType::Normalized {
+                hash_view: has_tiles_with_hash(&mut *conn).await?,
+            }
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
             MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
@@ -447,10 +468,10 @@ impl Mbtiles {
             return Err(MbtError::InvalidDataFormat(self.filepath.clone()));
         };
 
-        self.check_for_uniqueness_constraint(&mut *conn, mbt_type)
+        self.check_for_uniqueness_constraint(&mut *conn, typ)
             .await?;
 
-        Ok(mbt_type)
+        Ok(typ)
     }
 
     async fn check_for_uniqueness_constraint<T>(
@@ -464,7 +485,7 @@ impl Mbtiles {
         let table_name = match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized => "map",
+            MbtType::Normalized { .. } => "map",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -596,7 +617,7 @@ impl Mbtiles {
                 WHERE expected != computed
                 LIMIT 1;"
             }
-            MbtType::Normalized => {
+            MbtType::Normalized { .. } => {
                 "SELECT expected, computed FROM (
                     SELECT
                         upper(tile_id) AS expected,
@@ -803,7 +824,7 @@ mod tests {
 
         let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await?;
         let res = mbt.detect_type(&mut conn).await?;
-        assert_eq!(res, MbtType::Normalized);
+        assert_eq!(res, MbtType::Normalized { hash_view: false });
 
         let (mut conn, mbt) = open(":memory:").await?;
         let res = mbt.detect_type(&mut conn).await;

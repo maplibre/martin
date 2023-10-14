@@ -5,8 +5,8 @@ pub use errors::{MbtError, MbtResult};
 
 mod mbtiles;
 pub use mbtiles::{
-    calc_agg_tiles_hash, IntegrityCheckType, MbtType, Mbtiles, Metadata, AGG_TILES_HASH,
-    AGG_TILES_HASH_IN_DIFF,
+    calc_agg_tiles_hash, IntegrityCheckType, MbtType, MbtTypeCli, Mbtiles, Metadata,
+    AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF,
 };
 
 mod pool;

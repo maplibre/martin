@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use martin_tile_utils::TileInfo;
 use sqlite_hashes::rusqlite;
 
+use crate::MbtType;
+
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
     #[error("The source and destination MBTiles files are the same: {}", .0.display())]
@@ -55,6 +57,12 @@ pub enum MbtError {
 
     #[error("Unexpected duplicate tiles found when copying")]
     DuplicateValues,
+
+    #[error("Applying a patch while diffing is not supported")]
+    CannotApplyPatchAndDiff,
+
+    #[error("The MBTiles file {0} has data of type {1}, but the desired type was set to {2}")]
+    MismatchedTargetType(PathBuf, MbtType, MbtType),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

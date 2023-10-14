@@ -31,7 +31,7 @@ pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
         FROM patchDb.tiles_with_hash"
             }
-            Normalized => {
+            Normalized { .. } => {
                 "
         SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
         FROM patchDb.map LEFT JOIN patchDb.images
@@ -58,7 +58,7 @@ pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()
     {select_from}"
             )],
         ),
-        Normalized => (
+        Normalized { .. } => (
             "map",
             vec![
                 format!(
@@ -93,7 +93,7 @@ pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()
     .execute(&mut conn)
     .await?;
 
-    if src_type == Normalized {
+    if src_type.is_normalized() {
         debug!("Removing unused tiles from the images table (normalized schema)");
         query("DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)")
             .execute(&mut conn)

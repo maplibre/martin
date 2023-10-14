@@ -48,8 +48,8 @@ enum Commands {
     #[command(name = "copy")]
     Copy(MbtilesCopier),
     /// Apply diff file generated from 'copy' command
-    #[command(name = "apply-diff")]
-    ApplyDiff {
+    #[command(name = "apply-patch", alias = "apply-diff")]
+    ApplyPatch {
         /// MBTiles file to apply diff to
         src_file: PathBuf,
         /// Diff file
@@ -100,7 +100,7 @@ async fn main_int() -> anyhow::Result<()> {
         Commands::Copy(opts) => {
             opts.run().await?;
         }
-        Commands::ApplyDiff {
+        Commands::ApplyPatch {
             src_file,
             diff_file,
         } => {
@@ -150,7 +150,7 @@ mod tests {
     use clap::Parser;
     use martin_mbtiles::{CopyDuplicateMode, MbtilesCopier};
 
-    use crate::Commands::{ApplyDiff, Copy, MetaGetValue, MetaSetValue, Validate};
+    use crate::Commands::{ApplyPatch, Copy, MetaGetValue, MetaSetValue, Validate};
     use crate::{Args, IntegrityCheckType};
 
     #[test]
@@ -410,7 +410,7 @@ mod tests {
             Args::parse_from(["mbtiles", "apply-diff", "src_file", "diff_file"]),
             Args {
                 verbose: false,
-                command: ApplyDiff {
+                command: ApplyPatch {
                     src_file: PathBuf::from("src_file"),
                     diff_file: PathBuf::from("diff_file"),
                 }
