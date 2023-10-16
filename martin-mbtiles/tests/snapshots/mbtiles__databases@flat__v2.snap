@@ -10,7 +10,7 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "agg_tiles_hash", "5C90855D70120501451BDD08CA71341A"  )',
+    '(  "agg_tiles_hash", "FE0D3090E8B4E89F2C755C08E8D76BEA"  )',
     '(  "md-edit", "value - v2"  )',
     '(  "md-new", "value - new"  )',
     '(  "md-same", "value - same"  )',
@@ -28,7 +28,10 @@ CREATE TABLE tiles (
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
     '(  5, 0, 0, blob(same)  )',
+    '(  5, 0, 1, blob()  )',
     '(  5, 1, 1, blob(edit-v2)  )',
+    '(  5, 1, 2, blob(not-empty)  )',
+    '(  5, 1, 3, blob()  )',
     '(  5, 3, 7, blob(new)  )',
     '(  5, 3, 8, blob(new)  )',
     '(  6, 0, 3, blob(same)  )',

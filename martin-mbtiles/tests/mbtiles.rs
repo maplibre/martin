@@ -17,8 +17,12 @@ const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
       --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2   
         (5, 0, 0, cast('same' as blob))
+      , (5, 0, 1, cast('' as blob))           -- empty tile, keep
       , (5, 1, 1, cast('edit-v1' as blob))
+      , (5, 1, 2, cast('' as blob))           -- empty tile, edit
+      , (5, 1, 3, cast('non-empty' as blob))  -- non empty tile to edit
       , (5, 2, 2, cast('remove' as blob))
+      , (5, 2, 3, cast('' as blob))           -- empty tile, remove
       , (6, 0, 3, cast('same' as blob))
       , (6, 1, 4, cast('edit-v1' as blob))
       , (6, 0, 5, cast('1-keep-1-rm' as blob))
@@ -28,18 +32,25 @@ const TILES_V1: &str = "
 const TILES_V2: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
         (5, 0, 0, cast('same' as blob))        -- no changes
+      , (5, 0, 1, cast('' as blob))            -- no changes, empty tile
       , (5, 1, 1, cast('edit-v2' as blob))     -- edited in-place
-   -- , (5, 2, 2, cast('remove' as blob))      -- this row is deleted
+      , (5, 1, 2, cast('not-empty' as blob))   -- edited in-place, replaced empty with non-empty
+      , (5, 1, 3, cast('' as blob))            -- edited in-place, replaced non-empty with empty
+   -- , (5, 2, 2, cast('remove' as blob))      -- this row is removed
+   -- , (5, 2, 3, cast('' as blob))            -- empty tile, removed
       , (6, 0, 3, cast('same' as blob))        -- no changes, same content as 5/0/0
       , (6, 1, 4, cast('edit-v2a' as blob))    -- edited, used to be same as 5/1/1
       , (6, 0, 5, cast('1-keep-1-rm' as blob)) -- this row is kept (same content as next)
-   -- , (6, 2, 6, cast('1-keep-1-rm' as blob)) -- this row is deleted
+   -- , (6, 2, 6, cast('1-keep-1-rm' as blob)) -- this row is removed
       , (5, 3, 7, cast('new' as blob))         -- this row is added, dup value
       , (5, 3, 8, cast('new' as blob))         -- this row is added, dup value
       
       -- Expected delta:
       --   5/1/1 edit
+      --   5/1/2 edit
+      --   5/1/3 edit
       --   5/2/2 remove
+      --   5/2/3 remove
       --   5/3/7 add
       --   5/3/8 add
       --   6/1/4 edit
@@ -167,7 +178,7 @@ fn databases() -> Databases {
             let dmp = assert_dump!(&mut v1_cn, "{typ}__v1");
             let hash = v1_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"0063DADF9C78A376418DB0D2B00A5F80");
+                assert_display_snapshot!(hash, @"096A8399D486CF443A5DF0CEC1AD8BB2");
             }
             result.insert(("v1", mbt_typ), dmp);
 
@@ -176,7 +187,7 @@ fn databases() -> Databases {
             let dmp = assert_dump!(&mut v2_cn, "{typ}__v2");
             let hash = v2_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"5C90855D70120501451BDD08CA71341A");
+                assert_display_snapshot!(hash, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
             }
             result.insert(("v2", mbt_typ), dmp);
 
@@ -187,7 +198,7 @@ fn databases() -> Databases {
             let dmp = assert_dump!(&mut dif_cn, "{typ}__dif");
             let hash = dif_mbt.validate(Off, false).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"AB9EE21538C1D28BB357ABB3A45BD6BD");
+                assert_display_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
             }
             result.insert(("dif", mbt_typ), dmp);
         }
@@ -274,7 +285,7 @@ async fn diff_apply(
         apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
         let hash_v1 = tar1_mbt.validate(Off, false).await?;
         allow_duplicates! {
-            assert_display_snapshot!(hash_v1, @"5C90855D70120501451BDD08CA71341A");
+            assert_display_snapshot!(hash_v1, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
         }
         let dmp = dump(&mut tar1_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
@@ -285,7 +296,7 @@ async fn diff_apply(
         apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
         let hash_v2 = tar2_mbt.validate(Off, false).await?;
         allow_duplicates! {
-            assert_display_snapshot!(hash_v2, @"5C90855D70120501451BDD08CA71341A");
+            assert_display_snapshot!(hash_v2, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
         }
         let dmp = dump(&mut tar2_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
