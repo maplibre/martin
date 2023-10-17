@@ -23,6 +23,7 @@ WITH
                jsonb_agg(data_type::text ORDER BY ordinal_position)                     as input_types
         FROM information_schema.parameters
         WHERE parameter_mode = 'IN'
+          AND specific_schema NOT IN ('pg_catalog', 'information_schema')
         GROUP BY specific_name),
     --
     outputs AS (
@@ -32,6 +33,7 @@ WITH
                jsonb_agg(parameter_name::text ORDER BY ordinal_position) as out_names
         FROM information_schema.parameters
         WHERE parameter_mode = 'OUT'
+          AND specific_schema NOT IN ('pg_catalog', 'information_schema')
         GROUP BY specific_name),
     --
     comments AS (
