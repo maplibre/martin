@@ -39,7 +39,10 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: mozilla-actions/sccache-action@main
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
 
       - name: Setup database
         run: |
