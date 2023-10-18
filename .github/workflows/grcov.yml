@@ -26,13 +26,13 @@ jobs:
     services:
       postgres:
         image: postgis/postgis:14-3.3-alpine
-        # POSTGRES_* variables are used by the postgis/postgres image
         env:
+          # POSTGRES_* variables are used by the postgis/postgres image
           POSTGRES_DB: ${{ env.PGDATABASE }}
           POSTGRES_USER: ${{ env.PGUSER }}
           POSTGRES_HOST_AUTH_METHOD: trust
-        # will assign a random free host port
         ports:
+          # will assign a random free host port
           - 5432/tcp
         # needed because the postgres container does not provide a healthcheck
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
