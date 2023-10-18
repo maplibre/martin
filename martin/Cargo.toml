@@ -55,7 +55,6 @@ actix-cors.workspace = true
 actix-http.workspace = true
 actix-rt.workspace = true
 actix-web.workspace = true
-actix.workspace = true
 async-trait.workspace = true
 brotli.workspace = true
 clap.workspace = true

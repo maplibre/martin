@@ -11,7 +11,6 @@ readme = "README.md"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.dependencies]
-actix = "0.13"
 actix-cors = "0.6"
 actix-http = "3"
 actix-rt = "2"
