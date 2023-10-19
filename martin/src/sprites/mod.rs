@@ -1,10 +1,12 @@
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::path::PathBuf;
 
 use futures::future::try_join_all;
+use itertools::Itertools;
 use log::{info, warn};
+use serde::{Deserialize, Serialize};
 use spreet::fs::get_svg_input_paths;
 use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
 use spreet::sprite::{sprite_name, Sprite, Spritesheet, SpritesheetBuilder};
@@ -42,68 +44,86 @@ pub enum SpriteError {
     UnableToGenerateSpritesheet,
 }
 
-pub fn resolve_sprites(config: &mut Option<FileConfigEnum>) -> Result<SpriteSources, FileError> {
-    let Some(cfg) = config else {
-        return Ok(SpriteSources::default());
-    };
-
-    let cfg = cfg.extract_file_config();
-    let mut results = SpriteSources::default();
-    let mut directories = Vec::new();
-    let mut configs = HashMap::new();
-
-    if let Some(sources) = cfg.sources {
-        for (id, source) in sources {
-            configs.insert(id.clone(), source.clone());
-            add_source(id, source.abs_path()?, &mut results);
-        }
-    };
-
-    if let Some(paths) = cfg.paths {
-        for path in paths {
-            let Some(name) = path.file_name() else {
-                warn!(
-                    "Ignoring sprite source with no name from {}",
-                    path.display()
-                );
-                continue;
-            };
-            directories.push(path.clone());
-            add_source(name.to_string_lossy().to_string(), path, &mut results);
-        }
-    }
-
-    *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
-
-    Ok(results)
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CatalogSpriteEntry {
+    pub images: Vec<String>,
 }
 
-fn add_source(id: String, path: PathBuf, results: &mut SpriteSources) {
-    let disp_path = path.display();
-    if path.is_file() {
-        warn!("Ignoring non-directory sprite source {id} from {disp_path}");
-    } else {
-        match results.0.entry(id) {
-            Entry::Occupied(v) => {
-                warn!("Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
-                    v.key(), v.get().path.display());
-            }
-            Entry::Vacant(v) => {
-                info!("Configured sprite source {} from {disp_path}", v.key());
-                v.insert(SpriteSource { path });
-            }
-        }
-    };
-}
+pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 
 #[derive(Debug, Clone, Default)]
 pub struct SpriteSources(HashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn get_sprite_source(&self, id: &str) -> Result<&SpriteSource, SpriteError> {
-        self.0
-            .get(id)
-            .ok_or_else(|| SpriteError::SpriteNotFound(id.to_string()))
+    pub fn resolve(config: &mut Option<FileConfigEnum>) -> Result<Self, FileError> {
+        let Some(cfg) = config else {
+            return Ok(Self::default());
+        };
+
+        let cfg = cfg.extract_file_config();
+        let mut results = Self::default();
+        let mut directories = Vec::new();
+        let mut configs = HashMap::new();
+
+        if let Some(sources) = cfg.sources {
+            for (id, source) in sources {
+                configs.insert(id.clone(), source.clone());
+                results.add_source(id, source.abs_path()?);
+            }
+        };
+
+        if let Some(paths) = cfg.paths {
+            for path in paths {
+                let Some(name) = path.file_name() else {
+                    warn!(
+                        "Ignoring sprite source with no name from {}",
+                        path.display()
+                    );
+                    continue;
+                };
+                directories.push(path.clone());
+                results.add_source(name.to_string_lossy().to_string(), path);
+            }
+        }
+
+        *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
+
+        Ok(results)
+    }
+
+    pub fn get_catalog(&self) -> Result<SpriteCatalog, FileError> {
+        // TODO: all sprite generation should be pre-cached
+        Ok(self
+            .0
+            .iter()
+            .sorted_by(|(id1, _), (id2, _)| id1.cmp(id2))
+            .map(|(id, source)| {
+                let mut images = get_svg_input_paths(&source.path, true)
+                    .into_iter()
+                    .map(|svg_path| sprite_name(svg_path, &source.path))
+                    .collect::<Vec<_>>();
+                images.sort();
+                (id.clone(), CatalogSpriteEntry { images })
+            })
+            .collect())
+    }
+
+    fn add_source(&mut self, id: String, path: PathBuf) {
+        let disp_path = path.display();
+        if path.is_file() {
+            warn!("Ignoring non-directory sprite source {id} from {disp_path}");
+        } else {
+            match self.0.entry(id) {
+                Entry::Occupied(v) => {
+                    warn!("Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
+                    v.key(), v.get().path.display());
+                }
+                Entry::Vacant(v) => {
+                    info!("Configured sprite source {} from {disp_path}", v.key());
+                    v.insert(SpriteSource { path });
+                }
+            }
+        };
     }
 
     /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
@@ -114,10 +134,16 @@ impl SpriteSources {
         } else {
             (ids, 1)
         };
+
         let sprite_ids = ids
             .split(',')
-            .map(|id| self.get_sprite_source(id))
+            .map(|id| {
+                self.0
+                    .get(id)
+                    .ok_or_else(|| SpriteError::SpriteNotFound(id.to_string()))
+            })
             .collect::<Result<Vec<_>, SpriteError>>()?;
+
         get_spritesheet(sprite_ids.into_iter(), dpi).await
     }
 }
@@ -187,7 +213,7 @@ mod tests {
             PathBuf::from("../tests/fixtures/sprites/src2"),
         ]);
 
-        let sprites = resolve_sprites(&mut cfg).unwrap().0;
+        let sprites = SpriteSources::resolve(&mut cfg).unwrap().0;
         assert_eq!(sprites.len(), 2);
 
         test_src(sprites.values(), 1, "all_1").await;

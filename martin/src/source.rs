@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
@@ -9,83 +9,42 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::utils::Result;
-
-#[derive(Debug, Copy, Clone)]
-pub struct Xyz {
-    pub z: u8,
-    pub x: u32,
-    pub y: u32,
-}
-
-impl Display for Xyz {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() {
-            write!(f, "{}/{}/{}", self.z, self.x, self.y)
-        } else {
-            write!(f, "{},{},{}", self.z, self.x, self.y)
-        }
-    }
-}
+use crate::{Result, Xyz};
 
 pub type Tile = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
 
+pub type TileInfoSource = Box<dyn Source>;
+
+pub type TileInfoSources = Vec<TileInfoSource>;
+
 #[derive(Default, Clone)]
-pub struct Sources {
-    tiles: HashMap<String, Box<dyn Source>>,
-    catalog: SourceCatalog,
-}
+pub struct TileSources(HashMap<String, Box<dyn Source>>);
+pub type TileCatalog = BTreeMap<String, CatalogSourceEntry>;
 
-impl Sources {
+impl TileSources {
     #[must_use]
-    pub fn sort(self) -> Self {
-        Self {
-            tiles: self.tiles,
-            catalog: SourceCatalog {
-                tiles: self
-                    .catalog
-                    .tiles
-                    .into_iter()
-                    .sorted_by(|a, b| a.0.cmp(&b.0))
-                    .collect(),
-            },
-        }
-    }
-}
-
-impl Sources {
-    pub fn insert(&mut self, id: String, source: Box<dyn Source>) {
-        let tilejson = source.get_tilejson();
-        let info = source.get_tile_info();
-        self.catalog.tiles.insert(
-            id.clone(),
-            SourceEntry {
-                content_type: info.format.content_type().to_string(),
-                content_encoding: info.encoding.content_encoding().map(ToString::to_string),
-                name: tilejson.name.filter(|v| v != &id),
-                description: tilejson.description,
-                attribution: tilejson.attribution,
-            },
-        );
-        self.tiles.insert(id, source);
+    pub fn new(sources: Vec<TileInfoSources>) -> Self {
+        Self(
+            sources
+                .into_iter()
+                .flatten()
+                .map(|src| (src.get_id().to_string(), src))
+                .collect(),
+        )
     }
 
-    pub fn extend(&mut self, other: Sources) {
-        for (k, v) in other.catalog.tiles {
-            self.catalog.tiles.insert(k, v);
-        }
-        self.tiles.extend(other.tiles);
-    }
-
-    #[must_use]
-    pub fn get_catalog(&self) -> &SourceCatalog {
-        &self.catalog
+    pub fn get_catalog(&self) -> TileCatalog {
+        self.0
+            .iter()
+            .map(|(id, src)| (id.to_string(), src.get_catalog_entry()))
+            .sorted_by(|(id1, _), (id2, _)| id1.cmp(id2))
+            .collect()
     }
 
     pub fn get_source(&self, id: &str) -> actix_web::Result<&dyn Source> {
         Ok(self
-            .tiles
+            .0
             .get(id)
             .ok_or_else(|| ErrorNotFound(format!("Source {id} does not exist")))?
             .as_ref())
@@ -138,17 +97,36 @@ impl Sources {
 
 #[async_trait]
 pub trait Source: Send + Debug {
-    fn get_tilejson(&self) -> TileJSON;
+    fn get_id(&self) -> &str;
+
+    fn get_tilejson(&self) -> &TileJSON;
 
     fn get_tile_info(&self) -> TileInfo;
 
     fn clone_source(&self) -> Box<dyn Source>;
 
-    fn is_valid_zoom(&self, zoom: u8) -> bool;
-
     fn support_url_query(&self) -> bool;
 
     async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile>;
+
+    fn is_valid_zoom(&self, zoom: u8) -> bool {
+        let tj = self.get_tilejson();
+        tj.minzoom.map_or(true, |minzoom| zoom >= minzoom)
+            && tj.maxzoom.map_or(true, |maxzoom| zoom <= maxzoom)
+    }
+
+    fn get_catalog_entry(&self) -> CatalogSourceEntry {
+        let id = self.get_id();
+        let tilejson = self.get_tilejson();
+        let info = self.get_tile_info();
+        CatalogSourceEntry {
+            content_type: info.format.content_type().to_string(),
+            content_encoding: info.encoding.content_encoding().map(ToString::to_string),
+            name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
+            description: tilejson.description.clone(),
+            attribution: tilejson.attribution.clone(),
+        }
+    }
 }
 
 impl Clone for Box<dyn Source> {
@@ -158,12 +136,7 @@ impl Clone for Box<dyn Source> {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SourceCatalog {
-    tiles: BTreeMap<String, SourceEntry>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SourceEntry {
+pub struct CatalogSourceEntry {
     pub content_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_encoding: Option<String>,

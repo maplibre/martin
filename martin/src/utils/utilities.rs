@@ -9,12 +9,6 @@ use futures::pin_mut;
 use serde::{Deserialize, Serialize, Serializer};
 use tokio::time::timeout;
 
-#[must_use]
-pub fn is_valid_zoom(zoom: u8, minzoom: Option<u8>, maxzoom: Option<u8>) -> bool {
-    minzoom.map_or(true, |minzoom| zoom >= minzoom)
-        && maxzoom.map_or(true, |maxzoom| zoom <= maxzoom)
-}
-
 /// A serde helper to store a boolean as an object.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]

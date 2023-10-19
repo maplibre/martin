@@ -39,5 +39,19 @@
       "content_type": "application/x-protobuf",
       "description": "public.table_source.geom"
     }
+  },
+  "sprites": {
+    "mysrc": {
+      "images": [
+        "bicycle"
+      ]
+    },
+    "src1": {
+      "images": [
+        "another_bicycle",
+        "bear",
+        "sub/circle"
+      ]
+    }
   }
 }

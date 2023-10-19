@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
-use crate::source::{Source, Sources};
+use crate::source::{Source, TileInfoSources};
 use crate::utils::{sorted_opt_map, Error, IdResolver, OneOrMany};
 use crate::OneOrMany::{Many, One};
 
@@ -152,7 +152,7 @@ pub async fn resolve_files<Fut>(
     idr: IdResolver,
     extension: &str,
     create_source: &mut impl FnMut(String, PathBuf) -> Fut,
-) -> Result<Sources, Error>
+) -> Result<TileInfoSources, Error>
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
@@ -166,16 +166,16 @@ async fn resolve_int<Fut>(
     idr: IdResolver,
     extension: &str,
     create_source: &mut impl FnMut(String, PathBuf) -> Fut,
-) -> Result<Sources, FileError>
+) -> Result<TileInfoSources, FileError>
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
     let Some(cfg) = config else {
-        return Ok(Sources::default());
+        return Ok(TileInfoSources::default());
     };
     let cfg = cfg.extract_file_config();
 
-    let mut results = Sources::default();
+    let mut results = TileInfoSources::default();
     let mut configs = HashMap::new();
     let mut files = HashSet::new();
     let mut directories = Vec::new();
@@ -198,7 +198,7 @@ where
                 FileConfigSrc::Obj(pmt) => pmt.path,
                 FileConfigSrc::Path(path) => path,
             };
-            results.insert(id.clone(), create_source(id, path).await?);
+            results.push(create_source(id, path).await?);
         }
     }
 
@@ -244,7 +244,7 @@ where
                     FileConfigSrc::Obj(pmt) => pmt.path,
                     FileConfigSrc::Path(path) => path,
                 };
-                results.insert(id.clone(), create_source(id, path).await?);
+                results.push(create_source(id, path).await?);
             }
         }
     }

@@ -10,7 +10,7 @@ use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::Result;
-use crate::source::Sources;
+use crate::source::TileInfoSources;
 use crate::utils::{on_slow, sorted_opt_map, BoolOrObject, IdResolver, OneOrMany};
 
 pub trait PgInfo {
@@ -111,7 +111,7 @@ impl PgConfig {
         Ok(res)
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<Sources> {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<TileInfoSources> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(pg.instantiate_tables(), Duration::from_secs(5), || {
             if pg.disable_bounds() {
