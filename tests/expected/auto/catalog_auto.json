@@ -162,5 +162,6 @@
       "name": "Major cities from Natural Earth data",
       "description": "Major cities from Natural Earth data"
     }
-  }
+  },
+  "sprites": {}
 }

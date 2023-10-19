@@ -13,9 +13,8 @@ use tilejson::TileJSON;
 
 use crate::file_config::FileError;
 use crate::file_config::FileError::{InvalidMetadata, IoError};
-use crate::source::{Source, Tile, UrlQuery, Xyz};
-use crate::utils::is_valid_zoom;
-use crate::Error;
+use crate::source::{Source, Tile, UrlQuery};
+use crate::{Error, Xyz};
 
 #[derive(Clone)]
 pub struct PmtSource {
@@ -114,8 +113,12 @@ impl PmtSource {
 
 #[async_trait]
 impl Source for PmtSource {
-    fn get_tilejson(&self) -> TileJSON {
-        self.tilejson.clone()
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+
+    fn get_tilejson(&self) -> &TileJSON {
+        &self.tilejson
     }
 
     fn get_tile_info(&self) -> TileInfo {
@@ -124,10 +127,6 @@ impl Source for PmtSource {
 
     fn clone_source(&self) -> Box<dyn Source> {
         Box::new(self.clone())
-    }
-
-    fn is_valid_zoom(&self, zoom: u8) -> bool {
-        is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
     fn support_url_query(&self) -> bool {

@@ -11,8 +11,8 @@ use tilejson::TileJSON;
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
 use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
-use crate::source::{Source, Tile, UrlQuery, Xyz};
-use crate::utils::{is_valid_zoom, Result};
+use crate::source::{Source, Tile, UrlQuery};
+use crate::{Result, Xyz};
 
 #[derive(Clone, Debug)]
 pub struct PgSource {
@@ -36,8 +36,12 @@ impl PgSource {
 
 #[async_trait]
 impl Source for PgSource {
-    fn get_tilejson(&self) -> TileJSON {
-        self.tilejson.clone()
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+
+    fn get_tilejson(&self) -> &TileJSON {
+        &self.tilejson
     }
 
     fn get_tile_info(&self) -> TileInfo {
@@ -46,10 +50,6 @@ impl Source for PgSource {
 
     fn clone_source(&self) -> Box<dyn Source> {
         Box::new(self.clone())
-    }
-
-    fn is_valid_zoom(&self, zoom: u8) -> bool {
-        is_valid_zoom(zoom, self.tilejson.minzoom, self.tilejson.maxzoom)
     }
 
     fn support_url_query(&self) -> bool {

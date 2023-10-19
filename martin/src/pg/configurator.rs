@@ -17,7 +17,7 @@ use crate::pg::table_source::{
 use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::Result;
-use crate::source::Sources;
+use crate::source::TileInfoSources;
 use crate::utils::{BoolOrObject, IdResolver, OneOrMany};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
@@ -73,7 +73,7 @@ impl PgBuilder {
 
     // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
     #[allow(clippy::too_many_lines)]
-    pub async fn instantiate_tables(&self) -> Result<(Sources, TableInfoSources)> {
+    pub async fn instantiate_tables(&self) -> Result<(TileInfoSources, TableInfoSources)> {
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
@@ -170,7 +170,7 @@ impl PgBuilder {
             }
         }
 
-        let mut res = Sources::default();
+        let mut res = TileInfoSources::default();
         let mut info_map = TableInfoSources::new();
         let pending = join_all(pending).await;
         for src in pending {
@@ -190,9 +190,9 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
-    pub async fn instantiate_functions(&self) -> Result<(Sources, FuncInfoSources)> {
+    pub async fn instantiate_functions(&self) -> Result<(TileInfoSources, FuncInfoSources)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
-        let mut res = Sources::default();
+        let mut res = TileInfoSources::default();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
 
@@ -262,14 +262,16 @@ impl PgBuilder {
         self.id_resolver.resolve(id, signature)
     }
 
-    fn add_func_src(&self, sources: &mut Sources, id: String, info: &impl PgInfo, sql: PgSqlInfo) {
-        let source = PgSource::new(
-            id.clone(),
-            sql,
-            info.to_tilejson(id.clone()),
-            self.pool.clone(),
-        );
-        sources.insert(id, Box::new(source));
+    fn add_func_src(
+        &self,
+        sources: &mut TileInfoSources,
+        id: String,
+        info: &impl PgInfo,
+        sql: PgSqlInfo,
+    ) {
+        let tilejson = info.to_tilejson(id.clone());
+        let source = PgSource::new(id, sql, tilejson, self.pool.clone());
+        sources.push(Box::new(source));
     }
 }
 

@@ -13,16 +13,16 @@ use crate::file_config::{resolve_files, FileConfigEnum};
 use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
-use crate::source::Sources;
-use crate::sprites::{resolve_sprites, SpriteSources};
+use crate::source::{TileInfoSources, TileSources};
+use crate::sprites::SpriteSources;
 use crate::srv::SrvConfig;
-use crate::utils::{IdResolver, OneOrMany, Result};
 use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
+use crate::{IdResolver, OneOrMany, Result};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
-pub struct AllSources {
-    pub sources: Sources,
+pub struct ServerState {
+    pub tiles: TileSources,
     pub sprites: SpriteSources,
 }
 
@@ -90,16 +90,24 @@ impl Config {
         }
     }
 
-    pub async fn resolve(&mut self, idr: IdResolver) -> Result<AllSources> {
+    pub async fn resolve(&mut self, idr: IdResolver) -> Result<ServerState> {
+        Ok(ServerState {
+            tiles: self.resolve_tile_sources(idr).await?,
+            sprites: SpriteSources::resolve(&mut self.sprites)?,
+        })
+    }
+
+    async fn resolve_tile_sources(&mut self, idr: IdResolver) -> Result<TileSources> {
         let create_pmt_src = &mut PmtSource::new_box;
         let create_mbt_src = &mut MbtSource::new_box;
+        let mut sources: Vec<Pin<Box<dyn Future<Output = Result<TileInfoSources>>>>> = Vec::new();
 
-        let mut sources: Vec<Pin<Box<dyn Future<Output = Result<Sources>>>>> = Vec::new();
         if let Some(v) = self.postgres.as_mut() {
             for s in v.iter_mut() {
                 sources.push(Box::pin(s.resolve(idr.clone())));
             }
         }
+
         if self.pmtiles.is_some() {
             let val = resolve_files(&mut self.pmtiles, idr.clone(), "pmtiles", create_pmt_src);
             sources.push(Box::pin(val));
@@ -110,20 +118,7 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        // Minor in-efficiency:
-        // Sources are added to a BTreeMap, then iterated over into a sort structure and convert back to a BTreeMap.
-        // Ideally there should be a vector of values, which is then sorted (in-place?) and converted to a BTreeMap.
-        Ok(AllSources {
-            sources: try_join_all(sources)
-                .await?
-                .into_iter()
-                .fold(Sources::default(), |mut acc, hashmap| {
-                    acc.extend(hashmap);
-                    acc
-                })
-                .sort(),
-            sprites: resolve_sprites(&mut self.sprites)?,
-        })
+        Ok(TileSources::new(try_join_all(sources).await?))
     }
 }
 
