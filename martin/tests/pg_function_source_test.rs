@@ -1,6 +1,6 @@
 use ctor::ctor;
 use indoc::indoc;
-use itertools::Itertools;
+use insta::assert_yaml_snapshot;
 use martin::Xyz;
 
 pub mod utils;
@@ -14,18 +14,15 @@ fn init() {
 #[actix_rt::test]
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    assert_eq!(
-        source(&mock, "function_zxy_query").get_tilejson(),
-        serde_json::from_str(indoc! {r#"
-{
-  "name": "function_zxy_query",
-  "description": "public.function_zxy_query",
-  "tilejson": "3.0.0",
-  "tiles": []
-}
-    "#})
-        .unwrap()
-    );
+    let tj = source(&mock, "function_zxy_query").get_tilejson();
+    assert_yaml_snapshot!(tj, @r###"
+    ---
+    tilejson: 3.0.0
+    tiles: []
+    name: function_zxy_query
+    foo:
+      bar: foo
+    "###);
 }
 
 #[actix_rt::test]
@@ -55,9 +52,11 @@ async fn function_source_schemas() {
           functions:
             from_schemas: MixedCase
     "});
-    let sources = mock_sources(cfg).await.0;
-    assert_eq!(
-        sources.keys().sorted().collect::<Vec<_>>(),
-        vec!["function_Mixed_Name"],
-    );
+    let sources = mock_sources(cfg).await.0.tiles;
+    assert_yaml_snapshot!(sources.get_catalog(), @r###"
+    ---
+    function_Mixed_Name:
+      content_type: application/x-protobuf
+      description: a function source with MixedCase name
+    "###);
 }

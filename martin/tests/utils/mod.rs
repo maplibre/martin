@@ -4,20 +4,14 @@
 
 mod pg_utils;
 
-use actix_web::web::Data;
 use log::warn;
-use martin::srv::AppState;
-use martin::{Config, Sources};
+use martin::Config;
 pub use pg_utils::*;
 
 #[path = "../../src/utils/test_utils.rs"]
 mod test_utils;
 #[allow(clippy::wildcard_imports)]
 pub use test_utils::*;
-
-pub async fn mock_app_data(sources: Sources) -> Data<Sources> {
-    Data::new(sources)
-}
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {

@@ -29,7 +29,7 @@ use crate::sprites::{SpriteCatalog, SpriteError, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use crate::Error::BindingError;
-use crate::Xyz;
+use crate::{Error, Xyz};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -49,6 +49,15 @@ static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
 pub struct Catalog {
     pub tiles: TileCatalog,
     pub sprites: SpriteCatalog,
+}
+
+impl Catalog {
+    pub fn new(state: &ServerState) -> Result<Self, Error> {
+        Ok(Self {
+            tiles: state.tiles.get_catalog(),
+            sprites: state.sprites.get_catalog()?,
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -421,17 +430,13 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
-pub fn new_server(config: SrvConfig, all_sources: ServerState) -> crate::Result<(Server, String)> {
+pub fn new_server(config: SrvConfig, state: ServerState) -> crate::Result<(Server, String)> {
+    let catalog = Catalog::new(&state)?;
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
         .listen_addresses
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
-
-    let catalog = Catalog {
-        tiles: all_sources.tiles.get_catalog(),
-        sprites: all_sources.sprites.get_catalog()?,
-    };
 
     let server = HttpServer::new(move || {
         let cors_middleware = Cors::default()
@@ -439,8 +444,8 @@ pub fn new_server(config: SrvConfig, all_sources: ServerState) -> crate::Result<
             .allowed_methods(vec!["GET"]);
 
         App::new()
-            .app_data(Data::new(all_sources.tiles.clone()))
-            .app_data(Data::new(all_sources.sprites.clone()))
+            .app_data(Data::new(state.tiles.clone()))
+            .app_data(Data::new(state.sprites.clone()))
             .app_data(Data::new(catalog.clone()))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))

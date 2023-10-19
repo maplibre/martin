@@ -2,6 +2,7 @@
 
 set shell := ["bash", "-c"]
 
+#export DATABASE_URL="postgres://postgres:postgres@localhost:5411/db"
 export PGPORT := "5411"
 export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
 export CARGO_TERM_COLOR := "always"
@@ -138,7 +139,7 @@ test-int: clean-test install-sqlx
     fi
 
 # Run integration tests and save its output as the new expected output
-bless: restart clean-test bless-insta
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles
     rm -rf tests/temp
     cargo test -p martin --features bless-tests
     tests/test.sh
@@ -146,9 +147,13 @@ bless: restart clean-test bless-insta
     mv tests/output tests/expected
 
 # Run integration tests and save its output as the new expected output
-bless-insta *ARGS: (cargo-install "insta" "cargo-insta")
+bless-insta-mbtiles *ARGS: (cargo-install "insta" "cargo-insta")
     #rm -rf martin-mbtiles/tests/snapshots
     cargo insta test --accept --unreferenced=auto -p martin-mbtiles {{ ARGS }}
+
+# Run integration tests and save its output as the new expected output
+bless-insta-martin *ARGS: (cargo-install "insta" "cargo-insta")
+    cargo insta test --accept --unreferenced=auto -p martin {{ ARGS }}
 
 # Build and open mdbook documentation
 book: (cargo-install "mdbook")

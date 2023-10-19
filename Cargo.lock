@@ -1710,6 +1710,7 @@ dependencies = [
  "flate2",
  "futures",
  "indoc",
+ "insta",
  "itertools 0.11.0",
  "json-patch",
  "log",
