@@ -160,17 +160,18 @@ async fn git_source_info(
     sources: Data<TileSources>,
 ) -> Result<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
-
-    let tiles_path = req
-        .headers()
-        .get("x-rewrite-url")
-        .and_then(parse_x_rewrite_url)
-        .unwrap_or_else(|| req.path().to_owned());
-
     let info = req.connection_info();
+    let tiles_path = get_request_path(&req);
     let tiles_url = get_tiles_url(info.scheme(), info.host(), req.query_string(), &tiles_path)?;
 
     Ok(HttpResponse::Ok().json(merge_tilejson(sources, tiles_url)))
+}
+
+fn get_request_path(req: &HttpRequest) -> String {
+    req.headers()
+        .get("x-rewrite-url")
+        .and_then(parse_x_rewrite_url)
+        .unwrap_or_else(|| req.path().to_owned())
 }
 
 fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str) -> Result<String> {
