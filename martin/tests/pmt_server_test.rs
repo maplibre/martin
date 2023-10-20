@@ -2,8 +2,8 @@ use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
+use insta::assert_yaml_snapshot;
 use martin::decode_gzip;
-use martin::srv::IndexEntry;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -16,11 +16,13 @@ fn init() {
 
 macro_rules! create_app {
     ($sources:expr) => {{
-        let sources = mock_sources(mock_cfg($sources)).await.0;
-        let state = crate::utils::mock_app_data(sources).await;
+        let state = mock_sources(mock_cfg($sources)).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
-                .app_data(state)
+                .app_data(actix_web::web::Data::new(
+                    ::martin::srv::Catalog::new(&state).unwrap(),
+                ))
+                .app_data(actix_web::web::Data::new(state.tiles))
                 .configure(::martin::srv::router),
         )
         .await
@@ -34,22 +36,25 @@ fn test_get(path: &str) -> TestRequest {
 const CONFIG: &str = indoc! {"
         pmtiles:
             sources:
-                p_png: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+                p_png: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
     "};
 
 #[actix_rt::test]
 async fn pmt_get_catalog() {
-    let path = "pmtiles: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
+    let path = "pmtiles: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
     let app = create_app! { path };
 
     let req = test_get("/catalog").to_request();
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
-    let body = read_body(response).await;
-    let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
-
-    let expected = "stamen_toner__raster_CC-BY-ODbL_z3";
-    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
+    let body: serde_json::Value = read_body_json(response).await;
+    assert_yaml_snapshot!(body, @r###"
+    ---
+    tiles:
+      stamen_toner__raster_CC-BY-ODbL_z3:
+        content_type: image/png
+    sprites: {}
+    "###);
 }
 
 #[actix_rt::test]
@@ -60,8 +65,14 @@ async fn pmt_get_catalog_gzip() {
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
     let body = decode_gzip(&read_body(response).await).unwrap();
-    let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
-    assert_eq!(sources.iter().filter(|v| v.id == "p_png").count(), 1);
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_yaml_snapshot!(body, @r###"
+    ---
+    tiles:
+      p_png:
+        content_type: image/png
+    sprites: {}
+    "###);
 }
 
 #[actix_rt::test]

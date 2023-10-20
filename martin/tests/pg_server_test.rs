@@ -3,7 +3,7 @@ use actix_web::http::StatusCode;
 use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
-use martin::srv::IndexEntry;
+use insta::assert_yaml_snapshot;
 use martin::OneOrMany;
 use tilejson::TileJSON;
 
@@ -18,11 +18,13 @@ fn init() {
 macro_rules! create_app {
     ($sources:expr) => {{
         let cfg = mock_cfg(indoc::indoc!($sources));
-        let sources = mock_sources(cfg).await.0;
-        let state = crate::utils::mock_app_data(sources).await;
+        let state = mock_sources(cfg).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
-                .app_data(state)
+                .app_data(actix_web::web::Data::new(
+                    ::martin::srv::Catalog::new(&state).unwrap(),
+                ))
+                .app_data(actix_web::web::Data::new(state.tiles))
                 .configure(::martin::srv::router),
         )
         .await
@@ -44,16 +46,76 @@ postgres:
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
     let body = read_body(response).await;
-    let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
-
-    let expected = "table_source";
-    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
-
-    let expected = "function_zxy_query";
-    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
-
-    let expected = "function_zxy_query_jsonb";
-    assert_eq!(sources.iter().filter(|v| v.id == expected).count(), 1);
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_yaml_snapshot!(body, @r###"
+    ---
+    tiles:
+      MixPoints:
+        content_type: application/x-protobuf
+        description: a description from comment on table
+      auto_table:
+        content_type: application/x-protobuf
+        description: autodetect.auto_table.geom
+      bigint_table:
+        content_type: application/x-protobuf
+        description: autodetect.bigint_table.geom
+      function_Mixed_Name:
+        content_type: application/x-protobuf
+        description: a function source with MixedCase name
+      function_null:
+        content_type: application/x-protobuf
+        description: public.function_null
+      function_null_row:
+        content_type: application/x-protobuf
+        description: public.function_null_row
+      function_null_row2:
+        content_type: application/x-protobuf
+        description: public.function_null_row2
+      function_zoom_xy:
+        content_type: application/x-protobuf
+        description: public.function_zoom_xy
+      function_zxy:
+        content_type: application/x-protobuf
+        description: public.function_zxy
+      function_zxy2:
+        content_type: application/x-protobuf
+        description: public.function_zxy2
+      function_zxy_query:
+        content_type: application/x-protobuf
+      function_zxy_query_jsonb:
+        content_type: application/x-protobuf
+        description: public.function_zxy_query_jsonb
+      function_zxy_query_test:
+        content_type: application/x-protobuf
+        description: public.function_zxy_query_test
+      function_zxy_row:
+        content_type: application/x-protobuf
+        description: public.function_zxy_row
+      function_zxy_row_key:
+        content_type: application/x-protobuf
+        description: public.function_zxy_row_key
+      points1:
+        content_type: application/x-protobuf
+        description: public.points1.geom
+      points1_vw:
+        content_type: application/x-protobuf
+        description: public.points1_vw.geom
+      points2:
+        content_type: application/x-protobuf
+        description: public.points2.geom
+      points3857:
+        content_type: application/x-protobuf
+        description: public.points3857.geom
+      table_source:
+        content_type: application/x-protobuf
+      table_source_multiple_geom:
+        content_type: application/x-protobuf
+        description: public.table_source_multiple_geom.geom1
+      table_source_multiple_geom.1:
+        content_type: application/x-protobuf
+        description: public.table_source_multiple_geom.geom2
+    sprites: {}
+    "###);
 }
 
 #[actix_rt::test]
@@ -947,44 +1009,85 @@ tables:
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
     assert!(matches!(&src.properties, Some(v) if v.len() == 1));
-    assert_eq!(
-        source(&mock, "no_id").get_tilejson(),
-        serde_json::from_str(indoc! {r#"
-{
-  "name": "no_id",
-  "description": "MixedCase.MixPoints.Geom",
-  "tilejson": "3.0.0",
-  "tiles": [],
-  "vector_layers": [
-    {
-      "id": "no_id",
-      "fields": {"TABLE": "text"}
-    }
-  ],
-  "bounds": [-180.0, -90.0, 180.0, 90.0]
-}
-        "#})
-        .unwrap()
-    );
+    let tj = source(&mock, "no_id").get_tilejson();
+    assert_yaml_snapshot!(tj, @r###"
+    ---
+    tilejson: 3.0.0
+    tiles: []
+    vector_layers:
+      - id: no_id
+        fields:
+          TABLE: text
+    bounds:
+      - -180
+      - -90
+      - 180
+      - 90
+    description: MixedCase.MixPoints.Geom
+    name: no_id
+    "###);
 
-    let src = table(&mock, "id_only");
-    assert_eq!(src.id_column, some("giD"));
-    assert!(matches!(&src.properties, Some(v) if v.len() == 1));
+    assert_yaml_snapshot!(table(&mock, "id_only"), @r###"
+    ---
+    schema: MixedCase
+    table: MixPoints
+    srid: 4326
+    geometry_column: Geom
+    id_column: giD
+    bounds:
+      - -180
+      - -90
+      - 180
+      - 90
+    geometry_type: POINT
+    properties:
+      TABLE: text
+    "###);
 
-    let src = table(&mock, "id_and_prop");
-    assert_eq!(src.id_column, some("giD"));
-    assert!(matches!(&src.properties, Some(v) if v.len() == 2));
+    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r###"
+    ---
+    schema: MixedCase
+    table: MixPoints
+    srid: 4326
+    geometry_column: Geom
+    id_column: giD
+    bounds:
+      - -180
+      - -90
+      - 180
+      - 90
+    geometry_type: POINT
+    properties:
+      TABLE: text
+      giD: int4
+    "###);
 
-    let src = table(&mock, "prop_only");
-    assert_eq!(src.id_column, None);
-    assert!(matches!(&src.properties, Some(v) if v.len() == 2));
+    assert_yaml_snapshot!(table(&mock, "prop_only"), @r###"
+    ---
+    schema: MixedCase
+    table: MixPoints
+    srid: 4326
+    geometry_column: Geom
+    bounds:
+      - -180
+      - -90
+      - 180
+      - 90
+    geometry_type: POINT
+    properties:
+      TABLE: text
+      giD: int4
+    "###);
 
     // --------------------------------------------
 
-    let state = mock_app_data(mock.0).await;
+    let state = mock_sources(cfg.clone()).await.0;
     let app = ::actix_web::test::init_service(
         ::actix_web::App::new()
-            .app_data(state)
+            .app_data(actix_web::web::Data::new(
+                ::martin::srv::Catalog::new(&state).unwrap(),
+            ))
+            .app_data(actix_web::web::Data::new(state.tiles))
             .configure(::martin::srv::router),
     )
     .await;

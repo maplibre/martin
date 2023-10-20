@@ -1,7 +1,7 @@
 use indoc::formatdoc;
 pub use martin::args::Env;
 use martin::pg::TableInfo;
-use martin::{Config, IdResolver, Source, Sources};
+use martin::{Config, IdResolver, ServerState, Source};
 
 use crate::mock_cfg;
 
@@ -10,7 +10,7 @@ use crate::mock_cfg;
 // Each function should allow dead_code as they might not be used by a specific test file.
 //
 
-pub type MockSource = (Sources, Config);
+pub type MockSource = (ServerState, Config);
 
 #[allow(dead_code)]
 #[must_use]
@@ -48,5 +48,5 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
 #[must_use]
 pub fn source<'a>(mock: &'a MockSource, name: &str) -> &'a dyn Source {
     let (sources, _) = mock;
-    sources.get(name).unwrap().as_ref()
+    sources.tiles.get_source(name).unwrap()
 }

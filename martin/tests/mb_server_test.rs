@@ -2,8 +2,8 @@ use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
+use insta::assert_yaml_snapshot;
 use martin::decode_gzip;
-use martin::srv::IndexEntry;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -16,11 +16,13 @@ fn init() {
 
 macro_rules! create_app {
     ($sources:expr) => {{
-        let sources = mock_sources(mock_cfg($sources)).await.0;
-        let state = crate::utils::mock_app_data(sources).await;
+        let state = mock_sources(mock_cfg($sources)).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
-                .app_data(state)
+                .app_data(actix_web::web::Data::new(
+                    ::martin::srv::Catalog::new(&state).unwrap(),
+                ))
+                .app_data(actix_web::web::Data::new(state.tiles))
                 .configure(::martin::srv::router),
         )
         .await
@@ -34,10 +36,10 @@ fn test_get(path: &str) -> TestRequest {
 const CONFIG: &str = indoc! {"
         mbtiles:
             sources:
-                m_json: tests/fixtures/mbtiles/json.mbtiles
-                m_mvt: tests/fixtures/mbtiles/world_cities.mbtiles
-                m_raw_mvt: tests/fixtures/mbtiles/uncompressed_mvt.mbtiles
-                m_webp: tests/fixtures/mbtiles/webp.mbtiles
+                m_json: ../tests/fixtures/mbtiles/json.mbtiles
+                m_mvt: ../tests/fixtures/mbtiles/world_cities.mbtiles
+                m_raw_mvt: ../tests/fixtures/mbtiles/uncompressed_mvt.mbtiles
+                m_webp: ../tests/fixtures/mbtiles/webp.mbtiles
     "};
 
 #[actix_rt::test]
@@ -47,11 +49,27 @@ async fn mbt_get_catalog() {
     let req = test_get("/catalog").to_request();
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
-    let body = read_body(response).await;
-    let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
-    assert_eq!(sources.iter().filter(|v| v.id == "m_mvt").count(), 1);
-    assert_eq!(sources.iter().filter(|v| v.id == "m_webp").count(), 1);
-    assert_eq!(sources.iter().filter(|v| v.id == "m_raw_mvt").count(), 1);
+    let body: serde_json::Value = read_body_json(response).await;
+    assert_yaml_snapshot!(body, @r###"
+    ---
+    tiles:
+      m_json:
+        content_type: application/json
+        name: Dummy json data
+      m_mvt:
+        content_type: application/x-protobuf
+        content_encoding: gzip
+        name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+      m_raw_mvt:
+        content_type: application/x-protobuf
+        name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+      m_webp:
+        content_type: image/webp
+        name: ne2sr
+    sprites: {}
+    "###);
 }
 
 #[actix_rt::test]
@@ -62,10 +80,27 @@ async fn mbt_get_catalog_gzip() {
     let response = call_service(&app, req).await;
     assert!(response.status().is_success());
     let body = decode_gzip(&read_body(response).await).unwrap();
-    let sources: Vec<IndexEntry> = serde_json::from_slice(&body).unwrap();
-    assert_eq!(sources.iter().filter(|v| v.id == "m_mvt").count(), 1);
-    assert_eq!(sources.iter().filter(|v| v.id == "m_webp").count(), 1);
-    assert_eq!(sources.iter().filter(|v| v.id == "m_raw_mvt").count(), 1);
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_yaml_snapshot!(body, @r###"
+    ---
+    tiles:
+      m_json:
+        content_type: application/json
+        name: Dummy json data
+      m_mvt:
+        content_type: application/x-protobuf
+        content_encoding: gzip
+        name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+      m_raw_mvt:
+        content_type: application/x-protobuf
+        name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+      m_webp:
+        content_type: image/webp
+        name: ne2sr
+    sprites: {}
+    "###);
 }
 
 #[actix_rt::test]
