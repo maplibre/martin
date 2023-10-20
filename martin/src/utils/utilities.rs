@@ -6,16 +6,8 @@ use std::time::Duration;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use futures::pin_mut;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use tokio::time::timeout;
-
-/// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BoolOrObject<T> {
-    Bool(bool),
-    Object(T),
-}
 
 /// Sort an optional hashmap by key, case-insensitive first, then case-sensitive
 pub fn sorted_opt_map<S: Serializer, T: Serialize>(

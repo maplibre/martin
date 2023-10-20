@@ -34,8 +34,6 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     let (_, config) = mock;
     let vals: Vec<&TableInfo> = config
         .postgres
-        .as_ref()
-        .unwrap()
         .iter()
         .flat_map(|v| v.tables.iter().map(|vv| vv.get(name)))
         .flatten()

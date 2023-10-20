@@ -16,5 +16,3 @@ pub use config_table::TableInfo;
 pub use errors::{PgError, Result};
 pub use function_source::query_available_function;
 pub use pool::{PgPool, POOL_SIZE_DEFAULT};
-
-pub use crate::utils::BoolOrObject;

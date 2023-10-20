@@ -55,12 +55,11 @@ pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 pub struct SpriteSources(HashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn resolve(config: &mut Option<FileConfigEnum>) -> Result<Self, FileError> {
-        let Some(cfg) = config else {
+    pub fn resolve(config: &mut FileConfigEnum) -> Result<Self, FileError> {
+        let Some(cfg) = config.extract_file_config() else {
             return Ok(Self::default());
         };
 
-        let cfg = cfg.extract_file_config();
         let mut results = Self::default();
         let mut directories = Vec::new();
         let mut configs = HashMap::new();
@@ -72,18 +71,16 @@ impl SpriteSources {
             }
         };
 
-        if let Some(paths) = cfg.paths {
-            for path in paths {
-                let Some(name) = path.file_name() else {
-                    warn!(
-                        "Ignoring sprite source with no name from {}",
-                        path.display()
-                    );
-                    continue;
-                };
-                directories.push(path.clone());
-                results.add_source(name.to_string_lossy().to_string(), path);
-            }
+        for path in cfg.paths {
+            let Some(name) = path.file_name() else {
+                warn!(
+                    "Ignoring sprite source with no name from {}",
+                    path.display()
+                );
+                continue;
+            };
+            directories.push(path.clone());
+            results.add_source(name.to_string_lossy().to_string(), path);
         }
 
         *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);

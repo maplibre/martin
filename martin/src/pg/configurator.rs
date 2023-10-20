@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
+use crate::OptBoolObj::{Bool, NoValue, Object};
 use futures::future::join_all;
 use itertools::Itertools;
 use log::{debug, error, info, warn};
@@ -18,7 +19,7 @@ use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::Result;
 use crate::source::TileInfoSources;
-use crate::utils::{BoolOrObject, IdResolver, OneOrMany};
+use crate::utils::{IdResolver, OptOneMany};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
@@ -346,70 +347,70 @@ fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAut
         })
     };
 
-    if let Some(bo_a) = &config.auto_publish {
-        match bo_a {
-            BoolOrObject::Object(a) => match if is_function { &a.functions } else { &a.tables } {
-                Some(bo_i) => match bo_i {
-                    BoolOrObject::Object(item) => Some(PgBuilderAuto {
-                        source_id_format: item
-                            .source_id_format
-                            .as_ref()
-                            .cloned()
-                            .unwrap_or_else(|| default_id_fmt(is_function)),
-                        schemas: merge_opt_hs(&a.from_schemas, &item.from_schemas),
-                        id_columns: item.id_columns.as_ref().and_then(|ids| {
-                            if is_function {
-                                error!("Configuration parameter auto_publish.functions.id_columns is not supported");
-                                None
-                            } else {
-                                Some(ids.iter().cloned().collect())
-                            }
-                        }),
-                        clip_geom: {
-                            if is_function {
-                                error!("Configuration parameter auto_publish.functions.clip_geom is not supported");
-                                None
-                            } else {
-                                item.clip_geom
-                            }
-                        },
-                        buffer: {
-                            if is_function {
-                                error!("Configuration parameter auto_publish.functions.buffer is not supported");
-                                None
-                            } else {
-                                item.buffer
-                            }
-                        },
-                        extent: {
-                            if is_function {
-                                error!("Configuration parameter auto_publish.functions.extent is not supported");
-                                None
-                            } else {
-                                item.extent
-                            }
-                        },
-                    }),
-                    BoolOrObject::Bool(true) => default(merge_opt_hs(&a.from_schemas, &None)),
-                    BoolOrObject::Bool(false) => None,
-                },
-                // If auto_publish.functions is set, and currently asking for .tables which is missing,
-                // .tables becomes the inverse of functions (i.e. an obj or true in tables means false in functions)
-                None => match if is_function { &a.tables } else { &a.functions } {
-                    Some(bo_i) => match bo_i {
-                        BoolOrObject::Object(_) | BoolOrObject::Bool(true) => None,
-                        BoolOrObject::Bool(false) => default(merge_opt_hs(&a.from_schemas, &None)),
-                    },
-                    None => default(merge_opt_hs(&a.from_schemas, &None)),
-                },
-            },
-            BoolOrObject::Bool(true) => default(None),
-            BoolOrObject::Bool(false) => None,
+    match &config.auto_publish {
+        NoValue => {
+            if config.tables.is_some() || config.functions.is_some() {
+                None
+            } else {
+                default(None)
+            }
         }
-    } else if config.tables.is_some() || config.functions.is_some() {
-        None
-    } else {
-        default(None)
+        Object(a) => match if is_function { &a.functions } else { &a.tables } {
+            // If auto_publish.functions is set, and currently asking for .tables which is missing,
+            // .tables becomes the inverse of functions (i.e. an obj or true in tables means false in functions)
+            NoValue => match if is_function { &a.tables } else { &a.functions } {
+                NoValue | Bool(false) => {
+                    default(merge_opt_hs(&a.from_schemas, &OptOneMany::NoValue))
+                }
+                Object(_) | Bool(true) => None,
+            },
+            Object(item) => Some(PgBuilderAuto {
+                source_id_format: item
+                    .source_id_format
+                    .as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| default_id_fmt(is_function)),
+                schemas: merge_opt_hs(&a.from_schemas, &item.from_schemas),
+                id_columns: {
+                    if item.id_columns.is_none() {
+                        None
+                    } else if is_function {
+                        error!("Configuration parameter auto_publish.functions.id_columns is not supported");
+                        None
+                    } else {
+                        Some(item.id_columns.iter().cloned().collect())
+                    }
+                },
+                clip_geom: {
+                    if is_function {
+                        error!("Configuration parameter auto_publish.functions.clip_geom is not supported");
+                        None
+                    } else {
+                        item.clip_geom
+                    }
+                },
+                buffer: {
+                    if is_function {
+                        error!("Configuration parameter auto_publish.functions.buffer is not supported");
+                        None
+                    } else {
+                        item.buffer
+                    }
+                },
+                extent: {
+                    if is_function {
+                        error!("Configuration parameter auto_publish.functions.extent is not supported");
+                        None
+                    } else {
+                        item.extent
+                    }
+                },
+            }),
+            Bool(true) => default(merge_opt_hs(&a.from_schemas, &OptOneMany::NoValue)),
+            Bool(false) => None,
+        },
+        Bool(true) => default(None),
+        Bool(false) => None,
     }
 }
 
@@ -443,18 +444,16 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 }
 
 /// Merge two optional list of strings into a hashset
-fn merge_opt_hs(
-    a: &Option<OneOrMany<String>>,
-    b: &Option<OneOrMany<String>>,
-) -> Option<HashSet<String>> {
-    if let Some(a) = a {
-        let mut res: HashSet<_> = a.iter().cloned().collect();
-        if let Some(b) = b {
+fn merge_opt_hs(a: &OptOneMany<String>, b: &OptOneMany<String>) -> Option<HashSet<String>> {
+    match (a.is_none(), b.is_none()) {
+        (true, true) => None,
+        (true, false) => Some(b.iter().cloned().collect()),
+        (false, true) => Some(a.iter().cloned().collect()),
+        (false, false) => {
+            let mut res: HashSet<_> = a.iter().cloned().collect();
             res.extend(b.iter().cloned());
+            Some(res)
         }
-        Some(res)
-    } else {
-        b.as_ref().map(|b| b.iter().cloned().collect())
     }
 }
 

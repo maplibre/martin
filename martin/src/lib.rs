@@ -31,7 +31,7 @@ pub use crate::args::Env;
 pub use crate::config::{read_config, Config, ServerState};
 pub use crate::source::Source;
 pub use crate::utils::{
-    decode_brotli, decode_gzip, BoolOrObject, Error, IdResolver, OneOrMany, Result,
+    decode_brotli, decode_gzip, Error, IdResolver, OptBoolObj, OptOneMany, Result,
 };
 
 // Ensure README.md contains valid code
