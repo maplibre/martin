@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use tilejson::{tilejson, TileJSON};
 
 use crate::config::ServerState;
-use crate::fonts::{FontError, FontSources};
+use crate::fonts::{FontCatalog, FontError, FontSources};
 use crate::source::{Source, TileCatalog, TileSources, UrlQuery};
 use crate::sprites::{SpriteCatalog, SpriteError, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
@@ -50,6 +50,7 @@ static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
 pub struct Catalog {
     pub tiles: TileCatalog,
     pub sprites: SpriteCatalog,
+    pub fonts: FontCatalog,
 }
 
 impl Catalog {
@@ -57,6 +58,7 @@ impl Catalog {
         Ok(Self {
             tiles: state.tiles.get_catalog(),
             sprites: state.sprites.get_catalog()?,
+            fonts: state.fonts.get_catalog(),
         })
     }
 }
@@ -181,12 +183,6 @@ async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> Result<H
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")
         .body(data))
-}
-
-#[route("/font", method = "GET", wrap = "middleware::Compress::default()")]
-#[allow(clippy::unused_async)]
-async fn get_font_catalog(fonts: Data<FontSources>) -> HttpResponse {
-    HttpResponse::Ok().json(fonts.get_catalog())
 }
 
 #[route(
@@ -466,7 +462,6 @@ pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_health)
         .service(get_index)
         .service(get_catalog)
-        .service(get_font_catalog)
         .service(git_source_info)
         .service(get_tile)
         .service(get_sprite_json)

@@ -1,11 +1,12 @@
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use bit_set::BitSet;
+use itertools::Itertools;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::protobuf::Message;
@@ -79,7 +80,6 @@ fn recurse_dirs(
     lib: &Library,
     path: &Path,
     fonts: &mut HashMap<String, FontSource>,
-    catalog: &mut HashMap<String, FontEntry>,
 ) -> Result<(), FontError> {
     static RE_SPACES: OnceLock<Regex> = OnceLock::new();
 
@@ -91,7 +91,7 @@ fn recurse_dirs(
         let path = dir_entry.path();
 
         if path.is_dir() {
-            recurse_dirs(lib, &path, fonts, catalog)?;
+            recurse_dirs(lib, &path, fonts)?;
             continue;
         }
 
@@ -105,9 +105,9 @@ fn recurse_dirs(
 
         let mut face = lib.new_face(&path, 0)?;
         let num_faces = face.num_faces() as isize;
-        for i in 0..num_faces {
-            if i > 0 {
-                face = lib.new_face(&path, i)?;
+        for face_index in 0..num_faces {
+            if face_index > 0 {
+                face = lib.new_face(&path, face_index)?;
             }
             let Some(family) = face.family_name() else {
                 return Err(FontError::MissingFamilyName(path.clone()));
@@ -132,7 +132,7 @@ fn recurse_dirs(
                 }
                 Entry::Vacant(v) => {
                     let key = v.key();
-                    let Some((codepoints, count, ranges)) = get_available_codepoints(&mut face)
+                    let Some((codepoints, glyphs, ranges)) = get_available_codepoints(&mut face)
                     else {
                         warn!(
                             "Ignoring font source {key} from {} because it has no available glyphs",
@@ -144,7 +144,7 @@ fn recurse_dirs(
                     let start = ranges.first().map(|(s, _)| *s).unwrap();
                     let end = ranges.last().map(|(_, e)| *e).unwrap();
                     info!(
-                        "Configured font source {key} with {count} glyphs ({start:04X}-{end:04X}) from {}",
+                        "Configured font source {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
                         path.display()
                     );
                     debug!(
@@ -160,21 +160,17 @@ fn recurse_dirs(
                             .join(", "),
                     );
 
-                    catalog.insert(
-                        v.key().clone(),
-                        FontEntry {
+                    v.insert(FontSource {
+                        path: path.clone(),
+                        face_index,
+                        codepoints,
+                        catalog_entry: CatalogFontEntry {
                             family,
                             style,
-                            total_glyphs: count,
+                            glyphs,
                             start,
                             end,
                         },
-                    );
-
-                    v.insert(FontSource {
-                        path: path.clone(),
-                        face_index: i,
-                        codepoints,
                     });
                 }
             }
@@ -218,13 +214,12 @@ pub fn resolve_fonts(config: &mut Option<OneOrMany<PathBuf>>) -> Result<FontSour
     };
 
     let mut fonts = HashMap::new();
-    let mut catalog = HashMap::new();
     let lib = Library::init()?;
 
     for path in cfg.iter() {
         let disp_path = path.display();
         if path.exists() {
-            recurse_dirs(&lib, path, &mut fonts, &mut catalog)?;
+            recurse_dirs(&lib, path, &mut fonts)?;
         } else {
             warn!("Ignoring non-existent font source {disp_path}");
         };
@@ -241,40 +236,35 @@ pub fn resolve_fonts(config: &mut Option<OneOrMany<PathBuf>>) -> Result<FontSour
         }
     }
 
-    Ok(FontSources {
-        fonts,
-        masks,
-        catalog: FontCatalog { fonts: catalog },
-    })
+    Ok(FontSources { fonts, masks })
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct FontSources {
     fonts: HashMap<String, FontSource>,
     masks: Vec<BitSet>,
-    catalog: FontCatalog,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FontCatalog {
-    // TODO: Use pre-sorted BTreeMap instead
-    fonts: HashMap<String, FontEntry>,
-}
+pub type FontCatalog = BTreeMap<String, CatalogFontEntry>;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FontEntry {
+pub struct CatalogFontEntry {
     pub family: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<String>,
-    pub total_glyphs: usize,
+    pub glyphs: usize,
     pub start: usize,
     pub end: usize,
 }
 
 impl FontSources {
     #[must_use]
-    pub fn get_catalog(&self) -> &FontCatalog {
-        &self.catalog
+    pub fn get_catalog(&self) -> FontCatalog {
+        self.fonts
+            .iter()
+            .map(|(k, v)| (k.clone(), v.catalog_entry.clone()))
+            .sorted_by(|(a, _), (b, _)| a.cmp(b))
+            .collect()
     }
 
     /// Given a list of IDs in a format "id1,id2,id3", return a combined font.
@@ -358,6 +348,7 @@ pub struct FontSource {
     path: PathBuf,
     face_index: isize,
     codepoints: BitSet,
+    catalog_entry: CatalogFontEntry,
 }
 
 // #[cfg(test)]
