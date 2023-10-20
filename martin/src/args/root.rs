@@ -10,7 +10,7 @@ use crate::args::srv::SrvArgs;
 use crate::args::State::{Ignore, Share, Take};
 use crate::config::Config;
 use crate::file_config::FileConfigEnum;
-use crate::{Error, OneOrMany, Result};
+use crate::{Error, OptOneMany, Result};
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -85,7 +85,7 @@ impl Args {
         }
 
         if !self.meta.font.is_empty() {
-            config.fonts = OneOrMany::new_opt(self.meta.font);
+            config.fonts = OptOneMany::new(self.meta.font);
         }
 
         cli_strings.check()

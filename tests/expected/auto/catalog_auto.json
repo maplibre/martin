@@ -163,5 +163,6 @@
       "description": "Major cities from Natural Earth data"
     }
   },
-  "sprites": {}
+  "sprites": {},
+  "fonts": {}
 }

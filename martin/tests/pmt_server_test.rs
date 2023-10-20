@@ -54,6 +54,7 @@ async fn pmt_get_catalog() {
       stamen_toner__raster_CC-BY-ODbL_z3:
         content_type: image/png
     sprites: {}
+    fonts: {}
     "###);
 }
 
@@ -72,6 +73,7 @@ async fn pmt_get_catalog_gzip() {
       p_png:
         content_type: image/png
     sprites: {}
+    fonts: {}
     "###);
 }
 

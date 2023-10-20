@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::file_config::{resolve_files, FileConfigEnum};
-use crate::fonts::{resolve_fonts, FontSources};
+use crate::fonts::FontSources;
 use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::PmtSource;
@@ -45,7 +45,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: FileConfigEnum,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: OptOneMany<PathBuf>,
 
     #[serde(flatten)]
@@ -85,7 +85,7 @@ impl Config {
         Ok(ServerState {
             tiles: self.resolve_tile_sources(idr).await?,
             sprites: SpriteSources::resolve(&mut self.sprites)?,
-            fonts: resolve_fonts(&mut self.fonts)?,
+            fonts: FontSources::resolve(&mut self.fonts)?,
         })
     }
 
