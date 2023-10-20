@@ -15,7 +15,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::fonts::FontError::IoError;
-use crate::OneOrMany;
+use crate::OptOneMany;
 
 const MAX_UNICODE_CP: usize = 0xFFFF;
 const CP_RANGE_SIZE: usize = 256;
@@ -208,37 +208,6 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     }
 }
 
-pub fn resolve_fonts(config: &mut Option<OneOrMany<PathBuf>>) -> Result<FontSources, FontError> {
-    let Some(cfg) = config else {
-        return Ok(FontSources::default());
-    };
-
-    let mut fonts = HashMap::new();
-    let lib = Library::init()?;
-
-    for path in cfg.iter() {
-        let disp_path = path.display();
-        if path.exists() {
-            recurse_dirs(&lib, path, &mut fonts)?;
-        } else {
-            warn!("Ignoring non-existent font source {disp_path}");
-        };
-    }
-
-    let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
-
-    let mut bs = BitSet::with_capacity(CP_RANGE_SIZE);
-    for v in 0..=MAX_UNICODE_CP {
-        bs.insert(v);
-        if v % CP_RANGE_SIZE == (CP_RANGE_SIZE - 1) {
-            masks.push(bs);
-            bs = BitSet::with_capacity(CP_RANGE_SIZE);
-        }
-    }
-
-    Ok(FontSources { fonts, masks })
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct FontSources {
     fonts: HashMap<String, FontSource>,
@@ -258,6 +227,37 @@ pub struct CatalogFontEntry {
 }
 
 impl FontSources {
+    pub fn resolve(config: &mut OptOneMany<PathBuf>) -> Result<Self, FontError> {
+        if config.is_empty() {
+            return Ok(Self::default());
+        }
+
+        let mut fonts = HashMap::new();
+        let lib = Library::init()?;
+
+        for path in config.iter() {
+            let disp_path = path.display();
+            if path.exists() {
+                recurse_dirs(&lib, path, &mut fonts)?;
+            } else {
+                warn!("Ignoring non-existent font source {disp_path}");
+            };
+        }
+
+        let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
+
+        let mut bs = BitSet::with_capacity(CP_RANGE_SIZE);
+        for v in 0..=MAX_UNICODE_CP {
+            bs.insert(v);
+            if v % CP_RANGE_SIZE == (CP_RANGE_SIZE - 1) {
+                masks.push(bs);
+                bs = BitSet::with_capacity(CP_RANGE_SIZE);
+            }
+        }
+
+        Ok(Self { fonts, masks })
+    }
+
     #[must_use]
     pub fn get_catalog(&self) -> FontCatalog {
         self.fonts

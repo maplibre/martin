@@ -115,6 +115,7 @@ postgres:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom2
     sprites: {}
+    fonts: {}
     "###);
 }
 
