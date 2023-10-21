@@ -23,7 +23,7 @@ impl<T> OptBoolObj<T> {
 #[serde(untagged)]
 pub enum OptOneMany<T> {
     #[default]
-    NoValue,
+    NoVals,
     One(T),
     Many(Vec<T>),
 }
@@ -34,7 +34,7 @@ impl<T> IntoIterator for OptOneMany<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            Self::NoValue => Vec::new().into_iter(),
+            Self::NoVals => Vec::new().into_iter(),
             Self::One(v) => vec![v].into_iter(),
             Self::Many(v) => v.into_iter(),
         }
@@ -53,17 +53,17 @@ impl<T> OptOneMany<T> {
                 Self::Many(vec)
             }
             (Some(first), None) => Self::One(first),
-            (None, _) => Self::NoValue,
+            (None, _) => Self::NoVals,
         }
     }
 
     pub fn is_none(&self) -> bool {
-        matches!(self, Self::NoValue)
+        matches!(self, Self::NoVals)
     }
 
     pub fn is_empty(&self) -> bool {
         match self {
-            Self::NoValue => true,
+            Self::NoVals => true,
             Self::One(_) => false,
             Self::Many(v) => v.is_empty(),
         }
@@ -71,15 +71,23 @@ impl<T> OptOneMany<T> {
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         match self {
-            Self::NoValue => [].iter(),
+            Self::NoVals => [].iter(),
             Self::One(v) => std::slice::from_ref(v).iter(),
             Self::Many(v) => v.iter(),
         }
     }
 
+    pub fn opt_iter(&self) -> Option<impl Iterator<Item = &T>> {
+        match self {
+            Self::NoVals => None,
+            Self::One(v) => Some(std::slice::from_ref(v).iter()),
+            Self::Many(v) => Some(v.iter()),
+        }
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         match self {
-            Self::NoValue => [].iter_mut(),
+            Self::NoVals => [].iter_mut(),
             Self::One(v) => std::slice::from_mut(v).iter_mut(),
             Self::Many(v) => v.iter_mut(),
         }
@@ -87,7 +95,7 @@ impl<T> OptOneMany<T> {
 
     pub fn as_slice(&self) -> &[T] {
         match self {
-            Self::NoValue => &[],
+            Self::NoVals => &[],
             Self::One(item) => std::slice::from_ref(item),
             Self::Many(v) => v.as_slice(),
         }
@@ -97,26 +105,38 @@ impl<T> OptOneMany<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::OptOneMany::{Many, NoValue, One};
+    use crate::OptOneMany::{Many, NoVals, One};
 
     #[test]
     fn test_one_or_many() {
+        let mut noval: OptOneMany<i32> = NoVals;
         let mut one = One(1);
         let mut many = Many(vec![1, 2, 3]);
 
         assert_eq!(OptOneMany::new(vec![1, 2, 3]), Many(vec![1, 2, 3]));
         assert_eq!(OptOneMany::new(vec![1]), One(1));
-        assert_eq!(OptOneMany::new(Vec::<i32>::new()), NoValue);
+        assert_eq!(OptOneMany::new(Vec::<i32>::new()), NoVals);
 
+        assert_eq!(noval.iter_mut().collect::<Vec<_>>(), Vec::<&i32>::new());
         assert_eq!(one.iter_mut().collect::<Vec<_>>(), vec![&1]);
         assert_eq!(many.iter_mut().collect::<Vec<_>>(), vec![&1, &2, &3]);
 
+        assert_eq!(noval.iter().collect::<Vec<_>>(), Vec::<&i32>::new());
         assert_eq!(one.iter().collect::<Vec<_>>(), vec![&1]);
         assert_eq!(many.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
 
+        assert_eq!(noval.opt_iter().map(Iterator::collect::<Vec<_>>), None);
+        assert_eq!(one.opt_iter().map(Iterator::collect), Some(vec![&1]));
+        assert_eq!(
+            many.opt_iter().map(Iterator::collect),
+            Some(vec![&1, &2, &3])
+        );
+
+        assert_eq!(noval.as_slice(), Vec::<i32>::new().as_slice());
         assert_eq!(one.as_slice(), &[1]);
         assert_eq!(many.as_slice(), &[1, 2, 3]);
 
+        assert_eq!(noval.into_iter().collect::<Vec<_>>(), Vec::<i32>::new());
         assert_eq!(one.into_iter().collect::<Vec<_>>(), vec![1]);
         assert_eq!(many.into_iter().collect::<Vec<_>>(), vec![1, 2, 3]);
     }

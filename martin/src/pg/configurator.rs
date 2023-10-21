@@ -1,7 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-use crate::OptBoolObj::{Bool, NoValue, Object};
 use futures::future::join_all;
 use itertools::Itertools;
 use log::{debug, error, info, warn};
@@ -17,17 +16,25 @@ use crate::pg::table_source::{
 };
 use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
 use crate::pg::PgError::InvalidTableExtent;
-use crate::pg::Result;
+use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, Result};
 use crate::source::TileInfoSources;
-use crate::utils::{IdResolver, OptOneMany};
+use crate::utils::IdResolver;
+use crate::utils::OptOneMany::NoVals;
+use crate::OptBoolObj::{Bool, NoValue, Object};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
 #[derive(Debug, PartialEq)]
-pub struct PgBuilderAuto {
-    source_id_format: String,
+pub struct PgBuilderFuncs {
     schemas: Option<HashSet<String>>,
+    source_id_format: String,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub struct PgBuilderTables {
+    schemas: Option<HashSet<String>>,
+    source_id_format: String,
     id_columns: Option<Vec<String>>,
     clip_geom: Option<bool>,
     buffer: Option<u32>,
@@ -40,16 +47,66 @@ pub struct PgBuilder {
     default_srid: Option<i32>,
     disable_bounds: bool,
     max_feature_count: Option<usize>,
-    auto_functions: Option<PgBuilderAuto>,
-    auto_tables: Option<PgBuilderAuto>,
+    auto_functions: Option<PgBuilderFuncs>,
+    auto_tables: Option<PgBuilderTables>,
     id_resolver: IdResolver,
     tables: TableInfoSources,
     functions: FuncInfoSources,
 }
 
+/// Combine `from_schema` field from the `config.auto_publish` and `config.auto_publish.tables/functions`
+macro_rules! get_auto_schemas {
+    ($config:expr, $typ:ident) => {
+        if let Object(v) = &$config.auto_publish {
+            match (&v.from_schemas, &v.$typ) {
+                (NoVals, NoValue | Bool(_)) => None,
+                (v, NoValue | Bool(_)) => v.opt_iter().map(|v| v.cloned().collect()),
+                (NoVals, Object(v)) => v.from_schemas.opt_iter().map(|v| v.cloned().collect()),
+                (v, Object(v2)) => {
+                    let mut vals: HashSet<_> = v.iter().cloned().collect();
+                    vals.extend(v2.from_schemas.iter().cloned());
+                    Some(vals)
+                }
+            }
+        } else {
+            None
+        }
+    };
+}
+
 impl PgBuilder {
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> Result<Self> {
         let pool = PgPool::new(config).await?;
+
+        let auto_tables = if use_auto_publish(config, false) {
+            let schemas = get_auto_schemas!(config, tables);
+            let bld = if let Object(PgCfgPublish {
+                tables: Object(v), ..
+            }) = &config.auto_publish
+            {
+                PgBuilderTables {
+                    schemas,
+                    source_id_format: v
+                        .source_id_format
+                        .as_deref()
+                        .unwrap_or("{table}")
+                        .to_string(),
+                    id_columns: v.id_columns.opt_iter().map(|v| v.cloned().collect()),
+                    clip_geom: v.clip_geom,
+                    buffer: v.buffer,
+                    extent: v.extent,
+                }
+            } else {
+                PgBuilderTables {
+                    schemas,
+                    source_id_format: "{table}".to_string(),
+                    ..Default::default()
+                }
+            };
+            Some(bld)
+        } else {
+            None
+        };
 
         Ok(Self {
             pool,
@@ -59,8 +116,27 @@ impl PgBuilder {
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
             functions: config.functions.clone().unwrap_or_default(),
-            auto_functions: new_auto_publish(config, true),
-            auto_tables: new_auto_publish(config, false),
+            auto_functions: if use_auto_publish(config, true) {
+                Some(PgBuilderFuncs {
+                    schemas: get_auto_schemas!(config, functions),
+                    source_id_format: if let Object(PgCfgPublish {
+                        functions:
+                            Object(PgCfgPublishFuncs {
+                                source_id_format: Some(v),
+                                ..
+                            }),
+                        ..
+                    }) = &config.auto_publish
+                    {
+                        v.clone()
+                    } else {
+                        "{function}".to_string()
+                    },
+                })
+            } else {
+                None
+            },
+            auto_tables,
         })
     }
 
@@ -276,7 +352,7 @@ impl PgBuilder {
     }
 }
 
-fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto) {
+fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTables) {
     if inf.clip_geom.is_none() {
         inf.clip_geom = auto_tables.clip_geom;
     }
@@ -334,83 +410,27 @@ fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderAuto
     );
 }
 
-fn new_auto_publish(config: &PgConfig, is_function: bool) -> Option<PgBuilderAuto> {
-    let default_id_fmt = |is_func| (if is_func { "{function}" } else { "{table}" }).to_string();
-    let default = |schemas| {
-        Some(PgBuilderAuto {
-            source_id_format: default_id_fmt(is_function),
-            schemas,
-            id_columns: None,
-            clip_geom: None,
-            buffer: None,
-            extent: None,
-        })
-    };
-
+fn use_auto_publish(config: &PgConfig, for_functions: bool) -> bool {
     match &config.auto_publish {
-        NoValue => {
-            if config.tables.is_some() || config.functions.is_some() {
-                None
+        NoValue => config.tables.is_none() && config.functions.is_none(),
+        Object(funcs) => {
+            if for_functions {
+                // If auto_publish.functions is set, and currently asking for .tables which is missing,
+                // .tables becomes the inverse of functions (i.e. an obj or true in tables means false in functions)
+                match &funcs.functions {
+                    NoValue => matches!(funcs.tables, NoValue | Bool(false)),
+                    Object(_) => true,
+                    Bool(v) => *v,
+                }
             } else {
-                default(None)
+                match &funcs.tables {
+                    NoValue => matches!(funcs.functions, NoValue | Bool(false)),
+                    Object(_) => true,
+                    Bool(v) => *v,
+                }
             }
         }
-        Object(a) => match if is_function { &a.functions } else { &a.tables } {
-            // If auto_publish.functions is set, and currently asking for .tables which is missing,
-            // .tables becomes the inverse of functions (i.e. an obj or true in tables means false in functions)
-            NoValue => match if is_function { &a.tables } else { &a.functions } {
-                NoValue | Bool(false) => {
-                    default(merge_opt_hs(&a.from_schemas, &OptOneMany::NoValue))
-                }
-                Object(_) | Bool(true) => None,
-            },
-            Object(item) => Some(PgBuilderAuto {
-                source_id_format: item
-                    .source_id_format
-                    .as_ref()
-                    .cloned()
-                    .unwrap_or_else(|| default_id_fmt(is_function)),
-                schemas: merge_opt_hs(&a.from_schemas, &item.from_schemas),
-                id_columns: {
-                    if item.id_columns.is_none() {
-                        None
-                    } else if is_function {
-                        error!("Configuration parameter auto_publish.functions.id_columns is not supported");
-                        None
-                    } else {
-                        Some(item.id_columns.iter().cloned().collect())
-                    }
-                },
-                clip_geom: {
-                    if is_function {
-                        error!("Configuration parameter auto_publish.functions.clip_geom is not supported");
-                        None
-                    } else {
-                        item.clip_geom
-                    }
-                },
-                buffer: {
-                    if is_function {
-                        error!("Configuration parameter auto_publish.functions.buffer is not supported");
-                        None
-                    } else {
-                        item.buffer
-                    }
-                },
-                extent: {
-                    if is_function {
-                        error!("Configuration parameter auto_publish.functions.extent is not supported");
-                        None
-                    } else {
-                        item.extent
-                    }
-                },
-            }),
-            Bool(true) => default(merge_opt_hs(&a.from_schemas, &OptOneMany::NoValue)),
-            Bool(false) => None,
-        },
-        Bool(true) => default(None),
-        Bool(false) => None,
+        Bool(v) => *v,
     }
 }
 
@@ -443,37 +463,11 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
 }
 
-/// Merge two optional list of strings into a hashset
-fn merge_opt_hs(a: &OptOneMany<String>, b: &OptOneMany<String>) -> Option<HashSet<String>> {
-    match (a.is_none(), b.is_none()) {
-        (true, true) => None,
-        (true, false) => Some(b.iter().cloned().collect()),
-        (false, true) => Some(a.iter().cloned().collect()),
-        (false, false) => {
-            let mut res: HashSet<_> = a.iter().cloned().collect();
-            res.extend(b.iter().cloned());
-            Some(res)
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
 
     use super::*;
-
-    #[allow(clippy::unnecessary_wraps)]
-    fn builder(source_id_format: &str, schemas: Option<&[&str]>) -> Option<PgBuilderAuto> {
-        Some(PgBuilderAuto {
-            source_id_format: source_id_format.to_string(),
-            schemas: schemas.map(|s| s.iter().map(|s| (*s).to_string()).collect()),
-            id_columns: None,
-            clip_geom: None,
-            buffer: None,
-            extent: None,
-        })
-    }
 
     fn parse_yaml(content: &str) -> PgConfig {
         serde_yaml::from_str(content).unwrap()
@@ -482,31 +476,27 @@ mod tests {
     #[test]
     fn test_auto_publish_no_auto() {
         let config = parse_yaml("{}");
-        let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", None));
-        let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", None));
+        assert!(use_auto_publish(&config, false));
+        assert!(use_auto_publish(&config, true));
 
         let config = parse_yaml("tables: {}");
-        assert_eq!(new_auto_publish(&config, false), None);
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(!use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
 
         let config = parse_yaml("functions: {}");
-        assert_eq!(new_auto_publish(&config, false), None);
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(!use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
     }
 
     #[test]
     fn test_auto_publish_bool() {
         let config = parse_yaml("auto_publish: true");
-        let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", None));
-        let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", None));
+        assert!(use_auto_publish(&config, false));
+        assert!(use_auto_publish(&config, true));
 
         let config = parse_yaml("auto_publish: false");
-        assert_eq!(new_auto_publish(&config, false), None);
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(!use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
     }
 
     #[test]
@@ -515,33 +505,29 @@ mod tests {
             auto_publish:
                 from_schemas: public
                 tables: true"});
-        let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", Some(&["public"])));
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
 
         let config = parse_yaml(indoc! {"
             auto_publish:
                 from_schemas: public
                 functions: true"});
-        assert_eq!(new_auto_publish(&config, false), None);
-        let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", Some(&["public"])));
+        assert!(!use_auto_publish(&config, false));
+        assert!(use_auto_publish(&config, true));
 
         let config = parse_yaml(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables: false"});
-        assert_eq!(new_auto_publish(&config, false), None);
-        let res = new_auto_publish(&config, true);
-        assert_eq!(res, builder("{function}", Some(&["public"])));
+        assert!(!use_auto_publish(&config, false));
+        assert!(use_auto_publish(&config, true));
 
         let config = parse_yaml(indoc! {"
             auto_publish:
                 from_schemas: public
                 functions: false"});
-        let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", Some(&["public"])));
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
     }
 
     #[test]
@@ -552,12 +538,8 @@ mod tests {
                 tables:
                     from_schemas: osm
                     id_format: 'foo_{schema}.{table}_bar'"});
-        let res = new_auto_publish(&config, false);
-        assert_eq!(
-            res,
-            builder("foo_{schema}.{table}_bar", Some(&["public", "osm"]))
-        );
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
 
         let config = parse_yaml(indoc! {"
             auto_publish:
@@ -565,9 +547,8 @@ mod tests {
                 tables:
                     from_schemas: osm
                     source_id_format: '{schema}.{table}'"});
-        let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{schema}.{table}", Some(&["public", "osm"])));
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
 
         let config = parse_yaml(indoc! {"
             auto_publish:
@@ -575,8 +556,7 @@ mod tests {
                     from_schemas:
                       - osm
                       - public"});
-        let res = new_auto_publish(&config, false);
-        assert_eq!(res, builder("{table}", Some(&["public", "osm"])));
-        assert_eq!(new_auto_publish(&config, true), None);
+        assert!(use_auto_publish(&config, false));
+        assert!(!use_auto_publish(&config, true));
     }
 }

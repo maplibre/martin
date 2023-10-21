@@ -63,13 +63,13 @@ pub struct PgCfgPublish {
     #[serde(alias = "from_schema")]
     pub from_schemas: OptOneMany<String>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
-    pub tables: OptBoolObj<PgCfgPublishType>,
+    pub tables: OptBoolObj<PgCfgPublishTables>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
-    pub functions: OptBoolObj<PgCfgPublishType>,
+    pub functions: OptBoolObj<PgCfgPublishFuncs>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PgCfgPublishType {
+pub struct PgCfgPublishTables {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "from_schema")]
     pub from_schemas: OptOneMany<String>,
@@ -88,6 +88,16 @@ pub struct PgCfgPublishType {
     pub buffer: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extent: Option<u32>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct PgCfgPublishFuncs {
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    #[serde(alias = "from_schema")]
+    pub from_schemas: OptOneMany<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "id_format")]
+    pub source_id_format: Option<String>,
 }
 
 impl PgConfig {

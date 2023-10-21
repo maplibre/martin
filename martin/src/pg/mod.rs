@@ -10,7 +10,7 @@ mod table_source;
 mod tls;
 mod utils;
 
-pub use config::{PgCfgPublish, PgCfgPublishType, PgConfig, PgSslCerts};
+pub use config::{PgCfgPublish, PgCfgPublishFuncs, PgCfgPublishTables, PgConfig, PgSslCerts};
 pub use config_function::FunctionInfo;
 pub use config_table::TableInfo;
 pub use errors::{PgError, Result};

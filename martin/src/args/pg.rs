@@ -55,7 +55,7 @@ impl PgArgs {
             .collect();
 
         match results.len() {
-            0 => OptOneMany::NoValue,
+            0 => OptOneMany::NoVals,
             1 => OptOneMany::One(results.into_iter().next().unwrap()),
             _ => OptOneMany::Many(results),
         }
