@@ -1,3 +1,4 @@
+use std::ops::Add;
 use std::time::Duration;
 
 use futures::future::try_join;
@@ -5,6 +6,7 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
+use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
@@ -42,7 +44,7 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub disable_bounds: Option<bool>,
+    pub bounds: Option<BoundsCalcType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_feature_count: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -123,13 +125,18 @@ impl PgConfig {
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<TileInfoSources> {
         let pg = PgBuilder::new(self, id_resolver).await?;
-        let inst_tables = on_slow(pg.instantiate_tables(), Duration::from_secs(5), || {
-            if pg.disable_bounds() {
-                warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.", pg.get_id());
-            } else {
-                warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use --disable-bounds CLI/config to skip bbox calculation.", pg.get_id());
-            }
-        });
+        let inst_tables = on_slow(
+            pg.instantiate_tables(),
+            // warn only if default bounds timeout has already passed
+            DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)),
+            || {
+                if pg.bounds() == BoundsCalcType::Skip {
+                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--bounds skip' CLI/config to skip bbox calculation.", pg.get_id());
+                } else {
+                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.", pg.get_id());
+                }
+            },
+        );
         let ((mut tables, tbl_info), (funcs, func_info)) =
             try_join(inst_tables, pg.instantiate_functions()).await?;
 

@@ -1,7 +1,7 @@
 listen_addresses: localhost:3111
 postgres:
   default_srid: 900913
-  disable_bounds: true
+  bounds: calc
   auto_publish: true
   tables:
     MixPoints:
@@ -9,6 +9,11 @@ postgres:
       table: MixPoints
       srid: 4326
       geometry_column: Geom
+      bounds:
+      - -170.94984639004662
+      - -84.20025580733805
+      - 167.70892858284475
+      - 74.23573284753762
       geometry_type: POINT
       properties:
         Gid: int4
@@ -18,6 +23,11 @@ postgres:
       table: auto_table
       srid: 4326
       geometry_column: geom
+      bounds:
+      - -166.87107126230424
+      - -53.44747249115674
+      - 168.14061220360549
+      - 84.22411861475385
       geometry_type: POINT
       properties:
         feat_id: int4
@@ -27,6 +37,11 @@ postgres:
       table: bigint_table
       srid: 4326
       geometry_column: geom
+      bounds:
+      - -174.89475564568033
+      - -77.2579745396886
+      - 174.72753224514435
+      - 73.80785950599903
       geometry_type: POINT
       properties:
         big_feat_id: int8
@@ -36,6 +51,11 @@ postgres:
       table: points1
       srid: 4326
       geometry_column: geom
+      bounds:
+      - -179.27313970132585
+      - -67.52518563265659
+      - 162.60117193735186
+      - 84.93092095128937
       geometry_type: POINT
       properties:
         gid: int4
@@ -44,6 +64,11 @@ postgres:
       table: points1_vw
       srid: 4326
       geometry_column: geom
+      bounds:
+      - -179.27313970132585
+      - -67.52518563265659
+      - 162.60117193735186
+      - 84.93092095128937
       geometry_type: POINT
       properties:
         gid: int4
@@ -52,6 +77,11 @@ postgres:
       table: points2
       srid: 4326
       geometry_column: geom
+      bounds:
+      - -174.050750735362
+      - -80.46177157848345
+      - 179.11187181086706
+      - 81.13068764165727
       geometry_type: POINT
       properties:
         gid: int4
@@ -60,6 +90,11 @@ postgres:
       table: points3857
       srid: 3857
       geometry_column: geom
+      bounds:
+      - -161.40590777554058
+      - -81.50727021609012
+      - 172.51549126768532
+      - 84.2440187164111
       geometry_type: POINT
       properties:
         gid: int4
@@ -68,6 +103,11 @@ postgres:
       table: points_empty_srid
       srid: 900913
       geometry_column: geom
+      bounds:
+      - -162.35196679784573
+      - -84.49919770031491
+      - 178.47294677445652
+      - 82.7000012450467
       geometry_type: GEOMETRY
       properties:
         gid: int4
@@ -76,6 +116,11 @@ postgres:
       table: table_source
       srid: 4326
       geometry_column: geom
+      bounds:
+      - -2.0
+      - -1.0
+      - 142.84131509869133
+      - 45.0
       geometry_type: GEOMETRY
       properties:
         gid: int4
@@ -84,6 +129,11 @@ postgres:
       table: table_source_multiple_geom
       srid: 4326
       geometry_column: geom1
+      bounds:
+      - -136.62076049706184
+      - -78.3350299285405
+      - 176.56297743499888
+      - 75.78731065954437
       geometry_type: POINT
       properties:
         gid: int4
@@ -92,6 +142,11 @@ postgres:
       table: table_source_multiple_geom
       srid: 4326
       geometry_column: geom2
+      bounds:
+      - -136.62076049706184
+      - -78.3350299285405
+      - 176.56297743499888
+      - 75.78731065954437
       geometry_type: POINT
       properties:
         gid: int4

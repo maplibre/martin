@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
+use futures::pin_mut;
 use log::{debug, info, warn};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;
 use tilejson::Bounds;
+use tokio::time::timeout;
 
+use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::pg::config::PgInfo;
 use crate::pg::config_table::TableInfo;
 use crate::pg::configurator::SqlTableInfoMapMapMap;
@@ -96,7 +99,7 @@ pub async fn table_to_query(
     id: String,
     mut info: TableInfo,
     pool: PgPool,
-    disable_bounds: bool,
+    bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
 ) -> Result<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
@@ -104,8 +107,26 @@ pub async fn table_to_query(
     let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
 
-    if info.bounds.is_none() && !disable_bounds {
-        info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
+    if info.bounds.is_none() {
+        match bounds_type {
+            BoundsCalcType::Skip => {}
+            BoundsCalcType::Quick | BoundsCalcType::Calc => {
+                let bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid);
+                if bounds_type == BoundsCalcType::Calc {
+                    info.bounds = bounds.await?;
+                } else {
+                    pin_mut!(bounds);
+                    if let Ok(bounds) = timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await {
+                        info.bounds = bounds?;
+                    } else {
+                        warn!(
+                            "Timeout computing {} bounds for {id}, aborting query. Use --bounds=calc to wait until complete, or check the table for missing indices.",
+                            info.format_id(),
+                        );
+                    }
+                }
+            }
+        }
     }
 
     let properties = if let Some(props) = &info.properties {

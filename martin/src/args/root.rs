@@ -36,7 +36,7 @@ pub struct MetaArgs {
     /// By default, only print if sources are auto-detected.
     #[arg(long)]
     pub save_config: Option<PathBuf>,
-    /// [Deprecated] Scan for new sources on sources list requests
+    /// **Deprecated** Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
     /// Connection strings, e.g. postgres://... or /path/to/files

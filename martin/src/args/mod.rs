@@ -6,4 +6,5 @@ mod srv;
 
 pub use connections::{Arguments, State};
 pub use environment::{Env, OsEnv};
-pub use root::Args;
+pub use pg::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+pub use root::{Args, MetaArgs};
