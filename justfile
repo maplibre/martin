@@ -147,12 +147,12 @@ bless: restart clean-test bless-insta-martin bless-insta-mbtiles
     mv tests/output tests/expected
 
 # Run integration tests and save its output as the new expected output
-bless-insta-mbtiles *ARGS: (cargo-install "insta" "cargo-insta")
+bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
     #rm -rf martin-mbtiles/tests/snapshots
     cargo insta test --accept --unreferenced=auto -p martin-mbtiles {{ ARGS }}
 
 # Run integration tests and save its output as the new expected output
-bless-insta-martin *ARGS: (cargo-install "insta" "cargo-insta")
+bless-insta-martin *ARGS: (cargo-install "cargo-insta")
     cargo insta test --accept --unreferenced=auto -p martin {{ ARGS }}
 
 # Build and open mdbook documentation
