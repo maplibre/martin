@@ -23,6 +23,21 @@ pub fn sorted_btree_map<K: Serialize + Ord, V>(value: &HashMap<K, V>) -> BTreeMa
     BTreeMap::from_iter(items)
 }
 
+#[cfg(test)]
+pub fn sorted_opt_set<S: Serializer>(
+    value: &Option<std::collections::HashSet<String>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    value
+        .as_ref()
+        .map(|v| {
+            let mut v: Vec<_> = v.iter().collect();
+            v.sort();
+            v
+        })
+        .serialize(serializer)
+}
+
 pub fn decode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut decoder = GzDecoder::new(data);
     let mut decompressed = Vec::new();

@@ -26,18 +26,32 @@ pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
 #[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(serde::Serialize))]
 pub struct PgBuilderFuncs {
+    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     schemas: Option<HashSet<String>>,
     source_id_format: String,
 }
 
 #[derive(Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(serde::Serialize))]
 pub struct PgBuilderTables {
+    #[cfg_attr(
+        test,
+        serde(
+            skip_serializing_if = "Option::is_none",
+            serialize_with = "crate::utils::sorted_opt_set"
+        )
+    )]
     schemas: Option<HashSet<String>>,
     source_id_format: String,
+    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     id_columns: Option<Vec<String>>,
+    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     clip_geom: Option<bool>,
+    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     buffer: Option<u32>,
+    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     extent: Option<u32>,
 }
 
@@ -78,35 +92,7 @@ impl PgBuilder {
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> Result<Self> {
         let pool = PgPool::new(config).await?;
 
-        let auto_tables = if use_auto_publish(config, false) {
-            let schemas = get_auto_schemas!(config, tables);
-            let bld = if let Object(PgCfgPublish {
-                tables: Object(v), ..
-            }) = &config.auto_publish
-            {
-                PgBuilderTables {
-                    schemas,
-                    source_id_format: v
-                        .source_id_format
-                        .as_deref()
-                        .unwrap_or("{table}")
-                        .to_string(),
-                    id_columns: v.id_columns.opt_iter().map(|v| v.cloned().collect()),
-                    clip_geom: v.clip_geom,
-                    buffer: v.buffer,
-                    extent: v.extent,
-                }
-            } else {
-                PgBuilderTables {
-                    schemas,
-                    source_id_format: "{table}".to_string(),
-                    ..Default::default()
-                }
-            };
-            Some(bld)
-        } else {
-            None
-        };
+        let (auto_tables, auto_functions) = calc_auto(config);
 
         Ok(Self {
             pool,
@@ -116,26 +102,7 @@ impl PgBuilder {
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
             functions: config.functions.clone().unwrap_or_default(),
-            auto_functions: if use_auto_publish(config, true) {
-                Some(PgBuilderFuncs {
-                    schemas: get_auto_schemas!(config, functions),
-                    source_id_format: if let Object(PgCfgPublish {
-                        functions:
-                            Object(PgCfgPublishFuncs {
-                                source_id_format: Some(v),
-                                ..
-                            }),
-                        ..
-                    }) = &config.auto_publish
-                    {
-                        v.clone()
-                    } else {
-                        "{function}".to_string()
-                    },
-                })
-            } else {
-                None
-            },
+            auto_functions,
             auto_tables,
         })
     }
@@ -410,6 +377,61 @@ fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTabl
     );
 }
 
+fn calc_auto(config: &PgConfig) -> (Option<PgBuilderTables>, Option<PgBuilderFuncs>) {
+    let auto_tables = if use_auto_publish(config, false) {
+        let schemas = get_auto_schemas!(config, tables);
+        let bld = if let Object(PgCfgPublish {
+            tables: Object(v), ..
+        }) = &config.auto_publish
+        {
+            PgBuilderTables {
+                schemas,
+                source_id_format: v
+                    .source_id_format
+                    .as_deref()
+                    .unwrap_or("{table}")
+                    .to_string(),
+                id_columns: v.id_columns.opt_iter().map(|v| v.cloned().collect()),
+                clip_geom: v.clip_geom,
+                buffer: v.buffer,
+                extent: v.extent,
+            }
+        } else {
+            PgBuilderTables {
+                schemas,
+                source_id_format: "{table}".to_string(),
+                ..Default::default()
+            }
+        };
+        Some(bld)
+    } else {
+        None
+    };
+
+    let auto_functions = if use_auto_publish(config, true) {
+        Some(PgBuilderFuncs {
+            schemas: get_auto_schemas!(config, functions),
+            source_id_format: if let Object(PgCfgPublish {
+                functions:
+                    Object(PgCfgPublishFuncs {
+                        source_id_format: Some(v),
+                        ..
+                    }),
+                ..
+            }) = &config.auto_publish
+            {
+                v.clone()
+            } else {
+                "{function}".to_string()
+            },
+        })
+    } else {
+        None
+    };
+
+    (auto_tables, auto_functions)
+}
+
 fn use_auto_publish(config: &PgConfig, for_functions: bool) -> bool {
     match &config.auto_publish {
         NoValue => config.tables.is_none() && config.functions.is_none(),
@@ -466,97 +488,164 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
+    use insta::assert_yaml_snapshot;
 
     use super::*;
 
-    fn parse_yaml(content: &str) -> PgConfig {
-        serde_yaml::from_str(content).unwrap()
+    #[derive(serde::Serialize)]
+    struct AutoCfg {
+        auto_table: Option<PgBuilderTables>,
+        auto_funcs: Option<PgBuilderFuncs>,
+    }
+    fn auto(content: &str) -> AutoCfg {
+        let cfg: PgConfig = serde_yaml::from_str(content).unwrap();
+        let (auto_table, auto_funcs) = calc_auto(&cfg);
+        AutoCfg {
+            auto_table,
+            auto_funcs,
+        }
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_auto_publish_no_auto() {
-        let config = parse_yaml("{}");
-        assert!(use_auto_publish(&config, false));
-        assert!(use_auto_publish(&config, true));
+        let cfg = auto("{}");
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table:
+              source_id_format: "{table}"
+            auto_funcs:
+              source_id_format: "{function}"
+            "###);
 
-        let config = parse_yaml("tables: {}");
-        assert!(!use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
+        let cfg = auto("tables: {}");
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table: ~
+            auto_funcs: ~
+            "###);
 
-        let config = parse_yaml("functions: {}");
-        assert!(!use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
-    }
+        let cfg = auto("functions: {}");
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table: ~
+            auto_funcs: ~
+            "###);
 
-    #[test]
-    fn test_auto_publish_bool() {
-        let config = parse_yaml("auto_publish: true");
-        assert!(use_auto_publish(&config, false));
-        assert!(use_auto_publish(&config, true));
+        let cfg = auto("auto_publish: true");
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table:
+              source_id_format: "{table}"
+            auto_funcs:
+              source_id_format: "{function}"
+            "###);
 
-        let config = parse_yaml("auto_publish: false");
-        assert!(!use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
-    }
+        let cfg = auto("auto_publish: false");
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table: ~
+            auto_funcs: ~
+            "###);
 
-    #[test]
-    fn test_auto_publish_obj_bool() {
-        let config = parse_yaml(indoc! {"
+        let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables: true"});
-        assert!(use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table:
+              schemas:
+                - public
+              source_id_format: "{table}"
+            auto_funcs: ~
+            "###);
 
-        let config = parse_yaml(indoc! {"
+        let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 functions: true"});
-        assert!(!use_auto_publish(&config, false));
-        assert!(use_auto_publish(&config, true));
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table: ~
+            auto_funcs:
+              schemas:
+                - public
+              source_id_format: "{function}"
+            "###);
 
-        let config = parse_yaml(indoc! {"
+        let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables: false"});
-        assert!(!use_auto_publish(&config, false));
-        assert!(use_auto_publish(&config, true));
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table: ~
+            auto_funcs:
+              schemas:
+                - public
+              source_id_format: "{function}"
+            "###);
 
-        let config = parse_yaml(indoc! {"
+        let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 functions: false"});
-        assert!(use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
-    }
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table:
+              schemas:
+                - public
+              source_id_format: "{table}"
+            auto_funcs: ~
+            "###);
 
-    #[test]
-    fn test_auto_publish_obj_obj() {
-        let config = parse_yaml(indoc! {"
+        let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables:
                     from_schemas: osm
                     id_format: 'foo_{schema}.{table}_bar'"});
-        assert!(use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table:
+              schemas:
+                - osm
+                - public
+              source_id_format: "foo_{schema}.{table}_bar"
+            auto_funcs: ~
+            "###);
 
-        let config = parse_yaml(indoc! {"
+        let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables:
                     from_schemas: osm
                     source_id_format: '{schema}.{table}'"});
-        assert!(use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
+        assert_yaml_snapshot!(cfg, @r###"
+        ---
+        auto_table:
+          schemas:
+            - osm
+            - public
+          source_id_format: "{schema}.{table}"
+        auto_funcs: ~
+        "###);
 
-        let config = parse_yaml(indoc! {"
+        let cfg = auto(indoc! {"
             auto_publish:
                 tables:
                     from_schemas:
                       - osm
                       - public"});
-        assert!(use_auto_publish(&config, false));
-        assert!(!use_auto_publish(&config, true));
+        assert_yaml_snapshot!(cfg, @r###"
+            ---
+            auto_table:
+              schemas:
+                - osm
+                - public
+              source_id_format: "{table}"
+            auto_funcs: ~
+            "###);
     }
 }
