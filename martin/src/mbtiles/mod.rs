@@ -81,10 +81,6 @@ impl Source for MbtSource {
         Box::new(self.clone())
     }
 
-    fn support_url_query(&self) -> bool {
-        false
-    }
-
     async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
         if let Some(tile) = self
             .mbtiles

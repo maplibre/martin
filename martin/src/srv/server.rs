@@ -505,10 +505,6 @@ mod tests {
             unimplemented!()
         }
 
-        fn support_url_query(&self) -> bool {
-            unimplemented!()
-        }
-
         async fn get_tile(
             &self,
             _xyz: &Xyz,

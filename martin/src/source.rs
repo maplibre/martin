@@ -105,7 +105,9 @@ pub trait Source: Send + Debug {
 
     fn clone_source(&self) -> Box<dyn Source>;
 
-    fn support_url_query(&self) -> bool;
+    fn support_url_query(&self) -> bool {
+        false
+    }
 
     async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile>;
 

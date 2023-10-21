@@ -129,10 +129,6 @@ impl Source for PmtSource {
         Box::new(self.clone())
     }
 
-    fn support_url_query(&self) -> bool {
-        false
-    }
-
     async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
         // TODO: optimize to return Bytes
         if let Some(t) = self
