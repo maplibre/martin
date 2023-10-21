@@ -17,7 +17,7 @@ use crate::source::{TileInfoSources, TileSources};
 use crate::sprites::SpriteSources;
 use crate::srv::SrvConfig;
 use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
-use crate::{IdResolver, OneOrMany, Result};
+use crate::{IdResolver, OptOneMany, Result};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
@@ -31,17 +31,17 @@ pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub postgres: Option<OneOrMany<PgConfig>>,
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    pub postgres: OptOneMany<PgConfig>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pmtiles: Option<FileConfigEnum>,
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub pmtiles: FileConfigEnum,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mbtiles: Option<FileConfigEnum>,
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub mbtiles: FileConfigEnum,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sprites: Option<FileConfigEnum>,
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub sprites: FileConfigEnum,
 
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
@@ -53,40 +53,22 @@ impl Config {
         let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
-        let mut any = if let Some(pg) = &mut self.postgres {
-            for pg in pg.iter_mut() {
-                res.extend(pg.finalize()?);
-            }
-            !pg.is_empty()
-        } else {
-            false
-        };
+        for pg in self.postgres.iter_mut() {
+            res.extend(pg.finalize()?);
+        }
 
-        any |= if let Some(cfg) = &mut self.pmtiles {
-            res.extend(cfg.finalize("pmtiles.")?);
-            !cfg.is_empty()
-        } else {
-            false
-        };
+        res.extend(self.pmtiles.finalize("pmtiles.")?);
+        res.extend(self.mbtiles.finalize("mbtiles.")?);
+        res.extend(self.sprites.finalize("sprites.")?);
 
-        any |= if let Some(cfg) = &mut self.mbtiles {
-            res.extend(cfg.finalize("mbtiles.")?);
-            !cfg.is_empty()
-        } else {
-            false
-        };
-
-        any |= if let Some(cfg) = &mut self.sprites {
-            res.extend(cfg.finalize("sprites.")?);
-            !cfg.is_empty()
-        } else {
-            false
-        };
-
-        if any {
-            Ok(res)
-        } else {
+        if self.postgres.is_empty()
+            && self.pmtiles.is_empty()
+            && self.mbtiles.is_empty()
+            && self.sprites.is_empty()
+        {
             Err(NoSources)
+        } else {
+            Ok(res)
         }
     }
 
@@ -102,18 +84,16 @@ impl Config {
         let create_mbt_src = &mut MbtSource::new_box;
         let mut sources: Vec<Pin<Box<dyn Future<Output = Result<TileInfoSources>>>>> = Vec::new();
 
-        if let Some(v) = self.postgres.as_mut() {
-            for s in v.iter_mut() {
-                sources.push(Box::pin(s.resolve(idr.clone())));
-            }
+        for s in self.postgres.iter_mut() {
+            sources.push(Box::pin(s.resolve(idr.clone())));
         }
 
-        if self.pmtiles.is_some() {
+        if !self.pmtiles.is_empty() {
             let val = resolve_files(&mut self.pmtiles, idr.clone(), "pmtiles", create_pmt_src);
             sources.push(Box::pin(val));
         }
 
-        if self.mbtiles.is_some() {
+        if !self.mbtiles.is_empty() {
             let val = resolve_files(&mut self.mbtiles, idr.clone(), "mbtiles", create_mbt_src);
             sources.push(Box::pin(val));
         }

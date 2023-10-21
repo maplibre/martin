@@ -4,7 +4,7 @@ use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequ
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::OneOrMany;
+use martin::OptOneMany;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -1092,7 +1092,7 @@ tables:
     )
     .await;
 
-    let OneOrMany::One(cfg) = cfg.postgres.unwrap() else {
+    let OptOneMany::One(cfg) = cfg.postgres else {
         panic!()
     };
     for (name, _) in cfg.tables.unwrap_or_default() {

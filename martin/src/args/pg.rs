@@ -4,7 +4,7 @@ use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
 use crate::args::environment::Env;
 use crate::pg::{PgConfig, PgSslCerts, POOL_SIZE_DEFAULT};
-use crate::utils::OneOrMany;
+use crate::utils::{OptBoolObj, OptOneMany};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -30,7 +30,7 @@ impl PgArgs {
         self,
         cli_strings: &mut Arguments,
         env: &impl Env<'a>,
-    ) -> Option<OneOrMany<PgConfig>> {
+    ) -> OptOneMany<PgConfig> {
         let connections = Self::extract_conn_strings(cli_strings, env);
         let default_srid = self.get_default_srid(env);
         let certs = self.get_certs(env);
@@ -48,20 +48,20 @@ impl PgArgs {
                 },
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
-                auto_publish: None,
+                auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,
             })
             .collect();
 
         match results.len() {
-            0 => None,
-            1 => Some(OneOrMany::One(results.into_iter().next().unwrap())),
-            _ => Some(OneOrMany::Many(results)),
+            0 => OptOneMany::NoVals,
+            1 => OptOneMany::One(results.into_iter().next().unwrap()),
+            _ => OptOneMany::Many(results),
         }
     }
 
-    pub fn override_config<'a>(self, pg_config: &mut OneOrMany<PgConfig>, env: &impl Env<'a>) {
+    pub fn override_config<'a>(self, pg_config: &mut OptOneMany<PgConfig>, env: &impl Env<'a>) {
         if self.default_srid.is_some() {
             info!("Overriding configured default SRID to {} on all Postgres connections because of a CLI parameter", self.default_srid.unwrap());
             pg_config.iter_mut().for_each(|c| {
@@ -224,10 +224,10 @@ mod tests {
         let config = PgArgs::default().into_config(&mut args, &FauxEnv::default());
         assert_eq!(
             config,
-            Some(OneOrMany::One(PgConfig {
+            OptOneMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 ..Default::default()
-            }))
+            })
         );
         assert!(args.check().is_ok());
     }
@@ -248,7 +248,7 @@ mod tests {
         let config = PgArgs::default().into_config(&mut args, &env);
         assert_eq!(
             config,
-            Some(OneOrMany::One(PgConfig {
+            OptOneMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(10),
                 ssl_certificates: PgSslCerts {
@@ -256,7 +256,7 @@ mod tests {
                     ..Default::default()
                 },
                 ..Default::default()
-            }))
+            })
         );
         assert!(args.check().is_ok());
     }
@@ -282,7 +282,7 @@ mod tests {
         let config = pg_args.into_config(&mut args, &env);
         assert_eq!(
             config,
-            Some(OneOrMany::One(PgConfig {
+            OptOneMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(20),
                 ssl_certificates: PgSslCerts {
@@ -291,7 +291,7 @@ mod tests {
                     ssl_root_cert: Some(PathBuf::from("root")),
                 },
                 ..Default::default()
-            }))
+            })
         );
         assert!(args.check().is_ok());
     }

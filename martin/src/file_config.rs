@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
 use crate::source::{Source, TileInfoSources};
-use crate::utils::{sorted_opt_map, Error, IdResolver, OneOrMany};
-use crate::OneOrMany::{Many, One};
+use crate::utils::{sorted_opt_map, Error, IdResolver, OptOneMany};
+use crate::OptOneMany::{Many, One};
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
@@ -31,9 +31,11 @@ pub enum FileError {
     AquireConnError(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum FileConfigEnum {
+    #[default]
+    None,
     Path(PathBuf),
     Paths(Vec<PathBuf>),
     Config(FileConfig),
@@ -41,7 +43,7 @@ pub enum FileConfigEnum {
 
 impl FileConfigEnum {
     #[must_use]
-    pub fn new(paths: Vec<PathBuf>) -> Option<FileConfigEnum> {
+    pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum {
         Self::new_extended(paths, HashMap::new(), UnrecognizedValues::new())
     }
 
@@ -50,46 +52,70 @@ impl FileConfigEnum {
         paths: Vec<PathBuf>,
         configs: HashMap<String, FileConfigSrc>,
         unrecognized: UnrecognizedValues,
-    ) -> Option<FileConfigEnum> {
+    ) -> FileConfigEnum {
         if configs.is_empty() && unrecognized.is_empty() {
             match paths.len() {
-                0 => None,
-                1 => Some(FileConfigEnum::Path(paths.into_iter().next().unwrap())),
-                _ => Some(FileConfigEnum::Paths(paths)),
+                0 => FileConfigEnum::None,
+                1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
+                _ => FileConfigEnum::Paths(paths),
             }
         } else {
-            Some(FileConfigEnum::Config(FileConfig {
-                paths: OneOrMany::new_opt(paths),
+            FileConfigEnum::Config(FileConfig {
+                paths: OptOneMany::new(paths),
                 sources: if configs.is_empty() {
                     None
                 } else {
                     Some(configs)
                 },
                 unrecognized,
-            }))
+            })
         }
     }
 
-    pub fn extract_file_config(&mut self) -> FileConfig {
+    #[must_use]
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
         match self {
-            FileConfigEnum::Path(path) => FileConfig {
-                paths: Some(One(mem::take(path))),
-                ..FileConfig::default()
-            },
-            FileConfigEnum::Paths(paths) => FileConfig {
-                paths: Some(Many(mem::take(paths))),
-                ..Default::default()
-            },
-            FileConfigEnum::Config(cfg) => mem::take(cfg),
+            Self::None => true,
+            Self::Path(_) => false,
+            Self::Paths(v) => v.is_empty(),
+            Self::Config(c) => c.is_empty(),
         }
+    }
+
+    pub fn extract_file_config(&mut self) -> Option<FileConfig> {
+        match self {
+            FileConfigEnum::None => None,
+            FileConfigEnum::Path(path) => Some(FileConfig {
+                paths: One(mem::take(path)),
+                ..FileConfig::default()
+            }),
+            FileConfigEnum::Paths(paths) => Some(FileConfig {
+                paths: Many(mem::take(paths)),
+                ..Default::default()
+            }),
+            FileConfigEnum::Config(cfg) => Some(mem::take(cfg)),
+        }
+    }
+
+    pub fn finalize(&self, prefix: &str) -> Result<UnrecognizedValues, Error> {
+        let mut res = UnrecognizedValues::new();
+        if let Self::Config(cfg) = self {
+            copy_unrecognized_config(&mut res, prefix, &cfg.unrecognized);
+        }
+        Ok(res)
     }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileConfig {
     /// A list of file paths
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub paths: Option<OneOrMany<PathBuf>>,
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    pub paths: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "sorted_opt_map")]
@@ -128,27 +154,8 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
-impl FileConfigEnum {
-    pub fn finalize(&self, prefix: &str) -> Result<UnrecognizedValues, Error> {
-        let mut res = UnrecognizedValues::new();
-        if let Self::Config(cfg) = self {
-            copy_unrecognized_config(&mut res, prefix, &cfg.unrecognized);
-        }
-        Ok(res)
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Self::Path(_) => false,
-            Self::Paths(v) => v.is_empty(),
-            Self::Config(c) => c.is_empty(),
-        }
-    }
-}
-
 pub async fn resolve_files<Fut>(
-    config: &mut Option<FileConfigEnum>,
+    config: &mut FileConfigEnum,
     idr: IdResolver,
     extension: &str,
     create_source: &mut impl FnMut(String, PathBuf) -> Fut,
@@ -162,7 +169,7 @@ where
 }
 
 async fn resolve_int<Fut>(
-    config: &mut Option<FileConfigEnum>,
+    config: &mut FileConfigEnum,
     idr: IdResolver,
     extension: &str,
     create_source: &mut impl FnMut(String, PathBuf) -> Fut,
@@ -170,10 +177,9 @@ async fn resolve_int<Fut>(
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
-    let Some(cfg) = config else {
+    let Some(cfg) = config.extract_file_config() else {
         return Ok(TileInfoSources::default());
     };
-    let cfg = cfg.extract_file_config();
 
     let mut results = TileInfoSources::default();
     let mut configs = HashMap::new();
@@ -202,50 +208,47 @@ where
         }
     }
 
-    if let Some(paths) = cfg.paths {
-        for path in paths {
-            let is_dir = path.is_dir();
-            let dir_files = if is_dir {
-                // directories will be kept in the config just in case there are new files
-                directories.push(path.clone());
-                path.read_dir()
-                    .map_err(|e| IoError(e, path.clone()))?
-                    .filter_map(Result::ok)
-                    .filter(|f| {
-                        f.path().extension().filter(|e| *e == extension).is_some()
-                            && f.path().is_file()
-                    })
-                    .map(|f| f.path())
-                    .collect()
-            } else if path.is_file() {
-                vec![path]
-            } else {
-                return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
-            };
-            for path in dir_files {
-                let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
-                if files.contains(&can) {
-                    if !is_dir {
-                        warn!("Ignoring duplicate MBTiles path: {}", can.display());
-                    }
-                    continue;
+    for path in cfg.paths {
+        let is_dir = path.is_dir();
+        let dir_files = if is_dir {
+            // directories will be kept in the config just in case there are new files
+            directories.push(path.clone());
+            path.read_dir()
+                .map_err(|e| IoError(e, path.clone()))?
+                .filter_map(Result::ok)
+                .filter(|f| {
+                    f.path().extension().filter(|e| *e == extension).is_some() && f.path().is_file()
+                })
+                .map(|f| f.path())
+                .collect()
+        } else if path.is_file() {
+            vec![path]
+        } else {
+            return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
+        };
+        for path in dir_files {
+            let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
+            if files.contains(&can) {
+                if !is_dir {
+                    warn!("Ignoring duplicate MBTiles path: {}", can.display());
                 }
-                let id = path.file_stem().map_or_else(
-                    || "_unknown".to_string(),
-                    |s| s.to_string_lossy().to_string(),
-                );
-                let source = FileConfigSrc::Path(path);
-                let id = idr.resolve(&id, can.to_string_lossy().to_string());
-                info!("Configured source {id} from {}", can.display());
-                files.insert(can);
-                configs.insert(id.clone(), source.clone());
-
-                let path = match source {
-                    FileConfigSrc::Obj(pmt) => pmt.path,
-                    FileConfigSrc::Path(path) => path,
-                };
-                results.push(create_source(id, path).await?);
+                continue;
             }
+            let id = path.file_stem().map_or_else(
+                || "_unknown".to_string(),
+                |s| s.to_string_lossy().to_string(),
+            );
+            let source = FileConfigSrc::Path(path);
+            let id = idr.resolve(&id, can.to_string_lossy().to_string());
+            info!("Configured source {id} from {}", can.display());
+            files.insert(can);
+            configs.insert(id.clone(), source.clone());
+
+            let path = match source {
+                FileConfigSrc::Obj(pmt) => pmt.path,
+                FileConfigSrc::Path(path) => path,
+            };
+            results.push(create_source(id, path).await?);
         }
     }
 
@@ -280,7 +283,7 @@ mod tests {
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };
-        let paths = cfg.paths.clone().unwrap().into_iter().collect::<Vec<_>>();
+        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
         assert_eq!(
             paths,
             vec![

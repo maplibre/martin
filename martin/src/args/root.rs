@@ -62,11 +62,11 @@ impl Args {
 
         let mut cli_strings = Arguments::new(self.meta.connection);
         let pg_args = self.pg.unwrap_or_default();
-        if let Some(pg_config) = &mut config.postgres {
-            // config was loaded from a file, we can only apply a few CLI overrides to it
-            pg_args.override_config(pg_config, env);
-        } else {
+        if config.postgres.is_none() {
             config.postgres = pg_args.into_config(&mut cli_strings, env);
+        } else {
+            // config was loaded from a file, we can only apply a few CLI overrides to it
+            pg_args.override_config(&mut config.postgres, env);
         }
 
         if !cli_strings.is_empty() {
@@ -85,7 +85,7 @@ impl Args {
     }
 }
 
-pub fn parse_file_args(cli_strings: &mut Arguments, extension: &str) -> Option<FileConfigEnum> {
+pub fn parse_file_args(cli_strings: &mut Arguments, extension: &str) -> FileConfigEnum {
     let paths = cli_strings.process(|v| match PathBuf::try_from(v) {
         Ok(v) => {
             if v.is_dir() {
@@ -107,7 +107,7 @@ mod tests {
     use super::*;
     use crate::pg::PgConfig;
     use crate::test_utils::{some, FauxEnv};
-    use crate::utils::OneOrMany;
+    use crate::utils::OptOneMany;
 
     fn parse(args: &[&str]) -> Result<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -143,10 +143,10 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: Some(OneOrMany::One(PgConfig {
+            postgres: OptOneMany::One(PgConfig {
                 connection_string: some("postgres://connection"),
                 ..Default::default()
-            })),
+            }),
             ..Default::default()
         };
         let meta = MetaArgs {
