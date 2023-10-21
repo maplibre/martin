@@ -55,7 +55,7 @@ impl Args {
             warn!("The WATCH_MODE env variable is no longer supported, and will be ignored");
         }
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
-            return Err(Error::ConfigAndConnectionsError);
+            return Err(Error::ConfigAndConnectionsError(self.meta.connection));
         }
 
         self.srv.merge_into_config(&mut config.srv);
@@ -174,7 +174,7 @@ mod tests {
         let env = FauxEnv::default();
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env).unwrap_err();
-        assert!(matches!(err, crate::Error::ConfigAndConnectionsError));
+        assert!(matches!(err, crate::Error::ConfigAndConnectionsError(..)));
     }
 
     #[test]
