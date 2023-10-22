@@ -217,9 +217,11 @@ postgres:
   # Limit the number of table geo features included in a tile. Unlimited by default.
   max_feature_count: 1000
 
-  # Control the automatic generation of bounds for spatial tables [default: false]
-  # If enabled, it will spend some time on startup to compute geometry bounds.
-  disable_bounds: false
+  # Control the automatic generation of bounds for spatial tables [default: quick]
+  # 'calc' - compute table geometry bounds on startup.
+  # 'quick' - same as 'calc', but the calculation will be aborted if it takes more than 5 seconds.
+  # 'skip' - do not compute table geometry bounds on startup.
+  auto_bounds: skip
 
   # Enable automatic discovery of tables and functions.
   # You may set this to `false` to disable.
