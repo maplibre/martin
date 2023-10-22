@@ -120,7 +120,7 @@ pub async fn table_to_query(
                         info.bounds = bounds?;
                     } else {
                         warn!(
-                            "Timeout computing {} bounds for {id}, aborting query. Use --bounds=calc to wait until complete, or check the table for missing indices.",
+                            "Timeout computing {} bounds for {id}, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices.",
                             info.format_id(),
                         );
                     }

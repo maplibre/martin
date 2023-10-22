@@ -14,7 +14,7 @@ worker_processes: 8
 #   default_srid: 4326
 #   pool_size: 20
 #   max_feature_count: 1000
-#   bounds: skip
+#   auto_bounds: skip
 
 # pmtiles:
 #   paths:

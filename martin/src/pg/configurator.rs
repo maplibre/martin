@@ -60,7 +60,7 @@ pub struct PgBuilderTables {
 pub struct PgBuilder {
     pool: PgPool,
     default_srid: Option<i32>,
-    bounds: BoundsCalcType,
+    auto_bounds: BoundsCalcType,
     max_feature_count: Option<usize>,
     auto_functions: Option<PgBuilderFuncs>,
     auto_tables: Option<PgBuilderTables>,
@@ -98,7 +98,7 @@ impl PgBuilder {
         Ok(Self {
             pool,
             default_srid: config.default_srid,
-            bounds: config.bounds.unwrap_or_default(),
+            auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
@@ -108,8 +108,8 @@ impl PgBuilder {
         })
     }
 
-    pub fn bounds(&self) -> BoundsCalcType {
-        self.bounds
+    pub fn auto_bounds(&self) -> BoundsCalcType {
+        self.auto_bounds
     }
 
     pub fn get_id(&self) -> &str {
@@ -161,7 +161,7 @@ impl PgBuilder {
                 id2,
                 merged_inf,
                 self.pool.clone(),
-                self.bounds,
+                self.auto_bounds,
                 self.max_feature_count,
             ));
         }
@@ -207,7 +207,7 @@ impl PgBuilder {
                             id2,
                             db_inf,
                             self.pool.clone(),
-                            self.bounds,
+                            self.auto_bounds,
                             self.max_feature_count,
                         ));
                     }

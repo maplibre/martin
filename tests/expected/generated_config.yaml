@@ -1,7 +1,7 @@
 listen_addresses: localhost:3111
 postgres:
   default_srid: 900913
-  bounds: calc
+  auto_bounds: calc
   auto_publish: true
   tables:
     MixPoints:

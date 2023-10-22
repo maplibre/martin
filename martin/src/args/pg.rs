@@ -30,7 +30,7 @@ pub enum BoundsCalcType {
 pub struct PgArgs {
     /// Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
     #[arg(short = 'b', long)]
-    pub bounds: Option<BoundsCalcType>,
+    pub auto_bounds: Option<BoundsCalcType>,
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
     #[arg(long)]
     pub ca_root_file: Option<std::path::PathBuf>,
@@ -60,7 +60,7 @@ impl PgArgs {
                 connection_string: Some(s),
                 ssl_certificates: certs.clone(),
                 default_srid,
-                bounds: self.bounds,
+                auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
                 auto_publish: OptBoolObj::NoValue,

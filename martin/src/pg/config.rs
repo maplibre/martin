@@ -44,7 +44,7 @@ pub struct PgConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub bounds: Option<BoundsCalcType>,
+    pub auto_bounds: Option<BoundsCalcType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_feature_count: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,8 +130,8 @@ impl PgConfig {
             // warn only if default bounds timeout has already passed
             DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)),
             || {
-                if pg.bounds() == BoundsCalcType::Skip {
-                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--bounds skip' CLI/config to skip bbox calculation.", pg.get_id());
+                if pg.auto_bounds() == BoundsCalcType::Skip {
+                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.", pg.get_id());
                 } else {
                     warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.", pg.get_id());
                 }

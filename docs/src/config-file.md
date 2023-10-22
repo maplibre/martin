@@ -51,7 +51,7 @@ postgres:
   # 'calc' - compute table geometry bounds on startup.
   # 'quick' - same as 'calc', but the calculation will be aborted if it takes more than 5 seconds.
   # 'skip' - do not compute table geometry bounds on startup.
-  bounds: skip
+  auto_bounds: skip
 
   # Enable automatic discovery of tables and functions.
   # You may set this to `false` to disable.

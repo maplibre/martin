@@ -28,7 +28,7 @@ Options:
   -W, --workers <WORKERS>
           Number of web server workers
 
-  -b, --bounds <BOUNDS>
+  -b, --auto-bounds <BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
           Possible values:
