@@ -12,7 +12,7 @@ export CARGO_TERM_COLOR := "always"
 #export RUST_BACKTRACE := "1"
 
 @_default:
-    just --list --unsorted
+    {{just_executable()}} --list --unsorted
 
 # Start Martin server
 run *ARGS:
@@ -25,7 +25,7 @@ run-release *ARGS: start
 # Start Martin server and open a test page
 debug-page *ARGS: start
     open tests/debug.html  # run will not exit, so open debug page first
-    just run {{ ARGS }}
+    {{just_executable()}} run {{ ARGS }}
 
 # Run PSQL utility against the test database
 psql *ARGS:
@@ -71,8 +71,8 @@ alias _stop-db := stop
 
 # Restart the test database
 restart:
-    just stop
-    just start
+    {{just_executable()}} stop
+    {{just_executable()}} start
 
 # Stop the test database
 stop:
@@ -176,8 +176,8 @@ coverage FORMAT='html': (cargo-install "grcov")
         rustup component add llvm-tools-preview ;\
     fi
 
-    just clean
-    just start
+    {{just_executable()}} clean
+    {{just_executable()}} start
 
     PROF_DIR=target/prof
     mkdir -p "$PROF_DIR"
@@ -251,8 +251,8 @@ clippy:
 git-pre-push: stop start
     rustc --version
     cargo --version
-    just lint
-    just test
+    {{just_executable()}} lint
+    {{just_executable()}} test
 
 # Update sqlite database schema.
 prepare-sqlite: install-sqlx
