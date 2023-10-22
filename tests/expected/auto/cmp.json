@@ -23,6 +23,12 @@
       }
     }
   ],
+  "bounds": [
+    -179.27313970132585,
+    -80.46177157848345,
+    179.11187181086706,
+    84.93092095128937
+  ],
   "description": "public.points1.geom\npublic.points2.geom",
   "name": "table_source,points1,points2"
 }

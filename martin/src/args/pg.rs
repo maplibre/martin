@@ -1,4 +1,8 @@
+use std::time::Duration;
+
+use clap::ValueEnum;
 use log::{info, warn};
+use serde::{Deserialize, Serialize};
 
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
@@ -6,12 +10,27 @@ use crate::args::environment::Env;
 use crate::pg::{PgConfig, PgSslCerts, POOL_SIZE_DEFAULT};
 use crate::utils::{OptBoolObj, OptOneMany};
 
+// Must match the help string for BoundsType::Quick
+pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum BoundsCalcType {
+    /// Compute table geometry bounds, but abort if it takes longer than 5 seconds.
+    #[default]
+    Quick,
+    /// Compute table geometry bounds. The startup time may be significant. Make sure all GEO columns have indexes.
+    Calc,
+    /// Skip bounds calculation. The bounds will be set to the whole world.
+    Skip,
+}
+
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct PgArgs {
-    /// Disable the automatic generation of bounds for spatial PG tables.
+    /// Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
     #[arg(short = 'b', long)]
-    pub disable_bounds: bool,
+    pub auto_bounds: Option<BoundsCalcType>,
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
     #[arg(long)]
     pub ca_root_file: Option<std::path::PathBuf>,
@@ -41,11 +60,7 @@ impl PgArgs {
                 connection_string: Some(s),
                 ssl_certificates: certs.clone(),
                 default_srid,
-                disable_bounds: if self.disable_bounds {
-                    Some(true)
-                } else {
-                    None
-                },
+                auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
                 auto_publish: OptBoolObj::NoValue,

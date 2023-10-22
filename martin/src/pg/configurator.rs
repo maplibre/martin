@@ -5,6 +5,7 @@ use futures::future::join_all;
 use itertools::Itertools;
 use log::{debug, error, info, warn};
 
+use crate::args::BoundsCalcType;
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
@@ -59,7 +60,7 @@ pub struct PgBuilderTables {
 pub struct PgBuilder {
     pool: PgPool,
     default_srid: Option<i32>,
-    disable_bounds: bool,
+    auto_bounds: BoundsCalcType,
     max_feature_count: Option<usize>,
     auto_functions: Option<PgBuilderFuncs>,
     auto_tables: Option<PgBuilderTables>,
@@ -97,7 +98,7 @@ impl PgBuilder {
         Ok(Self {
             pool,
             default_srid: config.default_srid,
-            disable_bounds: config.disable_bounds.unwrap_or_default(),
+            auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
@@ -107,8 +108,8 @@ impl PgBuilder {
         })
     }
 
-    pub fn disable_bounds(&self) -> bool {
-        self.disable_bounds
+    pub fn auto_bounds(&self) -> BoundsCalcType {
+        self.auto_bounds
     }
 
     pub fn get_id(&self) -> &str {
@@ -160,7 +161,7 @@ impl PgBuilder {
                 id2,
                 merged_inf,
                 self.pool.clone(),
-                self.disable_bounds,
+                self.auto_bounds,
                 self.max_feature_count,
             ));
         }
@@ -206,7 +207,7 @@ impl PgBuilder {
                             id2,
                             db_inf,
                             self.pool.clone(),
-                            self.disable_bounds,
+                            self.auto_bounds,
                             self.max_feature_count,
                         ));
                     }
