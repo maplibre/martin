@@ -19,6 +19,9 @@ Options:
   -s, --sprite <SPRITE>
           Export a directory with SVG files as a sprite source. Can be specified multiple times
 
+  -f, --font <FONT>
+          Export a directory with font files as a font source. Can be specified multiple times
+
   -k, --keep-alive <KEEP_ALIVE>
           Connection keep alive timeout. [DEFAULT: 75]
 
