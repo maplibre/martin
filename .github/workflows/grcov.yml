@@ -54,6 +54,9 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: Cleanup GCDA files
+        run:  rm -rf martin/target/debug/deps/*.gcda
+
       - name: Run tests
         run: cargo test
         env:
@@ -70,9 +73,11 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           file: ${{ steps.coverage.outputs.report }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Check conditional cfg values
         run: |
-          cargo +nightly check -Z unstable-options -Z check-cfg=features,names,values,output --workspace
+          cargo +nightly check -Z unstable-options -Z check-cfg --workspace
         env:
           RUSTFLAGS: '-D warnings'
