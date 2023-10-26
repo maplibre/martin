@@ -3,7 +3,6 @@ use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
-use itertools::Itertools;
 use log::debug;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
@@ -38,7 +37,6 @@ impl TileSources {
         self.0
             .iter()
             .map(|(id, src)| (id.to_string(), src.get_catalog_entry()))
-            .sorted_by(|(id1, _), (id2, _)| id1.cmp(id2))
             .collect()
     }
 

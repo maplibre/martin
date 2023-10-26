@@ -18,9 +18,7 @@ pub fn sorted_opt_map<S: Serializer, T: Serialize>(
 }
 
 pub fn sorted_btree_map<K: Serialize + Ord, V>(value: &HashMap<K, V>) -> BTreeMap<&K, &V> {
-    let mut items: Vec<(_, _)> = value.iter().collect();
-    items.sort_by(|a, b| a.0.cmp(b.0));
-    BTreeMap::from_iter(items)
+    value.iter().collect()
 }
 
 #[cfg(test)]
