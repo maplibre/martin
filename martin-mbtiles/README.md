@@ -1,6 +1,6 @@
 # martin-mbtiles
 
-[![Book](https://img.shields.io/badge/docs-Book-informational)](https://maplibre.org/martin/tools.html)
+[![Book](https://img.shields.io/badge/docs-Book-informational)](https://maplibre.org/martin/50-tools.html)
 [![docs.rs docs](https://docs.rs/martin-mbtiles/badge.svg)](https://docs.rs/martin-mbtiles)
 [![Slack chat](https://img.shields.io/badge/Chat-on%20Slack-blueviolet)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
@@ -9,7 +9,7 @@
 
 A library to help tile servers like [Martin](https://maplibre.org/martin) work with [MBTiles](https://github.com/mapbox/mbtiles-spec) files. When using as a lib, you may want to disable default features (i.e. the unused "cli" feature).
 
-This crate also has a small utility that allows users to interact with the `*.mbtiles` files from the command line.  See [tools](https://maplibre.org/martin/tools.html) documentation for more information.
+This crate also has a small utility that allows users to interact with the `*.mbtiles` files from the command line.  See [tools](https://maplibre.org/martin/50-tools.html) documentation for more information.
 
 ### Development
 
