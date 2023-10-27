@@ -14,7 +14,7 @@
   - [MBTiles and PMTiles File Sources](34-sources-files.md)
   - [Composite Sources](35-sources-composite.md)
   - [Sprite Sources](36-sources-sprites.md)
-- [Usage and Endpoint API](40-using.md)
+- [Usage and Endpoint API](40-using-endpoints.md)
   - [Using with MapLibre](41-using-with-maplibre.md)
   - [Using with Leaflet](42-using-with-leaflet.md)
   - [Using with deck.gl](43-using-with-deck-gl.md)
