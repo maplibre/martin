@@ -1,4 +1,4 @@
-# Running with Docker
+## Running with Docker
 
 You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/maplibre/martin)
 
