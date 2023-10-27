@@ -4,7 +4,6 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use futures::future::try_join_all;
-use itertools::Itertools;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use spreet::fs::get_svg_input_paths;
@@ -93,7 +92,6 @@ impl SpriteSources {
         Ok(self
             .0
             .iter()
-            .sorted_by(|(id1, _), (id2, _)| id1.cmp(id2))
             .map(|(id, source)| {
                 let mut images = get_svg_input_paths(&source.path, true)
                     .into_iter()
