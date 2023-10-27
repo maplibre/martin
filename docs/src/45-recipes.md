@@ -1,4 +1,6 @@
-## Using with DigitalOcean PostgreSQL
+## Recipes
+
+### Using with DigitalOcean PostgreSQL
 
 You can use Martin with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with PostGIS extension
 
@@ -9,7 +11,7 @@ martin --ca-root-file ./ca-certificate.crt \
        postgresql://user:password@host:port/db?sslmode=require
 ```
 
-## Using with Heroku PostgreSQL
+### Using with Heroku PostgreSQL
 
 You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
 

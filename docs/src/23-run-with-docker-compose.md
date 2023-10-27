@@ -1,4 +1,4 @@
-# Running with Docker Compose
+## Running with Docker Compose
 
 You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml) file as a reference
 

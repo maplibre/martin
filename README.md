@@ -16,7 +16,7 @@ See [Martin book](https://maplibre.org/martin/) for complete documentation.
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
 ## Installation
-_See [installation instructions](https://maplibre.org/martin/installation.html) in the Martin book._
+_See [installation instructions](https://maplibre.org/martin/10-installation.html) in the Martin book._
 
 **Prerequisites:** If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+, v3.1+ recommended.
 
@@ -45,11 +45,11 @@ brew install martin
 ```
 
 ## Running Martin Service
-_See [running instructions](https://maplibre.org/martin/run.html) in the Martin book._
+_See [running instructions](https://maplibre.org/martin/20-run.html) in the Martin book._
 
 Martin supports any number of PostgreSQL/PostGIS database connections with [geospatial-enabled](https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns) tables and tile-producing SQL functions, as well as [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files as tile sources.
 
-Martin can auto-discover tables and functions using a [connection string](https://maplibre.org/martin/PostgreSQL-Connection-String.html). A PG connection string can also be passed via the `DATABASE_URL` environment variable.
+Martin can auto-discover tables and functions using a [connection string](https://maplibre.org/martin/31-pg-connections.html). A PG connection string can also be passed via the `DATABASE_URL` environment variable.
 
 Each tile source will have a [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint.
 
@@ -72,7 +72,7 @@ martin --config config.yaml
 ```
 
 #### Docker Example
-_See [Docker instructions](https://maplibre.org/martin/run-with-docker.html) in the Martin book._
+_See [Docker instructions](https://maplibre.org/martin/22-run-with-docker.html) in the Martin book._
 
 Martin is also available as a [Docker image](https://ghcr.io/maplibre/martin). You could either share a configuration file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by passing `DATABASE_URL` or specifying the .mbtiles/.pmtiles files.
 
@@ -86,7 +86,7 @@ docker run -p 3000:3000 \
 ```
 
 ## API
-_See [API documentation](https://maplibre.org/martin/using.html) in the Martin book._
+_See [API documentation](https://maplibre.org/martin/40-using.html) in the Martin book._
 
 Martin data is available via the HTTP `GET` endpoints:
 

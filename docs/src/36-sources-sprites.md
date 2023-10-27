@@ -1,4 +1,4 @@
-# Sprite Sources
+## Sprite Sources
 
 Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and high resolution displays. The SVG filenames without extension will be used as the sprite image IDs. The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs, e.g. `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
 
@@ -39,7 +39,7 @@ martin --sprite /path/to/sprite_a --sprite /path/to/other/sprite_b
 
 ### Configuring with Config File
 
-A sprite directory can be configured from the config file with the `sprite` key, similar to how [MBTiles and PMTiles](config-file.md) are configured.
+A sprite directory can be configured from the config file with the `sprite` key, similar to how [MBTiles and PMTiles](30-config-file.md) are configured.
 
 ```yaml
 # Sprite configuration

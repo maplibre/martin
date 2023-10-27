@@ -7,7 +7,7 @@ listen_addresses: '0.0.0.0:3000'
 # Number of web server workers
 worker_processes: 8
 
-# see https://maplibre.org/martin/config-file.html
+# see https://maplibre.org/martin/30-config-file.html
 
 # postgres:
 #   connection_string: 'postgresql://postgres@localhost:5432/db'

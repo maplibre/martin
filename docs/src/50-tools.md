@@ -89,13 +89,13 @@ The `mbtiles` tool will compute `agg_tiles_hash` value when copying or validatin
 ## Supported Schema
 The `mbtiles` tool supports three different kinds of schema for `tiles` data in `.mbtiles` files. See also the original [specification](https://github.com/mapbox/mbtiles-spec#readme).
 
-#### flat
+### flat
 ```sql, ignore
 CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
 CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);
 ```
 
-#### flat-with-hash
+### flat-with-hash
 ```sql, ignore
 CREATE TABLE tiles_with_hash (
   zoom_level integer NOT NULL,
@@ -107,7 +107,7 @@ CREATE UNIQUE INDEX tiles_with_hash_index on tiles_with_hash (zoom_level, tile_c
 CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;
 ```
 
-#### normalized
+### normalized
 ```sql, ignore
 CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT);
 CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);

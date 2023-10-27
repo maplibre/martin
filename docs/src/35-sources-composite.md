@@ -1,4 +1,4 @@
-# Composite Sources
+## Composite Sources
 
 Composite Sources allows combining multiple sources into one. Composite Source consists of multiple sources separated by comma `{source1},...,{sourceN}`
 
