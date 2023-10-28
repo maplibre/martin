@@ -358,12 +358,14 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Save test output on failure (Linux)
+      - name: Save test output on failure
         if: failure()
         uses: actions/upload-artifact@v3
         with:
           name: failed-test-output-${{ runner.os }}
-          path: tests/output/*
+          path: |
+            tests/output/*
+            target/test_logs/*
           retention-days: 5
 
   test-with-svc:
@@ -489,7 +491,9 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: test-output
-          path: tests/output/*
+          path: |
+            tests/output/*
+            target/test_logs/*
           retention-days: 5
 
   package:
