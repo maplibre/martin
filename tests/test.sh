@@ -97,6 +97,14 @@ test_png()
   fi
 }
 
+test_font(){
+  FILENAME="$TEST_OUT_DIR/$1.pbf"
+  URL="$MARTIN_URL/$2"
+
+  echo "Testing $(basename "$FILENAME") from $URL"
+  $CURL "$URL" > "$FILENAME" 
+}
+
 # Delete a line from a file $1 that matches parameter $2
 remove_line()
 {
@@ -267,6 +275,10 @@ test_jsn spr_cmp      sprite/src1,mysrc.json
 test_png spr_cmp      sprite/src1,mysrc.png
 test_jsn spr_cmp_2x   sprite/src1,mysrc@2x.json
 test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
+
+test_font font_1      font/Overpass%20Mono%20Light/0-255
+test_font font_2      font/Overpass%20Mono%20Regular/0-255
+test_font font_3      font/Overpass%20Mono%20Regular%2COverpass%20Mono%20Light/0-255
 
 kill_process $PROCESS_ID
 validate_log "${TMP_DIR}/test_log_2.txt"
