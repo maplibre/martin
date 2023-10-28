@@ -13,8 +13,8 @@ MARTIN_BIN="${MARTIN_BIN:-cargo run --} ${MARTIN_ARGS}"
 MBTILES_BUILD="${MBTILES_BUILD:-cargo build -p martin-mbtiles}"
 MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
-TMP_DIR="${TMP_DIR:-target/tmp}"
-mkdir -p "$TMP_DIR"
+LOG_DIR="${LOG_DIR:-target/test_logs}"
+mkdir -p "$LOG_DIR"
 
 function wait_for_martin {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
@@ -165,7 +165,7 @@ mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${TMP_DIR}/test_log_1.txt" &
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${LOG_DIR}/test_log_1.txt" &
 PROCESS_ID=`jobs -p`
 
 { set +x; } 2> /dev/null
@@ -240,7 +240,7 @@ test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 kill_process $PROCESS_ID
-validate_log "${TMP_DIR}/test_log_1.txt"
+validate_log "${LOG_DIR}/test_log_1.txt"
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
@@ -250,7 +250,7 @@ mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
 set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${TMP_DIR}/test_log_2.txt" &
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${LOG_DIR}/test_log_2.txt" &
 PROCESS_ID=`jobs -p`
 { set +x; } 2> /dev/null
 trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
@@ -283,7 +283,7 @@ test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
 
 kill_process $PROCESS_ID
-validate_log "${TMP_DIR}/test_log_2.txt"
+validate_log "${LOG_DIR}/test_log_2.txt"
 
 remove_line "$(dirname "$0")/output/given_config.yaml"       " connection_string: "
 remove_line "$(dirname "$0")/output/generated_config.yaml"   " connection_string: "
