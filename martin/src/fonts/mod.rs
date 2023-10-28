@@ -301,9 +301,8 @@ fn parse_font(
             name.push_str(style);
         }
         // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
-        name = name.replace(['/', ','], " ");
         name = RE_SPACES
-            .get_or_init(|| Regex::new(r"\s+").unwrap())
+            .get_or_init(|| Regex::new(r"(\s|/|,)+").unwrap())
             .replace_all(name.as_str(), " ")
             .to_string();
 

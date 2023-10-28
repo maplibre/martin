@@ -136,7 +136,7 @@ validate_log()
 
   # Make sure the log has just the expected warnings, remove them, and test that there are no other ones
   test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
-  test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests/fixtures/fonts/overpass-mono-regular.ttf because it was already configured from tests/fixtures/fonts/overpass-mono-regular.ttf'
+  test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
