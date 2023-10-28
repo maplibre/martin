@@ -4,14 +4,16 @@ Martin can serve glyph ranges from `otf`, `ttf`, and `ttc` fonts as needed by Ma
 The glyph range generation is not yet cached, and may require external reverse proxy or CDN for faster operation.    
 
 ## API
-Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are case-sensitive and should match the font name in the font file as published in the catalog. When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.
+Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are case-sensitive and should match the font name in the font file as published in the catalog. Make sure to URL-escape font names as they usually contain spaces.
 
-| Type     | API                                            | Example                                                               |
-|----------|------------------------------------------------|-----------------------------------------------------------------------|
-| Single   | `/font/{name}/{start}-{end}`                   | `/font/Overpass Mono Bold/0-255`                    |
-| Combined | `/font/{name1},{name2},{name_n}/{start}-{end}` | `/font/Overpass Mono Bold,Overpass Mono Light/0-255` |
+When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.
 
-Martin will list all the font resources in the `/catalog` endpoint, you could call it to check all your font resources before an accurate request.
+| Type     | API                                            | Example                                                      |
+|----------|------------------------------------------------|--------------------------------------------------------------|
+| Single   | `/font/{name}/{start}-{end}`                   | `/font/Overpass%20Mono%20Bold/0-255`                         |
+| Combined | `/font/{name1},{name2},{name_n}/{start}-{end}` | `/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255` |
+
+Martin will show all available fonts at the `/catalog` endpoint.
 
 ```shell
 curl http://127.0.0.1:3000/catalog
@@ -43,7 +45,8 @@ curl http://127.0.0.1:3000/catalog
 ```
 
 ## Using from CLI
-A font file or directory can be configured from the [CLI](21-run-with-cli.md) with the `--font` flag. The flag can be used multiple times.
+
+A font file or directory can be configured from the [CLI](21-run-with-cli.md) with one or more `--font` parameters.
 
 ```shell
 martin --font /path/to/font/file.ttf --font /path/to/font_dir

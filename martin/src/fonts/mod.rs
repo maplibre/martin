@@ -2,7 +2,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsStr;
 use std::fmt::Debug;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use bit_set::BitSet;
@@ -54,8 +54,8 @@ pub enum FontError {
     #[error("IO error accessing {}: {0}", .1.display())]
     IoError(std::io::Error, PathBuf),
 
-    #[error("Font {0} uses bad file {}", .1.display())]
-    InvalidFontFilePath(String, PathBuf),
+    #[error("Invalid font file {}", .0.display())]
+    InvalidFontFilePath(PathBuf),
 
     #[error("No font files found in {}", .0.display())]
     NoFontFilesFound(PathBuf),
@@ -74,116 +74,6 @@ pub enum FontError {
 
     #[error("Error serializing protobuf: {0}")]
     ErrorSerializingProtobuf(#[from] pbf_font_tools::protobuf::Error),
-}
-
-fn recurse_dirs(
-    lib: &Library,
-    path: &Path,
-    fonts: &mut HashMap<String, FontSource>,
-) -> Result<(), FontError> {
-    if path.is_dir() {
-        for dir_entry in path
-            .read_dir()
-            .map_err(|e| IoError(e, path.to_path_buf()))?
-            .flatten()
-        {
-            recurse_dirs(lib, &dir_entry.path(), fonts)?;
-        }
-    } else if path
-        .extension()
-        .and_then(OsStr::to_str)
-        .is_some_and(|e| ["otf", "ttf", "ttc"].contains(&e))
-    {
-        parse_font(lib, fonts, path)?;
-    }
-
-    Ok(())
-}
-
-fn parse_font(
-    lib: &Library,
-    fonts: &mut HashMap<String, FontSource>,
-    path: &Path,
-) -> Result<(), FontError> {
-    static RE_SPACES: OnceLock<Regex> = OnceLock::new();
-
-    let mut face = lib.new_face(path, 0)?;
-    let num_faces = face.num_faces() as isize;
-    for face_index in 0..num_faces {
-        if face_index > 0 {
-            face = lib.new_face(path, face_index)?;
-        }
-        let Some(family) = face.family_name() else {
-            return Err(FontError::MissingFamilyName(path.to_path_buf()));
-        };
-        let mut name = family.clone();
-        let style = face.style_name();
-        if let Some(style) = &style {
-            name.push(' ');
-            name.push_str(style);
-        }
-        // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
-        name = name.replace(['/', ','], " ");
-        name = RE_SPACES
-            .get_or_init(|| Regex::new(r"\s+").unwrap())
-            .replace_all(name.as_str(), " ")
-            .to_string();
-
-        match fonts.entry(name) {
-            Entry::Occupied(v) => {
-                warn!(
-                    "Ignoring duplicate font {} from {} because it was already configured from {}",
-                    v.key(),
-                    path.display(),
-                    v.get().path.display()
-                );
-            }
-            Entry::Vacant(v) => {
-                let key = v.key();
-                let Some((codepoints, glyphs, ranges)) = get_available_codepoints(&mut face) else {
-                    warn!(
-                        "Ignoring font {key} from {} because it has no available glyphs",
-                        path.display()
-                    );
-                    continue;
-                };
-
-                let start = ranges.first().map(|(s, _)| *s).unwrap();
-                let end = ranges.last().map(|(_, e)| *e).unwrap();
-                info!(
-                    "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
-                    path.display()
-                );
-                debug!(
-                    "Available font ranges: {}",
-                    ranges
-                        .iter()
-                        .map(|(s, e)| if s == e {
-                            format!("{s:02X}")
-                        } else {
-                            format!("{s:02X}-{e:02X}")
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                );
-
-                v.insert(FontSource {
-                    path: path.to_path_buf(),
-                    face_index,
-                    codepoints,
-                    catalog_entry: CatalogFontEntry {
-                        family,
-                        style,
-                        glyphs,
-                        start,
-                        end,
-                    },
-                });
-            }
-        }
-    }
-
-    Ok(())
 }
 
 type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>);
@@ -242,12 +132,7 @@ impl FontSources {
         let lib = Library::init()?;
 
         for path in config.iter() {
-            let disp_path = path.display();
-            if path.exists() {
-                recurse_dirs(&lib, path, &mut fonts)?;
-            } else {
-                warn!("Ignoring non-existent font source {disp_path}");
-            };
+            recurse_dirs(&lib, path.clone(), &mut fonts, true)?;
         }
 
         let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
@@ -357,9 +242,122 @@ pub struct FontSource {
     catalog_entry: CatalogFontEntry,
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::path::PathBuf;
-//
-//     use super::*;
-// }
+fn recurse_dirs(
+    lib: &Library,
+    path: PathBuf,
+    fonts: &mut HashMap<String, FontSource>,
+    is_top_level: bool,
+) -> Result<(), FontError> {
+    let start_count = fonts.len();
+    if path.is_dir() {
+        for dir_entry in path
+            .read_dir()
+            .map_err(|e| IoError(e, path.clone()))?
+            .flatten()
+        {
+            recurse_dirs(lib, dir_entry.path(), fonts, false)?;
+        }
+        if is_top_level && fonts.len() == start_count {
+            return Err(FontError::NoFontFilesFound(path));
+        }
+    } else {
+        if path
+            .extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|e| ["otf", "ttf", "ttc"].contains(&e))
+        {
+            parse_font(lib, fonts, path.clone())?;
+        }
+        if is_top_level && fonts.len() == start_count {
+            return Err(FontError::InvalidFontFilePath(path));
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_font(
+    lib: &Library,
+    fonts: &mut HashMap<String, FontSource>,
+    path: PathBuf,
+) -> Result<(), FontError> {
+    static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+
+    let mut face = lib.new_face(&path, 0)?;
+    let num_faces = face.num_faces() as isize;
+    for face_index in 0..num_faces {
+        if face_index > 0 {
+            face = lib.new_face(&path, face_index)?;
+        }
+        let Some(family) = face.family_name() else {
+            return Err(FontError::MissingFamilyName(path));
+        };
+        let mut name = family.clone();
+        let style = face.style_name();
+        if let Some(style) = &style {
+            name.push(' ');
+            name.push_str(style);
+        }
+        // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
+        name = name.replace(['/', ','], " ");
+        name = RE_SPACES
+            .get_or_init(|| Regex::new(r"\s+").unwrap())
+            .replace_all(name.as_str(), " ")
+            .to_string();
+
+        match fonts.entry(name) {
+            Entry::Occupied(v) => {
+                warn!(
+                    "Ignoring duplicate font {} from {} because it was already configured from {}",
+                    v.key(),
+                    path.display(),
+                    v.get().path.display()
+                );
+            }
+            Entry::Vacant(v) => {
+                let key = v.key();
+                let Some((codepoints, glyphs, ranges)) = get_available_codepoints(&mut face) else {
+                    warn!(
+                        "Ignoring font {key} from {} because it has no available glyphs",
+                        path.display()
+                    );
+                    continue;
+                };
+
+                let start = ranges.first().map(|(s, _)| *s).unwrap();
+                let end = ranges.last().map(|(_, e)| *e).unwrap();
+                info!(
+                    "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
+                    path.display()
+                );
+                debug!(
+                    "Available font ranges: {}",
+                    ranges
+                        .iter()
+                        .map(|(s, e)| if s == e {
+                            format!("{s:02X}")
+                        } else {
+                            format!("{s:02X}-{e:02X}")
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
+
+                v.insert(FontSource {
+                    path: path.clone(),
+                    face_index,
+                    codepoints,
+                    catalog_entry: CatalogFontEntry {
+                        family,
+                        style,
+                        glyphs,
+                        start,
+                        end,
+                    },
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
