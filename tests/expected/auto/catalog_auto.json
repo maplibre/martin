@@ -163,7 +163,15 @@
       "description": "Major cities from Natural Earth data"
     }
   },
-  "sprites": {},
+  "sprites": {
+    "src1": {
+      "images": [
+        "another_bicycle",
+        "bear",
+        "sub/circle"
+      ]
+    }
+  },
   "fonts": {
     "Overpass Mono Light": {
       "family": "Overpass Mono",

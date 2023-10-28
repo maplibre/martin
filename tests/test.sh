@@ -97,7 +97,8 @@ test_png()
   fi
 }
 
-test_font(){
+test_font()
+{
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
 
@@ -162,7 +163,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${TMP_DIR}/test_log_1.txt" &
 PROCESS_ID=`jobs -p`
@@ -279,7 +280,7 @@ test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
 
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
-test_font font_3      font/Overpass%20Mono%20Regular%2COverpass%20Mono%20Light/0-255
+test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
 
 kill_process $PROCESS_ID
 validate_log "${TMP_DIR}/test_log_2.txt"
