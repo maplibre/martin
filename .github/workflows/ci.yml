@@ -57,8 +57,8 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: cargo fmt --all -- --check
       - run: cargo clippy --package martin-tile-utils -- -D warnings
-      - run: cargo clippy --package martin-mbtiles --no-default-features -- -D warnings
-      - run: cargo clippy --package martin-mbtiles -- -D warnings
+      - run: cargo clippy --package mbtiles --no-default-features -- -D warnings
+      - run: cargo clippy --package mbtiles -- -D warnings
       - run: cargo clippy --package martin -- -D warnings
       - run: cargo clippy --package martin --features bless-tests -- -D warnings
       - run: cargo doc --no-deps --workspace
@@ -72,8 +72,8 @@ jobs:
         run: |
           set -x
           cargo test --package martin-tile-utils
-          cargo test --package martin-mbtiles --no-default-features
-          cargo test --package martin-mbtiles
+          cargo test --package mbtiles --no-default-features
+          cargo test --package mbtiles
           cargo test --package martin
           cargo test --doc
         env:
@@ -144,7 +144,7 @@ jobs:
             echo "Building $target"
 
             export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-            cross build --release --target $target --package martin-mbtiles
+            cross build --release --target $target --package mbtiles
             cross build --release --target $target --package martin
 
             mkdir -p target_releases/$target
@@ -274,7 +274,7 @@ jobs:
           set -x
           rustup target add "${{ matrix.target }}"
           export RUSTFLAGS='-C strip=debuginfo'
-          cargo build --release --target ${{ matrix.target }} --package martin-mbtiles
+          cargo build --release --target ${{ matrix.target }} --package mbtiles
           cargo build --release --target ${{ matrix.target }} --package martin
           mkdir -p target_releases
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use log::error;
-use martin_mbtiles::{apply_patch, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
+use mbtiles::{apply_patch, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
 
 #[derive(Parser, PartialEq, Eq, Debug)]
 #[command(
@@ -148,7 +148,7 @@ mod tests {
 
     use clap::error::ErrorKind;
     use clap::Parser;
-    use martin_mbtiles::{CopyDuplicateMode, MbtilesCopier};
+    use mbtiles::{CopyDuplicateMode, MbtilesCopier};
 
     use crate::Commands::{ApplyPatch, Copy, MetaGetValue, MetaSetValue, Validate};
     use crate::{Args, IntegrityCheckType};

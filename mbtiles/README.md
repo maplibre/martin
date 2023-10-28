@@ -1,11 +1,11 @@
-# martin-mbtiles
+# mbtiles
 
 [![Book](https://img.shields.io/badge/docs-Book-informational)](https://maplibre.org/martin/50-tools.html)
-[![docs.rs docs](https://docs.rs/martin-mbtiles/badge.svg)](https://docs.rs/martin-mbtiles)
+[![docs.rs docs](https://docs.rs/mbtiles/badge.svg)](https://docs.rs/mbtiles)
 [![Slack chat](https://img.shields.io/badge/Chat-on%20Slack-blueviolet)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
-[![crates.io version](https://img.shields.io/crates/v/martin-mbtiles.svg)](https://crates.io/crates/martin-mbtiles)
-[![CI build](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin-mbtiles/actions)
+[![crates.io version](https://img.shields.io/crates/v/mbtiles.svg)](https://crates.io/crates/mbtiles)
+[![CI build](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
 
 A library to help tile servers like [Martin](https://maplibre.org/martin) work with [MBTiles](https://github.com/mapbox/mbtiles-spec) files. When using as a lib, you may want to disable default features (i.e. the unused "cli" feature).
 

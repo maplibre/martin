@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["martin", "martin-tile-utils", "martin-mbtiles"]
+members = ["martin", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
 edition = "2021"
@@ -33,8 +33,8 @@ insta = "1"
 itertools = "0.11"
 json-patch = "1.2"
 log = "0.4"
-martin-mbtiles = { path = "./martin-mbtiles", version = "0.6.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
+mbtiles = { path = "./mbtiles", version = "0.7.0", default-features = false }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
 pmtiles = { version = "0.3", features = ["mmap-async-tokio", "tilejson"] }

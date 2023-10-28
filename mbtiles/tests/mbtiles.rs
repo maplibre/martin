@@ -5,11 +5,9 @@ use std::str::from_utf8;
 use ctor::ctor;
 use insta::{allow_duplicates, assert_display_snapshot};
 use log::info;
-use martin_mbtiles::IntegrityCheckType::Off;
-use martin_mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use martin_mbtiles::{
-    apply_patch, create_flat_tables, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier,
-};
+use mbtiles::IntegrityCheckType::Off;
+use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
+use mbtiles::{apply_patch, create_flat_tables, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier};
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;

@@ -148,8 +148,8 @@ bless: restart clean-test bless-insta-martin bless-insta-mbtiles
 
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
-    #rm -rf martin-mbtiles/tests/snapshots
-    cargo insta test --accept --unreferenced=auto -p martin-mbtiles {{ ARGS }}
+    #rm -rf mbtiles/tests/snapshots
+    cargo insta test --accept --unreferenced=auto -p mbtiles {{ ARGS }}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *ARGS: (cargo-install "cargo-insta")
@@ -256,8 +256,8 @@ git-pre-push: stop start
 
 # Update sqlite database schema.
 prepare-sqlite: install-sqlx
-    mkdir -p martin-mbtiles/.sqlx
-    cd martin-mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
+    mkdir -p mbtiles/.sqlx
+    cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
 
 # Install SQLX cli if not already installed.
 [private]
