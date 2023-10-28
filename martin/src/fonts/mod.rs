@@ -76,7 +76,7 @@ pub enum FontError {
     ErrorSerializingProtobuf(#[from] pbf_font_tools::protobuf::Error),
 }
 
-type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>);
+type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
 
 fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     let mut codepoints = BitSet::with_capacity(MAX_UNICODE_CP);
@@ -100,7 +100,9 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     if count == 0 {
         None
     } else {
-        Some((codepoints, count, spans))
+        let start = spans[0].0;
+        let end = spans[spans.len() - 1].1;
+        Some((codepoints, count, spans, start, end))
     }
 }
 
@@ -316,7 +318,9 @@ fn parse_font(
             }
             Entry::Vacant(v) => {
                 let key = v.key();
-                let Some((codepoints, glyphs, ranges)) = get_available_codepoints(&mut face) else {
+                let Some((codepoints, glyphs, ranges, start, end)) =
+                    get_available_codepoints(&mut face)
+                else {
                     warn!(
                         "Ignoring font {key} from {} because it has no available glyphs",
                         path.display()
@@ -324,8 +328,6 @@ fn parse_font(
                     continue;
                 };
 
-                let start = ranges.first().map(|(s, _)| *s).unwrap();
-                let end = ranges.last().map(|(_, e)| *e).unwrap();
                 info!(
                     "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
                     path.display()
