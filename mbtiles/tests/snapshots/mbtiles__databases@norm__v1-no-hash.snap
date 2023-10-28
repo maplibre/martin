@@ -1,5 +1,5 @@
 ---
-source: martin-mbtiles/tests/mbtiles.rs
+source: mbtiles/tests/mbtiles.rs
 expression: actual_value
 ---
 [[]]
@@ -50,7 +50,6 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "agg_tiles_hash", "096A8399D486CF443A5DF0CEC1AD8BB2"  )',
     '(  "md-edit", "value - v1"  )',
     '(  "md-remove", "value - remove"  )',
     '(  "md-same", "value - same"  )',

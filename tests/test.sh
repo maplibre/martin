@@ -10,7 +10,7 @@ MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
 MARTIN_BIN="${MARTIN_BIN:-cargo run --} ${MARTIN_ARGS}"
 
-MBTILES_BUILD="${MBTILES_BUILD:-cargo build -p martin-mbtiles}"
+MBTILES_BUILD="${MBTILES_BUILD:-cargo build -p mbtiles}"
 MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
 LOG_DIR="${LOG_DIR:-target/test_logs}"

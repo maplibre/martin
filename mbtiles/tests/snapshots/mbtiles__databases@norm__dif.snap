@@ -1,5 +1,5 @@
 ---
-source: martin-mbtiles/tests/mbtiles.rs
+source: mbtiles/tests/mbtiles.rs
 expression: actual_value
 ---
 [[]]
@@ -10,12 +10,12 @@ CREATE TABLE images (
              tile_id text NOT NULL PRIMARY KEY,
              tile_data blob)'''
 values = [
-    '(  "0F6969D7052DA9261E31DDB6E88C136E", blob(remove)  )',
-    '(  "51037A4A37730F52C8732586D3AAA316", blob(same)  )',
-    '(  "535A5575B48444EDEB926815AB26EC9B", blob(1-keep-1-rm)  )',
-    '(  "720C02778717818CC0A869955BA2AFB6", blob(non-empty)  )',
+    '(  "", NULL  )',
+    '(  "03132BFACDB00CC63D6B7DD98D974DD5", blob(edit-v2a)  )',
+    '(  "22AF645D1859CB5CA6DA0C484F1F37EA", blob(new)  )',
+    '(  "99DEE0E66806ECF1C20C09F64B2C0A34", blob(not-empty)  )',
     '(  "D41D8CD98F00B204E9800998ECF8427E", blob()  )',
-    '(  "EFE0AE5FD114DE99855BC2838BE97E1D", blob(edit-v1)  )',
+    '(  "FF76830FF90D79BB335884F256031731", blob(edit-v2)  )',
 ]
 
 [[]]
@@ -29,17 +29,15 @@ CREATE TABLE map (
              tile_id text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
-    '(  5, 0, 0, "51037A4A37730F52C8732586D3AAA316"  )',
-    '(  5, 0, 1, "D41D8CD98F00B204E9800998ECF8427E"  )',
-    '(  5, 1, 1, "EFE0AE5FD114DE99855BC2838BE97E1D"  )',
-    '(  5, 1, 2, "D41D8CD98F00B204E9800998ECF8427E"  )',
-    '(  5, 1, 3, "720C02778717818CC0A869955BA2AFB6"  )',
-    '(  5, 2, 2, "0F6969D7052DA9261E31DDB6E88C136E"  )',
-    '(  5, 2, 3, "D41D8CD98F00B204E9800998ECF8427E"  )',
-    '(  6, 0, 3, "51037A4A37730F52C8732586D3AAA316"  )',
-    '(  6, 0, 5, "535A5575B48444EDEB926815AB26EC9B"  )',
-    '(  6, 1, 4, "EFE0AE5FD114DE99855BC2838BE97E1D"  )',
-    '(  6, 2, 6, "535A5575B48444EDEB926815AB26EC9B"  )',
+    '(  5, 1, 1, "FF76830FF90D79BB335884F256031731"  )',
+    '(  5, 1, 2, "99DEE0E66806ECF1C20C09F64B2C0A34"  )',
+    '(  5, 1, 3, "D41D8CD98F00B204E9800998ECF8427E"  )',
+    '(  5, 2, 2, ""  )',
+    '(  5, 2, 3, ""  )',
+    '(  5, 3, 7, "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  5, 3, 8, "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  6, 1, 4, "03132BFACDB00CC63D6B7DD98D974DD5"  )',
+    '(  6, 2, 6, ""  )',
 ]
 
 [[]]
@@ -50,9 +48,11 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "md-edit", "value - v1"  )',
-    '(  "md-remove", "value - remove"  )',
-    '(  "md-same", "value - same"  )',
+    '(  "agg_tiles_hash", "B86122579EDCDD4C51F3910894FCC1A1"  )',
+    '(  "agg_tiles_hash_after_apply", "FE0D3090E8B4E89F2C755C08E8D76BEA"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-remove", NULL  )',
 ]
 
 [[]]

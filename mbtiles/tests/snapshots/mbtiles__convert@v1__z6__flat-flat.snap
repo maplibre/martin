@@ -1,5 +1,5 @@
 ---
-source: martin-mbtiles/tests/mbtiles.rs
+source: mbtiles/tests/mbtiles.rs
 expression: actual_value
 ---
 [[]]
@@ -18,20 +18,19 @@ values = [
 
 [[]]
 type = 'table'
-tbl_name = 'tiles_with_hash'
+tbl_name = 'tiles'
 sql = '''
-CREATE TABLE tiles_with_hash (
+CREATE TABLE tiles (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              tile_data blob,
-             tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
-    '(  6, 0, 3, blob(same), "51037A4A37730F52C8732586D3AAA316"  )',
-    '(  6, 0, 5, blob(1-keep-1-rm), "535A5575B48444EDEB926815AB26EC9B"  )',
-    '(  6, 1, 4, blob(edit-v1), "EFE0AE5FD114DE99855BC2838BE97E1D"  )',
-    '(  6, 2, 6, blob(1-keep-1-rm), "535A5575B48444EDEB926815AB26EC9B"  )',
+    '(  6, 0, 3, blob(same)  )',
+    '(  6, 0, 5, blob(1-keep-1-rm)  )',
+    '(  6, 1, 4, blob(edit-v1)  )',
+    '(  6, 2, 6, blob(1-keep-1-rm)  )',
 ]
 
 [[]]
@@ -40,11 +39,4 @@ tbl_name = 'metadata'
 
 [[]]
 type = 'index'
-tbl_name = 'tiles_with_hash'
-
-[[]]
-type = 'view'
 tbl_name = 'tiles'
-sql = '''
-CREATE VIEW tiles AS
-             SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash'''

@@ -1,5 +1,5 @@
 ---
-source: martin-mbtiles/tests/mbtiles.rs
+source: mbtiles/tests/mbtiles.rs
 expression: actual_value
 ---
 [[]]
