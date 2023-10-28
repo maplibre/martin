@@ -1,14 +1,15 @@
 ## Font Sources
 
-Martin can serve font assests(`otf`, `ttf`, `ttc`) for map rendering, and there is no need to supply a large number of small pre-generated font protobuf files. Martin can generate them dynamically on the fly based on your request.   
+Martin can serve glyph ranges from `otf`, `ttf`, and `ttc` fonts as needed by MapLibre text rendering. Martin will generate them dynamically on the fly.
+The glyph range generation is not yet cached, and may require external reverse proxy or CDN for faster operation.    
 
 ## API
-You can request font protobuf of single or combination of fonts.
+Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are case-sensitive and should match the font name in the font file as published in the catalog. When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.
 
-||API|Demo|
-|----|----|----|
-|Single|/font/{fontstack}/{start}-{end}|http://127.0.0.1:3000/font/Overpass Mono Bold/0-255|
-|Combination|/font/{fontstack1},{fontstack2},{fontstack_n}/{start}-{end}|http://127.0.0.1:3000/font/Overpass Mono Bold,Overpass Mono Light/0-255|
+| Type     | API                                            | Example                                                               |
+|----------|------------------------------------------------|-----------------------------------------------------------------------|
+| Single   | `/font/{name}/{start}-{end}`                   | `/font/Overpass Mono Bold/0-255`                    |
+| Combined | `/font/{name1},{name2},{name_n}/{start}-{end}` | `/font/Overpass Mono Bold,Overpass Mono Light/0-255` |
 
 Martin will list all the font resources in the `/catalog` endpoint, you could call it to check all your font resources before an accurate request.
 
@@ -41,11 +42,11 @@ curl http://127.0.0.1:3000/catalog
 }
 ```
 
-## Configuring from CLI
-A font directory can be configured from the [CLI](run-with-cli.md) with the `--font` flag. The flag can be used multiple times to configure multiple font directories. 
+## Using from CLI
+A font file or directory can be configured from the [CLI](21-run-with-cli.md) with the `--font` flag. The flag can be used multiple times.
 
 ```shell
-martin --font /path/to/font_dir1 --font /path/to/font_dir2
+martin --font /path/to/font/file.ttf --font /path/to/font_dir
 ```
 
 ## Configuring from Config File
@@ -55,6 +56,7 @@ A font directory can be configured from the config file with the `fonts` key.
 ```yaml
 # Fonts configuration
 fonts:
-  - /path/to/fonts_dir1
-  - /path/to/fonts_dir2
+  # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
+  - /path/to/font/file.ttf
+  - /path/to/font_dir
 ```

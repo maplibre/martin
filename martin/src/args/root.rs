@@ -44,7 +44,7 @@ pub struct MetaArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
     pub sprite: Vec<PathBuf>,
-    /// Export a directory with font files as a font source. Can be specified multiple times.
+    /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
     pub font: Vec<PathBuf>,
 }

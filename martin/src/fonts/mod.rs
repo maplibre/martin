@@ -81,98 +81,104 @@ fn recurse_dirs(
     path: &Path,
     fonts: &mut HashMap<String, FontSource>,
 ) -> Result<(), FontError> {
+    if path.is_dir() {
+        for dir_entry in path
+            .read_dir()
+            .map_err(|e| IoError(e, path.to_path_buf()))?
+            .flatten()
+        {
+            recurse_dirs(lib, &dir_entry.path(), fonts)?;
+        }
+    } else if path
+        .extension()
+        .and_then(OsStr::to_str)
+        .is_some_and(|e| ["otf", "ttf", "ttc"].contains(&e))
+    {
+        parse_font(lib, fonts, path)?;
+    }
+
+    Ok(())
+}
+
+fn parse_font(
+    lib: &Library,
+    fonts: &mut HashMap<String, FontSource>,
+    path: &Path,
+) -> Result<(), FontError> {
     static RE_SPACES: OnceLock<Regex> = OnceLock::new();
 
-    for dir_entry in path
-        .read_dir()
-        .map_err(|e| IoError(e, path.to_path_buf()))?
-        .flatten()
-    {
-        let path = dir_entry.path();
-
-        if path.is_dir() {
-            recurse_dirs(lib, &path, fonts)?;
-            continue;
+    let mut face = lib.new_face(path, 0)?;
+    let num_faces = face.num_faces() as isize;
+    for face_index in 0..num_faces {
+        if face_index > 0 {
+            face = lib.new_face(path, face_index)?;
         }
-
-        if !path
-            .extension()
-            .and_then(OsStr::to_str)
-            .is_some_and(|e| ["otf", "ttf", "ttc"].contains(&e))
-        {
-            continue;
+        let Some(family) = face.family_name() else {
+            return Err(FontError::MissingFamilyName(path.to_path_buf()));
+        };
+        let mut name = family.clone();
+        let style = face.style_name();
+        if let Some(style) = &style {
+            name.push(' ');
+            name.push_str(style);
         }
+        // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
+        name = name.replace(['/', ','], " ");
+        name = RE_SPACES
+            .get_or_init(|| Regex::new(r"\s+").unwrap())
+            .replace_all(name.as_str(), " ")
+            .to_string();
 
-        let mut face = lib.new_face(&path, 0)?;
-        let num_faces = face.num_faces() as isize;
-        for face_index in 0..num_faces {
-            if face_index > 0 {
-                face = lib.new_face(&path, face_index)?;
+        match fonts.entry(name) {
+            Entry::Occupied(v) => {
+                warn!(
+                    "Ignoring duplicate font {} from {} because it was already configured from {}",
+                    v.key(),
+                    path.display(),
+                    v.get().path.display()
+                );
             }
-            let Some(family) = face.family_name() else {
-                return Err(FontError::MissingFamilyName(path.clone()));
-            };
-            let mut name = family.clone();
-            let style = face.style_name();
-            if let Some(style) = &style {
-                name.push(' ');
-                name.push_str(style);
-            }
-            // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
-            name = name.replace(['/', ','], " ");
-            name = RE_SPACES
-                .get_or_init(|| Regex::new(r"\s+").unwrap())
-                .replace_all(name.as_str(), " ")
-                .to_string();
-
-            match fonts.entry(name) {
-                Entry::Occupied(v) => {
-                    warn!("Ignoring duplicate font source {} from {} because it was already configured for {}",
-                        v.key(), path.display(), v.get().path.display());
-                }
-                Entry::Vacant(v) => {
-                    let key = v.key();
-                    let Some((codepoints, glyphs, ranges)) = get_available_codepoints(&mut face)
-                    else {
-                        warn!(
-                            "Ignoring font source {key} from {} because it has no available glyphs",
-                            path.display()
-                        );
-                        continue;
-                    };
-
-                    let start = ranges.first().map(|(s, _)| *s).unwrap();
-                    let end = ranges.last().map(|(_, e)| *e).unwrap();
-                    info!(
-                        "Configured font source {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
+            Entry::Vacant(v) => {
+                let key = v.key();
+                let Some((codepoints, glyphs, ranges)) = get_available_codepoints(&mut face) else {
+                    warn!(
+                        "Ignoring font {key} from {} because it has no available glyphs",
                         path.display()
                     );
-                    debug!(
-                        "Available font ranges: {}",
-                        ranges
-                            .iter()
-                            .map(|(s, e)| if s == e {
-                                format!("{s:02X}")
-                            } else {
-                                format!("{s:02X}-{e:02X}")
-                            })
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                    );
+                    continue;
+                };
 
-                    v.insert(FontSource {
-                        path: path.clone(),
-                        face_index,
-                        codepoints,
-                        catalog_entry: CatalogFontEntry {
-                            family,
-                            style,
-                            glyphs,
-                            start,
-                            end,
-                        },
-                    });
-                }
+                let start = ranges.first().map(|(s, _)| *s).unwrap();
+                let end = ranges.last().map(|(_, e)| *e).unwrap();
+                info!(
+                    "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
+                    path.display()
+                );
+                debug!(
+                    "Available font ranges: {}",
+                    ranges
+                        .iter()
+                        .map(|(s, e)| if s == e {
+                            format!("{s:02X}")
+                        } else {
+                            format!("{s:02X}-{e:02X}")
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
+
+                v.insert(FontSource {
+                    path: path.to_path_buf(),
+                    face_index,
+                    codepoints,
+                    catalog_entry: CatalogFontEntry {
+                        family,
+                        style,
+                        glyphs,
+                        start,
+                        end,
+                    },
+                });
             }
         }
     }

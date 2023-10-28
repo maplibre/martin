@@ -165,4 +165,5 @@ sprites:
   sources:
     mysrc: tests/fixtures/sprites/src2
 fonts:
+- tests/fixtures/fonts/overpass-mono-regular.ttf
 - tests/fixtures/fonts

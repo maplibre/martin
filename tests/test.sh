@@ -135,6 +135,7 @@ validate_log()
 
   # Make sure the log has just the expected warnings, remove them, and test that there are no other ones
   test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
+  test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests/fixtures/fonts/overpass-mono-regular.ttf because it was already configured from tests/fixtures/fonts/overpass-mono-regular.ttf'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -161,7 +162,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${TMP_DIR}/test_log_1.txt" &
 PROCESS_ID=`jobs -p`
