@@ -5,7 +5,7 @@
 [![Slack chat](https://img.shields.io/badge/Chat-on%20Slack-blueviolet)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
 [![crates.io version](https://img.shields.io/crates/v/mbtiles.svg)](https://crates.io/crates/mbtiles)
-[![CI build](https://github.com/maplibre/martin/workflows/CI/badge.svg)](https://github.com/maplibre/martin/actions)
+[![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 
 A library to help tile servers like [Martin](https://maplibre.org/martin) work with [MBTiles](https://github.com/mapbox/mbtiles-spec) files. When using as a lib, you may want to disable default features (i.e. the unused "cli" feature).
 
