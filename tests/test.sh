@@ -97,6 +97,15 @@ test_png()
   fi
 }
 
+test_font()
+{
+  FILENAME="$TEST_OUT_DIR/$1.pbf"
+  URL="$MARTIN_URL/$2"
+
+  echo "Testing $(basename "$FILENAME") from $URL"
+  $CURL "$URL" > "$FILENAME" 
+}
+
 # Delete a line from a file $1 that matches parameter $2
 remove_line()
 {
@@ -127,6 +136,7 @@ validate_log()
 
   # Make sure the log has just the expected warnings, remove them, and test that there are no other ones
   test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
+  test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests/fixtures/fonts/overpass-mono-regular.ttf because it was already configured from tests/fixtures/fonts/overpass-mono-regular.ttf'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -153,7 +163,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${TMP_DIR}/test_log_1.txt" &
 PROCESS_ID=`jobs -p`
@@ -267,6 +277,10 @@ test_jsn spr_cmp      sprite/src1,mysrc.json
 test_png spr_cmp      sprite/src1,mysrc.png
 test_jsn spr_cmp_2x   sprite/src1,mysrc@2x.json
 test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
+
+test_font font_1      font/Overpass%20Mono%20Light/0-255
+test_font font_2      font/Overpass%20Mono%20Regular/0-255
+test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
 
 kill_process $PROCESS_ID
 validate_log "${TMP_DIR}/test_log_2.txt"

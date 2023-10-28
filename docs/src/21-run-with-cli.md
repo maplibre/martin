@@ -19,6 +19,9 @@ Options:
   -s, --sprite <SPRITE>
           Export a directory with SVG files as a sprite source. Can be specified multiple times
 
+  -f, --font <FONT>
+          Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times
+
   -k, --keep-alive <KEEP_ALIVE>
           Connection keep alive timeout. [DEFAULT: 75]
 
@@ -28,7 +31,7 @@ Options:
   -W, --workers <WORKERS>
           Number of web server workers
 
-  -b, --auto-bounds <BOUNDS>
+  -b, --auto-bounds <AUTO_BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
           Possible values:

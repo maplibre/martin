@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 use tilejson::{tilejson, TileJSON};
 
 use crate::config::ServerState;
+use crate::fonts::{FontCatalog, FontError, FontSources};
 use crate::source::{Source, TileCatalog, TileSources, UrlQuery};
 use crate::sprites::{SpriteCatalog, SpriteError, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
@@ -49,6 +50,7 @@ static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
 pub struct Catalog {
     pub tiles: TileCatalog,
     pub sprites: SpriteCatalog,
+    pub fonts: FontCatalog,
 }
 
 impl Catalog {
@@ -56,6 +58,7 @@ impl Catalog {
         Ok(Self {
             tiles: state.tiles.get_catalog(),
             sprites: state.sprites.get_catalog()?,
+            fonts: state.fonts.get_catalog(),
         })
     }
 }
@@ -82,6 +85,19 @@ pub fn map_sprite_error(e: SpriteError) -> actix_web::Error {
     use SpriteError::SpriteNotFound;
     match e {
         SpriteNotFound(_) => ErrorNotFound(e.to_string()),
+        _ => map_internal_error(e),
+    }
+}
+
+pub fn map_font_error(e: FontError) -> actix_web::Error {
+    #[allow(clippy::enum_glob_use)]
+    use FontError::*;
+    match e {
+        FontNotFound(_) => ErrorNotFound(e.to_string()),
+        InvalidFontRangeStartEnd(_, _)
+        | InvalidFontRangeStart(_)
+        | InvalidFontRangeEnd(_)
+        | InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),
         _ => map_internal_error(e),
     }
 }
@@ -145,6 +161,28 @@ async fn get_sprite_json(
         .await
         .map_err(map_sprite_error)?;
     Ok(HttpResponse::Ok().json(sheet.get_index()))
+}
+
+#[derive(Deserialize, Debug)]
+struct FontRequest {
+    fontstack: String,
+    start: u32,
+    end: u32,
+}
+
+#[route(
+    "/font/{fontstack}/{start}-{end}",
+    method = "GET",
+    wrap = "middleware::Compress::default()"
+)]
+#[allow(clippy::unused_async)]
+async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> Result<HttpResponse> {
+    let data = fonts
+        .get_font_range(&path.fontstack, path.start, path.end)
+        .map_err(map_font_error)?;
+    Ok(HttpResponse::Ok()
+        .content_type("application/x-protobuf")
+        .body(data))
 }
 
 #[route(
@@ -427,7 +465,8 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         .service(git_source_info)
         .service(get_tile)
         .service(get_sprite_json)
-        .service(get_sprite_png);
+        .service(get_sprite_png)
+        .service(get_font);
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
@@ -447,6 +486,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> crate::Result<(Serve
         App::new()
             .app_data(Data::new(state.tiles.clone()))
             .app_data(Data::new(state.sprites.clone()))
+            .app_data(Data::new(state.fonts.clone()))
             .app_data(Data::new(catalog.clone()))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))

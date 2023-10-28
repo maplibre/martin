@@ -183,4 +183,10 @@ sprites:
   sources:
     # SVG images in this directory will be published as a "my_sprites" sprite source
     my_sprites: /path/to/some_dir
+
+# Font configuration
+fonts:
+  # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
+  - /path/to/font/file.ttf
+  - /path/to/font_dir
 ```

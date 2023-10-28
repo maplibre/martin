@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 
 use crate::file_config::FileError;
+use crate::fonts::FontError;
 use crate::pg::PgError;
 use crate::sprites::SpriteError;
 
@@ -59,4 +60,7 @@ pub enum Error {
 
     #[error("{0}")]
     SpriteError(#[from] SpriteError),
+
+    #[error("{0}")]
+    FontError(#[from] FontError),
 }

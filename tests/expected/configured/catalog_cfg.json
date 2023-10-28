@@ -53,5 +53,21 @@
         "sub/circle"
       ]
     }
+  },
+  "fonts": {
+    "Overpass Mono Light": {
+      "family": "Overpass Mono",
+      "style": "Light",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
+    },
+    "Overpass Mono Regular": {
+      "family": "Overpass Mono",
+      "style": "Regular",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
+    }
   }
 }

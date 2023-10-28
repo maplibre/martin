@@ -69,6 +69,7 @@ async fn mbt_get_catalog() {
         content_type: image/webp
         name: ne2sr
     sprites: {}
+    fonts: {}
     "###);
 }
 
@@ -100,6 +101,7 @@ async fn mbt_get_catalog_gzip() {
         content_type: image/webp
         name: ne2sr
     sprites: {}
+    fonts: {}
     "###);
 }
 
