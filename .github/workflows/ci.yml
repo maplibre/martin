@@ -584,7 +584,6 @@ jobs:
           cd ..
 
       - name: Create Homebrew config
-        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           set -x
 
@@ -603,7 +602,6 @@ jobs:
           EOF
 
       - name: Save Homebrew Config
-        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v3
         with:
           name: homebrew-config
