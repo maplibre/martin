@@ -86,20 +86,22 @@ docker run -p 3000:3000 \
 ```
 
 ## API
-_See [API documentation](https://maplibre.org/martin/40-using.html) in the Martin book._
+_See [API documentation](https://maplibre.org/martin/40-using-endpoints.html) in the Martin book._
 
 Martin data is available via the HTTP `GET` endpoints:
 
-| URL                                    | Description                                   |
-|----------------------------------------|-----------------------------------------------|
-| `/`                                    | Status text, that will eventually show web UI |
-| `/catalog`                             | List of all sources                           |
-| `/{sourceID}`                          | Source TileJSON                               |
-| `/{sourceID}/{z}/{x}/{y}`              | Map Tiles                                     |
-| `/{source1},...,{sourceN}`             | Composite Source TileJSON                     |
-| `/{source1},...,{sourceN}/{z}/{x}/{y}` | Composite Source Tiles                        |
-| `/sprite/{spriteID}[@2x].{json,png}`   | Sprites (low and high DPI, index/png)         |
-| `/health`                              | Martin server health check: returns 200 `OK`  |
+| URL                                     | Description                                   |
+|-----------------------------------------|-----------------------------------------------|
+| `/`                                     | Status text, that will eventually show web UI |
+| `/catalog`                              | List of all sources                           |
+| `/{sourceID}`                           | Source TileJSON                               |
+| `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                     |
+| `/{source1},…,{sourceN}`                | Composite Source TileJSON                     |
+| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | Composite Source Tiles                        |
+| `/sprite/{spriteID}[@2x].{json,png}`    | Sprites (low and high DPI, index/png)         |
+| `/font/{font}/{start}-{end}`            | Font source                                   |
+| `/font/{font1},…,{fontN}/{start}-{end}` | Composite Font source                         |
+| `/health`                               | Martin server health check: returns 200 `OK`  |
 
 ## Documentation
 See [Martin book](https://maplibre.org/martin/) for complete documentation.
