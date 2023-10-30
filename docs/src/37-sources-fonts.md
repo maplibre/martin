@@ -6,13 +6,22 @@ The glyph range generation is not yet cached, and may require external reverse p
 ## API
 Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are case-sensitive and should match the font name in the font file as published in the catalog. Make sure to URL-escape font names as they usually contain spaces.
 
+|         | Font Request                         |
+|---------|--------------------------------------|
+| Pattern | `/font/{name}/{start}-{end}`         |
+| Example | `/font/Overpass%20Mono%20Bold/0-255` |
+
+
+### Composite Font Request
+
 When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.
 
-| Type     | API                                            | Example                                                      |
-|----------|------------------------------------------------|--------------------------------------------------------------|
-| Single   | `/font/{name}/{start}-{end}`                   | `/font/Overpass%20Mono%20Bold/0-255`                         |
-| Combined | `/font/{name1},{name2},{name_n}/{start}-{end}` | `/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255` |
+|         | Composite Font Request with fallbacks                        |
+|---------|--------------------------------------------------------------|
+| Pattern | `/font/{name1},…,{nameN}/{start}-{end}`                      |
+| Example | `/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255` |
 
+### Catalog
 Martin will show all available fonts at the `/catalog` endpoint.
 
 ```shell
