@@ -1,10 +1,11 @@
 [package]
 name = "martin"
 # Once the release is published with the hash, update https://github.com/maplibre/homebrew-martin
-version = "0.10.0"
+version = "0.10.1"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
+categories = ["science::geo", "web-programming::http-server"]
 exclude = [
     # Tests include a lot of data and other test files that are not needed for the users of the library
     "/tests",

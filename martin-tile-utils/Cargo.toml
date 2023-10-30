@@ -1,9 +1,10 @@
 [package]
 name = "martin-tile-utils"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Utilites to help with map tile processing, such as type and compression detection. Used by the MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
+categories = ["science::geo", "parsing"]
 exclude = [
     # Exclude the fixtures directory from the package - it's only used for tests.
     "/fixtures",
