@@ -182,12 +182,19 @@
 The glyph range generation is not yet cached, and may require external reverse proxy or CDN for faster operation.</p>
 <h2 id="api"><a class="header" href="#api">API</a></h2>
 <p>Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are case-sensitive and should match the font name in the font file as published in the catalog. Make sure to URL-escape font names as they usually contain spaces.</p>
-<p>When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.</p>
-<div class="table-wrapper"><table><thead><tr><th>Type</th><th>API</th><th>Example</th></tr></thead><tbody>
-<tr><td>Single</td><td><code>/font/{name}/{start}-{end}</code></td><td><code>/font/Overpass%20Mono%20Bold/0-255</code></td></tr>
-<tr><td>Combined</td><td><code>/font/{name1},{name2},{name_n}/{start}-{end}</code></td><td><code>/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255</code></td></tr>
+<div class="table-wrapper"><table><thead><tr><th></th><th>Font Request</th></tr></thead><tbody>
+<tr><td>Pattern</td><td><code>/font/{name}/{start}-{end}</code></td></tr>
+<tr><td>Example</td><td><code>/font/Overpass%20Mono%20Bold/0-255</code></td></tr>
 </tbody></table>
 </div>
+<h3 id="composite-font-request"><a class="header" href="#composite-font-request">Composite Font Request</a></h3>
+<p>When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.</p>
+<div class="table-wrapper"><table><thead><tr><th></th><th>Composite Font Request with fallbacks</th></tr></thead><tbody>
+<tr><td>Pattern</td><td><code>/font/{name1},…,{nameN}/{start}-{end}</code></td></tr>
+<tr><td>Example</td><td><code>/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="catalog"><a class="header" href="#catalog">Catalog</a></h3>
 <p>Martin will show all available fonts at the <code>/catalog</code> endpoint.</p>
 <pre><code class="language-shell">curl http://127.0.0.1:3000/catalog
 {

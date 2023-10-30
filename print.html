@@ -849,12 +849,19 @@ sprites:
 The glyph range generation is not yet cached, and may require external reverse proxy or CDN for faster operation.</p>
 <h2 id="api-1"><a class="header" href="#api-1">API</a></h2>
 <p>Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are case-sensitive and should match the font name in the font file as published in the catalog. Make sure to URL-escape font names as they usually contain spaces.</p>
-<p>When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.</p>
-<div class="table-wrapper"><table><thead><tr><th>Type</th><th>API</th><th>Example</th></tr></thead><tbody>
-<tr><td>Single</td><td><code>/font/{name}/{start}-{end}</code></td><td><code>/font/Overpass%20Mono%20Bold/0-255</code></td></tr>
-<tr><td>Combined</td><td><code>/font/{name1},{name2},{name_n}/{start}-{end}</code></td><td><code>/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255</code></td></tr>
+<div class="table-wrapper"><table><thead><tr><th></th><th>Font Request</th></tr></thead><tbody>
+<tr><td>Pattern</td><td><code>/font/{name}/{start}-{end}</code></td></tr>
+<tr><td>Example</td><td><code>/font/Overpass%20Mono%20Bold/0-255</code></td></tr>
 </tbody></table>
 </div>
+<h3 id="composite-font-request"><a class="header" href="#composite-font-request">Composite Font Request</a></h3>
+<p>When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.</p>
+<div class="table-wrapper"><table><thead><tr><th></th><th>Composite Font Request with fallbacks</th></tr></thead><tbody>
+<tr><td>Pattern</td><td><code>/font/{name1},…,{nameN}/{start}-{end}</code></td></tr>
+<tr><td>Example</td><td><code>/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="catalog"><a class="header" href="#catalog">Catalog</a></h3>
 <p>Martin will show all available fonts at the <code>/catalog</code> endpoint.</p>
 <pre><code class="language-shell">curl http://127.0.0.1:3000/catalog
 {
@@ -905,8 +912,8 @@ fonts:
 <tr><td><code>/{source1},…,{sourceN}</code></td><td><a href="40-using-endpoints.html#source-tilejson">Composite Source TileJSON</a></td></tr>
 <tr><td><code>/{source1},…,{sourceN}/{z}/{x}/{y}</code></td><td><a href="30-config-file.html">Composite Source Tiles</a></td></tr>
 <tr><td><code>/sprite/{spriteID}[@2x].{json,png}</code></td><td><a href="36-sources-spritess.html">Sprite sources</a></td></tr>
-<tr><td><code>/font/{font}/{start}-{end}</code></td><td><a href="40-using-endpoints.html#37-sources-fonts.md">Font source</a></td></tr>
-<tr><td><code>/font/{font1},…,{fontN}/{start}-{end}</code></td><td><a href="40-using-endpoints.html#37-sources-fonts.md">Composite Font source</a></td></tr>
+<tr><td><code>/font/{font}/{start}-{end}</code></td><td><a href="37-sources-fonts.html">Font source</a></td></tr>
+<tr><td><code>/font/{font1},…,{fontN}/{start}-{end}</code></td><td><a href="37-sources-fonts.html">Composite Font source</a></td></tr>
 <tr><td><code>/health</code></td><td>Martin server health check: returns 200 <code>OK</code></td></tr>
 </tbody></table>
 </div>
@@ -916,7 +923,7 @@ fonts:
 <p>Some source IDs are reserved for internal use. If you try to use them, they will be automatically renamed to a unique ID the same way as duplicate source IDs are handled, e.g. a <code>catalog</code> source will become <code>catalog.1</code>.</p>
 <p>Some of the reserved IDs: <code>_</code>, <code>catalog</code>, <code>config</code>, <code>font</code>, <code>health</code>, <code>help</code>, <code>index</code>, <code>manifest</code>, <code>metrics</code>, <code>refresh</code>,
 <code>reload</code>, <code>sprite</code>, <code>status</code>.</p>
-<h3 id="catalog"><a class="header" href="#catalog">Catalog</a></h3>
+<h3 id="catalog-1"><a class="header" href="#catalog-1">Catalog</a></h3>
 <p>A list of all available sources is available via catalogue endpoint:</p>
 <pre><code class="language-shell">curl localhost:3000/catalog | jq
 </code></pre>
