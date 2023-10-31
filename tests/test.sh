@@ -86,7 +86,8 @@ test_pbf()
 
 test_png()
 {
-  FILENAME="$TEST_OUT_DIR/$1.png"
+  # 3rd argument is optional, .png by default
+  FILENAME="$TEST_OUT_DIR/$1.${3:-png}"
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
@@ -97,13 +98,19 @@ test_png()
   fi
 }
 
+test_jpg()
+{
+  test_png $1 $2 jpg
+}
+
+
 test_font()
 {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME" 
+  $CURL "$URL" > "$FILENAME"
 }
 
 # Delete a line from a file $1 that matches parameter $2
@@ -230,7 +237,7 @@ test_png pmt_3_4_2 stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 
 >&2 echo "***** Test server response for MbTiles source *****"
 test_jsn mb_jpg       geography-class-jpg
-test_png mb_jpg_0_0_0 geography-class-jpg/0/0/0
+test_jpg mb_jpg_0_0_0 geography-class-jpg/0/0/0
 test_jsn mb_png       geography-class-png
 test_png mb_png_0_0_0 geography-class-png/0/0/0
 test_jsn mb_mvt       world_cities
