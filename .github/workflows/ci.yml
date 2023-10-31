@@ -570,7 +570,7 @@ jobs:
           cd ..
           
           #
-          # Special case for Windows    
+          # Special case for Windows
           #
           cd x86_64-pc-windows-msvc
           7z a ../files/martin-Windows-x86_64.zip martin.exe mbtiles.exe

@@ -15,7 +15,7 @@ use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
 
 const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
-      --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2   
+      --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2
         (5, 0, 0, cast('same' as blob))
       , (5, 0, 1, cast('' as blob))           -- empty tile, keep
       , (5, 1, 1, cast('edit-v1' as blob))
