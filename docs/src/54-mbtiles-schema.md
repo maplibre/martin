@@ -20,11 +20,11 @@ Similar to the `flat` schema, but also includes a `tile_hash` column that contai
 
 ```sql, ignore
 CREATE TABLE tiles_with_hash (
-    zoom_level INTEGER NOT NULL,
+    zoom_level  INTEGER NOT NULL,
     tile_column INTEGER NOT NULL,
-    tile_row INTEGER NOT NULL,
-    tile_data BLOB,
-    tile_hash TEXT);
+    tile_row    INTEGER NOT NULL,
+    tile_data   BLOB,
+    tile_hash   TEXT);
 
 CREATE UNIQUE INDEX tiles_with_hash_index on tiles_with_hash (
     zoom_level, tile_column, tile_row);
@@ -39,13 +39,13 @@ Normalized schema is the most efficient when the tileset contains duplicate tile
 
 ```sql, ignore
 CREATE TABLE map (
-    zoom_level INTEGER,
+    zoom_level  INTEGER,
     tile_column INTEGER,
-    tile_row INTEGER,
-    tile_id TEXT);
+    tile_row    INTEGER,
+    tile_id     TEXT);
 
 CREATE TABLE images (
-    tile_id TEXT,
+    tile_id   TEXT,
     tile_data BLOB);
 
 CREATE UNIQUE INDEX map_index ON map (
@@ -55,9 +55,9 @@ CREATE UNIQUE INDEX images_id ON images (
 
 CREATE VIEW tiles AS
     SELECT
-        map.zoom_level AS zoom_level,
-        map.tile_column AS tile_column,
-        map.tile_row AS tile_row,
+        map.zoom_level   AS zoom_level,
+        map.tile_column  AS tile_column,
+        map.tile_row     AS tile_row,
         images.tile_data AS tile_data
     FROM
         map JOIN images
@@ -69,11 +69,11 @@ Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_
 ```sql, ignore
 CREATE VIEW tiles_with_hash AS
     SELECT
-        map.zoom_level AS zoom_level,
-        map.tile_column AS tile_column,
-        map.tile_row AS tile_row,
+        map.zoom_level   AS zoom_level,
+        map.tile_column  AS tile_column,
+        map.tile_row     AS tile_row,
         images.tile_data AS tile_data,
-        images.tile_id AS tile_hash
+        images.tile_id   AS tile_hash
     FROM
         map JOIN images
         ON map.tile_id = images.tile_id;
