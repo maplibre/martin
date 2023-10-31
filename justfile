@@ -16,7 +16,11 @@ export CARGO_TERM_COLOR := "always"
 
 # Start Martin server
 run *ARGS:
-    cargo run -- {{ ARGS }}
+    cargo run -p martin -- {{ ARGS }}
+
+# Run mbtiles command
+mbtiles *ARGS:
+    cargo run -p mbtiles -- {{ ARGS }}
 
 # Start release-compiled Martin server and a test database
 run-release *ARGS: start
