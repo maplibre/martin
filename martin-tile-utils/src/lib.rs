@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 // This code was partially adapted from https://github.com/maplibre/mbtileserver-rs
 // project originally written by Kaveh Karimi and licensed under MIT/Apache-2.0
 

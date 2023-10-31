@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 // Bounds struct derives PartialEq, but not Eq,
