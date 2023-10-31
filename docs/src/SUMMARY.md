@@ -21,5 +21,7 @@
   - [Using with deck.gl](43-using-with-deck-gl.md)
   - [Using with Mapbox](44-using-with-mapbox.md)
   - [Recipes](45-recipes.md)
-- [Tools](50-tools.md)
+- [MBTiles](50-mbtiles.md)
+  - [Tools](51-tools.md)
+  - [Supported Schemas](52-schemas.md)
 - [Development](60-development.md)
