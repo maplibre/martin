@@ -193,11 +193,11 @@ CREATE UNIQUE INDEX tile_index on tiles (
 <h2 id="flat-with-hash"><a class="header" href="#flat-with-hash">flat-with-hash</a></h2>
 <p>Similar to the <code>flat</code> schema, but also includes a <code>tile_hash</code> column that contains a hash value of the <code>tile_data</code> column. Use this schema when the tileset has no duplicate tiles, but you still want to be able to validate the content of each tile individually.</p>
 <pre><code class="language-sql  ignore">CREATE TABLE tiles_with_hash (
-    zoom_level INTEGER NOT NULL,
+    zoom_level  INTEGER NOT NULL,
     tile_column INTEGER NOT NULL,
-    tile_row INTEGER NOT NULL,
-    tile_data BLOB,
-    tile_hash TEXT);
+    tile_row    INTEGER NOT NULL,
+    tile_data   BLOB,
+    tile_hash   TEXT);
 
 CREATE UNIQUE INDEX tiles_with_hash_index on tiles_with_hash (
     zoom_level, tile_column, tile_row);
@@ -209,13 +209,13 @@ CREATE VIEW tiles AS
 <h2 id="normalized"><a class="header" href="#normalized">normalized</a></h2>
 <p>Normalized schema is the most efficient when the tileset contains duplicate tiles. It stores all tile blobs in the <code>images</code> table, and stores the tile Z,X,Y coordinates in a <code>map</code> table. The <code>map</code> table contains a <code>tile_id</code> column that is a foreign key to the <code>images</code> table. The <code>tile_id</code> column is a hash of the <code>tile_data</code> column, making it possible to both validate each individual tile like in the <code>flat-with-hash</code> schema, and also to optimize storage by storing each unique tile only once.</p>
 <pre><code class="language-sql  ignore">CREATE TABLE map (
-    zoom_level INTEGER,
+    zoom_level  INTEGER,
     tile_column INTEGER,
-    tile_row INTEGER,
-    tile_id TEXT);
+    tile_row    INTEGER,
+    tile_id     TEXT);
 
 CREATE TABLE images (
-    tile_id TEXT,
+    tile_id   TEXT,
     tile_data BLOB);
 
 CREATE UNIQUE INDEX map_index ON map (
@@ -225,9 +225,9 @@ CREATE UNIQUE INDEX images_id ON images (
 
 CREATE VIEW tiles AS
     SELECT
-        map.zoom_level AS zoom_level,
-        map.tile_column AS tile_column,
-        map.tile_row AS tile_row,
+        map.zoom_level   AS zoom_level,
+        map.tile_column  AS tile_column,
+        map.tile_row     AS tile_row,
         images.tile_data AS tile_data
     FROM
         map JOIN images
@@ -236,11 +236,11 @@ CREATE VIEW tiles AS
 <p>Optionally, <code>.mbtiles</code> files with <code>normalized</code> schema can include a <code>tiles_with_hash</code> view. All <code>normalized</code> files created by the <code>mbtiles</code> tool will contain this view.</p>
 <pre><code class="language-sql  ignore">CREATE VIEW tiles_with_hash AS
     SELECT
-        map.zoom_level AS zoom_level,
-        map.tile_column AS tile_column,
-        map.tile_row AS tile_row,
+        map.zoom_level   AS zoom_level,
+        map.tile_column  AS tile_column,
+        map.tile_row     AS tile_row,
         images.tile_data AS tile_data,
-        images.tile_id AS tile_hash
+        images.tile_id   AS tile_hash
     FROM
         map JOIN images
         ON map.tile_id = images.tile_id;
