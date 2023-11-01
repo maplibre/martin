@@ -1,0 +1,68 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                zoom_level AS zoom,\n                count( ) AS count,\n                min( length( tile_data ) ) / 1024.0 AS smallest,\n                max( length( tile_data ) ) / 1024.0 AS largest,\n                avg( length( tile_data ) ) / 1024.0 AS average,\n                min(tile_column) as min_tile_x,\n                min(tile_row) as min_tile_y,\n                max(tile_column) as max_tile_x,\n                max(tile_row) as max_tile_y \n            FROM tiles\n            GROUP BY zoom_level",
+  "describe": {
+    "columns": [
+      {
+        "name": "zoom",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "count",
+        "ordinal": 1,
+        "type_info": "Int"
+      },
+      {
+        "name": "smallest",
+        "ordinal": 2,
+        "type_info": "Float"
+      },
+      {
+        "name": "largest",
+        "ordinal": 3,
+        "type_info": "Float"
+      },
+      {
+        "name": "average",
+        "ordinal": 4,
+        "type_info": "Float"
+      },
+      {
+        "name": "min_tile_x",
+        "ordinal": 5,
+        "type_info": "Int"
+      },
+      {
+        "name": "min_tile_y",
+        "ordinal": 6,
+        "type_info": "Int"
+      },
+      {
+        "name": "max_tile_x",
+        "ordinal": 7,
+        "type_info": "Int"
+      },
+      {
+        "name": "max_tile_y",
+        "ordinal": 8,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "e0e1a38ef162278d888b297ec85a8f175977ae491ea3d47069b20b1946c44ade"
+}

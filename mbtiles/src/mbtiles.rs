@@ -2,8 +2,8 @@
 
 use std::collections::HashSet;
 use std::ffi::OsStr;
-use std::fmt::Display;
-use std::path::Path;
+use std::fmt::{Display, Formatter};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 #[cfg(feature = "cli")]
@@ -37,6 +37,60 @@ pub struct Metadata {
     pub layer_type: Option<String>,
     pub tilejson: TileJSON,
     pub json: Option<JSONValue>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct LevelDetail {
+    pub zoom: String,
+    pub count: u32,
+    pub smallest: f32,
+    pub largest: f32,
+    pub average: f32,
+    pub bounding_box: [f32; 4],
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Statistics {
+    pub file_path: String,
+    pub file_size: f64,
+    pub schema: String,
+    pub page_size: Option<i32>,
+    pub level_details: Vec<LevelDetail>,
+}
+
+impl Display for Statistics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "File: {}", self.file_path).unwrap();
+        writeln!(f, "FileSize: {:.2}MB", self.file_size).unwrap();
+        writeln!(f, "Schema: {}", self.schema).unwrap();
+        writeln!(f, "Page size: {} bytes", self.page_size.unwrap()).unwrap();
+        writeln!(
+            f,
+            "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
+            "zoom", "count", "smallest", "largest", "average", "bbox"
+        )
+        .unwrap();
+
+        for l in &self.level_details {
+            let bbox_str = format!(
+                "{:.2}, {:.2}, {:.2}, {:.2}",
+                l.bounding_box[0], l.bounding_box[1], l.bounding_box[2], l.bounding_box[3]
+            );
+
+            writeln!(
+                f,
+                "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
+                l.zoom,
+                l.count,
+                format!("{:.2}KB", l.smallest),
+                format!("{:.2}KB", l.largest),
+                format!("{:.2}KB", l.average),
+                bbox_str
+            )
+            .unwrap();
+        }
+        Ok(())
+    }
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
@@ -107,7 +161,7 @@ pub struct Mbtiles {
 }
 
 impl Display for Mbtiles {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.filepath)
     }
 }
@@ -223,7 +277,114 @@ impl Mbtiles {
             self.check_agg_tiles_hashes(&mut conn).await
         }
     }
+    pub async fn statistics<T>(&self, conn: &mut T) -> MbtResult<Statistics>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let file_size =
+            PathBuf::from(&self.filepath).metadata().unwrap().len() as f64 / 1024.0 / 1024.0;
+        let page_size_query = query!("PRAGMA page_size;");
+        let tile_infos_query = query!(
+            r#"SELECT
+                zoom_level AS zoom,
+                count( ) AS count,
+                min( length( tile_data ) ) / 1024.0 AS smallest,
+                max( length( tile_data ) ) / 1024.0 AS largest,
+                avg( length( tile_data ) ) / 1024.0 AS average,
+                min(tile_column) as min_tile_x,
+                min(tile_row) as min_tile_y,
+                max(tile_column) as max_tile_x,
+                max(tile_row) as max_tile_y 
+            FROM tiles
+            GROUP BY zoom_level"#
+        );
+        let page_size = page_size_query.fetch_one(&mut *conn).await?.page_size;
+        let mb_type_string = match self.detect_type(&mut *conn).await? {
+            MbtType::Flat => "flat",
+            MbtType::FlatWithHash => "flat with hash",
+            MbtType::Normalized { .. } => "normalized",
+        };
+        let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
+        let mut level_details: Vec<LevelDetail> = level_rows
+            .into_iter()
+            .map(|r| {
+                let zoom = r.zoom.unwrap() as u8;
+                let count = r.count as u32;
+                let tile_length: f32 = 40075016.7 / (2_u32.pow(zoom as u32)) as f32;
 
+                let smallest = r.smallest.unwrap_or(0.0) as f32;
+                let largest = r.largest.unwrap_or(0.0) as f32;
+                let average = r.average.unwrap_or(0.0) as f32;
+
+                let min_tile_x = r.min_tile_x.unwrap();
+                let min_tile_y = r.min_tile_y.unwrap();
+                let max_tile_x = r.max_tile_x.unwrap();
+                let max_tile_y = r.max_tile_y.unwrap();
+
+                let minx = -20037508.34 + min_tile_x as f32 * tile_length;
+                let miny = -20037508.34 + min_tile_y as f32 * tile_length;
+                let maxx = -20037508.34 + (max_tile_x as f32 + 1.0) * tile_length;
+                let maxy = -20037508.34 + (max_tile_y as f32 + 1.0) * tile_length;
+
+                let bbox: [f32; 4] = [minx, miny, maxx, maxy];
+
+                LevelDetail {
+                    zoom: format!("{zoom}"),
+                    count,
+                    smallest,
+                    largest,
+                    average,
+                    bounding_box: bbox,
+                }
+            })
+            .collect();
+        let details_of_all = LevelDetail {
+            zoom: "all".to_string(),
+            count: level_details.iter().map(|l| l.count).sum(),
+            smallest: level_details
+                .iter()
+                .map(|l| l.smallest)
+                .reduce(f32::min)
+                .unwrap(),
+            largest: level_details
+                .iter()
+                .map(|l| l.largest)
+                .reduce(f32::max)
+                .unwrap(),
+            average: level_details.iter().map(|l| l.average).sum::<f32>()
+                / level_details.len() as f32,
+            bounding_box: [
+                level_details
+                    .iter()
+                    .map(|l| l.bounding_box[0])
+                    .reduce(f32::min)
+                    .unwrap(),
+                level_details
+                    .iter()
+                    .map(|l| l.bounding_box[1])
+                    .reduce(f32::min)
+                    .unwrap(),
+                level_details
+                    .iter()
+                    .map(|l| l.bounding_box[2])
+                    .reduce(f32::max)
+                    .unwrap(),
+                level_details
+                    .iter()
+                    .map(|l| l.bounding_box[3])
+                    .reduce(f32::max)
+                    .unwrap(),
+            ],
+        };
+        level_details.push(details_of_all);
+        Ok(Statistics {
+            file_path: self.filepath.clone(),
+            file_size,
+            schema: mb_type_string.to_owned(),
+            page_size,
+            level_details,
+        })
+    }
     /// Get the aggregate tiles hash value from the metadata table
     pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
     where
@@ -847,6 +1008,53 @@ mod tests {
             open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await?;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
+        Ok(())
+    }
+
+    #[actix_rt::test]
+    async fn stat() -> MbtResult<()> {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
+        let res = mbt.statistics(&mut conn).await?;
+
+        assert_eq!(
+            res.file_path,
+            "../tests/fixtures/mbtiles/world_cities.mbtiles"
+        );
+        assert_eq!(res.file_size, 0.046875);
+        assert_eq!(res.schema, "flat");
+        assert_eq!(res.page_size, Some(4096));
+
+        assert_eq!(res.level_details.len(), 8);
+
+        assert_eq!(res.level_details[0].zoom, "0");
+        assert_eq!(res.level_details[0].count, 1);
+        assert_eq!(res.level_details[0].smallest, 1.0810547);
+        assert_eq!(res.level_details[0].largest, 1.0810547);
+        assert_eq!(res.level_details[0].average, 1.0810547);
+        assert_eq!(
+            res.level_details[0].bounding_box,
+            [-20037508.0, -20037508.0, 20037508.0, 20037508.0]
+        );
+
+        assert_eq!(res.level_details[6].zoom, "6");
+        assert_eq!(res.level_details[6].count, 72);
+        assert_eq!(res.level_details[6].smallest, 0.0625);
+        assert_eq!(res.level_details[6].largest, 0.09472656);
+        assert_eq!(res.level_details[6].average, 0.06669108);
+        assert_eq!(
+            res.level_details[6].bounding_box,
+            [-13775787.0, -5009377.0, 20037508.0, 8766410.0]
+        );
+
+        assert_eq!(res.level_details[7].zoom, "all");
+        assert_eq!(res.level_details[7].count, 196);
+        assert_eq!(res.level_details[7].smallest, 0.0625);
+        assert_eq!(res.level_details[7].largest, 1.0810547);
+        assert_eq!(res.level_details[7].average, 0.28936034);
+        assert_eq!(
+            res.level_details[7].bounding_box,
+            [-20037508.00, -20037508.00, 20037508.00, 20037508.00]
+        );
         Ok(())
     }
 }

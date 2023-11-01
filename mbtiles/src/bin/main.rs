@@ -26,6 +26,9 @@ enum Commands {
         /// MBTiles file to read from
         file: PathBuf,
     },
+    /// Gets tile statistics from MBTiels file
+    #[command(name = "stats")]
+    Stats { file: PathBuf },
     /// Gets a single value from the MBTiles metadata table.
     #[command(name = "meta-get")]
     MetaGetValue {
@@ -113,6 +116,13 @@ async fn main_int() -> anyhow::Result<()> {
         } => {
             let mbt = Mbtiles::new(file.as_path())?;
             mbt.validate(integrity_check, update_agg_tiles_hash).await?;
+        }
+        Commands::Stats { file } => {
+            let mbt = Mbtiles::new(file.as_path())?;
+            let mut conn = mbt.open_readonly().await?;
+
+            let statistics = mbt.statistics(&mut conn).await?;
+            println!("{statistics}");
         }
     }
 
