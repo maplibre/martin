@@ -6,12 +6,16 @@ use std::path::PathBuf;
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use spreet::fs::get_svg_input_paths;
 use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
-use spreet::sprite::{sprite_name, Sprite, Spritesheet, SpritesheetBuilder};
+use spreet::{
+    get_svg_input_paths, sprite_name, SpreetError, Sprite, Spritesheet, SpritesheetBuilder,
+};
 use tokio::io::AsyncReadExt;
 
+use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
 use crate::file_config::{FileConfigEnum, FileResult};
+
+pub type SpriteResult<T> = Result<T, SpriteError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum SpriteError {
@@ -34,13 +38,16 @@ pub enum SpriteError {
     UnableToReadSprite(PathBuf),
 
     #[error("{0} in file {}", .1.display())]
-    SpriteProcessingError(spreet::error::Error, PathBuf),
+    SpriteProcessingError(SpreetError, PathBuf),
 
     #[error("{0} in file {}", .1.display())]
     SpriteParsingError(ResvgError, PathBuf),
 
     #[error("Unable to generate spritesheet")]
     UnableToGenerateSpritesheet,
+
+    #[error("Unable to create a sprite from file {}", .0.display())]
+    SpriteInstError(PathBuf),
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -87,20 +94,23 @@ impl SpriteSources {
         Ok(results)
     }
 
-    pub fn get_catalog(&self) -> FileResult<SpriteCatalog> {
+    pub fn get_catalog(&self) -> SpriteResult<SpriteCatalog> {
         // TODO: all sprite generation should be pre-cached
-        Ok(self
-            .0
-            .iter()
-            .map(|(id, source)| {
-                let mut images = get_svg_input_paths(&source.path, true)
-                    .into_iter()
-                    .map(|svg_path| sprite_name(svg_path, &source.path))
-                    .collect::<Vec<_>>();
-                images.sort();
-                (id.clone(), CatalogSpriteEntry { images })
-            })
-            .collect())
+        let mut entries = SpriteCatalog::new();
+        for (id, source) in &self.0 {
+            let paths = get_svg_input_paths(&source.path, true)
+                .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+            let mut images = Vec::with_capacity(paths.len());
+            for path in paths {
+                images.push(
+                    sprite_name(&path, &source.path)
+                        .map_err(|e| SpriteProcessingError(e, source.path.clone()))?,
+                );
+            }
+            images.sort();
+            entries.insert(id.clone(), CatalogSpriteEntry { images });
+        }
+        Ok(entries)
     }
 
     fn add_source(&mut self, id: String, path: PathBuf) {
@@ -123,7 +133,7 @@ impl SpriteSources {
 
     /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
     /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
-    pub async fn get_sprites(&self, ids: &str) -> Result<Spritesheet, SpriteError> {
+    pub async fn get_sprites(&self, ids: &str) -> SpriteResult<Spritesheet> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
         } else {
@@ -137,7 +147,7 @@ impl SpriteSources {
                     .get(id)
                     .ok_or_else(|| SpriteError::SpriteNotFound(id.to_string()))
             })
-            .collect::<Result<Vec<_>, SpriteError>>()?;
+            .collect::<SpriteResult<Vec<_>>>()?;
 
         get_spritesheet(sprite_ids.into_iter(), dpi).await
     }
@@ -152,7 +162,7 @@ async fn parse_sprite(
     name: String,
     path: PathBuf,
     pixel_ratio: u8,
-) -> Result<(String, Sprite), SpriteError> {
+) -> SpriteResult<(String, Sprite)> {
     let on_err = |e| SpriteError::IoError(e, path.clone());
 
     let mut file = tokio::fs::File::open(&path).await.map_err(on_err)?;
@@ -161,31 +171,31 @@ async fn parse_sprite(
     file.read_to_end(&mut buffer).await.map_err(on_err)?;
 
     let tree = Tree::from_data(&buffer, &Options::default())
-        .map_err(|e| SpriteError::SpriteParsingError(e, path.clone()))?;
+        .map_err(|e| SpriteParsingError(e, path.clone()))?;
 
-    Ok((name, Sprite { tree, pixel_ratio }))
+    let sprite = Sprite::new(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?;
+
+    Ok((name, sprite))
 }
 
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
-) -> Result<Spritesheet, SpriteError> {
+) -> SpriteResult<Spritesheet> {
     // Asynchronously load all SVG files from the given sources
-    let sprites = try_join_all(sources.flat_map(|source| {
-        get_svg_input_paths(&source.path, true)
-            .into_iter()
-            .map(|svg_path| {
-                let name = sprite_name(&svg_path, &source.path);
-                parse_sprite(name, svg_path, pixel_ratio)
-            })
-            .collect::<Vec<_>>()
-    }))
-    .await?;
-
+    let mut futures = Vec::new();
+    for source in sources {
+        let paths = get_svg_input_paths(&source.path, true)
+            .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+        for path in paths {
+            let name = sprite_name(&path, &source.path)
+                .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+            futures.push(parse_sprite(name, path, pixel_ratio));
+        }
+    }
+    let sprites = try_join_all(futures).await?;
     let mut builder = SpritesheetBuilder::new();
-    builder
-        .sprites(sprites.into_iter().collect())
-        .pixel_ratio(pixel_ratio);
+    builder.sprites(sprites.into_iter().collect());
 
     // TODO: decide if this is needed and/or configurable
     // builder.make_unique();
