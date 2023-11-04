@@ -14,7 +14,6 @@ use pbf_font_tools::{render_sdf_glyph, Fontstack, Glyphs, PbfFontError};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::fonts::FontError::IoError;
 use crate::OptOneMany;
 
 const MAX_UNICODE_CP: usize = 0xFFFF;
@@ -59,12 +58,6 @@ pub enum FontError {
 
     #[error("No font files found in {}", .0.display())]
     NoFontFilesFound(PathBuf),
-
-    #[error("Font {} could not be loaded", .0.display())]
-    UnableToReadFont(PathBuf),
-
-    #[error("{0} in file {}", .1.display())]
-    FontProcessingError(spreet::error::Error, PathBuf),
 
     #[error("Font {0} is missing a family name")]
     MissingFamilyName(PathBuf),
@@ -254,7 +247,7 @@ fn recurse_dirs(
     if path.is_dir() {
         for dir_entry in path
             .read_dir()
-            .map_err(|e| IoError(e, path.clone()))?
+            .map_err(|e| FontError::IoError(e, path.clone()))?
             .flatten()
         {
             recurse_dirs(lib, dir_entry.path(), fonts, false)?;
