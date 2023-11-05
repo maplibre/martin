@@ -51,7 +51,7 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: nightly-2023-11-03
           override: true
 
       - name: Cleanup GCDA files
@@ -78,6 +78,6 @@ jobs:
 
       - name: Check conditional cfg values
         run: |
-          cargo +nightly check -Z unstable-options -Z check-cfg --workspace
+          cargo check -Z unstable-options -Z check-cfg --workspace
         env:
           RUSTFLAGS: '-D warnings'
