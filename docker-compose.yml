@@ -1,6 +1,14 @@
 version: "3"
 
 services:
+  fileserver:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "5412:80"
+    volumes:
+      - ./tests/fixtures/pmtiles2:/usr/share/nginx/html
+
   db-is-ready:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:14-3.3-alpine

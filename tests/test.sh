@@ -9,6 +9,7 @@ CURL=${CURL:-curl --silent --show-error --fail --compressed}
 
 MARTIN_BUILD_ALL="${MARTIN_BUILD_ALL:-cargo build}"
 
+STATICS_URL="${STATICS_URL:-http://localhost:5412}"
 MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
@@ -200,6 +201,10 @@ fi
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Check HTTP server is running"
+$CURL --head "$STATICS_URL/webp2.pmtiles"
+
+echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test auto configured Martin"
 
 TEST_NAME="auto"
@@ -207,9 +212,8 @@ LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2 --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
-
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=`jobs -p | tail -n 1`

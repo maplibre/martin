@@ -11,11 +11,11 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-use crate::file_config::{resolve_files, FileConfigEnum};
+use crate::file_config::{resolve_files, resolve_files_urls, FileConfigEnum};
 use crate::fonts::FontSources;
 use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
-use crate::pmtiles::PmtSource;
+use crate::pmtiles::{PmtFileSource, PmtHttpSource};
 use crate::source::{TileInfoSources, TileSources};
 use crate::sprites::SpriteSources;
 use crate::srv::SrvConfig;
@@ -92,7 +92,8 @@ impl Config {
     }
 
     async fn resolve_tile_sources(&mut self, idr: IdResolver) -> MartinResult<TileSources> {
-        let new_pmt_src = &mut PmtSource::new_box;
+        let new_pmt_src = &mut PmtFileSource::new_box;
+        let new_pmt_url_src = &mut PmtHttpSource::new_url_box;
         let new_mbt_src = &mut MbtSource::new_box;
         let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<TileInfoSources>>>>> =
             Vec::new();
@@ -102,12 +103,14 @@ impl Config {
         }
 
         if !self.pmtiles.is_empty() {
-            let val = resolve_files(&mut self.pmtiles, idr.clone(), "pmtiles", new_pmt_src);
+            let cfg = &mut self.pmtiles;
+            let val = resolve_files_urls(cfg, idr.clone(), "pmtiles", new_pmt_src, new_pmt_url_src);
             sources.push(Box::pin(val));
         }
 
         if !self.mbtiles.is_empty() {
-            let val = resolve_files(&mut self.mbtiles, idr.clone(), "mbtiles", new_mbt_src);
+            let cfg = &mut self.mbtiles;
+            let val = resolve_files(cfg, idr.clone(), "mbtiles", new_mbt_src);
             sources.push(Box::pin(val));
         }
 

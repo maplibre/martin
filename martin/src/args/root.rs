@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use log::warn;
+use url::Url;
 
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;
@@ -89,11 +90,11 @@ impl Args {
         }
 
         if !cli_strings.is_empty() {
-            config.pmtiles = parse_file_args(&mut cli_strings, "pmtiles");
+            config.pmtiles = parse_file_args(&mut cli_strings, "pmtiles", true);
         }
 
         if !cli_strings.is_empty() {
-            config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles");
+            config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles", false);
         }
 
         if !self.extras.sprite.is_empty() {
@@ -108,10 +109,29 @@ impl Args {
     }
 }
 
-pub fn parse_file_args(cli_strings: &mut Arguments, extension: &str) -> FileConfigEnum {
-    let paths = cli_strings.process(|v| match PathBuf::try_from(v) {
+fn is_url(s: &str, extension: &str) -> bool {
+    if s.starts_with("http") {
+        if let Ok(url) = Url::parse(s) {
+            if url.scheme() == "http" || url.scheme() == "https" {
+                if let Some(ext) = url.path().rsplit('.').next() {
+                    return ext == extension;
+                }
+            }
+        }
+    }
+    false
+}
+
+pub fn parse_file_args(
+    cli_strings: &mut Arguments,
+    extension: &str,
+    allow_url: bool,
+) -> FileConfigEnum {
+    let paths = cli_strings.process(|s| match PathBuf::try_from(s) {
         Ok(v) => {
-            if v.is_dir() {
+            if allow_url && is_url(s, extension) {
+                Take(v)
+            } else if v.is_dir() {
                 Share(v)
             } else if v.is_file() && v.extension().map_or(false, |e| e == extension) {
                 Take(v)
