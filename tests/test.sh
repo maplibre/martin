@@ -16,49 +16,54 @@ MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 LOG_DIR="${LOG_DIR:-target/test_logs}"
 mkdir -p "$LOG_DIR"
 
-function wait_for_martin {
+function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
     PROCESS_ID=$1
-    echo "Waiting for Martin ($PROCESS_ID) to start by checking $MARTIN_URL/health to be valid..."
+    PROC_NAME=$2
+    TEST_URL=$3
+    echo "Waiting for $PROC_NAME ($PROCESS_ID) to start by checking $TEST_URL to be valid..."
     for i in {1..60}; do
-        if $CURL "$MARTIN_URL/health" 2>/dev/null >/dev/null; then
-            echo "Martin is up!"
-            $CURL "$MARTIN_URL/health"
+        if $CURL "$TEST_URL" 2>/dev/null >/dev/null; then
+            echo "$PROC_NAME is up!"
+            if [[ "$PROC_NAME" == "Martin" ]]; then
+              $CURL "$TEST_URL"
+            fi
             return
         fi
         if ps -p $PROCESS_ID > /dev/null ; then
-            echo "Martin is not up yet, waiting for $MARTIN_URL/health ..."
+            echo "$PROC_NAME is not up yet, waiting for $TEST_URL ..."
             sleep 1
         else
-            echo "Martin died!"
+            echo "$PROC_NAME died!"
             ps au
-            lsof -i || true
+            lsof -i || true;
             exit 1
         fi
     done
-    echo "Martin did not start in time"
+    echo "$PROC_NAME did not start in time"
     ps au
-    lsof -i || true
+    lsof -i || true;
     exit 1
 }
 
 function kill_process {
     PROCESS_ID=$1
-    echo "Waiting for Martin ($PROCESS_ID) to stop..."
+    PROC_NAME=$2
+    echo "Waiting for $PROC_NAME ($PROCESS_ID) to stop..."
     kill $PROCESS_ID
     for i in {1..50}; do
         if ps -p $PROCESS_ID > /dev/null ; then
             sleep 0.1
         else
-            echo "Martin ($PROCESS_ID) has stopped"
+            echo "$PROC_NAME ($PROCESS_ID) has stopped"
             return
         fi
     done
-    echo "Martin did not stop in time, killing it"
+    echo "$PROC_NAME did not stop in time, killing it"
     kill -9 $PROCESS_ID
     # wait for it to die using timeout and wait
-    timeout -k 1s 1s wait $PROCESS_ID || true
+    timeout -k 1s 1s wait $PROCESS_ID || true;
 }
 
 test_jsn()
@@ -173,11 +178,11 @@ mkdir -p "$TEST_OUT_DIR"
 ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${LOG_DIR}/test_log_1.txt" &
-PROCESS_ID=`jobs -p`
+MARTIN_PROC_ID=`jobs -p | tail -n 1`
 
 { set +x; } 2> /dev/null
-trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
-wait_for_martin $PROCESS_ID
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
 
 >&2 echo "Test catalog"
 test_jsn catalog_auto catalog
@@ -246,7 +251,7 @@ test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
-kill_process $PROCESS_ID
+kill_process $MARTIN_PROC_ID Martin
 validate_log "${LOG_DIR}/test_log_1.txt"
 
 
@@ -258,10 +263,10 @@ mkdir -p "$TEST_OUT_DIR"
 ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${LOG_DIR}/test_log_2.txt" &
-PROCESS_ID=`jobs -p`
+MARTIN_PROC_ID=`jobs -p | tail -n 1`
 { set +x; } 2> /dev/null
-trap "kill -9 $PROCESS_ID 2> /dev/null || true" EXIT
-wait_for_martin $PROCESS_ID
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
 
 >&2 echo "Test catalog"
 test_jsn catalog_cfg catalog
@@ -289,12 +294,11 @@ test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
 
-kill_process $PROCESS_ID
+kill_process $MARTIN_PROC_ID Martin
 validate_log "${LOG_DIR}/test_log_2.txt"
 
 remove_line "$(dirname "$0")/output/given_config.yaml"       " connection_string: "
 remove_line "$(dirname "$0")/output/generated_config.yaml"   " connection_string: "
-
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test mbtiles utility"
