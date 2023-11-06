@@ -1,4 +1,4 @@
-# Martin
+![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
 [![Book](https://img.shields.io/badge/docs-Book-informational)](https://maplibre.org/martin)
 [![docs.rs docs](https://docs.rs/martin/badge.svg)](https://docs.rs/martin)
@@ -12,8 +12,6 @@
 Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), and [MBTile](https://github.com/mapbox/mbtiles-spec) files, allowing multiple tile sources to be dynamically combined into one. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
 See [Martin book](https://maplibre.org/martin/) for complete documentation.
-
-![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
 ## Installation
 _See [installation instructions](https://maplibre.org/martin/10-installation.html) in the Martin book._
