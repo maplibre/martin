@@ -69,3 +69,4 @@ similar.opt-level = 3
 
 #[patch.crates-io]
 #sqlite-hashes = { path = "/home/nyurik/dev/rust/sqlite-hashes" }
+#pmtiles = { path = "../pmtiles-rs" }

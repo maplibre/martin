@@ -158,11 +158,11 @@ pmtiles:
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
-    # specific pmtiles file will be published as pmtiles2 source
-    - /path/to/pmtiles.pmtiles
+    # specific pmtiles file will be published as a pmt source (filename without extension)
+    - /path/to/pmt.pmtiles
   sources:
     # named source matching source name to a single file
-    pm-src1: /path/to/pmtiles1.pmtiles
+    pm-src1: /path/to/pmt.pmtiles
     
 # Publish MBTiles files
 mbtiles:
