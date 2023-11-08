@@ -283,7 +283,7 @@ impl Mbtiles {
     {
         let file_size =
             PathBuf::from(&self.filepath).metadata().unwrap().len() as f64 / 1024.0 / 1024.0;
-        let page_size_query = query!("PRAGMA page_size;");
+        let page_size = query!("PRAGMA page_size;").fetch_one(&mut *conn).await?.page_size;
         let tile_infos_query = query!(
             r#"SELECT
                 zoom_level AS zoom,
@@ -298,7 +298,6 @@ impl Mbtiles {
             FROM tiles
             GROUP BY zoom_level"#
         );
-        let page_size = page_size_query.fetch_one(&mut *conn).await?.page_size;
         let mb_type_string = match self.detect_type(&mut *conn).await? {
             MbtType::Flat => "flat",
             MbtType::FlatWithHash => "flat with hash",
