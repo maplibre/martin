@@ -49,11 +49,11 @@ pub struct LevelDetail {
     pub bounding_box: [f32; 4],
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Statistics {
     pub file_path: String,
     pub file_size: f64,
-    pub schema: String,
+    pub schema: MbtType,
     pub page_size: Option<i32>,
     pub level_details: Vec<LevelDetail>,
 }
@@ -298,11 +298,7 @@ impl Mbtiles {
             FROM tiles
             GROUP BY zoom_level"#
         );
-        let mb_type_string = match self.detect_type(&mut *conn).await? {
-            MbtType::Flat => "flat",
-            MbtType::FlatWithHash => "flat with hash",
-            MbtType::Normalized { .. } => "normalized",
-        };
+        let mbt_type = self.detect_type(&mut *conn).await?;
         let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
         let mut level_details: Vec<LevelDetail> = level_rows
             .into_iter()
@@ -379,7 +375,7 @@ impl Mbtiles {
         Ok(Statistics {
             file_path: self.filepath.clone(),
             file_size,
-            schema: mb_type_string.to_owned(),
+            schema: mbt_type,
             page_size,
             level_details,
         })
@@ -1020,7 +1016,7 @@ mod tests {
             "../tests/fixtures/mbtiles/world_cities.mbtiles"
         );
         assert_eq!(res.file_size, 0.046875);
-        assert_eq!(res.schema, "flat");
+        assert_eq!(res.schema, MbtType::Flat);
         assert_eq!(res.page_size, Some(4096));
 
         assert_eq!(res.level_details.len(), 8);
