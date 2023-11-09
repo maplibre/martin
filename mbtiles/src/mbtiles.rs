@@ -42,8 +42,8 @@ pub struct Metadata {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct LevelDetail {
-    pub zoom: String,
-    pub count: u32,
+    pub zoom: u8,
+    pub count: u64,
     pub smallest: u64,
     pub largest: u64,
     pub average: f64,
@@ -57,6 +57,10 @@ pub struct Statistics {
     pub schema: MbtType,
     pub page_size: u64,
     pub level_details: Vec<LevelDetail>,
+    pub count: u64,
+    pub smallest: u64,
+    pub largest: u64,
+    pub average: f64,
 }
 
 impl Display for Statistics {
@@ -95,6 +99,16 @@ impl Display for Statistics {
             )
             .unwrap();
         }
+        writeln!(
+            f,
+            "|{:^9}|{:^9}|{:^9}B|{:^9}B|{:^9}B|",
+            "all",
+            self.count,
+            SizeFormatterBinary::new(self.smallest),
+            SizeFormatterBinary::new(self.largest),
+            SizeFormatterBinary::new(self.average as u64)
+        )
+        .unwrap();
         Ok(())
     }
 }
@@ -309,11 +323,11 @@ impl Mbtiles {
         );
         let mbt_type = self.detect_type(&mut *conn).await?;
         let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
-        let mut level_details: Vec<LevelDetail> = level_rows
+        let level_details: Vec<LevelDetail> = level_rows
             .into_iter()
             .map(|r| {
                 let zoom = r.zoom.unwrap() as u8;
-                let count = r.count as u32;
+                let count = r.count as u64;
                 let tile_length = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
 
                 let smallest = r.smallest.unwrap_or(0) as u64;
@@ -341,7 +355,7 @@ impl Mbtiles {
 
                 let bbox = Bounds::new(minx, miny, maxx, maxy);
                 LevelDetail {
-                    zoom: format!("{zoom}"),
+                    zoom,
                     count,
                     smallest,
                     largest,
@@ -350,34 +364,29 @@ impl Mbtiles {
                 }
             })
             .collect();
-        let details_of_all = LevelDetail {
-            zoom: "all".to_string(),
-            count: level_details.iter().map(|l| l.count).sum(),
-            smallest: level_details
-                .iter()
-                .map(|l| l.smallest)
-                .reduce(u64::min)
-                .unwrap(),
-            largest: level_details
-                .iter()
-                .map(|l| l.largest)
-                .reduce(u64::max)
-                .unwrap(),
-            average: level_details.iter().map(|l| l.average).sum::<f64>()
-                / level_details.len() as f64,
-            bounding_box: level_details
-                .iter()
-                .map(|l| l.bounding_box)
-                .reduce(|a, b| a + b)
-                .unwrap(),
-        };
-        level_details.push(details_of_all);
+        let count = level_details.iter().map(|l| l.count).sum();
+        let smallest = level_details
+            .iter()
+            .map(|l| l.smallest)
+            .reduce(u64::min)
+            .unwrap();
+        let largest = level_details
+            .iter()
+            .map(|l| l.largest)
+            .reduce(u64::max)
+            .unwrap();
+        let average =
+            level_details.iter().map(|l| l.average).sum::<f64>() / level_details.len() as f64;
         Ok(Statistics {
             file_path: self.filepath.clone(),
             file_size,
             schema: mbt_type,
             page_size,
             level_details,
+            count,
+            smallest,
+            largest,
+            average,
         })
     }
     /// Get the aggregate tiles hash value from the metadata table
@@ -1045,7 +1054,7 @@ mod tests {
         schema: Flat
         page_size: 4096
         level_details:
-          - zoom: "0"
+          - zoom: 0
             count: 1
             smallest: 1107
             largest: 1107
@@ -1055,7 +1064,7 @@ mod tests {
               - -85.05112877764508
               - 180.00000015460688
               - 85.05112879314403
-          - zoom: "1"
+          - zoom: 1
             count: 4
             smallest: 160
             largest: 650
@@ -1065,7 +1074,7 @@ mod tests {
               - -85.05112877764508
               - 180.00000015460688
               - 85.05112879314403
-          - zoom: "2"
+          - zoom: 2
             count: 7
             smallest: 137
             largest: 495
@@ -1075,7 +1084,7 @@ mod tests {
               - -66.51326042021836
               - 180.00000015460688
               - 66.51326049182072
-          - zoom: "3"
+          - zoom: 3
             count: 17
             smallest: 67
             largest: 246
@@ -1085,7 +1094,7 @@ mod tests {
               - -40.9798980140281
               - 180.00000015460688
               - 66.51326049182072
-          - zoom: "4"
+          - zoom: 4
             count: 38
             smallest: 64
             largest: 175
@@ -1095,7 +1104,7 @@ mod tests {
               - -40.9798980140281
               - 180.00000015460688
               - 66.51326049182072
-          - zoom: "5"
+          - zoom: 5
             count: 57
             smallest: 64
             largest: 107
@@ -1105,7 +1114,7 @@ mod tests {
               - -40.9798980140281
               - 180.00000015460688
               - 61.60639642757953
-          - zoom: "6"
+          - zoom: 6
             count: 72
             smallest: 64
             largest: 97
@@ -1115,16 +1124,10 @@ mod tests {
               - -40.9798980140281
               - 180.00000015460688
               - 61.60639642757953
-          - zoom: all
-            count: 196
-            smallest: 64
-            largest: 1107
-            average: 296.3050035803795
-            bounding_box:
-              - -179.99999997494382
-              - -85.05112877764508
-              - 180.00000015460688
-              - 85.05112879314403
+        count: 196
+        smallest: 64
+        largest: 1107
+        average: 296.3050035803795
         "###);
 
         Ok(())
