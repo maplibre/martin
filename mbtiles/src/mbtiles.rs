@@ -62,9 +62,19 @@ pub struct Statistics {
 impl Display for Statistics {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "File: {}", self.file_path).unwrap();
-        writeln!(f, "FileSize: {:.2}B", SizeFormatterBinary::new(self.file_size)).unwrap();
+        writeln!(
+            f,
+            "FileSize: {:.2}B",
+            SizeFormatterBinary::new(self.file_size)
+        )
+        .unwrap();
         writeln!(f, "Schema: {}", self.schema).unwrap();
-        writeln!(f, "Page size: {:.2}B", SizeFormatterBinary::new(self.page_size)).unwrap();
+        writeln!(
+            f,
+            "Page size: {:.2}B",
+            SizeFormatterBinary::new(self.page_size)
+        )
+        .unwrap();
         writeln!(
             f,
             "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
@@ -277,8 +287,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let file_size =
-            PathBuf::from(&self.filepath).metadata().unwrap().len();
+        let file_size = PathBuf::from(&self.filepath).metadata().unwrap().len();
         let page_size = query!("PRAGMA page_size;")
             .fetch_one(&mut *conn)
             .await?
