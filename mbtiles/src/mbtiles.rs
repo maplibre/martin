@@ -15,6 +15,7 @@ use martin_tile_utils::{Format, TileInfo};
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::{Value as JSONValue, Value};
+use size_format::SizeFormatterBinary;
 use sqlite_hashes::register_md5_function;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
 use sqlx::{query, Connection as _, Row, SqliteConnection, SqliteExecutor};
@@ -43,27 +44,27 @@ pub struct Metadata {
 pub struct LevelDetail {
     pub zoom: String,
     pub count: u32,
-    pub smallest: f32,
-    pub largest: f32,
-    pub average: f32,
+    pub smallest: u64,
+    pub largest: u64,
+    pub average: f64,
     pub bounding_box: Bounds,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Statistics {
     pub file_path: String,
-    pub file_size: f64,
+    pub file_size: u64,
     pub schema: MbtType,
-    pub page_size: Option<i32>,
+    pub page_size: u64,
     pub level_details: Vec<LevelDetail>,
 }
 
 impl Display for Statistics {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "File: {}", self.file_path).unwrap();
-        writeln!(f, "FileSize: {:.2}MB", self.file_size).unwrap();
+        writeln!(f, "FileSize: {:.2}B", SizeFormatterBinary::new(self.file_size)).unwrap();
         writeln!(f, "Schema: {}", self.schema).unwrap();
-        writeln!(f, "Page size: {} bytes", self.page_size.unwrap()).unwrap();
+        writeln!(f, "Page size: {:.2}B", SizeFormatterBinary::new(self.page_size)).unwrap();
         writeln!(
             f,
             "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
@@ -72,19 +73,14 @@ impl Display for Statistics {
         .unwrap();
 
         for l in &self.level_details {
-            // let bbox_str = format!(
-            //     "{:.2}, {:.2}, {:.2}, {:.2}",
-            //     l.bounding_box[0], l.bounding_box[1], l.bounding_box[2], l.bounding_box[3]
-            // );
-
             writeln!(
                 f,
                 "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
                 l.zoom,
                 l.count,
-                format!("{:.2}KB", l.smallest),
-                format!("{:.2}KB", l.largest),
-                format!("{:.2}KB", l.average),
+                format!("{:.2}B", SizeFormatterBinary::new(l.smallest)),
+                format!("{:.2}B", SizeFormatterBinary::new(l.largest)),
+                format!("{:.2}B", l.average as u64),
                 l.bounding_box
             )
             .unwrap();
@@ -282,18 +278,19 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let file_size =
-            PathBuf::from(&self.filepath).metadata().unwrap().len() as f64 / 1024.0 / 1024.0;
+            PathBuf::from(&self.filepath).metadata().unwrap().len();
         let page_size = query!("PRAGMA page_size;")
             .fetch_one(&mut *conn)
             .await?
-            .page_size;
+            .page_size
+            .unwrap() as u64;
         let tile_infos_query = query!(
             r#"SELECT
                 zoom_level AS zoom,
                 count( ) AS count,
-                min( length( tile_data ) ) / 1024.0 AS smallest,
-                max( length( tile_data ) ) / 1024.0 AS largest,
-                avg( length( tile_data ) ) / 1024.0 AS average,
+                min( length( tile_data ) ) AS smallest,
+                max( length( tile_data ) ) AS largest,
+                avg( length( tile_data ) ) AS average,
                 min(tile_column) as min_tile_x,
                 min(tile_row) as min_tile_y,
                 max(tile_column) as max_tile_x,
@@ -310,9 +307,9 @@ impl Mbtiles {
                 let count = r.count as u32;
                 let tile_length = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
 
-                let smallest = r.smallest.unwrap_or(0.0) as f32;
-                let largest = r.largest.unwrap_or(0.0) as f32;
-                let average = r.average.unwrap_or(0.0) as f32;
+                let smallest = r.smallest.unwrap_or(0) as u64;
+                let largest = r.largest.unwrap_or(0) as u64;
+                let average = r.average.unwrap_or(0.0);
 
                 let min_tile_x = r.min_tile_x.unwrap();
                 let min_tile_y = r.min_tile_y.unwrap();
@@ -341,15 +338,15 @@ impl Mbtiles {
             smallest: level_details
                 .iter()
                 .map(|l| l.smallest)
-                .reduce(f32::min)
+                .reduce(u64::min)
                 .unwrap(),
             largest: level_details
                 .iter()
                 .map(|l| l.largest)
-                .reduce(f32::max)
+                .reduce(u64::max)
                 .unwrap(),
-            average: level_details.iter().map(|l| l.average).sum::<f32>()
-                / level_details.len() as f32,
+            average: level_details.iter().map(|l| l.average).sum::<f64>()
+                / level_details.len() as f64,
             bounding_box: level_details
                 .iter()
                 .map(|l| l.bounding_box)
@@ -1000,15 +997,15 @@ mod tests {
         assert_yaml_snapshot!(res, @r###"
         ---
         file_path: "../tests/fixtures/mbtiles/world_cities.mbtiles"
-        file_size: 0.046875
+        file_size: 49152
         schema: Flat
         page_size: 4096
         level_details:
           - zoom: "0"
             count: 1
-            smallest: 1.0810547
-            largest: 1.0810547
-            average: 1.0810547
+            smallest: 1107
+            largest: 1107
+            average: 1107
             bounding_box:
               - -20037508.34
               - -20037508.34
@@ -1016,9 +1013,9 @@ mod tests {
               - 20037508.360000003
           - zoom: "1"
             count: 4
-            smallest: 0.15625
-            largest: 0.6347656
-            average: 0.35791016
+            smallest: 160
+            largest: 650
+            average: 366.5
             bounding_box:
               - -20037508.34
               - -20037508.34
@@ -1026,9 +1023,9 @@ mod tests {
               - 20037508.360000003
           - zoom: "2"
             count: 7
-            smallest: 0.13378906
-            largest: 0.48339844
-            average: 0.23395647
+            smallest: 137
+            largest: 495
+            average: 239.57142857142858
             bounding_box:
               - -20037508.34
               - -10018754.165
@@ -1036,9 +1033,9 @@ mod tests {
               - 10018754.185000002
           - zoom: "3"
             count: 17
-            smallest: 0.06542969
-            largest: 0.24023438
-            average: 0.13085938
+            smallest: 67
+            largest: 246
+            average: 134
             bounding_box:
               - -15028131.2525
               - -5009377.077499999
@@ -1046,9 +1043,9 @@ mod tests {
               - 10018754.185000002
           - zoom: "4"
             count: 38
-            smallest: 0.0625
-            largest: 0.17089844
-            average: 0.083984375
+            smallest: 64
+            largest: 175
+            average: 86
             bounding_box:
               - -15028131.2525
               - -5009377.077499999
@@ -1056,9 +1053,9 @@ mod tests {
               - 10018754.185000002
           - zoom: "5"
             count: 57
-            smallest: 0.0625
-            largest: 0.10449219
-            average: 0.071066335
+            smallest: 64
+            largest: 107
+            average: 72.7719298245614
             bounding_box:
               - -13775786.980625
               - -5009377.077499999
@@ -1066,9 +1063,9 @@ mod tests {
               - 8766409.913125
           - zoom: "6"
             count: 72
-            smallest: 0.0625
-            largest: 0.09472656
-            average: 0.06669108
+            smallest: 64
+            largest: 97
+            average: 68.29166666666667
             bounding_box:
               - -13775786.980625
               - -5009377.077499999
@@ -1076,9 +1073,9 @@ mod tests {
               - 8766409.913125
           - zoom: all
             count: 196
-            smallest: 0.0625
-            largest: 1.0810547
-            average: 0.28936034
+            smallest: 64
+            largest: 1107
+            average: 296.3050035803795
             bounding_box:
               - -20037508.34
               - -20037508.34

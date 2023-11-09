@@ -32,6 +32,7 @@ clap = { workspace = true, optional = true }
 env_logger = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
+size_format = "1.0.2"
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself

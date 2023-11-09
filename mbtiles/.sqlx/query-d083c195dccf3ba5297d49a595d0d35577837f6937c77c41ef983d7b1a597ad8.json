@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                zoom_level AS zoom,\n                count( ) AS count,\n                min( length( tile_data ) ) / 1024.0 AS smallest,\n                max( length( tile_data ) ) / 1024.0 AS largest,\n                avg( length( tile_data ) ) / 1024.0 AS average,\n                min(tile_column) as min_tile_x,\n                min(tile_row) as min_tile_y,\n                max(tile_column) as max_tile_x,\n                max(tile_row) as max_tile_y \n            FROM tiles\n            GROUP BY zoom_level",
+  "query": "SELECT\n                zoom_level AS zoom,\n                count( ) AS count,\n                min( length( tile_data ) ) AS smallest,\n                max( length( tile_data ) ) AS largest,\n                avg( length( tile_data ) ) AS average,\n                min(tile_column) as min_tile_x,\n                min(tile_row) as min_tile_y,\n                max(tile_column) as max_tile_x,\n                max(tile_row) as max_tile_y \n            FROM tiles\n            GROUP BY zoom_level",
   "describe": {
     "columns": [
       {
@@ -16,12 +16,12 @@
       {
         "name": "smallest",
         "ordinal": 2,
-        "type_info": "Float"
+        "type_info": "Int"
       },
       {
         "name": "largest",
         "ordinal": 3,
-        "type_info": "Float"
+        "type_info": "Int"
       },
       {
         "name": "average",
@@ -64,5 +64,5 @@
       true
     ]
   },
-  "hash": "e0e1a38ef162278d888b297ec85a8f175977ae491ea3d47069b20b1946c44ade"
+  "hash": "d083c195dccf3ba5297d49a595d0d35577837f6937c77c41ef983d7b1a597ad8"
 }
