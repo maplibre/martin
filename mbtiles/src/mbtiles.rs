@@ -325,10 +325,19 @@ impl Mbtiles {
                 let max_tile_x = r.max_tile_x.unwrap();
                 let max_tile_y = r.max_tile_y.unwrap();
 
-                let minx = -20037508.34 + min_tile_x as f64 * tile_length;
-                let miny = -20037508.34 + min_tile_y as f64 * tile_length;
-                let maxx = -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length;
-                let maxy = -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length;
+                // let minx = -20037508.34 + min_tile_x as f64 * tile_length;
+                // let miny = -20037508.34 + min_tile_y as f64 * tile_length;
+                // let maxx = -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length;
+                // let maxy = -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length;
+
+                let (minx, miny) = webmercator_to_wgs84((
+                    -20037508.34 + min_tile_x as f64 * tile_length,
+                    -20037508.34 + min_tile_y as f64 * tile_length,
+                ));
+                let (maxx, maxy) = webmercator_to_wgs84((
+                    -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length,
+                    -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length,
+                ));
 
                 let bbox = Bounds::new(minx, miny, maxx, maxy);
                 LevelDetail {
@@ -837,6 +846,12 @@ pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
+fn webmercator_to_wgs84(xy: (f64, f64)) -> (f64, f64) {
+    let lon = (xy.0 / 6378137.0).to_degrees();
+    let lat = (f64::atan(f64::sinh(xy.1 / 6378137.0))).to_degrees();
+    (lon, lat)
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -999,6 +1014,26 @@ mod tests {
     }
 
     #[actix_rt::test]
+    async fn meter_to_lnglat() {
+        let xy1 = (-20037508.34, -20037508.34);
+        let lonlat1 = (-179.99999997494382, -85.05112877764508);
+
+        let xy2 = (20037508.34, 20037508.34);
+        let lonlat2 = (179.99999997494382, 85.05112877764508);
+
+        let xy3 = (0.0, 0.0);
+        let lonlat3 = (0.0, 0.0);
+
+        let xy4 = (3000.0, 9000.0);
+        let lonlat4 = (0.026949458523585643, 0.08084834874097371);
+
+        assert_eq!(webmercator_to_wgs84(xy1), lonlat1);
+        assert_eq!(webmercator_to_wgs84(xy2), lonlat2);
+        assert_eq!(webmercator_to_wgs84(xy3), lonlat3);
+        assert_eq!(webmercator_to_wgs84(xy4), lonlat4);
+    }
+
+    #[actix_rt::test]
     async fn stat() -> MbtResult<()> {
         let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
         let res = mbt.statistics(&mut conn).await?;
@@ -1016,80 +1051,80 @@ mod tests {
             largest: 1107
             average: 1107
             bounding_box:
-              - -20037508.34
-              - -20037508.34
-              - 20037508.360000003
-              - 20037508.360000003
+              - -179.99999997494382
+              - -85.05112877764508
+              - 180.00000015460688
+              - 85.05112879314403
           - zoom: "1"
             count: 4
             smallest: 160
             largest: 650
             average: 366.5
             bounding_box:
-              - -20037508.34
-              - -20037508.34
-              - 20037508.360000003
-              - 20037508.360000003
+              - -179.99999997494382
+              - -85.05112877764508
+              - 180.00000015460688
+              - 85.05112879314403
           - zoom: "2"
             count: 7
             smallest: 137
             largest: 495
             average: 239.57142857142858
             bounding_box:
-              - -20037508.34
-              - -10018754.165
-              - 20037508.360000003
-              - 10018754.185000002
+              - -179.99999997494382
+              - -66.51326042021836
+              - 180.00000015460688
+              - 66.51326049182072
           - zoom: "3"
             count: 17
             smallest: 67
             largest: 246
             average: 134
             bounding_box:
-              - -15028131.2525
-              - -5009377.077499999
-              - 20037508.360000003
-              - 10018754.185000002
+              - -134.99999995874995
+              - -40.9798980140281
+              - 180.00000015460688
+              - 66.51326049182072
           - zoom: "4"
             count: 38
             smallest: 64
             largest: 175
             average: 86
             bounding_box:
-              - -15028131.2525
-              - -5009377.077499999
-              - 20037508.360000003
-              - 10018754.185000002
+              - -134.99999995874995
+              - -40.9798980140281
+              - 180.00000015460688
+              - 66.51326049182072
           - zoom: "5"
             count: 57
             smallest: 64
             largest: 107
             average: 72.7719298245614
             bounding_box:
-              - -13775786.980625
-              - -5009377.077499999
-              - 20037508.360000003
-              - 8766409.913125
+              - -123.74999995470151
+              - -40.9798980140281
+              - 180.00000015460688
+              - 61.60639642757953
           - zoom: "6"
             count: 72
             smallest: 64
             largest: 97
             average: 68.29166666666667
             bounding_box:
-              - -13775786.980625
-              - -5009377.077499999
-              - 20037508.360000003
-              - 8766409.913125
+              - -123.74999995470151
+              - -40.9798980140281
+              - 180.00000015460688
+              - 61.60639642757953
           - zoom: all
             count: 196
             smallest: 64
             largest: 1107
             average: 296.3050035803795
             bounding_box:
-              - -20037508.34
-              - -20037508.34
-              - 20037508.360000003
-              - 20037508.360000003
+              - -179.99999997494382
+              - -85.05112877764508
+              - 180.00000015460688
+              - 85.05112879314403
         "###);
 
         Ok(())
