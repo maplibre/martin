@@ -23,6 +23,10 @@
     "pmt": {
       "content_type": "image/png"
     },
+    "pmt2": {
+      "content_type": "image/webp",
+      "name": "ne2sr"
+    },
     "points1": {
       "content_type": "application/x-protobuf",
       "description": "public.points1.geom"

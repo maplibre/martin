@@ -175,7 +175,7 @@ echo "Test auto configured Martin"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2 --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${LOG_DIR}/test_log_1.txt" &
 MARTIN_PROC_ID=`jobs -p | tail -n 1`
@@ -237,8 +237,9 @@ test_jsn points3857_srid          points3857
 test_pbf points3857_srid_0_0_0    points3857/0/0/0
 
 >&2 echo "***** Test server response for PMTiles source *****"
-test_jsn pmt       stamen_toner__raster_CC-BY-ODbL_z3
-test_png pmt_3_4_2 stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
+test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
+test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
+test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
 
 >&2 echo "***** Test server response for MbTiles source *****"
 test_jsn mb_jpg       geography-class-jpg
@@ -276,6 +277,7 @@ test_pbf cmp_0_0_0   points1,points2/0/0/0
 test_pbf fnc_0_0_0   function_zxy_query/0/0/0
 test_pbf fnc2_0_0_0  function_zxy_query_test/0/0/0?token=martin
 test_png pmt_0_0_0   pmt/0/0/0
+test_png pmt2_0_0_0  pmt2/0/0/0  # HTTP pmtiles
 
 test_jsn spr_src1     sprite/src1.json
 test_png spr_src1     sprite/src1.png

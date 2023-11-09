@@ -140,11 +140,24 @@ pub enum FileConfigSrc {
 }
 
 impl FileConfigSrc {
-    pub fn abs_path(&self) -> Result<PathBuf, FileError> {
-        let path = match self {
+    #[must_use]
+    pub fn into_path(self) -> PathBuf {
+        match self {
+            Self::Path(p) => p,
+            Self::Obj(o) => o.path,
+        }
+    }
+
+    #[must_use]
+    pub fn get_path(&self) -> &PathBuf {
+        match self {
             Self::Path(p) => p,
             Self::Obj(o) => &o.path,
-        };
+        }
+    }
+
+    pub fn abs_path(&self) -> Result<PathBuf, FileError> {
+        let path = self.get_path();
         path.canonicalize().map_err(|e| IoError(e, path.clone()))
     }
 }
@@ -158,12 +171,12 @@ pub async fn resolve_files<Fut>(
     config: &mut FileConfigEnum,
     idr: IdResolver,
     extension: &str,
-    create_source: &mut impl FnMut(String, PathBuf) -> Fut,
+    new_source: &mut impl FnMut(String, PathBuf) -> Fut,
 ) -> Result<TileInfoSources, Error>
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
-    resolve_int(config, idr, extension, create_source)
+    resolve_int(config, idr, extension, new_source)
         .map_err(crate::Error::from)
         .await
 }
@@ -172,7 +185,7 @@ async fn resolve_int<Fut>(
     config: &mut FileConfigEnum,
     idr: IdResolver,
     extension: &str,
-    create_source: &mut impl FnMut(String, PathBuf) -> Fut,
+    new_source: &mut impl FnMut(String, PathBuf) -> Fut,
 ) -> Result<TileInfoSources, FileError>
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
@@ -204,7 +217,7 @@ where
                 FileConfigSrc::Obj(pmt) => pmt.path,
                 FileConfigSrc::Path(path) => path,
             };
-            results.push(create_source(id, path).await?);
+            results.push(new_source(id, path).await?);
         }
     }
 
@@ -248,7 +261,7 @@ where
                 FileConfigSrc::Obj(pmt) => pmt.path,
                 FileConfigSrc::Path(path) => path,
             };
-            results.push(create_source(id, path).await?);
+            results.push(new_source(id, path).await?);
         }
     }
 
@@ -288,7 +301,7 @@ mod tests {
             paths,
             vec![
                 PathBuf::from("/dir-path"),
-                PathBuf::from("/path/to/file2.ext")
+                PathBuf::from("/path/to/file2.ext"),
             ]
         );
         assert_eq!(

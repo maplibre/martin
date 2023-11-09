@@ -3,6 +3,7 @@
 set shell := ["bash", "-c"]
 
 #export DATABASE_URL="postgres://postgres:postgres@localhost:5411/db"
+
 export PGPORT := "5411"
 export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
 export CARGO_TERM_COLOR := "always"
@@ -12,7 +13,7 @@ export CARGO_TERM_COLOR := "always"
 #export RUST_BACKTRACE := "1"
 
 @_default:
-    {{just_executable()}} --list --unsorted
+    {{ just_executable() }} --list --unsorted
 
 # Start Martin server
 run *ARGS:
@@ -29,7 +30,7 @@ run-release *ARGS: start
 # Start Martin server and open a test page
 debug-page *ARGS: start
     open tests/debug.html  # run will not exit, so open debug page first
-    {{just_executable()}} run {{ ARGS }}
+    {{ just_executable() }} run {{ ARGS }}
 
 # Run PSQL utility against the test database
 psql *ARGS:
@@ -75,8 +76,9 @@ alias _stop-db := stop
 
 # Restart the test database
 restart:
-    {{just_executable()}} stop
-    {{just_executable()}} start
+    # sometimes Just optimizes targets, so here we force stop & start by using external just executable
+    {{ just_executable() }} stop
+    {{ just_executable() }} start
 
 # Stop the test database
 stop:
@@ -113,9 +115,9 @@ test-ssl-cert: start-ssl-cert
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just_executable()}} test-cargo --all-targets
-    {{just_executable()}} clean-test
-    {{just_executable()}} test-doc
+    {{ just_executable() }} test-cargo --all-targets
+    {{ just_executable() }} clean-test
+    {{ just_executable() }} test-doc
     tests/test.sh
 
 # Run all tests using the oldest supported version of the database
@@ -134,12 +136,18 @@ test-int: clean-test install-sqlx
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
-    if ! diff --brief --recursive --new-file tests/output tests/expected; then
-        echo "** Expected output does not match actual output"
-        echo "** If this is expected, run 'just bless' to update expected output"
-        exit 1
+    if [ "{{ os() }}" != "linux" ]; then
+        echo "** Integration tests are only supported on Linux"
+        echo "** Skipping diffing with the expected output"
     else
-        echo "Expected output matches actual output"
+        echo "** Comparing actual output with expected output..."
+        if ! diff --brief --recursive --new-file tests/output tests/expected; then
+            echo "** Expected output does not match actual output"
+            echo "** If this is expected, run 'just bless' to update expected output"
+            exit 1
+        else
+            echo "** Expected output matches actual output"
+        fi
     fi
 
 # Run integration tests and save its output as the new expected output
@@ -180,8 +188,8 @@ coverage FORMAT='html': (cargo-install "grcov")
         rustup component add llvm-tools-preview ;\
     fi
 
-    {{just_executable()}} clean
-    {{just_executable()}} start
+    {{ just_executable() }} clean
+    {{ just_executable() }} start
 
     PROF_DIR=target/prof
     mkdir -p "$PROF_DIR"
@@ -252,11 +260,15 @@ clippy:
 
 # These steps automatically run before git push via a git hook
 [private]
-git-pre-push: stop start
+git-pre-push: env-info restart lint test
+
+# Get environment info
+[private]
+env-info:
+    @echo "OS is {{ os() }}, arch is {{ arch() }}"
+    {{ just_executable() }} --version
     rustc --version
     cargo --version
-    {{just_executable()}} lint
-    {{just_executable()}} test
 
 # Update sqlite database schema.
 prepare-sqlite: install-sqlx

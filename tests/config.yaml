@@ -163,6 +163,7 @@ postgres:
 pmtiles:
   sources:
     pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt2: tests/fixtures/pmtiles2/webp2.pmtiles
 
 sprites:
   paths: tests/fixtures/sprites/src1
