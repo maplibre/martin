@@ -47,7 +47,7 @@ pub struct LevelDetail {
     pub smallest: u64,
     pub largest: u64,
     pub average: f64,
-    pub bounding_box: Bounds,
+    pub bbox: Bounds,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -58,8 +58,8 @@ pub struct Statistics {
     pub page_size: u64,
     pub level_details: Vec<LevelDetail>,
     pub count: u64,
-    pub smallest: u64,
-    pub largest: u64,
+    pub smallest: Option<u64>,
+    pub largest: Option<u64>,
     pub average: f64,
 }
 
@@ -95,20 +95,23 @@ impl Display for Statistics {
                 format!("{:.2}B", SizeFormatterBinary::new(l.smallest)),
                 format!("{:.2}B", SizeFormatterBinary::new(l.largest)),
                 format!("{:.2}B", l.average as u64),
-                l.bounding_box
+                l.bbox
             )
             .unwrap();
         }
-        writeln!(
-            f,
-            "|{:^9}|{:^9}|{:^9}B|{:^9}B|{:^9}B|",
-            "all",
-            self.count,
-            SizeFormatterBinary::new(self.smallest),
-            SizeFormatterBinary::new(self.largest),
-            SizeFormatterBinary::new(self.average as u64)
-        )
-        .unwrap();
+        if self.count != 0 {
+            writeln!(
+                f,
+                "|{:^9}|{:^9}|{:^9}B|{:^9}B|{:^9}B|",
+                "all",
+                self.count,
+                SizeFormatterBinary::new(self.smallest.unwrap()),
+                SizeFormatterBinary::new(self.largest.unwrap()),
+                SizeFormatterBinary::new(self.average as u64)
+            )
+            .unwrap();
+        }
+
         Ok(())
     }
 }
@@ -339,11 +342,6 @@ impl Mbtiles {
                 let max_tile_x = r.max_tile_x.unwrap();
                 let max_tile_y = r.max_tile_y.unwrap();
 
-                // let minx = -20037508.34 + min_tile_x as f64 * tile_length;
-                // let miny = -20037508.34 + min_tile_y as f64 * tile_length;
-                // let maxx = -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length;
-                // let maxy = -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length;
-
                 let (minx, miny) = webmercator_to_wgs84((
                     -20037508.34 + min_tile_x as f64 * tile_length,
                     -20037508.34 + min_tile_y as f64 * tile_length,
@@ -360,34 +358,43 @@ impl Mbtiles {
                     smallest,
                     largest,
                     average,
-                    bounding_box: bbox,
+                    bbox,
                 }
             })
             .collect();
-        let count = level_details.iter().map(|l| l.count).sum();
-        let smallest = level_details
-            .iter()
-            .map(|l| l.smallest)
-            .reduce(u64::min)
-            .unwrap();
-        let largest = level_details
-            .iter()
-            .map(|l| l.largest)
-            .reduce(u64::max)
-            .unwrap();
-        let average =
-            level_details.iter().map(|l| l.average).sum::<f64>() / level_details.len() as f64;
-        Ok(Statistics {
-            file_path: self.filepath.clone(),
-            file_size,
-            schema: mbt_type,
-            page_size,
-            level_details,
-            count,
-            smallest,
-            largest,
-            average,
-        })
+        if level_details.is_empty() {
+            Ok(Statistics {
+                file_path: self.filepath.clone(),
+                file_size,
+                schema: mbt_type,
+                page_size,
+                level_details,
+                count: 0,
+                smallest: None,
+                largest: None,
+                average: 0.0,
+            })
+        } else {
+            let count = level_details.iter().map(|l| l.count).sum();
+            let smallest = level_details.iter().map(|l| l.smallest).reduce(u64::min);
+            let largest = level_details.iter().map(|l| l.largest).reduce(u64::max);
+            let average = level_details
+                .iter()
+                .map(|l| l.average * l.count as f64)
+                .sum::<f64>()
+                / count as f64;
+            Ok(Statistics {
+                file_path: self.filepath.clone(),
+                file_size,
+                schema: mbt_type,
+                page_size,
+                level_details,
+                count,
+                smallest,
+                largest,
+                average,
+            })
+        }
     }
     /// Get the aggregate tiles hash value from the metadata table
     pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
@@ -865,7 +872,7 @@ fn webmercator_to_wgs84(xy: (f64, f64)) -> (f64, f64) {
 mod tests {
     use std::collections::HashMap;
 
-    use insta::{assert_toml_snapshot, assert_yaml_snapshot};
+    use insta::assert_yaml_snapshot;
     use martin_tile_utils::Encoding;
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
@@ -1059,7 +1066,7 @@ mod tests {
             smallest: 1107
             largest: 1107
             average: 1107
-            bounding_box:
+            bbox:
               - -179.99999997494382
               - -85.05112877764508
               - 180.00000015460688
@@ -1069,7 +1076,7 @@ mod tests {
             smallest: 160
             largest: 650
             average: 366.5
-            bounding_box:
+            bbox:
               - -179.99999997494382
               - -85.05112877764508
               - 180.00000015460688
@@ -1079,7 +1086,7 @@ mod tests {
             smallest: 137
             largest: 495
             average: 239.57142857142858
-            bounding_box:
+            bbox:
               - -179.99999997494382
               - -66.51326042021836
               - 180.00000015460688
@@ -1089,7 +1096,7 @@ mod tests {
             smallest: 67
             largest: 246
             average: 134
-            bounding_box:
+            bbox:
               - -134.99999995874995
               - -40.9798980140281
               - 180.00000015460688
@@ -1099,7 +1106,7 @@ mod tests {
             smallest: 64
             largest: 175
             average: 86
-            bounding_box:
+            bbox:
               - -134.99999995874995
               - -40.9798980140281
               - 180.00000015460688
@@ -1109,7 +1116,7 @@ mod tests {
             smallest: 64
             largest: 107
             average: 72.7719298245614
-            bounding_box:
+            bbox:
               - -123.74999995470151
               - -40.9798980140281
               - 180.00000015460688
@@ -1119,7 +1126,7 @@ mod tests {
             smallest: 64
             largest: 97
             average: 68.29166666666667
-            bounding_box:
+            bbox:
               - -123.74999995470151
               - -40.9798980140281
               - 180.00000015460688
@@ -1127,7 +1134,7 @@ mod tests {
         count: 196
         smallest: 64
         largest: 1107
-        average: 296.3050035803795
+        average: 96.2295918367347
         "###);
 
         Ok(())
