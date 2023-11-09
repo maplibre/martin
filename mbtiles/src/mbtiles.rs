@@ -283,7 +283,10 @@ impl Mbtiles {
     {
         let file_size =
             PathBuf::from(&self.filepath).metadata().unwrap().len() as f64 / 1024.0 / 1024.0;
-        let page_size = query!("PRAGMA page_size;").fetch_one(&mut *conn).await?.page_size;
+        let page_size = query!("PRAGMA page_size;")
+            .fetch_one(&mut *conn)
+            .await?
+            .page_size;
         let tile_infos_query = query!(
             r#"SELECT
                 zoom_level AS zoom,
@@ -348,10 +351,10 @@ impl Mbtiles {
             average: level_details.iter().map(|l| l.average).sum::<f32>()
                 / level_details.len() as f32,
             bounding_box: level_details
-            .iter()
-            .map(|l|l.bounding_box)
-            .reduce(|a,b|a+b)
-            .unwrap(),
+                .iter()
+                .map(|l| l.bounding_box)
+                .reduce(|a, b| a + b)
+                .unwrap(),
         };
         level_details.push(details_of_all);
         Ok(Statistics {
@@ -1082,7 +1085,7 @@ mod tests {
               - 20037508.360000003
               - 20037508.360000003
         "###);
-       
+
         Ok(())
     }
 }
