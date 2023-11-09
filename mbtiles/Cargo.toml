@@ -38,7 +38,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 actix-rt.workspace = true
 ctor.workspace = true
 env_logger.workspace = true
-insta = { workspace = true, features = ["toml"] }
+insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
 

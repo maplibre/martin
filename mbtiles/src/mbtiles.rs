@@ -46,10 +46,10 @@ pub struct LevelDetail {
     pub smallest: f32,
     pub largest: f32,
     pub average: f32,
-    pub bounding_box: [f32; 4],
+    pub bounding_box: Bounds,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Statistics {
     pub file_path: String,
     pub file_size: f64,
@@ -72,10 +72,10 @@ impl Display for Statistics {
         .unwrap();
 
         for l in &self.level_details {
-            let bbox_str = format!(
-                "{:.2}, {:.2}, {:.2}, {:.2}",
-                l.bounding_box[0], l.bounding_box[1], l.bounding_box[2], l.bounding_box[3]
-            );
+            // let bbox_str = format!(
+            //     "{:.2}, {:.2}, {:.2}, {:.2}",
+            //     l.bounding_box[0], l.bounding_box[1], l.bounding_box[2], l.bounding_box[3]
+            // );
 
             writeln!(
                 f,
@@ -85,7 +85,7 @@ impl Display for Statistics {
                 format!("{:.2}KB", l.smallest),
                 format!("{:.2}KB", l.largest),
                 format!("{:.2}KB", l.average),
-                bbox_str
+                l.bounding_box
             )
             .unwrap();
         }
@@ -126,7 +126,7 @@ pub enum MbtTypeCli {
     Normalized,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
 pub enum MbtType {
     Flat,
@@ -305,7 +305,7 @@ impl Mbtiles {
             .map(|r| {
                 let zoom = r.zoom.unwrap() as u8;
                 let count = r.count as u32;
-                let tile_length: f32 = 40075016.7 / (2_u32.pow(zoom as u32)) as f32;
+                let tile_length = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
 
                 let smallest = r.smallest.unwrap_or(0.0) as f32;
                 let largest = r.largest.unwrap_or(0.0) as f32;
@@ -316,13 +316,12 @@ impl Mbtiles {
                 let max_tile_x = r.max_tile_x.unwrap();
                 let max_tile_y = r.max_tile_y.unwrap();
 
-                let minx = -20037508.34 + min_tile_x as f32 * tile_length;
-                let miny = -20037508.34 + min_tile_y as f32 * tile_length;
-                let maxx = -20037508.34 + (max_tile_x as f32 + 1.0) * tile_length;
-                let maxy = -20037508.34 + (max_tile_y as f32 + 1.0) * tile_length;
+                let minx = -20037508.34 + min_tile_x as f64 * tile_length;
+                let miny = -20037508.34 + min_tile_y as f64 * tile_length;
+                let maxx = -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length;
+                let maxy = -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length;
 
-                let bbox: [f32; 4] = [minx, miny, maxx, maxy];
-
+                let bbox = Bounds::new(minx, miny, maxx, maxy);
                 LevelDetail {
                     zoom: format!("{zoom}"),
                     count,
@@ -348,28 +347,11 @@ impl Mbtiles {
                 .unwrap(),
             average: level_details.iter().map(|l| l.average).sum::<f32>()
                 / level_details.len() as f32,
-            bounding_box: [
-                level_details
-                    .iter()
-                    .map(|l| l.bounding_box[0])
-                    .reduce(f32::min)
-                    .unwrap(),
-                level_details
-                    .iter()
-                    .map(|l| l.bounding_box[1])
-                    .reduce(f32::min)
-                    .unwrap(),
-                level_details
-                    .iter()
-                    .map(|l| l.bounding_box[2])
-                    .reduce(f32::max)
-                    .unwrap(),
-                level_details
-                    .iter()
-                    .map(|l| l.bounding_box[3])
-                    .reduce(f32::max)
-                    .unwrap(),
-            ],
+            bounding_box: level_details
+            .iter()
+            .map(|l|l.bounding_box)
+            .reduce(|a,b|a+b)
+            .unwrap(),
         };
         level_details.push(details_of_all);
         Ok(Statistics {
@@ -850,6 +832,7 @@ pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
 mod tests {
     use std::collections::HashMap;
 
+    use insta::{assert_toml_snapshot, assert_yaml_snapshot};
     use martin_tile_utils::Encoding;
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
@@ -1011,45 +994,95 @@ mod tests {
         let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
         let res = mbt.statistics(&mut conn).await?;
 
-        assert_eq!(
-            res.file_path,
-            "../tests/fixtures/mbtiles/world_cities.mbtiles"
-        );
-        assert_eq!(res.file_size, 0.046875);
-        assert_eq!(res.schema, MbtType::Flat);
-        assert_eq!(res.page_size, Some(4096));
-
-        assert_eq!(res.level_details.len(), 8);
-
-        assert_eq!(res.level_details[0].zoom, "0");
-        assert_eq!(res.level_details[0].count, 1);
-        assert_eq!(res.level_details[0].smallest, 1.0810547);
-        assert_eq!(res.level_details[0].largest, 1.0810547);
-        assert_eq!(res.level_details[0].average, 1.0810547);
-        assert_eq!(
-            res.level_details[0].bounding_box,
-            [-20037508.0, -20037508.0, 20037508.0, 20037508.0]
-        );
-
-        assert_eq!(res.level_details[6].zoom, "6");
-        assert_eq!(res.level_details[6].count, 72);
-        assert_eq!(res.level_details[6].smallest, 0.0625);
-        assert_eq!(res.level_details[6].largest, 0.09472656);
-        assert_eq!(res.level_details[6].average, 0.06669108);
-        assert_eq!(
-            res.level_details[6].bounding_box,
-            [-13775787.0, -5009377.0, 20037508.0, 8766410.0]
-        );
-
-        assert_eq!(res.level_details[7].zoom, "all");
-        assert_eq!(res.level_details[7].count, 196);
-        assert_eq!(res.level_details[7].smallest, 0.0625);
-        assert_eq!(res.level_details[7].largest, 1.0810547);
-        assert_eq!(res.level_details[7].average, 0.28936034);
-        assert_eq!(
-            res.level_details[7].bounding_box,
-            [-20037508.00, -20037508.00, 20037508.00, 20037508.00]
-        );
+        assert_yaml_snapshot!(res, @r###"
+        ---
+        file_path: "../tests/fixtures/mbtiles/world_cities.mbtiles"
+        file_size: 0.046875
+        schema: Flat
+        page_size: 4096
+        level_details:
+          - zoom: "0"
+            count: 1
+            smallest: 1.0810547
+            largest: 1.0810547
+            average: 1.0810547
+            bounding_box:
+              - -20037508.34
+              - -20037508.34
+              - 20037508.360000003
+              - 20037508.360000003
+          - zoom: "1"
+            count: 4
+            smallest: 0.15625
+            largest: 0.6347656
+            average: 0.35791016
+            bounding_box:
+              - -20037508.34
+              - -20037508.34
+              - 20037508.360000003
+              - 20037508.360000003
+          - zoom: "2"
+            count: 7
+            smallest: 0.13378906
+            largest: 0.48339844
+            average: 0.23395647
+            bounding_box:
+              - -20037508.34
+              - -10018754.165
+              - 20037508.360000003
+              - 10018754.185000002
+          - zoom: "3"
+            count: 17
+            smallest: 0.06542969
+            largest: 0.24023438
+            average: 0.13085938
+            bounding_box:
+              - -15028131.2525
+              - -5009377.077499999
+              - 20037508.360000003
+              - 10018754.185000002
+          - zoom: "4"
+            count: 38
+            smallest: 0.0625
+            largest: 0.17089844
+            average: 0.083984375
+            bounding_box:
+              - -15028131.2525
+              - -5009377.077499999
+              - 20037508.360000003
+              - 10018754.185000002
+          - zoom: "5"
+            count: 57
+            smallest: 0.0625
+            largest: 0.10449219
+            average: 0.071066335
+            bounding_box:
+              - -13775786.980625
+              - -5009377.077499999
+              - 20037508.360000003
+              - 8766409.913125
+          - zoom: "6"
+            count: 72
+            smallest: 0.0625
+            largest: 0.09472656
+            average: 0.06669108
+            bounding_box:
+              - -13775786.980625
+              - -5009377.077499999
+              - 20037508.360000003
+              - 8766409.913125
+          - zoom: all
+            count: 196
+            smallest: 0.0625
+            largest: 1.0810547
+            average: 0.28936034
+            bounding_box:
+              - -20037508.34
+              - -20037508.34
+              - 20037508.360000003
+              - 20037508.360000003
+        "###);
+       
         Ok(())
     }
 }
