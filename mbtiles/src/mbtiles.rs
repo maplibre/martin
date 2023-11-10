@@ -341,14 +341,14 @@ impl Mbtiles {
                 let max_tile_x = r.max_tile_x.unwrap();
                 let max_tile_y = r.max_tile_y.unwrap();
 
-                let (minx, miny) = webmercator_to_wgs84((
+                let [minx, miny] = webmercator_to_wgs84(
                     -20037508.34 + min_tile_x as f64 * tile_length,
                     -20037508.34 + min_tile_y as f64 * tile_length,
-                ));
-                let (maxx, maxy) = webmercator_to_wgs84((
+                );
+                let [maxx, maxy] = webmercator_to_wgs84(
                     -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length,
                     -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length,
-                ));
+                );
 
                 let bbox = Bounds::new(minx, miny, maxx, maxy);
                 LevelDetail {
@@ -861,10 +861,10 @@ pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
-fn webmercator_to_wgs84(xy: (f64, f64)) -> (f64, f64) {
-    let lon = (xy.0 / 6378137.0).to_degrees();
-    let lat = (f64::atan(f64::sinh(xy.1 / 6378137.0))).to_degrees();
-    (lon, lat)
+fn webmercator_to_wgs84(x: f64, y: f64) -> [f64; 2] {
+    let lng = (x / 6378137.0).to_degrees();
+    let lat = (f64::atan(f64::sinh(y / 6378137.0))).to_degrees();
+    [lng, lat]
 }
 
 #[cfg(test)]
@@ -1030,22 +1030,29 @@ mod tests {
 
     #[actix_rt::test]
     async fn meter_to_lnglat() {
-        let xy1 = (-20037508.34, -20037508.34);
-        let lonlat1 = (-179.99999997494382, -85.05112877764508);
-
-        let xy2 = (20037508.34, 20037508.34);
-        let lonlat2 = (179.99999997494382, 85.05112877764508);
-
-        let xy3 = (0.0, 0.0);
-        let lonlat3 = (0.0, 0.0);
-
-        let xy4 = (3000.0, 9000.0);
-        let lonlat4 = (0.026949458523585643, 0.08084834874097371);
-
-        assert_eq!(webmercator_to_wgs84(xy1), lonlat1);
-        assert_eq!(webmercator_to_wgs84(xy2), lonlat2);
-        assert_eq!(webmercator_to_wgs84(xy3), lonlat3);
-        assert_eq!(webmercator_to_wgs84(xy4), lonlat4);
+        let cases = [
+            [
+                -20037508.34,
+                -20037508.34,
+                -179.99999997494382,
+                -85.05112877764508,
+            ],
+            [
+                20037508.34,
+                20037508.34,
+                179.99999997494382,
+                85.05112877764508,
+            ],
+            [0.0, 0.0, 0.0, 0.0],
+            [3000.0, 9000.0, 0.026949458523585643, 0.08084834874097371],
+        ];
+        for case in cases.iter() {
+            let actual = webmercator_to_wgs84(case[0], case[1]);
+            let exp_lng = case[2];
+            let exp_lat = case[3];
+            assert_relative_eq!(actual[0], exp_lng, epsilon = 1e-4);
+            assert_relative_eq!(actual[1], exp_lat, epsilon = 1e-4);
+        }
     }
 
     #[actix_rt::test]

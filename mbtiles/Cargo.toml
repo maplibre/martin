@@ -42,6 +42,7 @@ env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
+approx = "0.5.1"
 
 [lib]
 path = "src/lib.rs"
