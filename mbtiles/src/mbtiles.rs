@@ -66,19 +66,15 @@ pub struct Statistics {
 impl Display for Statistics {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "File: {}", self.file_path).unwrap();
-        writeln!(
-            f,
-            "FileSize: {:.2}B",
-            SizeFormatterBinary::new(self.file_size)
-        )
-        .unwrap();
+
+        let file_size = SizeFormatterBinary::new(self.file_size);
+        writeln!(f, "FileSize: {:.2}B", file_size).unwrap();
+
         writeln!(f, "Schema: {}", self.schema).unwrap();
-        writeln!(
-            f,
-            "Page size: {:.2}B",
-            SizeFormatterBinary::new(self.page_size)
-        )
-        .unwrap();
+
+        let page_size = SizeFormatterBinary::new(self.page_size);
+        writeln!(f, "Page size: {:.2}B", page_size).unwrap();
+
         writeln!(
             f,
             "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
@@ -87,27 +83,30 @@ impl Display for Statistics {
         .unwrap();
 
         for l in &self.level_details {
+            let smallest = SizeFormatterBinary::new(l.smallest);
+            let largest = SizeFormatterBinary::new(l.largest);
+            let average = SizeFormatterBinary::new(l.average as u64);
+
             writeln!(
                 f,
                 "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
                 l.zoom,
                 l.count,
-                format!("{:.2}B", SizeFormatterBinary::new(l.smallest)),
-                format!("{:.2}B", SizeFormatterBinary::new(l.largest)),
-                format!("{:.2}B", l.average as u64),
+                format!("{:.2}B", smallest),
+                format!("{:.2}B", largest),
+                format!("{:.2}B", average),
                 l.bbox
             )
             .unwrap();
         }
         if self.count != 0 {
+            let smallest = SizeFormatterBinary::new(self.smallest.unwrap());
+            let largest = SizeFormatterBinary::new(self.largest.unwrap());
+            let average = SizeFormatterBinary::new(self.average as u64);
             writeln!(
                 f,
                 "|{:^9}|{:^9}|{:^9}B|{:^9}B|{:^9}B|",
-                "all",
-                self.count,
-                SizeFormatterBinary::new(self.smallest.unwrap()),
-                SizeFormatterBinary::new(self.largest.unwrap()),
-                SizeFormatterBinary::new(self.average as u64)
+                "all", self.count, smallest, largest, average
             )
             .unwrap();
         }
