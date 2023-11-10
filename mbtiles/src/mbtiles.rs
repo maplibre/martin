@@ -68,12 +68,12 @@ impl Display for Statistics {
         writeln!(f, "File: {}", self.file_path).unwrap();
 
         let file_size = SizeFormatterBinary::new(self.file_size);
-        writeln!(f, "FileSize: {:.2}B", file_size).unwrap();
+        writeln!(f, "FileSize: {file_size:.2}B").unwrap();
 
         writeln!(f, "Schema: {}", self.schema).unwrap();
 
         let page_size = SizeFormatterBinary::new(self.page_size);
-        writeln!(f, "Page size: {:.2}B", page_size).unwrap();
+        writeln!(f, "Page size: {page_size:.2}B").unwrap();
 
         writeln!(
             f,
@@ -92,9 +92,9 @@ impl Display for Statistics {
                 "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
                 l.zoom,
                 l.count,
-                format!("{:.2}B", smallest),
-                format!("{:.2}B", largest),
-                format!("{:.2}B", average),
+                format!("{smallest:.2}B"),
+                format!("{largest:.2}B"),
+                format!("{average:.2}B"),
                 l.bbox
             )
             .unwrap();
