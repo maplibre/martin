@@ -41,7 +41,7 @@ pub struct Metadata {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct LevelDetail {
+pub struct ZoomStats {
     pub zoom: u8,
     pub count: u64,
     pub smallest: u64,
@@ -56,7 +56,7 @@ pub struct Statistics {
     pub file_size: u64,
     pub schema: MbtType,
     pub page_size: u64,
-    pub level_details: Vec<LevelDetail>,
+    pub zoom_stats_list: Vec<ZoomStats>,
     pub count: u64,
     pub smallest: Option<u64>,
     pub largest: Option<u64>,
@@ -82,7 +82,7 @@ impl Display for Statistics {
         )
         .unwrap();
 
-        for l in &self.level_details {
+        for l in &self.zoom_stats_list {
             let smallest = SizeFormatterBinary::new(l.smallest);
             let largest = SizeFormatterBinary::new(l.largest);
             let average = SizeFormatterBinary::new(l.average as u64);
@@ -325,7 +325,7 @@ impl Mbtiles {
         );
         let mbt_type = self.detect_type(&mut *conn).await?;
         let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
-        let level_details: Vec<LevelDetail> = level_rows
+        let level_details: Vec<ZoomStats> = level_rows
             .into_iter()
             .map(|r| {
                 let zoom = r.zoom.unwrap() as u8;
@@ -351,7 +351,7 @@ impl Mbtiles {
                 );
 
                 let bbox = Bounds::new(minx, miny, maxx, maxy);
-                LevelDetail {
+                ZoomStats {
                     zoom,
                     count,
                     smallest,
@@ -367,7 +367,7 @@ impl Mbtiles {
                 file_size,
                 schema: mbt_type,
                 page_size,
-                level_details,
+                zoom_stats_list: level_details,
                 count: 0,
                 smallest: None,
                 largest: None,
@@ -387,7 +387,7 @@ impl Mbtiles {
                 file_size,
                 schema: mbt_type,
                 page_size,
-                level_details,
+                zoom_stats_list: level_details,
                 count,
                 smallest,
                 largest,
@@ -1066,7 +1066,7 @@ mod tests {
         file_size: 49152
         schema: Flat
         page_size: 4096
-        level_details:
+        zoom_stats_list:
           - zoom: 0
             count: 1
             smallest: 1107
