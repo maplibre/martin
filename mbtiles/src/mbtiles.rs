@@ -877,6 +877,7 @@ mod tests {
     use tilejson::VectorLayer;
 
     use super::*;
+    use approx::assert_relative_eq;
 
     async fn open(filepath: &str) -> MbtResult<(SqliteConnection, Mbtiles)> {
         let mbt = Mbtiles::new(filepath)?;

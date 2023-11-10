@@ -24,7 +24,3 @@ pub use queries::{
     create_flat_tables, create_flat_with_hash_tables, create_metadata_table,
     create_normalized_tables, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
-
-#[cfg(test)]
-#[macro_use]
-extern crate approx;
