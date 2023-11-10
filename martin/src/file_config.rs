@@ -40,7 +40,7 @@ pub enum FileError {
     AquireConnError(String),
 
     #[error(r#"PMTiles error {0} processing {1}"#)]
-    PmtError(pmtiles::error::Error, String),
+    PmtError(pmtiles::PmtError, String),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -178,7 +178,7 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
-async fn dummy_resolver(_id: String, _url: Url) -> Result<Box<dyn Source>, FileError> {
+async fn dummy_resolver(_id: String, _url: Url) -> FileResult<Box<dyn Source>> {
     unreachable!()
 }
 
@@ -203,13 +203,13 @@ pub async fn resolve_files_urls<Fut1, Fut2>(
     extension: &str,
     new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
     new_url_source: &mut impl FnMut(String, Url) -> Fut2,
-) -> Result<TileInfoSources, Error>
+) -> MartinResult<TileInfoSources>
 where
     Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
     Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
     resolve_int(config, idr, extension, true, new_source, new_url_source)
-        .map_err(crate::Error::from)
+        .map_err(crate::MartinError::from)
         .await
 }
 

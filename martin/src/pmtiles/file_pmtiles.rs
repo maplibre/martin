@@ -11,10 +11,10 @@ use pmtiles::mmap::MmapBackend;
 use pmtiles::{Compression, TileType};
 use tilejson::TileJSON;
 
-use crate::file_config::FileError;
 use crate::file_config::FileError::{InvalidMetadata, IoError};
-use crate::source::{Source, Tile, UrlQuery};
-use crate::{Error, Xyz};
+use crate::file_config::FileResult;
+use crate::source::{Source, UrlQuery};
+use crate::{MartinResult, TileCoord, TileData};
 
 #[derive(Clone)]
 pub struct PmtFileSource {
@@ -36,11 +36,11 @@ impl Debug for PmtFileSource {
 }
 
 impl PmtFileSource {
-    pub async fn new_box(id: String, path: PathBuf) -> Result<Box<dyn Source>, FileError> {
+    pub async fn new_box(id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(PmtFileSource::new(id, path).await?))
     }
 
-    async fn new(id: String, path: PathBuf) -> Result<Self, FileError> {
+    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let backend = MmapBackend::try_from(path.as_path())
             .await
             .map_err(|e| {
@@ -70,8 +70,8 @@ impl PmtFileSource {
         id: String,
         path: PathBuf,
         reader: AsyncPmTilesReader<MmapBackend>,
-    ) -> Result<Self, FileError> {
-        let hdr = &reader.header;
+    ) -> FileResult<Self> {
+        let hdr = &reader.get_header();
 
         if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
             return Err(InvalidMetadata(
@@ -145,14 +145,18 @@ impl Source for PmtFileSource {
         Box::new(self.clone())
     }
 
-    async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
+    async fn get_tile(
+        &self,
+        xyz: &TileCoord,
+        _url_query: &Option<UrlQuery>,
+    ) -> MartinResult<TileData> {
         // TODO: optimize to return Bytes
         if let Some(t) = self
             .pmtiles
             .get_tile(xyz.z, u64::from(xyz.x), u64::from(xyz.y))
             .await
         {
-            Ok(t.data.to_vec())
+            Ok(t.to_vec())
         } else {
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",

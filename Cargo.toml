@@ -50,6 +50,7 @@ json-patch = "1.2"
 log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.2.0" }
 mbtiles = { path = "./mbtiles", version = "0.8.0" }
+moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
 pmtiles = { version = "0.5", features = ["http-async", "mmap-async-tokio", "tilejson"] }

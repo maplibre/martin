@@ -80,6 +80,7 @@ json-patch.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
+moka.workspace = true
 num_cpus.workspace = true
 pbf_font_tools.workspace = true
 pmtiles.workspace = true
