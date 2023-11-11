@@ -89,7 +89,7 @@ impl Display for Statistics {
 
             writeln!(
                 f,
-                "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
+                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
                 l.zoom,
                 l.count,
                 format!("{smallest:.2}B"),
@@ -105,8 +105,12 @@ impl Display for Statistics {
             let average = SizeFormatterBinary::new(self.average as u64);
             writeln!(
                 f,
-                "|{:^9}|{:^9}|{:^9}B|{:^9}B|{:^9}B|",
-                "all", self.count, smallest, largest, average
+                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
+                "all",
+                self.count,
+                format!("{smallest}B"),
+                format!("{largest}B"),
+                format!("{average}B")
             )
             .unwrap();
         }
