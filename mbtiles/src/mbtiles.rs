@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 
 #[cfg(feature = "cli")]
@@ -307,7 +307,13 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let file_size = PathBuf::from(&self.filepath).metadata().unwrap().len();
+        let file_size = query!(
+            "SELECT page_count * page_size as file_size FROM pragma_page_count(), pragma_page_size();"
+        ).fetch_one(&mut *conn)
+        .await?
+        .file_size
+        .expect("The file size of the MBTiles file shouldn't be None") as u64;
+
         let page_size = query!("PRAGMA page_size;")
             .fetch_one(&mut *conn)
             .await?
@@ -880,6 +886,8 @@ mod tests {
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
 
+    use crate::create_flat_tables;
+
     use super::*;
     use approx::assert_relative_eq;
 
@@ -1033,6 +1041,26 @@ mod tests {
         Ok(())
     }
 
+    #[actix_rt::test]
+    async fn stats_empty_file() -> MbtResult<()> {
+        let (mut conn, mbt) = open("file:mbtiles_empty_stats?mode=memory&cache=shared").await?;
+        create_flat_tables(&mut conn).await.unwrap();
+        let res = mbt.statistics(&mut conn).await?;
+        assert_yaml_snapshot!(res, @r###"
+        ---
+        file_path: "file:mbtiles_empty_stats?mode=memory&cache=shared"
+        file_size: 20480
+        schema: Flat
+        page_size: 4096
+        zoom_stats_list: []
+        count: 0
+        smallest: ~
+        largest: ~
+        average: 0
+        "###);
+
+        Ok(())
+    }
     #[actix_rt::test]
     async fn meter_to_lnglat() {
         let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
