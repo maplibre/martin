@@ -100,8 +100,8 @@ impl Display for Statistics {
             .unwrap();
         }
         if self.count != 0 {
-            let smallest = SizeFormatterBinary::new(self.smallest.unwrap());
-            let largest = SizeFormatterBinary::new(self.largest.unwrap());
+            let smallest = SizeFormatterBinary::new(self.smallest.expect("The smallest tile size of all zoom levels shouldn't be None when the tiles count of all zoom level is not 0"));
+            let largest = SizeFormatterBinary::new(self.largest.expect("The largest tile size of all zoom levels shouldn't be None when the tiles count of all zoom level is not 0"));
             let average = SizeFormatterBinary::new(self.average as u64);
             writeln!(
                 f,
