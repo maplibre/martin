@@ -78,7 +78,7 @@ impl Display for Statistics {
         writeln!(
             f,
             "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
-            "zoom", "count", "smallest", "largest", "average", "bbox"
+            "Zoom", "Count", "Smallest", "Largest", "Average", "BBox"
         )
         .unwrap();
 
