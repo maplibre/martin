@@ -26,4 +26,5 @@
   - [MBTiles Copying / Diffing](52-mbtiles-copy.md)
   - [MBTiles Validation](53-mbtiles-validation.md)
   - [MBTiles Schemas](54-mbtiles-schema.md)
+  - [MBTiles statistics](55-mbtiles-stats.md)
 - [Development](60-development.md)

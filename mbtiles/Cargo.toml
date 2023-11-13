@@ -19,9 +19,10 @@ enum-display.workspace = true
 futures.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
-serde.workspace = true
 serde_json.workspace = true
+serde.workspace = true
 serde_with.workspace = true
+size_format.workspace = true
 sqlite-hashes.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
@@ -37,9 +38,10 @@ tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
+approx.workspace = true
 ctor.workspace = true
 env_logger.workspace = true
-insta = { workspace = true, features = ["toml"] }
+insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
 

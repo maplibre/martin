@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 use std::ffi::OsStr;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -15,6 +15,7 @@ use martin_tile_utils::{Format, TileInfo};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{Value as JSONValue, Value};
+use size_format::SizeFormatterBinary;
 use sqlite_hashes::register_md5_function;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
 use sqlx::{query, Connection as _, Row, SqliteConnection, SqliteExecutor};
@@ -39,6 +40,85 @@ pub struct Metadata {
     pub json: Option<JSONValue>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ZoomStats {
+    pub zoom: u8,
+    pub count: u64,
+    pub smallest: u64,
+    pub largest: u64,
+    pub average: f64,
+    pub bbox: Bounds,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Statistics {
+    pub file_path: String,
+    pub file_size: u64,
+    pub mbt_type: MbtType,
+    pub page_size: u64,
+    pub zoom_stats_list: Vec<ZoomStats>,
+    pub count: u64,
+    pub smallest: Option<u64>,
+    pub largest: Option<u64>,
+    pub average: f64,
+}
+
+impl Display for Statistics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "File: {}", self.file_path)?;
+
+        let file_size = SizeFormatterBinary::new(self.file_size);
+        writeln!(f, "FileSize: {file_size:.2}B")?;
+
+        writeln!(f, "Schema: {}", self.mbt_type)?;
+
+        let page_size = SizeFormatterBinary::new(self.page_size);
+        writeln!(f, "Page size: {page_size:.2}B")?;
+
+        writeln!(
+            f,
+            "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
+            "Zoom", "Count", "Smallest", "Largest", "Average", "BBox"
+        )?;
+
+        for l in &self.zoom_stats_list {
+            let smallest = SizeFormatterBinary::new(l.smallest);
+            let largest = SizeFormatterBinary::new(l.largest);
+            let average = SizeFormatterBinary::new(l.average as u64);
+
+            writeln!(
+                f,
+                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
+                l.zoom,
+                l.count,
+                format!("{smallest:.2}B"),
+                format!("{largest:.2}B"),
+                format!("{average:.2}B"),
+                l.bbox
+            )?;
+        }
+        if self.count != 0 {
+            if let (Some(smallest), Some(largest)) = (self.smallest, self.largest) {
+                let smallest = SizeFormatterBinary::new(smallest);
+                let largest = SizeFormatterBinary::new(largest);
+                let average = SizeFormatterBinary::new(self.average as u64);
+                writeln!(
+                    f,
+                    "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
+                    "all",
+                    self.count,
+                    format!("{smallest}B"),
+                    format!("{largest}B"),
+                    format!("{average}B")
+                )?
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error> {
     let mut s = serializer.serialize_struct("TileInfo", 2)?;
     s.serialize_field("format", &ti.format.to_string())?;
@@ -65,7 +145,7 @@ pub enum MbtTypeCli {
     Normalized,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
 pub enum MbtType {
     Flat,
@@ -100,7 +180,7 @@ pub struct Mbtiles {
 }
 
 impl Display for Mbtiles {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.filepath)
     }
 }
@@ -216,7 +296,95 @@ impl Mbtiles {
             self.check_agg_tiles_hashes(&mut conn).await
         }
     }
+    pub async fn statistics<T>(&self, conn: &mut T) -> MbtResult<Statistics>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let file_size = query!(
+            "SELECT page_count * page_size as file_size FROM pragma_page_count(), pragma_page_size();"
+        ).fetch_one(&mut *conn)
+        .await?
+        .file_size
+        .expect("The file size of the MBTiles file shouldn't be None") as u64;
 
+        let page_size = query!("PRAGMA page_size;")
+            .fetch_one(&mut *conn)
+            .await?
+            .page_size
+            .unwrap() as u64;
+        let tile_infos_query = query!(
+            "
+    SELECT zoom_level             AS zoom,
+           count()                AS count,
+           min(length(tile_data)) AS smallest,
+           max(length(tile_data)) AS largest,
+           avg(length(tile_data)) AS average,
+           min(tile_column)       AS min_tile_x,
+           min(tile_row)          AS min_tile_y,
+           max(tile_column)       AS max_tile_x,
+           max(tile_row)          AS max_tile_y
+    FROM tiles
+    GROUP BY zoom_level"
+        );
+        let mbt_type = self.detect_type(&mut *conn).await?;
+        let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
+        let zoom_stats_list: Vec<ZoomStats> = level_rows
+            .into_iter()
+            .map(|r| {
+                let zoom = r.zoom.unwrap() as u8;
+                let count = r.count as u64;
+                let tile_length = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
+
+                let smallest = r.smallest.unwrap_or(0) as u64;
+                let largest = r.largest.unwrap_or(0) as u64;
+                let average = r.average.unwrap_or(0.0);
+
+                let min_tile_x = r.min_tile_x.unwrap();
+                let min_tile_y = r.min_tile_y.unwrap();
+                let max_tile_x = r.max_tile_x.unwrap();
+                let max_tile_y = r.max_tile_y.unwrap();
+
+                let (minx, miny) = webmercator_to_wgs84(
+                    -20037508.34 + min_tile_x as f64 * tile_length,
+                    -20037508.34 + min_tile_y as f64 * tile_length,
+                );
+                let (maxx, maxy) = webmercator_to_wgs84(
+                    -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length,
+                    -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length,
+                );
+
+                let bbox = Bounds::new(minx, miny, maxx, maxy);
+                ZoomStats {
+                    zoom,
+                    count,
+                    smallest,
+                    largest,
+                    average,
+                    bbox,
+                }
+            })
+            .collect();
+
+        let count = zoom_stats_list.iter().map(|l| l.count).sum();
+        let smallest = zoom_stats_list.iter().map(|l| l.smallest).reduce(u64::min);
+        let largest = zoom_stats_list.iter().map(|l| l.largest).reduce(u64::max);
+        let average = zoom_stats_list
+            .iter()
+            .map(|l| l.average * l.count as f64)
+            .sum::<f64>()
+            / count as f64;
+        Ok(Statistics {
+            file_path: self.filepath.clone(),
+            file_size,
+            mbt_type,
+            page_size,
+            zoom_stats_list,
+            count,
+            smallest,
+            largest,
+            average,
+        })
+    }
     /// Get the aggregate tiles hash value from the metadata table
     pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
     where
@@ -683,15 +851,25 @@ pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
+fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
+    let lng = (x / 6378137.0).to_degrees();
+    let lat = (f64::atan(f64::sinh(y / 6378137.0))).to_degrees();
+    (lng, lat)
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
+    use insta::assert_yaml_snapshot;
     use martin_tile_utils::Encoding;
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
 
+    use crate::create_flat_tables;
+
     use super::*;
+    use approx::assert_relative_eq;
 
     async fn open(filepath: &str) -> MbtResult<(SqliteConnection, Mbtiles)> {
         let mbt = Mbtiles::new(filepath)?;
@@ -840,6 +1018,136 @@ mod tests {
             open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await?;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
+        Ok(())
+    }
+
+    #[actix_rt::test]
+    async fn stats_empty_file() -> MbtResult<()> {
+        let (mut conn, mbt) = open("file:mbtiles_empty_stats?mode=memory&cache=shared").await?;
+        create_flat_tables(&mut conn).await.unwrap();
+        let res = mbt.statistics(&mut conn).await?;
+        assert_yaml_snapshot!(res, @r###"
+        ---
+        file_path: "file:mbtiles_empty_stats?mode=memory&cache=shared"
+        file_size: 20480
+        mbt_type: Flat
+        page_size: 4096
+        zoom_stats_list: []
+        count: 0
+        smallest: ~
+        largest: ~
+        average: NaN
+        "###);
+
+        Ok(())
+    }
+    #[actix_rt::test]
+    async fn meter_to_lnglat() {
+        let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
+        assert_relative_eq!(lng, -179.99999997494382, epsilon = f64::EPSILON);
+        assert_relative_eq!(lat, -85.05112877764508, epsilon = f64::EPSILON);
+
+        let (lng, lat) = webmercator_to_wgs84(20037508.34, 20037508.34);
+        assert_relative_eq!(lng, 179.99999997494382, epsilon = f64::EPSILON);
+        assert_relative_eq!(lat, 85.05112877764508, epsilon = f64::EPSILON);
+
+        let (lng, lat) = webmercator_to_wgs84(0.0, 0.0);
+        assert_relative_eq!(lng, 0.0, epsilon = f64::EPSILON);
+        assert_relative_eq!(lat, 0.0, epsilon = f64::EPSILON);
+
+        let (lng, lat) = webmercator_to_wgs84(3000.0, 9000.0);
+        assert_relative_eq!(lng, 0.026949458523585643, epsilon = f64::EPSILON);
+        assert_relative_eq!(lat, 0.08084834874097371, epsilon = f64::EPSILON);
+    }
+
+    #[actix_rt::test]
+    async fn stat() -> MbtResult<()> {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
+        let res = mbt.statistics(&mut conn).await?;
+
+        assert_yaml_snapshot!(res, @r###"
+        ---
+        file_path: "../tests/fixtures/mbtiles/world_cities.mbtiles"
+        file_size: 49152
+        mbt_type: Flat
+        page_size: 4096
+        zoom_stats_list:
+          - zoom: 0
+            count: 1
+            smallest: 1107
+            largest: 1107
+            average: 1107
+            bbox:
+              - -179.99999997494382
+              - -85.05112877764508
+              - 180.00000015460688
+              - 85.05112879314403
+          - zoom: 1
+            count: 4
+            smallest: 160
+            largest: 650
+            average: 366.5
+            bbox:
+              - -179.99999997494382
+              - -85.05112877764508
+              - 180.00000015460688
+              - 85.05112879314403
+          - zoom: 2
+            count: 7
+            smallest: 137
+            largest: 495
+            average: 239.57142857142858
+            bbox:
+              - -179.99999997494382
+              - -66.51326042021836
+              - 180.00000015460688
+              - 66.51326049182072
+          - zoom: 3
+            count: 17
+            smallest: 67
+            largest: 246
+            average: 134
+            bbox:
+              - -134.99999995874995
+              - -40.9798980140281
+              - 180.00000015460688
+              - 66.51326049182072
+          - zoom: 4
+            count: 38
+            smallest: 64
+            largest: 175
+            average: 86
+            bbox:
+              - -134.99999995874995
+              - -40.9798980140281
+              - 180.00000015460688
+              - 66.51326049182072
+          - zoom: 5
+            count: 57
+            smallest: 64
+            largest: 107
+            average: 72.7719298245614
+            bbox:
+              - -123.74999995470151
+              - -40.9798980140281
+              - 180.00000015460688
+              - 61.60639642757953
+          - zoom: 6
+            count: 72
+            smallest: 64
+            largest: 97
+            average: 68.29166666666667
+            bbox:
+              - -123.74999995470151
+              - -40.9798980140281
+              - 180.00000015460688
+              - 61.60639642757953
+        count: 196
+        smallest: 64
+        largest: 1107
+        average: 96.2295918367347
+        "###);
+
         Ok(())
     }
 }
