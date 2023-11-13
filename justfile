@@ -82,7 +82,7 @@ restart:
 
 # Stop the test database
 stop:
-    docker-compose down
+    docker-compose down --remove-orphans
 
 # Run benchmark tests
 bench: start
