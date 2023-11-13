@@ -43,10 +43,10 @@ pub struct Metadata {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ZoomInfo {
     pub zoom: u8,
-    pub count: u64,
-    pub smallest: u64,
-    pub largest: u64,
-    pub average: f64,
+    pub tile_count: u64,
+    pub min_tile_size: u64,
+    pub max_tile_size: u64,
+    pub avg_tile_size: f64,
     pub bbox: Bounds,
 }
 
@@ -57,11 +57,14 @@ pub struct Summary {
     pub mbt_type: MbtType,
     pub page_size: u64,
     pub page_count: u64,
+    pub tile_count: u64,
+    pub min_tile_size: Option<u64>,
+    pub max_tile_size: Option<u64>,
+    pub avg_tile_size: f64,
+    pub bbox: Option<Bounds>,
+    pub min_zoom: Option<u8>,
+    pub max_zoom: Option<u8>,
     pub zoom_info: Vec<ZoomInfo>,
-    pub count: u64,
-    pub smallest: Option<u64>,
-    pub largest: Option<u64>,
-    pub average: f64,
 }
 
 impl Display for Summary {
@@ -78,43 +81,53 @@ impl Display for Summary {
         let page_size = SizeFormatterBinary::new(self.page_size);
         writeln!(f, "Page size: {page_size:.2}B")?;
         writeln!(f, "Page count: {:.2}", self.page_count)?;
-
+        writeln!(f)?;
         writeln!(
             f,
-            "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
+            "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}| {:^20} |",
             "Zoom", "Count", "Smallest", "Largest", "Average", "BBox"
         )?;
 
         for l in &self.zoom_info {
-            let smallest = SizeFormatterBinary::new(l.smallest);
-            let largest = SizeFormatterBinary::new(l.largest);
-            let average = SizeFormatterBinary::new(l.average as u64);
+            let min = SizeFormatterBinary::new(l.min_tile_size);
+            let max = SizeFormatterBinary::new(l.max_tile_size);
+            let avg = SizeFormatterBinary::new(l.avg_tile_size as u64);
+            let prec = get_zoom_precision(l.zoom);
 
             writeln!(
                 f,
-                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
+                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}| {:<20} |",
                 l.zoom,
-                l.count,
-                format!("{smallest:.2}B"),
-                format!("{largest:.2}B"),
-                format!("{average:.2}B"),
-                l.bbox
+                l.tile_count,
+                format!("{min:.2}B"),
+                format!("{max:.2}B"),
+                format!("{avg:.2}B"),
+                format!("{:.prec$}", l.bbox),
             )?;
         }
 
-        if let (Some(smallest), Some(largest)) = (self.smallest, self.largest) {
-            let smallest = SizeFormatterBinary::new(smallest);
-            let largest = SizeFormatterBinary::new(largest);
-            let average = SizeFormatterBinary::new(self.average as u64);
-            writeln!(
-                f,
-                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
-                "all",
-                self.count,
-                format!("{smallest}B"),
-                format!("{largest}B"),
-                format!("{average}B")
-            )?;
+        if self.zoom_info.len() > 1 {
+            if let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
+                self.min_tile_size,
+                self.max_tile_size,
+                self.bbox,
+                self.max_zoom,
+            ) {
+                let min = SizeFormatterBinary::new(min);
+                let max = SizeFormatterBinary::new(max);
+                let avg = SizeFormatterBinary::new(self.avg_tile_size as u64);
+                let prec = get_zoom_precision(max_zoom);
+                writeln!(
+                    f,
+                    "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}| {:<20} |",
+                    "all",
+                    self.tile_count,
+                    format!("{min}B"),
+                    format!("{max}B"),
+                    format!("{avg}B"),
+                    format!("{:.prec$}", bbox),
+                )?;
+            }
         }
 
         Ok(())
@@ -129,6 +142,16 @@ fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S:
         ti.encoding.content_encoding().unwrap_or_default(),
     )?;
     s.end()
+}
+
+fn get_zoom_precision(zoom: u8) -> usize {
+    let lng_delta = webmercator_to_wgs84(40075016.7 / (2_u32.pow(zoom as u32)) as f64, 0f64).0;
+    let log = lng_delta.log10() - 0.5;
+    if log > 0_f64 {
+        0
+    } else {
+        -log.ceil() as usize
+    }
 }
 
 /// Metadata key for the aggregate tiles hash value
@@ -339,10 +362,10 @@ impl Mbtiles {
                 let zoom = u8::try_from(r.zoom.unwrap()).expect("zoom_level is not a u8");
                 ZoomInfo {
                     zoom,
-                    count: r.count as u64,
-                    smallest: r.smallest.unwrap_or(0) as u64,
-                    largest: r.largest.unwrap_or(0) as u64,
-                    average: r.average.unwrap_or(0.0),
+                    tile_count: r.count as u64,
+                    min_tile_size: r.smallest.unwrap_or(0) as u64,
+                    max_tile_size: r.largest.unwrap_or(0) as u64,
+                    avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: Self::xyz_to_bbox(
                         zoom,
                         r.min_tile_x.unwrap(),
@@ -354,10 +377,10 @@ impl Mbtiles {
             })
             .collect();
 
-        let count = zoom_info.iter().map(|l| l.count).sum();
+        let tile_count = zoom_info.iter().map(|l| l.tile_count).sum();
         let avg_sum = zoom_info
             .iter()
-            .map(|l| l.average * l.count as f64)
+            .map(|l| l.avg_tile_size * l.tile_count as f64)
             .sum::<f64>();
 
         Ok(Summary {
@@ -366,10 +389,13 @@ impl Mbtiles {
             mbt_type,
             page_size,
             page_count,
-            count,
-            smallest: zoom_info.iter().map(|l| l.smallest).reduce(u64::min),
-            largest: zoom_info.iter().map(|l| l.largest).reduce(u64::max),
-            average: avg_sum / count as f64,
+            tile_count,
+            min_tile_size: zoom_info.iter().map(|l| l.min_tile_size).reduce(u64::min),
+            max_tile_size: zoom_info.iter().map(|l| l.max_tile_size).reduce(u64::max),
+            avg_tile_size: avg_sum / tile_count as f64,
+            bbox: zoom_info.iter().map(|l| l.bbox).reduce(|a, b| a + b),
+            min_zoom: zoom_info.iter().map(|l| l.zoom).reduce(u8::min),
+            max_zoom: zoom_info.iter().map(|l| l.zoom).reduce(u8::max),
             zoom_info,
         })
     }
@@ -1036,11 +1062,14 @@ mod tests {
         mbt_type: Flat
         page_size: 4096
         page_count: 5
+        tile_count: 0
+        min_tile_size: ~
+        max_tile_size: ~
+        avg_tile_size: NaN
+        bbox: ~
+        min_zoom: ~
+        max_zoom: ~
         zoom_info: []
-        count: 0
-        smallest: ~
-        largest: ~
-        average: NaN
         "###);
 
         Ok(())
@@ -1076,81 +1105,88 @@ mod tests {
         mbt_type: Flat
         page_size: 4096
         page_count: 12
+        tile_count: 196
+        min_tile_size: 64
+        max_tile_size: 1107
+        avg_tile_size: 96.2295918367347
+        bbox:
+          - -179.99999997494382
+          - -85.05112877764508
+          - 180.00000015460688
+          - 85.05112879314403
+        min_zoom: 0
+        max_zoom: 6
         zoom_info:
           - zoom: 0
-            count: 1
-            smallest: 1107
-            largest: 1107
-            average: 1107
+            tile_count: 1
+            min_tile_size: 1107
+            max_tile_size: 1107
+            avg_tile_size: 1107
             bbox:
               - -179.99999997494382
               - -85.05112877764508
               - 180.00000015460688
               - 85.05112879314403
           - zoom: 1
-            count: 4
-            smallest: 160
-            largest: 650
-            average: 366.5
+            tile_count: 4
+            min_tile_size: 160
+            max_tile_size: 650
+            avg_tile_size: 366.5
             bbox:
               - -179.99999997494382
               - -85.05112877764508
               - 180.00000015460688
               - 85.05112879314403
           - zoom: 2
-            count: 7
-            smallest: 137
-            largest: 495
-            average: 239.57142857142858
+            tile_count: 7
+            min_tile_size: 137
+            max_tile_size: 495
+            avg_tile_size: 239.57142857142858
             bbox:
               - -179.99999997494382
               - -66.51326042021836
               - 180.00000015460688
               - 66.51326049182072
           - zoom: 3
-            count: 17
-            smallest: 67
-            largest: 246
-            average: 134
+            tile_count: 17
+            min_tile_size: 67
+            max_tile_size: 246
+            avg_tile_size: 134
             bbox:
               - -134.99999995874995
               - -40.9798980140281
               - 180.00000015460688
               - 66.51326049182072
           - zoom: 4
-            count: 38
-            smallest: 64
-            largest: 175
-            average: 86
+            tile_count: 38
+            min_tile_size: 64
+            max_tile_size: 175
+            avg_tile_size: 86
             bbox:
               - -134.99999995874995
               - -40.9798980140281
               - 180.00000015460688
               - 66.51326049182072
           - zoom: 5
-            count: 57
-            smallest: 64
-            largest: 107
-            average: 72.7719298245614
+            tile_count: 57
+            min_tile_size: 64
+            max_tile_size: 107
+            avg_tile_size: 72.7719298245614
             bbox:
               - -123.74999995470151
               - -40.9798980140281
               - 180.00000015460688
               - 61.60639642757953
           - zoom: 6
-            count: 72
-            smallest: 64
-            largest: 97
-            average: 68.29166666666667
+            tile_count: 72
+            min_tile_size: 64
+            max_tile_size: 97
+            avg_tile_size: 68.29166666666667
             bbox:
               - -123.74999995470151
               - -40.9798980140281
               - 180.00000015460688
               - 61.60639642757953
-        count: 196
-        smallest: 64
-        largest: 1107
-        average: 96.2295918367347
         "###);
 
         Ok(())
