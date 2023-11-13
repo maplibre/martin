@@ -27,32 +27,21 @@ pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
 #[derive(Debug, PartialEq)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PgBuilderFuncs {
-    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     schemas: Option<HashSet<String>>,
     source_id_format: String,
 }
 
 #[derive(Debug, Default, PartialEq)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PgBuilderTables {
-    #[cfg_attr(
-        test,
-        serde(
-            skip_serializing_if = "Option::is_none",
-            serialize_with = "crate::utils::sorted_opt_set"
-        )
-    )]
+    #[cfg_attr(test, serde(serialize_with = "crate::utils::sorted_opt_set"))]
     schemas: Option<HashSet<String>>,
     source_id_format: String,
-    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     id_columns: Option<Vec<String>>,
-    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     clip_geom: Option<bool>,
-    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     buffer: Option<u32>,
-    #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
     extent: Option<u32>,
 }
 
