@@ -350,7 +350,7 @@ impl MbtileCopierInt {
                 | (Normalized { .. }, Normalized { .. }) => {}
                 (cli, dst) => {
                     return Err(MbtError::MismatchedTargetType(
-                        self.options.dst_file.to_path_buf(),
+                        self.options.dst_file.clone(),
                         dst,
                         cli,
                     ))
@@ -445,26 +445,7 @@ impl MbtileCopierInt {
         fn query_for_dst(frm_db: &'static str, frm_type: MbtType, to_type: MbtType) -> String {
             match to_type {
                 Flat => format!("{frm_db}.tiles"),
-                FlatWithHash => match frm_type {
-                    Flat => format!(
-                        "
-        (SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) AS tile_hash
-         FROM {frm_db}.tiles)"
-                    ),
-                    FlatWithHash => format!("{frm_db}.tiles_with_hash"),
-                    Normalized { hash_view } => {
-                        if hash_view {
-                            format!("{frm_db}.tiles_with_hash")
-                        } else {
-                            format!(
-                                "
-        (SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS tile_hash
-        FROM {frm_db}.map JOIN {frm_db}.images ON map.tile_id = images.tile_id)"
-                            )
-                        }
-                    }
-                },
-                Normalized { .. } => match frm_type {
+                FlatWithHash | Normalized { .. } => match frm_type {
                     Flat => format!(
                         "
         (SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) AS tile_hash
@@ -492,8 +473,7 @@ impl MbtileCopierInt {
             fn get_tile_hash_expr(tbl: &str, typ: MbtType) -> String {
                 match typ {
                     Flat => format!("IIF({tbl}.tile_data ISNULL, NULL, md5_hex({tbl}.tile_data))"),
-                    FlatWithHash => format!("{tbl}.tile_hash"),
-                    Normalized { .. } => format!("{tbl}.tile_hash"),
+                    FlatWithHash | Normalized { .. } => format!("{tbl}.tile_hash"),
                 }
             }
 
@@ -533,8 +513,9 @@ impl MbtileCopierInt {
         } else {
             tile_hash_expr = match dif_type {
                 Flat => ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash",
-                FlatWithHash => ", COALESCE(difTiles.tile_hash, '') as tile_hash",
-                Normalized { .. } => ", COALESCE(difTiles.tile_hash, '') as tile_hash",
+                FlatWithHash | Normalized { .. } => {
+                    ", COALESCE(difTiles.tile_hash, '') as tile_hash"
+                }
             };
             diff_tiles = match dif_type {
                 Flat => "diffDb.tiles",
