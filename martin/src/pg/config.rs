@@ -20,41 +20,34 @@ pub trait PgInfo {
     fn to_tilejson(&self, source_id: String) -> TileJSON;
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgSslCerts {
     /// Same as PGSSLCERT
     /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub ssl_cert: Option<std::path::PathBuf>,
     /// Same as PGSSLKEY
     /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY))
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub ssl_key: Option<std::path::PathBuf>,
     /// Same as PGSSLROOTCERT
     /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub ssl_root_cert: Option<std::path::PathBuf>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgConfig {
     pub connection_string: Option<String>,
     #[serde(flatten)]
     pub ssl_certificates: PgSslCerts,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_srid: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_bounds: Option<BoundsCalcType>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_feature_count: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub pool_size: Option<usize>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PgCfgPublish>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "sorted_opt_map")]
     pub tables: Option<TableInfoSources>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "sorted_opt_map")]
     pub functions: Option<FuncInfoSources>,
 }
@@ -70,12 +63,12 @@ pub struct PgCfgPublish {
     pub functions: OptBoolObj<PgCfgPublishFuncs>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishTables {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "from_schema")]
     pub from_schemas: OptOneMany<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
     /// A table column to use as the feature ID
@@ -84,20 +77,17 @@ pub struct PgCfgPublishTables {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "id_column")]
     pub id_columns: OptOneMany<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub extent: Option<u32>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishFuncs {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "from_schema")]
     pub from_schemas: OptOneMany<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
 }

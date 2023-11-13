@@ -21,6 +21,7 @@ log.workspace = true
 martin-tile-utils.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+serde_with.workspace = true
 sqlite-hashes.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true

@@ -33,7 +33,7 @@ pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
 
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    #[serde(default)]
     pub postgres: OptOneMany<PgConfig>,
 
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
@@ -45,7 +45,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: FileConfigEnum,
 
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    #[serde(default)]
     pub fonts: OptOneMany<PathBuf>,
 
     #[serde(flatten)]

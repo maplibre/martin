@@ -135,16 +135,13 @@ impl Clone for Box<dyn Source> {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogSourceEntry {
     pub content_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub content_encoding: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub attribution: Option<String>,
 }
 

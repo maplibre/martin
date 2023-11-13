@@ -107,10 +107,10 @@ pub struct FontSources {
 
 pub type FontCatalog = BTreeMap<String, CatalogFontEntry>;
 
+#[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogFontEntry {
     pub family: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<String>,
     pub glyphs: usize,
     pub start: usize,
