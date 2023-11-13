@@ -54,8 +54,8 @@ pub struct PgConfig {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublish {
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "from_schema")]
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub tables: OptBoolObj<PgCfgPublishTables>,
@@ -66,16 +66,16 @@ pub struct PgCfgPublish {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishTables {
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "from_schema")]
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
     /// A table column to use as the feature ID
     /// If a table has no column with this name, `id_column` will not be set for that table.
     /// If a list of strings is given, the first found column will be treated as a feature ID.
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "id_column")]
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub id_columns: OptOneMany<String>,
     pub clip_geom: Option<bool>,
     pub buffer: Option<u32>,
@@ -85,8 +85,8 @@ pub struct PgCfgPublishTables {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublishFuncs {
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     #[serde(alias = "from_schema")]
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
