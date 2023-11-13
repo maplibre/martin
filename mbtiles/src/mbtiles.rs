@@ -65,22 +65,21 @@ pub struct Statistics {
 
 impl Display for Statistics {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "File: {}", self.file_path).unwrap();
+        writeln!(f, "File: {}", self.file_path)?;
 
         let file_size = SizeFormatterBinary::new(self.file_size);
-        writeln!(f, "FileSize: {file_size:.2}B").unwrap();
+        writeln!(f, "FileSize: {file_size:.2}B")?;
 
-        writeln!(f, "Schema: {}", self.schema).unwrap();
+        writeln!(f, "Schema: {}", self.schema)?;
 
         let page_size = SizeFormatterBinary::new(self.page_size);
-        writeln!(f, "Page size: {page_size:.2}B").unwrap();
+        writeln!(f, "Page size: {page_size:.2}B")?;
 
         writeln!(
             f,
             "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}|",
             "Zoom", "Count", "Smallest", "Largest", "Average", "BBox"
-        )
-        .unwrap();
+        )?;
 
         for l in &self.zoom_stats_list {
             let smallest = SizeFormatterBinary::new(l.smallest);
@@ -96,8 +95,7 @@ impl Display for Statistics {
                 format!("{largest:.2}B"),
                 format!("{average:.2}B"),
                 l.bbox
-            )
-            .unwrap();
+            )?;
         }
         if self.count != 0 {
             let smallest = SizeFormatterBinary::new(self.smallest.expect("The smallest tile size of all zoom levels shouldn't be None when the tiles count of all zoom level is not 0"));
@@ -111,8 +109,7 @@ impl Display for Statistics {
                 format!("{smallest}B"),
                 format!("{largest}B"),
                 format!("{average}B")
-            )
-            .unwrap();
+            )?
         }
 
         Ok(())
@@ -371,39 +368,26 @@ impl Mbtiles {
                 }
             })
             .collect();
-        if level_details.is_empty() {
-            Ok(Statistics {
-                file_path: self.filepath.clone(),
-                file_size,
-                schema: mbt_type,
-                page_size,
-                zoom_stats_list: level_details,
-                count: 0,
-                smallest: None,
-                largest: None,
-                average: 0.0,
-            })
-        } else {
-            let count = level_details.iter().map(|l| l.count).sum();
-            let smallest = level_details.iter().map(|l| l.smallest).reduce(u64::min);
-            let largest = level_details.iter().map(|l| l.largest).reduce(u64::max);
-            let average = level_details
-                .iter()
-                .map(|l| l.average * l.count as f64)
-                .sum::<f64>()
-                / count as f64;
-            Ok(Statistics {
-                file_path: self.filepath.clone(),
-                file_size,
-                schema: mbt_type,
-                page_size,
-                zoom_stats_list: level_details,
-                count,
-                smallest,
-                largest,
-                average,
-            })
-        }
+
+        let count = level_details.iter().map(|l| l.count).sum();
+        let smallest = level_details.iter().map(|l| l.smallest).reduce(u64::min);
+        let largest = level_details.iter().map(|l| l.largest).reduce(u64::max);
+        let average = level_details
+            .iter()
+            .map(|l| l.average * l.count as f64)
+            .sum::<f64>()
+            / count as f64;
+        Ok(Statistics {
+            file_path: self.filepath.clone(),
+            file_size,
+            schema: mbt_type,
+            page_size,
+            zoom_stats_list: level_details,
+            count,
+            smallest,
+            largest,
+            average,
+        })
     }
     /// Get the aggregate tiles hash value from the metadata table
     pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
@@ -1056,7 +1040,7 @@ mod tests {
         count: 0
         smallest: ~
         largest: ~
-        average: 0
+        average: NaN
         "###);
 
         Ok(())
