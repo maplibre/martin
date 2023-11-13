@@ -320,18 +320,18 @@ impl Mbtiles {
             .page_size
             .unwrap() as u64;
         let tile_infos_query = query!(
-            r#"SELECT
-                zoom_level AS zoom,
-                count( ) AS count,
-                min( length( tile_data ) ) AS smallest,
-                max( length( tile_data ) ) AS largest,
-                avg( length( tile_data ) ) AS average,
-                min(tile_column) as min_tile_x,
-                min(tile_row) as min_tile_y,
-                max(tile_column) as max_tile_x,
-                max(tile_row) as max_tile_y 
-            FROM tiles
-            GROUP BY zoom_level"#
+            "
+    SELECT zoom_level             AS zoom,
+           count()                AS count,
+           min(length(tile_data)) AS smallest,
+           max(length(tile_data)) AS largest,
+           avg(length(tile_data)) AS average,
+           min(tile_column)       AS min_tile_x,
+           min(tile_row)          AS min_tile_y,
+           max(tile_column)       AS max_tile_x,
+           max(tile_row)          AS max_tile_y
+    FROM tiles
+    GROUP BY zoom_level"
         );
         let mbt_type = self.detect_type(&mut *conn).await?;
         let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
