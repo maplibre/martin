@@ -19,8 +19,9 @@ enum-display.workspace = true
 futures.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
-serde.workspace = true
 serde_json.workspace = true
+serde.workspace = true
+size_format.workspace = true
 sqlite-hashes.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
@@ -31,7 +32,6 @@ anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 env_logger = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
-size_format.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 
 [dev-dependencies]

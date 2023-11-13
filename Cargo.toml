@@ -50,9 +50,9 @@ rustls-native-certs = "0.6"
 rustls-pemfile = "1"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-size_format = "1.0.2"
 serde_json = "1"
 serde_yaml = "0.9"
+size_format = "1.0.2"
 spreet = { version = "0.9", default-features = false }
 sqlite-hashes = { version = "0.5", default-features = false, features = ["md5", "window", "hex"] }
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }

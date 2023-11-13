@@ -54,7 +54,7 @@ pub struct ZoomStats {
 pub struct Statistics {
     pub file_path: String,
     pub file_size: u64,
-    pub schema: MbtType,
+    pub mbt_type: MbtType,
     pub page_size: u64,
     pub zoom_stats_list: Vec<ZoomStats>,
     pub count: u64,
@@ -70,7 +70,7 @@ impl Display for Statistics {
         let file_size = SizeFormatterBinary::new(self.file_size);
         writeln!(f, "FileSize: {file_size:.2}B")?;
 
-        writeln!(f, "Schema: {}", self.schema)?;
+        writeln!(f, "Schema: {}", self.mbt_type)?;
 
         let page_size = SizeFormatterBinary::new(self.page_size);
         writeln!(f, "Page size: {page_size:.2}B")?;
@@ -98,18 +98,20 @@ impl Display for Statistics {
             )?;
         }
         if self.count != 0 {
-            let smallest = SizeFormatterBinary::new(self.smallest.expect("The smallest tile size of all zoom levels shouldn't be None when the tiles count of all zoom level is not 0"));
-            let largest = SizeFormatterBinary::new(self.largest.expect("The largest tile size of all zoom levels shouldn't be None when the tiles count of all zoom level is not 0"));
-            let average = SizeFormatterBinary::new(self.average as u64);
-            writeln!(
-                f,
-                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
-                "all",
-                self.count,
-                format!("{smallest}B"),
-                format!("{largest}B"),
-                format!("{average}B")
-            )?
+            if let (Some(smallest), Some(largest)) = (self.smallest, self.largest) {
+                let smallest = SizeFormatterBinary::new(smallest);
+                let largest = SizeFormatterBinary::new(largest);
+                let average = SizeFormatterBinary::new(self.average as u64);
+                writeln!(
+                    f,
+                    "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
+                    "all",
+                    self.count,
+                    format!("{smallest}B"),
+                    format!("{largest}B"),
+                    format!("{average}B")
+                )?
+            }
         }
 
         Ok(())
@@ -332,7 +334,7 @@ impl Mbtiles {
         );
         let mbt_type = self.detect_type(&mut *conn).await?;
         let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
-        let level_details: Vec<ZoomStats> = level_rows
+        let zoom_stats_list: Vec<ZoomStats> = level_rows
             .into_iter()
             .map(|r| {
                 let zoom = r.zoom.unwrap() as u8;
@@ -369,10 +371,10 @@ impl Mbtiles {
             })
             .collect();
 
-        let count = level_details.iter().map(|l| l.count).sum();
-        let smallest = level_details.iter().map(|l| l.smallest).reduce(u64::min);
-        let largest = level_details.iter().map(|l| l.largest).reduce(u64::max);
-        let average = level_details
+        let count = zoom_stats_list.iter().map(|l| l.count).sum();
+        let smallest = zoom_stats_list.iter().map(|l| l.smallest).reduce(u64::min);
+        let largest = zoom_stats_list.iter().map(|l| l.largest).reduce(u64::max);
+        let average = zoom_stats_list
             .iter()
             .map(|l| l.average * l.count as f64)
             .sum::<f64>()
@@ -380,9 +382,9 @@ impl Mbtiles {
         Ok(Statistics {
             file_path: self.filepath.clone(),
             file_size,
-            schema: mbt_type,
+            mbt_type,
             page_size,
-            zoom_stats_list: level_details,
+            zoom_stats_list,
             count,
             smallest,
             largest,
@@ -1034,7 +1036,7 @@ mod tests {
         ---
         file_path: "file:mbtiles_empty_stats?mode=memory&cache=shared"
         file_size: 20480
-        schema: Flat
+        mbt_type: Flat
         page_size: 4096
         zoom_stats_list: []
         count: 0
@@ -1073,7 +1075,7 @@ mod tests {
         ---
         file_path: "../tests/fixtures/mbtiles/world_cities.mbtiles"
         file_size: 49152
-        schema: Flat
+        mbt_type: Flat
         page_size: 4096
         zoom_stats_list:
           - zoom: 0
