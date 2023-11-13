@@ -31,18 +31,18 @@ anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 env_logger = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
+size_format.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
-size_format = "1.0.2"
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
+approx.workspace = true
 ctor.workspace = true
 env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
-approx = "0.5.1"
 
 [lib]
 path = "src/lib.rs"
