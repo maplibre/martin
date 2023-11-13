@@ -3,8 +3,8 @@ A utility to work with .mbtiles file content
 Usage: mbtiles <COMMAND>
 
 Commands:
+  summary      Show MBTiels file summary statistics
   meta-all     Prints all values in the metadata table in a free-style, unstable YAML format
-  stats        Gets tile statistics from MBTiels file
   meta-get     Gets a single value from the MBTiles metadata table
   meta-set     Sets a single value in the MBTiles' file metadata table or deletes it if no value
   copy         Copy tiles from one mbtiles file to another

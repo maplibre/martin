@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 #[cfg(feature = "cli")]
@@ -41,7 +41,7 @@ pub struct Metadata {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct ZoomStats {
+pub struct ZoomInfo {
     pub zoom: u8,
     pub count: u64,
     pub smallest: u64,
@@ -51,29 +51,33 @@ pub struct ZoomStats {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct Statistics {
+pub struct Summary {
     pub file_path: String,
-    pub file_size: u64,
+    pub file_size: Option<u64>,
     pub mbt_type: MbtType,
     pub page_size: u64,
-    pub zoom_stats_list: Vec<ZoomStats>,
+    pub page_count: u64,
+    pub zoom_info: Vec<ZoomInfo>,
     pub count: u64,
     pub smallest: Option<u64>,
     pub largest: Option<u64>,
     pub average: f64,
 }
 
-impl Display for Statistics {
+impl Display for Summary {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "File: {}", self.file_path)?;
-
-        let file_size = SizeFormatterBinary::new(self.file_size);
-        writeln!(f, "FileSize: {file_size:.2}B")?;
-
         writeln!(f, "Schema: {}", self.mbt_type)?;
 
+        if let Some(file_size) = self.file_size {
+            let file_size = SizeFormatterBinary::new(file_size);
+            writeln!(f, "File size: {file_size:.2}B")?;
+        } else {
+            writeln!(f, "File size: unknown")?;
+        }
         let page_size = SizeFormatterBinary::new(self.page_size);
         writeln!(f, "Page size: {page_size:.2}B")?;
+        writeln!(f, "Page count: {:.2}", self.page_count)?;
 
         writeln!(
             f,
@@ -81,7 +85,7 @@ impl Display for Statistics {
             "Zoom", "Count", "Smallest", "Largest", "Average", "BBox"
         )?;
 
-        for l in &self.zoom_stats_list {
+        for l in &self.zoom_info {
             let smallest = SizeFormatterBinary::new(l.smallest);
             let largest = SizeFormatterBinary::new(l.largest);
             let average = SizeFormatterBinary::new(l.average as u64);
@@ -97,28 +101,26 @@ impl Display for Statistics {
                 l.bbox
             )?;
         }
-        if self.count != 0 {
-            if let (Some(smallest), Some(largest)) = (self.smallest, self.largest) {
-                let smallest = SizeFormatterBinary::new(smallest);
-                let largest = SizeFormatterBinary::new(largest);
-                let average = SizeFormatterBinary::new(self.average as u64);
-                writeln!(
-                    f,
-                    "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
-                    "all",
-                    self.count,
-                    format!("{smallest}B"),
-                    format!("{largest}B"),
-                    format!("{average}B")
-                )?
-            }
+
+        if let (Some(smallest), Some(largest)) = (self.smallest, self.largest) {
+            let smallest = SizeFormatterBinary::new(smallest);
+            let largest = SizeFormatterBinary::new(largest);
+            let average = SizeFormatterBinary::new(self.average as u64);
+            writeln!(
+                f,
+                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}|",
+                "all",
+                self.count,
+                format!("{smallest}B"),
+                format!("{largest}B"),
+                format!("{average}B")
+            )?;
         }
 
         Ok(())
     }
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
 fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error> {
     let mut s = serializer.serialize_struct("TileInfo", 2)?;
     s.serialize_field("format", &ti.format.to_string())?;
@@ -296,23 +298,25 @@ impl Mbtiles {
             self.check_agg_tiles_hashes(&mut conn).await
         }
     }
-    pub async fn statistics<T>(&self, conn: &mut T) -> MbtResult<Statistics>
+
+    /// Compute MBTiles file summary
+    pub async fn summary<T>(&self, conn: &mut T) -> MbtResult<Summary>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let file_size = query!(
-            "SELECT page_count * page_size as file_size FROM pragma_page_count(), pragma_page_size();"
-        ).fetch_one(&mut *conn)
-        .await?
-        .file_size
-        .expect("The file size of the MBTiles file shouldn't be None") as u64;
+        let mbt_type = self.detect_type(&mut *conn).await?;
+        let file_size = PathBuf::from_str(&self.filepath)
+            .ok()
+            .and_then(|p| p.metadata().ok())
+            .map(|m| m.len());
 
-        let page_size = query!("PRAGMA page_size;")
-            .fetch_one(&mut *conn)
-            .await?
-            .page_size
-            .unwrap() as u64;
-        let tile_infos_query = query!(
+        let sql = query!("PRAGMA page_size;");
+        let page_size = sql.fetch_one(&mut *conn).await?.page_size.unwrap() as u64;
+
+        let sql = query!("PRAGMA page_count;");
+        let page_count = sql.fetch_one(&mut *conn).await?.page_count.unwrap() as u64;
+
+        let zoom_info = query!(
             "
     SELECT zoom_level             AS zoom,
            count()                AS count,
@@ -325,66 +329,66 @@ impl Mbtiles {
            max(tile_row)          AS max_tile_y
     FROM tiles
     GROUP BY zoom_level"
-        );
-        let mbt_type = self.detect_type(&mut *conn).await?;
-        let level_rows = tile_infos_query.fetch_all(&mut *conn).await?;
-        let zoom_stats_list: Vec<ZoomStats> = level_rows
+        )
+        .fetch_all(&mut *conn)
+        .await?;
+
+        let zoom_info: Vec<ZoomInfo> = zoom_info
             .into_iter()
             .map(|r| {
-                let zoom = r.zoom.unwrap() as u8;
-                let count = r.count as u64;
-                let tile_length = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
-
-                let smallest = r.smallest.unwrap_or(0) as u64;
-                let largest = r.largest.unwrap_or(0) as u64;
-                let average = r.average.unwrap_or(0.0);
-
-                let min_tile_x = r.min_tile_x.unwrap();
-                let min_tile_y = r.min_tile_y.unwrap();
-                let max_tile_x = r.max_tile_x.unwrap();
-                let max_tile_y = r.max_tile_y.unwrap();
-
-                let (minx, miny) = webmercator_to_wgs84(
-                    -20037508.34 + min_tile_x as f64 * tile_length,
-                    -20037508.34 + min_tile_y as f64 * tile_length,
-                );
-                let (maxx, maxy) = webmercator_to_wgs84(
-                    -20037508.34 + (max_tile_x as f64 + 1.0) * tile_length,
-                    -20037508.34 + (max_tile_y as f64 + 1.0) * tile_length,
-                );
-
-                let bbox = Bounds::new(minx, miny, maxx, maxy);
-                ZoomStats {
+                let zoom = u8::try_from(r.zoom.unwrap()).expect("zoom_level is not a u8");
+                ZoomInfo {
                     zoom,
-                    count,
-                    smallest,
-                    largest,
-                    average,
-                    bbox,
+                    count: r.count as u64,
+                    smallest: r.smallest.unwrap_or(0) as u64,
+                    largest: r.largest.unwrap_or(0) as u64,
+                    average: r.average.unwrap_or(0.0),
+                    bbox: Self::xyz_to_bbox(
+                        zoom,
+                        r.min_tile_x.unwrap(),
+                        r.min_tile_y.unwrap(),
+                        r.max_tile_x.unwrap(),
+                        r.max_tile_y.unwrap(),
+                    ),
                 }
             })
             .collect();
 
-        let count = zoom_stats_list.iter().map(|l| l.count).sum();
-        let smallest = zoom_stats_list.iter().map(|l| l.smallest).reduce(u64::min);
-        let largest = zoom_stats_list.iter().map(|l| l.largest).reduce(u64::max);
-        let average = zoom_stats_list
+        let count = zoom_info.iter().map(|l| l.count).sum();
+        let avg_sum = zoom_info
             .iter()
             .map(|l| l.average * l.count as f64)
-            .sum::<f64>()
-            / count as f64;
-        Ok(Statistics {
+            .sum::<f64>();
+
+        Ok(Summary {
             file_path: self.filepath.clone(),
             file_size,
             mbt_type,
             page_size,
-            zoom_stats_list,
+            page_count,
             count,
-            smallest,
-            largest,
-            average,
+            smallest: zoom_info.iter().map(|l| l.smallest).reduce(u64::min),
+            largest: zoom_info.iter().map(|l| l.largest).reduce(u64::max),
+            average: avg_sum / count as f64,
+            zoom_info,
         })
     }
+
+    /// Convert min/max XYZ tile coordinates to a bounding box
+    fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bounds {
+        let tile_size = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
+        let (min_lng, min_lat) = webmercator_to_wgs84(
+            -20037508.34 + min_x as f64 * tile_size,
+            -20037508.34 + min_y as f64 * tile_size,
+        );
+        let (max_lng, max_lat) = webmercator_to_wgs84(
+            -20037508.34 + (max_x as f64 + 1.0) * tile_size,
+            -20037508.34 + (max_y as f64 + 1.0) * tile_size,
+        );
+
+        Bounds::new(min_lng, min_lat, max_lng, max_lat)
+    }
+
     /// Get the aggregate tiles hash value from the metadata table
     pub async fn get_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<Option<String>>
     where
@@ -861,15 +865,14 @@ fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 mod tests {
     use std::collections::HashMap;
 
+    use approx::assert_relative_eq;
     use insta::assert_yaml_snapshot;
     use martin_tile_utils::Encoding;
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
 
-    use crate::create_flat_tables;
-
     use super::*;
-    use approx::assert_relative_eq;
+    use crate::create_flat_tables;
 
     async fn open(filepath: &str) -> MbtResult<(SqliteConnection, Mbtiles)> {
         let mbt = Mbtiles::new(filepath)?;
@@ -1022,17 +1025,18 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn stats_empty_file() -> MbtResult<()> {
-        let (mut conn, mbt) = open("file:mbtiles_empty_stats?mode=memory&cache=shared").await?;
+    async fn summary_empty_file() -> MbtResult<()> {
+        let (mut conn, mbt) = open("file:mbtiles_empty_summary?mode=memory&cache=shared").await?;
         create_flat_tables(&mut conn).await.unwrap();
-        let res = mbt.statistics(&mut conn).await?;
+        let res = mbt.summary(&mut conn).await?;
         assert_yaml_snapshot!(res, @r###"
         ---
-        file_path: "file:mbtiles_empty_stats?mode=memory&cache=shared"
-        file_size: 20480
+        file_path: "file:mbtiles_empty_summary?mode=memory&cache=shared"
+        file_size: ~
         mbt_type: Flat
         page_size: 4096
-        zoom_stats_list: []
+        page_count: 5
+        zoom_info: []
         count: 0
         smallest: ~
         largest: ~
@@ -1063,7 +1067,7 @@ mod tests {
     #[actix_rt::test]
     async fn stat() -> MbtResult<()> {
         let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
-        let res = mbt.statistics(&mut conn).await?;
+        let res = mbt.summary(&mut conn).await?;
 
         assert_yaml_snapshot!(res, @r###"
         ---
@@ -1071,7 +1075,8 @@ mod tests {
         file_size: 49152
         mbt_type: Flat
         page_size: 4096
-        zoom_stats_list:
+        page_count: 12
+        zoom_info:
           - zoom: 0
             count: 1
             smallest: 1107
