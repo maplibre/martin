@@ -626,7 +626,7 @@ jobs:
           path: target/homebrew
 
       - name: Create Homebrew formula
-        uses: ajeffowens/jinja2-action@90dab3da2215932ea86d2875224f06bbd6798617 # v2.0.0
+        uses: cuchi/jinja2-action@master
         with:
           template: .github/templates/homebrew.martin.rb.j2
           output_file: target/homebrew/martin.rb

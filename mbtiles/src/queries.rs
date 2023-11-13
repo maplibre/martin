@@ -64,7 +64,7 @@ where
         == 1)
 }
 
-/// Check if MBTiles has a table or a view named 'tiles_with_hash' with needed fields
+/// Check if `MBTiles` has a table or a view named `tiles_with_hash` with needed fields
 pub async fn has_tiles_with_hash<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,

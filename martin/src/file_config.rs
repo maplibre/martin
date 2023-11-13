@@ -111,13 +111,13 @@ impl FileConfigEnum {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileConfig {
     /// A list of file paths
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub paths: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "sorted_opt_map")]
     pub sources: Option<HashMap<String, FileConfigSrc>>,
     #[serde(flatten)]

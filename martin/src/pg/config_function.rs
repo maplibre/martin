@@ -7,6 +7,7 @@ use crate::pg::utils::{patch_json, InfoMap};
 
 pub type FuncInfoSources = InfoMap<FunctionInfo>;
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct FunctionInfo {
     /// Schema name
@@ -16,18 +17,15 @@ pub struct FunctionInfo {
     pub function: String,
 
     /// An integer specifying the minimum zoom level
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub minzoom: Option<u8>,
 
     /// An integer specifying the maximum zoom level. MUST be >= minzoom
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub maxzoom: Option<u8>,
 
     /// The maximum extent of available map tiles. Bounds MUST define an area
     /// covered by all zoom levels. The bounds are represented in WGS:84
     /// latitude and longitude values, in the order left, bottom, right, top.
     /// Values may be integers or floating point numbers.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Bounds>,
 
     /// TileJSON provided by the SQL function comment. Not serialized.

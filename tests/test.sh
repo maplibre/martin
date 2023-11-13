@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+MARTIN_DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
+unset DATABASE_URL
+
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl --silent --show-error --fail --compressed}
-DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
+
 MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
 MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
@@ -146,10 +149,6 @@ validate_log()
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
   remove_line "$LOG_FILE" 'Source IDs must be unique'
 
-  # Make sure the log has just the expected warnings, remove them, and test that there are no other ones
-  test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
-  test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
-
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
     echo "Log file $LOG_FILE has unexpected warnings or errors"
@@ -172,17 +171,20 @@ fi
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test auto configured Martin"
 
+LOG_FILE="${LOG_DIR}/test_log_1.txt"
 TEST_OUT_DIR="$(dirname "$0")/output/auto"
 mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2 --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${LOG_DIR}/test_log_1.txt" &
-MARTIN_PROC_ID=`jobs -p | tail -n 1`
+export DATABASE_URL="$MARTIN_DATABASE_URL"
 
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=`jobs -p | tail -n 1`
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
+unset DATABASE_URL
 
 >&2 echo "Test catalog"
 test_jsn catalog_auto catalog
@@ -253,21 +255,51 @@ test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 kill_process $MARTIN_PROC_ID Martin
-validate_log "${LOG_DIR}/test_log_1.txt"
+
+test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+validate_log "$LOG_FILE"
+
+
+echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Test minimum auto configured Martin"
+
+LOG_FILE="${LOG_DIR}/test_log_2.txt"
+TEST_OUT_DIR="$(dirname "$0")/output/auto2"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--save-config "$(dirname "$0")/output/generated_config2.yaml" tests/fixtures/pmtiles2)
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=`jobs -p | tail -n 1`
+
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
+
+>&2 echo "Test catalog"
+test_jsn catalog_auto catalog
+
+kill_process $MARTIN_PROC_ID Martin
+validate_log "$LOG_FILE"
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test pre-configured Martin"
+
+LOG_FILE="${LOG_DIR}/test_log_3.txt"
 TEST_OUT_DIR="$(dirname "$0")/output/configured"
 mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
+export DATABASE_URL="$MARTIN_DATABASE_URL"
 set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "${LOG_DIR}/test_log_2.txt" &
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=`jobs -p | tail -n 1`
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
+unset DATABASE_URL
 
 >&2 echo "Test catalog"
 test_jsn catalog_cfg catalog
@@ -297,7 +329,9 @@ test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
 
 kill_process $MARTIN_PROC_ID Martin
-validate_log "${LOG_DIR}/test_log_2.txt"
+test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+validate_log "$LOG_FILE"
 
 remove_line "$(dirname "$0")/output/given_config.yaml"       " connection_string: "
 remove_line "$(dirname "$0")/output/generated_config.yaml"   " connection_string: "

@@ -13,7 +13,7 @@ use futures::TryStreamExt;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo};
 use serde::ser::SerializeStruct;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use serde_json::{Value as JSONValue, Value};
 use size_format::SizeFormatterBinary;
 use sqlite_hashes::register_md5_function;
@@ -119,18 +119,12 @@ impl Display for Statistics {
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
-fn serialize_ti<S>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
+fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error> {
     let mut s = serializer.serialize_struct("TileInfo", 2)?;
     s.serialize_field("format", &ti.format.to_string())?;
     s.serialize_field(
         "encoding",
-        match ti.encoding.content_encoding() {
-            None => "",
-            Some(v) => v,
-        },
+        ti.encoding.content_encoding().unwrap_or_default(),
     )?;
     s.end()
 }
@@ -139,7 +133,7 @@ where
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
 
 /// Metadata key for a diff file,
-/// describing the eventual AGG_TILES_HASH value once the diff is applied
+/// describing the eventual [`AGG_TILES_HASH`] value once the diff is applied
 pub const AGG_TILES_HASH_IN_DIFF: &str = "agg_tiles_hash_after_apply";
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
@@ -256,7 +250,7 @@ impl Mbtiles {
         }
     }
 
-    /// Attach this MBTiles file to the given SQLite connection as a given name
+    /// Attach this `MBTiles` file to the given `SQLite` connection as a given name
     pub async fn attach_to<T>(&self, conn: &mut T, name: &str) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
