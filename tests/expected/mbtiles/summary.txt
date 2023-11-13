@@ -1,12 +1,8 @@
-# Get a tile statistics from MBTiles file
-
-For the concern of efficiency, you could figure out the page size and file size, tile size and  bounds(represented as WGS 84 latitude and longitude values) of covered area with `mbtiles stats` command.
-
-```shell
-File: /path/to/world_cities.mbtiles
-FileSize: 48.00KiB
+File: ./tests/fixtures/mbtiles/world_cities.mbtiles
 Schema: flat
+File size: 48.00KiB
 Page size: 4.00KiB
+Page count: 12
 |  Zoom   |  Count  |Smallest | Largest | Average |  BBox   |
 |        0|        1|  1.08KiB|  1.08KiB|  1.08KiB|-179.99999997494382,-85.05112877764508,180.00000015460688,85.05112879314403|
 |        1|        4|     160B|     650B|     366B|-179.99999997494382,-85.05112877764508,180.00000015460688,85.05112879314403|
@@ -16,4 +12,4 @@ Page size: 4.00KiB
 |        5|       57|      64B|     107B|      72B|-123.74999995470151,-40.9798980140281,180.00000015460688,61.60639642757953|
 |        6|       72|      64B|      97B|      68B|-123.74999995470151,-40.9798980140281,180.00000015460688,61.60639642757953|
 |      all|      196|      64B|   1.0KiB|      96B|
-```
+
