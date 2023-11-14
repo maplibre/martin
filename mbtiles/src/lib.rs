@@ -20,6 +20,8 @@ mod patcher;
 pub use patcher::apply_patch;
 
 mod queries;
+mod summary;
+
 pub use queries::{
     create_flat_tables, create_flat_with_hash_tables, create_metadata_table,
     create_normalized_tables, is_flat_with_hash_tables_type, is_normalized_tables_type,
