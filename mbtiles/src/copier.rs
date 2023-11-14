@@ -10,13 +10,12 @@ use sqlite_hashes::rusqlite::params_from_iter;
 use sqlx::{query, Executor as _, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
-use crate::mbtiles::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::mbtiles::{MbtType, MbtTypeCli};
 use crate::queries::{
     create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
     create_tiles_with_hash_view, detach_db, is_empty_database,
 };
-use crate::{MbtError, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
+use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::{MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
 
 #[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
 #[enum_display(case = "Kebab")]

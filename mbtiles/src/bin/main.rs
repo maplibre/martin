@@ -120,6 +120,7 @@ async fn main_int() -> anyhow::Result<()> {
         Commands::Summary { file } => {
             let mbt = Mbtiles::new(file.as_path())?;
             let mut conn = mbt.open_readonly().await?;
+            println!("MBTiles file summary for {mbt}");
             println!("{}", mbt.summary(&mut conn).await?);
         }
     }

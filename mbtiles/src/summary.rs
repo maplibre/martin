@@ -1,13 +1,13 @@
-use crate::{MbtResult, MbtType, Mbtiles};
+use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
+use std::str::FromStr;
+
 use serde::Serialize;
 use size_format::SizeFormatterBinary;
 use sqlx::{query, SqliteExecutor};
-use std::{
-    fmt::{Display, Formatter},
-    path::PathBuf,
-    str::FromStr,
-};
 use tilejson::Bounds;
+
+use crate::{MbtResult, MbtType, Mbtiles};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ZoomInfo {
@@ -21,7 +21,6 @@ pub struct ZoomInfo {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Summary {
-    pub file_path: String,
     pub file_size: Option<u64>,
     pub mbt_type: MbtType,
     pub page_size: u64,
@@ -38,7 +37,6 @@ pub struct Summary {
 
 impl Display for Summary {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "File: {}", self.file_path)?;
         writeln!(f, "Schema: {}", self.mbt_type)?;
 
         if let Some(file_size) = self.file_size {
@@ -104,12 +102,13 @@ impl Display for Summary {
 }
 
 impl Mbtiles {
+    /// Compute MBTiles file summary
     pub async fn summary<T>(&self, conn: &mut T) -> MbtResult<Summary>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let mbt_type = self.detect_type(&mut *conn).await?;
-        let file_size = PathBuf::from_str(&self.filepath)
+        let file_size = PathBuf::from_str(self.filepath())
             .ok()
             .and_then(|p| p.metadata().ok())
             .map(|m| m.len());
@@ -165,7 +164,6 @@ impl Mbtiles {
             .sum::<f64>();
 
         Ok(Summary {
-            file_path: self.filepath.clone(),
             file_size,
             mbt_type,
             page_size,
@@ -181,7 +179,6 @@ impl Mbtiles {
         })
     }
 }
-/// Compute MBTiles file summary
 
 fn get_zoom_precision(zoom: u8) -> usize {
     let lng_delta = webmercator_to_wgs84(40075016.7 / (2_u32.pow(zoom as u32)) as f64, 0f64).0;
@@ -219,7 +216,8 @@ mod tests {
     use approx::assert_relative_eq;
     use insta::assert_yaml_snapshot;
 
-    use crate::{create_flat_tables, summary::webmercator_to_wgs84, MbtResult, Mbtiles};
+    use crate::summary::webmercator_to_wgs84;
+    use crate::{create_flat_tables, MbtResult, Mbtiles};
 
     #[actix_rt::test]
     async fn meter_to_lnglat() {
@@ -249,7 +247,6 @@ mod tests {
         let res = mbt.summary(&mut conn).await?;
         assert_yaml_snapshot!(res, @r###"
         ---
-        file_path: "file:mbtiles_empty_summary?mode=memory&cache=shared"
         file_size: ~
         mbt_type: Flat
         page_size: 4096
@@ -276,7 +273,6 @@ mod tests {
 
         assert_yaml_snapshot!(res, @r###"
         ---
-        file_path: "../tests/fixtures/mbtiles/world_cities.mbtiles"
         file_size: 49152
         mbt_type: Flat
         page_size: 4096

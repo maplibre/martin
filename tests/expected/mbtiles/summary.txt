@@ -1,4 +1,4 @@
-File: ./tests/fixtures/mbtiles/world_cities.mbtiles
+MBTiles file summary for ./tests/fixtures/mbtiles/world_cities.mbtiles
 Schema: flat
 File size: 48.00KiB
 Page size: 4.00KiB
