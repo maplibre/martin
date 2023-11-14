@@ -36,7 +36,10 @@ pub struct MbtilesCopier {
     /// MBTiles file to write to
     pub dst_file: PathBuf,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
-    #[cfg_attr(feature = "cli", arg(long = "dst_type", value_enum))]
+    #[cfg_attr(
+        feature = "cli",
+        arg(long = "dst-type", alias = "dst_type", value_enum)
+    )]
     pub dst_type_cli: Option<MbtTypeCli>,
     /// Destination type with options
     #[cfg_attr(feature = "cli", arg(skip))]
