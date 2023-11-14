@@ -95,7 +95,7 @@ pub enum IntegrityCheckType {
 
 #[derive(Clone, Debug)]
 pub struct Mbtiles {
-    pub filepath: String,
+    pub(crate) filepath: String,
     filename: String,
 }
 
