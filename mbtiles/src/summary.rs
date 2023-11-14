@@ -122,17 +122,17 @@ impl Mbtiles {
 
         let zoom_info = query!(
             "
-        SELECT zoom_level             AS zoom,
-               count()                AS count,
-               min(length(tile_data)) AS smallest,
-               max(length(tile_data)) AS largest,
-               avg(length(tile_data)) AS average,
-               min(tile_column)       AS min_tile_x,
-               min(tile_row)          AS min_tile_y,
-               max(tile_column)       AS max_tile_x,
-               max(tile_row)          AS max_tile_y
-        FROM tiles
-        GROUP BY zoom_level"
+    SELECT zoom_level             AS zoom,
+           count()                AS count,
+           min(length(tile_data)) AS smallest,
+           max(length(tile_data)) AS largest,
+           avg(length(tile_data)) AS average,
+           min(tile_column)       AS min_tile_x,
+           min(tile_row)          AS min_tile_y,
+           max(tile_column)       AS max_tile_x,
+           max(tile_row)          AS max_tile_y
+    FROM tiles
+    GROUP BY zoom_level"
         )
         .fetch_all(&mut *conn)
         .await?;

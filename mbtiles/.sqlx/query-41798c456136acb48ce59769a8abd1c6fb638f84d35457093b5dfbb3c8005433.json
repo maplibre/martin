@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT zoom_level             AS zoom,\n               count()                AS count,\n               min(length(tile_data)) AS smallest,\n               max(length(tile_data)) AS largest,\n               avg(length(tile_data)) AS average,\n               min(tile_column)       AS min_tile_x,\n               min(tile_row)          AS min_tile_y,\n               max(tile_column)       AS max_tile_x,\n               max(tile_row)          AS max_tile_y\n        FROM tiles\n        GROUP BY zoom_level",
+  "query": "\n    SELECT zoom_level             AS zoom,\n           count()                AS count,\n           min(length(tile_data)) AS smallest,\n           max(length(tile_data)) AS largest,\n           avg(length(tile_data)) AS average,\n           min(tile_column)       AS min_tile_x,\n           min(tile_row)          AS min_tile_y,\n           max(tile_column)       AS max_tile_x,\n           max(tile_row)          AS max_tile_y\n    FROM tiles\n    GROUP BY zoom_level",
   "describe": {
     "columns": [
       {
@@ -64,5 +64,5 @@
       true
     ]
   },
-  "hash": "ec8e2acda5d376977d0c96c0d0b2458baebc84ae695411bcce97f747a1adde48"
+  "hash": "41798c456136acb48ce59769a8abd1c6fb638f84d35457093b5dfbb3c8005433"
 }
