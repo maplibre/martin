@@ -34,6 +34,17 @@ fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S:
 }
 
 impl Mbtiles {
+    fn to_val<V, E: Display>(&self, val: Result<V, E>, title: &str) -> Option<V> {
+        match val {
+            Ok(v) => Some(v),
+            Err(err) => {
+                let name = &self.filename();
+                warn!("Unable to parse metadata {title} value in {name}: {err}");
+                None
+            }
+        }
+    }
+
     /// Get a single metadata value from the metadata table
     pub async fn get_metadata_value<T>(&self, conn: &mut T, key: &str) -> MbtResult<Option<String>>
     where
@@ -144,17 +155,6 @@ impl Mbtiles {
         }
 
         Ok((tj, layer_type, json))
-    }
-
-    fn to_val<V, E: Display>(&self, val: Result<V, E>, title: &str) -> Option<V> {
-        match val {
-            Ok(v) => Some(v),
-            Err(err) => {
-                let name = &self.filename();
-                warn!("Unable to parse metadata {title} value in {name}: {err}");
-                None
-            }
-        }
     }
 }
 

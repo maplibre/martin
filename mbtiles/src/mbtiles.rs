@@ -7,13 +7,10 @@ use std::path::Path;
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
-use log::{debug, info, warn};
-use martin_tile_utils::{Format, TileInfo};
-use serde_json::Value;
+use log::debug;
 use sqlite_hashes::register_md5_function;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection as _, SqliteConnection, SqliteExecutor};
-use tilejson::TileJSON;
 
 use crate::errors::{MbtError, MbtResult};
 use crate::MbtType;
@@ -104,101 +101,6 @@ impl Mbtiles {
             .execute(conn)
             .await?;
         Ok(())
-    }
-
-    pub async fn detect_format<T>(&self, tilejson: &TileJSON, conn: &mut T) -> MbtResult<TileInfo>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        let mut tile_info = None;
-        let mut tested_zoom = -1_i64;
-
-        // First, pick any random tile
-        let query = query!("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1");
-        let row = query.fetch_optional(&mut *conn).await?;
-        if let Some(r) = row {
-            tile_info = self.parse_tile(r.zoom_level, r.tile_column, r.tile_row, r.tile_data);
-            tested_zoom = r.zoom_level.unwrap_or(-1);
-        }
-
-        // Afterwards, iterate over tiles in all allowed zooms and check for consistency
-        for z in tilejson.minzoom.unwrap_or(0)..=tilejson.maxzoom.unwrap_or(18) {
-            if i64::from(z) == tested_zoom {
-                continue;
-            }
-            let query = query! {"SELECT tile_column, tile_row, tile_data FROM tiles WHERE zoom_level = ? LIMIT 1", z};
-            let row = query.fetch_optional(&mut *conn).await?;
-            if let Some(r) = row {
-                match (
-                    tile_info,
-                    self.parse_tile(Some(z.into()), r.tile_column, r.tile_row, r.tile_data),
-                ) {
-                    (_, None) => {}
-                    (None, new) => tile_info = new,
-                    (Some(old), Some(new)) if old == new => {}
-                    (Some(old), Some(new)) => {
-                        return Err(MbtError::InconsistentMetadata(old, new));
-                    }
-                }
-            }
-        }
-
-        if let Some(Value::String(fmt)) = tilejson.other.get("format") {
-            let file = &self.filename;
-            match (tile_info, Format::parse(fmt)) {
-                (_, None) => {
-                    warn!("Unknown format value in metadata: {fmt}");
-                }
-                (None, Some(fmt)) => {
-                    if fmt.is_detectable() {
-                        warn!("Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}");
-                    } else {
-                        info!("Using '{fmt}' tile format from metadata table in file {file}");
-                    }
-                    tile_info = Some(fmt.into());
-                }
-                (Some(info), Some(fmt)) if info.format == fmt => {
-                    debug!("Detected tile format {info} matches metadata.format '{fmt}' in file {file}");
-                }
-                (Some(info), _) => {
-                    warn!("Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}.");
-                }
-            }
-        }
-
-        if let Some(info) = tile_info {
-            if info.format != Format::Mvt && tilejson.vector_layers.is_some() {
-                warn!(
-                    "{} has vector_layers metadata but non-vector tiles",
-                    self.filename
-                );
-            }
-            Ok(info)
-        } else {
-            Err(MbtError::NoTilesFound)
-        }
-    }
-
-    fn parse_tile(
-        &self,
-        z: Option<i64>,
-        x: Option<i64>,
-        y: Option<i64>,
-        tile: Option<Vec<u8>>,
-    ) -> Option<TileInfo> {
-        if let (Some(z), Some(x), Some(y), Some(tile)) = (z, x, y, tile) {
-            let info = TileInfo::detect(&tile);
-            if let Some(info) = info {
-                debug!(
-                    "Tile {z}/{x}/{} is detected as {info} in file {}",
-                    (1 << z) - 1 - y,
-                    self.filename,
-                );
-            }
-            info
-        } else {
-            None
-        }
     }
 
     pub async fn get_tile<T>(
