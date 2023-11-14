@@ -28,7 +28,7 @@ pub enum MbtError {
     #[error("Invalid data format for MBTile file {0}")]
     InvalidDataFormat(String),
 
-    #[error("Integrity check failed for MBTile file {0} for the following reasons: \n {1:?}")]
+    #[error("Integrity check failed for MBTile file {0} for the following reasons:\n    {1:?}")]
     FailedIntegrityCheck(String, Vec<String>),
 
     #[error("At least one tile has mismatching hash: stored value is `{1}` != computed value `{2}` in MBTile file {0}")]
@@ -37,7 +37,9 @@ pub enum MbtError {
     #[error("Computed aggregate tiles hash {0} does not match tile data in metadata {1} for MBTile file {2}")]
     AggHashMismatch(String, String, String),
 
-    #[error("Metadata value `agg_tiles_hash` is not set in MBTiles file {0}")]
+    #[error(
+        "Metadata value `agg_tiles_hash` is not set in MBTiles file {0}\n    Use `mbtiles validate --update-agg-tiles-hash {0}` to fix this."
+    )]
     AggHashValueNotFound(String),
 
     #[error(r#"Filename "{0}" passed to SQLite must be valid UTF-8"#)]
