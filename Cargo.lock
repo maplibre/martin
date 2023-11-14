@@ -1886,7 +1886,7 @@ version = "0.1.4"
 
 [[package]]
 name = "mbtiles"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "actix-rt",
  "anyhow",
