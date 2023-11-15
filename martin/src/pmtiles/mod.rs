@@ -56,7 +56,7 @@ impl PmtSource {
                 )
             })
             .map_err(|e| IoError(e, path.clone()))?;
-        let hdr = &reader.header;
+        let hdr = &reader.get_header();
 
         if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
             return Err(InvalidMetadata(
@@ -136,7 +136,7 @@ impl Source for PmtSource {
             .get_tile(xyz.z, u64::from(xyz.x), u64::from(xyz.y))
             .await
         {
-            Ok(t.data.to_vec())
+            Ok(t.to_vec())
         } else {
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
