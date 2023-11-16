@@ -1,5 +1,3 @@
-#![allow(clippy::missing_errors_doc)]
-
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::path::Path;

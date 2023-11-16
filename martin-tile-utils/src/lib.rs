@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn test_data_format_webp() {
         assert_eq!(detect("./fixtures/dc.webp"), info(Webp, Internal));
-        assert_eq!(TileInfo::detect(br#"RIFF"#), None);
+        assert_eq!(TileInfo::detect(br"RIFF"), None);
     }
 
     #[test]

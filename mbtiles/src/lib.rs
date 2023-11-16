@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-#![allow(clippy::missing_errors_doc)]
 
 mod copier;
 pub use copier::{CopyDuplicateMode, MbtilesCopier};
