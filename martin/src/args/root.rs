@@ -18,6 +18,8 @@ pub struct Args {
     #[command(flatten)]
     pub meta: MetaArgs,
     #[command(flatten)]
+    pub extras: ExtraArgs,
+    #[command(flatten)]
     pub srv: SrvArgs,
     #[command(flatten)]
     pub pg: Option<PgArgs>,
@@ -41,6 +43,11 @@ pub struct MetaArgs {
     pub watch: bool,
     /// Connection strings, e.g. postgres://... or /path/to/files
     pub connection: Vec<String>,
+}
+
+#[derive(Parser, Debug, Clone, PartialEq, Default)]
+#[command()]
+pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
     pub sprite: Vec<PathBuf>,
@@ -80,12 +87,12 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles");
         }
 
-        if !self.meta.sprite.is_empty() {
-            config.sprites = FileConfigEnum::new(self.meta.sprite);
+        if !self.extras.sprite.is_empty() {
+            config.sprites = FileConfigEnum::new(self.extras.sprite);
         }
 
-        if !self.meta.font.is_empty() {
-            config.fonts = OptOneMany::new(self.meta.font);
+        if !self.extras.font.is_empty() {
+            config.fonts = OptOneMany::new(self.extras.font);
         }
 
         cli_strings.check()

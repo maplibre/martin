@@ -1,14 +1,10 @@
-use std::ffi::OsStr;
 use std::fmt::Display;
-use std::fs::File;
-use std::io::Write;
 
 use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
 use martin::srv::{new_server, RESERVED_KEYWORDS};
-use martin::Error::ConfigWriteError;
 use martin::{read_config, Config, IdResolver, Result};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -31,20 +27,7 @@ async fn start(args: Args) -> Result<Server> {
     let sources = config.resolve(IdResolver::new(RESERVED_KEYWORDS)).await?;
 
     if let Some(file_name) = save_config {
-        let yaml = serde_yaml::to_string(&config).expect("Unable to serialize config");
-        if file_name.as_os_str() == OsStr::new("-") {
-            info!("Current system configuration:");
-            println!("\n\n{yaml}\n");
-        } else {
-            info!(
-                "Saving config to {}, use --config to load it",
-                file_name.display()
-            );
-            File::create(file_name.clone())
-                .map_err(|e| ConfigWriteError(e, file_name.clone()))?
-                .write_all(yaml.as_bytes())
-                .map_err(|e| ConfigWriteError(e, file_name.clone()))?;
-        }
+        config.save_to_file(file_name)?;
     } else {
         info!("Use --save-config to save or print Martin configuration.");
     }

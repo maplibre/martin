@@ -45,7 +45,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "martin"
-path = "src/bin/main.rs"
+path = "src/bin/martin.rs"
 
 [features]
 default = []
@@ -97,8 +97,3 @@ criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["yaml"] }
-#test-log = "0.2"
-
-[[bench]]
-name = "sources"
-harness = false

@@ -248,7 +248,7 @@ async fn convert(
 
     let mut opt = copier(&frm_mbt, &mem);
     opt.dst_type_cli = Some(dst_type);
-    opt.zoom_levels.insert(6);
+    opt.zoom_levels.push(6);
     let z6only = dump(&mut opt.run().await?).await?;
     assert_snapshot!(z6only, "v1__z6__{frm}-{to}");
 

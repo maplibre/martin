@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
-use clap::{builder::ValueParser, error::ErrorKind, Args, ValueEnum};
+use clap::{Args, ValueEnum};
 use enum_display::EnumDisplay;
 use log::{debug, info};
 use sqlite_hashes::rusqlite;
@@ -53,8 +53,8 @@ pub struct MbtilesCopier {
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     pub max_zoom: Option<u8>,
     /// List of zoom levels to copy
-    #[cfg_attr(feature = "cli", arg(long, value_parser(ValueParser::new(HashSetValueParser{})), default_value=""))]
-    pub zoom_levels: HashSet<u8>,
+    #[cfg_attr(feature = "cli", arg(long, value_delimiter = ','))]
+    pub zoom_levels: Vec<u8>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("apply_patch")))]
@@ -66,38 +66,6 @@ pub struct MbtilesCopier {
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     #[cfg_attr(feature = "cli", arg(long))]
     pub skip_agg_tiles_hash: bool,
-}
-
-#[cfg(feature = "cli")]
-#[derive(Clone)]
-struct HashSetValueParser;
-
-#[cfg(feature = "cli")]
-impl clap::builder::TypedValueParser for HashSetValueParser {
-    type Value = HashSet<u8>;
-
-    fn parse_ref(
-        &self,
-        _cmd: &clap::Command,
-        _arg: Option<&clap::Arg>,
-        value: &std::ffi::OsStr,
-    ) -> Result<Self::Value, clap::Error> {
-        let mut result = HashSet::<u8>::new();
-        let values = value
-            .to_str()
-            .ok_or(clap::Error::new(ErrorKind::ValueValidation))?
-            .trim();
-        if !values.is_empty() {
-            for val in values.split(',') {
-                result.insert(
-                    val.trim()
-                        .parse::<u8>()
-                        .map_err(|_| clap::Error::new(ErrorKind::ValueValidation))?,
-                );
-            }
-        }
-        Ok(result)
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -113,7 +81,7 @@ impl MbtilesCopier {
         Self {
             src_file: src_filepath,
             dst_file: dst_filepath,
-            zoom_levels: HashSet::new(),
+            zoom_levels: Vec::default(),
             dst_type_cli: None,
             dst_type: None,
             on_duplicate: CopyDuplicateMode::Override,
@@ -579,13 +547,11 @@ impl MbtileCopierInt {
         let mut query_args = vec![];
 
         let sql = if !&self.options.zoom_levels.is_empty() {
-            for z in &self.options.zoom_levels {
+            let zooms: HashSet<u8> = self.options.zoom_levels.iter().copied().collect();
+            for z in &zooms {
                 query_args.push(*z);
             }
-            format!(
-                " AND zoom_level IN ({})",
-                vec!["?"; self.options.zoom_levels.len()].join(",")
-            )
+            format!(" AND zoom_level IN ({})", vec!["?"; zooms.len()].join(","))
         } else if let Some(min_zoom) = self.options.min_zoom {
             if let Some(max_zoom) = self.options.max_zoom {
                 query_args.push(min_zoom);
