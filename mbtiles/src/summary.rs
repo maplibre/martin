@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use martin_tile_utils::EARTH_CIRCUMFERENCE;
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_RADIUS};
 use serde::Serialize;
 use size_format::SizeFormatterBinary;
 use sqlx::{query, SqliteExecutor};
@@ -103,7 +103,7 @@ impl Display for Summary {
 }
 
 impl Mbtiles {
-    /// Compute MBTiles file summary
+    /// Compute `MBTiles` file summary
     pub async fn summary<T>(&self, conn: &mut T) -> MbtResult<Summary>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -185,12 +185,12 @@ impl Mbtiles {
 fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bounds {
     let tile_size = EARTH_CIRCUMFERENCE / (2_u32.pow(zoom as u32)) as f64;
     let (min_lng, min_lat) = webmercator_to_wgs84(
-        -20_037_508.34 + min_x as f64 * tile_size,
-        -20_037_508.34 + min_y as f64 * tile_size,
+        EARTH_CIRCUMFERENCE * 0.5 * -1.0 + min_x as f64 * tile_size,
+        EARTH_CIRCUMFERENCE * 0.5 * -1.0 + min_y as f64 * tile_size,
     );
     let (max_lng, max_lat) = webmercator_to_wgs84(
-        -20_037_508.34 + (max_x as f64 + 1.0) * tile_size,
-        -20_037_508.34 + (max_y as f64 + 1.0) * tile_size,
+        EARTH_CIRCUMFERENCE * 0.5 * -1.0 + (max_x as f64 + 1.0) * tile_size,
+        EARTH_CIRCUMFERENCE * 0.5 * -1.0 + (max_y as f64 + 1.0) * tile_size,
     );
 
     Bounds::new(min_lng, min_lat, max_lng, max_lat)
@@ -208,8 +208,8 @@ fn get_zoom_precision(zoom: u8) -> usize {
 }
 
 fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
-    let lng = (x / 6_378_137.0).to_degrees();
-    let lat = (f64::atan(f64::sinh(y / 6378137.0))).to_degrees();
+    let lng = (x / EARTH_RADIUS).to_degrees();
+    let lat = (f64::atan(f64::sinh(y / EARTH_RADIUS))).to_degrees();
     (lng, lat)
 }
 
