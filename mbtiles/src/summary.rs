@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use serde::Serialize;
 use size_format::SizeFormatterBinary;
 use sqlx::{query, SqliteExecutor};
@@ -182,7 +183,7 @@ impl Mbtiles {
 
 /// Convert min/max XYZ tile coordinates to a bounding box
 fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bounds {
-    let tile_size = 40_075_016.7 / (2_u32.pow(zoom as u32)) as f64;
+    let tile_size = EARTH_CIRCUMFERENCE / (2_u32.pow(zoom as u32)) as f64;
     let (min_lng, min_lat) = webmercator_to_wgs84(
         -20_037_508.34 + min_x as f64 * tile_size,
         -20_037_508.34 + min_y as f64 * tile_size,
@@ -196,7 +197,8 @@ fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Boun
 }
 
 fn get_zoom_precision(zoom: u8) -> usize {
-    let lng_delta = webmercator_to_wgs84(40_075_016.7 / (2_u32.pow(zoom as u32)) as f64, 0f64).0;
+    let lng_delta =
+        webmercator_to_wgs84(EARTH_CIRCUMFERENCE / (2_u32.pow(zoom as u32)) as f64, 0f64).0;
     let log = lng_delta.log10() - 0.5;
     if log > 0_f64 {
         0

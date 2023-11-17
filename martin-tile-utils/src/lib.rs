@@ -5,6 +5,8 @@
 
 use std::fmt::Display;
 
+pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.7;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
     Gif,
