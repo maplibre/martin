@@ -52,15 +52,15 @@ pub enum Error {
     #[error("Unrecognizable connection strings: {0:?}")]
     UnrecognizableConnections(Vec<String>),
 
-    #[error("{0}")]
+    #[error(transparent)]
     PostgresError(#[from] PgError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     FileError(#[from] FileError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     SpriteError(#[from] SpriteError),
 
-    #[error("{0}")]
+    #[error(transparent)]
     FontError(#[from] FontError),
 }
