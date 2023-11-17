@@ -52,3 +52,16 @@ path = "src/lib.rs"
 name = "mbtiles"
 path = "src/bin/main.rs"
 required-features = ["cli"]
+
+# Lints inheritance from workspace is not yet supported
+# Copy/pasting the list, modifying the `unsafe_code` requirement
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+pedantic = "warn"
+derive_partial_eq_without_eq = "allow"
+implicit_hasher = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"

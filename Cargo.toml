@@ -10,6 +10,17 @@ rust-version = "1.65"
 readme = "README.md"
 homepage = "https://martin.maplibre.org/"
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+pedantic = "warn"
+derive_partial_eq_without_eq = "allow"
+implicit_hasher = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+
 [workspace.dependencies]
 actix-cors = "0.6"
 actix-http = "3"

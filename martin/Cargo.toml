@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "martin"
 # Once the release is published with the hash, update https://github.com/maplibre/homebrew-martin
