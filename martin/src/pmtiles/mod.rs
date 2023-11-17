@@ -318,22 +318,12 @@ impl PmtFileSource {
     pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> FileResult<Self> {
         let backend = MmapBackend::try_from(path.as_path())
             .await
-            .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("{e:?}: Cannot open file {}", path.display()),
-                )
-            })
+            .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| IoError(e, path.clone()))?;
 
         let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache).await;
         let reader = reader
-            .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("{e:?}: Cannot open file {}", path.display()),
-                )
-            })
+            .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| IoError(e, path.clone()))?;
 
         Self::new_int(id, path, reader).await
