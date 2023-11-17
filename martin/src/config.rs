@@ -19,8 +19,8 @@ use crate::pmtiles::PmtSource;
 use crate::source::{TileInfoSources, TileSources};
 use crate::sprites::SpriteSources;
 use crate::srv::SrvConfig;
-use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
-use crate::{Error, IdResolver, OptOneMany, Result};
+use crate::Error::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
+use crate::{IdResolver, OptOneMany, Result};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
@@ -118,17 +118,19 @@ impl Config {
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
             println!("\n\n{yaml}\n");
+            Ok(())
         } else {
             info!(
                 "Saving config to {}, use --config to load it",
                 file_name.display()
             );
-            File::create(file_name.clone())
-                .map_err(|e| Error::ConfigWriteError(e, file_name.clone()))?
-                .write_all(yaml.as_bytes())
-                .map_err(|e| Error::ConfigWriteError(e, file_name.clone()))?;
+            match File::create(&file_name) {
+                Ok(mut file) => file
+                    .write_all(yaml.as_bytes())
+                    .map_err(|e| ConfigWriteError(e, file_name)),
+                Err(e) => Err(ConfigWriteError(e, file_name)),
+            }
         }
-        Ok(())
     }
 }
 
