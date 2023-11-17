@@ -37,10 +37,12 @@ pub enum MbtType {
 }
 
 impl MbtType {
+    #[must_use]
     pub fn is_normalized(&self) -> bool {
         matches!(self, Self::Normalized { .. })
     }
 
+    #[must_use]
     pub fn is_normalized_with_view(&self) -> bool {
         matches!(self, Self::Normalized { hash_view: true })
     }
@@ -278,7 +280,7 @@ impl Mbtiles {
             .await?;
 
         if result.len() > 1
-            || result.get(0).ok_or(FailedIntegrityCheck(
+            || result.first().ok_or(FailedIntegrityCheck(
                 self.filepath().to_string(),
                 vec!["SQLite could not perform integrity check".to_string()],
             ))? != "ok"

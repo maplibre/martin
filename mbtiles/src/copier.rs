@@ -6,7 +6,7 @@ use clap::{Args, ValueEnum};
 use enum_display::EnumDisplay;
 use log::{debug, info};
 use sqlite_hashes::rusqlite;
-use sqlite_hashes::rusqlite::params_from_iter;
+use sqlite_hashes::rusqlite::{params_from_iter, Connection};
 use sqlx::{query, Executor as _, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
@@ -195,57 +195,45 @@ impl MbtileCopierInt {
         let (on_dupl, sql_cond) = self.get_on_duplicate_sql(dst_type);
 
         debug!("Copying tiles with 'INSERT {on_dupl}' {src_type} -> {dst_type} ({sql_cond})");
-        // Make sure not to execute any other queries while the handle is locked
-        let mut handle_lock = conn.lock_handle().await?;
-        let handle = handle_lock.as_raw_handle().as_ptr();
 
-        // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
-        let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
+        {
+            // SAFETY: This must be scoped to make sure the handle is dropped before we continue using conn
+            // Make sure not to execute any other queries while the handle is locked
+            let mut handle_lock = conn.lock_handle().await?;
+            let handle = handle_lock.as_raw_handle().as_ptr();
 
-        match dst_type {
-            Flat => {
-                let sql = format!(
-                    "
-    INSERT {on_dupl} INTO tiles
-           (zoom_level, tile_column, tile_row, tile_data)
-    {select_from} {sql_cond}"
-                );
-                debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                rusqlite_conn.execute(&sql, params_from_iter(query_args))?
-            }
-            FlatWithHash => {
-                let sql = format!(
-                    "
-    INSERT {on_dupl} INTO tiles_with_hash
-           (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-    {select_from} {sql_cond}"
-                );
-                debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                rusqlite_conn.execute(&sql, params_from_iter(query_args))?
-            }
-            Normalized { .. } => {
-                let sql = format!(
-                    "
-    INSERT OR IGNORE INTO images
-           (tile_id, tile_data)
-    SELECT tile_hash as tile_id, tile_data
-    FROM ({select_from})"
-                );
-                debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                rusqlite_conn.execute(&sql, params_from_iter(&query_args))?;
+            // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
+            let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
 
-                let sql = format!(
-                    "
-    INSERT {on_dupl} INTO map
-           (zoom_level, tile_column, tile_row, tile_id)
-    SELECT zoom_level, tile_column, tile_row, tile_hash as tile_id
-    FROM ({select_from} {sql_cond})"
-                );
-                debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                rusqlite_conn.execute(&sql, params_from_iter(query_args))?
-            }
-        };
+            Self::copy_tiles(
+                &rusqlite_conn,
+                dst_type,
+                &query_args,
+                &on_dupl,
+                &select_from,
+                &sql_cond,
+            )?;
 
+            self.copy_metadata(&rusqlite_conn, &dif, &on_dupl)?;
+        }
+
+        if !self.options.skip_agg_tiles_hash {
+            dst_mbt.update_agg_tiles_hash(&mut conn).await?;
+        }
+
+        detach_db(&mut conn, "sourceDb").await?;
+        // Ignore error because we might not have attached diffDb
+        let _ = detach_db(&mut conn, "diffDb").await;
+
+        Ok(conn)
+    }
+
+    fn copy_metadata(
+        &self,
+        rusqlite_conn: &Connection,
+        dif: &Option<(Mbtiles, MbtType, MbtType)>,
+        on_dupl: &str,
+    ) -> Result<(), MbtError> {
         let sql;
         if dif.is_some() {
             // Insert all rows from diffDb.metadata if they do not exist or are different in sourceDb.metadata.
@@ -295,20 +283,59 @@ impl MbtileCopierInt {
             debug!("Copying metadata with {sql}");
         }
         rusqlite_conn.execute(&sql, [])?;
+        Ok(())
+    }
 
-        // SAFETY: must drop rusqlite_conn before handle_lock, or place the code since lock in a separate scope
-        drop(rusqlite_conn);
-        drop(handle_lock);
+    fn copy_tiles(
+        rusqlite_conn: &Connection,
+        dst_type: MbtType,
+        query_args: &Vec<u8>,
+        on_dupl: &str,
+        select_from: &str,
+        sql_cond: &str,
+    ) -> Result<(), MbtError> {
+        let sql = match dst_type {
+            Flat => {
+                format!(
+                    "
+    INSERT {on_dupl} INTO tiles
+           (zoom_level, tile_column, tile_row, tile_data)
+    {select_from} {sql_cond}"
+                )
+            }
+            FlatWithHash => {
+                format!(
+                    "
+    INSERT {on_dupl} INTO tiles_with_hash
+           (zoom_level, tile_column, tile_row, tile_data, tile_hash)
+    {select_from} {sql_cond}"
+                )
+            }
+            Normalized { .. } => {
+                let sql = format!(
+                    "
+    INSERT OR IGNORE INTO images
+           (tile_id, tile_data)
+    SELECT tile_hash as tile_id, tile_data
+    FROM ({select_from})"
+                );
+                debug!("Copying to {dst_type} with {sql} {query_args:?}");
+                rusqlite_conn.execute(&sql, params_from_iter(query_args))?;
 
-        if !self.options.skip_agg_tiles_hash {
-            dst_mbt.update_agg_tiles_hash(&mut conn).await?;
-        }
+                format!(
+                    "
+    INSERT {on_dupl} INTO map
+           (zoom_level, tile_column, tile_row, tile_id)
+    SELECT zoom_level, tile_column, tile_row, tile_hash as tile_id
+    FROM ({select_from} {sql_cond})"
+                )
+            }
+        };
 
-        detach_db(&mut conn, "sourceDb").await?;
-        // Ignore error because we might not have attached diffDb
-        let _ = detach_db(&mut conn, "diffDb").await;
+        debug!("Copying to {dst_type} with {sql} {query_args:?}");
+        rusqlite_conn.execute(&sql, params_from_iter(query_args))?;
 
-        Ok(conn)
+        Ok(())
     }
 
     /// Check if the detected destination file type matches the one given by the options

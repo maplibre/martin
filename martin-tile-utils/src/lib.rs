@@ -3,7 +3,11 @@
 // This code was partially adapted from https://github.com/maplibre/mbtileserver-rs
 // project originally written by Kaveh Karimi and licensed under MIT/Apache-2.0
 
+use std::f64::consts::PI;
 use std::fmt::Display;
+
+pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.7;
+pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {

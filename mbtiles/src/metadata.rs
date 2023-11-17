@@ -23,6 +23,7 @@ pub struct Metadata {
     pub json: Option<JSONValue>,
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error> {
     let mut s = serializer.serialize_struct("TileInfo", 2)?;
     s.serialize_field("format", &ti.format.to_string())?;

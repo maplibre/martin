@@ -1,7 +1,14 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
+
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_RADIUS};
 use serde::Serialize;
 use size_format::SizeFormatterBinary;
 use sqlx::{query, SqliteExecutor};
@@ -102,7 +109,7 @@ impl Display for Summary {
 }
 
 impl Mbtiles {
-    /// Compute MBTiles file summary
+    /// Compute `MBTiles` file summary
     pub async fn summary<T>(&self, conn: &mut T) -> MbtResult<Summary>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -182,23 +189,23 @@ impl Mbtiles {
 
 /// Convert min/max XYZ tile coordinates to a bounding box
 fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bounds {
-    let tile_size = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
+    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1 << zoom);
     let (min_lng, min_lat) = webmercator_to_wgs84(
-        -20037508.34 + min_x as f64 * tile_size,
-        -20037508.34 + min_y as f64 * tile_size,
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_x) * tile_size,
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_y) * tile_size,
     );
     let (max_lng, max_lat) = webmercator_to_wgs84(
-        -20037508.34 + (max_x as f64 + 1.0) * tile_size,
-        -20037508.34 + (max_y as f64 + 1.0) * tile_size,
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_x + 1) * tile_size,
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_y + 1) * tile_size,
     );
 
     Bounds::new(min_lng, min_lat, max_lng, max_lat)
 }
 
 fn get_zoom_precision(zoom: u8) -> usize {
-    let lng_delta = webmercator_to_wgs84(40075016.7 / (2_u32.pow(zoom as u32)) as f64, 0f64).0;
+    let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1 << zoom), 0.0).0;
     let log = lng_delta.log10() - 0.5;
-    if log > 0_f64 {
+    if log > 0.0 {
         0
     } else {
         -log.ceil() as usize
@@ -206,13 +213,15 @@ fn get_zoom_precision(zoom: u8) -> usize {
 }
 
 fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
-    let lng = (x / 6378137.0).to_degrees();
-    let lat = (f64::atan(f64::sinh(y / 6378137.0))).to_degrees();
+    let lng = (x / EARTH_RADIUS).to_degrees();
+    let lat = (f64::atan(f64::sinh(y / EARTH_RADIUS))).to_degrees();
     (lng, lat)
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unreadable_literal)]
+
     use approx::assert_relative_eq;
     use insta::assert_yaml_snapshot;
 
@@ -222,20 +231,20 @@ mod tests {
     #[actix_rt::test]
     async fn meter_to_lnglat() {
         let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
-        assert_relative_eq!(lng, -179.99999997494382, epsilon = f64::EPSILON);
-        assert_relative_eq!(lat, -85.05112877764508, epsilon = f64::EPSILON);
+        assert_relative_eq!(lng, -179.99999991016847, epsilon = f64::EPSILON);
+        assert_relative_eq!(lat, -85.05112877205713, epsilon = f64::EPSILON);
 
         let (lng, lat) = webmercator_to_wgs84(20037508.34, 20037508.34);
-        assert_relative_eq!(lng, 179.99999997494382, epsilon = f64::EPSILON);
-        assert_relative_eq!(lat, 85.05112877764508, epsilon = f64::EPSILON);
+        assert_relative_eq!(lng, 179.99999991016847, epsilon = f64::EPSILON);
+        assert_relative_eq!(lat, 85.05112877205713, epsilon = f64::EPSILON);
 
         let (lng, lat) = webmercator_to_wgs84(0.0, 0.0);
         assert_relative_eq!(lng, 0.0, epsilon = f64::EPSILON);
         assert_relative_eq!(lat, 0.0, epsilon = f64::EPSILON);
 
         let (lng, lat) = webmercator_to_wgs84(3000.0, 9000.0);
-        assert_relative_eq!(lng, 0.026949458523585643, epsilon = f64::EPSILON);
-        assert_relative_eq!(lat, 0.08084834874097371, epsilon = f64::EPSILON);
+        assert_relative_eq!(lng, 0.02694945851388753, epsilon = f64::EPSILON);
+        assert_relative_eq!(lat, 0.0808483487118794, epsilon = f64::EPSILON);
     }
 
     #[actix_rt::test]
@@ -282,10 +291,10 @@ mod tests {
         max_tile_size: 1107
         avg_tile_size: 96.2295918367347
         bbox:
-          - -179.99999997494382
-          - -85.05112877764508
-          - 180.00000015460688
-          - 85.05112879314403
+          - -180
+          - -85.0511287798066
+          - 180
+          - 85.0511287798066
         min_zoom: 0
         max_zoom: 6
         zoom_info:
@@ -295,70 +304,70 @@ mod tests {
             max_tile_size: 1107
             avg_tile_size: 1107
             bbox:
-              - -179.99999997494382
-              - -85.05112877764508
-              - 180.00000015460688
-              - 85.05112879314403
+              - -180
+              - -85.0511287798066
+              - 180
+              - 85.0511287798066
           - zoom: 1
             tile_count: 4
             min_tile_size: 160
             max_tile_size: 650
             avg_tile_size: 366.5
             bbox:
-              - -179.99999997494382
-              - -85.05112877764508
-              - 180.00000015460688
-              - 85.05112879314403
+              - -180
+              - -85.0511287798066
+              - 180
+              - 85.0511287798066
           - zoom: 2
             tile_count: 7
             min_tile_size: 137
             max_tile_size: 495
             avg_tile_size: 239.57142857142858
             bbox:
-              - -179.99999997494382
-              - -66.51326042021836
-              - 180.00000015460688
-              - 66.51326049182072
+              - -180
+              - -66.51326044311186
+              - 180
+              - 66.51326044311186
           - zoom: 3
             tile_count: 17
             min_tile_size: 67
             max_tile_size: 246
             avg_tile_size: 134
             bbox:
-              - -134.99999995874995
-              - -40.9798980140281
-              - 180.00000015460688
-              - 66.51326049182072
+              - -135
+              - -40.97989806962013
+              - 180
+              - 66.51326044311186
           - zoom: 4
             tile_count: 38
             min_tile_size: 64
             max_tile_size: 175
             avg_tile_size: 86
             bbox:
-              - -134.99999995874995
-              - -40.9798980140281
-              - 180.00000015460688
-              - 66.51326049182072
+              - -135
+              - -40.97989806962013
+              - 180
+              - 66.51326044311186
           - zoom: 5
             tile_count: 57
             min_tile_size: 64
             max_tile_size: 107
             avg_tile_size: 72.7719298245614
             bbox:
-              - -123.74999995470151
-              - -40.9798980140281
-              - 180.00000015460688
-              - 61.60639642757953
+              - -123.75000000000001
+              - -40.97989806962013
+              - 180
+              - 61.60639637138627
           - zoom: 6
             tile_count: 72
             min_tile_size: 64
             max_tile_size: 97
             avg_tile_size: 68.29166666666667
             bbox:
-              - -123.74999995470151
-              - -40.9798980140281
-              - 180.00000015460688
-              - 61.60639642757953
+              - -123.75000000000001
+              - -40.97989806962013
+              - 180
+              - 61.60639637138627
         "###);
 
         Ok(())
