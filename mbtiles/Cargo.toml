@@ -59,7 +59,8 @@ required-features = ["cli"]
 unsafe_code = "allow"
 
 [lints.clippy]
-pedantic = "warn"
+# We are not ready to use pedantic clippy yet
+#pedantic = "warn"
 derive_partial_eq_without_eq = "allow"
 implicit_hasher = "allow"
 missing_errors_doc = "allow"

@@ -335,29 +335,15 @@ async fn get_tile(
     // Optimization for a single-source request.
     let (tile, info) = if path.source_ids.contains(',') {
         let (sources, use_url_query, info) = sources.get_sources(&path.source_ids, Some(path.z))?;
-        if sources.is_empty() {
-            return Err(ErrorNotFound("No valid sources found"));
-        }
         let query = if use_url_query {
-            Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
+            Some(req.query_string())
         } else {
             None
         };
-        let tiles = try_join_all(sources.into_iter().map(|s| s.get_tile(&xyz, &query)))
-            .await
-            .map_err(map_internal_error)?;
-        // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
-        // TODO: can zlib, brotli, or zstd be concatenated?
-        // TODO: implement decompression step for other concatenate-able formats
-        let can_join = info.format == Format::Mvt
-            && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
-        if !can_join && tiles.iter().filter(|v| !v.is_empty()).count() > 1 {
-            return Err(ErrorBadRequest(format!(
-                "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
-                xyz.z
-            )))?;
-        }
-        (tiles.concat(), info)
+        (
+            get_composite_tile(sources.as_slice(), info, &xyz, query).await?,
+            info,
+        )
     } else {
         let id = &path.source_ids;
         let zoom = xyz.z;
@@ -391,6 +377,47 @@ async fn get_tile(
         }
         response.body(tile)
     })
+}
+
+pub async fn get_composite_tile(
+    sources: &[&dyn Source],
+    info: TileInfo,
+    xyz: &Xyz,
+    query: Option<&str>,
+) -> Result<Vec<u8>> {
+    if sources.is_empty() {
+        return Err(ErrorNotFound("No valid sources found"));
+    }
+    let query = if let Some(v) = query {
+        Some(Query::<UrlQuery>::from_query(v)?.into_inner())
+    } else {
+        None
+    };
+    let mut tiles = try_join_all(sources.iter().map(|s| s.get_tile(xyz, &query)))
+        .await
+        .map_err(map_internal_error)?;
+    // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
+    // TODO: can zlib, brotli, or zstd be concatenated?
+    // TODO: implement decompression step for other concatenate-able formats
+    let can_join = info.format == Format::Mvt
+        && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
+    let layer_count = tiles.iter().filter(|v| !v.is_empty()).count();
+    if !can_join && layer_count > 1 {
+        return Err(ErrorBadRequest(format!(
+            "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
+            xyz.z
+        )))?;
+    }
+    Ok(
+        // Minor optimization to prevent concatenation if there are less than 2 tiles
+        if layer_count == 1 {
+            tiles.swap_remove(0)
+        } else if layer_count == 0 {
+            Vec::new()
+        } else {
+            tiles.concat()
+        },
+    )
 }
 
 fn recompress(
