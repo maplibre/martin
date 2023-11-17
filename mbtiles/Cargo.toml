@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "mbtiles"
 version = "0.7.4"
@@ -52,17 +54,3 @@ path = "src/lib.rs"
 name = "mbtiles"
 path = "src/bin/mbtiles.rs"
 required-features = ["cli"]
-
-# Lints inheritance from workspace is not yet supported
-# Copy/pasting the list, modifying the `unsafe_code` requirement
-[lints.rust]
-unsafe_code = "allow"
-
-[lints.clippy]
-# We are not ready to use pedantic clippy yet
-#pedantic = "warn"
-derive_partial_eq_without_eq = "allow"
-implicit_hasher = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-module_name_repetitions = "allow"

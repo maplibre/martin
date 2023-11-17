@@ -5,7 +5,7 @@ use sqlx::query;
 
 use crate::queries::detach_db;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::{MbtResult, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
+use crate::{MbtResult, MbtType, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
 
 pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()> {
     let src_mbt = Mbtiles::new(src_file)?;
@@ -17,65 +17,8 @@ pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()
     patch_mbt.attach_to(&mut conn, "patchDb").await?;
 
     info!("Applying patch file {patch_mbt} ({patch_type}) to {src_mbt} ({src_type})");
-    let select_from = if src_type == Flat {
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles"
-    } else {
-        match patch_type {
-            Flat => {
-                "
-        SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
-        FROM patchDb.tiles"
-            }
-            FlatWithHash => {
-                "
-        SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
-        FROM patchDb.tiles_with_hash"
-            }
-            Normalized { .. } => {
-                "
-        SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
-        FROM patchDb.map LEFT JOIN patchDb.images
-          ON patchDb.map.tile_id = patchDb.images.tile_id"
-            }
-        }
-    }
-    .to_string();
-
-    let (main_table, insert_sql) = match src_type {
-        Flat => (
-            "tiles",
-            vec![format!(
-                "
-    INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
-    {select_from}"
-            )],
-        ),
-        FlatWithHash => (
-            "tiles_with_hash",
-            vec![format!(
-                "
-    INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-    {select_from}"
-            )],
-        ),
-        Normalized { .. } => (
-            "map",
-            vec![
-                format!(
-                    "
-    INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id)
-    SELECT zoom_level, tile_column, tile_row, hash as tile_id
-    FROM ({select_from})"
-                ),
-                format!(
-                    "
-    INSERT OR REPLACE INTO images (tile_id, tile_data)
-    SELECT hash as tile_id, tile_data
-    FROM ({select_from})"
-                ),
-            ],
-        ),
-    };
+    let select_from = get_select_from(src_type, patch_type);
+    let (main_table, insert_sql) = get_insert_sql(src_type, select_from);
 
     for statement in insert_sql {
         query(&format!("{statement} WHERE tile_data NOTNULL"))
@@ -123,6 +66,69 @@ pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()
     .await?;
 
     detach_db(&mut conn, "patchDb").await
+}
+
+fn get_select_from(src_type: MbtType, patch_type: MbtType) -> &'static str {
+    if src_type == Flat {
+        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles"
+    } else {
+        match patch_type {
+            Flat => {
+                "
+        SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
+        FROM patchDb.tiles"
+            }
+            FlatWithHash => {
+                "
+        SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
+        FROM patchDb.tiles_with_hash"
+            }
+            Normalized { .. } => {
+                "
+        SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
+        FROM patchDb.map LEFT JOIN patchDb.images
+          ON patchDb.map.tile_id = patchDb.images.tile_id"
+            }
+        }
+    }
+}
+
+fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, Vec<String>) {
+    match src_type {
+        Flat => (
+            "tiles",
+            vec![format!(
+                "
+    INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
+    {select_from}"
+            )],
+        ),
+        FlatWithHash => (
+            "tiles_with_hash",
+            vec![format!(
+                "
+    INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
+    {select_from}"
+            )],
+        ),
+        Normalized { .. } => (
+            "map",
+            vec![
+                format!(
+                    "
+    INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id)
+    SELECT zoom_level, tile_column, tile_row, hash as tile_id
+    FROM ({select_from})"
+                ),
+                format!(
+                    "
+    INSERT OR REPLACE INTO images (tile_id, tile_data)
+    SELECT hash as tile_id, tile_data
+    FROM ({select_from})"
+                ),
+            ],
+        ),
+    }
 }
 
 #[cfg(test)]

@@ -37,10 +37,12 @@ pub enum MbtType {
 }
 
 impl MbtType {
+    #[must_use]
     pub fn is_normalized(&self) -> bool {
         matches!(self, Self::Normalized { .. })
     }
 
+    #[must_use]
     pub fn is_normalized_with_view(&self) -> bool {
         matches!(self, Self::Normalized { hash_view: true })
     }

@@ -108,14 +108,14 @@ macro_rules! open {
     }};
 }
 
-/// Create a new SQLite file of given type without agg_tiles_hash metadata value
+/// Create a new `SQLite` file of given type without `agg_tiles_hash` metadata value
 macro_rules! new_file_no_hash {
     ($function:ident, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {{
         new_file!(@true, $function, $dst_type_cli, $sql_meta, $sql_data, $($arg)*)
     }};
 }
 
-/// Create a new SQLite file of type $dst_type_cli with the given metadata and tiles
+/// Create a new `SQLite` file of type `$dst_type_cli` with the given metadata and tiles
 macro_rules! new_file {
     ($function:ident, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {
         new_file!(@false, $function, $dst_type_cli, $sql_meta, $sql_data, $($arg)*)
@@ -276,7 +276,7 @@ async fn diff_and_patch(
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (v1, v2) = (shorten(v1_type), shorten(v2_type));
-    let dif = dif_type.map(shorten).unwrap_or("dflt");
+    let dif = dif_type.map_or("dflt", shorten);
     let prefix = format!("{v2}-{v1}={dif}");
 
     let v1_mbt = databases.mbtiles("v1", v1_type);
@@ -341,7 +341,7 @@ async fn patch_on_copy(
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (v1, dif) = (shorten(v1_type), shorten(dif_type));
-    let v2 = v2_type.map(shorten).unwrap_or("dflt");
+    let v2 = v2_type.map_or("dflt", shorten);
     let prefix = format!("{v1}+{dif}={v2}");
 
     let v1_mbt = databases.mbtiles("v1", v1_type);
@@ -417,7 +417,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
             .await?
             .into_iter()
             .map(|row| {
-                let cid: i32 = row.get(0);
+                let cid: u32 = row.get(0);
                 let typ: String = row.get(2);
                 (cid as usize, typ)
             })
