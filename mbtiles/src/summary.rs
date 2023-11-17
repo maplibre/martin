@@ -182,21 +182,21 @@ impl Mbtiles {
 
 /// Convert min/max XYZ tile coordinates to a bounding box
 fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bounds {
-    let tile_size = 40075016.7 / (2_u32.pow(zoom as u32)) as f64;
+    let tile_size = 40_075_016.7 / (2_u32.pow(zoom as u32)) as f64;
     let (min_lng, min_lat) = webmercator_to_wgs84(
-        -20037508.34 + min_x as f64 * tile_size,
-        -20037508.34 + min_y as f64 * tile_size,
+        -20_037_508.34 + min_x as f64 * tile_size,
+        -20_037_508.34 + min_y as f64 * tile_size,
     );
     let (max_lng, max_lat) = webmercator_to_wgs84(
-        -20037508.34 + (max_x as f64 + 1.0) * tile_size,
-        -20037508.34 + (max_y as f64 + 1.0) * tile_size,
+        -20_037_508.34 + (max_x as f64 + 1.0) * tile_size,
+        -20_037_508.34 + (max_y as f64 + 1.0) * tile_size,
     );
 
     Bounds::new(min_lng, min_lat, max_lng, max_lat)
 }
 
 fn get_zoom_precision(zoom: u8) -> usize {
-    let lng_delta = webmercator_to_wgs84(40075016.7 / (2_u32.pow(zoom as u32)) as f64, 0f64).0;
+    let lng_delta = webmercator_to_wgs84(40_075_016.7 / (2_u32.pow(zoom as u32)) as f64, 0f64).0;
     let log = lng_delta.log10() - 0.5;
     if log > 0_f64 {
         0
@@ -206,7 +206,7 @@ fn get_zoom_precision(zoom: u8) -> usize {
 }
 
 fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
-    let lng = (x / 6378137.0).to_degrees();
+    let lng = (x / 6_378_137.0).to_degrees();
     let lat = (f64::atan(f64::sinh(y / 6378137.0))).to_degrees();
     (lng, lat)
 }
