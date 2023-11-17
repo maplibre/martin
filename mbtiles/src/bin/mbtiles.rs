@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn test_copy_zoom_levels_arguments() {
         let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
-        opt.zoom_levels.extend(&[1, 3, 7]);
+        opt.zoom_levels.extend(&[3, 7, 1]);
         assert_eq!(
             Args::parse_from([
                 "mbtiles",

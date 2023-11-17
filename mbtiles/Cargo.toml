@@ -50,7 +50,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "mbtiles"
-path = "src/bin/main.rs"
+path = "src/bin/mbtiles.rs"
 required-features = ["cli"]
 
 # Lints inheritance from workspace is not yet supported

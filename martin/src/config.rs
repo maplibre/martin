@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::future::Future;
 use std::io::prelude::*;
@@ -6,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
+use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
@@ -17,7 +19,7 @@ use crate::pmtiles::PmtSource;
 use crate::source::{TileInfoSources, TileSources};
 use crate::sprites::SpriteSources;
 use crate::srv::SrvConfig;
-use crate::Error::{ConfigLoadError, ConfigParseError, NoSources};
+use crate::Error::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 use crate::{IdResolver, OptOneMany, Result};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
@@ -109,6 +111,26 @@ impl Config {
         }
 
         Ok(TileSources::new(try_join_all(sources).await?))
+    }
+
+    pub fn save_to_file(&self, file_name: PathBuf) -> Result<()> {
+        let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
+        if file_name.as_os_str() == OsStr::new("-") {
+            info!("Current system configuration:");
+            println!("\n\n{yaml}\n");
+            Ok(())
+        } else {
+            info!(
+                "Saving config to {}, use --config to load it",
+                file_name.display()
+            );
+            match File::create(&file_name) {
+                Ok(mut file) => file
+                    .write_all(yaml.as_bytes())
+                    .map_err(|e| ConfigWriteError(e, file_name)),
+                Err(e) => Err(ConfigWriteError(e, file_name)),
+            }
+        }
     }
 }
 
