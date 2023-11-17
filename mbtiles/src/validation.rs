@@ -278,7 +278,7 @@ impl Mbtiles {
             .await?;
 
         if result.len() > 1
-            || result.get(0).ok_or(FailedIntegrityCheck(
+            || result.first().ok_or(FailedIntegrityCheck(
                 self.filepath().to_string(),
                 vec!["SQLite could not perform integrity check".to_string()],
             ))? != "ok"
