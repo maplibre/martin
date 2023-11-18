@@ -548,34 +548,34 @@ jobs:
 
           cd aarch64-apple-darwin
           chmod +x martin mbtiles
-          tar czvf ../files/martin-Darwin-aarch64.tar.gz martin mbtiles
+          tar czvf ../files/martin-aarch64-apple-darwin.tar.gz martin mbtiles
           cd ..
           
           cd x86_64-apple-darwin
           chmod +x martin mbtiles
-          tar czvf ../files/martin-Darwin-x86_64.tar.gz martin mbtiles
+          tar czvf ../files/martin-x86_64-apple-darwin.tar.gz martin mbtiles
           cd ..
           
           cd x86_64-unknown-linux-gnu
           chmod +x martin mbtiles
-          tar czvf ../files/martin-Linux-x86_64.tar.gz martin mbtiles
+          tar czvf ../files/martin-x86_64-unknown-linux-gnu.tar.gz martin mbtiles
           cd ..
                     
           cd aarch64-unknown-linux-musl
           chmod +x martin mbtiles
-          tar czvf ../files/martin-Linux-aarch64-musl.tar.gz martin mbtiles
+          tar czvf ../files/martin-aarch64-unknown-linux-musl.tar.gz martin mbtiles
           cd ..
         
           cd x86_64-unknown-linux-musl
           chmod +x martin mbtiles
-          tar czvf ../files/martin-Linux-x86_64-musl.tar.gz martin mbtiles
+          tar czvf ../files/martin-x86_64-unknown-linux-musl.tar.gz martin mbtiles
           cd ..
           
           #
           # Special case for Windows
           #
           cd x86_64-pc-windows-msvc
-          7z a ../files/martin-Windows-x86_64.zip martin.exe mbtiles.exe
+          7z a ../files/martin-x86_64-pc-windows-msvc.zip martin.exe mbtiles.exe
           cd ..
           
           #
@@ -597,10 +597,10 @@ jobs:
           
           cat << EOF > homebrew_config.yaml
           version: "$MARTIN_VERSION"
-          macos_arm_sha256: "$(shasum -a 256 files/martin-Darwin-aarch64.tar.gz | cut -d' ' -f1)"
-          macos_intel_sha256: "$(shasum -a 256 files/martin-Darwin-x86_64.tar.gz | cut -d' ' -f1)"
-          linux_arm_sha256: "$(shasum -a 256 files/martin-Linux-aarch64-musl.tar.gz | cut -d' ' -f1)"
-          linux_intel_sha256: "$(shasum -a 256 files/martin-Linux-x86_64-musl.tar.gz | cut -d' ' -f1)"
+          macos_arm_sha256: "$(shasum -a 256 files/martin-aarch64-apple-darwin.tar.gz | cut -d' ' -f1)"
+          macos_intel_sha256: "$(shasum -a 256 files/martin-x86_64-apple-darwin.tar.gz | cut -d' ' -f1)"
+          linux_arm_sha256: "$(shasum -a 256 files/martin-aarch64-unknown-linux-musl.tar.gz | cut -d' ' -f1)"
+          linux_intel_sha256: "$(shasum -a 256 files/martin-x86_64-unknown-linux-musl.tar.gz | cut -d' ' -f1)"
           EOF
 
       - name: Save Homebrew Config
