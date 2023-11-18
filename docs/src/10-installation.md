@@ -12,9 +12,9 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 | macOS    | [64-bit][rl-macos-tar] |
 | Windows  | [64-bit][rl-win64-zip] |
 
-[rl-linux-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-Linux-x86_64.tar.gz
-[rl-macos-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-Darwin-x86_64.tar.gz
-[rl-win64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-Windows-x86_64.zip
+[rl-linux-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
+[rl-macos-tar]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-apple-darwin.tar.gz
+[rl-win64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip
 
 ### Building with Cargo
 
