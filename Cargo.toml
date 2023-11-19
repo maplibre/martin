@@ -11,6 +11,7 @@ readme = "README.md"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.lints.rust]
+unused_qualifications = "warn"
 # Lints inheritance from workspace is not yet supported
 # Crate mbtiles uses unsafe code, so we can't forbid it here
 # unsafe_code = "forbid"
@@ -84,5 +85,6 @@ insta.opt-level = 3
 similar.opt-level = 3
 
 #[patch.crates-io]
-#sqlite-hashes = { path = "/home/nyurik/dev/rust/sqlite-hashes" }
 #pmtiles = { path = "../pmtiles-rs" }
+#sqlite-hashes = { path = "/home/nyurik/dev/rust/sqlite-hashes" }
+#tilejson = { path = "../tilejson" }

@@ -13,10 +13,10 @@ pub enum MbtError {
     #[error("The diff file and source or destination MBTiles files are the same: {}", .0.display())]
     SameDiffAndSourceOrDestination(PathBuf),
 
-    #[error("SQL Error {0}")]
+    #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
 
-    #[error("SQL Error {0}")]
+    #[error(transparent)]
     RusqliteError(#[from] rusqlite::Error),
 
     #[error("MBTile filepath contains unsupported characters: {}", .0.display())]
@@ -38,7 +38,7 @@ pub enum MbtError {
     AggHashMismatch(String, String, String),
 
     #[error(
-        "Metadata value `agg_tiles_hash` is not set in MBTiles file {0}\n    Use `mbtiles validate --update-agg-tiles-hash {0}` to fix this."
+        "Metadata value `agg_tiles_hash` is not set in MBTiles file {0}\n    Use `mbtiles validate --agg-hash update {0}` to fix this."
     )]
     AggHashValueNotFound(String),
 

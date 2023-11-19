@@ -19,14 +19,28 @@ mod pool;
 pub use pool::MbtilesPool;
 
 mod queries;
-pub use queries::{
-    create_flat_tables, create_flat_with_hash_tables, create_metadata_table,
-    create_normalized_tables, is_flat_with_hash_tables_type, is_normalized_tables_type,
-};
+pub use queries::*;
 
 mod summary;
 
 mod validation;
 pub use validation::{
-    calc_agg_tiles_hash, IntegrityCheckType, MbtType, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF,
+    calc_agg_tiles_hash, AggHashType, IntegrityCheckType, MbtType, AGG_TILES_HASH,
+    AGG_TILES_HASH_IN_DIFF,
 };
+
+/// `MBTiles` uses a TMS (Tile Map Service) scheme for its tile coordinates (inverted along the Y axis).
+/// This function converts Y value between TMS tile coordinate to an XYZ tile coordinate.
+/// ```
+/// use mbtiles::invert_y_value;
+/// assert_eq!(invert_y_value(0, 0), 0);
+/// assert_eq!(invert_y_value(1, 0), 1);
+/// assert_eq!(invert_y_value(1, 1), 0);
+/// assert_eq!(invert_y_value(2, 0), 3);
+/// assert_eq!(invert_y_value(2, 1), 2);
+/// ```
+#[inline]
+#[must_use]
+pub fn invert_y_value(zoom: u8, y: u32) -> u32 {
+    (1u32 << zoom) - 1 - y
+}

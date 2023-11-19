@@ -47,7 +47,7 @@ pub enum FontError {
     #[error("Given font range {0}-{1} is invalid. It must be {CP_RANGE_SIZE} characters long (e.g. 0-255, 256-511, ...)")]
     InvalidFontRange(u32, u32),
 
-    #[error("FreeType font error: {0}")]
+    #[error(transparent)]
     FreeType(#[from] pbf_font_tools::freetype::Error),
 
     #[error("IO error accessing {}: {0}", .1.display())]
@@ -62,10 +62,10 @@ pub enum FontError {
     #[error("Font {0} is missing a family name")]
     MissingFamilyName(PathBuf),
 
-    #[error("PBF Font error: {0}")]
+    #[error(transparent)]
     PbfFontError(#[from] PbfFontError),
 
-    #[error("Error serializing protobuf: {0}")]
+    #[error(transparent)]
     ErrorSerializingProtobuf(#[from] pbf_font_tools::protobuf::Error),
 }
 

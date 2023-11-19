@@ -5,9 +5,10 @@ use std::str::from_utf8;
 use ctor::ctor;
 use insta::{allow_duplicates, assert_display_snapshot};
 use log::info;
+use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use mbtiles::{apply_patch, create_flat_tables, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier};
+use mbtiles::{apply_patch, init_mbtiles_schema, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier};
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
@@ -123,7 +124,7 @@ macro_rules! new_file {
 
     (@$skip_agg:expr, $function:tt, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {{
         let (tmp_mbt, mut cn_tmp) = open!(@"temp", $function, $($arg)*);
-        create_flat_tables(&mut cn_tmp).await.unwrap();
+        init_mbtiles_schema(&mut cn_tmp, mbtiles::MbtType::Flat).await.unwrap();
         cn_tmp.execute($sql_data).await.unwrap();
         cn_tmp.execute($sql_meta).await.unwrap();
 
@@ -195,7 +196,7 @@ fn databases() -> Databases {
             copier(raw_mbt, &v1_mbt).run().await.unwrap();
             let dmp = dump(&mut v1_cn).await.unwrap();
             assert_snapshot!(&dmp, "{typ}__v1");
-            let hash = v1_mbt.validate(Off, false).await.unwrap();
+            let hash = v1_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_display_snapshot!(hash, @"096A8399D486CF443A5DF0CEC1AD8BB2");
             }
@@ -205,7 +206,7 @@ fn databases() -> Databases {
                 new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
             let dmp = dump(&mut v2_cn).await.unwrap();
             assert_snapshot!(&dmp, "{typ}__v2");
-            let hash = v2_mbt.validate(Off, false).await.unwrap();
+            let hash = v2_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_display_snapshot!(hash, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
             }
@@ -219,7 +220,7 @@ fn databases() -> Databases {
             opt.run().await.unwrap();
             let dmp = dump(&mut dif_cn).await.unwrap();
             assert_snapshot!(&dmp, "{typ}__dif");
-            let hash = dif_mbt.validate(Off, false).await.unwrap();
+            let hash = dif_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_display_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
             }
@@ -309,7 +310,7 @@ async fn diff_and_patch(
             "{prefix}__v1"
         );
         apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
-        let hash_v1 = tar1_mbt.validate(Off, false).await?;
+        let hash_v1 = tar1_mbt.validate(Off, Verify).await?;
         allow_duplicates! {
             assert_display_snapshot!(hash_v1, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
         }
@@ -320,7 +321,7 @@ async fn diff_and_patch(
         let (tar2_mbt, mut tar2_cn) =
             new_file! {diff_and_patch, *target_type, METADATA_V2, TILES_V2, "{prefix}__v2"};
         apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
-        let hash_v2 = tar2_mbt.validate(Off, false).await?;
+        let hash_v2 = tar2_mbt.validate(Off, Verify).await?;
         allow_duplicates! {
             assert_display_snapshot!(hash_v2, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
         }

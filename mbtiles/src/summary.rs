@@ -189,7 +189,7 @@ impl Mbtiles {
 
 /// Convert min/max XYZ tile coordinates to a bounding box
 fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bounds {
-    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1 << zoom);
+    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (min_lng, min_lat) = webmercator_to_wgs84(
         -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_x) * tile_size,
         -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_y) * tile_size,
@@ -203,7 +203,7 @@ fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Boun
 }
 
 fn get_zoom_precision(zoom: u8) -> usize {
-    let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1 << zoom), 0.0).0;
+    let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
     let log = lng_delta.log10() - 0.5;
     if log > 0.0 {
         0
@@ -226,10 +226,10 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use crate::summary::webmercator_to_wgs84;
-    use crate::{create_flat_tables, MbtResult, Mbtiles};
+    use crate::{init_mbtiles_schema, MbtResult, MbtType, Mbtiles};
 
     #[actix_rt::test]
-    async fn meter_to_lnglat() {
+    async fn meter_to_lng_lat() {
         let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
         assert_relative_eq!(lng, -179.99999991016847, epsilon = f64::EPSILON);
         assert_relative_eq!(lat, -85.05112877205713, epsilon = f64::EPSILON);
@@ -252,14 +252,14 @@ mod tests {
         let mbt = Mbtiles::new("file:mbtiles_empty_summary?mode=memory&cache=shared")?;
         let mut conn = mbt.open().await?;
 
-        create_flat_tables(&mut conn).await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
         let res = mbt.summary(&mut conn).await?;
         assert_yaml_snapshot!(res, @r###"
         ---
         file_size: ~
         mbt_type: Flat
-        page_size: 4096
-        page_count: 5
+        page_size: 512
+        page_count: 6
         tile_count: 0
         min_tile_size: ~
         max_tile_size: ~

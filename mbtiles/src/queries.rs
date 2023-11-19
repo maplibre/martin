@@ -2,6 +2,7 @@ use log::debug;
 use sqlx::{query, Executor as _, SqliteExecutor};
 
 use crate::errors::MbtResult;
+use crate::MbtType;
 
 /// Returns true if the database is empty (no tables/indexes/...)
 pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>
@@ -166,8 +167,6 @@ pub async fn create_flat_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    create_metadata_table(&mut *conn).await?;
-
     debug!("Creating if needed flat table: tiles(z,x,y,data)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles (
@@ -186,8 +185,6 @@ pub async fn create_flat_with_hash_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    create_metadata_table(&mut *conn).await?;
-
     debug!("Creating if needed flat-with-hash table: tiles_with_hash(z,x,y,data,hash)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tiles_with_hash (
@@ -214,8 +211,6 @@ pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    create_metadata_table(&mut *conn).await?;
-
     debug!("Creating if needed normalized table: map(z,x,y,id)");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS map (
@@ -269,6 +264,38 @@ where
     .await?;
 
     Ok(())
+}
+
+pub async fn reset_db_settings<T>(conn: &mut T) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    debug!("Resetting PRAGMA settings and vacuuming");
+    query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
+    query!("PRAGMA encoding = 'UTF-8'")
+        .execute(&mut *conn)
+        .await?;
+    query!("VACUUM").execute(&mut *conn).await?;
+    Ok(())
+}
+
+pub async fn init_mbtiles_schema<T>(conn: &mut T, mbt_type: MbtType) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    reset_db_settings(conn).await?;
+    create_metadata_table(&mut *conn).await?;
+    match mbt_type {
+        MbtType::Flat => create_flat_tables(&mut *conn).await,
+        MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn).await,
+        MbtType::Normalized { hash_view } => {
+            create_normalized_tables(&mut *conn).await?;
+            if hash_view {
+                create_tiles_with_hash_view(&mut *conn).await?;
+            }
+            Ok(())
+        }
+    }
 }
 
 pub async fn detach_db<T>(conn: &mut T, name: &str) -> MbtResult<()>

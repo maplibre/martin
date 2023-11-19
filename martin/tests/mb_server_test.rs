@@ -52,24 +52,24 @@ async fn mbt_get_catalog() {
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @r###"
     ---
+    fonts: {}
+    sprites: {}
     tiles:
       m_json:
         content_type: application/json
         name: Dummy json data
       m_mvt:
-        content_type: application/x-protobuf
         content_encoding: gzip
-        name: Major cities from Natural Earth data
+        content_type: application/x-protobuf
         description: Major cities from Natural Earth data
+        name: Major cities from Natural Earth data
       m_raw_mvt:
         content_type: application/x-protobuf
-        name: Major cities from Natural Earth data
         description: Major cities from Natural Earth data
+        name: Major cities from Natural Earth data
       m_webp:
         content_type: image/webp
         name: ne2sr
-    sprites: {}
-    fonts: {}
     "###);
 }
 
@@ -84,24 +84,24 @@ async fn mbt_get_catalog_gzip() {
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r###"
     ---
+    fonts: {}
+    sprites: {}
     tiles:
       m_json:
         content_type: application/json
         name: Dummy json data
       m_mvt:
-        content_type: application/x-protobuf
         content_encoding: gzip
-        name: Major cities from Natural Earth data
+        content_type: application/x-protobuf
         description: Major cities from Natural Earth data
+        name: Major cities from Natural Earth data
       m_raw_mvt:
         content_type: application/x-protobuf
-        name: Major cities from Natural Earth data
         description: Major cities from Natural Earth data
+        name: Major cities from Natural Earth data
       m_webp:
         content_type: image/webp
         name: ne2sr
-    sprites: {}
-    fonts: {}
     "###);
 }
 
@@ -245,7 +245,7 @@ async fn mbt_get_raw_mvt_gzip() {
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
-    let body = martin::decode_gzip(&body).unwrap();
+    let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
 
@@ -302,6 +302,6 @@ async fn mbt_get_json_gzip() {
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 33); // this number could change if compression gets more optimized
-    let body = martin::decode_gzip(&body).unwrap();
+    let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 13);
 }

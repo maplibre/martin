@@ -40,6 +40,7 @@ pub struct OsEnv(RefCell<HashSet<String>>);
 
 impl<'a> Env<'a> for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
+        #[allow(unused_qualifications)]
         std::env::var_os(key)
     }
 

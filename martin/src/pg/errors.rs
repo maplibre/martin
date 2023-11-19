@@ -28,7 +28,7 @@ pub enum PgError {
     #[error("Unable to use client certificate pair {} / {}: {0}", .1.display(), .2.display())]
     CannotUseClientKey(#[source] rustls::Error, PathBuf, PathBuf),
 
-    #[error("Rustls Error: {0:?}")]
+    #[error(transparent)]
     RustlsError(#[from] rustls::Error),
 
     #[error("Unknown SSL mode: {0:?}")]

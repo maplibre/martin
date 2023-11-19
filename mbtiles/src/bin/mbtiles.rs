@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use log::error;
-use mbtiles::{apply_patch, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
+use mbtiles::{apply_patch, AggHashType, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
 
 #[derive(Parser, PartialEq, Eq, Debug)]
 #[command(
@@ -67,8 +67,11 @@ enum Commands {
         #[arg(long, value_enum, default_value_t=IntegrityCheckType::default())]
         integrity_check: IntegrityCheckType,
         /// Update `agg_tiles_hash` metadata value instead of using it to validate if the entire tile store is valid.
-        #[arg(long)]
+        #[arg(long, hide = true)]
         update_agg_tiles_hash: bool,
+        /// How should the aggregate tiles hash be checked or updated.
+        #[arg(long, value_enum)]
+        agg_hash: Option<AggHashType>,
     },
 }
 
@@ -113,9 +116,20 @@ async fn main_int() -> anyhow::Result<()> {
             file,
             integrity_check,
             update_agg_tiles_hash,
+            agg_hash,
         } => {
+            if update_agg_tiles_hash && agg_hash.is_some() {
+                anyhow::bail!("Cannot use both --agg-hash and --update-agg-tiles-hash");
+            }
+            let agg_hash = agg_hash.unwrap_or_else(|| {
+                if update_agg_tiles_hash {
+                    AggHashType::Update
+                } else {
+                    AggHashType::default()
+                }
+            });
             let mbt = Mbtiles::new(file.as_path())?;
-            mbt.validate(integrity_check, update_agg_tiles_hash).await?;
+            mbt.validate(integrity_check, agg_hash).await?;
         }
         Commands::Summary { file } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -148,7 +162,11 @@ async fn meta_get_value(file: &Path, key: &str) -> MbtResult<()> {
 async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
-    mbt.set_metadata_value(&mut conn, key, value).await
+    if let Some(value) = value {
+        mbt.set_metadata_value(&mut conn, key, value).await
+    } else {
+        mbt.delete_metadata_value(&mut conn, key).await
+    }
 }
 
 #[cfg(test)]
@@ -159,6 +177,7 @@ mod tests {
     use clap::Parser;
     use mbtiles::{CopyDuplicateMode, MbtilesCopier};
 
+    use super::*;
     use crate::Commands::{ApplyPatch, Copy, MetaGetValue, MetaSetValue, Validate};
     use crate::{Args, IntegrityCheckType};
 
@@ -430,13 +449,14 @@ mod tests {
     #[test]
     fn test_validate() {
         assert_eq!(
-            Args::parse_from(["mbtiles", "validate", "src_file"]),
+            Args::parse_from(["mbtiles", "validate", "src_file", "--agg-hash", "off"]),
             Args {
                 verbose: false,
                 command: Validate {
                     file: PathBuf::from("src_file"),
                     integrity_check: IntegrityCheckType::Quick,
-                    update_agg_tiles_hash: false
+                    update_agg_tiles_hash: false,
+                    agg_hash: Some(AggHashType::Off),
                 }
             }
         );

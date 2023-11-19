@@ -35,4 +35,4 @@ md5_concat_hex(
 
 In case there are no rows or all are NULL, the hash value of an empty string is used. Note that SQLite allows any value type to be stored as in any column, so if `tile_data` accidentally contains non-blob/text/null value, validation will fail.
 
-The `mbtiles` tool will compute `agg_tiles_hash` value when copying or validating mbtiles files. Use `--update-agg-tiles-hash` to force the value to be updated, even if it is incorrect or does not exist.
+The `mbtiles` tool will compute `agg_tiles_hash` value when copying or validating mbtiles files. Use `--agg-hash update` to force the value to be updated, even if it is incorrect or does not exist.

@@ -49,6 +49,8 @@ postgres:
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r###"
     ---
+    fonts: {}
+    sprites: {}
     tiles:
       MixPoints:
         content_type: application/x-protobuf
@@ -114,8 +116,6 @@ postgres:
       table_source_multiple_geom.1:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom2
-    sprites: {}
-    fonts: {}
     "###);
 }
 

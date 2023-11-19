@@ -5,19 +5,21 @@ use std::path::PathBuf;
 use clap::{Args, ValueEnum};
 use enum_display::EnumDisplay;
 use log::{debug, info};
-use sqlite_hashes::rusqlite;
+use serde::{Deserialize, Serialize};
 use sqlite_hashes::rusqlite::{params_from_iter, Connection};
 use sqlx::{query, Executor as _, Row, SqliteConnection};
 
 use crate::errors::MbtResult;
 use crate::queries::{
-    create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
-    create_tiles_with_hash_view, detach_db, is_empty_database,
+    create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
 };
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::{MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
+use crate::{
+    reset_db_settings, MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH,
+    AGG_TILES_HASH_IN_DIFF,
+};
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, EnumDisplay, Serialize, Deserialize)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum CopyDuplicateMode {
@@ -25,6 +27,17 @@ pub enum CopyDuplicateMode {
     Override,
     Ignore,
     Abort,
+}
+
+impl CopyDuplicateMode {
+    #[must_use]
+    pub fn to_sql(&self) -> &'static str {
+        match self {
+            CopyDuplicateMode::Override => "OR REPLACE",
+            CopyDuplicateMode::Ignore => "OR IGNORE",
+            CopyDuplicateMode::Abort => "OR ABORT",
+        }
+    }
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
@@ -192,7 +205,8 @@ impl MbtileCopierInt {
 
         let (where_clause, query_args) = self.get_where_clause();
         let select_from = format!("{select_from} {where_clause}");
-        let (on_dupl, sql_cond) = self.get_on_duplicate_sql(dst_type);
+        let on_dupl = self.options.on_duplicate.to_sql();
+        let sql_cond = self.get_on_duplicate_sql_cond(dst_type);
 
         debug!("Copying tiles with 'INSERT {on_dupl}' {src_type} -> {dst_type} ({sql_cond})");
 
@@ -203,18 +217,18 @@ impl MbtileCopierInt {
             let handle = handle_lock.as_raw_handle().as_ptr();
 
             // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
-            let rusqlite_conn = unsafe { rusqlite::Connection::from_handle(handle) }?;
+            let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
 
             Self::copy_tiles(
                 &rusqlite_conn,
                 dst_type,
                 &query_args,
-                &on_dupl,
+                on_dupl,
                 &select_from,
                 &sql_cond,
             )?;
 
-            self.copy_metadata(&rusqlite_conn, &dif, &on_dupl)?;
+            self.copy_metadata(&rusqlite_conn, &dif, on_dupl)?;
         }
 
         if !self.options.skip_agg_tiles_hash {
@@ -363,16 +377,10 @@ impl MbtileCopierInt {
         src: MbtType,
         dst: MbtType,
     ) -> MbtResult<()> {
-        debug!("Resetting PRAGMA settings and vacuuming");
-        query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
-        query!("PRAGMA encoding = 'UTF-8'")
-            .execute(&mut *conn)
-            .await?;
-        query!("VACUUM").execute(&mut *conn).await?;
-
         if src == dst {
-            // DB objects must be created in a specific order: tables, views, triggers, indexes.
+            reset_db_settings(conn).await?;
             debug!("Copying DB schema verbatim");
+            // DB objects must be created in a specific order: tables, views, triggers, indexes.
             let sql_objects = conn
                 .fetch_all(
                     "SELECT sql
@@ -391,28 +399,22 @@ impl MbtileCopierInt {
             for row in sql_objects {
                 query(row.get(0)).execute(&mut *conn).await?;
             }
+            if dst.is_normalized() {
+                // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
+                create_tiles_with_hash_view(&mut *conn).await?;
+            }
         } else {
-            match dst {
-                Flat => create_flat_tables(&mut *conn).await?,
-                FlatWithHash => create_flat_with_hash_tables(&mut *conn).await?,
-                Normalized { .. } => create_normalized_tables(&mut *conn).await?,
-            };
+            init_mbtiles_schema(&mut *conn, dst).await?;
         };
-
-        if dst.is_normalized() {
-            // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
-            create_tiles_with_hash_view(&mut *conn).await?;
-        }
 
         Ok(())
     }
 
-    /// Returns (ON DUPLICATE SQL, WHERE condition SQL)
-    fn get_on_duplicate_sql(&self, dst_type: MbtType) -> (String, String) {
+    /// Returns WHERE condition SQL depending on the override and destination type
+    fn get_on_duplicate_sql_cond(&self, dst_type: MbtType) -> String {
         match &self.options.on_duplicate {
-            CopyDuplicateMode::Override => ("OR REPLACE".to_string(), String::new()),
-            CopyDuplicateMode::Ignore => ("OR IGNORE".to_string(), String::new()),
-            CopyDuplicateMode::Abort => ("OR ABORT".to_string(), {
+            CopyDuplicateMode::Ignore | CopyDuplicateMode::Override => String::new(),
+            CopyDuplicateMode::Abort => {
                 let (main_table, tile_identifier) = match dst_type {
                     Flat => ("tiles", "tile_data"),
                     FlatWithHash => ("tiles_with_hash", "tile_data"),
@@ -430,7 +432,7 @@ impl MbtileCopierInt {
                                  AND {main_table}.{tile_identifier} != sourceDb.{main_table}.{tile_identifier}
                          )"
                 )
-            }),
+            }
         }
     }
 

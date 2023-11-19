@@ -18,10 +18,14 @@ pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()
 
     info!("Applying patch file {patch_mbt} ({patch_type}) to {src_mbt} ({src_type})");
     let select_from = get_select_from(src_type, patch_type);
-    let (main_table, insert_sql) = get_insert_sql(src_type, select_from);
+    let (main_table, insert1, insert2) = get_insert_sql(src_type, select_from);
 
-    for statement in insert_sql {
-        query(&format!("{statement} WHERE tile_data NOTNULL"))
+    query(&format!("{insert1} WHERE tile_data NOTNULL"))
+        .execute(&mut conn)
+        .await?;
+
+    if let Some(insert2) = insert2 {
+        query(&format!("{insert2} WHERE tile_data NOTNULL"))
             .execute(&mut conn)
             .await?;
     }
@@ -93,40 +97,40 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> &'static str {
     }
 }
 
-fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, Vec<String>) {
+fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String, Option<String>) {
     match src_type {
         Flat => (
             "tiles",
-            vec![format!(
+            format!(
                 "
     INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
     {select_from}"
-            )],
+            ),
+            None,
         ),
         FlatWithHash => (
             "tiles_with_hash",
-            vec![format!(
+            format!(
                 "
     INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
     {select_from}"
-            )],
+            ),
+            None,
         ),
         Normalized { .. } => (
             "map",
-            vec![
-                format!(
-                    "
+            format!(
+                "
     INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id)
     SELECT zoom_level, tile_column, tile_row, hash as tile_id
     FROM ({select_from})"
-                ),
-                format!(
-                    "
+            ),
+            Some(format!(
+                "
     INSERT OR REPLACE INTO images (tile_id, tile_data)
     SELECT hash as tile_id, tile_data
     FROM ({select_from})"
-                ),
-            ],
+            )),
         ),
     }
 }
