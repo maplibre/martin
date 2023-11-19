@@ -1,0 +1,25 @@
+[INFO ] cp_flat-with-hash has an unrecognized metadata value foo={"bar":"foo"}
+[INFO ] Using 'mvt' tile format from metadata table in file cp_flat-with-hash
+id: cp_flat-with-hash
+tile_info:
+  format: mvt
+  encoding: ''
+layer_type: null
+tilejson:
+  tilejson: 3.0.0
+  tiles: []
+  vector_layers:
+  - id: table_source
+    fields:
+      gid: int4
+  bounds:
+  - -2.0
+  - -1.0
+  - 142.84131509869133
+  - 45.0
+  name: table_source
+  foo: '{"bar":"foo"}'
+  format: mvt
+  generator: martin-cp v0.10.1
+json: {}
+
