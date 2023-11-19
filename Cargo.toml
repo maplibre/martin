@@ -11,6 +11,7 @@ readme = "README.md"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.lints.rust]
+unused_qualifications = "warn"
 # Lints inheritance from workspace is not yet supported
 # Crate mbtiles uses unsafe code, so we can't forbid it here
 # unsafe_code = "forbid"

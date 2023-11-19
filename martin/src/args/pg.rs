@@ -37,7 +37,7 @@ pub struct PgArgs {
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
-    #[arg(help = format!("Maximum connections pool size [DEFAULT: {}]", POOL_SIZE_DEFAULT), short, long)]
+    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {}]", POOL_SIZE_DEFAULT), short, long)]
     pub pool_size: Option<usize>,
     /// Limit the number of features in a tile from a PG table source.
     #[arg(short, long)]

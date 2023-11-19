@@ -41,7 +41,7 @@ postgres:
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
 
-  # Maximum connections pool size [default: 20]
+  # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
 
   # Limit the number of table geo features included in a tile. Unlimited by default.

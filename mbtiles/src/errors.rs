@@ -38,7 +38,7 @@ pub enum MbtError {
     AggHashMismatch(String, String, String),
 
     #[error(
-        "Metadata value `agg_tiles_hash` is not set in MBTiles file {0}\n    Use `mbtiles validate --update-agg-tiles-hash {0}` to fix this."
+        "Metadata value `agg_tiles_hash` is not set in MBTiles file {0}\n    Use `mbtiles validate --agg-hash update {0}` to fix this."
     )]
     AggHashValueNotFound(String),
 

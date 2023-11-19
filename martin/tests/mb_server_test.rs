@@ -245,7 +245,7 @@ async fn mbt_get_raw_mvt_gzip() {
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
-    let body = martin::decode_gzip(&body).unwrap();
+    let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
 
@@ -302,6 +302,6 @@ async fn mbt_get_json_gzip() {
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 33); // this number could change if compression gets more optimized
-    let body = martin::decode_gzip(&body).unwrap();
+    let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 13);
 }

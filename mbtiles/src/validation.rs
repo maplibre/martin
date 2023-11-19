@@ -58,23 +58,36 @@ pub enum IntegrityCheckType {
     Off,
 }
 
+#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
+pub enum AggHashType {
+    /// Verify that the aggregate tiles hash value in the metadata table matches the computed value. Used by default.
+    #[default]
+    Verify,
+    /// Update the aggregate tiles hash value in the metadata table
+    Update,
+    /// Do not check the aggregate tiles hash value
+    Off,
+}
+
 impl Mbtiles {
     pub async fn validate(
         &self,
         check_type: IntegrityCheckType,
-        update_agg_tiles_hash: bool,
+        agg_hash: AggHashType,
     ) -> MbtResult<String> {
-        let mut conn = if update_agg_tiles_hash {
+        let mut conn = if agg_hash == AggHashType::Update {
             self.open().await?
         } else {
             self.open_readonly().await?
         };
         self.check_integrity(&mut conn, check_type).await?;
         self.check_each_tile_hash(&mut conn).await?;
-        if update_agg_tiles_hash {
-            self.update_agg_tiles_hash(&mut conn).await
-        } else {
-            self.check_agg_tiles_hashes(&mut conn).await
+        match agg_hash {
+            AggHashType::Verify => self.check_agg_tiles_hashes(&mut conn).await,
+            AggHashType::Update => self.update_agg_tiles_hash(&mut conn).await,
+            AggHashType::Off => Ok(String::new()),
         }
     }
 
@@ -423,7 +436,7 @@ pub(crate) mod tests {
         let (mut conn, mbt) =
             open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await?;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
-        assert!(matches!(result, Err(MbtError::AggHashMismatch(..))));
+        assert!(matches!(result, Err(AggHashMismatch(..))));
         Ok(())
     }
 }

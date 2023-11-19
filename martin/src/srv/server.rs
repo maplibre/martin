@@ -548,7 +548,6 @@ mod tests {
 
     use super::*;
     use crate::source::{Source, Tile};
-    use crate::utils;
 
     #[derive(Debug, Clone)]
     struct TestSource {
@@ -573,11 +572,7 @@ mod tests {
             unimplemented!()
         }
 
-        async fn get_tile(
-            &self,
-            _xyz: &Xyz,
-            _url_query: &Option<UrlQuery>,
-        ) -> Result<Tile, utils::Error> {
+        async fn get_tile(&self, _xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
             unimplemented!()
         }
     }

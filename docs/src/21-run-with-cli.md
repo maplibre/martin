@@ -46,7 +46,7 @@ Options:
           If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
 
   -p, --pool-size <POOL_SIZE>
-          Maximum connections pool size [DEFAULT: 20]
+          Maximum Postgres connections pool size [DEFAULT: 20]
 
   -m, --max-feature-count <MAX_FEATURE_COUNT>
           Limit the number of features in a tile from a PG table source

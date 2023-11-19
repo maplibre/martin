@@ -21,6 +21,10 @@ TEST_OUT_BASE_DIR="$(dirname "$0")/output"
 LOG_DIR="${LOG_DIR:-target/test_logs}"
 mkdir -p "$LOG_DIR"
 
+TEST_TEMP_DIR="$(dirname "$0")/mbtiles_temp_files"
+rm -rf "$TEST_TEMP_DIR"
+mkdir -p "$TEST_TEMP_DIR"
+
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
@@ -350,13 +354,6 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   TEST_NAME="mbtiles"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
   mkdir -p "$TEST_OUT_DIR"
-  TEST_TEMP_DIR="$(dirname "$0")/temp"
-  if [[ -d "$TEST_TEMP_DIR" ]]; then
-    echo "ERROR: ./$TEST_TEMP_DIR already exists. Please remove it first."
-    exit 1
-  else
-    mkdir -p "$TEST_TEMP_DIR"
-  fi
 
   set -x
 
@@ -378,7 +375,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   set -e
 
   cp ./tests/fixtures/files/bad_hash.mbtiles "$TEST_TEMP_DIR/fix_bad_hash.mbtiles"
-  $MBTILES_BIN validate --update-agg-tiles-hash "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
+  $MBTILES_BIN validate --agg-hash update "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
   $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
 
   # Create diff file
@@ -419,11 +416,11 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     cp "$EXPECTED_DIR/copy_apply.txt" "$TEST_OUT_DIR/copy_apply.txt"
   fi
 
-  rm -rf "$TEST_TEMP_DIR"
-
   { set +x; } 2> /dev/null
 else
   echo "Skipping mbtiles utility tests"
 fi
+
+rm -rf "$TEST_TEMP_DIR"
 
 >&2 echo "All integration tests have passed"
