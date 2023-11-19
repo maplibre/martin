@@ -6,14 +6,15 @@ use std::path::Path;
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::debug;
+use serde::{Deserialize, Serialize};
 use sqlite_hashes::register_md5_function;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query, Connection as _, SqliteConnection, SqliteExecutor};
+use sqlx::{query, Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement};
 
 use crate::errors::{MbtError, MbtResult};
-use crate::{invert_y_value, MbtType};
+use crate::{invert_y_value, CopyDuplicateMode, MbtType};
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum MbtTypeCli {
@@ -120,6 +121,77 @@ impl Mbtiles {
             }
         }
         Ok(None)
+    }
+
+    pub async fn insert_tiles(
+        &self,
+        conn: &mut SqliteConnection,
+        mbt_type: MbtType,
+        on_duplicate: CopyDuplicateMode,
+        batch: &[(u8, u32, u32, Vec<u8>)],
+    ) -> MbtResult<()> {
+        debug!(
+            "Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}",
+            batch.len()
+        );
+        let mut tx = conn.begin().await?;
+        let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate);
+        if let Some(sql2) = sql2 {
+            let sql2 = tx.prepare(&sql2).await?;
+            for (_, _, _, tile_data) in batch {
+                sql2.query().bind(tile_data).execute(&mut *tx).await?;
+            }
+        }
+        let sql1 = tx.prepare(&sql1).await?;
+        for (z, x, y, tile_data) in batch {
+            let y = invert_y_value(*z, *y);
+            sql1.query()
+                .bind(z)
+                .bind(x)
+                .bind(y)
+                .bind(tile_data)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    fn get_insert_sql(
+        src_type: MbtType,
+        on_duplicate: CopyDuplicateMode,
+    ) -> (String, Option<String>) {
+        let on_duplicate = on_duplicate.to_sql();
+        match src_type {
+            MbtType::Flat => (
+                format!(
+                    "
+    INSERT {on_duplicate} INTO tiles (zoom_level, tile_column, tile_row, tile_data)
+    VALUES (?1, ?2, ?3, ?4);"
+                ),
+                None,
+            ),
+            MbtType::FlatWithHash => (
+                format!(
+                    "
+    INSERT {on_duplicate} INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
+    VALUES (?1, ?2, ?3, ?4, md5_hex(?4));"
+                ),
+                None,
+            ),
+            MbtType::Normalized { .. } => (
+                format!(
+                    "
+    INSERT {on_duplicate} INTO map (zoom_level, tile_column, tile_row, tile_id)
+    VALUES (?1, ?2, ?3, md5_hex(?4));"
+                ),
+                Some(format!(
+                    "
+    INSERT {on_duplicate} INTO images (tile_id, tile_data)
+    VALUES (md5_hex(?1), ?1);"
+                )),
+            ),
+        }
     }
 
     pub async fn open_and_detect_type(&self) -> MbtResult<MbtType> {

@@ -6,7 +6,7 @@ use log::{info, warn};
 use martin_tile_utils::TileInfo;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use serde_json::{Value as JSONValue, Value};
+use serde_json::{json, Value as JSONValue, Value};
 use sqlx::{query, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
@@ -119,6 +119,7 @@ impl Mbtiles {
         while let Some(row) = rows.try_next().await? {
             if let (Some(name), Some(value)) = (row.name, row.value) {
                 match name.as_ref() {
+                    // This list should loosely match the `insert_metadata` function below
                     "name" => tj.name = Some(value),
                     "version" => tj.version = Some(value),
                     "bounds" => tj.bounds = self.to_val(Bounds::from_str(value.as_str()), &name),
@@ -157,6 +158,54 @@ impl Mbtiles {
         }
 
         Ok((tj, layer_type, json))
+    }
+
+    pub async fn insert_metadata<T>(&self, conn: &mut T, tile_json: &TileJSON) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        for (key, value) in &tile_json.other {
+            if let Some(value) = value.as_str() {
+                self.set_metadata_value(conn, key, value).await?;
+            } else {
+                self.set_metadata_value(conn, key, &serde_json::to_string(value)?)
+                    .await?;
+            }
+        }
+        for (key, value) in &[
+            ("name", tile_json.name.as_deref()),
+            ("version", tile_json.version.as_deref()),
+            ("description", tile_json.description.as_deref()),
+            ("attribution", tile_json.attribution.as_deref()),
+            ("legend", tile_json.legend.as_deref()),
+            ("template", tile_json.template.as_deref()),
+        ] {
+            if let Some(value) = value {
+                self.set_metadata_value(conn, key, value).await?;
+            }
+        }
+        if let Some(bounds) = &tile_json.bounds {
+            self.set_metadata_value(conn, "bounds", bounds).await?;
+        }
+        if let Some(center) = &tile_json.center {
+            self.set_metadata_value(conn, "center", center).await?;
+        }
+        if let Some(minzoom) = &tile_json.minzoom {
+            self.set_metadata_value(conn, "minzoom", minzoom).await?;
+        }
+        if let Some(maxzoom) = &tile_json.maxzoom {
+            self.set_metadata_value(conn, "maxzoom", maxzoom).await?;
+        }
+        if let Some(vector_layers) = &tile_json.vector_layers {
+            self.set_metadata_value(
+                conn,
+                "json",
+                &serde_json::to_string(&json!({ "vector_layers": vector_layers }))?,
+            )
+            .await?;
+        }
+
+        Ok(())
     }
 }
 

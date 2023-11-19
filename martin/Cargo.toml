@@ -49,6 +49,10 @@ path = "src/lib.rs"
 name = "martin"
 path = "src/bin/martin.rs"
 
+[[bin]]
+name = "martin-cp"
+path = "src/bin/martin-cp.rs"
+
 [features]
 default = []
 bless-tests = []

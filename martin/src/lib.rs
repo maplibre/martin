@@ -9,7 +9,8 @@ pub use source::Source;
 
 mod utils;
 pub use utils::{
-    decode_brotli, decode_gzip, Error, IdResolver, OptBoolObj, OptOneMany, Result, Xyz,
+    append_rect, decode_brotli, decode_gzip, Error, IdResolver, OptBoolObj, OptOneMany, Result,
+    TileRect, Xyz,
 };
 
 pub mod args;

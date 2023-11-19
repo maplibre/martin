@@ -49,7 +49,7 @@ itertools = "0.12"
 json-patch = "1.2"
 log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
-mbtiles = { path = "./mbtiles", version = "0.7.0", default-features = false }
+mbtiles = { path = "./mbtiles", version = "0.7.0" }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
 pmtiles = { version = "0.4", features = ["mmap-async-tokio", "tilejson"] }
@@ -73,7 +73,7 @@ sqlite-hashes = { version = "0.5", default-features = false, features = ["md5", 
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"
-tilejson = "0.3"
+tilejson = "0.3.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.10"
 
