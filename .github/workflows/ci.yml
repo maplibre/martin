@@ -335,7 +335,7 @@ jobs:
           export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
           if [[ "${{ runner.os }}" != "Windows" ]]; then
-            chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
+            chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
           fi
           tests/test.sh
         env:
@@ -452,7 +452,7 @@ jobs:
           export MARTIN_BIN=target_releases/martin
           export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
-          chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
+          chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
           tests/test.sh
           rm -rf target_releases
         env:
