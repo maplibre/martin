@@ -199,7 +199,7 @@
     tile_data)
 </code></pre>
 <p>In case there are no rows or all are NULL, the hash value of an empty string is used. Note that SQLite allows any value type to be stored as in any column, so if <code>tile_data</code> accidentally contains non-blob/text/null value, validation will fail.</p>
-<p>The <code>mbtiles</code> tool will compute <code>agg_tiles_hash</code> value when copying or validating mbtiles files. Use <code>--update-agg-tiles-hash</code> to force the value to be updated, even if it is incorrect or does not exist.</p>
+<p>The <code>mbtiles</code> tool will compute <code>agg_tiles_hash</code> value when copying or validating mbtiles files. Use <code>--agg-hash update</code> to force the value to be updated, even if it is incorrect or does not exist.</p>
 
                     </main>
 

@@ -265,7 +265,7 @@ Options:
           If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
 
   -p, --pool-size &lt;POOL_SIZE&gt;
-          Maximum connections pool size [DEFAULT: 20]
+          Maximum Postgres connections pool size [DEFAULT: 20]
 
   -m, --max-feature-count &lt;MAX_FEATURE_COUNT&gt;
           Limit the number of features in a tile from a PG table source
@@ -479,7 +479,7 @@ postgres:
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
 
-  # Maximum connections pool size [default: 20]
+  # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
 
   # Limit the number of table geo features included in a tile. Unlimited by default.
@@ -1195,7 +1195,7 @@ Page count: 12
     tile_data)
 </code></pre>
 <p>In case there are no rows or all are NULL, the hash value of an empty string is used. Note that SQLite allows any value type to be stored as in any column, so if <code>tile_data</code> accidentally contains non-blob/text/null value, validation will fail.</p>
-<p>The <code>mbtiles</code> tool will compute <code>agg_tiles_hash</code> value when copying or validating mbtiles files. Use <code>--update-agg-tiles-hash</code> to force the value to be updated, even if it is incorrect or does not exist.</p>
+<p>The <code>mbtiles</code> tool will compute <code>agg_tiles_hash</code> value when copying or validating mbtiles files. Use <code>--agg-hash update</code> to force the value to be updated, even if it is incorrect or does not exist.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="mbtiles-schemas"><a class="header" href="#mbtiles-schemas">MBTiles Schemas</a></h1>
 <p>The <code>mbtiles</code> tool builds on top of the original <a href="https://github.com/mapbox/mbtiles-spec#readme">MBTiles specification</a> by specifying three different kinds of schema for <code>tiles</code> data: <code>flat</code>, <code>flat-with-hash</code>, and <code>normalized</code>. The <code>mbtiles</code> tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.</p>
 <h2 id="flat"><a class="header" href="#flat">flat</a></h2>
