@@ -19,7 +19,7 @@ use crate::queries::{
 use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
 };
-use crate::Mbtiles;
+use crate::{invert_y_value, Mbtiles};
 
 /// Metadata key for the aggregate tiles hash value
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
@@ -172,7 +172,13 @@ impl Mbtiles {
             if let Some(info) = info {
                 debug!(
                     "Tile {z}/{x}/{} is detected as {info} in file {}",
-                    (1 << z) - 1 - y,
+                    {
+                        if let (Ok(z), Ok(y)) = (u8::try_from(z), u32::try_from(y)) {
+                            invert_y_value(z, y).to_string()
+                        } else {
+                            format!("{y} (invalid values, cannot invert Y)")
+                        }
+                    },
                     self.filename(),
                 );
             }
@@ -324,7 +330,7 @@ impl Mbtiles {
             } else {
                 info!("Adding a new metadata value agg_tiles_hash = {hash} in {self}");
             }
-            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, Some(&hash))
+            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, &hash)
                 .await?;
         }
         Ok(hash)

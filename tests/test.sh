@@ -7,15 +7,17 @@ unset DATABASE_URL
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl --silent --show-error --fail --compressed}
 
-MARTIN_BUILD="${MARTIN_BUILD:-cargo build}"
+MARTIN_BUILD_ALL="${MARTIN_BUILD_ALL:-cargo build}"
+
 MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
-MARTIN_BIN="${MARTIN_BIN:-cargo run --} ${MARTIN_ARGS}"
 
-MBTILES_BUILD="${MBTILES_BUILD:-cargo build -p mbtiles}"
+# Using direct compiler output paths to avoid extra log entries
+MARTIN_BIN="${MARTIN_BIN:-target/debug/martin} ${MARTIN_ARGS}"
 MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
+TEST_OUT_BASE_DIR="$(dirname "$0")/output"
 LOG_DIR="${LOG_DIR:-target/test_logs}"
 mkdir -p "$LOG_DIR"
 
@@ -108,6 +110,7 @@ test_png()
 
 test_jpg()
 {
+  # test_png can test any image format, but this is a separate function to make it easier to find all the jpeg tests
   test_png $1 $2 jpg
 }
 
@@ -158,24 +161,23 @@ validate_log()
 
 curl --version
 
-# Make sure martin and mbtiles are built - this way it won't timeout while waiting for it to start
-# If set to "-", don't build
-if [[ "$MARTIN_BUILD" != "-" ]]; then
-  $MARTIN_BUILD
-fi
-if [[ "$MBTILES_BUILD" != "-" ]]; then
-  $MBTILES_BUILD
+# Make sure all targets are built - this way it won't timeout while waiting for it to start
+# If set to "-", skip this step (e.g. when testing a pre-built binary)
+if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
+  rm -rf "$MARTIN_BIN" "$MBTILES_BIN"
+  $MARTIN_BUILD_ALL
 fi
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test auto configured Martin"
 
-LOG_FILE="${LOG_DIR}/test_log_1.txt"
-TEST_OUT_DIR="$(dirname "$0")/output/auto"
+TEST_NAME="auto"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "$(dirname "$0")/output/generated_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2 --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2 --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -259,16 +261,18 @@ kill_process $MARTIN_PROC_ID Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
+remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test minimum auto configured Martin"
 
-LOG_FILE="${LOG_DIR}/test_log_2.txt"
-TEST_OUT_DIR="$(dirname "$0")/output/auto2"
+TEST_NAME="auto_mini"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--save-config "$(dirname "$0")/output/generated_config2.yaml" tests/fixtures/pmtiles2)
+ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/pmtiles2)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=`jobs -p | tail -n 1`
@@ -287,11 +291,12 @@ validate_log "$LOG_FILE"
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test pre-configured Martin"
 
-LOG_FILE="${LOG_DIR}/test_log_3.txt"
-TEST_OUT_DIR="$(dirname "$0")/output/configured"
+TEST_NAME="configured"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "$(dirname "$0")/output/given_config.yaml" -W 1)
+ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "${TEST_OUT_DIR}/save_config.yaml" -W 1)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
@@ -304,13 +309,15 @@ unset DATABASE_URL
 >&2 echo "Test catalog"
 test_jsn catalog_cfg catalog
 
-test_pbf tbl_0_0_0   table_source/0/0/0
-test_pbf cmp_0_0_0   points1,points2/0/0/0
-test_pbf fnc_0_0_0   function_zxy_query/0/0/0
-test_pbf fnc2_0_0_0  function_zxy_query_test/0/0/0?token=martin
-test_png pmt_0_0_0   pmt/0/0/0
-test_png pmt2_0_0_0  pmt2/0/0/0  # HTTP pmtiles
+# Test tile sources
+test_pbf tbl_0_0_0    table_source/0/0/0
+test_pbf cmp_0_0_0    points1,points2/0/0/0
+test_pbf fnc_0_0_0    function_zxy_query/0/0/0
+test_pbf fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
+test_png pmt_0_0_0    pmt/0/0/0
+test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
+# Test sprites
 test_jsn spr_src1     sprite/src1.json
 test_png spr_src1     sprite/src1.png
 test_jsn spr_src1_2x  sprite/src1@2x.json
@@ -324,6 +331,7 @@ test_png spr_cmp      sprite/src1,mysrc.png
 test_jsn spr_cmp_2x   sprite/src1,mysrc@2x.json
 test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
 
+# Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
@@ -332,14 +340,15 @@ kill_process $MARTIN_PROC_ID Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
+remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
-remove_line "$(dirname "$0")/output/given_config.yaml"       " connection_string: "
-remove_line "$(dirname "$0")/output/generated_config.yaml"   " connection_string: "
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test mbtiles utility"
 if [[ "$MBTILES_BIN" != "-" ]]; then
-  TEST_OUT_DIR="$(dirname "$0")/output/mbtiles"
+
+  TEST_NAME="mbtiles"
+  TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
   mkdir -p "$TEST_OUT_DIR"
   TEST_TEMP_DIR="$(dirname "$0")/temp"
   if [[ -d "$TEST_TEMP_DIR" ]]; then

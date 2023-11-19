@@ -202,7 +202,7 @@ async fn git_source_info(
     let tiles_path = get_request_path(&req);
     let tiles_url = get_tiles_url(info.scheme(), info.host(), req.query_string(), &tiles_path)?;
 
-    Ok(HttpResponse::Ok().json(merge_tilejson(sources, tiles_url)))
+    Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
 }
 
 fn get_request_path(req: &HttpRequest) -> String {
@@ -228,7 +228,8 @@ fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str)
         .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))
 }
 
-fn merge_tilejson(sources: Vec<&dyn Source>, tiles_url: String) -> TileJSON {
+#[must_use]
+pub fn merge_tilejson(sources: &[&dyn Source], tiles_url: String) -> TileJSON {
     if sources.len() == 1 {
         let mut tj = sources[0].get_tilejson().clone();
         tj.tiles = vec![tiles_url];
@@ -599,7 +600,7 @@ mod tests {
                 ],
             },
         };
-        let tj = merge_tilejson(vec![&src1], url.clone());
+        let tj = merge_tilejson(&[&src1], url.clone());
         assert_eq!(
             TileJSON {
                 tiles: vec![url.clone()],
@@ -624,7 +625,7 @@ mod tests {
             },
         };
 
-        let tj = merge_tilejson(vec![&src1, &src2], url.clone());
+        let tj = merge_tilejson(&[&src1, &src2], url.clone());
         assert_eq!(tj.tiles, vec![url]);
         assert_eq!(tj.name, Some("layer1,layer2".to_string()));
         assert_eq!(tj.minzoom, Some(5));

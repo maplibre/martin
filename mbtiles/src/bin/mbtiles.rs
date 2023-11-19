@@ -148,7 +148,11 @@ async fn meta_get_value(file: &Path, key: &str) -> MbtResult<()> {
 async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
-    mbt.set_metadata_value(&mut conn, key, value).await
+    if let Some(value) = value {
+        mbt.set_metadata_value(&mut conn, key, value).await
+    } else {
+        mbt.delete_metadata_value(&mut conn, key).await
+    }
 }
 
 #[cfg(test)]

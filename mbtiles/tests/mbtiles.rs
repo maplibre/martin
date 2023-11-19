@@ -7,7 +7,7 @@ use insta::{allow_duplicates, assert_display_snapshot};
 use log::info;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use mbtiles::{apply_patch, create_flat_tables, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier};
+use mbtiles::{apply_patch, init_mbtiles_schema, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier};
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
@@ -123,7 +123,7 @@ macro_rules! new_file {
 
     (@$skip_agg:expr, $function:tt, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {{
         let (tmp_mbt, mut cn_tmp) = open!(@"temp", $function, $($arg)*);
-        create_flat_tables(&mut cn_tmp).await.unwrap();
+        init_mbtiles_schema(&mut cn_tmp, mbtiles::MbtType::Flat).await.unwrap();
         cn_tmp.execute($sql_data).await.unwrap();
         cn_tmp.execute($sql_meta).await.unwrap();
 

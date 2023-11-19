@@ -61,28 +61,29 @@ impl Mbtiles {
         Ok(None)
     }
 
-    pub async fn set_metadata_value<T>(
-        &self,
-        conn: &mut T,
-        key: &str,
-        value: Option<&str>,
-    ) -> MbtResult<()>
+    pub async fn set_metadata_value<T, S>(&self, conn: &mut T, key: &str, value: S) -> MbtResult<()>
+    where
+        S: ToString,
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let value = value.to_string();
+        query!(
+            "INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)",
+            key,
+            value
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn delete_metadata_value<T>(&self, conn: &mut T, key: &str) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        if let Some(value) = value {
-            query!(
-                "INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)",
-                key,
-                value
-            )
+        query!("DELETE FROM metadata WHERE name=?", key)
             .execute(conn)
             .await?;
-        } else {
-            query!("DELETE FROM metadata WHERE name=?", key)
-                .execute(conn)
-                .await?;
-        }
         Ok(())
     }
 
@@ -253,7 +254,7 @@ mod tests {
         conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
             .await?;
 
-        mbt.set_metadata_value(&mut conn, "bounds", Some("0.0, 0.0, 0.0, 0.0"))
+        mbt.set_metadata_value(&mut conn, "bounds", "0.0, 0.0, 0.0, 0.0")
             .await?;
         assert_eq!(
             mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
@@ -263,7 +264,7 @@ mod tests {
         mbt.set_metadata_value(
             &mut conn,
             "bounds",
-            Some("-123.123590,-37.818085,174.763027,59.352706"),
+            "-123.123590,-37.818085,174.763027,59.352706",
         )
         .await?;
         assert_eq!(
@@ -271,7 +272,7 @@ mod tests {
             "-123.123590,-37.818085,174.763027,59.352706"
         );
 
-        mbt.set_metadata_value(&mut conn, "bounds", None).await?;
+        mbt.delete_metadata_value(&mut conn, "bounds").await?;
         assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await?, None);
 
         Ok(())

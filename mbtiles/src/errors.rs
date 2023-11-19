@@ -13,10 +13,10 @@ pub enum MbtError {
     #[error("The diff file and source or destination MBTiles files are the same: {}", .0.display())]
     SameDiffAndSourceOrDestination(PathBuf),
 
-    #[error("SQL Error {0}")]
+    #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
 
-    #[error("SQL Error {0}")]
+    #[error(transparent)]
     RusqliteError(#[from] rusqlite::Error),
 
     #[error("MBTile filepath contains unsupported characters: {}", .0.display())]
