@@ -49,7 +49,12 @@ pub struct CopyArgs {
     #[arg(short, long)]
     pub output_file: PathBuf,
     /// Output format of the destination file, ignored if the file exists. For new files, defaults to 'normalized'.
-    #[arg(long, value_enum)]
+    #[arg(
+        long = "mbtiles-type",
+        alias = "dst-type",
+        value_name = "SCHEMA",
+        value_enum
+    )]
     pub dst_type: Option<MbtTypeCli>,
     /// Specify the behaviour when generated tile already exists in the destination file.
     #[arg(long, value_enum, default_value_t = CopyDuplicateMode::default())]

@@ -8,7 +8,7 @@ This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.
 
 ```shell
 martin-cp  --output-file tileset.mbtiles \
-           --dst-type normalized         \
+           --mbtiles-type normalized     \
            "--bbox=-180,-90,180,90"      \
            --min-zoom 0                  \
            --max-zoom 10                 \
