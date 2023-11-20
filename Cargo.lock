@@ -2358,8 +2358,9 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.4.1"
-source = "git+https://github.com/nyurik/pmtiles-rs?branch=override#c1e0e4822d3f55953cad05740f58046f408f0677"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03f79c8a1a93e94e6b2be57e38a2056dd89e721da489bbc932fc4ab82726eb48"
 dependencies = [
  "async-compression",
  "async-recursion",
@@ -3632,7 +3633,8 @@ dependencies = [
 [[package]]
 name = "tilejson"
 version = "0.4.0"
-source = "git+https://github.com/nyurik/tilejson?branch=btreemap#93d2012b9bdeed1b260145e083047cf8bf140ab5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0366d033d74f8a24237057ba082c8fd9b06111028baff00056689af5e4d28995"
 dependencies = [
  "serde",
  "serde_json",

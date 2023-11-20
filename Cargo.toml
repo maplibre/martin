@@ -17,7 +17,7 @@ unused_qualifications = "warn"
 # unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-pedantic = "warn"
+pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
 implicit_hasher = "allow"
 missing_errors_doc = "allow"
@@ -52,7 +52,7 @@ martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
 mbtiles = { path = "./mbtiles", version = "0.7.0" }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
-pmtiles = { version = "0.4", features = ["mmap-async-tokio", "tilejson"] }
+pmtiles = { version = "0.5", features = ["mmap-async-tokio", "tilejson"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
@@ -88,5 +88,5 @@ similar.opt-level = 3
 #pmtiles = { path = "../pmtiles-rs" }
 #sqlite-hashes = { path = "../sqlite-hashes" }
 #tilejson = { path = "../tilejson" }
-pmtiles = { git = "https://github.com/nyurik/pmtiles-rs", branch = "override" }
-tilejson = { git = "https://github.com/nyurik/tilejson", branch = "btreemap" }
+#pmtiles = { git = "https://github.com/nyurik/pmtiles-rs", branch = "override" }
+#tilejson = { git = "https://github.com/nyurik/tilejson", branch = "btreemap" }
