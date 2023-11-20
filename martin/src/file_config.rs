@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::future::Future;
 use std::mem;
 use std::path::PathBuf;
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
 use crate::source::{Source, TileInfoSources};
-use crate::utils::{sorted_opt_map, Error, IdResolver, OptOneMany};
+use crate::utils::{Error, IdResolver, OptOneMany};
 use crate::OptOneMany::{Many, One};
 
 #[derive(thiserror::Error, Debug)]
@@ -44,13 +44,13 @@ pub enum FileConfigEnum {
 impl FileConfigEnum {
     #[must_use]
     pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum {
-        Self::new_extended(paths, HashMap::new(), UnrecognizedValues::new())
+        Self::new_extended(paths, BTreeMap::new(), UnrecognizedValues::new())
     }
 
     #[must_use]
     pub fn new_extended(
         paths: Vec<PathBuf>,
-        configs: HashMap<String, FileConfigSrc>,
+        configs: BTreeMap<String, FileConfigSrc>,
         unrecognized: UnrecognizedValues,
     ) -> FileConfigEnum {
         if configs.is_empty() && unrecognized.is_empty() {
@@ -118,8 +118,7 @@ pub struct FileConfig {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub paths: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
-    #[serde(serialize_with = "sorted_opt_map")]
-    pub sources: Option<HashMap<String, FileConfigSrc>>,
+    pub sources: Option<BTreeMap<String, FileConfigSrc>>,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -195,7 +194,7 @@ where
     };
 
     let mut results = TileInfoSources::default();
-    let mut configs = HashMap::new();
+    let mut configs = BTreeMap::new();
     let mut files = HashSet::new();
     let mut directories = Vec::new();
 
@@ -272,7 +271,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use std::path::PathBuf;
 
     use indoc::indoc;
@@ -306,7 +305,7 @@ mod tests {
         );
         assert_eq!(
             cfg.sources,
-            Some(HashMap::from_iter(vec![
+            Some(BTreeMap::from_iter(vec![
                 (
                     "pm-src1".to_string(),
                     FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))

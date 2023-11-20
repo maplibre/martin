@@ -211,10 +211,9 @@ impl Mbtiles {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use martin_tile_utils::{Encoding, Format};
     use sqlx::Executor as _;
+    use std::collections::BTreeMap;
     use tilejson::VectorLayer;
 
     use super::*;
@@ -267,7 +266,7 @@ mod tests {
                 description: Some(String::new()),
                 minzoom: Some(0),
                 maxzoom: Some(6),
-                other: HashMap::default()
+                other: BTreeMap::default()
             }])
         );
         assert_eq!(metadata.id, "world_cities");

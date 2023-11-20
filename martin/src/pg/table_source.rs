@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use futures::pin_mut;
 use log::{debug, info, warn};
@@ -250,7 +250,7 @@ pub fn merge_table_info(
         _ => {}
     }
 
-    let empty = HashMap::new();
+    let empty = BTreeMap::new();
     let props = db_inf.properties.as_ref().unwrap_or(&empty);
 
     if let Some(id_column) = &cfg_inf.id_column {

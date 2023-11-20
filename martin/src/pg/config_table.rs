@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
@@ -6,7 +6,6 @@ use tilejson::{Bounds, TileJSON, VectorLayer};
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
 use crate::pg::utils::{patch_json, InfoMap};
-use crate::utils::sorted_opt_map;
 
 pub type TableInfoSources = InfoMap<TableInfo>;
 
@@ -64,8 +63,7 @@ pub struct TableInfo {
     pub geometry_type: Option<String>,
 
     /// List of columns, that should be encoded as tile properties
-    #[serde(serialize_with = "sorted_opt_map")]
-    pub properties: Option<HashMap<String, String>>,
+    pub properties: Option<BTreeMap<String, String>>,
 
     /// Mapping of properties to the actual table columns
     #[serde(skip_deserializing, skip_serializing)]
@@ -99,7 +97,7 @@ impl PgInfo for TableInfo {
             description: None,
             maxzoom: None,
             minzoom: None,
-            other: HashMap::default(),
+            other: BTreeMap::default(),
         };
         tilejson.vector_layers = Some(vec![layer]);
         patch_json(tilejson, &self.tilejson)

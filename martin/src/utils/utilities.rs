@@ -1,4 +1,3 @@
-use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::io::{Read as _, Write as _};
 use std::time::Duration;
@@ -6,23 +5,12 @@ use std::time::Duration;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use futures::pin_mut;
-use serde::{Serialize, Serializer};
+#[cfg(test)]
+use serde::Serialize as _;
 use tokio::time::timeout;
 
-/// Sort an optional hashmap by key, case-insensitive first, then case-sensitive
-pub fn sorted_opt_map<S: Serializer, T: Serialize>(
-    value: &Option<HashMap<String, T>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    value.as_ref().map(sorted_btree_map).serialize(serializer)
-}
-
-pub fn sorted_btree_map<K: Serialize + Ord, V>(value: &HashMap<K, V>) -> BTreeMap<&K, &V> {
-    value.iter().collect()
-}
-
 #[cfg(test)]
-pub fn sorted_opt_set<S: Serializer>(
+pub fn sorted_opt_set<S: serde::Serializer>(
     value: &Option<std::collections::HashSet<String>>,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {

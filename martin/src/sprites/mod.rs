@@ -61,7 +61,7 @@ impl SpriteSources {
 
         let mut results = Self::default();
         let mut directories = Vec::new();
-        let mut configs = HashMap::new();
+        let mut configs = BTreeMap::new();
 
         if let Some(sources) = cfg.sources {
             for (id, source) in sources {
