@@ -541,7 +541,7 @@ fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use async_trait::async_trait;
     use tilejson::{tilejson, Bounds, VectorLayer};
@@ -589,7 +589,7 @@ mod tests {
                 bounds: Bounds::new(-10.0, -20.0, 10.0, 20.0),
                 vector_layers: vec![
                     VectorLayer::new("layer1".to_string(),
-                    HashMap::from([
+                    BTreeMap::from([
                         ("a".to_string(), "x1".to_string()),
                     ]))
                 ],
@@ -613,7 +613,7 @@ mod tests {
                 bounds: Bounds::new(-20.0, -5.0, 5.0, 50.0),
                 vector_layers: vec![
                     VectorLayer::new("layer2".to_string(),
-                    HashMap::from([
+                    BTreeMap::from([
                         ("b".to_string(), "x2".to_string()),
                     ]))
                 ],
@@ -631,11 +631,11 @@ mod tests {
             Some(vec![
                 VectorLayer::new(
                     "layer1".to_string(),
-                    HashMap::from([("a".to_string(), "x1".to_string())])
+                    BTreeMap::from([("a".to_string(), "x1".to_string())])
                 ),
                 VectorLayer::new(
                     "layer2".to_string(),
-                    HashMap::from([("b".to_string(), "x2".to_string())])
+                    BTreeMap::from([("b".to_string(), "x2".to_string())])
                 ),
             ])
         );

@@ -2358,9 +2358,9 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9366575dc86ae1ad7f7a08221c4fe0bd2c021356ef388146aa6086febaca289c"
+checksum = "03f79c8a1a93e94e6b2be57e38a2056dd89e721da489bbc932fc4ab82726eb48"
 dependencies = [
  "async-compression",
  "async-recursion",
@@ -2859,9 +2859,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.24"
+version = "0.38.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ad981d6c340a49cdc40a1028d9c6084ec7e9fa33fcb839cab656a267071e234"
+checksum = "dc99bc2d4f1fed22595588a013687477aedf3cdcfb26558c559edb67b4d9b22e"
 dependencies = [
  "bitflags 2.4.1",
  "errno",
@@ -3632,9 +3632,9 @@ dependencies = [
 
 [[package]]
 name = "tilejson"
-version = "0.3.4"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "860f93502e95360a4f3989076db613dd8c428798c90b3d8bf07b51cd8916ac0d"
+checksum = "0366d033d74f8a24237057ba082c8fd9b06111028baff00056689af5e4d28995"
 dependencies = [
  "serde",
  "serde_json",
@@ -4068,9 +4068,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uuid"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
+checksum = "c58fe91d841bc04822c9801002db4ea904b9e4b8e6bbad25127b46eff8dc516b"
 
 [[package]]
 name = "varint-rs"

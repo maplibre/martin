@@ -19,6 +19,10 @@ export CARGO_TERM_COLOR := "always"
 run *ARGS:
     cargo run -p martin -- {{ ARGS }}
 
+# Start Martin server
+cp *ARGS:
+    cargo run --bin martin-cp -- {{ ARGS }}
+
 # Run mbtiles command
 mbtiles *ARGS:
     cargo run -p mbtiles -- {{ ARGS }}
@@ -166,6 +170,10 @@ bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *ARGS: (cargo-install "cargo-insta")
     cargo insta test --accept --unreferenced=auto -p martin {{ ARGS }}
+
+# Run integration tests and save its output as the new expected output
+bless-insta-cp *ARGS: (cargo-install "cargo-insta")
+    cargo insta test --accept --bin martin-cp {{ ARGS }}
 
 # Build and open mdbook documentation
 book: (cargo-install "mdbook")

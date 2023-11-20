@@ -2,6 +2,8 @@ use std::fmt::Write;
 use std::io;
 use std::path::PathBuf;
 
+use mbtiles::MbtError;
+
 use crate::file_config::FileError;
 use crate::fonts::FontError;
 use crate::pg::PgError;
@@ -56,6 +58,9 @@ pub enum Error {
     PostgresError(#[from] PgError),
 
     #[error(transparent)]
+    MbtilesError(#[from] MbtError),
+
+    #[error(transparent)]
     FileError(#[from] FileError),
 
     #[error(transparent)]
@@ -63,4 +68,10 @@ pub enum Error {
 
     #[error(transparent)]
     FontError(#[from] FontError),
+
+    #[error(transparent)]
+    WebError(#[from] actix_web::Error),
+
+    #[error("Internal error: {0}")]
+    InternalError(String),
 }

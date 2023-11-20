@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use deadpool_postgres::tokio_postgres::types::Json;
 use log::{error, info, warn};
@@ -9,15 +9,15 @@ use crate::source::UrlQuery;
 
 #[must_use]
 pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
-    let mut hashmap = HashMap::new();
+    let mut result = BTreeMap::new();
 
     let object = value.as_object().unwrap();
     for (key, value) in object {
         let string_value = value.as_str().unwrap().to_string();
-        hashmap.insert(key.clone(), string_value);
+        result.insert(key.clone(), string_value);
     }
 
-    hashmap
+    result
 }
 
 #[must_use]
@@ -49,7 +49,7 @@ pub fn patch_json(target: TileJSON, patch: &Option<serde_json::Value>) -> TileJS
 }
 
 #[must_use]
-pub fn query_to_json(query: &UrlQuery) -> Json<InfoMap<serde_json::Value>> {
+pub fn query_to_json(query: &UrlQuery) -> Json<HashMap<String, serde_json::Value>> {
     let mut query_as_json = HashMap::new();
     for (k, v) in query {
         let json_value: serde_json::Value =
@@ -78,7 +78,7 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     })
 }
 
-pub type InfoMap<T> = HashMap<String, T>;
+pub type InfoMap<T> = BTreeMap<String, T>;
 
 #[must_use]
 pub fn normalize_key<T>(map: &InfoMap<T>, key: &str, info: &str, id: &str) -> Option<String> {

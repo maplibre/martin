@@ -19,6 +19,9 @@ pub enum MbtError {
     #[error(transparent)]
     RusqliteError(#[from] rusqlite::Error),
 
+    #[error(transparent)]
+    JsonSerdeError(#[from] serde_json::Error),
+
     #[error("MBTile filepath contains unsupported characters: {}", .0.display())]
     UnsupportedCharsInFilepath(PathBuf),
 

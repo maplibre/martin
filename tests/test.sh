@@ -15,6 +15,7 @@ MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
 
 # Using direct compiler output paths to avoid extra log entries
 MARTIN_BIN="${MARTIN_BIN:-target/debug/martin} ${MARTIN_ARGS}"
+MARTIN_CP_BIN="${MARTIN_CP_BIN:-target/debug/martin-cp}"
 MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
 TEST_OUT_BASE_DIR="$(dirname "$0")/output"
@@ -147,6 +148,31 @@ test_log_has_str()
   remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
+test_martin_cp()
+{
+  TEST_NAME="$1"
+  ARG=("${@:2}")
+
+  LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+  SAVE_CONFIG_FILE="${TEST_OUT_DIR}/${TEST_NAME}_save_config.yaml"
+  SUMMARY_FILE="$TEST_OUT_DIR/${TEST_NAME}_summary.txt"
+  TEST_FILE="${TEST_TEMP_DIR}/cp_${TEST_NAME}.mbtiles"
+  ARG_EXTRAS=(--output-file "$TEST_FILE" --save-config "$SAVE_CONFIG_FILE")
+
+  set -x
+  $MARTIN_CP_BIN "${ARG[@]}" "${ARG_EXTRAS[@]}" 2>&1 | tee "$LOG_FILE"
+  $MBTILES_BIN validate --agg-hash off "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_validate.txt"
+  $MBTILES_BIN summary "$TEST_FILE" 2>&1 | tee "$SUMMARY_FILE"
+  $MBTILES_BIN meta-all "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_metadata.txt"
+  { set +x; } 2> /dev/null
+
+  remove_line "$SAVE_CONFIG_FILE" " connection_string: "
+  # These tend to vary between runs. In theory, vacuuming might make it the same.
+  remove_line "$SUMMARY_FILE" "File size: "
+  remove_line "$SUMMARY_FILE" "Page count: "
+
+}
+
 validate_log()
 {
   LOG_FILE="$1"
@@ -168,7 +194,7 @@ curl --version
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
-  rm -rf "$MARTIN_BIN" "$MBTILES_BIN"
+  rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
 fi
 
@@ -345,6 +371,34 @@ test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+
+
+echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Test martin-cp"
+
+if [[ "$MARTIN_CP_BIN" != "-" ]]; then
+  TEST_NAME="martin-cp"
+  TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+  mkdir -p "$TEST_OUT_DIR"
+
+  export DATABASE_URL="$MARTIN_DATABASE_URL"
+  CFG=(--default-srid 900913 --auto-bounds calc tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2)
+
+  test_martin_cp "flat" "${CFG[@]}" \
+      --source table_source --dst-type flat --concurrency 3 \
+      --min-zoom 0 --max-zoom 8 "--bbox=-2,-1,142.84,45"
+  test_martin_cp "flat-with-hash" "${CFG[@]}" \
+      --source table_source --dst-type flat-with-hash --concurrency 3 \
+      --min-zoom 0 --max-zoom 8 "--bbox=-2,-1,142.84,45"
+  test_martin_cp "normalized" "${CFG[@]}" \
+      --source table_source --dst-type normalized --concurrency 3 \
+      --min-zoom 0 --max-zoom 8 "--bbox=-2,-1,142.84,45"
+
+  unset DATABASE_URL
+
+else
+  echo "Skipping martin-cp tests"
+fi
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"

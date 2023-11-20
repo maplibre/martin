@@ -13,7 +13,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
 use crate::pg::Result;
 use crate::source::TileInfoSources;
-use crate::utils::{on_slow, sorted_opt_map, IdResolver, OptBoolObj, OptOneMany};
+use crate::utils::{on_slow, IdResolver, OptBoolObj, OptOneMany};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -46,9 +46,7 @@ pub struct PgConfig {
     pub pool_size: Option<usize>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PgCfgPublish>,
-    #[serde(serialize_with = "sorted_opt_map")]
     pub tables: Option<TableInfoSources>,
-    #[serde(serialize_with = "sorted_opt_map")]
     pub functions: Option<FuncInfoSources>,
 }
 
@@ -139,7 +137,7 @@ impl PgConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use indoc::indoc;
     use tilejson::Bounds;
@@ -237,7 +235,7 @@ mod tests {
                     default_srid: Some(4326),
                     pool_size: Some(20),
                     max_feature_count: Some(100),
-                    tables: Some(HashMap::from([(
+                    tables: Some(BTreeMap::from([(
                         "table_source".to_string(),
                         TableInfo {
                             schema: "public".to_string(),
@@ -251,14 +249,14 @@ mod tests {
                             buffer: Some(10),
                             clip_geom: Some(false),
                             geometry_type: some("GEOMETRY"),
-                            properties: Some(HashMap::from([(
+                            properties: Some(BTreeMap::from([(
                                 "gid".to_string(),
                                 "int4".to_string(),
                             )])),
                             ..Default::default()
                         },
                     )])),
-                    functions: Some(HashMap::from([(
+                    functions: Some(BTreeMap::from([(
                         "function_zxy_query".to_string(),
                         FunctionInfo::new_extended(
                             "public".to_string(),

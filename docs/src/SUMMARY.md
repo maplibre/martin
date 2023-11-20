@@ -22,6 +22,7 @@
   - [Using with Mapbox](44-using-with-mapbox.md)
   - [Recipes](45-recipes.md)
 - [Tools](50-tools.md)
+  - [martin-cp bulk tile generation](501-martin-cp.md)
   - [MBTiles Info and Metadata](51-mbtiles-meta.md)
   - [MBTiles Copying / Diffing](52-mbtiles-copy.md)
   - [MBTiles Validation](53-mbtiles-validation.md)
