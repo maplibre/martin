@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt::Write;
 use std::io;
 use std::path::PathBuf;
@@ -74,5 +75,5 @@ pub enum MartinError {
     WebError(#[from] actix_web::Error),
 
     #[error("Internal error: {0}")]
-    InternalError(String),
+    InternalError(Box<dyn Error>),
 }

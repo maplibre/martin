@@ -225,7 +225,7 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
-pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
+async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
     let (sources, _use_url_query, info) = state.tiles.get_sources(args.source.as_str(), None)?;
@@ -235,7 +235,6 @@ pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<(
     let tiles = compute_tile_ranges(&args);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
-    let on_dupl = args.on_duplicate;
 
     let dst_type = if is_empty_database(&mut conn).await? {
         let dst_type = match args.dst_type.unwrap_or(MbtTypeCli::Normalized) {
@@ -278,7 +277,7 @@ pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<(
                         let data = get_tile_content(sources, info, &xyz, None).await?;
                         tx.send(TileXyz { xyz, data })
                             .await
-                            .map_err(|e| MartinError::InternalError(e.to_string()))?;
+                            .map_err(|e| MartinError::InternalError(e.into()))?;
                         Ok(())
                     }
                 })
@@ -295,7 +294,7 @@ pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<(
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
-                        mbt.insert_tiles(&mut conn, dst_type, on_dupl, &batch)
+                        mbt.insert_tiles(&mut conn, dst_type, args.on_duplicate, &batch)
                             .await?;
                         batch.clear();
                         last_saved = Instant::now();
@@ -310,7 +309,7 @@ pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<(
                 }
             }
             if !batch.is_empty() {
-                mbt.insert_tiles(&mut conn, dst_type, on_dupl, &batch)
+                mbt.insert_tiles(&mut conn, dst_type, args.on_duplicate, &batch)
                     .await?;
             }
             Ok(())

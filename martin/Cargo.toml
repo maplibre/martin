@@ -54,6 +54,10 @@ path = "src/bin/martin.rs"
 name = "martin-cp"
 path = "src/bin/martin-cp.rs"
 
+[[bench]]
+name = "bench"
+harness = false
+
 [features]
 default = []
 bless-tests = []

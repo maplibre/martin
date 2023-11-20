@@ -68,8 +68,8 @@ struct TileJsonRequest {
     source_ids: String,
 }
 
-#[derive(Deserialize)]
-struct TileRequest {
+#[derive(Deserialize, Clone)]
+pub struct TileRequest {
     source_ids: String,
     z: u8,
     x: u32,
@@ -332,44 +332,41 @@ async fn get_tile(
     path: Path<TileRequest>,
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
+    get_tile_impl(req, path, sources).await
+}
+
+pub async fn get_tile_impl(
+    req: HttpRequest,
+    path: Path<TileRequest>,
+    sources: Data<TileSources>,
+) -> ActixResult<HttpResponse> {
     let xyz = TileCoord {
         z: path.z,
         x: path.x,
         y: path.y,
     };
 
-    // Optimization for a single-source request.
-    let tile = if path.source_ids.contains(',') {
-        let (sources, use_url_query, info) = sources.get_sources(&path.source_ids, Some(path.z))?;
-        let query = if use_url_query {
-            Some(req.query_string())
-        } else {
-            None
-        };
-        Tile::new(
-            get_tile_content(sources.as_slice(), info, &xyz, query).await?,
-            info,
-        )
+    let id = &path.source_ids;
+    let zoom = xyz.z;
+    let src = sources.get_source(id)?;
+    if !TileSources::check_zoom(src, id, zoom) {
+        return Err(ErrorNotFound(format!(
+            "Zoom {zoom} is not valid for source {id}",
+        )));
+    }
+
+    let query = if src.support_url_query() {
+        Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
     } else {
-        let id = &path.source_ids;
-        let zoom = xyz.z;
-        let src = sources.get_source(id)?;
-        if !TileSources::check_zoom(src, id, zoom) {
-            return Err(ErrorNotFound(format!(
-                "Zoom {zoom} is not valid for source {id}",
-            )));
-        }
-        let query = if src.support_url_query() {
-            Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
-        } else {
-            None
-        };
-        let tile = src
-            .get_tile(&xyz, &query)
-            .await
-            .map_err(map_internal_error)?;
-        Tile::new(tile, src.get_tile_info())
+        None
     };
+
+    let tile = Tile::new(
+        src.get_tile(&xyz, &query)
+            .await
+            .map_err(map_internal_error)?,
+        src.get_tile_info(),
+    );
 
     Ok(if tile.data.is_empty() {
         HttpResponse::NoContent().finish()
