@@ -49,7 +49,7 @@ itertools = "0.12"
 json-patch = "1.2"
 log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
-mbtiles = { path = "./mbtiles", version = "0.7.0" }
+mbtiles = { path = "./mbtiles", version = "0.8.0" }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
 pmtiles = { version = "0.5", features = ["mmap-async-tokio", "tilejson"] }

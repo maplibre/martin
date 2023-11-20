@@ -5,8 +5,6 @@ use std::time::Duration;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use futures::pin_mut;
-#[cfg(test)]
-use serde::Serialize as _;
 use tokio::time::timeout;
 
 #[cfg(test)]
@@ -14,6 +12,8 @@ pub fn sorted_opt_set<S: serde::Serializer>(
     value: &Option<std::collections::HashSet<String>>,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
+    use serde::Serialize as _;
+
     value
         .as_ref()
         .map(|v| {

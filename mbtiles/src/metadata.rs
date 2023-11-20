@@ -211,9 +211,10 @@ impl Mbtiles {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use martin_tile_utils::{Encoding, Format};
     use sqlx::Executor as _;
-    use std::collections::BTreeMap;
     use tilejson::VectorLayer;
 
     use super::*;
