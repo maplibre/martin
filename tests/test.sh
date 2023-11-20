@@ -385,13 +385,13 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
   CFG=(--default-srid 900913 --auto-bounds calc tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2)
 
   test_martin_cp "flat" "${CFG[@]}" \
-      --source table_source --dst-type flat --concurrency 3 \
+      --source table_source --mbtiles-type flat --concurrency 3 \
       --min-zoom 0 --max-zoom 8 "--bbox=-2,-1,142.84,45"
   test_martin_cp "flat-with-hash" "${CFG[@]}" \
-      --source table_source --dst-type flat-with-hash --concurrency 3 \
+      --source table_source --mbtiles-type flat-with-hash --concurrency 3 \
       --min-zoom 0 --max-zoom 8 "--bbox=-2,-1,142.84,45"
   test_martin_cp "normalized" "${CFG[@]}" \
-      --source table_source --dst-type normalized --concurrency 3 \
+      --source table_source --mbtiles-type normalized --concurrency 3 \
       --min-zoom 0 --max-zoom 8 "--bbox=-2,-1,142.84,45"
 
   unset DATABASE_URL

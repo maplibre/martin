@@ -50,7 +50,13 @@ pub struct MbtilesCopier {
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[cfg_attr(
         feature = "cli",
-        arg(long = "dst-type", alias = "dst_type", value_enum)
+        arg(
+            long = "mbtiles-type",
+            alias = "dst-type",
+            alias = "dst_type",
+            value_name = "SCHEMA",
+            value_enum
+        )
     )]
     pub dst_type_cli: Option<MbtTypeCli>,
     /// Destination type with options
