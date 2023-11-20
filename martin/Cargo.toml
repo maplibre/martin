@@ -28,6 +28,7 @@ maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
     ["target/release/martin", "/usr/bin/martin", "755"],
+    ["target/release/martin-cp", "/usr/bin/martin-cp", "755"],
     ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
     ["../README.md", "/usr/share/doc/martin/README.md", "644"],
     ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
