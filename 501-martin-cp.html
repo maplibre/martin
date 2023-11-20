@@ -182,7 +182,7 @@
 <h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
 <p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="54-mbtiles-schema.html">normalized</a> schema, with zoom levels from 0 to 10, and bounds of the whole world. </p>
 <pre><code class="language-shell">martin-cp  --output-file tileset.mbtiles \
-           --dst-type normalized         \
+           --mbtiles-type normalized     \
            &quot;--bbox=-180,-90,180,90&quot;      \
            --min-zoom 0                  \
            --max-zoom 10                 \
