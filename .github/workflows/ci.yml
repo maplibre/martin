@@ -547,35 +547,35 @@ jobs:
           mv cross/* .
 
           cd aarch64-apple-darwin
-          chmod +x martin mbtiles
-          tar czvf ../files/martin-aarch64-apple-darwin.tar.gz martin mbtiles
+          chmod +x martin martin-cp mbtiles
+          tar czvf ../files/martin-aarch64-apple-darwin.tar.gz martin martin-cp mbtiles
           cd ..
           
           cd x86_64-apple-darwin
-          chmod +x martin mbtiles
-          tar czvf ../files/martin-x86_64-apple-darwin.tar.gz martin mbtiles
+          chmod +x martin martin-cp mbtiles
+          tar czvf ../files/martin-x86_64-apple-darwin.tar.gz martin martin-cp mbtiles
           cd ..
           
           cd x86_64-unknown-linux-gnu
-          chmod +x martin mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-gnu.tar.gz martin mbtiles
+          chmod +x martin martin-cp mbtiles
+          tar czvf ../files/martin-x86_64-unknown-linux-gnu.tar.gz martin martin-cp mbtiles
           cd ..
                     
           cd aarch64-unknown-linux-musl
-          chmod +x martin mbtiles
-          tar czvf ../files/martin-aarch64-unknown-linux-musl.tar.gz martin mbtiles
+          chmod +x martin martin-cp mbtiles
+          tar czvf ../files/martin-aarch64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
           cd ..
         
           cd x86_64-unknown-linux-musl
-          chmod +x martin mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-musl.tar.gz martin mbtiles
+          chmod +x martin martin-cp mbtiles
+          tar czvf ../files/martin-x86_64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
           cd ..
           
           #
           # Special case for Windows
           #
           cd x86_64-pc-windows-msvc
-          7z a ../files/martin-x86_64-pc-windows-msvc.zip martin.exe mbtiles.exe
+          7z a ../files/martin-x86_64-pc-windows-msvc.zip martin.exe martin-cp.exe mbtiles.exe
           cd ..
           
           #
