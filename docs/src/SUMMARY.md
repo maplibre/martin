@@ -28,4 +28,3 @@
   - [MBTiles Validation](mbtiles-validation.md)
   - [MBTiles Schemas](mbtiles-schema.md)
 - [Development](development.md)
- 

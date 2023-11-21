@@ -7,7 +7,7 @@ mbtiles validate src_file.mbtiles
 ```
 
 ## SQLite Integrity check
-The `validate` command will run `PRAGMA integrity_check` on the file, and will fail if the result is not `ok`. The `--integrity-check` flag can be used to disable this check, or to make it more thorow with `full` value. Default is `quick`.
+The `validate` command will run `PRAGMA integrity_check` on the file, and will fail if the result is not `ok`. The `--integrity-check` flag can be used to disable this check, or to make it more thorough with `full` value. Default is `quick`.
 
 ## Schema check
 The `validate` command will verify that the `tiles` table/view exists, and that it has the expected columns and indexes. It will also verify that the `metadata` table/view exists, and that it has the expected columns and indexes.
