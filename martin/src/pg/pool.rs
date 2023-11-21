@@ -8,7 +8,7 @@ use crate::pg::tls::{make_connector, parse_conn_str, SslModeOverride};
 use crate::pg::PgError::{
     BadPostgisVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError, PostgresPoolConnError,
 };
-use crate::pg::Result;
+use crate::pg::PgResult;
 
 pub const POOL_SIZE_DEFAULT: usize = 20;
 
@@ -27,7 +27,7 @@ pub struct PgPool {
 }
 
 impl PgPool {
-    pub async fn new(config: &PgConfig) -> Result<Self> {
+    pub async fn new(config: &PgConfig) -> PgResult<Self> {
         let (id, mgr) = Self::parse_config(config)?;
 
         let pool = Pool::builder(mgr)
@@ -64,7 +64,7 @@ SELECT
         Ok(Self { id, pool, margin })
     }
 
-    fn parse_config(config: &PgConfig) -> Result<(String, Manager)> {
+    fn parse_config(config: &PgConfig) -> PgResult<(String, Manager)> {
         let conn_str = config.connection_string.as_ref().unwrap().as_str();
         let (pg_cfg, ssl_mode) = parse_conn_str(conn_str)?;
 
@@ -100,7 +100,7 @@ SELECT
         Ok((id, mgr))
     }
 
-    pub async fn get(&self) -> Result<Object> {
+    pub async fn get(&self) -> PgResult<Object> {
         get_conn(&self.pool, self.id.as_str()).await
     }
 
@@ -115,7 +115,7 @@ SELECT
     }
 }
 
-async fn get_conn(pool: &Pool, id: &str) -> Result<Object> {
+async fn get_conn(pool: &Pool, id: &str) -> PgResult<Object> {
     pool.get()
         .await
         .map_err(|e| PostgresPoolConnError(e, id.to_string()))

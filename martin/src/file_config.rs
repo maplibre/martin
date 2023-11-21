@@ -10,8 +10,11 @@ use serde::{Deserialize, Serialize};
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
 use crate::source::{Source, TileInfoSources};
-use crate::utils::{Error, IdResolver, OptOneMany};
+use crate::utils::{IdResolver, OptOneMany};
+use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
+
+pub type FileResult<T> = Result<T, FileError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
@@ -102,7 +105,7 @@ impl FileConfigEnum {
         }
     }
 
-    pub fn finalize(&self, prefix: &str) -> Result<UnrecognizedValues, Error> {
+    pub fn finalize(&self, prefix: &str) -> MartinResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         if let Self::Config(cfg) = self {
             copy_unrecognized_config(&mut res, prefix, &cfg.unrecognized);
@@ -155,7 +158,7 @@ impl FileConfigSrc {
         }
     }
 
-    pub fn abs_path(&self) -> Result<PathBuf, FileError> {
+    pub fn abs_path(&self) -> FileResult<PathBuf> {
         let path = self.get_path();
         path.canonicalize().map_err(|e| IoError(e, path.clone()))
     }
@@ -171,12 +174,12 @@ pub async fn resolve_files<Fut>(
     idr: IdResolver,
     extension: &str,
     new_source: &mut impl FnMut(String, PathBuf) -> Fut,
-) -> Result<TileInfoSources, Error>
+) -> MartinResult<TileInfoSources>
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
     resolve_int(config, idr, extension, new_source)
-        .map_err(crate::Error::from)
+        .map_err(crate::MartinError::from)
         .await
 }
 
@@ -185,7 +188,7 @@ async fn resolve_int<Fut>(
     idr: IdResolver,
     extension: &str,
     new_source: &mut impl FnMut(String, PathBuf) -> Fut,
-) -> Result<TileInfoSources, FileError>
+) -> FileResult<TileInfoSources>
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {

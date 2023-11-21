@@ -8,9 +8,9 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::{Result, Xyz};
+use crate::{MartinResult, TileCoord};
 
-pub type Tile = Vec<u8>;
+pub type TileData = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
 
 pub type TileInfoSource = Box<dyn Source>;
@@ -33,6 +33,7 @@ impl TileSources {
         )
     }
 
+    #[must_use]
     pub fn get_catalog(&self) -> TileCatalog {
         self.0
             .iter()
@@ -48,6 +49,9 @@ impl TileSources {
             .as_ref())
     }
 
+    /// Get a list of sources, and the tile info for the merged sources.
+    /// Ensure that all sources have the same format and encoding.
+    /// If zoom is specified, filter out sources that do not support it.
     pub fn get_sources(
         &self,
         source_ids: &str,
@@ -56,12 +60,14 @@ impl TileSources {
         let mut sources = Vec::new();
         let mut info: Option<TileInfo> = None;
         let mut use_url_query = false;
+
         for id in source_ids.split(',') {
             let src = self.get_source(id)?;
             let src_inf = src.get_tile_info();
             use_url_query |= src.support_url_query();
 
-            // make sure all sources have the same format
+            // make sure all sources have the same format and encoding
+            // TODO: support multiple encodings of the same format
             match info {
                 Some(inf) if inf == src_inf => {}
                 Some(inf) => Err(ErrorNotFound(format!(
@@ -107,7 +113,7 @@ pub trait Source: Send + Debug {
         false
     }
 
-    async fn get_tile(&self, xyz: &Xyz, query: &Option<UrlQuery>) -> Result<Tile>;
+    async fn get_tile(&self, xyz: &TileCoord, query: &Option<UrlQuery>) -> MartinResult<TileData>;
 
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();
@@ -151,8 +157,20 @@ mod tests {
 
     #[test]
     fn xyz_format() {
-        let xyz = Xyz { z: 1, x: 2, y: 3 };
+        let xyz = TileCoord { z: 1, x: 2, y: 3 };
         assert_eq!(format!("{xyz}"), "1,2,3");
         assert_eq!(format!("{xyz:#}"), "1/2/3");
+    }
+}
+
+pub struct Tile {
+    pub data: TileData,
+    pub info: TileInfo,
+}
+
+impl Tile {
+    #[must_use]
+    pub fn new(data: TileData, info: TileInfo) -> Self {
+        Self { data, info }
     }
 }

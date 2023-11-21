@@ -9,10 +9,10 @@ use martin_tile_utils::TileInfo;
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
 
-use crate::file_config::FileError;
 use crate::file_config::FileError::{AquireConnError, InvalidMetadata, IoError};
-use crate::source::{Tile, UrlQuery};
-use crate::{Error, Source, Xyz};
+use crate::file_config::FileResult;
+use crate::source::{TileData, UrlQuery};
+use crate::{MartinResult, Source, TileCoord};
 
 #[derive(Clone)]
 pub struct MbtSource {
@@ -34,11 +34,11 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
-    pub async fn new_box(id: String, path: PathBuf) -> Result<Box<dyn Source>, FileError> {
+    pub async fn new_box(id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }
 
-    async fn new(id: String, path: PathBuf) -> Result<Self, FileError> {
+    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let mbt = MbtilesPool::new(&path)
             .await
             .map_err(|e| {
@@ -81,7 +81,11 @@ impl Source for MbtSource {
         Box::new(self.clone())
     }
 
-    async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
+    async fn get_tile(
+        &self,
+        xyz: &TileCoord,
+        _url_query: &Option<UrlQuery>,
+    ) -> MartinResult<TileData> {
         if let Some(tile) = self
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)

@@ -16,13 +16,13 @@ use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
 use crate::pg::utils::{json_to_hashmap, normalize_key, polygon_to_bbox};
 use crate::pg::PgError::PostgresError;
-use crate::pg::Result;
+use crate::pg::PgResult;
 
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-pub async fn query_available_tables(pool: &PgPool) -> Result<SqlTableInfoMapMapMap> {
+pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
     let conn = pool.get().await?;
     let rows = conn
         .query(include_str!("scripts/query_available_tables.sql"), &[])
@@ -101,7 +101,7 @@ pub async fn table_to_query(
     pool: PgPool,
     bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
-) -> Result<(String, PgSqlInfo, TableInfo)> {
+) -> PgResult<(String, PgSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
@@ -200,7 +200,7 @@ async fn calc_bounds(
     table: &str,
     geometry_column: &str,
     srid: i32,
-) -> Result<Option<Bounds>> {
+) -> PgResult<Option<Bounds>> {
     Ok(pool.get()
         .await?
         .query_one(&format!(

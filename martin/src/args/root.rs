@@ -10,7 +10,8 @@ use crate::args::srv::SrvArgs;
 use crate::args::State::{Ignore, Share, Take};
 use crate::config::Config;
 use crate::file_config::FileConfigEnum;
-use crate::{Error, OptOneMany, Result};
+use crate::MartinError::ConfigAndConnectionsError;
+use crate::{MartinResult, OptOneMany};
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -57,7 +58,11 @@ pub struct ExtraArgs {
 }
 
 impl Args {
-    pub fn merge_into_config<'a>(self, config: &mut Config, env: &impl Env<'a>) -> Result<()> {
+    pub fn merge_into_config<'a>(
+        self,
+        config: &mut Config,
+        env: &impl Env<'a>,
+    ) -> MartinResult<()> {
         if self.meta.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
         }
@@ -65,7 +70,7 @@ impl Args {
             warn!("The WATCH_MODE env variable is no longer supported, and will be ignored");
         }
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
-            return Err(Error::ConfigAndConnectionsError(self.meta.connection));
+            return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
         self.srv.merge_into_config(&mut config.srv);
@@ -122,8 +127,9 @@ mod tests {
     use crate::pg::PgConfig;
     use crate::test_utils::{some, FauxEnv};
     use crate::utils::OptOneMany;
+    use crate::MartinError::UnrecognizableConnections;
 
-    fn parse(args: &[&str]) -> Result<(Config, MetaArgs)> {
+    fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
@@ -188,7 +194,7 @@ mod tests {
         let env = FauxEnv::default();
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env).unwrap_err();
-        assert!(matches!(err, crate::Error::ConfigAndConnectionsError(..)));
+        assert!(matches!(err, ConfigAndConnectionsError(..)));
     }
 
     #[test]
@@ -199,6 +205,6 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env).unwrap_err();
         let bad = vec!["foobar".to_string()];
-        assert!(matches!(err, crate::Error::UnrecognizableConnections(v) if v == bad));
+        assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 }

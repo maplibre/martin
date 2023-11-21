@@ -17,7 +17,7 @@ use crate::pg::table_source::{
 };
 use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
 use crate::pg::PgError::InvalidTableExtent;
-use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, Result};
+use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
 use crate::utils::OptOneMany::NoVals;
@@ -79,7 +79,7 @@ macro_rules! get_auto_schemas {
 }
 
 impl PgBuilder {
-    pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> Result<Self> {
+    pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
         let pool = PgPool::new(config).await?;
 
         let (auto_tables, auto_functions) = calc_auto(config);
@@ -107,7 +107,7 @@ impl PgBuilder {
 
     // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
     #[allow(clippy::too_many_lines)]
-    pub async fn instantiate_tables(&self) -> Result<(TileInfoSources, TableInfoSources)> {
+    pub async fn instantiate_tables(&self) -> PgResult<(TileInfoSources, TableInfoSources)> {
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
@@ -224,7 +224,7 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
-    pub async fn instantiate_functions(&self) -> Result<(TileInfoSources, FuncInfoSources)> {
+    pub async fn instantiate_functions(&self) -> PgResult<(TileInfoSources, FuncInfoSources)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
         let mut res = TileInfoSources::default();
         let mut info_map = FuncInfoSources::new();

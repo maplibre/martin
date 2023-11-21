@@ -14,4 +14,4 @@ mod utilities;
 pub use utilities::*;
 
 mod xyz;
-pub use xyz::Xyz;
+pub use xyz::TileCoord;

@@ -11,7 +11,7 @@ use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
 use spreet::sprite::{sprite_name, Sprite, Spritesheet, SpritesheetBuilder};
 use tokio::io::AsyncReadExt;
 
-use crate::file_config::{FileConfigEnum, FileError};
+use crate::file_config::{FileConfigEnum, FileResult};
 
 #[derive(thiserror::Error, Debug)]
 pub enum SpriteError {
@@ -54,7 +54,7 @@ pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 pub struct SpriteSources(HashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn resolve(config: &mut FileConfigEnum) -> Result<Self, FileError> {
+    pub fn resolve(config: &mut FileConfigEnum) -> FileResult<Self> {
         let Some(cfg) = config.extract_file_config() else {
             return Ok(Self::default());
         };
@@ -87,7 +87,7 @@ impl SpriteSources {
         Ok(results)
     }
 
-    pub fn get_catalog(&self) -> Result<SpriteCatalog, FileError> {
+    pub fn get_catalog(&self) -> FileResult<SpriteCatalog> {
         // TODO: all sprite generation should be pre-cached
         Ok(self
             .0

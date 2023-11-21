@@ -28,6 +28,8 @@ const CUTOFF: f64 = 0.25_f64;
 /// Each range is 256 codepoints long, so the highest range ID is 0xFFFF / 256 = 255.
 const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 
+pub type FontResult<T> = Result<T, FontError>;
+
 #[derive(thiserror::Error, Debug)]
 pub enum FontError {
     #[error("Font {0} not found")]
@@ -118,7 +120,7 @@ pub struct CatalogFontEntry {
 }
 
 impl FontSources {
-    pub fn resolve(config: &mut OptOneMany<PathBuf>) -> Result<Self, FontError> {
+    pub fn resolve(config: &mut OptOneMany<PathBuf>) -> FontResult<Self> {
         if config.is_empty() {
             return Ok(Self::default());
         }
@@ -155,7 +157,7 @@ impl FontSources {
 
     /// Given a list of IDs in a format "id1,id2,id3", return a combined font.
     #[allow(clippy::cast_possible_truncation)]
-    pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
+    pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> FontResult<Vec<u8>> {
         if start > end {
             return Err(FontError::InvalidFontRangeStartEnd(start, end));
         }
@@ -185,7 +187,7 @@ impl FontSources {
                     }
                 }
             })
-            .collect::<Result<Vec<_>, FontError>>()?;
+            .collect::<FontResult<Vec<_>>>()?;
 
         if fonts.is_empty() {
             return Ok(Vec::new());
@@ -242,7 +244,7 @@ fn recurse_dirs(
     path: PathBuf,
     fonts: &mut HashMap<String, FontSource>,
     is_top_level: bool,
-) -> Result<(), FontError> {
+) -> FontResult<()> {
     let start_count = fonts.len();
     if path.is_dir() {
         for dir_entry in path
@@ -275,7 +277,7 @@ fn parse_font(
     lib: &Library,
     fonts: &mut HashMap<String, FontSource>,
     path: PathBuf,
-) -> Result<(), FontError> {
+) -> FontResult<()> {
     static RE_SPACES: OnceLock<Regex> = OnceLock::new();
 
     let mut face = lib.new_face(&path, 0)?;

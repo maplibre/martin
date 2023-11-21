@@ -16,7 +16,7 @@ use crate::pg::PgError::{
     BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
     InvalidPrivateKey, UnknownSslMode,
 };
-use crate::pg::{PgSslCerts, Result};
+use crate::pg::{PgResult, PgSslCerts};
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,7 +27,7 @@ pub enum SslModeOverride {
 }
 
 /// Special treatment for sslmode=verify-ca & sslmode=verify-full - if found, replace them with sslmode=require
-pub fn parse_conn_str(conn_str: &str) -> Result<(Config, SslModeOverride)> {
+pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
     let mut mode = SslModeOverride::Unmodified(SslMode::Disable);
 
     let exp = r"(?P<before>(^|\?|&| )sslmode=)(?P<mode>verify-(ca|full))(?P<after>$|&| )";
@@ -62,12 +62,12 @@ impl rustls::client::ServerCertVerifier for NoCertificateVerification {
         _scts: &mut dyn Iterator<Item = &[u8]>,
         _ocsp: &[u8],
         _now: std::time::SystemTime,
-    ) -> std::result::Result<rustls::client::ServerCertVerified, rustls::Error> {
+    ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
         Ok(rustls::client::ServerCertVerified::assertion())
     }
 }
 
-fn read_certs(file: &PathBuf) -> Result<Vec<Certificate>> {
+fn read_certs(file: &PathBuf) -> PgResult<Vec<Certificate>> {
     Ok(rustls_pemfile::certs(&mut cert_reader(file)?)
         .map_err(|e| CannotParseCert(e, file.clone()))?
         .into_iter()
@@ -75,7 +75,7 @@ fn read_certs(file: &PathBuf) -> Result<Vec<Certificate>> {
         .collect())
 }
 
-fn cert_reader(file: &PathBuf) -> Result<BufReader<File>> {
+fn cert_reader(file: &PathBuf) -> PgResult<BufReader<File>> {
     Ok(BufReader::new(
         File::open(file).map_err(|e| CannotOpenCert(e, file.clone()))?,
     ))
@@ -84,7 +84,7 @@ fn cert_reader(file: &PathBuf) -> Result<BufReader<File>> {
 pub fn make_connector(
     pg_certs: &PgSslCerts,
     ssl_mode: SslModeOverride,
-) -> Result<MakeRustlsConnect> {
+) -> PgResult<MakeRustlsConnect> {
     let (verify_ca, _verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),

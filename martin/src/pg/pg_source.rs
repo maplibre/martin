@@ -11,8 +11,8 @@ use tilejson::TileJSON;
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
 use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
-use crate::source::{Source, Tile, UrlQuery};
-use crate::{Result, Xyz};
+use crate::source::{Source, TileData, UrlQuery};
+use crate::{MartinResult, TileCoord};
 
 #[derive(Clone, Debug)]
 pub struct PgSource {
@@ -56,7 +56,11 @@ impl Source for PgSource {
         self.info.use_url_query
     }
 
-    async fn get_tile(&self, xyz: &Xyz, url_query: &Option<UrlQuery>) -> Result<Tile> {
+    async fn get_tile(
+        &self,
+        xyz: &TileCoord,
+        url_query: &Option<UrlQuery>,
+    ) -> MartinResult<TileData> {
         let empty_query = HashMap::new();
         let url_query = url_query.as_ref().unwrap_or(&empty_query);
         let conn = self.pool.get().await?;
@@ -100,7 +104,7 @@ impl Source for PgSource {
         };
 
         let tile = tile
-            .map(|row| row.and_then(|r| r.get::<_, Option<Tile>>(0)))
+            .map(|row| row.and_then(|r| r.get::<_, Option<TileData>>(0)))
             .map_err(|e| {
                 if self.support_url_query() {
                     GetTileWithQueryError(e, self.id.to_string(), *xyz, url_query.clone())

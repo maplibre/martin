@@ -19,8 +19,8 @@ use crate::pmtiles::PmtSource;
 use crate::source::{TileInfoSources, TileSources};
 use crate::sprites::SpriteSources;
 use crate::srv::SrvConfig;
-use crate::Error::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-use crate::{IdResolver, OptOneMany, Result};
+use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
+use crate::{IdResolver, MartinResult, OptOneMany};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
@@ -56,7 +56,7 @@ pub struct Config {
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<UnrecognizedValues> {
+    pub fn finalize(&mut self) -> MartinResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
@@ -83,7 +83,7 @@ impl Config {
         }
     }
 
-    pub async fn resolve(&mut self, idr: IdResolver) -> Result<ServerState> {
+    pub async fn resolve(&mut self, idr: IdResolver) -> MartinResult<ServerState> {
         Ok(ServerState {
             tiles: self.resolve_tile_sources(idr).await?,
             sprites: SpriteSources::resolve(&mut self.sprites)?,
@@ -91,10 +91,11 @@ impl Config {
         })
     }
 
-    async fn resolve_tile_sources(&mut self, idr: IdResolver) -> Result<TileSources> {
+    async fn resolve_tile_sources(&mut self, idr: IdResolver) -> MartinResult<TileSources> {
         let new_pmt_src = &mut PmtSource::new_box;
         let new_mbt_src = &mut MbtSource::new_box;
-        let mut sources: Vec<Pin<Box<dyn Future<Output = Result<TileInfoSources>>>>> = Vec::new();
+        let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<TileInfoSources>>>>> =
+            Vec::new();
 
         for s in self.postgres.iter_mut() {
             sources.push(Box::pin(s.resolve(idr.clone())));
@@ -113,7 +114,7 @@ impl Config {
         Ok(TileSources::new(try_join_all(sources).await?))
     }
 
-    pub fn save_to_file(&self, file_name: PathBuf) -> Result<()> {
+    pub fn save_to_file(&self, file_name: PathBuf) -> MartinResult<()> {
         let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
@@ -147,7 +148,7 @@ pub fn copy_unrecognized_config(
 }
 
 /// Read config from a file
-pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> Result<Config>
+pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> MartinResult<Config>
 where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
@@ -159,7 +160,7 @@ where
     parse_config(&contents, env, file_name)
 }
 
-pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> Result<Config>
+pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> MartinResult<Config>
 where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
