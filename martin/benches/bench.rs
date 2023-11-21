@@ -7,7 +7,7 @@ use criterion::async_executor::FuturesExecutor;
 use criterion::{criterion_group, criterion_main, Criterion};
 use martin::srv::{get_tile_impl, TileRequest};
 use martin::{
-    CatalogSourceEntry, MartinError, MartinResult, Source, Tile, TileSources, UrlQuery, Xyz,
+    CatalogSourceEntry, MartinResult, Source, TileCoord, TileData, TileSources, UrlQuery,
 };
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use tilejson::{tilejson, TileJSON};
@@ -47,7 +47,11 @@ impl Source for NullSource {
         false
     }
 
-    async fn get_tile(&self, _xyz: &Xyz, _query: &Option<UrlQuery>) -> MartinResult<TileData> {
+    async fn get_tile(
+        &self,
+        _xyz: &TileCoord,
+        _query: &Option<UrlQuery>,
+    ) -> MartinResult<TileData> {
         Ok(Vec::new())
     }
 

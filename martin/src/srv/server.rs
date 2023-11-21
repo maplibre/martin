@@ -25,7 +25,7 @@ use tilejson::{tilejson, TileJSON};
 
 use crate::config::ServerState;
 use crate::fonts::{FontCatalog, FontError, FontSources};
-use crate::source::{Source, TileCatalog, TileData, TileSources, UrlQuery};
+use crate::source::{Source, TileCatalog, TileSources, UrlQuery};
 use crate::sprites::{SpriteCatalog, SpriteError, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
@@ -346,27 +346,14 @@ pub async fn get_tile_impl(
         y: path.y,
     };
 
-    let id = &path.source_ids;
-    let zoom = xyz.z;
-    let src = sources.get_source(id)?;
-    if !TileSources::check_zoom(src, id, zoom) {
-        return Err(ErrorNotFound(format!(
-            "Zoom {zoom} is not valid for source {id}",
-        )));
-    }
-
-    let query = if src.support_url_query() {
-        Some(Query::<UrlQuery>::from_query(req.query_string())?.into_inner())
+    let (sources, use_url_query, info) = sources.get_sources(&path.source_ids, Some(path.z))?;
+    let query = if use_url_query {
+        Some(req.query_string())
     } else {
         None
     };
 
-    let tile = Tile::new(
-        src.get_tile(&xyz, &query)
-            .await
-            .map_err(map_internal_error)?,
-        src.get_tile_info(),
-    );
+    let tile = get_tile_content(sources.as_slice(), info, &xyz, query).await?;
 
     Ok(if tile.data.is_empty() {
         HttpResponse::NoContent().finish()
@@ -387,7 +374,7 @@ pub async fn get_tile_content(
     info: TileInfo,
     xyz: &TileCoord,
     query: Option<&str>,
-) -> ActixResult<TileData> {
+) -> ActixResult<Tile> {
     if sources.is_empty() {
         return Err(ErrorNotFound("No valid sources found"));
     }
@@ -411,16 +398,15 @@ pub async fn get_tile_content(
             xyz.z
         )))?;
     }
-    Ok(
-        // Minor optimization to prevent concatenation if there are less than 2 tiles
-        if layer_count == 1 {
-            tiles.swap_remove(0)
-        } else if layer_count == 0 {
-            Vec::new()
-        } else {
-            tiles.concat()
-        },
-    )
+
+    // Minor optimization to prevent concatenation if there are less than 2 tiles
+    let data = match layer_count {
+        1 => tiles.swap_remove(0),
+        0 => return Ok(Tile::new(Vec::new(), info)),
+        _ => tiles.concat(),
+    };
+
+    Ok(Tile::new(data, info))
 }
 
 fn recompress(mut tile: Tile, accept_enc: Option<AcceptEncoding>) -> ActixResult<Tile> {
