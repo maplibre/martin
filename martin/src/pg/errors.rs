@@ -7,9 +7,9 @@ use semver::Version;
 
 use crate::pg::utils::query_to_json;
 use crate::source::UrlQuery;
-use crate::Xyz;
+use crate::TileCoord;
 
-pub type Result<T> = std::result::Result<T, PgError>;
+pub type PgResult<T> = Result<T, PgError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum PgError {
@@ -59,8 +59,8 @@ pub enum PgError {
     PrepareQueryError(#[source] TokioPgError, String, String, String),
 
     #[error(r#"Unable to get tile {2:#} from {1}: {0}"#)]
-    GetTileError(#[source] TokioPgError, String, Xyz),
+    GetTileError(#[source] TokioPgError, String, TileCoord),
 
     #[error(r#"Unable to get tile {2:#} with {:?} params from {1}: {0}"#, query_to_json(.3))]
-    GetTileWithQueryError(#[source] TokioPgError, String, Xyz, UrlQuery),
+    GetTileWithQueryError(#[source] TokioPgError, String, TileCoord, UrlQuery),
 }

@@ -11,10 +11,10 @@ use pmtiles::mmap::MmapBackend;
 use pmtiles::{Compression, TileType};
 use tilejson::TileJSON;
 
-use crate::file_config::FileError;
 use crate::file_config::FileError::{InvalidMetadata, IoError};
-use crate::source::{Source, Tile, UrlQuery};
-use crate::{Error, Xyz};
+use crate::file_config::FileResult;
+use crate::source::{Source, TileData, UrlQuery};
+use crate::{MartinResult, TileCoord};
 
 #[derive(Clone)]
 pub struct PmtSource {
@@ -32,11 +32,11 @@ impl Debug for PmtSource {
 }
 
 impl PmtSource {
-    pub async fn new_box(id: String, path: PathBuf) -> Result<Box<dyn Source>, FileError> {
+    pub async fn new_box(id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(PmtSource::new(id, path).await?))
     }
 
-    async fn new(id: String, path: PathBuf) -> Result<Self, FileError> {
+    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let backend = MmapBackend::try_from(path.as_path())
             .await
             .map_err(|e| {
@@ -129,7 +129,11 @@ impl Source for PmtSource {
         Box::new(self.clone())
     }
 
-    async fn get_tile(&self, xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
+    async fn get_tile(
+        &self,
+        xyz: &TileCoord,
+        _url_query: &Option<UrlQuery>,
+    ) -> MartinResult<TileData> {
         // TODO: optimize to return Bytes
         if let Some(t) = self
             .pmtiles

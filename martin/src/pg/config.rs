@@ -11,9 +11,10 @@ use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
-use crate::pg::Result;
+use crate::pg::PgResult;
 use crate::source::TileInfoSources;
 use crate::utils::{on_slow, IdResolver, OptBoolObj, OptOneMany};
+use crate::MartinResult;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -92,7 +93,7 @@ pub struct PgCfgPublishFuncs {
 
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> Result<UnrecognizedValues> {
+    pub fn finalize(&mut self) -> PgResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
@@ -111,7 +112,7 @@ impl PgConfig {
         Ok(res)
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> crate::Result<TileInfoSources> {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<TileInfoSources> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),

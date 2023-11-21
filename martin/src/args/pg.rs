@@ -203,7 +203,7 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{os, some, FauxEnv};
-    use crate::Error;
+    use crate::MartinError;
 
     #[test]
     fn test_extract_conn_strings() {
@@ -217,7 +217,7 @@ mod tests {
             vec!["postgresql://localhost:5432", "postgres://localhost:5432"]
         );
         assert!(matches!(args.check(), Err(
-            Error::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
+            MartinError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
     }
 
     #[test]

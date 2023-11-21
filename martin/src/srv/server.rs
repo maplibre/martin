@@ -14,7 +14,7 @@ use actix_web::middleware::TrailingSlash;
 use actix_web::web::{Data, Path, Query};
 use actix_web::{
     middleware, route, web, App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder,
-    Result,
+    Result as ActixResult,
 };
 use futures::future::try_join_all;
 use itertools::Itertools as _;
@@ -25,12 +25,12 @@ use tilejson::{tilejson, TileJSON};
 
 use crate::config::ServerState;
 use crate::fonts::{FontCatalog, FontError, FontSources};
-use crate::source::{Source, TileCatalog, TileSources, UrlQuery};
+use crate::source::{Source, TileCatalog, TileData, TileSources, UrlQuery};
 use crate::sprites::{SpriteCatalog, SpriteError, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
-use crate::Error::BindingError;
-use crate::{Error, Xyz};
+use crate::MartinError::BindingError;
+use crate::{MartinResult, Tile, TileCoord};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -54,7 +54,7 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    pub fn new(state: &ServerState) -> Result<Self, Error> {
+    pub fn new(state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
             tiles: state.tiles.get_catalog(),
             sprites: state.sprites.get_catalog()?,
@@ -136,7 +136,7 @@ async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
 async fn get_sprite_png(
     path: Path<TileJsonRequest>,
     sprites: Data<SpriteSources>,
-) -> Result<HttpResponse> {
+) -> ActixResult<HttpResponse> {
     let sheet = sprites
         .get_sprites(&path.source_ids)
         .await
@@ -155,7 +155,7 @@ async fn get_sprite_png(
 async fn get_sprite_json(
     path: Path<TileJsonRequest>,
     sprites: Data<SpriteSources>,
-) -> Result<HttpResponse> {
+) -> ActixResult<HttpResponse> {
     let sheet = sprites
         .get_sprites(&path.source_ids)
         .await
@@ -176,7 +176,7 @@ struct FontRequest {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> Result<HttpResponse> {
+async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {
     let data = fonts
         .get_font_range(&path.fontstack, path.start, path.end)
         .map_err(map_font_error)?;
@@ -196,7 +196,7 @@ async fn git_source_info(
     req: HttpRequest,
     path: Path<TileJsonRequest>,
     sources: Data<TileSources>,
-) -> Result<HttpResponse> {
+) -> ActixResult<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
     let info = req.connection_info();
     let tiles_path = get_request_path(&req);
@@ -212,7 +212,12 @@ fn get_request_path(req: &HttpRequest) -> String {
         .unwrap_or_else(|| req.path().to_owned())
 }
 
-fn get_tiles_url(scheme: &str, host: &str, query_string: &str, tiles_path: &str) -> Result<String> {
+fn get_tiles_url(
+    scheme: &str,
+    host: &str,
+    query_string: &str,
+    tiles_path: &str,
+) -> ActixResult<String> {
     let path_and_query = if query_string.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
@@ -326,23 +331,23 @@ async fn get_tile(
     req: HttpRequest,
     path: Path<TileRequest>,
     sources: Data<TileSources>,
-) -> Result<HttpResponse> {
-    let xyz = Xyz {
+) -> ActixResult<HttpResponse> {
+    let xyz = TileCoord {
         z: path.z,
         x: path.x,
         y: path.y,
     };
 
     // Optimization for a single-source request.
-    let (tile, info) = if path.source_ids.contains(',') {
+    let tile = if path.source_ids.contains(',') {
         let (sources, use_url_query, info) = sources.get_sources(&path.source_ids, Some(path.z))?;
         let query = if use_url_query {
             Some(req.query_string())
         } else {
             None
         };
-        (
-            get_composite_tile(sources.as_slice(), info, &xyz, query).await?,
+        Tile::new(
+            get_tile_content(sources.as_slice(), info, &xyz, query).await?,
             info,
         )
     } else {
@@ -363,29 +368,29 @@ async fn get_tile(
             .get_tile(&xyz, &query)
             .await
             .map_err(map_internal_error)?;
-        (tile, src.get_tile_info())
+        Tile::new(tile, src.get_tile_info())
     };
 
-    Ok(if tile.is_empty() {
+    Ok(if tile.data.is_empty() {
         HttpResponse::NoContent().finish()
     } else {
         // decide if (re-)encoding of the tile data is needed, and recompress if so
-        let (tile, info) = recompress(tile, info, req.get_header::<AcceptEncoding>())?;
+        let tile = recompress(tile, req.get_header::<AcceptEncoding>())?;
         let mut response = HttpResponse::Ok();
-        response.content_type(info.format.content_type());
-        if let Some(val) = info.encoding.content_encoding() {
+        response.content_type(tile.info.format.content_type());
+        if let Some(val) = tile.info.encoding.content_encoding() {
             response.insert_header((CONTENT_ENCODING, val));
         }
-        response.body(tile)
+        response.body(tile.data)
     })
 }
 
-pub async fn get_composite_tile(
+pub async fn get_tile_content(
     sources: &[&dyn Source],
     info: TileInfo,
-    xyz: &Xyz,
+    xyz: &TileCoord,
     query: Option<&str>,
-) -> Result<Vec<u8>> {
+) -> ActixResult<TileData> {
     if sources.is_empty() {
         return Err(ErrorNotFound("No valid sources found"));
     }
@@ -421,58 +426,66 @@ pub async fn get_composite_tile(
     )
 }
 
-fn recompress(
-    mut tile: Vec<u8>,
-    mut info: TileInfo,
-    accept_enc: Option<AcceptEncoding>,
-) -> Result<(Vec<u8>, TileInfo)> {
+fn recompress(mut tile: Tile, accept_enc: Option<AcceptEncoding>) -> ActixResult<Tile> {
     if let Some(accept_enc) = accept_enc {
-        if info.encoding.is_encoded() {
+        if tile.info.encoding.is_encoded() {
             // already compressed, see if we can send it as is, or need to re-compress
             if !accept_enc.iter().any(|e| {
                 if let Preference::Specific(HeaderEnc::Known(enc)) = e.item {
-                    to_encoding(enc) == Some(info.encoding)
+                    to_encoding(enc) == Some(tile.info.encoding)
                 } else {
                     false
                 }
             }) {
                 // need to re-compress the tile - uncompress it first
-                (tile, info) = decode(tile, info)?;
+                tile = decode(tile)?;
             }
         }
-        if info.encoding == Encoding::Uncompressed {
+        if tile.info.encoding == Encoding::Uncompressed {
             // only apply compression if the content supports it
             if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENCODINGS.iter()) {
                 // (re-)compress the tile into the preferred encoding
-                (tile, info) = encode(tile, info, enc)?;
+                tile = encode(tile, enc)?;
             }
         }
-        Ok((tile, info))
+        Ok(tile)
     } else {
         // no accepted-encoding header, decode the tile if compressed
-        decode(tile, info)
+        decode(tile)
     }
 }
 
-fn encode(tile: Vec<u8>, info: TileInfo, enc: ContentEncoding) -> Result<(Vec<u8>, TileInfo)> {
+fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     Ok(match enc {
-        ContentEncoding::Brotli => (encode_brotli(&tile)?, info.encoding(Encoding::Brotli)),
-        ContentEncoding::Gzip => (encode_gzip(&tile)?, info.encoding(Encoding::Gzip)),
-        _ => (tile, info),
+        ContentEncoding::Brotli => Tile::new(
+            encode_brotli(&tile.data)?,
+            tile.info.encoding(Encoding::Brotli),
+        ),
+        ContentEncoding::Gzip => {
+            Tile::new(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
+        }
+        _ => tile,
     })
 }
 
-fn decode(tile: Vec<u8>, info: TileInfo) -> Result<(Vec<u8>, TileInfo)> {
+fn decode(tile: Tile) -> ActixResult<Tile> {
+    let info = tile.info;
     Ok(if info.encoding.is_encoded() {
         match info.encoding {
-            Encoding::Gzip => (decode_gzip(&tile)?, info.encoding(Encoding::Uncompressed)),
-            Encoding::Brotli => (decode_brotli(&tile)?, info.encoding(Encoding::Uncompressed)),
+            Encoding::Gzip => Tile::new(
+                decode_gzip(&tile.data)?,
+                info.encoding(Encoding::Uncompressed),
+            ),
+            Encoding::Brotli => Tile::new(
+                decode_brotli(&tile.data)?,
+                info.encoding(Encoding::Uncompressed),
+            ),
             _ => Err(ErrorBadRequest(format!(
                 "Tile is is stored as {info}, but the client does not accept this encoding"
             )))?,
         }
     } else {
-        (tile, info)
+        tile
     })
 }
 
@@ -498,7 +511,7 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
-pub fn new_server(config: SrvConfig, state: ServerState) -> crate::Result<(Server, String)> {
+pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
     let catalog = Catalog::new(&state)?;
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
@@ -547,7 +560,7 @@ mod tests {
     use tilejson::{tilejson, Bounds, VectorLayer};
 
     use super::*;
-    use crate::source::{Source, Tile};
+    use crate::source::{Source, TileData};
 
     #[derive(Debug, Clone)]
     struct TestSource {
@@ -572,7 +585,11 @@ mod tests {
             unimplemented!()
         }
 
-        async fn get_tile(&self, _xyz: &Xyz, _url_query: &Option<UrlQuery>) -> Result<Tile, Error> {
+        async fn get_tile(
+            &self,
+            _xyz: &TileCoord,
+            _url_query: &Option<UrlQuery>,
+        ) -> MartinResult<TileData> {
             unimplemented!()
         }
     }

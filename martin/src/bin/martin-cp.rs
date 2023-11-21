@@ -9,9 +9,10 @@ use futures::stream::{self, StreamExt};
 use futures::TryStreamExt;
 use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, PgArgs, SrvArgs};
-use martin::srv::{get_composite_tile, merge_tilejson, RESERVED_KEYWORDS};
+use martin::srv::{get_tile_content, merge_tilejson, RESERVED_KEYWORDS};
 use martin::{
-    append_rect, read_config, Config, Error, IdResolver, Result, ServerState, TileRect, Xyz,
+    append_rect, read_config, Config, IdResolver, MartinError, MartinResult, ServerState,
+    TileCoord, TileData, TileRect,
 };
 use mbtiles::{
     init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtType, MbtTypeCli, Mbtiles,
@@ -81,7 +82,7 @@ pub struct CopyArgs {
     pub zoom_levels: Vec<u8>,
 }
 
-async fn start(copy_args: CopierArgs) -> Result<()> {
+async fn start(copy_args: CopierArgs) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv::default();
@@ -153,12 +154,12 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     ranges
 }
 
-struct Tile {
-    xyz: Xyz,
-    data: Vec<u8>,
+struct TileXyz {
+    xyz: TileCoord,
+    data: TileData,
 }
 
-impl Debug for Tile {
+impl Debug for TileXyz {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} - {} bytes", self.xyz, self.data.len())
     }
@@ -216,20 +217,21 @@ impl Display for Progress {
 }
 
 /// Given a list of tile ranges, iterate over all tiles in the ranges
-fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = Xyz> {
+fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     tiles.into_iter().flat_map(|t| {
         let z = t.zoom;
-        (t.min_x..=t.max_x).flat_map(move |x| (t.min_y..=t.max_y).map(move |y| Xyz { z, x, y }))
+        (t.min_x..=t.max_x)
+            .flat_map(move |x| (t.min_y..=t.max_y).map(move |y| TileCoord { z, x, y }))
     })
 }
 
-pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> Result<()> {
+pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
     let (sources, _use_url_query, info) = state.tiles.get_sources(args.source.as_str(), None)?;
     let sources = sources.as_slice();
     let tile_info = sources.first().unwrap().get_tile_info();
-    let (tx, mut rx) = channel::<Tile>(500);
+    let (tx, mut rx) = channel::<TileXyz>(500);
     let tiles = compute_tile_ranges(&args);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
@@ -269,14 +271,14 @@ pub async fn run_tile_copy(args: CopyArgs, state: ServerState) -> Result<()> {
     try_join!(
         async move {
             stream::iter(iterate_tiles(tiles))
-                .map(Ok::<Xyz, Error>)
+                .map(MartinResult::Ok)
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let data = get_composite_tile(sources, info, &xyz, None).await?;
-                        tx.send(Tile { xyz, data })
+                        let data = get_tile_content(sources, info, &xyz, None).await?;
+                        tx.send(TileXyz { xyz, data })
                             .await
-                            .map_err(|e| Error::InternalError(e.to_string()))?;
+                            .map_err(|e| MartinError::InternalError(e.to_string()))?;
                         Ok(())
                     }
                 })

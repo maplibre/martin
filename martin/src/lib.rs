@@ -5,12 +5,12 @@ mod config;
 pub use config::{read_config, Config, ServerState};
 
 mod source;
-pub use source::Source;
+pub use source::{Source, Tile, TileData, UrlQuery};
 
 mod utils;
 pub use utils::{
-    append_rect, decode_brotli, decode_gzip, Error, IdResolver, OptBoolObj, OptOneMany, Result,
-    TileRect, Xyz,
+    append_rect, decode_brotli, decode_gzip, IdResolver, MartinError, MartinResult, OptBoolObj,
+    OptOneMany, TileCoord, TileRect,
 };
 
 pub mod args;

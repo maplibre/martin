@@ -5,11 +5,11 @@ use clap::Parser;
 use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
 use martin::srv::{new_server, RESERVED_KEYWORDS};
-use martin::{read_config, Config, IdResolver, Result};
+use martin::{read_config, Config, IdResolver, MartinResult};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-async fn start(args: Args) -> Result<Server> {
+async fn start(args: Args) -> MartinResult<Server> {
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv::default();

@@ -9,7 +9,8 @@ use crate::fonts::FontError;
 use crate::pg::PgError;
 use crate::sprites::SpriteError;
 
-pub type Result<T> = std::result::Result<T, Error>;
+/// A convenience [`Result`] for Martin crate.
+pub type MartinResult<T> = Result<T, MartinError>;
 
 fn elide_vec(vec: &[String], max_items: usize, max_len: usize) -> String {
     let mut s = String::new();
@@ -32,7 +33,7 @@ fn elide_vec(vec: &[String], max_items: usize, max_len: usize) -> String {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum MartinError {
     #[error("The --config and the connection parameters cannot be used together. Please remove unsupported parameters '{}'", elide_vec(.0, 3, 15))]
     ConfigAndConnectionsError(Vec<String>),
 
