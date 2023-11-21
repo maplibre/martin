@@ -4,7 +4,7 @@
 
 ## Usage
 
-This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](54-mbtiles-schema.md) schema, with zoom levels from 0 to 10, and bounds of the whole world. 
+This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](mbtiles-schema.md) schema, with zoom levels from 0 to 10, and bounds of the whole world. 
 
 ```shell
 martin-cp  --output-file tileset.mbtiles \
