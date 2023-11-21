@@ -274,13 +274,11 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = get_tile_content(sources, info, &xyz, None).await?;
-                        tx.send(TileXyz {
-                            xyz,
-                            data: tile.data,
-                        })
-                        .await
-                        .map_err(|e| MartinError::InternalError(e.into()))?;
+                        let tile = get_tile_content(sources, info, &xyz, None, None).await?;
+                        let data = tile.data;
+                        tx.send(TileXyz { xyz, data })
+                            .await
+                            .map_err(|e| MartinError::InternalError(e.into()))?;
                         Ok(())
                     }
                 })

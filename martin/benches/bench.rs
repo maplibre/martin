@@ -1,11 +1,7 @@
-use actix_web::dev::ResourceDef;
-use actix_web::test::TestRequest;
-use actix_web::web::{Data, Path};
-use actix_web::FromRequest;
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
 use criterion::{criterion_group, criterion_main, Criterion};
-use martin::srv::{get_tile_response, TileRequest};
+use martin::srv::get_tile_response;
 use martin::{
     CatalogSourceEntry, MartinResult, Source, TileCoord, TileData, TileSources, UrlQuery,
 };
@@ -60,24 +56,16 @@ impl Source for NullSource {
     }
 }
 
-async fn process_tile(resource: &ResourceDef, sources: Data<TileSources>) {
-    let mut request = TestRequest::get()
-        .uri("https://example.com/null/0/0/0")
-        .to_srv_request();
-    resource.capture_match_info(request.match_info_mut());
-    let (req, mut pl) = request.into_parts();
-    let path = Path::<TileRequest>::from_request(&req, &mut pl)
+async fn process_tile(sources: &TileSources) {
+    get_tile_response(sources, TileCoord { z: 0, x: 0, y: 0 }, "null", "", None)
         .await
         .unwrap();
-    get_tile_response(req, path, sources).await.unwrap();
 }
 
 fn bench_null_source(c: &mut Criterion) {
-    let sources = Data::new(TileSources::new(vec![vec![Box::new(NullSource::new())]]));
-    let resource = ResourceDef::new("/{source_ids}/{z}/{x}/{y}");
+    let sources = TileSources::new(vec![vec![Box::new(NullSource::new())]]);
     c.bench_function("get_table_source_tile", |b| {
-        b.to_async(FuturesExecutor)
-            .iter(|| process_tile(&resource, sources.clone()));
+        b.to_async(FuturesExecutor).iter(|| process_tile(&sources));
     });
 }
 

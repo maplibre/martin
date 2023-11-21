@@ -332,14 +332,6 @@ async fn get_tile(
     path: Path<TileRequest>,
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
-    get_tile_response(req, path, sources).await
-}
-
-pub async fn get_tile_response(
-    req: HttpRequest,
-    path: Path<TileRequest>,
-    sources: Data<TileSources>,
-) -> ActixResult<HttpResponse> {
     let xyz = TileCoord {
         z: path.z,
         x: path.x,
@@ -347,20 +339,29 @@ pub async fn get_tile_response(
     };
 
     let source_ids = &path.source_ids;
-    let (sources, use_url_query, info) = sources.get_sources(source_ids, Some(xyz.z))?;
-    let query = if use_url_query {
-        Some(req.query_string())
-    } else {
-        None
-    };
+    let query = req.query_string();
+    let encodings = req.get_header::<AcceptEncoding>();
 
-    let tile = get_tile_content(sources.as_slice(), info, &xyz, query).await?;
+    get_tile_response(sources.as_ref(), xyz, source_ids, query, encodings).await
+}
+
+pub async fn get_tile_response(
+    sources: &TileSources,
+    xyz: TileCoord,
+    source_ids: &str,
+    query: &str,
+    encodings: Option<AcceptEncoding>,
+) -> ActixResult<HttpResponse> {
+    let (sources, use_url_query, info) = sources.get_sources(source_ids, Some(xyz.z))?;
+
+    let sources = sources.as_slice();
+    let query = use_url_query.then_some(query);
+
+    let tile = get_tile_content(sources, info, &xyz, query, encodings.as_ref()).await?;
 
     Ok(if tile.data.is_empty() {
         HttpResponse::NoContent().finish()
     } else {
-        // decide if (re-)encoding of the tile data is needed, and recompress if so
-        let tile = recompress(tile, req.get_header::<AcceptEncoding>().as_ref())?;
         let mut response = HttpResponse::Ok();
         response.content_type(tile.info.format.content_type());
         if let Some(val) = tile.info.encoding.content_encoding() {
@@ -375,6 +376,7 @@ pub async fn get_tile_content(
     info: TileInfo,
     xyz: &TileCoord,
     query: Option<&str>,
+    encodings: Option<&AcceptEncoding>,
 ) -> ActixResult<Tile> {
     if sources.is_empty() {
         return Err(ErrorNotFound("No valid sources found"));
@@ -409,7 +411,10 @@ pub async fn get_tile_content(
         _ => tiles.concat(),
     };
 
-    Ok(Tile::new(data, info))
+    // decide if (re-)encoding of the tile data is needed, and recompress if so
+    let tile = recompress(Tile::new(data, info), encodings)?;
+
+    Ok(tile)
 }
 
 fn recompress(mut tile: Tile, accept_enc: Option<&AcceptEncoding>) -> ActixResult<Tile> {
