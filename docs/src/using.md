@@ -9,7 +9,7 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/{sourceID}`                           | [Source TileJSON](#source-tilejson)          |
 | `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                    |
 | `/{source1},…,{sourceN}`                | [Composite Source TileJSON](#source-tilejson) |
-| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | [Composite Source Tiles](config-file.md)  |
+| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | [Composite Source Tiles](sources-composite.md)  |
 | `/sprite/{spriteID}[@2x].{json,png}`    | [Sprite sources](sources-spritess.md)     |
 | `/font/{font}/{start}-{end}`            | [Font source](sources-fonts.md)           |
 | `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](sources-fonts.md) |
