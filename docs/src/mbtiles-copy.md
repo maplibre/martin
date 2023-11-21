@@ -8,7 +8,7 @@ mbtiles copy src_file.mbtiles dst_file.mbtiles \
         --min-zoom 0 --max-zoom 10
 ```
 
-This command can also be used to generate files of different [supported schema](##supported-schema).
+This command can also be used to generate files of different [supported schema](mbtiles-schema.md).
 
 ```shell
 mbtiles copy normalized.mbtiles dst.mbtiles \
