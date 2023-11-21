@@ -2,18 +2,18 @@
 
 Martin data is available via the HTTP `GET` endpoints:
 
-| URL                                     | Description                                  |
-|-----------------------------------------|----------------------------------------------|
-| `/`                                     | Status text, that will eventually show web UI |
-| `/catalog`                              | [List of all sources](#catalog)              |
-| `/{sourceID}`                           | [Source TileJSON](#source-tilejson)          |
-| `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                    |
-| `/{source1},…,{sourceN}`                | [Composite Source TileJSON](#source-tilejson) |
-| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | [Composite Source Tiles](sources-composite.md)  |
-| `/sprite/{spriteID}[@2x].{json,png}`    | [Sprite sources](sources-sprites.md)     |
-| `/font/{font}/{start}-{end}`            | [Font source](sources-fonts.md)           |
-| `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](sources-fonts.md) |
-| `/health`                               | Martin server health check: returns 200 `OK` |
+| URL                                     | Description                                    |
+|-----------------------------------------|------------------------------------------------|
+| `/`                                     | Status text, that will eventually show web UI  |
+| `/catalog`                              | [List of all sources](#catalog)                |
+| `/{sourceID}`                           | [Source TileJSON](#source-tilejson)            |
+| `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                      |
+| `/{source1},…,{sourceN}`                | [Composite Source TileJSON](#source-tilejson)  |
+| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | [Composite Source Tiles](sources-composite.md) |
+| `/sprite/{spriteID}[@2x].{json,png}`    | [Sprite sources](sources-sprites.md)           |
+| `/font/{font}/{start}-{end}`            | [Font source](sources-fonts.md)                |
+| `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](sources-fonts.md)      |
+| `/health`                               | Martin server health check: returns 200 `OK`   |
 
 ### Duplicate Source ID
 In case there is more than one source that has the same name, e.g. a PG function is available in two schemas/connections, or a table has more than one geometry columns, sources will be assigned unique IDs such as `/points`, `/points.1`, etc.
