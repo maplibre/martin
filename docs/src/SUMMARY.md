@@ -15,7 +15,7 @@
   - [Composite Sources](sources-composite)
   - [Sprite Sources](sources-sprites)
   - [Font Sources](sources-fonts)
-- [Usage and Endpoint API](using-endpoints)
+- [Usage and Endpoint API](using)
   - [Using with MapLibre](using-with-maplibre)
   - [Using with Leaflet](using-with-leaflet)
   - [Using with deck.gl](using-with-deck-gl)
