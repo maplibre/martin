@@ -5,7 +5,7 @@ use actix_web::FromRequest;
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
 use criterion::{criterion_group, criterion_main, Criterion};
-use martin::srv::{get_tile_impl, TileRequest};
+use martin::srv::{get_tile_response, TileRequest};
 use martin::{
     CatalogSourceEntry, MartinResult, Source, TileCoord, TileData, TileSources, UrlQuery,
 };
@@ -69,7 +69,7 @@ async fn process_tile(resource: &ResourceDef, sources: Data<TileSources>) {
     let path = Path::<TileRequest>::from_request(&req, &mut pl)
         .await
         .unwrap();
-    get_tile_impl(req, path, sources).await.unwrap();
+    get_tile_response(req, path, sources).await.unwrap();
 }
 
 fn bench_null_source(c: &mut Criterion) {

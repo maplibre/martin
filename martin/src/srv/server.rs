@@ -332,10 +332,10 @@ async fn get_tile(
     path: Path<TileRequest>,
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
-    get_tile_impl(req, path, sources).await
+    get_tile_response(req, path, sources).await
 }
 
-pub async fn get_tile_impl(
+pub async fn get_tile_response(
     req: HttpRequest,
     path: Path<TileRequest>,
     sources: Data<TileSources>,
@@ -346,7 +346,8 @@ pub async fn get_tile_impl(
         y: path.y,
     };
 
-    let (sources, use_url_query, info) = sources.get_sources(&path.source_ids, Some(path.z))?;
+    let source_ids = &path.source_ids;
+    let (sources, use_url_query, info) = sources.get_sources(source_ids, Some(xyz.z))?;
     let query = if use_url_query {
         Some(req.query_string())
     } else {
@@ -359,7 +360,7 @@ pub async fn get_tile_impl(
         HttpResponse::NoContent().finish()
     } else {
         // decide if (re-)encoding of the tile data is needed, and recompress if so
-        let tile = recompress(tile, req.get_header::<AcceptEncoding>())?;
+        let tile = recompress(tile, req.get_header::<AcceptEncoding>().as_ref())?;
         let mut response = HttpResponse::Ok();
         response.content_type(tile.info.format.content_type());
         if let Some(val) = tile.info.encoding.content_encoding() {
@@ -383,9 +384,11 @@ pub async fn get_tile_content(
     } else {
         None
     };
+
     let mut tiles = try_join_all(sources.iter().map(|s| s.get_tile(xyz, &query)))
         .await
         .map_err(map_internal_error)?;
+
     // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
     // TODO: can zlib, brotli, or zstd be concatenated?
     // TODO: implement decompression step for other concatenate-able formats
@@ -409,7 +412,7 @@ pub async fn get_tile_content(
     Ok(Tile::new(data, info))
 }
 
-fn recompress(mut tile: Tile, accept_enc: Option<AcceptEncoding>) -> ActixResult<Tile> {
+fn recompress(mut tile: Tile, accept_enc: Option<&AcceptEncoding>) -> ActixResult<Tile> {
     if let Some(accept_enc) = accept_enc {
         if tile.info.encoding.is_encoded() {
             // already compressed, see if we can send it as is, or need to re-compress
