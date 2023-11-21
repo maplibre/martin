@@ -9,10 +9,10 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/{sourceID}`                           | [Source TileJSON](#source-tilejson)          |
 | `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                    |
 | `/{source1},…,{sourceN}`                | [Composite Source TileJSON](#source-tilejson) |
-| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | [Composite Source Tiles](30-config-file.md)  |
+| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | [Composite Source Tiles](config-file)  |
 | `/sprite/{spriteID}[@2x].{json,png}`    | [Sprite sources](36-sources-spritess.md)     |
-| `/font/{font}/{start}-{end}`            | [Font source](37-sources-fonts.md)           |
-| `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](37-sources-fonts.md) |
+| `/font/{font}/{start}-{end}`            | [Font source](sources-fonts)           |
+| `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](sources-fonts) |
 | `/health`                               | Martin server health check: returns 200 `OK` |
 
 ### Duplicate Source ID
