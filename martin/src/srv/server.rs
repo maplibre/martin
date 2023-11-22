@@ -354,10 +354,8 @@ pub async fn get_tile_response(
 ) -> ActixResult<HttpResponse> {
     let (sources, use_url_query, info) = sources.get_sources(source_ids, Some(xyz.z))?;
 
-    let sources = sources.as_slice();
     let query = use_url_query.then_some(query);
-
-    let tile = get_tile_content(sources, info, &xyz, query, encodings.as_ref()).await?;
+    let tile = get_tile_content(sources.as_slice(), info, &xyz, query, encodings.as_ref()).await?;
 
     Ok(if tile.data.is_empty() {
         HttpResponse::NoContent().finish()
@@ -381,10 +379,9 @@ pub async fn get_tile_content(
     if sources.is_empty() {
         return Err(ErrorNotFound("No valid sources found"));
     }
-    let query = if let Some(v) = query {
-        Some(Query::<UrlQuery>::from_query(v)?.into_inner())
-    } else {
-        None
+    let query = match query {
+        Some(v) if !v.is_empty() => Some(Query::<UrlQuery>::from_query(v)?.into_inner()),
+        _ => None,
     };
 
     let mut tiles = try_join_all(sources.iter().map(|s| s.get_tile(xyz, &query)))

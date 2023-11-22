@@ -13,6 +13,7 @@ use tilejson::{tilejson, Bounds, Center, TileJSON};
 use crate::errors::MbtResult;
 use crate::Mbtiles;
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Metadata {
     pub id: String,
@@ -154,6 +155,9 @@ impl Mbtiles {
                         self.filename()
                     );
                 }
+            }
+            if obj.is_empty() {
+                json = None;
             }
         }
 

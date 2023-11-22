@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use actix_http::error::ParseError;
+use actix_http::test::TestRequest;
+use actix_web::http::header::{AcceptEncoding, Header as _, ACCEPT_ENCODING};
 use clap::Parser;
 use futures::stream::{self, StreamExt};
 use futures::TryStreamExt;
@@ -11,9 +14,11 @@ use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, PgArgs, SrvArgs};
 use martin::srv::{get_tile_content, merge_tilejson, RESERVED_KEYWORDS};
 use martin::{
-    append_rect, read_config, Config, IdResolver, MartinError, MartinResult, ServerState,
+    append_rect, read_config, Config, IdResolver, MartinError, MartinResult, ServerState, Source,
     TileCoord, TileData, TileRect,
 };
+use martin_tile_utils::TileInfo;
+use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
     init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtType, MbtTypeCli, Mbtiles,
 };
@@ -56,7 +61,15 @@ pub struct CopyArgs {
         value_name = "SCHEMA",
         value_enum
     )]
-    pub dst_type: Option<MbtTypeCli>,
+    pub mbt_type: Option<MbtTypeCli>,
+    /// Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions)
+    #[arg(long)]
+    pub url_query: Option<String>,
+    /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
+    /// May be multiple values separated by comma, e.g. `gzip,br`.
+    /// Use `identity` to disable compression.
+    #[arg(long, alias = "encodings", default_value = "gzip")]
+    pub encoding: String,
     /// Specify the behaviour when generated tile already exists in the destination file.
     #[arg(long, value_enum, default_value_t = CopyDuplicateMode::default())]
     pub on_duplicate: CopyDuplicateMode,
@@ -82,8 +95,8 @@ pub struct CopyArgs {
     pub zoom_levels: Vec<u8>,
 }
 
-async fn start(copy_args: CopierArgs) -> MartinResult<()> {
-    info!("Starting Martin v{VERSION}");
+async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
+    info!("Martin-CP tile copier v{VERSION}");
 
     let env = OsEnv::default();
     let save_config = copy_args.meta.save_config.clone();
@@ -185,6 +198,20 @@ impl Progress {
     }
 }
 
+type MartinCpResult<T> = Result<T, MartinCpError>;
+
+#[derive(Debug, thiserror::Error)]
+enum MartinCpError {
+    #[error(transparent)]
+    Martin(#[from] MartinError),
+    #[error("Unable to parse encodings argument: {0}")]
+    EncodingParse(#[from] ParseError),
+    #[error(transparent)]
+    Actix(#[from] actix_web::Error),
+    #[error(transparent)]
+    Mbt(#[from] mbtiles::MbtError),
+}
+
 impl Display for Progress {
     #[allow(clippy::cast_precision_loss)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -225,7 +252,7 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
-async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
+async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
     let (sources, _use_url_query, info) = state.tiles.get_sources(args.source.as_str(), None)?;
@@ -235,28 +262,13 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
     let tiles = compute_tile_ranges(&args);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
-
-    let dst_type = if is_empty_database(&mut conn).await? {
-        let dst_type = match args.dst_type.unwrap_or(MbtTypeCli::Normalized) {
-            MbtTypeCli::Flat => MbtType::Flat,
-            MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-            MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
-        };
-        init_mbtiles_schema(&mut conn, dst_type).await?;
-        let mut tj = merge_tilejson(sources, String::new());
-        tj.other.insert(
-            "format".to_string(),
-            serde_json::Value::String(tile_info.format.to_string()),
-        );
-        tj.other.insert(
-            "generator".to_string(),
-            serde_json::Value::String(format!("martin-cp v{VERSION}")),
-        );
-        mbt.insert_metadata(&mut conn, &tj).await?;
-        dst_type
-    } else {
-        mbt.detect_type(&mut conn).await?
-    };
+    let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, args.mbt_type).await?;
+    let query = args.url_query.as_deref();
+    let req = TestRequest::default()
+        .insert_header((ACCEPT_ENCODING, args.encoding.as_str()))
+        .finish();
+    let accept_encoding = AcceptEncoding::parse(&req)?;
+    let encodings = Some(&accept_encoding);
 
     let progress = Progress::new(&tiles);
     info!(
@@ -274,7 +286,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = get_tile_content(sources, info, &xyz, None, None).await?;
+                        let tile = get_tile_content(sources, info, &xyz, query, encodings).await?;
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
@@ -295,7 +307,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
-                        mbt.insert_tiles(&mut conn, dst_type, args.on_duplicate, &batch)
+                        mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
                             .await?;
                         batch.clear();
                         last_saved = Instant::now();
@@ -310,7 +322,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
                 }
             }
             if !batch.is_empty() {
-                mbt.insert_tiles(&mut conn, dst_type, args.on_duplicate, &batch)
+                mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
                     .await?;
             }
             Ok(())
@@ -319,6 +331,36 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinResult<()> {
 
     info!("{progress}");
     Ok(())
+}
+
+async fn init_schema(
+    mbt: &Mbtiles,
+    conn: &mut SqliteConnection,
+    sources: &[&dyn Source],
+    tile_info: TileInfo,
+    mbt_type: Option<MbtTypeCli>,
+) -> Result<MbtType, MartinError> {
+    Ok(if is_empty_database(&mut *conn).await? {
+        let mbt_type = match mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+            MbtTypeCli::Flat => MbtType::Flat,
+            MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
+            MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
+        };
+        init_mbtiles_schema(&mut *conn, mbt_type).await?;
+        let mut tj = merge_tilejson(sources, String::new());
+        tj.other.insert(
+            "format".to_string(),
+            serde_json::Value::String(tile_info.format.to_string()),
+        );
+        tj.other.insert(
+            "generator".to_string(),
+            serde_json::Value::String(format!("martin-cp v{VERSION}")),
+        );
+        mbt.insert_metadata(&mut *conn, &tj).await?;
+        mbt_type
+    } else {
+        mbt.detect_type(&mut *conn).await?
+    })
 }
 
 #[actix_web::main]
