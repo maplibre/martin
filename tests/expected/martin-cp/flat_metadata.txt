@@ -18,5 +18,5 @@ tilejson:
   name: table_source
   foo: '{"bar":"foo"}'
   format: mvt
-  generator: martin-cp v0.11.1
+  generator: martin-cp v0.11.2
 

@@ -9,5 +9,5 @@ tilejson:
   description: public.function_zxy_query_test
   name: function_zxy_query_test
   format: mvt
-  generator: martin-cp v0.11.1
+  generator: martin-cp v0.11.2
 
