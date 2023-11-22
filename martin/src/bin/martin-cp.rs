@@ -34,7 +34,10 @@ const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
 
 #[derive(Parser, Debug, PartialEq, Default)]
-#[command(about, version)]
+#[command(
+    about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
+    version
+)]
 pub struct CopierArgs {
     #[command(flatten)]
     pub copy: CopyArgs,
@@ -46,7 +49,6 @@ pub struct CopierArgs {
 
 #[serde_with::serde_as]
 #[derive(clap::Args, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
-#[command(about, version)]
 pub struct CopyArgs {
     /// Name of the source to copy from.
     #[arg(short, long)]
@@ -54,7 +56,7 @@ pub struct CopyArgs {
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
-    /// Output format of the destination file, ignored if the file exists. For new files, defaults to 'normalized'.
+    /// Output format of the new destination file. Ignored if the file exists. Defaults to 'normalized'.
     #[arg(
         long = "mbtiles-type",
         alias = "dst-type",
@@ -66,8 +68,9 @@ pub struct CopyArgs {
     #[arg(long)]
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
-    /// May be multiple values separated by comma, e.g. `gzip,br`.
-    /// Use `identity` to disable compression.
+    /// If set to multiple values like `gzip,br`, martin-cp will use the first encoding,
+    /// or re-encode if the tile is already encoded and that encoding is not listed.  
+    /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
     /// Specify the behaviour when generated tile already exists in the destination file.
@@ -76,7 +79,7 @@ pub struct CopyArgs {
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
     pub concurrency: Option<usize>,
-    /// Bounds to copy. Can be specified multiple times.
+    /// Bounds to copy. Can be specified multiple times. Overlapping regions will be handled correctly.
     #[arg(long)]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy
