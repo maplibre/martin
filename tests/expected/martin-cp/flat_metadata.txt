@@ -1,10 +1,8 @@
 [INFO ] cp_flat has an unrecognized metadata value foo={"bar":"foo"}
-[INFO ] Using 'mvt' tile format from metadata table in file cp_flat
 id: cp_flat
 tile_info:
   format: mvt
-  encoding: ''
-layer_type: null
+  encoding: gzip
 tilejson:
   tilejson: 3.0.0
   tiles: []
@@ -21,5 +19,4 @@ tilejson:
   foo: '{"bar":"foo"}'
   format: mvt
   generator: martin-cp v0.11.1
-json: {}
 

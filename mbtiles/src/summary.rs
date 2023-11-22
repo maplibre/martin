@@ -58,8 +58,8 @@ impl Display for Summary {
         writeln!(f)?;
         writeln!(
             f,
-            "|{:^9}|{:^9}|{:^9}|{:^9}|{:^9}| {:^20} |",
-            "Zoom", "Count", "Smallest", "Largest", "Average", "BBox"
+            " {:^4} | {:^9} | {:^9} | {:^9} | {:^9} | Bounding Box",
+            "Zoom", "Count", "Smallest", "Largest", "Average"
         )?;
 
         for l in &self.zoom_info {
@@ -70,13 +70,13 @@ impl Display for Summary {
 
             writeln!(
                 f,
-                "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}| {:<20} |",
+                " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {:.prec$}",
                 l.zoom,
                 l.tile_count,
-                format!("{min:.2}B"),
-                format!("{max:.2}B"),
-                format!("{avg:.2}B"),
-                format!("{:.prec$}", l.bbox),
+                format!("{min:.1}B"),
+                format!("{max:.1}B"),
+                format!("{avg:.1}B"),
+                l.bbox,
             )?;
         }
 
@@ -93,13 +93,12 @@ impl Display for Summary {
                 let prec = get_zoom_precision(max_zoom);
                 writeln!(
                     f,
-                    "|{:>9}|{:>9}|{:>9}|{:>9}|{:>9}| {:<20} |",
+                    " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {bbox:.prec$}",
                     "all",
                     self.tile_count,
                     format!("{min}B"),
                     format!("{max}B"),
                     format!("{avg}B"),
-                    format!("{:.prec$}", bbox),
                 )?;
             }
         }

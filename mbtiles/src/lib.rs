@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+// Re-export sqlx
+pub use sqlx;
+
 mod copier;
 pub use copier::{CopyDuplicateMode, MbtilesCopier};
 
