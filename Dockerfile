@@ -1,19 +1,14 @@
-FROM rust:alpine as builder
+FROM rust:1-bookworm as builder
 
 WORKDIR /usr/src/martin
 
-RUN apk update \
-    && apk add --no-cache musl-dev perl build-base
-
 COPY . .
-RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo build --release
+RUN cargo build --release
 
 
-FROM alpine:latest
+FROM debian:bookworm
 
 LABEL org.opencontainers.image.description="Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
-
-RUN apk add --no-cache libc6-compat
 
 COPY --from=builder \
   /usr/src/martin/target/release/martin \
