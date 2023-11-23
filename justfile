@@ -233,10 +233,6 @@ coverage FORMAT='html': (cargo-install "grcov")
         open "$OUTPUT_RESULTS_DIR/index.html"
     fi
 
-# Build martin docker image
-docker-build:
-    docker build -t ghcr.io/maplibre/martin .
-
 # Build and run martin docker image
 docker-run *ARGS:
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ ARGS }}
