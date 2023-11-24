@@ -170,7 +170,7 @@ jobs:
         # https://github.com/docker/build-push-action
         with:
           context: .
-          file: multi-platform.Dockerfile
+          file: .github/files/multi-platform.Dockerfile
           load: true
           tags: ${{ github.repository }}:linux-arm64
           platforms: linux/arm64
@@ -191,7 +191,7 @@ jobs:
         # https://github.com/docker/build-push-action
         with:
           context: .
-          file: multi-platform.Dockerfile
+          file: .github/files/multi-platform.Dockerfile
           load: true
           tags: ${{ github.repository }}:linux-amd64
           platforms: linux/amd64
@@ -227,7 +227,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: multi-platform.Dockerfile
+          file: .github/files/multi-platform.Dockerfile
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
@@ -630,7 +630,7 @@ jobs:
       - name: Create Homebrew formula
         uses: cuchi/jinja2-action@master
         with:
-          template: .github/templates/homebrew.martin.rb.j2
+          template: .github/files/homebrew.martin.rb.j2
           output_file: target/homebrew/martin.rb
           data_file: target/homebrew_config.yaml
 

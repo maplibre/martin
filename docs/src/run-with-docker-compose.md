@@ -7,7 +7,7 @@ version: '3'
 
 services:
   martin:
-    image: ghcr.io/maplibre/martin:v0.8.7
+    image: ghcr.io/maplibre/martin:v0.11.1
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -24,6 +24,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
     volumes:
+      # persist PostgreSQL data in a local directory outside of the docker container
       - ./pg_data:/var/lib/postgresql/data
 ```
 
