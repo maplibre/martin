@@ -18,9 +18,7 @@ jobs:
       - name: Markdown lint
         uses: DavidAnson/markdownlint-cli2-action@v14
         with:
-          globs: |
-            docs/src/*.md
-            README.md
+          config: './.github/files/.markdownlint.jsonc'
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1

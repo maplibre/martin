@@ -1,0 +1,8 @@
+{
+    "config": {
+        "default": true,
+        "relative-links": true
+      },
+      "globs": ["docs/src/*.md"],
+      "customRules": ["markdownlint-rule-relative-links"]
+}
