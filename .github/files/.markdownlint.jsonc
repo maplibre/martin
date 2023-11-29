@@ -3,6 +3,10 @@
         "default": true,
         "relative-links": true
       },
-      "globs": ["docs/src/*.md"],
+      // globs expression. See https://github.com/DavidAnson/markdownlint-cli2#command-line
+      "globs": [
+        "**/*.md",
+        "#CHANGELOG.md"
+      ],
       "customRules": ["markdownlint-rule-relative-links"]
 }
