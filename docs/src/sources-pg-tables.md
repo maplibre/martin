@@ -9,11 +9,13 @@ For example, if there is a table `public.table_source`:
  the default `TileJSON` might look like this (note that URL will be automatically adjusted to match the request host):
 
 The table:
+
 ```sql
 CREATE TABLE "public"."table_source" ( "gid" int4 NOT NULL, "geom" "public"."geometry" );
 ```
 
 The TileJSON:
+
 ```json
 {
     "tilejson": "3.0.0",

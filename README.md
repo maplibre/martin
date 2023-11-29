@@ -21,7 +21,6 @@ _See [installation instructions](https://maplibre.org/martin/installation.html) 
 
 **Prerequisites:** If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+, v3.1+ recommended.
 
-
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
 | Platform | AMD-64                                                                                           | ARM-64                              |

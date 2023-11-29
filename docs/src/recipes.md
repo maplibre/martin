@@ -31,6 +31,7 @@ martin
 ```
 
 You may also be able to validate SSL certificate with an explicit sslmode, e.g.
+
 ```shell
 export DATABASE_URL="$(heroku config:get DATABASE_URL -a APP_NAME)?sslmode=verify-ca"
 ```
