@@ -5,8 +5,10 @@
       },
       // globs expression. See https://github.com/DavidAnson/markdownlint-cli2#command-line
       "globs": [
-        "**/*.md",
-        "#CHANGELOG.md"
+        "**/*.md"
+      ],
+      "ignores":[
+        ":CHANGELOG.md"
       ],
       "customRules": ["markdownlint-rule-relative-links"]
 }
