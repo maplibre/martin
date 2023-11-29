@@ -15,6 +15,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
 
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v14
+        with:
+          globs: |
+            docs/src/*.md
+            README.md
+
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
