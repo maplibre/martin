@@ -250,8 +250,10 @@ print-conn-str:
 lint: fmt clippy
 
 # Run cargo fmt
-fmt:
+fmt: (install-markdownlint-cli2)
     cargo fmt --all -- --check
+    @echo "Running markdownlint-cli2..."
+    markdownlint-cli2 --config ".github/files/martin.markdownlint-cli2.jsonc"
 
 # Run Nightly cargo fmt, ordering imports
 fmt2:
@@ -289,4 +291,12 @@ cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
     @if ! command -v $COMMAND &> /dev/null; then \
         echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}" ;\
         cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }} ;\
+    fi
+
+# Check if markdownlint-cli2 is installed, and install it if needed
+[private]
+install-markdownlint-cli2:
+    @if ! command -v markdownlint-cli2 &> /dev/null; then \
+        echo "markdownlint-cli2 could not be found. Installing it with npm install --global markdownlint-cli2" ;\
+        sudo npm install --global markdownlint-cli2 ;\
     fi
