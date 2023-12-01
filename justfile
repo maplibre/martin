@@ -260,9 +260,10 @@ fmt2:
     cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate
 
 # Run cargo clippy
-clippy:
+clippy: (install-markdown-link-check)
     cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
+    find . -name \*.md -print0 | xargs -0 -n1 markdown-link-check  --config ".github/files/markdown.links.config.json"
 
 # These steps automatically run before git push via a git hook
 [private]
@@ -299,4 +300,12 @@ install-markdownlint-cli2:
     @if ! command -v markdownlint-cli2 &> /dev/null; then \
         echo "markdownlint-cli2 could not be found. Installing it with npm install --global markdownlint-cli2" ;\
         sudo npm install --global markdownlint-cli2 ;\
+    fi
+
+# Check if markdown-link-check is installed, and install it if needed
+[private]
+install-markdown-link-check:
+    @if ! command -v markdown-link-check &> /dev/null; then \
+        echo "markdown-link-check could not be found. Installing it with npm install -g markdown-link-check" ;\
+        sudo npm install -g markdown-link-check ;\
     fi
