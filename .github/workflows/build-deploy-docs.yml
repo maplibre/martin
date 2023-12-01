@@ -20,6 +20,8 @@ jobs:
         with:
           use-quiet-mode: 'no'
           use-verbose-mode: 'yes'
+          folder-path: 'docs/src'
+          file-path: './README.md'
 
       - name: Markdown lint
         uses: DavidAnson/markdownlint-cli2-action@v14
