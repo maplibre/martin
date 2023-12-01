@@ -96,6 +96,9 @@ pub struct CopyArgs {
     /// List of zoom levels to copy
     #[arg(short, long, alias = "zooms", value_delimiter = ',')]
     pub zoom_levels: Vec<u8>,
+    /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
+    #[arg(long)]
+    pub skip_agg_tiles_hash: bool,
 }
 
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
@@ -275,9 +278,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
 
     let progress = Progress::new(&tiles);
     info!(
-        "Copying {} {} tiles from {} to {}",
+        "Copying {} {tile_info} tiles from {} to {}",
         progress.total,
-        tile_info,
         args.source,
         args.output_file.display()
     );
@@ -333,6 +335,16 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     )?;
 
     info!("{progress}");
+
+    if !args.skip_agg_tiles_hash {
+        if progress.non_empty.load(Ordering::Relaxed) == 0 {
+            info!("No tiles were copied, skipping agg_tiles_hash computation");
+        } else {
+            info!("Computing agg_tiles_hash value...");
+            mbt.update_agg_tiles_hash(&mut conn).await?;
+        }
+    }
+
     Ok(())
 }
 
