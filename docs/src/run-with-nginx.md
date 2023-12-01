@@ -91,4 +91,4 @@ http {
 }
 ```
 
-You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/nginx.conf).
+You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).
