@@ -22,6 +22,7 @@ jobs:
           use-verbose-mode: 'yes'
           folder-path: 'docs/src'
           file-path: './README.md'
+          config-file: './.github/files/markdown.links.config.json'
 
       - name: Markdown lint
         uses: DavidAnson/markdownlint-cli2-action@v14
