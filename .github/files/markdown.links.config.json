@@ -1,4 +1,5 @@
 {
+	"timeout": "3000ms",
     "ignorePatterns": [
 		{
 			"pattern": "^http://127.0.0.1"
@@ -6,5 +7,14 @@
 		{
 			"pattern": "^http://localhost"
 		}
-    ]
+    ],
+	"httpHeaders": [
+		{
+		  "urls": ["https://crates.io", "http://opensource.org"],
+		  "headers": {
+			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
+			"Accept": "/"
+		  }
+		}
+	  ]
 }
