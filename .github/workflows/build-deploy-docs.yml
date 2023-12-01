@@ -15,6 +15,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
 
+      - name: Run link check
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'no'
+          use-verbose-mode: 'yes'
+
       - name: Markdown lint
         uses: DavidAnson/markdownlint-cli2-action@v14
         with:

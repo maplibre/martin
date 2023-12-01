@@ -1,6 +1,6 @@
 # Configuration File
 
-If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your config file: `connection_string: ${MY_DATABASE_URL}`, or with a default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
+If[not_exist_will_remove_before_merge_just_for_test.md] you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your config file: `connection_string: ${MY_DATABASE_URL}`, or with a default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
 
 ```shell
 martin --config config.yaml
