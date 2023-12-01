@@ -12,6 +12,6 @@
         "README.md",
         "!CHANGELOG.md",
         "docs/src/*.md"
-      ]
-      // "customRules": ["markdownlint-rule-relative-links"]
+      ],
+      "customRules": ["markdownlint-rule-relative-links"]
 }
