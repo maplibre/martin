@@ -22,6 +22,7 @@ pub struct Metadata {
     pub layer_type: Option<String>,
     pub tilejson: TileJSON,
     pub json: Option<JSONValue>,
+    pub agg_tiles_hash: Option<String>,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
@@ -92,30 +93,13 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let (tj, layer_type, json) = self.parse_metadata(conn).await?;
-
-        Ok(Metadata {
-            id: self.filename().to_string(),
-            tile_info: self.detect_format(&tj, conn).await?,
-            tilejson: tj,
-            layer_type,
-            json,
-        })
-    }
-
-    async fn parse_metadata<T>(
-        &self,
-        conn: &mut T,
-    ) -> MbtResult<(TileJSON, Option<String>, Option<Value>)>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
         let query = query!("SELECT name, value FROM metadata WHERE value IS NOT ''");
-        let mut rows = query.fetch(conn);
+        let mut rows = query.fetch(&mut *conn);
 
         let mut tj = tilejson! { tiles: vec![] };
         let mut layer_type: Option<String> = None;
         let mut json: Option<JSONValue> = None;
+        let mut agg_tiles_hash: Option<String> = None;
 
         while let Some(row) = rows.try_next().await? {
             if let (Some(name), Some(value)) = (row.name, row.value) {
@@ -136,6 +120,7 @@ impl Mbtiles {
                     "format" | "generator" => {
                         tj.other.insert(name, Value::String(value));
                     }
+                    "agg_tiles_hash" => agg_tiles_hash = Some(value),
                     _ => {
                         let file = &self.filename();
                         info!("{file} has an unrecognized metadata value {name}={value}");
@@ -161,7 +146,17 @@ impl Mbtiles {
             }
         }
 
-        Ok((tj, layer_type, json))
+        // Need to drop rows in order to re-borrow connection reference as mutable
+        drop(rows);
+
+        Ok(Metadata {
+            id: self.filename().to_string(),
+            tile_info: self.detect_format(&tj, &mut *conn).await?,
+            tilejson: tj,
+            layer_type,
+            json,
+            agg_tiles_hash,
+        })
     }
 
     pub async fn insert_metadata<T>(&self, conn: &mut T, tile_json: &TileJSON) -> MbtResult<()>

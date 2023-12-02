@@ -10,4 +10,5 @@ tilejson:
   name: function_zxy_query_test
   format: mvt
   generator: martin-cp v0.11.2
+agg_tiles_hash: 9B931A386D6075D1DA55323BD4DBEDAE
 

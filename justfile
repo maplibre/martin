@@ -155,12 +155,15 @@ test-int: clean-test install-sqlx
     fi
 
 # Run integration tests and save its output as the new expected output
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles
+bless: restart clean-test bless-tests bless-insta-martin bless-insta-mbtiles
     rm -rf tests/temp
-    cargo test -p martin --features bless-tests
     tests/test.sh
     rm -rf tests/expected
     mv tests/output tests/expected
+
+# Run test with bless-tests feature
+bless-tests:
+    cargo test -p martin --features bless-tests
 
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
