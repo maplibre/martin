@@ -19,4 +19,5 @@ tilejson:
   foo: '{"bar":"foo"}'
   format: mvt
   generator: martin-cp v0.11.2
+agg_tiles_hash: EF19FCBCE73ADE1C85E856E6BBA9B4C7
 

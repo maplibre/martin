@@ -36,4 +36,5 @@ tilejson:
   version: 1.0.0
   format: png
   generator: martin-cp v0.11.2
+agg_tiles_hash: A85C80BA1CE047E2D93DAC25C5179775
 
