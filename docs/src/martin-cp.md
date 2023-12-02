@@ -17,5 +17,3 @@ martin-cp  --output-file tileset.mbtiles \
            --source source_name          \
            postgresql://postgres@localhost:5432/db
 ```
-
-You 
