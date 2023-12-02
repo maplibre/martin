@@ -5,6 +5,9 @@
 		},
 		{
 			"pattern": "^http://localhost"
+		},
+		{
+			"pattern": "^http://opensource.org"
 		}
 	],
 	"httpHeaders": [
