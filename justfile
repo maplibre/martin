@@ -253,7 +253,7 @@ lint: fmt clippy
 fmt: (install-markdownlint-cli2)
     cargo fmt --all -- --check
     @echo "Running markdownlint-cli2..."
-    markdownlint-cli2 --config ".github/files/martin.markdownlint-cli2.jsonc"
+    markdownlint-cli2 --config ".github/files/martin.markdownlint-cli2.jsonc" --fix
 
 # Run Nightly cargo fmt, ordering imports
 fmt2:
