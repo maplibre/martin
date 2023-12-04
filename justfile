@@ -255,11 +255,9 @@ lint: fmt clippy
 # Run cargo fmt
 fmt:
     cargo fmt --all -- --check
-    markdownlint-cli2 --config ".github/files/config.markdownlint-cli2.jsonc" --fix
 
-# Run markdown lintting
+# Reformat markdown files using markdownlint-cli2
 fmt-md:
-    @echo "Running markdownlint-cli2..."
     docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
 
 # Run Nightly cargo fmt, ordering imports
@@ -271,10 +269,10 @@ clippy:
     cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
 
-# Run markdown links checking
+# Validate markdown URLs with markdown-link-check
 clippy-md:
-    @echo "Running markdown-link-check to validate URLs in the .md files"
-    docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c 'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
+    docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
+      'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # These steps automatically run before git push via a git hook
 [private]
