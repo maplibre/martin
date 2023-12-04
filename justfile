@@ -272,6 +272,12 @@ clippy:
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
     find . -name \*.md -print0 | xargs -0 -n1 markdown-link-check  --config ".github/files/markdown.links.config.json"
 
+# Run markdown links checking
+clippy-md:
+    @echo "Running markdown-link-check..."
+    find ./docs/src -name \*.md -print0 | xargs -0 -n1 -I{} docker run -i --rm -v ${PWD}:/workdir ghcr.io/tcort/markdown-link-check --config /workdir/.github/files/markdown.links.config.json /workdir/{}
+    docker run -i --rm -v ${PWD}:/workdir ghcr.io/tcort/markdown-link-check --config /workdir/.github/files/markdown.links.config.json /workdir/README.md
+
 # These steps automatically run before git push via a git hook
 [private]
 git-pre-push: env-info restart lint test
