@@ -253,17 +253,21 @@ print-conn-str:
 lint: fmt clippy
 
 # Run cargo fmt
-fmt: (install-markdownlint-cli2)
+fmt:
     cargo fmt --all -- --check
-    @echo "Running markdownlint-cli2..."
     markdownlint-cli2 --config ".github/files/martin.markdownlint-cli2.jsonc" --fix
+
+# Run markdown lintting
+fmt-md:
+    @echo "Running markdownlint-cli2..."
+    docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/martin.markdownlint-cli2.jsonc --fix
 
 # Run Nightly cargo fmt, ordering imports
 fmt2:
     cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate
 
 # Run cargo clippy
-clippy: (install-markdown-link-check)
+clippy:
     cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
     find . -name \*.md -print0 | xargs -0 -n1 markdown-link-check  --config ".github/files/markdown.links.config.json"
