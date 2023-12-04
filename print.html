@@ -437,7 +437,7 @@ services:
   }
 }
 </code></pre>
-<p>You can find an example NGINX configuration file <a href="https://github.com/maplibre/martin/blob/main/nginx.conf">here</a>.</p>
+<p>You can find an example NGINX configuration file <a href="https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf">here</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
 <p>Log levels are controlled on a per-module basis, and by default all logging is disabled except for errors. Logging is controlled via the <code>RUST_LOG</code> environment variable. The value of this environment variable is a comma-separated list of logging directives.</p>
 <p>This will enable debug logging for all modules:</p>
@@ -1116,7 +1116,7 @@ martin
 <p><code>martin-cp</code> is a tool for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file. <code>martin-cp</code> can be used to generate tiles for a large area or multiple areas (bounding boxes). If multiple areas overlap, it will ensure each tile is generated only once. <code>martin-cp</code> supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.</p>
 <p>After copying, <code>martin-cp</code> will update the <code>agg_tiles_hash</code> metadata value unless <code>--skip-agg-tiles-hash</code> is specified. This allows the MBTiles file to be <a href="./mbtiles-validation.html#aggregate-content-validation">validated</a> using <code>mbtiles validate</code> command.</p>
 <h2 id="usage-1"><a class="header" href="#usage-1">Usage</a></h2>
-<p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="mbtiles-schema.html">normalized</a> schema, with zoom levels from 0 to 10, and bounds of the whole world. </p>
+<p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="mbtiles-schema.html">normalized</a> schema, with zoom levels from 0 to 10, and bounds of the whole world.</p>
 <pre><code class="language-shell">martin-cp  --output-file tileset.mbtiles \
            --mbtiles-type normalized     \
            &quot;--bbox=-180,-90,180,90&quot;      \
@@ -1125,7 +1125,6 @@ martin
            --source source_name          \
            postgresql://postgres@localhost:5432/db
 </code></pre>
-<p>You </p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="mbtiles-information-and-metadata"><a class="header" href="#mbtiles-information-and-metadata">MBTiles information and metadata</a></h1>
 <h2 id="summary"><a class="header" href="#summary">summary</a></h2>
 <p>Use <code>mbtiles summary</code> to get a summary of the contents of an MBTiles file. The command will print a table with the number of tiles per zoom level, the size of the smallest and largest tiles, and the average size of tiles at each zoom level. The command will also print the bounding box of the covered area per zoom level.</p>
