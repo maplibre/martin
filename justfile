@@ -296,19 +296,3 @@ cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
         echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}" ;\
         cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }} ;\
     fi
-
-# Check if markdownlint-cli2 is installed, and install it if needed
-[private]
-install-markdownlint-cli2:
-    @if ! command -v markdownlint-cli2 &> /dev/null; then \
-        echo "markdownlint-cli2 could not be found. Installing it with npm install --global markdownlint-cli2" ;\
-        sudo npm install --global markdownlint-cli2 ;\
-    fi
-
-# Check if markdown-link-check is installed, and install it if needed
-[private]
-install-markdown-link-check:
-    @if ! command -v markdown-link-check &> /dev/null; then \
-        echo "markdown-link-check could not be found. Installing it with npm install -g markdown-link-check" ;\
-        sudo npm install -g markdown-link-check ;\
-    fi
