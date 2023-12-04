@@ -4,7 +4,6 @@
 
 You can add a layer to the map and specify Martin [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint as a vector source URL. You should also specify a `source-layer` property. For [Table Sources](sources-pg-tables.md) it is `{table_name}` by default.
 
-
 ```js
 map.addLayer({
   id: 'points',
