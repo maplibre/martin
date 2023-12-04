@@ -15,7 +15,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run link check
+      - name: 'Validate .md files (use "just fmt-md" to fix)'
+        uses: DavidAnson/markdownlint-cli2-action@v14
+        with:
+          config: '.github/files/config.markdownlint-cli2.jsonc'
+
+      - name: 'Check Markdown URLs (same as "just clippy-md")'
         uses: gaurav-nelson/github-action-markdown-link-check@v1
         with:
           use-quiet-mode: 'no'
@@ -23,11 +28,6 @@ jobs:
           folder-path: 'docs/src'
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
-
-      - name: Markdown lint
-        uses: DavidAnson/markdownlint-cli2-action@v14
-        with:
-          config: '.github/files/config.markdownlint-cli2.jsonc'
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
