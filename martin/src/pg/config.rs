@@ -120,9 +120,9 @@ impl PgConfig {
             DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)),
             || {
                 if pg.auto_bounds() == BoundsCalcType::Skip {
-                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.", pg.get_id());
-                } else {
                     warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.", pg.get_id());
+                } else {
+                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.", pg.get_id());
                 }
             },
         );
