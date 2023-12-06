@@ -14,6 +14,9 @@ up:
 up-build:
     docker-compose up --build
 
+build:
+    docker-compose build
+
 up-backend:
     docker-compose up db tiles --detach
 
