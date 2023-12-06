@@ -7,7 +7,7 @@ version: '3'
 
 services:
   martin:
-    image: ghcr.io/maplibre/martin:v0.11.1
+    image: ghcr.io/maplibre/martin:v0.11.2
     restart: unless-stopped
     ports:
       - "3000:3000"

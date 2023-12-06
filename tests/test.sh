@@ -392,7 +392,8 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45"
   test_martin_cp "normalized" "${CFG[@]}" \
       --source geography-class-png --mbtiles-type normalized --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45"
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "name=normalized" --set-meta=center=0,0,0
 
   unset DATABASE_URL
 

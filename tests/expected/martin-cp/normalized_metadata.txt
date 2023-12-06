@@ -12,7 +12,7 @@ tilejson:
   - 85.0511
   center:
   - 0.0
-  - 20.0
+  - 0.0
   - 0
   description: 'One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. '
   legend: |-
@@ -25,7 +25,7 @@ tilejson:
     </div>
   maxzoom: 1
   minzoom: 0
-  name: Geography Class
+  name: normalized
   template: |-
     {{#__location__}}{{/__location__}}{{#__teaser__}}<div style="text-align:center;">
 
@@ -35,6 +35,6 @@ tilejson:
     </div>{{/__teaser__}}{{#__full__}}{{/__full__}}
   version: 1.0.0
   format: png
-  generator: martin-cp v0.11.2
+  generator: martin-cp v0.11.3
 agg_tiles_hash: A85C80BA1CE047E2D93DAC25C5179775
 
