@@ -99,6 +99,22 @@ pub struct CopyArgs {
     /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
     #[arg(long)]
     pub skip_agg_tiles_hash: bool,
+    /// Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times.
+    #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
+    pub set_meta: Vec<(String, String)>,
+}
+
+fn parse_key_value(s: &str) -> Result<(String, String), String> {
+    let mut parts = s.splitn(2, '=');
+    let key = parts.next().unwrap();
+    let value = parts
+        .next()
+        .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
+    if key.is_empty() || value.is_empty() {
+        Err(format!("Invalid key=value pair: {s}"))
+    } else {
+        Ok((key.to_string(), value.to_string()))
+    }
 }
 
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
@@ -335,6 +351,11 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     )?;
 
     info!("{progress}");
+
+    for (key, value) in args.set_meta {
+        info!("Setting metadata key={key} value={value}");
+        mbt.set_metadata_value(&mut conn, &key, value).await?;
+    }
 
     if !args.skip_agg_tiles_hash {
         if progress.non_empty.load(Ordering::Relaxed) == 0 {
