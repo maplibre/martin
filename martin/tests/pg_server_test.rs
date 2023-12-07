@@ -190,8 +190,9 @@ postgres:
       - -90
       - 180
       - 90
-    description: public.table_source.geom
     name: table_source
+    foo:
+      bar: foo
     "###);
 }
 
@@ -1010,15 +1011,16 @@ tables:
     tilejson: 3.0.0
     tiles: []
     vector_layers:
-      - id: no_id
+      - id: MixPoints
         fields:
+          Gid: int4
           TABLE: text
     bounds:
       - -180
       - -90
       - 180
       - 90
-    description: MixedCase.MixPoints.Geom
+    description: a description from comment on table
     name: no_id
     "###);
 

@@ -7,7 +7,8 @@
     {
       "id": "MixPoints",
       "fields": {
-        "taBLe": "text"
+        "Gid": "int4",
+        "TABLE": "text"
       }
     }
   ],
@@ -17,6 +18,6 @@
     167.70892858284475,
     74.23573284753762
   ],
-  "description": "MixedCase.MixPoints.Geom",
+  "description": "a description from comment on table",
   "name": "MixPoints"
 }

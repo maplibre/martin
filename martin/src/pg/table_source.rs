@@ -240,6 +240,7 @@ pub fn merge_table_info(
         is_view: db_inf.is_view,
         srid: calc_srid(&table_id, new_id, db_inf.srid, cfg_inf.srid, default_srid)?,
         prop_mapping: HashMap::new(),
+        tilejson: db_inf.tilejson.clone(),
         ..cfg_inf.clone()
     };
 
