@@ -14,7 +14,11 @@ use crate::MartinError::ConfigAndConnectionsError;
 use crate::{MartinResult, OptOneMany};
 
 #[derive(Parser, Debug, PartialEq, Default)]
-#[command(about, version)]
+#[command(
+    about,
+    version,
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+)]
 pub struct Args {
     #[command(flatten)]
     pub meta: MetaArgs,
