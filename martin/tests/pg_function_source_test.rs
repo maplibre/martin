@@ -13,7 +13,7 @@ fn init() {
 
 #[actix_rt::test]
 async fn function_source_tilejson() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL_PAT")).await;
     let tj = source(&mock, "function_zxy_query").get_tilejson();
     assert_yaml_snapshot!(tj, @r###"
     ---
@@ -27,7 +27,7 @@ async fn function_source_tilejson() {
 
 #[actix_rt::test]
 async fn function_source_tile() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL_PAT")).await;
     let src = source(&mock, "function_zxy_query");
     let tile = src
         .get_tile(&TileCoord { z: 0, x: 0, y: 0 }, &None)
@@ -46,7 +46,7 @@ async fn function_source_tile() {
 #[actix_rt::test]
 async fn function_source_schemas() {
     let cfg = mock_pgcfg(indoc! {"
-        connection_string: $DATABASE_URL
+        connection_string: $DATABASE_URL_PAT
         auto_publish:
           tables: false
           functions:

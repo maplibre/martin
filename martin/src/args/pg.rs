@@ -131,10 +131,10 @@ impl PgArgs {
         if connections.is_empty() {
             if let Some(s) = env.get_env_str("DATABASE_URL_PAT") {
                 if is_postgresql_string(&s) {
-                    info!("Using env var DATABASE_URL to connect to PostgreSQL");
+                    info!("Using env var DATABASE_URL_PAT to connect to PostgreSQL");
                     connections.push(s);
                 } else {
-                    warn!("Environment var DATABASE_URL is not a valid postgres connection string");
+                    warn!("Environment var DATABASE_URL_PAT is not a valid postgres connection string");
                 }
             }
         }
@@ -224,7 +224,7 @@ mod tests {
     fn test_extract_conn_strings_from_env() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
-            vec![("DATABASE_URL", os("postgresql://localhost:5432"))]
+            vec![("DATABASE_URL_PAT", os("postgresql://localhost:5432"))]
                 .into_iter()
                 .collect(),
         );
@@ -252,7 +252,7 @@ mod tests {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
-                ("DATABASE_URL", os("postgres://localhost:5432")),
+                ("DATABASE_URL_PAT", os("postgres://localhost:5432")),
                 ("DEFAULT_SRID", os("10")),
                 ("DANGER_ACCEPT_INVALID_CERTS", os("1")),
                 ("CA_ROOT_FILE", os("file")),
@@ -281,7 +281,7 @@ mod tests {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
-                ("DATABASE_URL", os("postgres://localhost:5432")),
+                ("DATABASE_URL_PAT", os("postgres://localhost:5432")),
                 ("DEFAULT_SRID", os("10")),
                 ("PGSSLCERT", os("cert")),
                 ("PGSSLKEY", os("key")),

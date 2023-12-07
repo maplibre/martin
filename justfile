@@ -2,10 +2,10 @@
 
 set shell := ["bash", "-c"]
 
-#export DATABASE_URL="postgres://postgres:postgres@localhost:5411/db"
+#export DATABASE_URL_PAT="postgres://postgres:postgres@localhost:5411/db"
 
 export PGPORT := "5411"
-export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
+export DATABASE_URL_PAT := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
 export CARGO_TERM_COLOR := "always"
 
 #export RUST_LOG := "debug"
@@ -38,11 +38,11 @@ debug-page *ARGS: start
 
 # Run PSQL utility against the test database
 psql *ARGS:
-    psql {{ ARGS }} {{ DATABASE_URL }}
+    psql {{ ARGS }} {{ DATABASE_URL_PAT }}
 
 # Run pg_dump utility against the test database
 pg_dump *ARGS:
-    pg_dump {{ ARGS }} {{ DATABASE_URL }}
+    pg_dump {{ ARGS }} {{ DATABASE_URL_PAT }}
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop
@@ -115,7 +115,7 @@ test-ssl-cert: start-ssl-cert
     mkdir -p $KEY_DIR
     docker cp martin-db-ssl-cert-1:/etc/ssl/certs/ssl-cert-snakeoil.pem $KEY_DIR/ssl-cert-snakeoil.pem
     docker cp martin-db-ssl-cert-1:/etc/ssl/private/ssl-cert-snakeoil.key $KEY_DIR/ssl-cert-snakeoil.key
-    #    export DATABASE_URL="$DATABASE_URL?sslmode=verify-full&sslrootcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslkey=$KEY_DIR/ssl-cert-snakeoil.key"
+    #    export DATABASE_URL_PAT="$DATABASE_URL_PAT?sslmode=verify-full&sslrootcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslkey=$KEY_DIR/ssl-cert-snakeoil.key"
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
@@ -238,7 +238,7 @@ coverage FORMAT='html': (cargo-install "grcov")
 
 # Build and run martin docker image
 docker-run *ARGS:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ ARGS }}
+    docker run -it --rm --net host -e DATABASE_URL_PAT -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ ARGS }}
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
@@ -247,7 +247,7 @@ git *ARGS: start
 
 # Print the connection string for the test database
 print-conn-str:
-    @echo {{ DATABASE_URL }}
+    @echo {{ DATABASE_URL_PAT }}
 
 # Run cargo fmt and cargo clippy
 lint: fmt clippy

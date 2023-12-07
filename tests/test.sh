@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MARTIN_DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
-unset DATABASE_URL
+MARTIN_DATABASE_URL="${DATABASE_URL_PAT:-postgres://postgres@localhost/db}"
+unset DATABASE_URL_PAT
 
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl --silent --show-error --fail --compressed}
@@ -208,7 +208,7 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2 --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
-export DATABASE_URL="$MARTIN_DATABASE_URL"
+export DATABASE_URL_PAT="$MARTIN_DATABASE_URL"
 
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
@@ -216,7 +216,7 @@ MARTIN_PROC_ID=`jobs -p | tail -n 1`
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
-unset DATABASE_URL
+unset DATABASE_URL_PAT
 
 >&2 echo "Test catalog"
 test_jsn catalog_auto catalog
@@ -331,14 +331,14 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "${TEST_OUT_DIR}/save_config.yaml" -W 1)
-export DATABASE_URL="$MARTIN_DATABASE_URL"
+export DATABASE_URL_PAT="$MARTIN_DATABASE_URL"
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=`jobs -p | tail -n 1`
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
-unset DATABASE_URL
+unset DATABASE_URL_PAT
 
 >&2 echo "Test catalog"
 test_jsn catalog_cfg catalog
@@ -389,7 +389,7 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
   mkdir -p "$TEST_OUT_DIR"
 
-  export DATABASE_URL="$MARTIN_DATABASE_URL"
+  export DATABASE_URL_PAT="$MARTIN_DATABASE_URL"
   CFG=(--default-srid 900913 --auto-bounds calc tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2)
 
   test_martin_cp "flat" "${CFG[@]}" \
@@ -403,7 +403,7 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
       --set-meta "name=normalized" --set-meta=center=0,0,0
 
-  unset DATABASE_URL
+  unset DATABASE_URL_PAT
 
 else
   echo "Skipping martin-cp tests"

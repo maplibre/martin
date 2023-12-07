@@ -13,7 +13,7 @@ fn init() {
 
 #[actix_rt::test]
 async fn table_source() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL_PAT")).await;
     assert_yaml_snapshot!(mock.0.tiles.get_catalog(), @r###"
     ---
     MixPoints:
@@ -102,7 +102,7 @@ async fn table_source() {
 
 #[actix_rt::test]
 async fn tables_tilejson() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL_PAT")).await;
     let tj = source(&mock, "table_source").get_tilejson();
     assert_yaml_snapshot!(tj, @r###"
     ---
@@ -125,7 +125,7 @@ async fn tables_tilejson() {
 
 #[actix_rt::test]
 async fn tables_tile_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL_PAT")).await;
     let tile = source(&mock, "table_source")
         .get_tile(&TileCoord { z: 0, x: 0, y: 0 }, &None)
         .await
@@ -137,7 +137,7 @@ async fn tables_tile_ok() {
 #[actix_rt::test]
 async fn tables_srid_ok() {
     let mock = mock_sources(mock_pgcfg(indoc! {"
-        connection_string: $DATABASE_URL
+        connection_string: $DATABASE_URL_PAT
         default_srid: 900913
     "}))
     .await;
@@ -157,7 +157,7 @@ async fn tables_srid_ok() {
 
 #[actix_rt::test]
 async fn tables_multiple_geom_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL_PAT")).await;
 
     let source = table(&mock, "table_source_multiple_geom");
     assert_eq!(source.geometry_column, "geom1");
@@ -169,7 +169,7 @@ async fn tables_multiple_geom_ok() {
 #[actix_rt::test]
 async fn table_source_schemas() {
     let cfg = mock_pgcfg(indoc! {"
-        connection_string: $DATABASE_URL
+        connection_string: $DATABASE_URL_PAT
         auto_publish:
           tables:
             from_schemas: MixedCase

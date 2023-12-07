@@ -15,10 +15,10 @@ pub use test_utils::*;
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {
-    let env = if let Ok(db_url) = std::env::var("DATABASE_URL") {
-        FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect())
+    let env = if let Ok(db_url) = std::env::var("DATABASE_URL_PAT") {
+        FauxEnv(vec![("DATABASE_URL_PAT", db_url.into())].into_iter().collect())
     } else {
-        warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
+        warn!("DATABASE_URL_PAT env var is not set. Might not be able to do integration tests");
         FauxEnv::default()
     };
     let mut cfg: Config = subst::yaml::from_str(yaml, &env).unwrap();

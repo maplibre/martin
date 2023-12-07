@@ -39,7 +39,7 @@ fn test_get(path: &str) -> Request {
 async fn pg_get_catalog() {
     let app = create_app! { "
 postgres:
-   connection_string: $DATABASE_URL
+   connection_string: $DATABASE_URL_PAT
 "};
 
     let req = test_get("/catalog");
@@ -123,7 +123,7 @@ postgres:
 async fn pg_get_table_source_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     bad_srid:
       schema: public
@@ -158,7 +158,7 @@ postgres:
 async fn pg_get_table_source_rewrite() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     table_source:
       schema: public
@@ -200,7 +200,7 @@ postgres:
 async fn pg_get_table_source_tile_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     points2:
       schema: public
@@ -290,7 +290,7 @@ postgres:
 async fn pg_get_table_source_multiple_geom_tile_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     points2:
       schema: public
@@ -380,7 +380,7 @@ postgres:
 async fn pg_get_table_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     points3857:
       schema: public
@@ -488,7 +488,7 @@ postgres:
 async fn pg_get_function_tiles() {
     let app = create_app! { "
 postgres:
-   connection_string: $DATABASE_URL
+   connection_string: $DATABASE_URL_PAT
 "};
 
     let req = test_get("/function_zoom_xy/6/38/20");
@@ -520,7 +520,7 @@ postgres:
 async fn pg_get_composite_source_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     table_source_multiple_geom.geom2:
       schema: public
@@ -609,7 +609,7 @@ postgres:
 async fn pg_get_composite_source_tile_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     points_empty_srid:
       schema: public
@@ -699,7 +699,7 @@ postgres:
 async fn pg_get_composite_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   tables:
     points1:
       schema: public
@@ -765,7 +765,7 @@ postgres:
 async fn pg_null_functions() {
     let app = create_app! { "
 postgres:
-   connection_string: $DATABASE_URL
+   connection_string: $DATABASE_URL_PAT
 "};
 
     let req = test_get("/function_null/0/0/0");
@@ -785,7 +785,7 @@ postgres:
 async fn pg_get_function_source_ok() {
     let app = create_app! { "
 postgres:
-   connection_string: $DATABASE_URL
+   connection_string: $DATABASE_URL_PAT
 "};
 
     let req = test_get("/non_existent");
@@ -829,7 +829,7 @@ postgres:
 async fn pg_get_function_source_ok_rewrite() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
 "};
 
     let req = TestRequest::get()
@@ -860,7 +860,7 @@ postgres:
 async fn pg_get_function_source_tile_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
 "};
 
     let req = test_get("/function_zxy_query/0/0/0");
@@ -872,7 +872,7 @@ postgres:
 async fn pg_get_function_source_tile_minmax_zoom_ok() {
     let app = create_app! {"
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
   functions:
     function_source1:
       schema: public
@@ -930,7 +930,7 @@ postgres:
 async fn pg_get_function_source_query_params_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
 "};
 
     let req = test_get("/function_zxy_query_test/0/0/0");
@@ -946,7 +946,7 @@ postgres:
 async fn pg_get_health_returns_ok() {
     let app = create_app! { "
 postgres:
-  connection_string: $DATABASE_URL
+  connection_string: $DATABASE_URL_PAT
 "};
 
     let req = test_get("/health");
@@ -957,7 +957,7 @@ postgres:
 #[actix_rt::test]
 async fn pg_tables_feature_id() {
     let cfg = mock_pgcfg(indoc! {"
-connection_string: $DATABASE_URL
+connection_string: $DATABASE_URL_PAT
 tables:
   id_and_prop:
     schema: MIXEDCASE
