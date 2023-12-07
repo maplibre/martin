@@ -20,7 +20,7 @@ pub struct Args {
 
 #[derive(Subcommand, PartialEq, Eq, Debug)]
 enum Commands {
-    /// Show MBTiels file summary statistics
+    /// Show MBTiles file summary statistics
     #[command(name = "summary", alias = "info")]
     Summary { file: PathBuf },
     /// Prints all values in the metadata table in a free-style, unstable YAML format
@@ -37,7 +37,7 @@ enum Commands {
         /// Value to read
         key: String,
     },
-    /// Sets a single value in the MBTiles' file metadata table or deletes it if no value.
+    /// Sets a single value in the MBTiles metadata table or deletes it if no value.
     #[command(name = "meta-set")]
     MetaSetValue {
         /// MBTiles file to modify
@@ -77,7 +77,7 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("info");
+    let env = env_logger::Env::default().default_filter_or("mbtiles=info");
     env_logger::Builder::from_env(env)
         .format_indent(None)
         .format_module_path(false)
