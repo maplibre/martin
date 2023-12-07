@@ -777,7 +777,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 <p>To modify automatically generated <code>TileJSON</code>, you can add a valid JSON as an SQL comment on the function. Martin will merge function comment into the generated <code>TileJSON</code> using <a href="https://www.rfc-editor.org/rfc/rfc7386">JSON Merge patch</a>. The following example adds <code>attribution</code> and <code>version</code> fields to the <code>TileJSON</code>.</p>
 <p><strong>Note:</strong> This example uses <code>EXECUTE</code> to ensure that the comment is a valid JSON (or else PostgreSQL will throw an error).  You can use other methods of creating SQL comments.</p>
 <pre><code class="language-sql">DO $do$ BEGIN
-    EXECUTE 'COMMENT ON FUNCTION my_function_name(INT4, INT4, INT4) IS $tj$' || $$
+    EXECUTE 'COMMENT ON FUNCTION my_function_name IS $tj$' || $$
     {
         &quot;description&quot;: &quot;my new description&quot;,
         &quot;attribution&quot;: &quot;my attribution&quot;,
