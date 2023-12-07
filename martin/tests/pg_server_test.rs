@@ -176,29 +176,24 @@ postgres:
         .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
-    assert_eq!(
-        result,
-        serde_json::from_str(indoc! {r#"
-{
-  "name": "table_source",
-  "description": "public.table_source.geom",
-  "tilejson": "3.0.0",
-  "tiles": [
-    "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin"
-  ],
-  "vector_layers": [
-    {
-      "id": "table_source",
-      "fields": {
-        "gid": "int4"
-      }
-    }
-  ],
-  "bounds": [-180.0, -90.0, 180.0, 90.0]
-}
-        "#})
-        .unwrap()
-    );
+    assert_yaml_snapshot!(result, @r###"
+    ---
+    tilejson: 3.0.0
+    tiles:
+      - "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin"
+    vector_layers:
+      - id: table_source
+        fields:
+          gid: int4
+    bounds:
+      - -180
+      - -90
+      - 180
+      - 90
+    name: table_source
+    foo:
+      bar: foo
+    "###);
 }
 
 #[actix_rt::test]
@@ -1016,15 +1011,16 @@ tables:
     tilejson: 3.0.0
     tiles: []
     vector_layers:
-      - id: no_id
+      - id: MixPoints
         fields:
+          Gid: int4
           TABLE: text
     bounds:
       - -180
       - -90
       - 180
       - 90
-    description: MixedCase.MixPoints.Geom
+    description: a description from comment on table
     name: no_id
     "###);
 

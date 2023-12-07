@@ -137,6 +137,9 @@ postgres:
       properties:
         gid: int4
   functions:
+    fnc_Mixed_Name:
+      schema: MixedCase
+      function: function_Mixed_Name
     function_zxy_query:
       schema: public
       function: function_zxy_query

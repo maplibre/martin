@@ -122,7 +122,7 @@ To modify automatically generated `TileJSON`, you can add a valid JSON as an SQL
 
 ```sql
 DO $do$ BEGIN
-    EXECUTE 'COMMENT ON FUNCTION my_function_name(INT4, INT4, INT4) IS $tj$' || $$
+    EXECUTE 'COMMENT ON FUNCTION my_function_name IS $tj$' || $$
     {
         "description": "my new description",
         "attribution": "my attribution",

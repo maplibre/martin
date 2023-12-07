@@ -2,7 +2,7 @@
   "tiles": {
     "MixPoints": {
       "content_type": "application/x-protobuf",
-      "description": "MixedCase.MixPoints.Geom"
+      "description": "a description from comment on table"
     },
     "auto_table": {
       "content_type": "application/x-protobuf",
@@ -12,9 +12,12 @@
       "content_type": "application/x-protobuf",
       "description": "autodetect.bigint_table.geom"
     },
-    "function_zxy_query": {
+    "fnc_Mixed_Name": {
       "content_type": "application/x-protobuf",
-      "description": "public.function_zxy_query"
+      "description": "a function source with MixedCase name"
+    },
+    "function_zxy_query": {
+      "content_type": "application/x-protobuf"
     },
     "function_zxy_query_test": {
       "content_type": "application/x-protobuf",
@@ -40,8 +43,7 @@
       "description": "public.points3857.geom"
     },
     "table_source": {
-      "content_type": "application/x-protobuf",
-      "description": "public.table_source.geom"
+      "content_type": "application/x-protobuf"
     }
   },
   "sprites": {

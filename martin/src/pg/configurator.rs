@@ -9,7 +9,7 @@ use crate::args::BoundsCalcType;
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
-use crate::pg::function_source::query_available_function;
+use crate::pg::function_source::{merge_func_info, query_available_function};
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
 use crate::pg::table_source::{
@@ -238,20 +238,22 @@ impl PgBuilder {
                 warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
             }
-            let Some((pg_sql, _)) = find_info(db_funcs, &cfg_inf.function, "function", id) else {
+            let func_name = &cfg_inf.function;
+            let Some((pg_sql, db_inf)) = find_info(db_funcs, func_name, "function", id) else {
                 continue;
             };
 
-            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
-            let dup = if dup { "duplicate " } else { "" };
+            let merged_inf = merge_func_info(cfg_inf, db_inf);
 
-            let id2 = self.resolve_id(id, cfg_inf);
-            self.add_func_src(&mut res, id2.clone(), cfg_inf, pg_sql.clone());
+            let dup = !used.insert((&cfg_inf.schema, func_name));
+            let dup = if dup { "duplicate " } else { "" };
+            let id2 = self.resolve_id(id, &merged_inf);
+            self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql.clone());
             warn_on_rename(id, &id2, "Function");
             let signature = &pg_sql.signature;
             info!("Configured {dup}source {id2} from the function {signature}");
             debug!("{id2} query: {}", pg_sql.query);
-            info_map.insert(id2, cfg_inf.clone());
+            info_map.insert(id2, merged_inf);
         }
 
         // Sort the discovered sources by schema and function name to ensure a consistent behavior
