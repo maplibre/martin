@@ -107,7 +107,6 @@ impl PgArgs {
         for v in &[
             "CA_ROOT_FILE",
             "DANGER_ACCEPT_INVALID_CERTS",
-            "DATABASE_URL",
             "DEFAULT_SRID",
             "PGSSLCERT",
             "PGSSLKEY",
@@ -131,8 +130,9 @@ impl PgArgs {
         if connections.is_empty() {
             if let Some(s) = env.get_env_str("DATABASE_URL") {
                 if is_postgresql_string(&s) {
-                    info!("Using env var DATABASE_URL to connect to PostgreSQL");
-                    connections.push(s);
+                    //info!("Using env var DATABASE_URL to connect to PostgreSQL");
+                    //connections.push(s);
+                    info!("Ignoring DATABASE_URL because we want to use config later on")
                 } else {
                     warn!("Environment var DATABASE_URL is not a valid postgres connection string");
                 }
