@@ -21,7 +21,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgres://postgres@db/db
+      - DATABASE_URL_PAT=postgres://postgres@db/db
     depends_on:
       - db
 
