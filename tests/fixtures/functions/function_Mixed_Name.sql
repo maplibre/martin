@@ -15,7 +15,7 @@ RETURNS TABLE("mVt" bytea, key text) AS $$
 $$ LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
 
 DO $do$ BEGIN
-    EXECUTE 'COMMENT ON FUNCTION "MixedCase"."function_Mixed_Name" (INT4, INT4, INT4) IS $tj$' || $$
+    EXECUTE 'COMMENT ON FUNCTION "MixedCase"."function_Mixed_Name" IS $tj$' || $$
     {
         "description": "a function source with MixedCase name",
         "vector_layers": [

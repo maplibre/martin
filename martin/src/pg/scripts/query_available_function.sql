@@ -37,7 +37,7 @@ WITH
         GROUP BY specific_name),
     --
     comments AS (
-        -- list of all comments associated with the comments
+        -- list of all comments associated with the function
         SELECT pg_namespace.nspname                    AS schema,
                pg_proc.proname                         AS name,
                obj_description(pg_proc.oid, 'pg_proc') AS description

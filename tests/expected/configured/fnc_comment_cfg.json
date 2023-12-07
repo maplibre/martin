@@ -1,0 +1,8 @@
+{
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/fnc_Mixed_Name/{z}/{x}/{y}"
+  ],
+  "description": "MixedCase.function_Mixed_Name",
+  "name": "fnc_Mixed_Name"
+}

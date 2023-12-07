@@ -12,6 +12,10 @@
       "content_type": "application/x-protobuf",
       "description": "autodetect.bigint_table.geom"
     },
+    "fnc_Mixed_Name": {
+      "content_type": "application/x-protobuf",
+      "description": "MixedCase.function_Mixed_Name"
+    },
     "function_zxy_query": {
       "content_type": "application/x-protobuf",
       "description": "public.function_zxy_query"

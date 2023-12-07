@@ -1,0 +1,22 @@
+{
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/MixPoints/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "id": "MixPoints",
+      "fields": {
+        "taBLe": "text"
+      }
+    }
+  ],
+  "bounds": [
+    -170.94984639004662,
+    -84.20025580733805,
+    167.70892858284475,
+    74.23573284753762
+  ],
+  "description": "MixedCase.MixPoints.Geom",
+  "name": "MixPoints"
+}

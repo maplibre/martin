@@ -286,6 +286,10 @@ test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
+>&2 echo "***** Test server response for comments *****"
+test_jsn tbl_comment              MixPoints
+test_jsn fnc_comment              function_Mixed_Name
+
 kill_process $MARTIN_PROC_ID Martin
 
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'
@@ -365,6 +369,10 @@ test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
+
+# Test comments override
+test_jsn tbl_comment_cfg  MixPoints
+test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
 kill_process $MARTIN_PROC_ID Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::table_source] Table public.table_source has no spatial index on column geom'

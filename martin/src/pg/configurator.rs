@@ -238,11 +238,12 @@ impl PgBuilder {
                 warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
             }
-            let Some((pg_sql, _)) = find_info(db_funcs, &cfg_inf.function, "function", id) else {
+            let func_name = &cfg_inf.function;
+            let Some((pg_sql, _db_inf)) = find_info(db_funcs, func_name, "function", id) else {
                 continue;
             };
 
-            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
+            let dup = !used.insert((&cfg_inf.schema, func_name));
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
