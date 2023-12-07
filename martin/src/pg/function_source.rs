@@ -118,6 +118,14 @@ pub async fn query_available_function(pool: &PgPool) -> PgResult<SqlFuncInfoMapM
     Ok(res)
 }
 
+pub fn merge_func_info(cfg_inf: &FunctionInfo, db_inf: &FunctionInfo) -> FunctionInfo {
+    FunctionInfo {
+        // TileJson does not need to be merged because it cannot be de-serialized from config
+        tilejson: db_inf.tilejson.clone(),
+        ..cfg_inf.clone()
+    }
+}
+
 fn jsonb_to_vec(jsonb: &Option<Value>) -> Option<Vec<String>> {
     jsonb.as_ref().map(|json| {
         json.as_array()

@@ -14,11 +14,10 @@
     },
     "fnc_Mixed_Name": {
       "content_type": "application/x-protobuf",
-      "description": "MixedCase.function_Mixed_Name"
+      "description": "a function source with MixedCase name"
     },
     "function_zxy_query": {
-      "content_type": "application/x-protobuf",
-      "description": "public.function_zxy_query"
+      "content_type": "application/x-protobuf"
     },
     "function_zxy_query_test": {
       "content_type": "application/x-protobuf",

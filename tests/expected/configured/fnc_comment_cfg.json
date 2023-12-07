@@ -3,6 +3,15 @@
   "tiles": [
     "http://localhost:3111/fnc_Mixed_Name/{z}/{x}/{y}"
   ],
-  "description": "MixedCase.function_Mixed_Name",
+  "vector_layers": [
+    {
+      "id": "MixedCase.function_Mixed_Name",
+      "fields": {
+        "Geom": "",
+        "TABLE": ""
+      }
+    }
+  ],
+  "description": "a function source with MixedCase name",
   "name": "fnc_Mixed_Name"
 }

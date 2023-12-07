@@ -236,11 +236,13 @@ pub fn merge_table_info(
         schema: db_inf.schema.clone(),
         table: db_inf.table.clone(),
         geometry_column: db_inf.geometry_column.clone(),
+        // These values are not serialized, so copy auto-detected values from the database
         geometry_index: db_inf.geometry_index,
         is_view: db_inf.is_view,
+        tilejson: db_inf.tilejson.clone(),
+        // Srid requires some logic
         srid: calc_srid(&table_id, new_id, db_inf.srid, cfg_inf.srid, default_srid)?,
         prop_mapping: HashMap::new(),
-        tilejson: db_inf.tilejson.clone(),
         ..cfg_inf.clone()
     };
 

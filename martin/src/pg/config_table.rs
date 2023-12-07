@@ -28,11 +28,11 @@ pub struct TableInfo {
     pub geometry_column: String,
 
     /// Geometry column has a spatial index
-    #[serde(skip_deserializing, skip_serializing)]
+    #[serde(skip)]
     pub geometry_index: Option<bool>,
 
     /// Flag indicating if table is actually a view (PostgreSQL relkind = 'v')
-    #[serde(skip_deserializing, skip_serializing)]
+    #[serde(skip)]
     pub is_view: Option<bool>,
 
     /// Feature id column name
@@ -66,7 +66,7 @@ pub struct TableInfo {
     pub properties: Option<BTreeMap<String, String>>,
 
     /// Mapping of properties to the actual table columns
-    #[serde(skip_deserializing, skip_serializing)]
+    #[serde(skip)]
     pub prop_mapping: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
