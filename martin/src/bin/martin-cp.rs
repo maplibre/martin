@@ -36,7 +36,8 @@ const BATCH_SIZE: usize = 1000;
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
-    version
+    version,
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
 )]
 pub struct CopierArgs {
     #[command(flatten)]

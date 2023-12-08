@@ -8,7 +8,8 @@ use mbtiles::{apply_patch, AggHashType, IntegrityCheckType, MbtResult, Mbtiles, 
 #[command(
     version,
     name = "mbtiles",
-    about = "A utility to work with .mbtiles file content"
+    about = "A utility to work with .mbtiles file content",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
 )]
 pub struct Args {
     /// Display detailed information

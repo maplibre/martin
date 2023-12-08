@@ -35,6 +35,6 @@ tilejson:
     </div>{{/__teaser__}}{{#__full__}}{{/__full__}}
   version: 1.0.0
   format: png
-  generator: martin-cp v0.11.3
+  generator: martin-cp v0.11.4
 agg_tiles_hash: A85C80BA1CE047E2D93DAC25C5179775
 
