@@ -1,4 +1,3 @@
-use std::f64::consts::PI;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -17,7 +16,7 @@ use martin::{
     append_rect, read_config, Config, IdResolver, MartinError, MartinResult, ServerState, Source,
     TileCoord, TileData, TileRect,
 };
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{bbox_to_xyz, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
     init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtType, MbtTypeCli, Mbtiles,
@@ -151,17 +150,6 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-/// Convert longitude and latitude to tile index
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
-    let n = f64::from(1_u32 << zoom);
-    let x = ((lon + 180.0) / 360.0 * n).floor() as u32;
-    let y = ((1.0 - (lat.to_radians().tan() + 1.0 / lat.to_radians().cos()).ln() / PI) / 2.0 * n)
-        .floor() as u32;
-    let max_value = (1_u32 << zoom) - 1;
-    (x.min(max_value), y.min(max_value))
-}
-
 fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     let mut ranges = Vec::new();
     let mut zooms_vec = Vec::new();
@@ -179,8 +167,8 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     };
     for zoom in zooms {
         for bbox in &boxes {
-            let (min_x, min_y) = tile_index(bbox.left, bbox.top, *zoom);
-            let (max_x, max_y) = tile_index(bbox.right, bbox.bottom, *zoom);
+            let (min_x, min_y, max_x, max_y) =
+                bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
             append_rect(
                 &mut ranges,
                 TileRect::new(*zoom, min_x, min_y, max_x, max_y),
@@ -427,11 +415,6 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use super::*;
-
-    #[test]
-    fn test_tile_index() {
-        assert_eq!((0, 0), tile_index(-180.0, 85.0511, 0));
-    }
 
     #[test]
     fn test_compute_tile_ranges() {

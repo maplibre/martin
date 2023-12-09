@@ -1894,7 +1894,10 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.1.5"
+version = "0.1.6"
+dependencies = [
+ "approx",
+]
 
 [[package]]
 name = "mbtiles"
@@ -1902,7 +1905,6 @@ version = "0.8.3"
 dependencies = [
  "actix-rt",
  "anyhow",
- "approx",
  "clap",
  "ctor",
  "enum-display",

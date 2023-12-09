@@ -613,6 +613,8 @@ mod tests {
 
     use super::*;
 
+    // TODO: Most of these tests are duplicating the tests from tests/mbtiles.rs, and should be cleaned up/removed.
+
     const FLAT: Option<MbtTypeCli> = Some(MbtTypeCli::Flat);
     const FLAT_WITH_HASH: Option<MbtTypeCli> = Some(MbtTypeCli::FlatWithHash);
     const NORM_CLI: Option<MbtTypeCli> = Some(MbtTypeCli::Normalized);
