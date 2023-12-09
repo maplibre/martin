@@ -9,6 +9,8 @@ use std::fmt::Display;
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
+pub const MAX_ZOOM: u8 = 30;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
     Gif,

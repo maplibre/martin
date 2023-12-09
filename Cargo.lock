@@ -1894,7 +1894,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "approx",
 ]
@@ -3620,9 +3620,9 @@ dependencies = [
 
 [[package]]
 name = "tilejson"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0366d033d74f8a24237057ba082c8fd9b06111028baff00056689af5e4d28995"
+checksum = "4456a8bde0c9c9de96db90d0a74ef225035669c6176ee00ff692f8f6c0d94475"
 dependencies = [
  "serde",
  "serde_json",
