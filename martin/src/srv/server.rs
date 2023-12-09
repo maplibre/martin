@@ -6,8 +6,7 @@ use actix_http::ContentEncoding;
 use actix_web::dev::Server;
 use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound};
 use actix_web::http::header::{
-    AcceptEncoding, ContentType, Encoding as HeaderEnc, HeaderValue, Preference, CACHE_CONTROL,
-    CONTENT_ENCODING,
+    AcceptEncoding, ContentType, Encoding as HeaderEnc, Preference, CACHE_CONTROL, CONTENT_ENCODING,
 };
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
@@ -198,39 +197,34 @@ async fn git_source_info(
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
-    let info = req.connection_info();
-    let tiles_path = get_request_path(&req);
-    let tiles_url = get_tiles_url(info.scheme(), info.host(), req.query_string(), &tiles_path)?;
 
-    Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
-}
-
-fn get_request_path(req: &HttpRequest) -> String {
-    req.headers()
+    // Get `X-REWRITE-URL` header value, and extract its `path` component.
+    // If the header is not present or cannot be parsed as a URL, return the request path.
+    let tiles_path = req
+        .headers()
         .get("x-rewrite-url")
-        .and_then(parse_x_rewrite_url)
-        .unwrap_or_else(|| req.path().to_owned())
-}
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<Uri>().ok())
+        .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned());
 
-fn get_tiles_url(
-    scheme: &str,
-    host: &str,
-    query_string: &str,
-    tiles_path: &str,
-) -> ActixResult<String> {
+    let query_string = req.query_string();
     let path_and_query = if query_string.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query_string}")
     };
 
-    Uri::builder()
-        .scheme(scheme)
-        .authority(host)
+    // Construct a tiles URL from the request info, including the query string if present.
+    let info = req.connection_info();
+    let tiles_url = Uri::builder()
+        .scheme(info.scheme())
+        .authority(info.host())
         .path_and_query(path_and_query)
         .build()
         .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))
+        .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
+
+    Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
 }
 
 #[must_use]
@@ -530,14 +524,6 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     .run();
 
     Ok((server, listen_addresses))
-}
-
-fn parse_x_rewrite_url(header: &HeaderValue) -> Option<String> {
-    header
-        .to_str()
-        .ok()
-        .and_then(|header| header.parse::<Uri>().ok())
-        .map(|uri| uri.path().to_owned())
 }
 
 #[cfg(test)]
