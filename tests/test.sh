@@ -429,9 +429,14 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
 
   set +e
-  $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad.txt"
+  $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"
   if [[ $? -eq 0 ]]; then
-    echo "ERROR: validate with bad_hash should have failed"
+    echo "ERROR: validate with invalid-tile-idx.mbtiles should have failed"
+    exit 1
+  fi
+  $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-hash.txt"
+  if [[ $? -eq 0 ]]; then
+    echo "ERROR: validate with bad_hash.mbtiles should have failed"
     exit 1
   fi
   set -e

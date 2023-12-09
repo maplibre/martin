@@ -37,6 +37,9 @@ pub enum MbtError {
     #[error("At least one tile has mismatching hash: stored value is `{1}` != computed value `{2}` in MBTile file {0}")]
     IncorrectTileHash(String, String, String),
 
+    #[error("At least one tile in the tiles table/view has an invalid value: zoom_level={1}, tile_column={2}, tile_row={3} in MBTile file {0}")]
+    InvalidTileIndex(String, String, String, String),
+
     #[error("Computed aggregate tiles hash {0} does not match tile data in metadata {1} for MBTile file {2}")]
     AggHashMismatch(String, String, String),
 

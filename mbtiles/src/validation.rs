@@ -1,10 +1,11 @@
 use std::collections::HashSet;
+use std::str::from_utf8;
 
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
-use martin_tile_utils::{Format, TileInfo};
+use martin_tile_utils::{Format, TileInfo, MAX_ZOOM};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
@@ -18,6 +19,7 @@ use crate::queries::{
 };
 use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
+    InvalidTileIndex,
 };
 use crate::{invert_y_value, Mbtiles};
 
@@ -83,6 +85,7 @@ impl Mbtiles {
             self.open_readonly().await?
         };
         self.check_integrity(&mut conn, check_type).await?;
+        self.check_tiles_type_validity(&mut conn).await?;
         self.check_each_tile_hash(&mut conn).await?;
         match agg_hash {
             AggHashType::Verify => self.check_agg_tiles_hashes(&mut conn).await,
@@ -308,6 +311,64 @@ impl Mbtiles {
         }
 
         info!("{integrity_check:?} integrity check passed for {self}");
+        Ok(())
+    }
+
+    /// Check that the tiles table has the expected column, row, zoom, and data values
+    pub async fn check_tiles_type_validity<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let sql = format!(
+            "
+SELECT zoom_level, tile_column, tile_row
+FROM tiles
+WHERE FALSE
+   OR typeof(zoom_level) != 'integer'
+   OR zoom_level < 0
+   OR zoom_level > {MAX_ZOOM}
+   OR typeof(tile_column) != 'integer'
+   OR tile_column < 0
+   OR tile_column >= (1 << zoom_level)
+   OR typeof(tile_row) != 'integer'
+   OR tile_row < 0
+   OR tile_row >= (1 << zoom_level)
+   OR (typeof(tile_data) != 'blob' AND typeof(tile_data) != 'null')
+LIMIT 1;"
+        );
+
+        if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+            let mut res: Vec<String> = Vec::with_capacity(3);
+            for idx in (0..3).rev() {
+                use sqlx::ValueRef as _;
+                let raw = row.try_get_raw(idx)?;
+                if raw.is_null() {
+                    res.push("NULL".to_string());
+                } else if let Ok(v) = row.try_get::<String, _>(idx) {
+                    res.push(format!(r#""{v}" (TEXT)"#));
+                } else if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
+                    res.push(format!(
+                        r#""{}" (BLOB)"#,
+                        from_utf8(&v).unwrap_or("<non-utf8-data>")
+                    ));
+                } else if let Ok(v) = row.try_get::<i32, _>(idx) {
+                    res.push(format!("{v}"));
+                } else if let Ok(v) = row.try_get::<f64, _>(idx) {
+                    res.push(format!(r#"{v} (REAL)"#));
+                } else {
+                    res.push(format!("{:?}", raw.type_info()));
+                }
+            }
+
+            return Err(InvalidTileIndex(
+                self.filepath().to_string(),
+                res.pop().unwrap(),
+                res.pop().unwrap(),
+                res.pop().unwrap(),
+            ));
+        }
+
+        info!("All values in the `tiles` table/view are valid for {self}");
         Ok(())
     }
 
