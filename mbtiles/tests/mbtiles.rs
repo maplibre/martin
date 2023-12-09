@@ -17,7 +17,8 @@ use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
 const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
       --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2
-        (5, 0, 0, cast('same' as blob))
+        (3, 6, 7, cast('root' as blob))
+      , (5, 0, 0, cast('same' as blob))
       , (5, 0, 1, cast('' as blob))           -- empty tile, keep
       , (5, 1, 1, cast('edit-v1' as blob))
       , (5, 1, 2, cast('' as blob))           -- empty tile, edit
@@ -32,7 +33,8 @@ const TILES_V1: &str = "
 
 const TILES_V2: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
-        (5, 0, 0, cast('same' as blob))        -- no changes
+        (3, 6, 7, cast('root' as blob))
+      , (5, 0, 0, cast('same' as blob))        -- no changes
       , (5, 0, 1, cast('' as blob))            -- no changes, empty tile
       , (5, 1, 1, cast('edit-v2' as blob))     -- edited in-place
       , (5, 1, 2, cast('not-empty' as blob))   -- edited in-place, replaced empty with non-empty
@@ -198,7 +200,7 @@ fn databases() -> Databases {
             assert_snapshot!(&dmp, "{typ}__v1");
             let hash = v1_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"096A8399D486CF443A5DF0CEC1AD8BB2");
+                assert_display_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
             }
             result.add("v1", mbt_typ, dmp, v1_mbt, v1_cn);
 
@@ -208,7 +210,7 @@ fn databases() -> Databases {
             assert_snapshot!(&dmp, "{typ}__v2");
             let hash = v2_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
+                assert_display_snapshot!(hash, @"3BCDEE3F52407FF1315629298CB99133");
             }
             result.add("v2", mbt_typ, dmp, v2_mbt, v2_cn);
 
@@ -312,7 +314,7 @@ async fn diff_and_patch(
         apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
         let hash_v1 = tar1_mbt.validate(Off, Verify).await?;
         allow_duplicates! {
-            assert_display_snapshot!(hash_v1, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
+            assert_display_snapshot!(hash_v1, @"3BCDEE3F52407FF1315629298CB99133");
         }
         let dmp = dump(&mut tar1_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
@@ -323,7 +325,7 @@ async fn diff_and_patch(
         apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
         let hash_v2 = tar2_mbt.validate(Off, Verify).await?;
         allow_duplicates! {
-            assert_display_snapshot!(hash_v2, @"FE0D3090E8B4E89F2C755C08E8D76BEA");
+            assert_display_snapshot!(hash_v2, @"3BCDEE3F52407FF1315629298CB99133");
         }
         let dmp = dump(&mut tar2_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);

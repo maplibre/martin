@@ -79,7 +79,7 @@ pub struct CopyArgs {
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
     pub concurrency: Option<usize>,
-    /// Bounds to copy. Can be specified multiple times. Overlapping regions will be handled correctly.
+    /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times. Overlapping regions will be handled correctly.
     #[arg(long)]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy

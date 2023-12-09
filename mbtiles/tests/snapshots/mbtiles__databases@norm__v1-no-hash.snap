@@ -13,6 +13,7 @@ values = [
     '(  "0F6969D7052DA9261E31DDB6E88C136E", blob(remove)  )',
     '(  "51037A4A37730F52C8732586D3AAA316", blob(same)  )',
     '(  "535A5575B48444EDEB926815AB26EC9B", blob(1-keep-1-rm)  )',
+    '(  "63A9F0EA7BB98050796B649E85481845", blob(root)  )',
     '(  "720C02778717818CC0A869955BA2AFB6", blob(non-empty)  )',
     '(  "D41D8CD98F00B204E9800998ECF8427E", blob()  )',
     '(  "EFE0AE5FD114DE99855BC2838BE97E1D", blob(edit-v1)  )',
@@ -29,6 +30,7 @@ CREATE TABLE map (
              tile_id text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
+    '(  3, 6, 7, "63A9F0EA7BB98050796B649E85481845"  )',
     '(  5, 0, 0, "51037A4A37730F52C8732586D3AAA316"  )',
     '(  5, 0, 1, "D41D8CD98F00B204E9800998ECF8427E"  )',
     '(  5, 1, 1, "EFE0AE5FD114DE99855BC2838BE97E1D"  )',

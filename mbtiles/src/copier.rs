@@ -100,12 +100,12 @@ impl MbtilesCopier {
         Self {
             src_file: src_filepath,
             dst_file: dst_filepath,
-            zoom_levels: Vec::default(),
             dst_type_cli: None,
             dst_type: None,
             on_duplicate: CopyDuplicateMode::Override,
             min_zoom: None,
             max_zoom: None,
+            zoom_levels: Vec::default(),
             diff_with_file: None,
             apply_patch: None,
             skip_agg_tiles_hash: false,

@@ -49,7 +49,7 @@ CREATE TABLE metadata (
              value text)'''
 values = [
     '(  "agg_tiles_hash", "B86122579EDCDD4C51F3910894FCC1A1"  )',
-    '(  "agg_tiles_hash_after_apply", "FE0D3090E8B4E89F2C755C08E8D76BEA"  )',
+    '(  "agg_tiles_hash_after_apply", "3BCDEE3F52407FF1315629298CB99133"  )',
     '(  "md-edit", "value - v2"  )',
     '(  "md-new", "value - new"  )',
     '(  "md-remove", NULL  )',

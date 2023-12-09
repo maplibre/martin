@@ -26,6 +26,7 @@ CREATE TABLE tiles (
              tile_data blob,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
+    '(  3, 6, 7, blob(root)  )',
     '(  5, 0, 0, blob(same)  )',
     '(  5, 0, 1, blob()  )',
     '(  5, 1, 1, blob(edit-v1)  )',

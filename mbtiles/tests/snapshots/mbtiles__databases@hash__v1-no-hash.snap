@@ -27,6 +27,7 @@ CREATE TABLE tiles_with_hash (
              tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
+    '(  3, 6, 7, blob(root), "63A9F0EA7BB98050796B649E85481845"  )',
     '(  5, 0, 0, blob(same), "51037A4A37730F52C8732586D3AAA316"  )',
     '(  5, 0, 1, blob(), "D41D8CD98F00B204E9800998ECF8427E"  )',
     '(  5, 1, 1, blob(edit-v1), "EFE0AE5FD114DE99855BC2838BE97E1D"  )',
