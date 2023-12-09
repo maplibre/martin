@@ -6,7 +6,7 @@
 use std::f64::consts::PI;
 use std::fmt::Display;
 
-pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.7;
+pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -184,10 +184,69 @@ impl Display for TileInfo {
     }
 }
 
+/// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
+#[must_use]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
+    let n = f64::from(1_u32 << zoom);
+    let x = ((lon + 180.0) / 360.0 * n).floor() as u32;
+    let y = ((1.0 - (lat.to_radians().tan() + 1.0 / lat.to_radians().cos()).ln() / PI) / 2.0 * n)
+        .floor() as u32;
+    let max_value = (1_u32 << zoom) - 1;
+    (x.min(max_value), y.min(max_value))
+}
+
+/// Convert min/max XYZ tile coordinates to a bounding box values.
+/// The result is `[min_lng, min_lat, max_lng, max_lat]`
+#[must_use]
+pub fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> [f64; 4] {
+    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
+    let (min_lng, min_lat) = webmercator_to_wgs84(
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_x) * tile_size,
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_y) * tile_size,
+    );
+    let (max_lng, max_lat) = webmercator_to_wgs84(
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_x + 1) * tile_size,
+        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_y + 1) * tile_size,
+    );
+
+    [min_lng, min_lat, max_lng, max_lat]
+}
+
+/// Convert bounding box to a tile box `(min_x, min_y, max_x, max_y)` for a given zoom
+#[must_use]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u32, u32, u32, u32) {
+    let (min_x, min_y) = tile_index(left, top, zoom);
+    let (max_x, max_y) = tile_index(right, bottom, zoom);
+    (min_x, min_y, max_x, max_y)
+}
+
+/// Compute precision of a zoom level, i.e. how many decimal digits of the longitude and latitude are relevant
+#[must_use]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+pub fn get_zoom_precision(zoom: u8) -> usize {
+    let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
+    let log = lng_delta.log10() - 0.5;
+    if log > 0.0 {
+        0
+    } else {
+        -log.ceil() as usize
+    }
+}
+
+#[must_use]
+pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
+    let lng = (x / EARTH_RADIUS).to_degrees();
+    let lat = f64::atan(f64::sinh(y / EARTH_RADIUS)).to_degrees();
+    (lng, lat)
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::read;
 
+    use approx::assert_relative_eq;
     use Encoding::{Internal, Uncompressed};
     use Format::{Jpeg, Json, Png, Webp};
 
@@ -224,5 +283,30 @@ mod tests {
             TileInfo::detect(br#"{"foo":"bar"}"#),
             info(Json, Uncompressed)
         );
+    }
+
+    #[test]
+    fn test_tile_index() {
+        assert_eq!((0, 0), tile_index(-180.0, 85.0511, 0));
+    }
+
+    #[test]
+    #[allow(clippy::unreadable_literal)]
+    fn meter_to_lng_lat() {
+        let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
+        assert_relative_eq!(lng, -179.9999999749437, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(lat, -85.05112877764508, epsilon = f64::EPSILON * 2.0);
+
+        let (lng, lat) = webmercator_to_wgs84(20037508.34, 20037508.34);
+        assert_relative_eq!(lng, 179.9999999749437, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(lat, 85.05112877764508, epsilon = f64::EPSILON * 2.0);
+
+        let (lng, lat) = webmercator_to_wgs84(0.0, 0.0);
+        assert_relative_eq!(lng, 0.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(lat, 0.0, epsilon = f64::EPSILON * 2.0);
+
+        let (lng, lat) = webmercator_to_wgs84(3000.0, 9000.0);
+        assert_relative_eq!(lng, 0.026949458523585632, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(lat, 0.08084834874097367, epsilon = f64::EPSILON * 2.0);
     }
 }

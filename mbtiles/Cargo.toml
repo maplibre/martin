@@ -40,7 +40,6 @@ tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
-approx.workspace = true
 ctor.workspace = true
 env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }

@@ -159,8 +159,7 @@ pub async fn table_to_query(
         // TODO: we should use ST_Expand here, but it may require a bit more math work,
         //       so might not be worth it as it is only used for PostGIS < v3.1.
         //       v3.1 has been out for 2+ years (december 2020)
-        // let earth_circumference = 40075016.6855785;
-        // let val = earth_circumference * buffer as f64 / extent as f64;
+        // let val = EARTH_CIRCUMFERENCE * buffer as f64 / extent as f64;
         // format!("ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {val}/2^$1::integer)")
         "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
     };
