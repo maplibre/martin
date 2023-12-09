@@ -1,13 +1,16 @@
-use std::collections::HashSet;
+use std::fmt::Write;
 use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
 use clap::{Args, ValueEnum};
 use enum_display::EnumDisplay;
-use log::{debug, info};
+use itertools::Itertools;
+use log::{debug, info, trace};
+use martin_tile_utils::{bbox_to_xyz, MAX_ZOOM};
 use serde::{Deserialize, Serialize};
-use sqlite_hashes::rusqlite::{params_from_iter, Connection};
+use sqlite_hashes::rusqlite::Connection;
 use sqlx::{query, Executor as _, Row, SqliteConnection};
+use tilejson::Bounds;
 
 use crate::errors::MbtResult;
 use crate::queries::{
@@ -15,7 +18,7 @@ use crate::queries::{
 };
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::{
-    reset_db_settings, MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH,
+    invert_y_value, reset_db_settings, MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH,
     AGG_TILES_HASH_IN_DIFF,
 };
 
@@ -39,7 +42,7 @@ impl CopyDuplicateMode {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Default, PartialEq, Debug)]
 #[cfg_attr(feature = "cli", derive(Args))]
 pub struct MbtilesCopier {
     /// MBTiles file to read from
@@ -73,6 +76,9 @@ pub struct MbtilesCopier {
     /// List of zoom levels to copy
     #[cfg_attr(feature = "cli", arg(long, value_delimiter = ','))]
     pub zoom_levels: Vec<u8>,
+    /// Bounding box to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be used multiple times.
+    #[cfg_attr(feature = "cli", arg(long))]
+    pub bbox: Vec<Bounds>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("apply_patch")))]
@@ -105,6 +111,7 @@ impl MbtilesCopier {
             min_zoom: None,
             max_zoom: None,
             zoom_levels: Vec::default(),
+            bbox: vec![],
             diff_with_file: None,
             apply_patch: None,
             skip_agg_tiles_hash: false,
@@ -216,7 +223,7 @@ impl MbtileCopierInt {
             Self::get_select_from(src_type, dst_type).to_string()
         };
 
-        let (where_clause, query_args) = self.get_where_clause();
+        let where_clause = self.get_where_clause();
         let select_from = format!("{select_from} {where_clause}");
         let on_dupl = on_duplicate.to_sql();
         let sql_cond = Self::get_on_duplicate_sql_cond(on_duplicate, dst_type);
@@ -232,14 +239,7 @@ impl MbtileCopierInt {
             // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
             let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
 
-            Self::copy_tiles(
-                &rusqlite_conn,
-                dst_type,
-                &query_args,
-                on_dupl,
-                &select_from,
-                &sql_cond,
-            )?;
+            Self::copy_tiles(&rusqlite_conn, dst_type, on_dupl, &select_from, &sql_cond)?;
 
             self.copy_metadata(&rusqlite_conn, &dif, on_dupl)?;
         }
@@ -316,7 +316,6 @@ impl MbtileCopierInt {
     fn copy_tiles(
         rusqlite_conn: &Connection,
         dst_type: MbtType,
-        query_args: &Vec<u8>,
         on_dupl: &str,
         select_from: &str,
         sql_cond: &str,
@@ -346,8 +345,8 @@ impl MbtileCopierInt {
     SELECT tile_hash as tile_id, tile_data
     FROM ({select_from})"
                 );
-                debug!("Copying to {dst_type} with {sql} {query_args:?}");
-                rusqlite_conn.execute(&sql, params_from_iter(query_args))?;
+                debug!("Copying to {dst_type} with {sql}");
+                rusqlite_conn.execute(&sql, [])?;
 
                 format!(
                     "
@@ -359,8 +358,8 @@ impl MbtileCopierInt {
             }
         };
 
-        debug!("Copying to {dst_type} with {sql} {query_args:?}");
-        rusqlite_conn.execute(&sql, params_from_iter(query_args))?;
+        debug!("Copying to {dst_type} with {sql}");
+        rusqlite_conn.execute(&sql, [])?;
 
         Ok(())
     }
@@ -585,32 +584,49 @@ impl MbtileCopierInt {
         }
     }
 
-    fn get_where_clause(&self) -> (String, Vec<u8>) {
-        let mut query_args = vec![];
-
-        let sql = if !&self.options.zoom_levels.is_empty() {
-            let zooms: HashSet<u8> = self.options.zoom_levels.iter().copied().collect();
-            for z in &zooms {
-                query_args.push(*z);
-            }
-            format!(" AND zoom_level IN ({})", vec!["?"; zooms.len()].join(","))
+    /// Format SQL WHERE clause and return it along with the query arguments.
+    /// Note that there is no risk of SQL injection here, as the arguments are integers.
+    fn get_where_clause(&self) -> String {
+        let mut sql = if !&self.options.zoom_levels.is_empty() {
+            let zooms = self.options.zoom_levels.iter().join(",");
+            format!(" AND zoom_level IN ({zooms})")
         } else if let Some(min_zoom) = self.options.min_zoom {
             if let Some(max_zoom) = self.options.max_zoom {
-                query_args.push(min_zoom);
-                query_args.push(max_zoom);
-                " AND zoom_level BETWEEN ? AND ?".to_string()
+                format!(" AND zoom_level BETWEEN {min_zoom} AND {max_zoom}")
             } else {
-                query_args.push(min_zoom);
-                " AND zoom_level >= ?".to_string()
+                format!(" AND zoom_level >= {min_zoom}")
             }
         } else if let Some(max_zoom) = self.options.max_zoom {
-            query_args.push(max_zoom);
-            " AND zoom_level <= ?".to_string()
+            format!(" AND zoom_level <= {max_zoom}")
         } else {
             String::new()
         };
 
-        (sql, query_args)
+        if !self.options.bbox.is_empty() {
+            sql.push_str(" AND (\n");
+            for (idx, bbox) in self.options.bbox.iter().enumerate() {
+                // Use maximum zoom value for easy filtering,
+                // converting it on the fly to the actual zoom level
+                let (min_x, min_y, max_x, max_y) =
+                    bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, MAX_ZOOM);
+                trace!("Bounding box {bbox} converted to {min_x},{min_y},{max_x},{max_y} at zoom {MAX_ZOOM}");
+                let (min_y, max_y) = (
+                    invert_y_value(MAX_ZOOM, max_y),
+                    invert_y_value(MAX_ZOOM, min_y),
+                );
+
+                if idx > 0 {
+                    sql.push_str(" OR\n");
+                }
+                writeln!(
+                    sql,
+                    "((tile_column * (1 << ({MAX_ZOOM} - zoom_level))) BETWEEN {min_x} AND {max_x} AND (tile_row * (1 << ({MAX_ZOOM} - zoom_level))) BETWEEN {min_y} AND {max_y})",
+                ).unwrap();
+            }
+            sql.push(')');
+        }
+
+        sql
     }
 }
 
