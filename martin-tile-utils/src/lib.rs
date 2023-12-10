@@ -198,7 +198,17 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
     (x.min(max_value), y.min(max_value))
 }
 
-/// Convert min/max XYZ tile coordinates to a bounding box values.
+/// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom; It's following TMS schema.
+pub fn tile_index2(lon: f64, lat:f64, zoom:u8) -> (u32,u32){
+    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
+    let (x,y) = wgs84_to_webmercator(lon,lat);
+    let tile_x = ((x  - (EARTH_CIRCUMFERENCE * -0.5)) / tile_size).floor() as u32;
+    let tile_y = ((y - (EARTH_CIRCUMFERENCE * -0.5)) / tile_size).floor() as u32;
+    let max_value = (1_u32 << zoom) - 1;
+    (tile_x.min(max_value), tile_y.min(max_value))
+}
+
+/// Convert min/max XYZ tile coordinates to a bounding box values. It's following TMS schema.
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
 #[must_use]
 pub fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> [f64; 4] {
@@ -219,8 +229,8 @@ pub fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> 
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u32, u32, u32, u32) {
-    let (min_x, min_y) = tile_index(left, top, zoom);
-    let (max_x, max_y) = tile_index(right, bottom, zoom);
+    let (min_x, min_y) = tile_index2(left, bottom, zoom);
+    let (max_x, max_y) = tile_index2(right, top, zoom);
     (min_x, min_y, max_x, max_y)
 }
 
@@ -242,6 +252,13 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
     let lng = (x / EARTH_RADIUS).to_degrees();
     let lat = f64::atan(f64::sinh(y / EARTH_RADIUS)).to_degrees();
     (lng, lat)
+}
+
+pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
+    let x = PI * 6378137.0 * lon / 180.0;
+    let y = ((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0);
+    let y = PI * 6378137.0 *  y / 180.0;
+    (x, y)
 }
 
 #[cfg(test)]
@@ -354,4 +371,11 @@ mod tests {
         assert_relative_eq!(lng, 0.026949458523585632, epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(lat, 0.08084834874097367, epsilon = f64::EPSILON * 2.0);
     }
+
+ #[test]
+ fn lnglat_to_meter() {
+        let (x, y) = wgs84_to_webmercator(-179.9999999749437, -85.05112877764508);
+        assert_relative_eq!(x, -20037508.339999992, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(y, -20037508.34, epsilon = f64::EPSILON * 2.0);
+ }
 }
