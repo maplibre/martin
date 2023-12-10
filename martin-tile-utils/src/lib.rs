@@ -246,6 +246,8 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unreadable_literal)]
+
     use std::fs::read;
 
     use approx::assert_relative_eq;
@@ -293,7 +295,48 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unreadable_literal)]
+    fn test_xyz_to_bbox() {
+        let bbox = xyz_to_bbox(0, 0, 0, 0, 0);
+        assert_relative_eq!(bbox[0], -180.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], -85.0511287798066, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], 180.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 85.0511287798066, epsilon = f64::EPSILON * 2.0);
+
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 0);
+        assert_eq!(xyz, (0, 0, 0, 0));
+
+        let bbox = xyz_to_bbox(1, 0, 0, 0, 0);
+        assert_relative_eq!(bbox[0], -180.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], -85.0511287798066, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], 0.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 0.0, epsilon = f64::EPSILON * 2.0);
+
+        // FIXME: these are "close, but not exact". I wonder if we can get them to match?
+        // let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 1);
+        // assert_eq!(xyz, (0, 0, 0, 0));
+
+        let bbox = xyz_to_bbox(5, 1, 1, 2, 2);
+        assert_relative_eq!(bbox[0], -168.75, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], -83.97925949886205, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], -146.25, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], -81.09321385260837, epsilon = f64::EPSILON * 2.0);
+
+        // FIXME: same here
+        // let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
+        // assert_eq!(xyz, (1, 1, 2, 2));
+
+        let bbox = xyz_to_bbox(5, 1, 3, 2, 5);
+        assert_relative_eq!(bbox[0], -168.75, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], -81.09321385260837, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], -146.25, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], -74.01954331150226, epsilon = f64::EPSILON * 2.0);
+
+        // Fixme: These are totally wrong
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
+        assert_eq!(xyz, (1, 3, 2, 5));
+    }
+
+    #[test]
     fn meter_to_lng_lat() {
         let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
         assert_relative_eq!(lng, -179.9999999749437, epsilon = f64::EPSILON * 2.0);
