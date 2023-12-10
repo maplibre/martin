@@ -1,0 +1,2 @@
+[INFO ] Quick integrity check passed for ./tests/fixtures/files/invalid-tile-idx.mbtiles
+[ERROR] At least one tile in the tiles table/view has an invalid value: zoom_level=6, tile_column=10, tile_row=64 in MBTile file ./tests/fixtures/files/invalid-tile-idx.mbtiles
