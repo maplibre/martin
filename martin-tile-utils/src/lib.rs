@@ -320,9 +320,9 @@ mod tests {
 
         let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 1);
         assert!(xyz.0 == 0 || xyz.0 == 1);
-        assert!(xyz.1 == 0 || xyz.1 == 1);
+        assert!(xyz.1 == 0);
         assert!(xyz.2 == 0 || xyz.2 == 1);
-        assert!(xyz.3 == 0 || xyz.3 == 1);
+        assert!(xyz.3 == 0);
         // FIXME: these are "close, but not exact". I wonder if we can get them to match?
         // let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 1);
         // assert_eq!(xyz, (0, 0, 0, 0));
@@ -334,10 +334,10 @@ mod tests {
         assert_relative_eq!(bbox[3], 83.979259498862, epsilon = f64::EPSILON * 2.0);
 
         let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
-        assert!(xyz.0 == 0 || xyz.0 == 1 || xyz.0 == 2);
-        assert!(xyz.1 == 0 || xyz.1 == 1 || xyz.1 == 2);
-        assert!(xyz.2 == 1 || xyz.2 == 2 || xyz.2 == 3);
-        assert!(xyz.3 == 1 || xyz.3 == 2 || xyz.3 == 3);
+        assert!(xyz.0 == 1 || xyz.0 == 2);
+        assert!(xyz.1 == 0 || xyz.1 == 1);
+        assert!(xyz.2 == 2 || xyz.2 == 3);
+        assert!(xyz.3 == 1 || xyz.3 == 2);
 
         // FIXME: same here
         // let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
@@ -351,10 +351,10 @@ mod tests {
 
         // Fixme: These are totally wrong
         let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
-        assert!(xyz.0 == 0 || xyz.0 == 1 || xyz.0 == 2);
-        assert!(xyz.1 == 2 || xyz.1 == 3 || xyz.1 == 4);
-        assert!(xyz.2 == 1 || xyz.2 == 2 || xyz.2 == 3);
-        assert!(xyz.3 == 4 || xyz.3 == 5 || xyz.3 == 6);
+        assert!(xyz.0 == 1 || xyz.0 == 2);
+        assert!(xyz.1 == 2 || xyz.1 == 3);
+        assert!(xyz.2 == 2 || xyz.2 == 3);
+        assert!(xyz.3 == 4 || xyz.3 == 5);
     }
 
     #[test]
