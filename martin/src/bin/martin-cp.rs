@@ -172,7 +172,13 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
             append_rect(
                 &mut ranges,
-                TileRect::new(*zoom, min_x, min_y, max_x, max_y),
+                TileRect::new(
+                    *zoom,
+                    min_x as u32,
+                    min_y as u32,
+                    max_x as u32,
+                    max_y as u32,
+                ),
             );
         }
     }
