@@ -49,7 +49,7 @@ enum Commands {
         value: Option<String>,
     },
     /// Copy tiles from one mbtiles file to another.
-    #[command(name = "copy")]
+    #[command(name = "copy", alias = "cp")]
     Copy(MbtilesCopier),
     /// Apply diff file generated from 'copy' command
     #[command(name = "apply-patch", alias = "apply-diff")]
@@ -60,7 +60,7 @@ enum Commands {
         diff_file: PathBuf,
     },
     /// Validate tile data if hash of tile data exists in file
-    #[command(name = "validate")]
+    #[command(name = "validate", alias = "check", alias = "verify")]
     Validate {
         /// MBTiles file to validate
         file: PathBuf,
