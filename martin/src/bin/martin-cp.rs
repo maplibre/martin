@@ -151,6 +151,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     let mut ranges = Vec::new();
     let mut zooms_vec = Vec::new();
@@ -174,10 +175,10 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
                 &mut ranges,
                 TileRect::new(
                     *zoom,
-                    u32::try_from(min_x).unwrap(), //todo we should use u64 directily
-                    u32::try_from(min_y).unwrap(),
-                    u32::try_from(max_x).unwrap(),
-                    u32::try_from(max_y).unwrap(),
+                    min_x as u32,
+                    min_y as u32,
+                    max_x as u32,
+                    max_y as u32,
                 ),
             );
         }
