@@ -174,10 +174,10 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
                 &mut ranges,
                 TileRect::new(
                     *zoom,
-                    min_x as u32,
-                    min_y as u32,
-                    max_x as u32,
-                    max_y as u32,
+                    u32::try_from(min_x).unwrap(), //todo we should use u64 directily
+                    u32::try_from(min_y).unwrap(),
+                    u32::try_from(max_x).unwrap(),
+                    u32::try_from(max_y).unwrap(),
                 ),
             );
         }

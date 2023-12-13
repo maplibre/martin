@@ -5,12 +5,18 @@
 
 use std::f64::consts::PI;
 use std::fmt::Display;
-use tile_grid::{tms, Xyz};
+use tile_grid::{tms, Tms, Xyz};
 
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
+use std::sync::OnceLock;
+
+fn gridset() -> &'static Tms {
+    static TMS: OnceLock<Tms> = OnceLock::new();
+    TMS.get_or_init(|| tms().lookup("WebMercatorQuad").unwrap())
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -191,8 +197,7 @@ impl Display for TileInfo {
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u64, u64) {
-    let tms = tms().lookup("WebMercatorQuad").unwrap();
-    let tile = tms.tile(lon, lat, zoom).unwrap();
+    let tile = gridset().tile(lon, lat, zoom).unwrap();
     let max_value = (1_u64 << zoom) - 1;
     (tile.x.min(max_value), tile.y.min(max_value))
 }
@@ -207,10 +212,8 @@ pub fn xyz_to_bbox(
     max_tile_col: u64,
     max_tile_row: u64,
 ) -> [f64; 4] {
-    let tms = tms().lookup("WebMercatorQuad").unwrap();
-
-    let left_top_bounds = tms.xy_bounds(&Xyz::new(min_tile_col, min_tile_row, zoom));
-    let right_bottom_bounds = tms.xy_bounds(&Xyz::new(max_tile_col, max_tile_row, zoom));
+    let left_top_bounds = gridset().xy_bounds(&Xyz::new(min_tile_col, min_tile_row, zoom));
+    let right_bottom_bounds = gridset().xy_bounds(&Xyz::new(max_tile_col, max_tile_row, zoom));
     let (min_lng, min_lat) = webmercator_to_wgs84(left_top_bounds.left, right_bottom_bounds.bottom);
     let (max_lng, max_lat) = webmercator_to_wgs84(right_bottom_bounds.right, left_top_bounds.top);
 
