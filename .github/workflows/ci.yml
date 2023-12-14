@@ -154,7 +154,7 @@ jobs:
           done
 
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cross-build
           path: target_releases/*
@@ -282,7 +282,7 @@ jobs:
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.target }}
           path: target_releases/*
@@ -362,7 +362,7 @@ jobs:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Save test output on failure
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: failed-test-output-${{ runner.os }}
           path: |
@@ -490,7 +490,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: On error, save test output
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-output
           path: |
@@ -604,7 +604,7 @@ jobs:
           EOF
 
       - name: Save Homebrew Config
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: homebrew-config
           path: target/homebrew_config.yaml
