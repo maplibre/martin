@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_copy_diff_with_override_copy_duplicate_mode() {
         let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
-        opt.on_duplicate = CopyDuplicateMode::Override;
+        opt.on_duplicate = Some(CopyDuplicateMode::Override);
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn test_copy_diff_with_ignore_copy_duplicate_mode() {
         let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
-        opt.on_duplicate = CopyDuplicateMode::Ignore;
+        opt.on_duplicate = Some(CopyDuplicateMode::Ignore);
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn test_copy_diff_with_abort_copy_duplicate_mode() {
         let mut opt = MbtilesCopier::new(PathBuf::from("src_file"), PathBuf::from("dst_file"));
-        opt.on_duplicate = CopyDuplicateMode::Abort;
+        opt.on_duplicate = Some(CopyDuplicateMode::Abort);
         assert_eq!(
             Args::parse_from([
                 "mbtiles",

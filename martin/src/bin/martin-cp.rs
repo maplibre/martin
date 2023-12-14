@@ -19,7 +19,8 @@ use martin::{
 use martin_tile_utils::{bbox_to_xyz, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
-    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtType, MbtTypeCli, Mbtiles,
+    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtError, MbtType, MbtTypeCli,
+    Mbtiles,
 };
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
@@ -73,9 +74,9 @@ pub struct CopyArgs {
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
-    /// Specify the behaviour when generated tile already exists in the destination file.
-    #[arg(long, value_enum, default_value_t = CopyDuplicateMode::default())]
-    pub on_duplicate: CopyDuplicateMode,
+    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+    #[arg(long, value_enum)]
+    pub on_duplicate: Option<CopyDuplicateMode>,
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
     pub concurrency: Option<usize>,
@@ -220,7 +221,7 @@ enum MartinCpError {
     #[error(transparent)]
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
-    Mbt(#[from] mbtiles::MbtError),
+    Mbt(#[from] MbtError),
 }
 
 impl Display for Progress {
@@ -273,6 +274,13 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     let tiles = compute_tile_ranges(&args);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
+    let on_duplicate = if let Some(on_duplicate) = args.on_duplicate {
+        on_duplicate
+    } else if !is_empty_database(&mut conn).await? {
+        return Err(MbtError::DestinationFileExists(output_file.clone()).into());
+    } else {
+        CopyDuplicateMode::Override
+    };
     let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, args.mbt_type).await?;
     let query = args.url_query.as_deref();
     let req = TestRequest::default()
@@ -317,7 +325,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
-                        mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
+                        mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                             .await?;
                         batch.clear();
                         last_saved = Instant::now();
@@ -332,7 +340,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 }
             }
             if !batch.is_empty() {
-                mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
+                mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                     .await?;
             }
             Ok(())
