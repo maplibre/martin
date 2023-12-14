@@ -19,11 +19,10 @@ use crate::{
     AGG_TILES_HASH_IN_DIFF,
 };
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, EnumDisplay, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, EnumDisplay, Serialize, Deserialize)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum CopyDuplicateMode {
-    #[default]
     Override,
     Ignore,
     Abort,
@@ -62,9 +61,9 @@ pub struct MbtilesCopier {
     /// Destination type with options
     #[cfg_attr(feature = "cli", arg(skip))]
     pub dst_type: Option<MbtType>,
-    /// Specify copying behaviour when tiles with duplicate (zoom_level, tile_column, tile_row) values are found
-    #[cfg_attr(feature = "cli", arg(long, value_enum, default_value_t = CopyDuplicateMode::default()))]
-    pub on_duplicate: CopyDuplicateMode,
+    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+    #[cfg_attr(feature = "cli", arg(long, value_enum))]
+    pub on_duplicate: Option<CopyDuplicateMode>,
     /// Minimum zoom level to copy
     #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     pub min_zoom: Option<u8>,
@@ -102,7 +101,7 @@ impl MbtilesCopier {
             dst_file: dst_filepath,
             dst_type_cli: None,
             dst_type: None,
-            on_duplicate: CopyDuplicateMode::Override,
+            on_duplicate: None,
             min_zoom: None,
             max_zoom: None,
             zoom_levels: Vec::default(),
@@ -172,6 +171,14 @@ impl MbtileCopierInt {
         let src_type = src_mbt.open_and_detect_type().await?;
         let mut conn = dst_mbt.open_or_new().await?;
         let is_empty_db = is_empty_database(&mut conn).await?;
+        let on_duplicate = if let Some(on_duplicate) = self.options.on_duplicate {
+            on_duplicate
+        } else if !is_empty_database(&mut conn).await? {
+            return Err(MbtError::DestinationFileExists(self.options.dst_file));
+        } else {
+            CopyDuplicateMode::Override
+        };
+
         src_mbt.attach_to(&mut conn, "sourceDb").await?;
 
         let dst_type: MbtType;
@@ -211,8 +218,8 @@ impl MbtileCopierInt {
 
         let (where_clause, query_args) = self.get_where_clause();
         let select_from = format!("{select_from} {where_clause}");
-        let on_dupl = self.options.on_duplicate.to_sql();
-        let sql_cond = self.get_on_duplicate_sql_cond(dst_type);
+        let on_dupl = on_duplicate.to_sql();
+        let sql_cond = Self::get_on_duplicate_sql_cond(on_duplicate, dst_type);
 
         debug!("Copying tiles with 'INSERT {on_dupl}' {src_type} -> {dst_type} ({sql_cond})");
 
@@ -417,8 +424,8 @@ impl MbtileCopierInt {
     }
 
     /// Returns WHERE condition SQL depending on the override and destination type
-    fn get_on_duplicate_sql_cond(&self, dst_type: MbtType) -> String {
-        match &self.options.on_duplicate {
+    fn get_on_duplicate_sql_cond(on_duplicate: CopyDuplicateMode, dst_type: MbtType) -> String {
+        match on_duplicate {
             CopyDuplicateMode::Ignore | CopyDuplicateMode::Override => String::new(),
             CopyDuplicateMode::Abort => {
                 let (main_table, tile_identifier) = match dst_type {
@@ -820,7 +827,7 @@ mod tests {
         let dst = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
 
         let mut opt = MbtilesCopier::new(src.clone(), dst.clone());
-        opt.on_duplicate = CopyDuplicateMode::Abort;
+        opt.on_duplicate = Some(CopyDuplicateMode::Abort);
 
         assert!(matches!(
             opt.run().await.unwrap_err(),
@@ -841,9 +848,9 @@ mod tests {
             .run()
             .await?;
 
-        let mut dst_conn = MbtilesCopier::new(src_file.clone(), dst.clone())
-            .run()
-            .await?;
+        let mut opt = MbtilesCopier::new(src_file.clone(), dst.clone());
+        opt.on_duplicate = Some(CopyDuplicateMode::Override);
+        let mut dst_conn = opt.run().await?;
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
         Mbtiles::new(src_file)?
@@ -871,7 +878,7 @@ mod tests {
             .await?;
 
         let mut opt = MbtilesCopier::new(src_file.clone(), dst.clone());
-        opt.on_duplicate = CopyDuplicateMode::Ignore;
+        opt.on_duplicate = Some(CopyDuplicateMode::Ignore);
         let mut dst_conn = opt.run().await?;
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
