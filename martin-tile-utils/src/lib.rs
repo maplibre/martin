@@ -204,6 +204,7 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
     (tile.x.min(max_value) as u32, tile.y.min(max_value) as u32)
 }
 
+#[allow(clippy::cast_possible_truncation)]
 pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
@@ -228,13 +229,7 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
 
 /// Convert bounding box to a tile box `(min_x, min_y, max_x, max_y)` for a given zoom
 #[must_use]
-pub fn bbox_to_xyz(
-    left: f64,
-    bottom: f64,
-    right: f64,
-    top: f64,
-    zoom: u8,
-) -> (u32, u32, u32, u32) {
+pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u32, u32, u32, u32) {
     let (min_col, min_row) = tile_colrow(left, top, zoom);
     let (max_col, max_row) = tile_colrow(right, bottom, zoom);
     (min_col, min_row, max_col, max_row)
@@ -261,6 +256,7 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
     (lng, lat)
 }
 
+#[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
     let x = PI * 6378137.0 * lon / 180.0;
     let y = ((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0);
@@ -275,9 +271,9 @@ mod tests {
     use std::fs::read;
 
     use approx::assert_relative_eq;
+    use insta::assert_snapshot;
     use Encoding::{Internal, Uncompressed};
     use Format::{Jpeg, Json, Png, Webp};
-    use insta::assert_snapshot;
 
     use super::*;
 
@@ -378,7 +374,6 @@ mod tests {
             let (x0, y0, x1, y1) = bbox_to_xyz(left, bottom, right, top, zoom);
             format!("({x0}, {y0}, {x1}, {y1})")
         }
-    
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 0), @"(0, 0, 0, 0)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 1), @"(0, 1, 0, 1)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 2), @"(0, 3, 0, 3)");
@@ -404,7 +399,7 @@ mod tests {
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 22), @"(6553, 3822590, 386662, 4157356)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 23), @"(13107, 7645181, 773324, 8314713)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 24), @"(26214, 15290363, 1546649, 16629427)");
-        
+
         // All these are incorrect
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 25), @"(52428, 30580726, 3093299, 33258855)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 26), @"(104857, 61161453, 6186598, 66517711)");
