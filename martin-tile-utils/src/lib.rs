@@ -235,6 +235,18 @@ pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u
     (min_x, min_y, max_x, max_y)
 }
 
+pub fn bbox_to_colrow(
+    left: f64,
+    bottom: f64,
+    right: f64,
+    top: f64,
+    zoom: u8,
+) -> (u64, u64, u64, u64) {
+    let (min_col, min_row) = tile_colrow(left, top, zoom);
+    let (max_col, max_row) = tile_colrow(right, bottom, zoom);
+    (min_col, min_row, max_col, max_row)
+}
+
 /// Compute precision of a zoom level, i.e. how many decimal digits of the longitude and latitude are relevant
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
