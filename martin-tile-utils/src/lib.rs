@@ -206,6 +206,7 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
 
 #[must_use]
 #[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_sign_loss)]
 pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
