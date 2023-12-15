@@ -248,6 +248,13 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
     (lng, lat)
 }
 
+pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
+    let x = PI * 6378137.0 * lon / 180.0;
+    let y = ((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0);
+    let y = PI * 6378137.0 * y / 180.0;
+    (x, y)
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unreadable_literal)]
