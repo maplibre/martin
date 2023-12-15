@@ -204,11 +204,11 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
     (tile.x.min(max_value) as u32, tile.y.min(max_value) as u32)
 }
 
-pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u64, u64) {
+pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
-    let col = ((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size).trunc() as u64;
-    let row = (((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size).trunc() as u64;
+    let col = ((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size).trunc() as u32;
+    let row = (((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size).trunc() as u32;
     (col, row)
 }
 
@@ -228,20 +228,13 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
 
 /// Convert bounding box to a tile box `(min_x, min_y, max_x, max_y)` for a given zoom
 #[must_use]
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u32, u32, u32, u32) {
-    let (min_x, min_y) = tile_index(left, top, zoom);
-    let (max_x, max_y) = tile_index(right, bottom, zoom);
-    (min_x, min_y, max_x, max_y)
-}
-
-pub fn bbox_to_colrow(
+pub fn bbox_to_xyz(
     left: f64,
     bottom: f64,
     right: f64,
     top: f64,
     zoom: u8,
-) -> (u64, u64, u64, u64) {
+) -> (u32, u32, u32, u32) {
     let (min_col, min_row) = tile_colrow(left, top, zoom);
     let (max_col, max_row) = tile_colrow(right, bottom, zoom);
     (min_col, min_row, max_col, max_row)
@@ -335,7 +328,7 @@ mod tests {
         assert_relative_eq!(bbox[2], 179.99999999999986, epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(bbox[3], 85.05112877980655, epsilon = f64::EPSILON * 2.0);
 
-        let xyz = bbox_to_colrow(bbox[0], bbox[1], bbox[2], bbox[3], 0);
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 0);
         assert_eq!(xyz, (0, 0, 0, 0));
 
         let bbox = xyz_to_bbox(1, 0, 0, 0, 0);
@@ -348,7 +341,7 @@ mod tests {
         );
         assert_relative_eq!(bbox[3], 85.05112877980655, epsilon = f64::EPSILON * 2.0);
 
-        let xyz = bbox_to_colrow(bbox[0], bbox[1], bbox[2], bbox[3], 1);
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 1);
         assert!(xyz.0 == 0 || xyz.0 == 1);
         assert!(xyz.1 == 0);
         assert!(xyz.2 == 0 || xyz.2 == 1);
@@ -360,7 +353,7 @@ mod tests {
         assert_relative_eq!(bbox[2], -146.2499999999996, epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(bbox[3], 83.979259498862, epsilon = f64::EPSILON * 2.0);
 
-        let xyz = bbox_to_colrow(bbox[0], bbox[1], bbox[2], bbox[3], 5);
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
         assert!(xyz.0 == 1 || xyz.0 == 2);
         assert!(xyz.1 == 0 || xyz.1 == 1);
         assert!(xyz.2 == 2 || xyz.2 == 3);
@@ -372,7 +365,7 @@ mod tests {
         assert_relative_eq!(bbox[2], -146.2499999999996, epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(bbox[3], 81.09321385260832, epsilon = f64::EPSILON * 2.0);
 
-        let xyz = bbox_to_colrow(bbox[0], bbox[1], bbox[2], bbox[3], 5);
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
         assert!(xyz.0 == 1 || xyz.0 == 2);
         assert!(xyz.1 == 2 || xyz.1 == 3);
         assert!(xyz.2 == 2 || xyz.2 == 3);
@@ -382,7 +375,7 @@ mod tests {
     #[test]
     fn test_box() {
         fn tst(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> String {
-            let (x0, y0, x1, y1) = bbox_to_colrow(left, bottom, right, top, zoom);
+            let (x0, y0, x1, y1) = bbox_to_xyz(left, bottom, right, top, zoom);
             format!("({x0}, {y0}, {x1}, {y1})")
         }
     
