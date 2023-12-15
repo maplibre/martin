@@ -6,10 +6,18 @@
 use std::f64::consts::PI;
 use std::fmt::Display;
 
+use tile_grid::{tms, Tms, Xyz};
+
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
+use std::sync::OnceLock;
+
+fn web_merc() -> &'static Tms {
+    static TMS: OnceLock<Tms> = OnceLock::new();
+    TMS.get_or_init(|| tms().lookup("WebMercatorQuad").unwrap())
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -190,27 +198,22 @@ impl Display for TileInfo {
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
-    let n = f64::from(1_u32 << zoom);
-    let x = ((lon + 180.0) / 360.0 * n).floor() as u32;
-    let y = ((1.0 - (lat.to_radians().tan() + 1.0 / lat.to_radians().cos()).ln() / PI) / 2.0 * n)
-        .floor() as u32;
-    let max_value = (1_u32 << zoom) - 1;
-    (x.min(max_value), y.min(max_value))
+    assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+    let tile = web_merc().tile(lon, lat, zoom).unwrap();
+    let max_value = (1_u64 << zoom) - 1;
+    (tile.x.min(max_value) as u32, tile.y.min(max_value) as u32)
 }
 
 /// Convert min/max XYZ tile coordinates to a bounding box values.
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
 #[must_use]
-pub fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> [f64; 4] {
-    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
-    let (min_lng, min_lat) = webmercator_to_wgs84(
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_x) * tile_size,
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_y) * tile_size,
-    );
-    let (max_lng, max_lat) = webmercator_to_wgs84(
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_x + 1) * tile_size,
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_y + 1) * tile_size,
-    );
+pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> [f64; 4] {
+    assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+    let left_top_bounds = web_merc().xy_bounds(&Xyz::new(u64::from(min_x), u64::from(min_y), zoom));
+    let right_bottom_bounds =
+        web_merc().xy_bounds(&Xyz::new(u64::from(max_x), u64::from(max_y), zoom));
+    let (min_lng, min_lat) = webmercator_to_wgs84(left_top_bounds.left, right_bottom_bounds.bottom);
+    let (max_lng, max_lat) = webmercator_to_wgs84(right_bottom_bounds.right, left_top_bounds.top);
 
     [min_lng, min_lat, max_lng, max_lat]
 }
@@ -228,6 +231,7 @@ pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn get_zoom_precision(zoom: u8) -> usize {
+    assert!(zoom < MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
     let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
     let log = lng_delta.log10() - 0.5;
     if log > 0.0 {
@@ -246,6 +250,8 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unreadable_literal)]
+
     use std::fs::read;
 
     use approx::assert_relative_eq;
@@ -293,7 +299,59 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unreadable_literal)]
+    fn test_xyz_to_bbox() {
+        // you could easily get test cases from maptiler: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#4/-118.82/71.02
+        let bbox = xyz_to_bbox(0, 0, 0, 0, 0);
+        assert_relative_eq!(bbox[0], -179.99999999999955, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], -85.0511287798066, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], 179.99999999999986, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 85.05112877980655, epsilon = f64::EPSILON * 2.0);
+
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 0);
+        assert_eq!(xyz, (0, 0, 0, 0));
+
+        let bbox = xyz_to_bbox(1, 0, 0, 0, 0);
+        assert_relative_eq!(bbox[0], -179.99999999999955, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], 2.007891127734306e-13, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(
+            bbox[2],
+            -2.007891127734306e-13,
+            epsilon = f64::EPSILON * 2.0
+        );
+        assert_relative_eq!(bbox[3], 85.05112877980655, epsilon = f64::EPSILON * 2.0);
+
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 1);
+        assert!(xyz.0 == 0 || xyz.0 == 1);
+        assert!(xyz.1 == 0);
+        assert!(xyz.2 == 0 || xyz.2 == 1);
+        assert!(xyz.3 == 0 || xyz.3 == 1);
+
+        let bbox = xyz_to_bbox(5, 1, 1, 2, 2);
+        assert_relative_eq!(bbox[0], -168.74999999999955, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], 81.09321385260832, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], -146.2499999999996, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 83.979259498862, epsilon = f64::EPSILON * 2.0);
+
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
+        assert!(xyz.0 == 1 || xyz.0 == 2);
+        assert!(xyz.1 == 0 || xyz.1 == 1);
+        assert!(xyz.2 == 2 || xyz.2 == 3);
+        assert!(xyz.3 == 2 || xyz.3 == 3);
+
+        let bbox = xyz_to_bbox(5, 1, 3, 2, 5);
+        assert_relative_eq!(bbox[0], -168.74999999999955, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], 74.01954331150218, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], -146.2499999999996, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 81.09321385260832, epsilon = f64::EPSILON * 2.0);
+
+        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
+        assert!(xyz.0 == 1 || xyz.0 == 2);
+        assert!(xyz.1 == 2 || xyz.1 == 3);
+        assert!(xyz.2 == 2 || xyz.2 == 3);
+        assert!(xyz.3 == 5 || xyz.3 == 6);
+    }
+
+    #[test]
     fn meter_to_lng_lat() {
         let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
         assert_relative_eq!(lng, -179.9999999749437, epsilon = f64::EPSILON * 2.0);

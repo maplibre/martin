@@ -14,7 +14,7 @@ use size_format::SizeFormatterBinary;
 use sqlx::{query, SqliteExecutor};
 use tilejson::Bounds;
 
-use crate::{MbtResult, MbtType, Mbtiles};
+use crate::{invert_y_value, MbtResult, MbtType, Mbtiles};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ZoomInfo {
@@ -154,10 +154,10 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.unwrap(),
-                        r.min_tile_y.unwrap(),
-                        r.max_tile_x.unwrap(),
-                        r.max_tile_y.unwrap(),
+                        r.min_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.max_tile_y.unwrap() as u32),
+                        r.max_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.min_tile_y.unwrap() as u32),
                     )
                     .into(),
                 }
@@ -239,10 +239,10 @@ mod tests {
         max_tile_size: 1107
         avg_tile_size: 96.2295918367347
         bbox:
-          - -180
-          - -85.0511287798066
-          - 180
-          - 85.0511287798066
+          - -179.99999999999955
+          - -85.05112877980659
+          - 180.00000000000028
+          - 85.05112877980655
         min_zoom: 0
         max_zoom: 6
         zoom_info:
@@ -252,70 +252,70 @@ mod tests {
             max_tile_size: 1107
             avg_tile_size: 1107
             bbox:
-              - -180
-              - -85.0511287798066
-              - 180
-              - 85.0511287798066
+              - -179.99999999999955
+              - -85.05112877980659
+              - 179.99999999999986
+              - 85.05112877980655
           - zoom: 1
             tile_count: 4
             min_tile_size: 160
             max_tile_size: 650
             avg_tile_size: 366.5
             bbox:
-              - -180
-              - -85.0511287798066
-              - 180
-              - 85.0511287798066
+              - -179.99999999999955
+              - -85.05112877980652
+              - 179.99999999999915
+              - 85.05112877980655
           - zoom: 2
             tile_count: 7
             min_tile_size: 137
             max_tile_size: 495
             avg_tile_size: 239.57142857142858
             bbox:
-              - -180
-              - -66.51326044311186
-              - 180
-              - 66.51326044311186
+              - -179.99999999999955
+              - -66.51326044311165
+              - 179.99999999999915
+              - 66.51326044311182
           - zoom: 3
             tile_count: 17
             min_tile_size: 67
             max_tile_size: 246
             avg_tile_size: 134
             bbox:
-              - -135
-              - -40.97989806962013
-              - 180
-              - 66.51326044311186
+              - -134.99999999999957
+              - -40.979898069620376
+              - 180.00000000000028
+              - 66.51326044311169
           - zoom: 4
             tile_count: 38
             min_tile_size: 64
             max_tile_size: 175
             avg_tile_size: 86
             bbox:
-              - -135
-              - -40.97989806962013
-              - 180
-              - 66.51326044311186
+              - -134.99999999999963
+              - -40.979898069620106
+              - 179.99999999999966
+              - 66.51326044311175
           - zoom: 5
             tile_count: 57
             min_tile_size: 64
             max_tile_size: 107
             avg_tile_size: 72.7719298245614
             bbox:
-              - -123.75000000000001
-              - -40.97989806962013
-              - 180
-              - 61.60639637138628
+              - -123.74999999999966
+              - -40.979898069620106
+              - 179.99999999999966
+              - 61.606396371386154
           - zoom: 6
             tile_count: 72
             min_tile_size: 64
             max_tile_size: 97
             avg_tile_size: 68.29166666666667
             bbox:
-              - -123.75000000000001
-              - -40.97989806962013
-              - 180
-              - 61.60639637138628
+              - -123.74999999999957
+              - -40.979898069620305
+              - 180.00000000000009
+              - 61.606396371386104
         "###);
 
         Ok(())
