@@ -154,10 +154,10 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.unwrap() as u64,
-                        u64::from(invert_y_value(zoom, r.max_tile_y.unwrap() as u32)),
-                        r.max_tile_x.unwrap() as u64,
-                        u64::from(invert_y_value(zoom, r.min_tile_y.unwrap() as u32)),
+                        r.min_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.max_tile_y.unwrap() as u32),
+                        r.max_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.min_tile_y.unwrap() as u32),
                     )
                     .into(),
                 }

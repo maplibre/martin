@@ -151,7 +151,6 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-#[allow(clippy::cast_possible_truncation)]
 fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     let mut ranges = Vec::new();
     let mut zooms_vec = Vec::new();
@@ -173,13 +172,7 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
             append_rect(
                 &mut ranges,
-                TileRect::new(
-                    *zoom,
-                    min_x as u32,
-                    min_y as u32,
-                    max_x as u32,
-                    max_y as u32,
-                ),
+                TileRect::new(*zoom, min_x, min_y, max_x, max_y),
             );
         }
     }

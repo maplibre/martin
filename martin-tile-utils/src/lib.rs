@@ -5,6 +5,7 @@
 
 use std::f64::consts::PI;
 use std::fmt::Display;
+
 use tile_grid::{tms, Tms, Xyz};
 
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
@@ -13,7 +14,7 @@ pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 pub const MAX_ZOOM: u8 = 30;
 use std::sync::OnceLock;
 
-fn gridset() -> &'static Tms {
+fn web_merc() -> &'static Tms {
     static TMS: OnceLock<Tms> = OnceLock::new();
     TMS.get_or_init(|| tms().lookup("WebMercatorQuad").unwrap())
 }
@@ -196,24 +197,21 @@ impl Display for TileInfo {
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u64, u64) {
-    let tile = gridset().tile(lon, lat, zoom).unwrap();
+pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
+    assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+    let tile = web_merc().tile(lon, lat, zoom).unwrap();
     let max_value = (1_u64 << zoom) - 1;
-    (tile.x.min(max_value), tile.y.min(max_value))
+    (tile.x.min(max_value) as u32, tile.y.min(max_value) as u32)
 }
 
 /// Convert min/max XYZ tile coordinates to a bounding box values.
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
 #[must_use]
-pub fn xyz_to_bbox(
-    zoom: u8,
-    min_tile_col: u64,
-    min_tile_row: u64,
-    max_tile_col: u64,
-    max_tile_row: u64,
-) -> [f64; 4] {
-    let left_top_bounds = gridset().xy_bounds(&Xyz::new(min_tile_col, min_tile_row, zoom));
-    let right_bottom_bounds = gridset().xy_bounds(&Xyz::new(max_tile_col, max_tile_row, zoom));
+pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> [f64; 4] {
+    assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+    let left_top_bounds = web_merc().xy_bounds(&Xyz::new(u64::from(min_x), u64::from(min_y), zoom));
+    let right_bottom_bounds =
+        web_merc().xy_bounds(&Xyz::new(u64::from(max_x), u64::from(max_y), zoom));
     let (min_lng, min_lat) = webmercator_to_wgs84(left_top_bounds.left, right_bottom_bounds.bottom);
     let (max_lng, max_lat) = webmercator_to_wgs84(right_bottom_bounds.right, left_top_bounds.top);
 
@@ -223,16 +221,17 @@ pub fn xyz_to_bbox(
 /// Convert bounding box to a tile box `(min_x, min_y, max_x, max_y)` for a given zoom
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u64, u64, u64, u64) {
-    let (min_tile_x, min_tile_y) = tile_index(left, top, zoom);
-    let (max_tile_x, max_tile_y) = tile_index(right, bottom, zoom);
-    (min_tile_x, min_tile_y, max_tile_x, max_tile_y)
+pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u32, u32, u32, u32) {
+    let (min_x, min_y) = tile_index(left, top, zoom);
+    let (max_x, max_y) = tile_index(right, bottom, zoom);
+    (min_x, min_y, max_x, max_y)
 }
 
 /// Compute precision of a zoom level, i.e. how many decimal digits of the longitude and latitude are relevant
 #[must_use]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn get_zoom_precision(zoom: u8) -> usize {
+    assert!(zoom < MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
     let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
     let log = lng_delta.log10() - 0.5;
     if log > 0.0 {
