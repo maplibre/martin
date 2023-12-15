@@ -119,7 +119,7 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 }
 
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
-    info!("Martin-CP tile copier v{VERSION}");
+    info!("martin-cp tile copier v{VERSION}");
 
     let env = OsEnv::default();
     let save_config = copy_args.meta.save_config.clone();
