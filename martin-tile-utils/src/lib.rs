@@ -204,6 +204,7 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
     (tile.x.min(max_value) as u32, tile.y.min(max_value) as u32)
 }
 
+#[must_use]
 #[allow(clippy::cast_possible_truncation)]
 pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
@@ -258,9 +259,9 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 
 #[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
-    let x = PI * 6378137.0 * lon / 180.0;
+    let x = PI * 6_378_137.0 * lon / 180.0;
     let y = ((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0);
-    let y = PI * 6378137.0 * y / 180.0;
+    let y = PI * 6_378_137.0 * y / 180.0;
     (x, y)
 }
 
