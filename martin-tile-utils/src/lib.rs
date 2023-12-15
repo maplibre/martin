@@ -204,6 +204,14 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
     (tile.x.min(max_value) as u32, tile.y.min(max_value) as u32)
 }
 
+pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u64, u64) {
+    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
+    let (x, y) = wgs84_to_webmercator(lng, lat);
+    let col = ((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size).trunc() as u64;
+    let row = (((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size).trunc() as u64;
+    (col, row)
+}
+
 /// Convert min/max XYZ tile coordinates to a bounding box values.
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
 #[must_use]
