@@ -2,8 +2,6 @@ use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
-#[cfg(feature = "cli")]
-use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -16,7 +14,7 @@ use crate::{invert_y_value, CopyDuplicateMode, MbtType};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
