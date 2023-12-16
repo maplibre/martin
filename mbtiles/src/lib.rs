@@ -10,7 +10,7 @@ mod errors;
 pub use errors::{MbtError, MbtResult};
 
 mod mbtiles;
-pub use mbtiles::{MbtTypeCli, Mbtiles};
+pub use mbtiles::{CopyType, MbtTypeCli, Mbtiles};
 
 mod metadata;
 pub use metadata::Metadata;

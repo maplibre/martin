@@ -148,9 +148,13 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
 
-        let mut src_conn = MbtilesCopier::new(src_file.clone(), src.clone())
-            .run()
-            .await?;
+        let mut src_conn = MbtilesCopier {
+            src_file: src_file.clone(),
+            dst_file: src.clone(),
+            ..Default::default()
+        }
+        .run()
+        .await?;
 
         // Apply patch to the src data in in-memory DB
         let patch_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_diff.mbtiles");
@@ -175,9 +179,13 @@ mod tests {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
-        let mut src_conn = MbtilesCopier::new(src_file.clone(), src.clone())
-            .run()
-            .await?;
+        let mut src_conn = MbtilesCopier {
+            src_file: src_file.clone(),
+            dst_file: src.clone(),
+            ..Default::default()
+        }
+        .run()
+        .await?;
 
         // Apply patch to the src data in in-memory DB
         let patch_file =

@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
-    apply_patch, AggHashType, CopyDuplicateMode, IntegrityCheckType, MbtResult, MbtTypeCli,
-    Mbtiles, MbtilesCopier,
+    apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
+    MbtTypeCli, Mbtiles, MbtilesCopier,
 };
 use tilejson::Bounds;
 
@@ -83,38 +83,42 @@ enum Commands {
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
     /// MBTiles file to read from
-    pub src_file: PathBuf,
+    src_file: PathBuf,
     /// MBTiles file to write to
-    pub dst_file: PathBuf,
+    dst_file: PathBuf,
+    /// Limit what gets copied.
+    /// When copying tiles only, the agg_tiles_hash will still be updated unless --skip-agg-tiles-hash is set.
+    #[arg(long, value_name = "TYPE", default_value_t=CopyType::default())]
+    copy: CopyType,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[arg(long, alias = "dst-type", alias = "dst_type", value_name = "SCHEMA")]
-    pub mbtiles_type: Option<MbtTypeCli>,
+    mbtiles_type: Option<MbtTypeCli>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
     #[arg(long, value_enum)]
-    pub on_duplicate: Option<CopyDuplicateMode>,
+    on_duplicate: Option<CopyDuplicateMode>,
     /// Minimum zoom level to copy
     #[arg(long, conflicts_with("zoom_levels"))]
-    pub min_zoom: Option<u8>,
+    min_zoom: Option<u8>,
     /// Maximum zoom level to copy
     #[arg(long, conflicts_with("zoom_levels"))]
-    pub max_zoom: Option<u8>,
+    max_zoom: Option<u8>,
     /// List of zoom levels to copy
     #[arg(long, value_delimiter = ',')]
-    pub zoom_levels: Vec<u8>,
+    zoom_levels: Vec<u8>,
     /// Bounding box to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be used multiple times.
     #[arg(long)]
-    pub bbox: Vec<Bounds>,
+    bbox: Vec<Bounds>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
     #[arg(long, conflicts_with("apply_patch"))]
-    pub diff_with_file: Option<PathBuf>,
+    diff_with_file: Option<PathBuf>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
     #[arg(long, conflicts_with("diff_with_file"))]
-    pub apply_patch: Option<PathBuf>,
+    apply_patch: Option<PathBuf>,
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     #[arg(long)]
-    pub skip_agg_tiles_hash: bool,
+    skip_agg_tiles_hash: bool,
 }
 
 #[tokio::main]
@@ -149,6 +153,7 @@ async fn main_int() -> anyhow::Result<()> {
             let opts = MbtilesCopier {
                 src_file: opts.src_file,
                 dst_file: opts.dst_file,
+                copy: opts.copy,
                 dst_type_cli: opts.mbtiles_type,
                 dst_type: None,
                 on_duplicate: opts.on_duplicate,
@@ -390,6 +395,22 @@ mod tests {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
                     on_duplicate: Some(CopyDuplicateMode::Override),
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_limit() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    copy: CopyType::Metadata,
                     ..Default::default()
                 })
             }

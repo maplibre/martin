@@ -21,6 +21,27 @@ pub enum MbtTypeCli {
     Normalized,
 }
 
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
+pub enum CopyType {
+    #[default]
+    All,
+    Metadata,
+    Tiles,
+}
+
+impl CopyType {
+    #[must_use]
+    pub fn copy_tiles(&self) -> bool {
+        matches!(self, Self::All | Self::Tiles)
+    }
+    #[must_use]
+    pub fn copy_metadata(&self) -> bool {
+        matches!(self, Self::All | Self::Metadata)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Mbtiles {
     filepath: String,
