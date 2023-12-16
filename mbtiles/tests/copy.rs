@@ -274,7 +274,10 @@ async fn convert(
         dst_type_cli: Some(dst_type),
         ..Default::default()
     };
-    assert_snapshot!(dump(&mut opt.run().await?).await?, "v1__meta__{frm}-{to}");
+    let dmp = dump(&mut opt.run().await?).await?;
+    allow_duplicates! {
+        assert_snapshot!(dmp, "v1__meta__{to}");
+    };
 
     let opt = MbtilesCopier {
         src_file: path(&frm_mbt),
@@ -283,7 +286,10 @@ async fn convert(
         dst_type_cli: Some(dst_type),
         ..Default::default()
     };
-    assert_snapshot!(dump(&mut opt.run().await?).await?, "v1__tiles__{frm}-{to}");
+    let dmp = dump(&mut opt.run().await?).await?;
+    allow_duplicates! {
+        assert_snapshot!(dmp, "v1__tiles__{to}");
+    }
 
     let opt = MbtilesCopier {
         src_file: path(&frm_mbt),
