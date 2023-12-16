@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use futures::future::join_all;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use log::{debug, error, info, warn};
 
 use crate::args::BoundsCalcType;

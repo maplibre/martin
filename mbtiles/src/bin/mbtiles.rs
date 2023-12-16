@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{apply_patch, AggHashType, IntegrityCheckType, MbtResult, Mbtiles, MbtilesCopier};
 
-#[derive(Parser, PartialEq, Eq, Debug)]
+#[derive(Parser, PartialEq, Debug)]
 #[command(
     version,
     name = "mbtiles",
@@ -19,7 +19,7 @@ pub struct Args {
     command: Commands,
 }
 
-#[derive(Subcommand, PartialEq, Eq, Debug)]
+#[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
     /// Show MBTiles file summary statistics
     #[command(name = "summary", alias = "info")]

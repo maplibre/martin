@@ -4,11 +4,15 @@ use std::str::from_utf8;
 
 use ctor::ctor;
 use insta::{allow_duplicates, assert_display_snapshot};
+use itertools::Itertools as _;
 use log::info;
+use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use mbtiles::{apply_patch, init_mbtiles_schema, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier};
+use mbtiles::{
+    apply_patch, init_mbtiles_schema, invert_y_value, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier,
+};
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
@@ -257,6 +261,20 @@ async fn convert(
 
     let mut opt = copier(&frm_mbt, &mem);
     opt.dst_type_cli = Some(dst_type);
+
+    // Filter (0, 0, 2, 2) in mbtiles coordinates, which is (0, 2^5-1-2, 2, 2^5-1-0) = (0, 29, 2, 31) in XYZ coordinates, and slightly decrease it
+    let mut bbox = xyz_to_bbox(5, 0, invert_y_value(5, 2), 2, invert_y_value(5, 0));
+    bbox[0] += 180.0 * 0.1 / f64::from(1 << 5);
+    bbox[1] += 90.0 * 0.1 / f64::from(1 << 5);
+    bbox[2] -= 180.0 * 0.1 / f64::from(1 << 5);
+    bbox[3] -= 90.0 * 0.1 / f64::from(1 << 5);
+    opt.bbox.push(bbox.into());
+
+    let dmp = dump(&mut opt.run().await?).await?;
+    assert_snapshot!(dmp, "v1__bbox__{frm}-{to}");
+
+    let mut opt = copier(&frm_mbt, &mem);
+    opt.dst_type_cli = Some(dst_type);
     opt.min_zoom = Some(6);
     pretty_assert_eq!(&z6only, &dump(&mut opt.run().await?).await?);
 
@@ -370,11 +388,16 @@ async fn patch_on_copy(
 #[actix_rt::test]
 #[ignore]
 async fn test_one() {
+    let db = Databases::default();
+
+    // Test convert
+    convert(Flat, Flat, &db).await.unwrap();
+
+    // Test diff patch copy
     let src_type = FlatWithHash;
     let dif_type = FlatWithHash;
     // let dst_type = Some(FlatWithHash);
     let dst_type = None;
-    let db = databases();
 
     diff_and_patch(src_type, dif_type, dst_type, &db)
         .await
@@ -465,7 +488,6 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                         })
                         .unwrap_or("NULL".to_string())
                     })
-                    .collect::<Vec<_>>()
                     .join(", ");
                 format!("(  {val}  )")
             })

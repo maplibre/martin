@@ -19,10 +19,11 @@ cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml", "dep:tokio"
 [dependencies]
 enum-display.workspace = true
 futures.workspace = true
+itertools.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
-serde_json.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 serde_with.workspace = true
 size_format.workspace = true
 sqlite-hashes.workspace = true

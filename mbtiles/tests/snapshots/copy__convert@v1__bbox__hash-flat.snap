@@ -1,0 +1,42 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "012434681F0EBF296906D6608C54D632"  )',
+    '(  "md-edit", "value - v1"  )',
+    '(  "md-remove", "value - remove"  )',
+    '(  "md-same", "value - same"  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles'
+sql = '''
+CREATE TABLE tiles (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  5, 1, 1, blob(edit-v1)  )',
+    '(  5, 1, 2, blob()  )',
+    '(  5, 2, 2, blob(remove)  )',
+    '(  6, 1, 4, blob(edit-v1)  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles'

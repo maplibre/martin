@@ -11,7 +11,7 @@ use tile_grid::{tms, Tms, Xyz};
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
-pub const MAX_ZOOM: u8 = 30;
+pub const MAX_ZOOM: u8 = 24;
 use std::sync::OnceLock;
 
 fn web_merc() -> &'static Tms {
@@ -209,6 +209,8 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
 #[must_use]
 pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> [f64; 4] {
     assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+    assert!(min_x <= max_x, "min_x {min_x} must be <= max_x {max_x}");
+    assert!(min_y <= max_y, "min_y {min_y} must be <= max_y {max_y}");
     let left_top_bounds = web_merc().xy_bounds(&Xyz::new(u64::from(min_x), u64::from(min_y), zoom));
     let right_bottom_bounds =
         web_merc().xy_bounds(&Xyz::new(u64::from(max_x), u64::from(max_y), zoom));
