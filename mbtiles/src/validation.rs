@@ -48,7 +48,7 @@ impl MbtType {
     }
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum IntegrityCheckType {
@@ -58,7 +58,7 @@ pub enum IntegrityCheckType {
     Off,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum AggHashType {

@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
-    apply_patch, AggHashType, CopyDuplicateMode, IntegrityCheckType, MbtResult, MbtTypeCli,
-    Mbtiles, MbtilesCopier,
+    apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
+    MbtTypeCli, Mbtiles, MbtilesCopier,
 };
 use tilejson::Bounds;
 
@@ -86,6 +86,9 @@ pub struct CopyArgs {
     pub src_file: PathBuf,
     /// MBTiles file to write to
     pub dst_file: PathBuf,
+    /// Limit what gets copied
+    #[arg(long, value_name = "TYPE", default_value_t=CopyType::default())]
+    pub copy: CopyType,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[arg(long, alias = "dst-type", alias = "dst_type", value_name = "SCHEMA")]
     pub mbtiles_type: Option<MbtTypeCli>,
@@ -149,6 +152,7 @@ async fn main_int() -> anyhow::Result<()> {
             let opts = MbtilesCopier {
                 src_file: opts.src_file,
                 dst_file: opts.dst_file,
+                copy: opts.copy,
                 dst_type_cli: opts.mbtiles_type,
                 dst_type: None,
                 on_duplicate: opts.on_duplicate,
@@ -390,6 +394,22 @@ mod tests {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
                     on_duplicate: Some(CopyDuplicateMode::Override),
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_limit() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    copy: CopyType::Metadata,
                     ..Default::default()
                 })
             }
