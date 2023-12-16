@@ -262,7 +262,7 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
     let x = EARTH_CIRCUMFERENCE / 360.0 * lon;
     let y = ((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0);
-    let y = PI * 6_378_137.0 * y / 180.0;
+    let y = EARTH_CIRCUMFERENCE / 360.0 * y;
     (x, y)
 }
 
