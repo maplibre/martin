@@ -1,8 +1,6 @@
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-#[cfg(feature = "cli")]
-use clap::{Args, ValueEnum};
 use enum_display::EnumDisplay;
 use itertools::Itertools as _;
 use log::{debug, info, trace};
@@ -24,7 +22,7 @@ use crate::{
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, EnumDisplay, Serialize, Deserialize)]
 #[enum_display(case = "Kebab")]
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum CopyDuplicateMode {
     Override,
     Ignore,
@@ -43,52 +41,32 @@ impl CopyDuplicateMode {
 }
 
 #[derive(Clone, Default, PartialEq, Debug)]
-#[cfg_attr(feature = "cli", derive(Args))]
 pub struct MbtilesCopier {
     /// MBTiles file to read from
     pub src_file: PathBuf,
     /// MBTiles file to write to
     pub dst_file: PathBuf,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
-    #[cfg_attr(
-        feature = "cli",
-        arg(
-            long = "mbtiles-type",
-            alias = "dst-type",
-            alias = "dst_type",
-            value_name = "SCHEMA",
-            value_enum
-        )
-    )]
     pub dst_type_cli: Option<MbtTypeCli>,
     /// Destination type with options
-    #[cfg_attr(feature = "cli", arg(skip))]
     pub dst_type: Option<MbtType>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
-    #[cfg_attr(feature = "cli", arg(long, value_enum))]
     pub on_duplicate: Option<CopyDuplicateMode>,
     /// Minimum zoom level to copy
-    #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     pub min_zoom: Option<u8>,
     /// Maximum zoom level to copy
-    #[cfg_attr(feature = "cli", arg(long, conflicts_with("zoom_levels")))]
     pub max_zoom: Option<u8>,
     /// List of zoom levels to copy
-    #[cfg_attr(feature = "cli", arg(long, value_delimiter = ','))]
     pub zoom_levels: Vec<u8>,
     /// Bounding box to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be used multiple times.
-    #[cfg_attr(feature = "cli", arg(long))]
     pub bbox: Vec<Bounds>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
-    #[cfg_attr(feature = "cli", arg(long, conflicts_with("apply_patch")))]
     pub diff_with_file: Option<PathBuf>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
-    #[cfg_attr(feature = "cli", arg(long, conflicts_with("diff_with_file")))]
     pub apply_patch: Option<PathBuf>,
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
-    #[cfg_attr(feature = "cli", arg(long))]
     pub skip_agg_tiles_hash: bool,
 }
 

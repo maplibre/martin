@@ -16,6 +16,9 @@
       "pattern": "^http://localhost"
     },
     {
+      "pattern": "^https://ghcr.io/maplibre/martin($|/|\\?)"
+    },
+    {
       "pattern": "^http://opensource.org"
     }
   ],
