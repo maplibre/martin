@@ -21,4 +21,4 @@ tile-grid.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
-insta = { workspace = true, features = ["toml", "yaml"] }
+insta.workspace = true

@@ -210,8 +210,8 @@ pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
 pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
-    let col = ((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size).trunc() as u32;
-    let row = (((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size).trunc() as u32;
+    let col = (((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size) as u32).min((1 << zoom) - 1);
+    let row = ((((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size) as u32).min((1 << zoom) - 1);
     (col, row)
 }
 
@@ -261,8 +261,7 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 #[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
     let x = EARTH_CIRCUMFERENCE / 360.0 * lon;
-    let y = ((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0);
-    let y = EARTH_CIRCUMFERENCE / 360.0 * y;
+    let y = EARTH_CIRCUMFERENCE / 360.0 * (((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0));
     (x, y)
 }
 
@@ -401,8 +400,6 @@ mod tests {
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 22), @"(6553, 3822590, 386662, 4157356)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 23), @"(13107, 7645181, 773324, 8314713)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 24), @"(26214, 15290363, 1546649, 16629427)");
-
-        // All these are incorrect
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 25), @"(52428, 30580726, 3093299, 33258855)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 26), @"(104857, 61161453, 6186598, 66517711)");
         assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 27), @"(209715, 122322907, 12373196, 133035423)");
