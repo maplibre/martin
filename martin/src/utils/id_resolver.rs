@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::sync::{Arc, Mutex};
 
 use log::warn;

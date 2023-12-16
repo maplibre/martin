@@ -1,10 +1,10 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
 use clap::{Args, ValueEnum};
 use enum_display::EnumDisplay;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use log::{debug, info, trace};
 use martin_tile_utils::{bbox_to_xyz, MAX_ZOOM};
 use serde::{Deserialize, Serialize};
