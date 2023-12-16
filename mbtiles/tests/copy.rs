@@ -257,7 +257,9 @@ async fn convert(
     opt.dst_type_cli = Some(dst_type);
     opt.zoom_levels.push(6);
     let z6only = dump(&mut opt.run().await?).await?;
-    assert_snapshot!(z6only, "v1__z6__{frm}-{to}");
+    allow_duplicates! {
+        assert_snapshot!(z6only, "v1__z6__{to}");
+    }
 
     let mut opt = copier(&frm_mbt, &mem);
     opt.dst_type_cli = Some(dst_type);
@@ -271,7 +273,9 @@ async fn convert(
     opt.bbox.push(bbox.into());
 
     let dmp = dump(&mut opt.run().await?).await?;
-    assert_snapshot!(dmp, "v1__bbox__{frm}-{to}");
+    allow_duplicates! {
+        assert_snapshot!(dmp, "v1__bbox__{to}");
+    }
 
     let mut opt = copier(&frm_mbt, &mem);
     opt.dst_type_cli = Some(dst_type);
