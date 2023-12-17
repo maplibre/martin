@@ -196,15 +196,6 @@ impl Display for TileInfo {
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
 #[must_use]
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-pub fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
-    assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
-    let tile = web_merc().tile(lon, lat, zoom).unwrap();
-    let max_value = (1_u64 << zoom) - 1;
-    (tile.x.min(max_value) as u32, tile.y.min(max_value) as u32)
-}
-
-#[must_use]
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::cast_sign_loss)]
 pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
@@ -312,8 +303,8 @@ mod tests {
     }
 
     #[test]
-    fn test_tile_index() {
-        assert_eq!((0, 0), tile_index(-180.0, 85.0511, 0));
+    fn test_tile_colrow() {
+        assert_eq!((0, 0), tile_colrow(-180.0, 85.0511, 0));
     }
 
     #[test]
