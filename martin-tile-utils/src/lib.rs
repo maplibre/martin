@@ -251,6 +251,8 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
     (lng, lat)
 }
 
+/// transform WGS84 to WebMercator
+// from https://github.com/Esri/arcgis-osm-editor/blob/e4b9905c264aa22f8eeb657efd52b12cdebea69a/src/OSMWeb10_1/Utils/WebMercator.cs
 #[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
     (to_mercator_x(lon), to_mercator_y(lat))
