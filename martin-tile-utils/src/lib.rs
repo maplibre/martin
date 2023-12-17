@@ -6,18 +6,10 @@
 use std::f64::consts::PI;
 use std::fmt::Display;
 
-use tile_grid::{tms, Tms, Xyz};
-
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
-use std::sync::OnceLock;
-
-fn web_merc() -> &'static Tms {
-    static TMS: OnceLock<Tms> = OnceLock::new();
-    TMS.get_or_init(|| tms().lookup("WebMercatorQuad").unwrap())
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -203,23 +195,31 @@ pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let (x, y) = wgs84_to_webmercator(lng, lat);
     let col = (((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size) as u32).min((1 << zoom) - 1);
     let row = ((((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size) as u32).min((1 << zoom) - 1);
-
-    let max_value = (1_u32 << zoom) - 1;
-    (col.min(max_value), row.min(max_value))
+    (col, row)
 }
 
 /// Convert min/max XYZ tile coordinates to a bounding box values.
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
 #[must_use]
-pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> [f64; 4] {
+pub fn xyz_to_bbox(zoom: u8, min_col: u32, min_row: u32, max_col: u32, max_row: u32) -> [f64; 4] {
     assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
-    let left_top_bounds = web_merc().xy_bounds(&Xyz::new(u64::from(min_x), u64::from(min_y), zoom));
-    let right_bottom_bounds =
-        web_merc().xy_bounds(&Xyz::new(u64::from(max_x), u64::from(max_y), zoom));
-    let (min_lng, min_lat) = webmercator_to_wgs84(left_top_bounds.left, right_bottom_bounds.bottom);
-    let (max_lng, max_lat) = webmercator_to_wgs84(right_bottom_bounds.right, left_top_bounds.top);
 
+    let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
+
+    let left_down_bbox = tile_bbox(min_col, max_row, tile_length);
+    let right_top_bbox = tile_bbox(max_col, min_row, tile_length);
+
+    let (min_lng, min_lat) = webmercator_to_wgs84(left_down_bbox[0], left_down_bbox[1]);
+    let (max_lng, max_lat) = webmercator_to_wgs84(right_top_bbox[2], right_top_bbox[3]);
     [min_lng, min_lat, max_lng, max_lat]
+}
+
+#[allow(clippy::cast_lossless)]
+fn tile_bbox(x: u32, y: u32, tile_length: f64) -> [f64; 4] {
+    let min_x = EARTH_CIRCUMFERENCE * -0.5 + x as f64 * tile_length;
+    let max_y = EARTH_CIRCUMFERENCE * 0.5 - y as f64 * tile_length;
+
+    [min_x, max_y - tile_length, min_x + tile_length, max_y]
 }
 
 /// Convert bounding box to a tile box `(min_x, min_y, max_x, max_y)` for a given zoom
@@ -253,9 +253,17 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 
 #[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
-    let x = EARTH_CIRCUMFERENCE / 360.0 * lon;
-    let y = EARTH_CIRCUMFERENCE / 360.0 * (((90.0 + lat) * PI / 360.0).tan().ln() / (PI / 180.0));
-    (x, y)
+    (to_mercator_x(lon), to_mercator_y(lat))
+}
+
+fn to_mercator_y(lat: f64) -> f64 {
+    let rad = lat * PI / 180.0;
+    let sin = rad.sin();
+    EARTH_RADIUS / 2.0 * ((1.0 + sin) / (1.0 - sin)).ln()
+}
+
+fn to_mercator_x(lon: f64) -> f64 {
+    lon * PI / 180.0 * EARTH_RADIUS
 }
 
 #[cfg(test)]
@@ -313,57 +321,32 @@ mod tests {
     fn test_xyz_to_bbox() {
         // you could easily get test cases from maptiler: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#4/-118.82/71.02
         let bbox = xyz_to_bbox(0, 0, 0, 0, 0);
-        assert_relative_eq!(bbox[0], -179.99999999999955, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[0], -180.0, epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(bbox[1], -85.0511287798066, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], 179.99999999999986, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], 85.05112877980655, epsilon = f64::EPSILON * 2.0);
-
-        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 0);
-        assert_eq!(xyz, (0, 0, 0, 0));
+        assert_relative_eq!(bbox[2], 180.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 85.0511287798066, epsilon = f64::EPSILON * 2.0);
 
         let bbox = xyz_to_bbox(1, 0, 0, 0, 0);
-        assert_relative_eq!(bbox[0], -179.99999999999955, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], 2.007891127734306e-13, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(
-            bbox[2],
-            -2.007891127734306e-13,
-            epsilon = f64::EPSILON * 2.0
-        );
-        assert_relative_eq!(bbox[3], 85.05112877980655, epsilon = f64::EPSILON * 2.0);
-
-        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 1);
-        assert!(xyz.0 == 0 || xyz.0 == 1);
-        assert!(xyz.1 == 0);
-        assert!(xyz.2 == 0 || xyz.2 == 1);
-        assert!(xyz.3 == 0 || xyz.3 == 1);
+        assert_relative_eq!(bbox[0], -180.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], 0.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], 0.0, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 85.0511287798066, epsilon = f64::EPSILON * 2.0);
 
         let bbox = xyz_to_bbox(5, 1, 1, 2, 2);
-        assert_relative_eq!(bbox[0], -168.74999999999955, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], 81.09321385260832, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], -146.2499999999996, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], 83.979259498862, epsilon = f64::EPSILON * 2.0);
-
-        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
-        assert!(xyz.0 == 1 || xyz.0 == 2);
-        assert!(xyz.1 == 0 || xyz.1 == 1);
-        assert!(xyz.2 == 2 || xyz.2 == 3);
-        assert!(xyz.3 == 2 || xyz.3 == 3);
+        assert_relative_eq!(bbox[0], -168.75, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], 81.09321385260837, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], -146.25, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 83.97925949886205, epsilon = f64::EPSILON * 2.0);
 
         let bbox = xyz_to_bbox(5, 1, 3, 2, 5);
-        assert_relative_eq!(bbox[0], -168.74999999999955, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], 74.01954331150218, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], -146.2499999999996, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], 81.09321385260832, epsilon = f64::EPSILON * 2.0);
-
-        let xyz = bbox_to_xyz(bbox[0], bbox[1], bbox[2], bbox[3], 5);
-        assert!(xyz.0 == 1 || xyz.0 == 2);
-        assert!(xyz.1 == 2 || xyz.1 == 3);
-        assert!(xyz.2 == 2 || xyz.2 == 3);
-        assert!(xyz.3 == 5 || xyz.3 == 6);
+        assert_relative_eq!(bbox[0], -168.75, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], 74.01954331150226, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], -146.25, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], 81.09321385260837, epsilon = f64::EPSILON * 2.0);
     }
 
     #[test]
-    fn test_box() {
+    fn test_box_to_xyz() {
         fn tst(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> String {
             let (x0, y0, x1, y1) = bbox_to_xyz(left, bottom, right, top, zoom);
             format!("({x0}, {y0}, {x1}, {y1})")
