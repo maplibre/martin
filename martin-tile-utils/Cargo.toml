@@ -17,7 +17,6 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-tile-grid.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
