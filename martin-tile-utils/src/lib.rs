@@ -203,7 +203,9 @@ pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let (x, y) = wgs84_to_webmercator(lng, lat);
     let col = (((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size) as u32).min((1 << zoom) - 1);
     let row = ((((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size) as u32).min((1 << zoom) - 1);
-    (col, row)
+
+    let max_value = (1_u32 << zoom) - 1;
+    (col.min(max_value), row.min(max_value))
 }
 
 /// Convert min/max XYZ tile coordinates to a bounding box values.
