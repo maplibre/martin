@@ -190,7 +190,7 @@ impl Display for TileInfo {
 #[must_use]
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::cast_sign_loss)]
-pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
+pub fn tile_index(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
     let col = (((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size) as u32).min((1 << zoom) - 1);
@@ -201,13 +201,13 @@ pub fn tile_colrow(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
 /// Convert min/max XYZ tile coordinates to a bounding box values.
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
 #[must_use]
-pub fn xyz_to_bbox(zoom: u8, min_col: u32, min_row: u32, max_col: u32, max_row: u32) -> [f64; 4] {
+pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> [f64; 4] {
     assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
 
     let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
 
-    let left_down_bbox = tile_bbox(min_col, max_row, tile_length);
-    let right_top_bbox = tile_bbox(max_col, min_row, tile_length);
+    let left_down_bbox = tile_bbox(min_x, max_y, tile_length);
+    let right_top_bbox = tile_bbox(max_x, min_y, tile_length);
 
     let (min_lng, min_lat) = webmercator_to_wgs84(left_down_bbox[0], left_down_bbox[1]);
     let (max_lng, max_lat) = webmercator_to_wgs84(right_top_bbox[2], right_top_bbox[3]);
@@ -225,8 +225,8 @@ fn tile_bbox(x: u32, y: u32, tile_length: f64) -> [f64; 4] {
 /// Convert bounding box to a tile box `(min_x, min_y, max_x, max_y)` for a given zoom
 #[must_use]
 pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u32, u32, u32, u32) {
-    let (min_col, min_row) = tile_colrow(left, top, zoom);
-    let (max_col, max_row) = tile_colrow(right, bottom, zoom);
+    let (min_col, min_row) = tile_index(left, top, zoom);
+    let (max_col, max_row) = tile_index(right, bottom, zoom);
     (min_col, min_row, max_col, max_row)
 }
 
@@ -251,21 +251,17 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
     (lng, lat)
 }
 
-/// transform WGS84 to WebMercator
+/// transform WGS84 to `WebMercator`
 // from https://github.com/Esri/arcgis-osm-editor/blob/e4b9905c264aa22f8eeb657efd52b12cdebea69a/src/OSMWeb10_1/Utils/WebMercator.cs
 #[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
-    (to_mercator_x(lon), to_mercator_y(lat))
-}
+    let x = lon * PI / 180.0 * EARTH_RADIUS;
 
-fn to_mercator_y(lat: f64) -> f64 {
     let rad = lat * PI / 180.0;
     let sin = rad.sin();
-    EARTH_RADIUS / 2.0 * ((1.0 + sin) / (1.0 - sin)).ln()
-}
+    let y = EARTH_RADIUS / 2.0 * ((1.0 + sin) / (1.0 - sin)).ln();
 
-fn to_mercator_x(lon: f64) -> f64 {
-    lon * PI / 180.0 * EARTH_RADIUS
+    (x, y)
 }
 
 #[cfg(test)]
@@ -316,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_tile_colrow() {
-        assert_eq!((0, 0), tile_colrow(-180.0, 85.0511, 0));
+        assert_eq!((0, 0), tile_index(-180.0, 85.0511, 0));
     }
 
     #[test]
