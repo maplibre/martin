@@ -45,7 +45,7 @@ dependencies = [
  "actix-service",
  "actix-utils",
  "ahash",
- "base64 0.21.5",
+ "base64",
  "bitflags 2.4.1",
  "brotli",
  "bytes",
@@ -431,12 +431,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35636a1494ede3b646cc98f74f8e62c773a38a659ebc777a2cf26b9b74171df9"
@@ -588,10 +582,8 @@ checksum = "7f2c685bad3eb3d45a01354cedb7d5faa66194d1d58ba6e267a8de788f79db38"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "serde",
- "wasm-bindgen",
  "windows-targets 0.48.5",
 ]
 
@@ -938,9 +930,9 @@ dependencies = [
 
 [[package]]
 name = "deadpool-postgres"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfcf8f300f6c3a1e02e847c8b261d8a1116baa3a6188563cdcc74ab5be4973e9"
+checksum = "bda39fa1cfff190d8924d447ad04fd22772c250438ca5ce1dfb3c80621c05aaa"
 dependencies = [
  "deadpool",
  "tokio",
@@ -1889,7 +1881,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "serde_with 3.4.0",
+ "serde_with",
  "serde_yaml",
  "spreet",
  "subst",
@@ -1905,7 +1897,6 @@ version = "0.2.0"
 dependencies = [
  "approx",
  "insta",
- "tile-grid",
 ]
 
 [[package]]
@@ -1927,7 +1918,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "serde_with 3.4.0",
+ "serde_with",
  "serde_yaml",
  "size_format",
  "sqlite-hashes",
@@ -2423,7 +2414,7 @@ version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49b6c5ef183cd3ab4ba005f1ca64c21e8bd97ce4699cfea9e8d9a2c4958ca520"
 dependencies = [
- "base64 0.21.5",
+ "base64",
  "byteorder",
  "bytes",
  "fallible-iterator 0.2.0",
@@ -2894,7 +2885,7 @@ version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c74cae0a4cf6ccbbf5f359f08efdf8ee7e1dc532573bf0db71968cb56b1448c"
 dependencies = [
- "base64 0.21.5",
+ "base64",
 ]
 
 [[package]]
@@ -3034,17 +3025,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_repr"
-version = "0.1.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3081f5ffbb02284dda55132aa26daecedd7372a42417bbbab6f14ab7d6bb9145"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.41",
-]
-
-[[package]]
 name = "serde_tuple"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3079,47 +3059,19 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "2.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07ff71d2c147a7b57362cead5e22f772cd52f6ab31cfcd9edcd7f6aeb2a0afbe"
-dependencies = [
- "base64 0.13.1",
- "chrono",
- "hex",
- "indexmap 1.9.3",
- "serde",
- "serde_json",
- "serde_with_macros 2.3.3",
- "time",
-]
-
-[[package]]
-name = "serde_with"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64cd236ccc1b7a29e7e2739f27c0b2dd199804abc4290e32f59f3b68d6405c23"
 dependencies = [
- "base64 0.21.5",
+ "base64",
  "chrono",
  "hex",
  "indexmap 1.9.3",
  "indexmap 2.1.0",
  "serde",
  "serde_json",
- "serde_with_macros 3.4.0",
+ "serde_with_macros",
  "time",
-]
-
-[[package]]
-name = "serde_with_macros"
-version = "2.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "881b6f881b17d13214e5d494c939ebab463d01264ce1811e9d4ac3a882e7695f"
-dependencies = [
- "darling",
- "proc-macro2",
- "quote",
- "syn 2.0.41",
 ]
 
 [[package]]
@@ -3423,7 +3375,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e37195395df71fd068f6e2082247891bc11e3289624bbc776a0cdfa1ca7f1ea4"
 dependencies = [
  "atoi",
- "base64 0.21.5",
+ "base64",
  "bitflags 2.4.1",
  "byteorder",
  "bytes",
@@ -3465,7 +3417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6ac0ac3b7ccd10cc96c7ab29791a7dd236bd94021f31eec7ba3d46a74aa1c24"
 dependencies = [
  "atoi",
- "base64 0.21.5",
+ "base64",
  "bitflags 2.4.1",
  "byteorder",
  "crc",
@@ -3665,21 +3617,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.41",
-]
-
-[[package]]
-name = "tile-grid"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b57cef548fda6f42e870ed9106b6c15af81f34e4b7f679d8620b3be21d02039"
-dependencies = [
- "chrono",
- "once_cell",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with 2.3.3",
- "thiserror",
 ]
 
 [[package]]
@@ -4057,7 +3994,7 @@ version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c51daa774fe9ee5efcf7b4fec13019b8119cda764d9a8b5b06df02bb1445c656"
 dependencies = [
- "base64 0.21.5",
+ "base64",
  "log",
  "pico-args",
  "usvg-parser",
