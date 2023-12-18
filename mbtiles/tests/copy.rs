@@ -4,11 +4,16 @@ use std::str::from_utf8;
 
 use ctor::ctor;
 use insta::{allow_duplicates, assert_display_snapshot};
+use itertools::Itertools as _;
 use log::info;
+use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use mbtiles::{apply_patch, init_mbtiles_schema, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier};
+use mbtiles::{
+    apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
+    MbtilesCopier,
+};
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
@@ -83,10 +88,6 @@ fn path(mbt: &Mbtiles) -> PathBuf {
     PathBuf::from(mbt.filepath())
 }
 
-fn copier(src: &Mbtiles, dst: &Mbtiles) -> MbtilesCopier {
-    MbtilesCopier::new(path(src), path(dst))
-}
-
 fn shorten(v: MbtTypeCli) -> &'static str {
     match v {
         Flat => "flat",
@@ -131,9 +132,13 @@ macro_rules! new_file {
         cn_tmp.execute($sql_meta).await.unwrap();
 
         let (dst_mbt, cn_dst) = open!($function, $($arg)*);
-        let mut opt = copier(&tmp_mbt, &dst_mbt);
-        opt.dst_type_cli = Some($dst_type_cli);
-        opt.skip_agg_tiles_hash = $skip_agg;
+        let opt = MbtilesCopier {
+        src_file: path(&tmp_mbt),
+        dst_file: path(&dst_mbt),
+        dst_type_cli: Some($dst_type_cli),
+        skip_agg_tiles_hash: $skip_agg,
+        ..Default::default()
+    };
         opt.run().await.unwrap();
 
         (dst_mbt, cn_dst)
@@ -195,7 +200,12 @@ fn databases() -> Databases {
 
             let (v1_mbt, mut v1_cn) = open!(databases, "{typ}__v1");
             let raw_mbt = result.mbtiles("v1_no_hash", mbt_typ);
-            copier(raw_mbt, &v1_mbt).run().await.unwrap();
+            let opt = MbtilesCopier {
+                src_file: path(raw_mbt),
+                dst_file: path(&v1_mbt),
+                ..Default::default()
+            };
+            opt.run().await.unwrap();
             let dmp = dump(&mut v1_cn).await.unwrap();
             assert_snapshot!(&dmp, "{typ}__v1");
             let hash = v1_mbt.validate(Off, Verify).await.unwrap();
@@ -216,9 +226,13 @@ fn databases() -> Databases {
 
             let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif");
             let v1_mbt = result.mbtiles("v1", mbt_typ);
-            let mut opt = copier(v1_mbt, &dif_mbt);
             let v2_mbt = result.mbtiles("v2", mbt_typ);
-            opt.diff_with_file = Some(path(v2_mbt));
+            let opt = MbtilesCopier {
+                src_file: path(v1_mbt),
+                dst_file: path(&dif_mbt),
+                diff_with_file: Some(path(v2_mbt)),
+                ..Default::default()
+            };
             opt.run().await.unwrap();
             let dmp = dump(&mut dif_cn).await.unwrap();
             assert_snapshot!(&dmp, "{typ}__dif");
@@ -244,26 +258,87 @@ async fn convert(
     let mem = Mbtiles::new(":memory:")?;
     let (frm_mbt, _frm_cn) = new_file!(convert, frm_type, METADATA_V1, TILES_V1, "{frm}-{to}");
 
-    let mut opt = copier(&frm_mbt, &mem);
-    opt.dst_type_cli = Some(dst_type);
+    let opt = MbtilesCopier {
+        src_file: path(&frm_mbt),
+        dst_file: path(&mem),
+        dst_type_cli: Some(dst_type),
+        ..Default::default()
+    };
     let dmp = dump(&mut opt.run().await?).await?;
     pretty_assert_eq!(databases.dump("v1", dst_type), &dmp);
 
-    let mut opt = copier(&frm_mbt, &mem);
-    opt.dst_type_cli = Some(dst_type);
-    opt.zoom_levels.push(6);
-    let z6only = dump(&mut opt.run().await?).await?;
-    assert_snapshot!(z6only, "v1__z6__{frm}-{to}");
+    let opt = MbtilesCopier {
+        src_file: path(&frm_mbt),
+        dst_file: path(&mem),
+        copy: CopyType::Metadata,
+        dst_type_cli: Some(dst_type),
+        ..Default::default()
+    };
+    let dmp = dump(&mut opt.run().await?).await?;
+    allow_duplicates! {
+        assert_snapshot!(dmp, "v1__meta__{to}");
+    };
 
-    let mut opt = copier(&frm_mbt, &mem);
-    opt.dst_type_cli = Some(dst_type);
-    opt.min_zoom = Some(6);
+    let opt = MbtilesCopier {
+        src_file: path(&frm_mbt),
+        dst_file: path(&mem),
+        copy: CopyType::Tiles,
+        dst_type_cli: Some(dst_type),
+        ..Default::default()
+    };
+    let dmp = dump(&mut opt.run().await?).await?;
+    allow_duplicates! {
+        assert_snapshot!(dmp, "v1__tiles__{to}");
+    }
+
+    let opt = MbtilesCopier {
+        src_file: path(&frm_mbt),
+        dst_file: path(&mem),
+        dst_type_cli: Some(dst_type),
+        zoom_levels: vec![6],
+        ..Default::default()
+    };
+    let z6only = dump(&mut opt.run().await?).await?;
+    allow_duplicates! {
+        assert_snapshot!(z6only, "v1__z6__{to}");
+    }
+
+    // Filter (0, 0, 2, 2) in mbtiles coordinates, which is (0, 2^5-1-2, 2, 2^5-1-0) = (0, 29, 2, 31) in XYZ coordinates, and slightly decrease it
+    let mut bbox = xyz_to_bbox(5, 0, invert_y_value(5, 2), 2, invert_y_value(5, 0));
+    let adjust = 90.0 * 0.1 / f64::from(1 << 5);
+    bbox[0] += adjust;
+    bbox[1] += adjust;
+    bbox[2] -= adjust;
+    bbox[3] -= adjust;
+    let opt = MbtilesCopier {
+        src_file: path(&frm_mbt),
+        dst_file: path(&mem),
+        dst_type_cli: Some(dst_type),
+        bbox: vec![bbox.into()],
+        ..Default::default()
+    };
+    let dmp = dump(&mut opt.run().await?).await?;
+    allow_duplicates! {
+        assert_snapshot!(dmp, "v1__bbox__{to}");
+    }
+
+    let opt = MbtilesCopier {
+        src_file: path(&frm_mbt),
+        dst_file: path(&mem),
+        dst_type_cli: Some(dst_type),
+        min_zoom: Some(6),
+        ..Default::default()
+    };
     pretty_assert_eq!(&z6only, &dump(&mut opt.run().await?).await?);
 
-    let mut opt = copier(&frm_mbt, &mem);
-    opt.dst_type_cli = Some(dst_type);
-    opt.min_zoom = Some(6);
-    opt.max_zoom = Some(6);
+    let opt = MbtilesCopier {
+        src_file: path(&frm_mbt),
+        dst_file: path(&mem),
+        dst_type_cli: Some(dst_type),
+        min_zoom: Some(6),
+        max_zoom: Some(6),
+        ..Default::default()
+    };
     pretty_assert_eq!(&z6only, &dump(&mut opt.run().await?).await?);
 
     Ok(())
@@ -287,8 +362,12 @@ async fn diff_and_patch(
     let (dif_mbt, mut dif_cn) = open!(diff_and_patchdiff_and_patch, "{prefix}__dif");
 
     info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
-    let mut opt = copier(v1_mbt, &dif_mbt);
-    opt.diff_with_file = Some(path(v2_mbt));
+    let mut opt = MbtilesCopier {
+        src_file: path(v1_mbt),
+        dst_file: path(&dif_mbt),
+        diff_with_file: Some(path(v2_mbt)),
+        ..Default::default()
+    };
     if let Some(dif_type) = dif_type {
         opt.dst_type_cli = Some(dif_type);
     }
@@ -352,8 +431,12 @@ async fn patch_on_copy(
     let (v2_mbt, mut v2_cn) = open!(patch_on_copy, "{prefix}__v2");
 
     info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
-    let mut opt = copier(v1_mbt, &v2_mbt);
-    opt.apply_patch = Some(path(dif_mbt));
+    let mut opt = MbtilesCopier {
+        src_file: path(v1_mbt),
+        dst_file: path(&v2_mbt),
+        apply_patch: Some(path(dif_mbt)),
+        ..Default::default()
+    };
     if let Some(v2_type) = v2_type {
         opt.dst_type_cli = Some(v2_type);
     }
@@ -370,11 +453,16 @@ async fn patch_on_copy(
 #[actix_rt::test]
 #[ignore]
 async fn test_one() {
+    let db = Databases::default();
+
+    // Test convert
+    convert(Flat, Flat, &db).await.unwrap();
+
+    // Test diff patch copy
     let src_type = FlatWithHash;
     let dif_type = FlatWithHash;
     // let dst_type = Some(FlatWithHash);
     let dst_type = None;
-    let db = databases();
 
     diff_and_patch(src_type, dif_type, dst_type, &db)
         .await
@@ -465,7 +553,6 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                         })
                         .unwrap_or("NULL".to_string())
                     })
-                    .collect::<Vec<_>>()
                     .join(", ");
                 format!("(  {val}  )")
             })
@@ -480,9 +567,14 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
 }
 
 #[allow(dead_code)]
-async fn save_to_file(source_mbt: &Mbtiles, path: &str) -> MbtResult<()> {
-    let mut opt = copier(source_mbt, &Mbtiles::new(path)?);
-    opt.skip_agg_tiles_hash = true;
+async fn save_to_file(source_mbt: &Mbtiles, path_mbt: &str) -> MbtResult<()> {
+    let dst = &Mbtiles::new(path_mbt)?;
+    let opt = MbtilesCopier {
+        src_file: path(source_mbt),
+        dst_file: path(dst),
+        skip_agg_tiles_hash: true,
+        ..Default::default()
+    };
     opt.run().await?;
     Ok(())
 }

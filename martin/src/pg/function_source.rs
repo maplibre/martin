@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::iter::zip;
 
 use log::{debug, warn};

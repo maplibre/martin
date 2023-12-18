@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use bit_set::BitSet;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::protobuf::Message;
@@ -335,7 +335,6 @@ fn parse_font(
                         } else {
                             format!("{s:02X}-{e:02X}")
                         })
-                        .collect::<Vec<_>>()
                         .join(", "),
                 );
 

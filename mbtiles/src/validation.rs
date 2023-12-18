@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 use std::str::from_utf8;
 
-#[cfg(feature = "cli")]
-use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo, MAX_ZOOM};
@@ -50,9 +48,9 @@ impl MbtType {
     }
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum IntegrityCheckType {
     #[default]
     Quick,
@@ -60,9 +58,9 @@ pub enum IntegrityCheckType {
     Off,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum AggHashType {
     /// Verify that the aggregate tiles hash value in the metadata table matches the computed value. Used by default.
     #[default]

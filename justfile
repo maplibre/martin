@@ -264,6 +264,10 @@ fmt-md:
 fmt2:
     cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate
 
+# Run cargo check
+check:
+    cargo check --workspace --all-targets --bins --tests --lib --benches
+
 # Run cargo clippy
 clippy:
     cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings

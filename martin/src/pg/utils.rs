@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use deadpool_postgres::tokio_postgres::types::Json;
+use itertools::Itertools as _;
 use log::{error, info, warn};
 use postgis::{ewkb, LineString, Point, Polygon};
 use tilejson::{Bounds, TileJSON};
@@ -104,7 +105,7 @@ fn find_info_kv<'a, T>(
     match find_kv_ignore_case(map, key) {
         Ok(None) => {
             warn!("Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
-                map.keys().map(String::as_str).collect::<Vec<_>>().join(", "));
+                map.keys().map(String::as_str).join(", "));
             None
         }
         Ok(Some(result)) => {
