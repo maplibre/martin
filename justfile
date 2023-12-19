@@ -155,7 +155,10 @@ test-int: clean-test install-sqlx
     fi
 
 # Run integration tests and save its output as the new expected output
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
+
+# Bless integration tests
+bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected
