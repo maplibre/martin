@@ -63,6 +63,12 @@ enum Commands {
         /// Diff file
         diff_file: PathBuf,
     },
+    /// Update metadata to match the content of the file
+    #[command(name = "meta-update", alias = "update-meta")]
+    UpdateMetadata {
+        /// MBTiles file to validate
+        file: PathBuf,
+    },
     /// Validate tile data if hash of tile data exists in file
     #[command(name = "validate", alias = "check", alias = "verify")]
     Validate {
@@ -172,6 +178,10 @@ async fn main_int() -> anyhow::Result<()> {
             diff_file,
         } => {
             apply_patch(src_file, diff_file).await?;
+        }
+        Commands::UpdateMetadata { file } => {
+            let mbt = Mbtiles::new(file.as_path())?;
+            mbt.update_metadata().await?;
         }
         Commands::Validate {
             file,
