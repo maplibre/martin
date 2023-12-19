@@ -26,6 +26,8 @@ pub use queries::*;
 
 mod summary;
 
+mod update;
+
 mod validation;
 pub use validation::{
     calc_agg_tiles_hash, AggHashType, IntegrityCheckType, MbtType, AGG_TILES_HASH,

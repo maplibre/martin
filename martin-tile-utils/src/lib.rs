@@ -35,6 +35,20 @@ impl Format {
         })
     }
 
+    /// Get the `format` value as it should be stored in the `MBTiles` metadata table
+    #[must_use]
+    pub fn metadata_format_value(&self) -> &'static str {
+        match *self {
+            Self::Gif => "gif",
+            Self::Jpeg => "jpeg",
+            Self::Json => "json",
+            // QGIS uses `pbf` instead of `mvt` for some reason
+            Self::Mvt => "pbf",
+            Self::Png => "png",
+            Self::Webp => "webp",
+        }
+    }
+
     #[must_use]
     pub fn content_type(&self) -> &str {
         match *self {

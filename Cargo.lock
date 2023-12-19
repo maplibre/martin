@@ -1893,7 +1893,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "approx",
  "insta",
@@ -1901,7 +1901,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "actix-rt",
  "anyhow",

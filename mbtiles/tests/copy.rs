@@ -246,6 +246,16 @@ fn databases() -> Databases {
     })
 }
 
+#[actix_rt::test]
+async fn update() -> MbtResult<()> {
+    let (mbt, mut cn) = new_file_no_hash!(databases, Flat, METADATA_V1, TILES_V1, "update");
+    mbt.update_metadata().await?;
+    let dmp = dump(&mut cn).await?;
+    assert_snapshot!(&dmp, "update");
+
+    Ok(())
+}
+
 #[rstest]
 #[trace]
 #[actix_rt::test]

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -153,20 +154,12 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 
 fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     let mut ranges = Vec::new();
-    let mut zooms_vec = Vec::new();
-    let zooms = if let Some(max_zoom) = args.max_zoom {
-        let min_zoom = args.min_zoom.unwrap_or(0);
-        zooms_vec.extend(min_zoom..=max_zoom);
-        &zooms_vec
-    } else {
-        &args.zoom_levels
-    };
     let boxes = if args.bbox.is_empty() {
         vec![Bounds::MAX_TILED]
     } else {
         args.bbox.clone()
     };
-    for zoom in zooms {
+    for zoom in get_zooms(args).iter() {
         for bbox in &boxes {
             let (min_x, min_y, max_x, max_y) =
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
@@ -177,6 +170,17 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
         }
     }
     ranges
+}
+
+fn get_zooms(args: &CopyArgs) -> Cow<Vec<u8>> {
+    if let Some(max_zoom) = args.max_zoom {
+        let mut zooms_vec = Vec::new();
+        let min_zoom = args.min_zoom.unwrap_or(0);
+        zooms_vec.extend(min_zoom..=max_zoom);
+        Cow::Owned(zooms_vec)
+    } else {
+        Cow::Borrowed(&args.zoom_levels)
+    }
 }
 
 struct TileXyz {
@@ -281,7 +285,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     } else {
         CopyDuplicateMode::Override
     };
-    let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, args.mbt_type).await?;
+    let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, &args).await?;
     let query = args.url_query.as_deref();
     let req = TestRequest::default()
         .insert_header((ACCEPT_ENCODING, args.encoding.as_str()))
@@ -371,10 +375,10 @@ async fn init_schema(
     conn: &mut SqliteConnection,
     sources: &[&dyn Source],
     tile_info: TileInfo,
-    mbt_type: Option<MbtTypeCli>,
+    args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
     Ok(if is_empty_database(&mut *conn).await? {
-        let mbt_type = match mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
             MbtTypeCli::Flat => MbtType::Flat,
             MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
             MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
@@ -383,12 +387,19 @@ async fn init_schema(
         let mut tj = merge_tilejson(sources, String::new());
         tj.other.insert(
             "format".to_string(),
-            serde_json::Value::String(tile_info.format.to_string()),
+            serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
         );
         tj.other.insert(
             "generator".to_string(),
             serde_json::Value::String(format!("martin-cp v{VERSION}")),
         );
+        let zooms = get_zooms(args);
+        if let Some(min_zoom) = zooms.iter().min() {
+            tj.minzoom = Some(*min_zoom);
+        }
+        if let Some(max_zoom) = zooms.iter().max() {
+            tj.maxzoom = Some(*max_zoom);
+        }
         mbt.insert_metadata(&mut *conn, &tj).await?;
         mbt_type
     } else {
