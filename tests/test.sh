@@ -394,14 +394,16 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
 
   test_martin_cp "flat" "${CFG[@]}" \
       --source table_source --mbtiles-type flat --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45"
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0"
   test_martin_cp "flat-with-hash" "${CFG[@]}" \
       --source function_zxy_query_test --url-query 'foo=bar&token=martin' --encoding 'identity' --mbtiles-type flat-with-hash --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45"
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0"
   test_martin_cp "normalized" "${CFG[@]}" \
       --source geography-class-png --mbtiles-type normalized --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "name=normalized" --set-meta=center=0,0,0
+      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
 
   unset DATABASE_URL
 
