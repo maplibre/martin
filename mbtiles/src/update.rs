@@ -1,4 +1,5 @@
 use log::info;
+use sqlx::query;
 
 use crate::errors::MbtResult;
 use crate::Mbtiles;
@@ -6,7 +7,15 @@ use crate::Mbtiles;
 impl Mbtiles {
     pub async fn update_metadata(&self) -> MbtResult<()> {
         let mut conn = self.open().await?;
-        let info = self.summary(&mut conn).await?;
+
+        let info = query!(
+            "
+    SELECT min(zoom_level) AS min_zoom,
+           max(zoom_level) AS max_zoom
+    FROM tiles"
+        )
+        .fetch_one(&mut conn)
+        .await?;
 
         if let Some(min_zoom) = info.min_zoom {
             info!("Updating minzoom to {min_zoom}");
