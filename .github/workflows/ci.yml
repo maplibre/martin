@@ -109,16 +109,13 @@ jobs:
           postgis/postgis:15-3.3
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cross
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - name: Install cross
-        run: |
-          cargo install cross
-          # Install latest cross version from git (disabled as it is probably less stable)
-          # cargo install cross --git https://github.com/cross-rs/cross
-          cross --version
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
