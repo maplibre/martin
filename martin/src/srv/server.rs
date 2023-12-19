@@ -382,23 +382,12 @@ pub async fn get_tile_content(
         .await
         .map_err(map_internal_error)?;
 
-    // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
-    // TODO: can zlib, brotli, or zstd be concatenated?
-    // TODO: implement decompression step for other concatenate-able formats
-    let can_join = info.format == Format::Mvt
-        && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
     let mut layer_count = 0;
     let mut last_non_empty_layer = 0;
     for (idx, tile) in tiles.iter().enumerate() {
         if !tile.is_empty() {
             layer_count += 1;
             last_non_empty_layer = idx;
-            if layer_count > 1 && !can_join {
-                return Err(ErrorBadRequest(format!(
-                    "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
-                    xyz.z
-                )))?;
-            }
         }
     }
 
@@ -406,7 +395,20 @@ pub async fn get_tile_content(
     let data = match layer_count {
         1 => tiles.swap_remove(last_non_empty_layer),
         0 => return Ok(Tile::new(Vec::new(), info)),
-        _ => tiles.concat(),
+        _ => {
+            // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
+            // TODO: can zlib, brotli, or zstd be concatenated?
+            // TODO: implement decompression step for other concatenate-able formats
+            let can_join = info.format == Format::Mvt
+                && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
+            if !can_join {
+                return Err(ErrorBadRequest(format!(
+                    "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
+                    xyz.z
+                )))?;
+            }
+            tiles.concat()
+        }
     };
 
     // decide if (re-)encoding of the tile data is needed, and recompress if so
