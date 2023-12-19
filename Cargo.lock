@@ -1844,7 +1844,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "martin"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -1893,7 +1893,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "approx",
  "insta",
@@ -1901,7 +1901,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.8.3"
+version = "0.8.4"
 dependencies = [
  "actix-rt",
  "anyhow",

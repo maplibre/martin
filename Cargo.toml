@@ -48,7 +48,7 @@ insta = "1"
 itertools = "0.12"
 json-patch = "1.2"
 log = "0.4"
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.2.0" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.3.0" }
 mbtiles = { path = "./mbtiles", version = "0.8.0" }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
@@ -85,7 +85,7 @@ sqlx-macros.opt-level = 3
 insta.opt-level = 3
 similar.opt-level = 3
 
-[patch.crates-io]
+#[patch.crates-io]
 #pmtiles = { path = "../pmtiles-rs" }
 #sqlite-hashes = { path = "../sqlite-hashes" }
 #tilejson = { path = "../tilejson" }
