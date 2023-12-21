@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -19,7 +20,8 @@ use martin::{
 use martin_tile_utils::{bbox_to_xyz, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
-    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtType, MbtTypeCli, Mbtiles,
+    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtError, MbtType, MbtTypeCli,
+    Mbtiles,
 };
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
@@ -73,9 +75,9 @@ pub struct CopyArgs {
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
-    /// Specify the behaviour when generated tile already exists in the destination file.
-    #[arg(long, value_enum, default_value_t = CopyDuplicateMode::default())]
-    pub on_duplicate: CopyDuplicateMode,
+    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+    #[arg(long, value_enum)]
+    pub on_duplicate: Option<CopyDuplicateMode>,
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
     pub concurrency: Option<usize>,
@@ -118,7 +120,7 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 }
 
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
-    info!("Martin-CP tile copier v{VERSION}");
+    info!("martin-cp tile copier v{VERSION}");
 
     let env = OsEnv::default();
     let save_config = copy_args.meta.save_config.clone();
@@ -152,20 +154,12 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 
 fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     let mut ranges = Vec::new();
-    let mut zooms_vec = Vec::new();
-    let zooms = if let Some(max_zoom) = args.max_zoom {
-        let min_zoom = args.min_zoom.unwrap_or(0);
-        zooms_vec.extend(min_zoom..=max_zoom);
-        &zooms_vec
-    } else {
-        &args.zoom_levels
-    };
     let boxes = if args.bbox.is_empty() {
         vec![Bounds::MAX_TILED]
     } else {
         args.bbox.clone()
     };
-    for zoom in zooms {
+    for zoom in get_zooms(args).iter() {
         for bbox in &boxes {
             let (min_x, min_y, max_x, max_y) =
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
@@ -176,6 +170,17 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
         }
     }
     ranges
+}
+
+fn get_zooms(args: &CopyArgs) -> Cow<Vec<u8>> {
+    if let Some(max_zoom) = args.max_zoom {
+        let mut zooms_vec = Vec::new();
+        let min_zoom = args.min_zoom.unwrap_or(0);
+        zooms_vec.extend(min_zoom..=max_zoom);
+        Cow::Owned(zooms_vec)
+    } else {
+        Cow::Borrowed(&args.zoom_levels)
+    }
 }
 
 struct TileXyz {
@@ -220,7 +225,7 @@ enum MartinCpError {
     #[error(transparent)]
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
-    Mbt(#[from] mbtiles::MbtError),
+    Mbt(#[from] MbtError),
 }
 
 impl Display for Progress {
@@ -273,7 +278,14 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     let tiles = compute_tile_ranges(&args);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
-    let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, args.mbt_type).await?;
+    let on_duplicate = if let Some(on_duplicate) = args.on_duplicate {
+        on_duplicate
+    } else if !is_empty_database(&mut conn).await? {
+        return Err(MbtError::DestinationFileExists(output_file.clone()).into());
+    } else {
+        CopyDuplicateMode::Override
+    };
+    let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, &args).await?;
     let query = args.url_query.as_deref();
     let req = TestRequest::default()
         .insert_header((ACCEPT_ENCODING, args.encoding.as_str()))
@@ -317,7 +329,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
-                        mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
+                        mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                             .await?;
                         batch.clear();
                         last_saved = Instant::now();
@@ -332,7 +344,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 }
             }
             if !batch.is_empty() {
-                mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
+                mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                     .await?;
             }
             Ok(())
@@ -363,10 +375,10 @@ async fn init_schema(
     conn: &mut SqliteConnection,
     sources: &[&dyn Source],
     tile_info: TileInfo,
-    mbt_type: Option<MbtTypeCli>,
+    args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
     Ok(if is_empty_database(&mut *conn).await? {
-        let mbt_type = match mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
             MbtTypeCli::Flat => MbtType::Flat,
             MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
             MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
@@ -375,12 +387,19 @@ async fn init_schema(
         let mut tj = merge_tilejson(sources, String::new());
         tj.other.insert(
             "format".to_string(),
-            serde_json::Value::String(tile_info.format.to_string()),
+            serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
         );
         tj.other.insert(
             "generator".to_string(),
             serde_json::Value::String(format!("martin-cp v{VERSION}")),
         );
+        let zooms = get_zooms(args);
+        if let Some(min_zoom) = zooms.iter().min() {
+            tj.minzoom = Some(*min_zoom);
+        }
+        if let Some(max_zoom) = zooms.iter().max() {
+            tj.maxzoom = Some(*max_zoom);
+        }
         mbt.insert_metadata(&mut *conn, &tj).await?;
         mbt_type
     } else {

@@ -159,7 +159,10 @@ test-int: clean-test install-sqlx
     fi
 
 # Run integration tests and save its output as the new expected output
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
+
+# Bless integration tests
+bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected
@@ -267,6 +270,10 @@ fmt-md:
 # Run Nightly cargo fmt, ordering imports
 fmt2:
     cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate
+
+# Run cargo check
+check:
+    cargo check --workspace --all-targets --bins --tests --lib --benches
 
 # Run cargo clippy
 clippy:

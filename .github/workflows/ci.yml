@@ -88,7 +88,6 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      TARGETS: 'aarch64-unknown-linux-musl x86_64-unknown-linux-musl'
       # TODO:  aarch64-unknown-linux-gnu
     services:
       postgres:
@@ -111,16 +110,13 @@ jobs:
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cross
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - name: Install cross
-        run: |
-          cargo install cross
-          # Install latest cross version from git (disabled as it is probably less stable)
-          # cargo install cross --git https://github.com/cross-rs/cross
-          cross --version
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -140,7 +136,7 @@ jobs:
 
       - name: Build targets
         run: |
-          for target in $TARGETS; do
+          for target in "aarch64-unknown-linux-musl" "x86_64-unknown-linux-musl"; do
             echo -e "\n----------------------------------------------"
             echo "Building $target"
 
@@ -243,10 +239,8 @@ jobs:
         include:
           - target: aarch64-apple-darwin
             os: macOS-latest
-            cross: 'true'
           - target: debian-x86_64
             os: ubuntu-latest
-            cross: 'true'
           - target: x86_64-apple-darwin
             os: macOS-latest
           - target: x86_64-pc-windows-msvc

@@ -382,24 +382,33 @@ pub async fn get_tile_content(
         .await
         .map_err(map_internal_error)?;
 
-    // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
-    // TODO: can zlib, brotli, or zstd be concatenated?
-    // TODO: implement decompression step for other concatenate-able formats
-    let can_join = info.format == Format::Mvt
-        && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
-    let layer_count = tiles.iter().filter(|v| !v.is_empty()).count();
-    if !can_join && layer_count > 1 {
-        return Err(ErrorBadRequest(format!(
-            "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
-            xyz.z
-        )))?;
+    let mut layer_count = 0;
+    let mut last_non_empty_layer = 0;
+    for (idx, tile) in tiles.iter().enumerate() {
+        if !tile.is_empty() {
+            layer_count += 1;
+            last_non_empty_layer = idx;
+        }
     }
 
     // Minor optimization to prevent concatenation if there are less than 2 tiles
     let data = match layer_count {
-        1 => tiles.swap_remove(0),
+        1 => tiles.swap_remove(last_non_empty_layer),
         0 => return Ok(Tile::new(Vec::new(), info)),
-        _ => tiles.concat(),
+        _ => {
+            // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
+            // TODO: can zlib, brotli, or zstd be concatenated?
+            // TODO: implement decompression step for other concatenate-able formats
+            let can_join = info.format == Format::Mvt
+                && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
+            if !can_join {
+                return Err(ErrorBadRequest(format!(
+                    "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
+                    xyz.z
+                )))?;
+            }
+            tiles.concat()
+        }
     };
 
     // decide if (re-)encoding of the tile data is needed, and recompress if so
@@ -538,13 +547,15 @@ mod tests {
 
     #[derive(Debug, Clone)]
     struct TestSource {
+        id: &'static str,
         tj: TileJSON,
+        data: TileData,
     }
 
     #[async_trait]
     impl Source for TestSource {
         fn get_id(&self) -> &str {
-            "id"
+            self.id
         }
 
         fn get_tilejson(&self) -> &TileJSON {
@@ -552,7 +563,7 @@ mod tests {
         }
 
         fn get_tile_info(&self) -> TileInfo {
-            unimplemented!()
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
 
         fn clone_source(&self) -> Box<dyn Source> {
@@ -564,7 +575,7 @@ mod tests {
             _xyz: &TileCoord,
             _url_query: &Option<UrlQuery>,
         ) -> MartinResult<TileData> {
-            unimplemented!()
+            Ok(self.data.clone())
         }
     }
 
@@ -572,6 +583,7 @@ mod tests {
     fn test_merge_tilejson() {
         let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_string();
         let src1 = TestSource {
+            id: "id",
             tj: tilejson! {
                 tiles: vec![],
                 name: "layer1".to_string(),
@@ -585,6 +597,7 @@ mod tests {
                     ]))
                 ],
             },
+            data: Vec::default(),
         };
         let tj = merge_tilejson(&[&src1], url.clone());
         assert_eq!(
@@ -596,6 +609,7 @@ mod tests {
         );
 
         let src2 = TestSource {
+            id: "id",
             tj: tilejson! {
                 tiles: vec![],
                 name: "layer2".to_string(),
@@ -609,6 +623,7 @@ mod tests {
                     ]))
                 ],
             },
+            data: Vec::default(),
         };
 
         let tj = merge_tilejson(&[&src1, &src2], url.clone());
@@ -630,5 +645,44 @@ mod tests {
                 ),
             ])
         );
+    }
+
+    #[actix_rt::test]
+    async fn test_tile_content() {
+        let non_empty_source = TestSource {
+            id: "non-empty",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+        };
+        let empty_source = TestSource {
+            id: "empty",
+            tj: tilejson! { tiles: vec![] },
+            data: Vec::default(),
+        };
+        let sources = TileSources::new(vec![vec![
+            Box::new(non_empty_source),
+            Box::new(empty_source),
+        ]]);
+
+        for (source_id, expected) in &[
+            ("non-empty", vec![1_u8, 2, 3]),
+            ("empty", Vec::<u8>::new()),
+            ("empty,empty", Vec::<u8>::new()),
+            ("non-empty,non-empty", vec![1_u8, 2, 3, 1_u8, 2, 3]),
+            ("non-empty,empty", vec![1_u8, 2, 3]),
+            ("non-empty,empty,non-empty", vec![1_u8, 2, 3, 1_u8, 2, 3]),
+            ("empty,non-empty", vec![1_u8, 2, 3]),
+            ("empty,non-empty,empty", vec![1_u8, 2, 3]),
+        ] {
+            let (src, _, info) = sources.get_sources(source_id, None).unwrap();
+            let xyz = TileCoord { z: 0, x: 0, y: 0 };
+            assert_eq!(
+                expected,
+                &get_tile_content(src.as_slice(), info, &xyz, None, None)
+                    .await
+                    .unwrap()
+                    .data
+            );
+        }
     }
 }

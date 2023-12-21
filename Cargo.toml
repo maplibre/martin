@@ -38,7 +38,7 @@ cargo-husky = { version = "1", features = ["user-hooks"], default-features = fal
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.2"
-deadpool-postgres = "0.11"
+deadpool-postgres = "0.12"
 enum-display = "0.1"
 env_logger = "0.10"
 flate2 = "1"
@@ -48,7 +48,7 @@ insta = "1"
 itertools = "0.12"
 json-patch = "1.2"
 log = "0.4"
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.2.0" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.3.0" }
 mbtiles = { path = "./mbtiles", version = "0.8.0" }
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
@@ -75,6 +75,7 @@ sqlite-hashes = { version = "0.5", default-features = false, features = ["md5", 
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"
+tile-grid = "0.5"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.10"
@@ -87,7 +88,7 @@ sqlx-macros.opt-level = 3
 insta.opt-level = 3
 similar.opt-level = 3
 
-[patch.crates-io]
+#[patch.crates-io]
 #pmtiles = { path = "../pmtiles-rs" }
 #sqlite-hashes = { path = "../sqlite-hashes" }
 #tilejson = { path = "../tilejson" }

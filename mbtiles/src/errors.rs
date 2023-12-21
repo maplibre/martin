@@ -71,6 +71,9 @@ pub enum MbtError {
 
     #[error("The MBTiles file {0} has data of type {1}, but the desired type was set to {2}")]
     MismatchedTargetType(PathBuf, MbtType, MbtType),
+
+    #[error("Unless  --on-duplicate (override|ignore|abort)  is set, writing tiles to an existing non-empty MBTiles file is disabled. Either set --on-duplicate flag, or delete {}", .0.display())]
+    DestinationFileExists(PathBuf),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

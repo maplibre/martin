@@ -10,7 +10,7 @@ CREATE TABLE metadata (
              name text NOT NULL PRIMARY KEY,
              value text)'''
 values = [
-    '(  "agg_tiles_hash", "675349A4153AEC0679BE9C0637AEEBCC"  )',
+    '(  "agg_tiles_hash", "9ED9178D7025276336C783C2B54D6258"  )',
     '(  "md-edit", "value - v1"  )',
     '(  "md-remove", "value - remove"  )',
     '(  "md-same", "value - same"  )',
@@ -18,20 +18,16 @@ values = [
 
 [[]]
 type = 'table'
-tbl_name = 'tiles'
+tbl_name = 'tiles_with_hash'
 sql = '''
-CREATE TABLE tiles (
+CREATE TABLE tiles_with_hash (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              tile_data blob,
+             tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
-values = [
-    '(  6, 0, 3, blob(same)  )',
-    '(  6, 0, 5, blob(1-keep-1-rm)  )',
-    '(  6, 1, 4, blob(edit-v1)  )',
-    '(  6, 2, 6, blob(1-keep-1-rm)  )',
-]
+values = []
 
 [[]]
 type = 'index'
@@ -39,4 +35,11 @@ tbl_name = 'metadata'
 
 [[]]
 type = 'index'
+tbl_name = 'tiles_with_hash'
+
+[[]]
+type = 'view'
 tbl_name = 'tiles'
+sql = '''
+CREATE VIEW tiles AS
+             SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash'''

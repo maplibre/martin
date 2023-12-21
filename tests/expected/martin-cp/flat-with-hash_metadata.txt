@@ -7,8 +7,10 @@ tilejson:
   tilejson: 3.0.0
   tiles: []
   description: public.function_zxy_query_test
+  maxzoom: 6
+  minzoom: 0
   name: function_zxy_query_test
-  format: mvt
-  generator: martin-cp v0.11.4
+  format: pbf
+  generator: martin-cp v0.0.0
 agg_tiles_hash: 9B931A386D6075D1DA55323BD4DBEDAE
 

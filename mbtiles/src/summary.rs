@@ -14,7 +14,7 @@ use size_format::SizeFormatterBinary;
 use sqlx::{query, SqliteExecutor};
 use tilejson::Bounds;
 
-use crate::{MbtResult, MbtType, Mbtiles};
+use crate::{invert_y_value, MbtResult, MbtType, Mbtiles};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ZoomInfo {
@@ -154,10 +154,10 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.unwrap(),
-                        r.min_tile_y.unwrap(),
-                        r.max_tile_x.unwrap(),
-                        r.max_tile_y.unwrap(),
+                        r.min_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.max_tile_y.unwrap() as u32),
+                        r.max_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.min_tile_y.unwrap() as u32),
                     )
                     .into(),
                 }
@@ -241,7 +241,7 @@ mod tests {
         bbox:
           - -180
           - -85.0511287798066
-          - 180
+          - 180.00000000000003
           - 85.0511287798066
         min_zoom: 0
         max_zoom: 6
@@ -274,7 +274,7 @@ mod tests {
             bbox:
               - -180
               - -66.51326044311186
-              - 180
+              - 180.00000000000003
               - 66.51326044311186
           - zoom: 3
             tile_count: 17
@@ -284,7 +284,7 @@ mod tests {
             bbox:
               - -135
               - -40.97989806962013
-              - 180
+              - 179.99999999999997
               - 66.51326044311186
           - zoom: 4
             tile_count: 38
@@ -293,8 +293,8 @@ mod tests {
             avg_tile_size: 86
             bbox:
               - -135
-              - -40.97989806962013
-              - 180
+              - -40.97989806962014
+              - 180.00000000000003
               - 66.51326044311186
           - zoom: 5
             tile_count: 57
@@ -304,7 +304,7 @@ mod tests {
             bbox:
               - -123.75000000000001
               - -40.97989806962013
-              - 180
+              - 179.99999999999997
               - 61.60639637138628
           - zoom: 6
             tile_count: 72
@@ -313,8 +313,8 @@ mod tests {
             avg_tile_size: 68.29166666666667
             bbox:
               - -123.75000000000001
-              - -40.97989806962013
-              - 180
+              - -40.97989806962015
+              - 180.00000000000003
               - 61.60639637138628
         "###);
 
