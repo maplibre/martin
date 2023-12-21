@@ -1,11 +1,11 @@
-version: "3"
+version: '3'
 
 services:
   fileserver:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "5412:80"
+      - '5412:80'
     volumes:
       - ./tests/fixtures/pmtiles2:/usr/share/nginx/html
 
@@ -14,10 +14,10 @@ services:
     image: postgis/postgis:14-3.3-alpine
     network_mode: host
     command:
-      - "sh"
-      - "-c"
-      - "until pg_isready -h localhost -p ${PGPORT:-5411} -U postgres; do sleep 1; done"
-    restart: "no"
+      - 'sh'
+      - '-c'
+      - 'until pg_isready -h localhost -p ${PGPORT:-5411} -U postgres; do sleep 1; done'
+    restart: 'no'
     environment:
       - PGDATABASE=db
       - PGUSER=postgres
@@ -30,7 +30,7 @@ services:
     image: postgis/postgis:14-3.3-alpine
     restart: unless-stopped
     ports:
-      - "${PGPORT:-5411}:5432"
+      - '${PGPORT:-5411}:5432'
     environment:
       # POSTGRES_* variables are used by the postgis/postgres image
       # PG_* variables are used by psql
@@ -48,16 +48,16 @@ services:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:15-3.3
     command:
-      - "postgres"
-      - "-c"
-      - "ssl=on"
-      - "-c"
-      - "ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem"
-      - "-c"
-      - "ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
+      - 'postgres'
+      - '-c'
+      - 'ssl=on'
+      - '-c'
+      - 'ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem'
+      - '-c'
+      - 'ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key'
     restart: unless-stopped
     ports:
-      - "${PGPORT:-5411}:5432"
+      - '${PGPORT:-5411}:5432'
     environment:
       # POSTGRES_* variables are used by the postgis/postgres image
       # PG_* variables are used by psql
@@ -76,16 +76,16 @@ services:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:15-3.3
     command:
-      - "postgres"
-      - "-c"
-      - "ssl=on"
-      - "-c"
-      - "ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem"
-      - "-c"
-      - "ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
+      - 'postgres'
+      - '-c'
+      - 'ssl=on'
+      - '-c'
+      - 'ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem'
+      - '-c'
+      - 'ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key'
     restart: unless-stopped
     ports:
-      - "${PGPORT:-5411}:5432"
+      - '${PGPORT:-5411}:5432'
     environment:
       # POSTGRES_* variables are used by the postgis/postgres image
       # PG_* variables are used by psql
@@ -105,7 +105,7 @@ services:
     image: postgis/postgis:11-3.0-alpine
     restart: unless-stopped
     ports:
-      - "${PGPORT:-5411}:5432"
+      - '${PGPORT:-5411}:5432'
     environment:
       - POSTGRES_DB=db
       - POSTGRES_USER=postgres
