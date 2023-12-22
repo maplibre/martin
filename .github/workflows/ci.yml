@@ -312,8 +312,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Install Docker (MacOS)
         if: runner.os == 'macos'
         run: brew install docker && colima start
