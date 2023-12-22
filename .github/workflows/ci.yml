@@ -166,7 +166,7 @@ jobs:
 
       - name: Start File Server
         run: |
-          docker run -d \
+          docker run --rm -d \
           --name fileserver \
           -p 5412:80 \
           -v ${{ github.workspace }}/tests/fixtures/pmtiles2:/usr/share/nginx/html \
@@ -240,9 +240,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
       - name: Stop File Server
         if: always()
-        run: |
-          docker stop fileserver
-          docker rm fileserver
+        run: docker stop fileserver
 
   build:
     name: Build ${{ matrix.target }}
@@ -316,27 +314,21 @@ jobs:
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - name: Setup docker (missing on MacOS)
+      - name: Install Docker (MacOS)
         if: runner.os == 'macos'
-        run: |
-          brew install docker
-          colima start
-      - name: Start File Server (on non-Windows systems)
+        run: brew install docker && colima start
+      - name: Start File Server (with Docker)
         if: runner.os != 'windows'
         run: |
-          docker run -d \
-          --name fileserver \
-          -p 5412:80 \
-          -v ${{ github.workspace }}/tests/fixtures/pmtiles2:/usr/share/nginx/html \
-          nginx:alpine
-      - name: Setup Nginx (on Windows systems that do not support Linux containers)
+          docker run --rm -d \
+            --name fileserver \
+            -p 5412:80 \
+            -v ${{ github.workspace }}/tests/fixtures/pmtiles2:/usr/share/nginx/html \
+            nginx:alpine
+      - name: Setup Nginx (Windows, no Docker)
         if: runner.os == 'windows'
         shell: pwsh
         run: |
-          dir
-          echo "$PWD.Path"
-          #
-          # Replace the default Nginx configuration file
           $nginxConf = @"
           worker_processes     1;
           events {
@@ -357,14 +349,13 @@ jobs:
             }
           }
           "@
-          #
-          # Create the Nginx configuration file
+
+          # Replace the default Nginx configuration file
+          echo "$nginxConf"
           Set-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf" -Value $nginxConf
           Get-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf"
-      - name: Start Nginx (on Windows systems)
-        if: runner.os == 'windows'
-        shell: pwsh
-        run: |
+
+          # Start Nginx
           #Get-Service -ErrorAction SilentlyContinue
           #Get-CimInstance -ClassName Win32_Service
           Set-Service nginx -StartupType manual
@@ -373,10 +364,8 @@ jobs:
           dir C:\tools\nginx-1.25.3\logs\
           Start-Sleep -Seconds 5
           netstat -a
-      - name: Print Nginx Error Logs (on Windows systems)
-        if: runner.os == 'windows'
-        shell: pwsh
-        run: |
+
+          # Print Nginx Error Logs (on Windows systems)
           #nginx -t
           Get-Content -Path "C:\tools\nginx-1.25.3\logs\error.log"
           dir D:\a\martin\martin\
@@ -433,11 +422,9 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Stop File Server
+      - name: Stop File Server (with Docker)
         if: runner.os != 'windows'
-        run: |
-          docker stop fileserver
-          docker rm fileserver
+        run: docker stop fileserver
       - name: Save test output on failure
         if: failure()
         uses: actions/upload-artifact@v3
@@ -507,7 +494,7 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Start File Server
         run: |
-          docker run -d \
+          docker run --rm -d \
           --name fileserver \
           -p 5412:80 \
           -v ${{ github.workspace }}/tests/fixtures/pmtiles2:/usr/share/nginx/html \
@@ -575,9 +562,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Stop File Server
         if: always()
-        run: |
-          docker stop fileserver
-          docker rm fileserver
+        run: docker stop fileserver
       - name: On error, save test output
         if: failure()
         uses: actions/upload-artifact@v3
