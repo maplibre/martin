@@ -191,16 +191,14 @@ pmtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
-  - tests/fixtures/pmtiles2
   sources:
     png: tests/fixtures/pmtiles/png.pmtiles
     stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
-    webp2: tests/fixtures/pmtiles2/webp2.pmtiles
+    webp2: http://localhost:5412/webp2.pmtiles
 mbtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
-  - tests/fixtures/pmtiles2
   sources:
     geography-class-jpg: tests/fixtures/mbtiles/geography-class-jpg.mbtiles
     geography-class-jpg-diff: tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles

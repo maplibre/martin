@@ -71,7 +71,7 @@ pub struct CopyArgs {
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
     /// If set to multiple values like `gzip,br`, martin-cp will use the first encoding,
-    /// or re-encode if the tile is already encoded and that encoding is not listed.  
+    /// or re-encode if the tile is already encoded and that encoding is not listed.
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,

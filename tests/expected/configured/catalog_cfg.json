@@ -44,6 +44,10 @@
     },
     "table_source": {
       "content_type": "application/x-protobuf"
+    },
+    "webp2": {
+      "content_type": "image/webp",
+      "name": "ne2sr"
     }
   },
   "sprites": {

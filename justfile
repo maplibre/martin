@@ -67,7 +67,7 @@ start-legacy: (docker-up "db-legacy") docker-is-ready
 
 # Start a specific test database, e.g. db or db-legacy
 [private]
-docker-up name:
+docker-up name: start-pmtiles-server
     docker-compose up -d {{ name }}
 
 # Wait for the test database to be ready
@@ -87,6 +87,10 @@ restart:
 # Stop the test database
 stop:
     docker-compose down --remove-orphans
+
+# Start test server for testing HTTP pmtiles
+start-pmtiles-server:
+    docker-compose up -d fileserver
 
 # Run benchmark tests
 bench: start

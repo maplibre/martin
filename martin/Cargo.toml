@@ -80,6 +80,7 @@ json-patch.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
+moka.workspace = true
 num_cpus.workspace = true
 pbf_font_tools.workspace = true
 pmtiles.workspace = true
@@ -87,6 +88,7 @@ postgis.workspace = true
 postgres-protocol.workspace = true
 postgres.workspace = true
 regex.workspace = true
+reqwest.workspace = true
 rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
 rustls.workspace = true
@@ -101,6 +103,7 @@ thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 cargo-husky.workspace = true

@@ -1,14 +1,17 @@
 use std::collections::{BTreeMap, HashSet};
 use std::future::Future;
 use std::mem;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use futures::TryFutureExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};
-use crate::file_config::FileError::{InvalidFilePath, InvalidSourceFilePath, IoError};
+use crate::file_config::FileError::{
+    InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
+};
 use crate::source::{Source, TileInfoSources};
 use crate::utils::{IdResolver, OptOneMany};
 use crate::MartinResult;
@@ -24,14 +27,23 @@ pub enum FileError {
     #[error("Source path is not a file: {}", .0.display())]
     InvalidFilePath(PathBuf),
 
+    #[error("Error {0} while parsing URL {1}")]
+    InvalidSourceUrl(url::ParseError, String),
+
     #[error("Source {0} uses bad file {}", .1.display())]
     InvalidSourceFilePath(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {}: {0}", .1.display())]
     InvalidMetadata(String, PathBuf),
 
+    #[error(r"Unable to parse metadata in file {1}: {0}")]
+    InvalidUrlMetadata(String, Url),
+
     #[error(r#"Unable to aquire connection to file: {0}"#)]
     AquireConnError(String),
+
+    #[error(r#"PMTiles error {0} processing {1}"#)]
+    PmtError(pmtiles::PmtError, String),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -169,6 +181,10 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
+async fn dummy_resolver(_id: String, _url: Url) -> FileResult<Box<dyn Source>> {
+    unreachable!()
+}
+
 pub async fn resolve_files<Fut>(
     config: &mut FileConfigEnum,
     idr: IdResolver,
@@ -178,19 +194,39 @@ pub async fn resolve_files<Fut>(
 where
     Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
-    resolve_int(config, idr, extension, new_source)
+    let dummy = &mut dummy_resolver;
+    resolve_int(config, idr, extension, false, new_source, dummy)
         .map_err(crate::MartinError::from)
         .await
 }
 
-async fn resolve_int<Fut>(
+pub async fn resolve_files_urls<Fut1, Fut2>(
     config: &mut FileConfigEnum,
     idr: IdResolver,
     extension: &str,
-    new_source: &mut impl FnMut(String, PathBuf) -> Fut,
+    new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
+    new_url_source: &mut impl FnMut(String, Url) -> Fut2,
+) -> MartinResult<TileInfoSources>
+where
+    Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
+    Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
+{
+    resolve_int(config, idr, extension, true, new_source, new_url_source)
+        .map_err(crate::MartinError::from)
+        .await
+}
+
+async fn resolve_int<Fut1, Fut2>(
+    config: &mut FileConfigEnum,
+    idr: IdResolver,
+    extension: &str,
+    parse_urls: bool,
+    new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
+    new_url_source: &mut impl FnMut(String, Url) -> Fut2,
 ) -> FileResult<TileInfoSources>
 where
-    Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
+    Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
+    Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
 {
     let Some(cfg) = config.extract_file_config() else {
         return Ok(TileInfoSources::default());
@@ -203,73 +239,117 @@ where
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            let can = source.abs_path()?;
-            if !can.is_file() {
-                // todo: maybe warn instead?
-                return Err(InvalidSourceFilePath(id.to_string(), can));
+            if let Some(url) = parse_url(parse_urls, source.get_path())? {
+                let dup = !files.insert(source.get_path().clone());
+                let dup = if dup { "duplicate " } else { "" };
+                let id = idr.resolve(&id, url.to_string());
+                configs.insert(id.clone(), source);
+                results.push(new_url_source(id.clone(), url.clone()).await?);
+                info!("Configured {dup}source {id} from {}", sanitize_url(&url));
+            } else {
+                let can = source.abs_path()?;
+                if !can.is_file() {
+                    // todo: maybe warn instead?
+                    return Err(InvalidSourceFilePath(id.to_string(), can));
+                }
+
+                let dup = !files.insert(can.clone());
+                let dup = if dup { "duplicate " } else { "" };
+                let id = idr.resolve(&id, can.to_string_lossy().to_string());
+                info!("Configured {dup}source {id} from {}", can.display());
+                configs.insert(id.clone(), source.clone());
+                results.push(new_source(id, source.into_path()).await?);
             }
-
-            let dup = !files.insert(can.clone());
-            let dup = if dup { "duplicate " } else { "" };
-            let id = idr.resolve(&id, can.to_string_lossy().to_string());
-            info!("Configured {dup}source {id} from {}", can.display());
-            configs.insert(id.clone(), source.clone());
-
-            let path = match source {
-                FileConfigSrc::Obj(pmt) => pmt.path,
-                FileConfigSrc::Path(path) => path,
-            };
-            results.push(new_source(id, path).await?);
         }
     }
 
     for path in cfg.paths {
-        let is_dir = path.is_dir();
-        let dir_files = if is_dir {
-            // directories will be kept in the config just in case there are new files
-            directories.push(path.clone());
-            path.read_dir()
-                .map_err(|e| IoError(e, path.clone()))?
-                .filter_map(Result::ok)
-                .filter(|f| {
-                    f.path().extension().filter(|e| *e == extension).is_some() && f.path().is_file()
+        if let Some(url) = parse_url(parse_urls, &path)? {
+            let id = url
+                .path_segments()
+                .and_then(Iterator::last)
+                .and_then(|s| {
+                    // Strip extension and trailing dot, or keep the original string
+                    s.strip_suffix(extension)
+                        .and_then(|s| s.strip_suffix('.'))
+                        .or(Some(s))
                 })
-                .map(|f| f.path())
-                .collect()
-        } else if path.is_file() {
-            vec![path]
-        } else {
-            return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
-        };
-        for path in dir_files {
-            let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
-            if files.contains(&can) {
-                if !is_dir {
-                    warn!("Ignoring duplicate MBTiles path: {}", can.display());
-                }
-                continue;
-            }
-            let id = path.file_stem().map_or_else(
-                || "_unknown".to_string(),
-                |s| s.to_string_lossy().to_string(),
-            );
-            let source = FileConfigSrc::Path(path);
-            let id = idr.resolve(&id, can.to_string_lossy().to_string());
-            info!("Configured source {id} from {}", can.display());
-            files.insert(can);
-            configs.insert(id.clone(), source.clone());
+                .unwrap_or("pmt_web_source");
 
-            let path = match source {
-                FileConfigSrc::Obj(pmt) => pmt.path,
-                FileConfigSrc::Path(path) => path,
+            let id = idr.resolve(id, url.to_string());
+            configs.insert(id.clone(), FileConfigSrc::Path(path));
+            results.push(new_url_source(id.clone(), url.clone()).await?);
+            info!("Configured source {id} from URL {}", sanitize_url(&url));
+        } else {
+            let is_dir = path.is_dir();
+            let dir_files = if is_dir {
+                // directories will be kept in the config just in case there are new files
+                directories.push(path.clone());
+                dir_to_paths(&path, extension)?
+            } else if path.is_file() {
+                vec![path]
+            } else {
+                return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
             };
-            results.push(new_source(id, path).await?);
+            for path in dir_files {
+                let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
+                if files.contains(&can) {
+                    if !is_dir {
+                        warn!("Ignoring duplicate MBTiles path: {}", can.display());
+                    }
+                    continue;
+                }
+                let id = path.file_stem().map_or_else(
+                    || "_unknown".to_string(),
+                    |s| s.to_string_lossy().to_string(),
+                );
+                let id = idr.resolve(&id, can.to_string_lossy().to_string());
+                info!("Configured source {id} from {}", can.display());
+                files.insert(can);
+                configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
+                results.push(new_source(id, path).await?);
+            }
         }
     }
 
     *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
 
     Ok(results)
+}
+
+fn dir_to_paths(path: &Path, extension: &str) -> Result<Vec<PathBuf>, FileError> {
+    Ok(path
+        .read_dir()
+        .map_err(|e| IoError(e, path.to_path_buf()))?
+        .filter_map(Result::ok)
+        .filter(|f| {
+            f.path().extension().filter(|e| *e == extension).is_some() && f.path().is_file()
+        })
+        .map(|f| f.path())
+        .collect())
+}
+
+fn sanitize_url(url: &Url) -> String {
+    let mut result = format!("{}://", url.scheme());
+    if let Some(host) = url.host_str() {
+        result.push_str(host);
+    }
+    if let Some(port) = url.port() {
+        result.push(':');
+        result.push_str(&port.to_string());
+    }
+    result.push_str(url.path());
+    result
+}
+
+fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
+    if !is_enabled {
+        return Ok(None);
+    }
+    path.to_str()
+        .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
+        .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
+        .transpose()
 }
 
 #[cfg(test)]
@@ -287,10 +367,14 @@ mod tests {
             paths:
               - /dir-path
               - /path/to/file2.ext
+              - http://example.org/file.ext
             sources:
                 pm-src1: /tmp/file.ext
                 pm-src2:
                   path: /tmp/file.ext
+                pm-src3: https://example.org/file3.ext
+                pm-src4:
+                  path: https://example.org/file4.ext
         "})
         .unwrap();
         let res = cfg.finalize("").unwrap();
@@ -304,6 +388,7 @@ mod tests {
             vec![
                 PathBuf::from("/dir-path"),
                 PathBuf::from("/path/to/file2.ext"),
+                PathBuf::from("http://example.org/file.ext"),
             ]
         );
         assert_eq!(
@@ -318,7 +403,17 @@ mod tests {
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                     })
-                )
+                ),
+                (
+                    "pm-src3".to_string(),
+                    FileConfigSrc::Path(PathBuf::from("https://example.org/file3.ext"))
+                ),
+                (
+                    "pm-src4".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("https://example.org/file4.ext"),
+                    })
+                ),
             ]))
         );
     }
