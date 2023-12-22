@@ -425,7 +425,7 @@ jobs:
       - name: Stop File Server (with Docker)
         if: runner.os != 'windows'
         run: docker stop fileserver
-      - name: Save test output on failure
+      - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v3
         with:
@@ -563,7 +563,7 @@ jobs:
       - name: Stop File Server
         if: always()
         run: docker stop fileserver
-      - name: On error, save test output
+      - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v3
         with:
