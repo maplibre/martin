@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashSet};
+use std::fmt::Debug;
 use std::future::Future;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -46,29 +47,36 @@ pub enum FileError {
     PmtError(pmtiles::PmtError, String),
 }
 
+pub trait FileConfigExtras: Clone + Debug + Default + PartialEq {}
+impl<T: Clone + Debug + Default + PartialEq> FileConfigExtras for T {}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct FileConfigNoExtras;
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum FileConfigEnum {
+pub enum FileConfigEnum<T: FileConfigExtras> {
     #[default]
     None,
     Path(PathBuf),
     Paths(Vec<PathBuf>),
-    Config(FileConfig),
+    Config(FileConfig<T>),
 }
 
-impl FileConfigEnum {
+impl<T: FileConfigExtras> FileConfigEnum<T> {
     #[must_use]
-    pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum {
-        Self::new_extended(paths, BTreeMap::new(), UnrecognizedValues::new())
+    pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum<T> {
+        Self::new_extended(paths, BTreeMap::new(), None, UnrecognizedValues::new())
     }
 
     #[must_use]
     pub fn new_extended(
         paths: Vec<PathBuf>,
         configs: BTreeMap<String, FileConfigSrc>,
+        extras: Option<T>,
         unrecognized: UnrecognizedValues,
-    ) -> FileConfigEnum {
-        if configs.is_empty() && unrecognized.is_empty() {
+    ) -> Self {
+        if configs.is_empty() && extras.is_none() && unrecognized.is_empty() {
             match paths.len() {
                 0 => FileConfigEnum::None,
                 1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
@@ -82,6 +90,7 @@ impl FileConfigEnum {
                 } else {
                     Some(configs)
                 },
+                extras,
                 unrecognized,
             })
         }
@@ -102,7 +111,7 @@ impl FileConfigEnum {
         }
     }
 
-    pub fn extract_file_config(&mut self) -> Option<FileConfig> {
+    pub fn extract_file_config(&mut self) -> Option<FileConfig<T>> {
         match self {
             FileConfigEnum::None => None,
             FileConfigEnum::Path(path) => Some(FileConfig {
@@ -128,17 +137,19 @@ impl FileConfigEnum {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct FileConfig {
+pub struct FileConfig<T> {
     /// A list of file paths
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub paths: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
     pub sources: Option<BTreeMap<String, FileConfigSrc>>,
     #[serde(flatten)]
+    pub extras: Option<T>,
+    #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 }
 
-impl FileConfig {
+impl<T> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.paths.is_none() && self.sources.is_none()
@@ -185,8 +196,8 @@ async fn dummy_resolver(_id: String, _url: Url) -> FileResult<Box<dyn Source>> {
     unreachable!()
 }
 
-pub async fn resolve_files<Fut>(
-    config: &mut FileConfigEnum,
+pub async fn resolve_files<T: FileConfigExtras, Fut>(
+    config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
     new_source: &mut impl FnMut(String, PathBuf) -> Fut,
@@ -200,8 +211,8 @@ where
         .await
 }
 
-pub async fn resolve_files_urls<Fut1, Fut2>(
-    config: &mut FileConfigEnum,
+pub async fn resolve_files_urls<T: FileConfigExtras, Fut1, Fut2>(
+    config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
     new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
@@ -216,8 +227,8 @@ where
         .await
 }
 
-async fn resolve_int<Fut1, Fut2>(
-    config: &mut FileConfigEnum,
+async fn resolve_int<T: FileConfigExtras, Fut1, Fut2>(
+    config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
     parse_urls: bool,
@@ -312,7 +323,7 @@ where
         }
     }
 
-    *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
+    *config = FileConfigEnum::new_extended(directories, configs, cfg.extras, cfg.unrecognized);
 
     Ok(results)
 }
@@ -359,11 +370,11 @@ mod tests {
 
     use indoc::indoc;
 
-    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
+    use crate::file_config::{FileConfigEnum, FileConfigNoExtras, FileConfigSource, FileConfigSrc};
 
     #[test]
     fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum>(indoc! {"
+        let cfg = serde_yaml::from_str::<FileConfigEnum<FileConfigNoExtras>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext

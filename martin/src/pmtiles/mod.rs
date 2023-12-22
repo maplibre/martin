@@ -3,6 +3,13 @@ mod http_pmtiles;
 
 pub use file_pmtiles::PmtFileSource;
 pub use http_pmtiles::PmtHttpSource;
+use serde::{Deserialize, Serialize};
+
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct PmtConfig {
+    pub dir_cache_size: Option<usize>,
+}
 
 macro_rules! impl_pmtiles_source {
     ($name: ident, $backend: ty, $cache: ty, $path: ty, $display_path: path, $err: ident) => {

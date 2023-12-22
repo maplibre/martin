@@ -10,7 +10,7 @@ use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
 use crate::args::State::{Ignore, Share, Take};
 use crate::config::Config;
-use crate::file_config::FileConfigEnum;
+use crate::file_config::{FileConfigEnum, FileConfigExtras};
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::{MartinResult, OptOneMany};
 
@@ -123,11 +123,11 @@ fn is_url(s: &str, extension: &str) -> bool {
     false
 }
 
-pub fn parse_file_args(
+pub fn parse_file_args<T: FileConfigExtras>(
     cli_strings: &mut Arguments,
     extension: &str,
     allow_url: bool,
-) -> FileConfigEnum {
+) -> FileConfigEnum<T> {
     let paths = cli_strings.process(|s| match PathBuf::try_from(s) {
         Ok(v) => {
             if allow_url && is_url(s, extension) {

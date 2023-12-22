@@ -165,6 +165,7 @@ pmtiles:
     pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
     pmt2: http://localhost:5412/webp2.pmtiles
     webp2: http://localhost:5412/webp2.pmtiles
+  dir_cache_size: 100
 sprites:
   paths: tests/fixtures/sprites/src1
   sources:

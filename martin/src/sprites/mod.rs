@@ -13,7 +13,7 @@ use spreet::{
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
-use crate::file_config::{FileConfigEnum, FileResult};
+use crate::file_config::{FileConfigEnum, FileConfigNoExtras, FileResult};
 
 pub type SpriteResult<T> = Result<T, SpriteError>;
 
@@ -61,7 +61,7 @@ pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 pub struct SpriteSources(HashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn resolve(config: &mut FileConfigEnum) -> FileResult<Self> {
+    pub fn resolve(config: &mut FileConfigEnum<FileConfigNoExtras>) -> FileResult<Self> {
         let Some(cfg) = config.extract_file_config() else {
             return Ok(Self::default());
         };
@@ -89,7 +89,7 @@ impl SpriteSources {
             results.add_source(name.to_string_lossy().to_string(), path);
         }
 
-        *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
+        *config = FileConfigEnum::new_extended(directories, configs, cfg.extras, cfg.unrecognized);
 
         Ok(results)
     }

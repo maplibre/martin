@@ -17,6 +17,7 @@ worker_processes: 8
 #   auto_bounds: skip
 
 # pmtiles:
+#   dir_cache_size: 100
 #   paths:
 #     - /dir-path
 #     - /path/to/pmtiles.pmtiles

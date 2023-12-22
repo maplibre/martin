@@ -11,12 +11,12 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-use crate::file_config::{resolve_files, resolve_files_urls, FileConfigEnum};
+use crate::file_config::{resolve_files, resolve_files_urls, FileConfigEnum, FileConfigNoExtras};
 #[cfg(feature = "fonts")]
 use crate::fonts::FontSources;
 use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
-use crate::pmtiles::{PmtFileSource, PmtHttpSource};
+use crate::pmtiles::{PmtConfig, PmtFileSource, PmtHttpSource};
 use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
 use crate::sprites::SpriteSources;
@@ -43,14 +43,14 @@ pub struct Config {
     pub postgres: OptOneMany<PgConfig>,
 
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum,
+    pub pmtiles: FileConfigEnum<PmtConfig>,
 
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum,
+    pub mbtiles: FileConfigEnum<FileConfigNoExtras>,
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub sprites: FileConfigEnum,
+    pub sprites: FileConfigEnum<FileConfigNoExtras>,
 
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: OptOneMany<PathBuf>,
