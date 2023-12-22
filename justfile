@@ -54,20 +54,20 @@ clean-test:
     rm -rf tests/output
 
 # Start a test database
-start: start-pmtiles-server (docker-up "db") docker-is-ready
+start: (docker-up "db") docker-is-ready
 
 # Start an ssl-enabled test database
-start-ssl: start-pmtiles-server (docker-up "db-ssl") docker-is-ready
+start-ssl: (docker-up "db-ssl") docker-is-ready
 
 # Start an ssl-enabled test database that requires a client certificate
-start-ssl-cert: start-pmtiles-server (docker-up "db-ssl-cert") docker-is-ready
+start-ssl-cert: (docker-up "db-ssl-cert") docker-is-ready
 
 # Start a legacy test database
-start-legacy: start-pmtiles-server (docker-up "db-legacy") docker-is-ready
+start-legacy: (docker-up "db-legacy") docker-is-ready
 
 # Start a specific test database, e.g. db or db-legacy
 [private]
-docker-up name:
+docker-up name: start-pmtiles-server
     docker-compose up -d {{ name }}
 
 # Wait for the test database to be ready
@@ -88,7 +88,7 @@ restart:
 stop:
     docker-compose down --remove-orphans
 
-# Start test python server for testing HTTP pmtiles
+# Start test server for testing HTTP pmtiles
 start-pmtiles-server:
     docker-compose up -d fileserver
 
