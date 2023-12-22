@@ -115,7 +115,7 @@ jobs:
           tool: cross
       - name: Checkout sources
         uses: actions/checkout@v4
-          with:
+        with:
           set-safe-directory: false
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
