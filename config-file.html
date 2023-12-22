@@ -325,16 +325,20 @@ postgres:
       # Values may be integers or floating point numbers.
       bounds: [-180.0, -90.0, 180.0, 90.0]
 
-# Publish PMTiles files
+# Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
     # specific pmtiles file will be published as a pmt source (filename without extension)
     - /path/to/pmt.pmtiles
+    # A web server with a PMTiles file that supports range requests
+    - https://example.org/path/tiles.pmtiles
   sources:
     # named source matching source name to a single file
     pm-src1: /path/to/pmt.pmtiles
+    # A named source to a web server with a PMTiles file that supports range requests
+    pm-web2: https://example.org/path/tiles.pmtiles
     
 # Publish MBTiles files
 mbtiles:

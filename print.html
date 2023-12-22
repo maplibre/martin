@@ -178,7 +178,7 @@
                 <div id="content" class="content">
                     <main>
                         <p><img src="https://raw.githubusercontent.com/maplibre/martin/main/logo.png" alt="Martin" /></p>
-<p>Martin is a tile server able to generate and serve <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a> on the fly from large <a href="https://github.com/postgis/postgis">PostGIS</a> databases, <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTiles</a>, and <a href="https://github.com/mapbox/mbtiles-spec">MBTiles</a> files, allowing multiple tile sources to be dynamically combined into one. Martin optimizes for speed and heavy traffic, and is written in <a href="https://github.com/rust-lang/rust">Rust</a>.</p>
+<p>Martin is a tile server able to generate and serve <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a> on the fly from large <a href="https://github.com/postgis/postgis">PostGIS</a> databases, <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTiles</a> (local or remote), and <a href="https://github.com/mapbox/mbtiles-spec">MBTiles</a> files, allowing multiple tile sources to be dynamically combined into one. Martin optimizes for speed and heavy traffic, and is written in <a href="https://github.com/rust-lang/rust">Rust</a>.</p>
 <p>See also <a href="https://martin.maplibre.org/">Martin demo site</a></p>
 <hr />
 <p><a href="https://maplibre.org/martin"><img src="https://img.shields.io/badge/docs-Book-informational" alt="Book" /></a>
@@ -209,7 +209,7 @@ martin --help
 brew install martin
 </code></pre>
 <h3 id="docker"><a class="header" href="#docker">Docker</a></h3>
-<p>Martin is also available as a <a href="https://ghcr.io/maplibre/martin">Docker image</a>. You could either share a configuration file from the host with the container via the <code>-v</code> param, or you can let Martin auto-discover all sources e.g. by passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files.</p>
+<p>Martin is also available as a <a href="https://ghcr.io/maplibre/martin">Docker image</a>. You could either share a configuration file from the host with the container via the <code>-v</code> param, or you can let Martin auto-discover all sources e.g. by passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files or URLs to .pmtiles.</p>
 <pre><code class="language-shell">export PGPASSWORD=postgres  # secret!
 docker run -p 3000:3000 \
            -e PGPASSWORD \
@@ -292,7 +292,7 @@ Options:
 <h3 id="using-non-local-postgresql"><a class="header" href="#using-non-local-postgresql">Using Non-Local PostgreSQL</a></h3>
 <pre><code class="language-shell">docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@postgres.example.com/db \
+  -e DATABASE_URL=postgresql://postgres@postgres.example.org/db \
   ghcr.io/maplibre/martin
 </code></pre>
 <h3 id="exposing-local-files"><a class="header" href="#exposing-local-files">Exposing Local Files</a></h3>
@@ -594,16 +594,20 @@ postgres:
       # Values may be integers or floating point numbers.
       bounds: [-180.0, -90.0, 180.0, 90.0]
 
-# Publish PMTiles files
+# Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
     # specific pmtiles file will be published as a pmt source (filename without extension)
     - /path/to/pmt.pmtiles
+    # A web server with a PMTiles file that supports range requests
+    - https://example.org/path/tiles.pmtiles
   sources:
     # named source matching source name to a single file
     pm-src1: /path/to/pmt.pmtiles
+    # A named source to a web server with a PMTiles file that supports range requests
+    pm-web2: https://example.org/path/tiles.pmtiles
     
 # Publish MBTiles files
 mbtiles:
@@ -795,8 +799,8 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 END $do$;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="mbtiles-and-pmtiles-file-sources"><a class="header" href="#mbtiles-and-pmtiles-file-sources">MBTiles and PMTiles File Sources</a></h2>
-<p>Martin can serve any type of tiles from <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTile</a> and <a href="https://github.com/mapbox/mbtiles-spec">MBTile</a> files.  To serve a file from CLI, simply put the path to the file or the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. For example:</p>
-<pre><code class="language-shell">martin  /path/to/mbtiles/file.mbtiles  /path/to/directory
+<p>Martin can serve any type of tiles from <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTile</a> and <a href="https://github.com/mapbox/mbtiles-spec">MBTile</a> files.  To serve a file from CLI, simply put the path to the file or the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. A path to PMTiles file may be a URL. For example:</p>
+<pre><code class="language-shell">martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/path/tiles.pmtiles
 </code></pre>
 <p>You may also want to generate a <a href="config-file.html">config file</a> using the <code>--save-config my-config.yaml</code>, and later edit it and use it with <code>--config my-config.yaml</code> option.</p>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="composite-sources"><a class="header" href="#composite-sources">Composite Sources</a></h2>

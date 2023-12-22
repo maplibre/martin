@@ -180,8 +180,8 @@
                 <div id="content" class="content">
                     <main>
                         <h2 id="mbtiles-and-pmtiles-file-sources"><a class="header" href="#mbtiles-and-pmtiles-file-sources">MBTiles and PMTiles File Sources</a></h2>
-<p>Martin can serve any type of tiles from <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTile</a> and <a href="https://github.com/mapbox/mbtiles-spec">MBTile</a> files.  To serve a file from CLI, simply put the path to the file or the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. For example:</p>
-<pre><code class="language-shell">martin  /path/to/mbtiles/file.mbtiles  /path/to/directory
+<p>Martin can serve any type of tiles from <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTile</a> and <a href="https://github.com/mapbox/mbtiles-spec">MBTile</a> files.  To serve a file from CLI, simply put the path to the file or the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. A path to PMTiles file may be a URL. For example:</p>
+<pre><code class="language-shell">martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/path/tiles.pmtiles
 </code></pre>
 <p>You may also want to generate a <a href="config-file.html">config file</a> using the <code>--save-config my-config.yaml</code>, and later edit it and use it with <code>--config my-config.yaml</code> option.</p>
 

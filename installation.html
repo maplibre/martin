@@ -200,7 +200,7 @@ martin --help
 brew install martin
 </code></pre>
 <h3 id="docker"><a class="header" href="#docker">Docker</a></h3>
-<p>Martin is also available as a <a href="https://ghcr.io/maplibre/martin">Docker image</a>. You could either share a configuration file from the host with the container via the <code>-v</code> param, or you can let Martin auto-discover all sources e.g. by passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files.</p>
+<p>Martin is also available as a <a href="https://ghcr.io/maplibre/martin">Docker image</a>. You could either share a configuration file from the host with the container via the <code>-v</code> param, or you can let Martin auto-discover all sources e.g. by passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files or URLs to .pmtiles.</p>
 <pre><code class="language-shell">export PGPASSWORD=postgres  # secret!
 docker run -p 3000:3000 \
            -e PGPASSWORD \
