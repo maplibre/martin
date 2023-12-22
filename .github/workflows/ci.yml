@@ -164,7 +164,7 @@ jobs:
           mkdir -p target_releases/linux/amd64
           mv target_releases/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
 
-      - name: Start File Server
+      - name: Start HTTP Server
         run: |
           docker run --rm -d \
           --name fileserver \
@@ -238,7 +238,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-      - name: Stop File Server
+      - name: Stop HTTP Server
         if: always()
         run: docker stop fileserver
 
@@ -317,7 +317,7 @@ jobs:
       - name: Install Docker (MacOS)
         if: runner.os == 'macos'
         run: brew install docker && colima start
-      - name: Start File Server (with Docker)
+      - name: Start HTTP Server (with Docker)
         if: runner.os != 'windows'
         run: |
           docker run --rm -d \
@@ -325,7 +325,7 @@ jobs:
             -p 5412:80 \
             -v ${{ github.workspace }}/tests/fixtures/pmtiles2:/usr/share/nginx/html \
             nginx:alpine
-      - name: Setup Nginx (Windows, no Docker)
+      - name: Start HTTP Server (Windows, no Docker)
         if: runner.os == 'windows'
         shell: pwsh
         run: |
@@ -422,7 +422,7 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Stop File Server (with Docker)
+      - name: Stop HTTP Server (with Docker)
         if: runner.os != 'windows'
         run: docker stop fileserver
       - name: Save test output (on error)
@@ -492,7 +492,7 @@ jobs:
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - name: Start File Server
+      - name: Start HTTP Server
         run: |
           docker run --rm -d \
           --name fileserver \
@@ -560,7 +560,7 @@ jobs:
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-      - name: Stop File Server
+      - name: Stop HTTP Server
         if: always()
         run: docker stop fileserver
       - name: Save test output (on error)
