@@ -23,7 +23,7 @@ struct PmtCache(Cache<usize, Directory>);
 
 impl PmtCache {
     fn new() -> Self {
-        Self(Cache::new(10_000))
+        Self(Cache::new(500))
     }
 }
 
