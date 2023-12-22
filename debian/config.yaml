@@ -20,8 +20,10 @@ worker_processes: 8
 #   paths:
 #     - /dir-path
 #     - /path/to/pmtiles.pmtiles
+#     - http://example.org/pmtiles.pmtiles
 #   sources:
 #     pm-src1: /path/to/pmtiles1.pmtiles
+#     pm-web1: http://example.org/pmtiles1.pmtiles
 
 # mbtiles:
 #   paths:

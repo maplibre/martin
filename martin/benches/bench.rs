@@ -16,7 +16,7 @@ struct NullSource {
 impl NullSource {
     fn new() -> Self {
         Self {
-            tilejson: tilejson! { "https://example.com/".to_string() },
+            tilejson: tilejson! { "https://example.org/".to_string() },
         }
     }
 }

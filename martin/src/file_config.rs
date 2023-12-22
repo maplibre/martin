@@ -367,14 +367,14 @@ mod tests {
             paths:
               - /dir-path
               - /path/to/file2.ext
-              - http://example.com/file.ext
+              - http://example.org/file.ext
             sources:
                 pm-src1: /tmp/file.ext
                 pm-src2:
                   path: /tmp/file.ext
-                pm-src3: https://example.com/file3.ext
+                pm-src3: https://example.org/file3.ext
                 pm-src4:
-                  path: https://example.com/file4.ext
+                  path: https://example.org/file4.ext
         "})
         .unwrap();
         let res = cfg.finalize("").unwrap();
@@ -388,7 +388,7 @@ mod tests {
             vec![
                 PathBuf::from("/dir-path"),
                 PathBuf::from("/path/to/file2.ext"),
-                PathBuf::from("http://example.com/file.ext"),
+                PathBuf::from("http://example.org/file.ext"),
             ]
         );
         assert_eq!(
@@ -406,12 +406,12 @@ mod tests {
                 ),
                 (
                     "pm-src3".to_string(),
-                    FileConfigSrc::Path(PathBuf::from("https://example.com/file3.ext"))
+                    FileConfigSrc::Path(PathBuf::from("https://example.org/file3.ext"))
                 ),
                 (
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
-                        path: PathBuf::from("https://example.com/file4.ext"),
+                        path: PathBuf::from("https://example.org/file4.ext"),
                     })
                 ),
             ]))

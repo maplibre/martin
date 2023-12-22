@@ -1,6 +1,6 @@
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
 
-Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, [PMTiles](https://protomaps.com/blog/pmtiles-v3-whats-new), and [MBTiles](https://github.com/mapbox/mbtiles-spec) files, allowing multiple tile sources to be dynamically combined into one. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
+Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, [PMTiles](https://protomaps.com/blog/pmtiles-v3-whats-new) (local or remote), and [MBTiles](https://github.com/mapbox/mbtiles-spec) files, allowing multiple tile sources to be dynamically combined into one. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
 See also [Martin demo site](https://martin.maplibre.org/)
 

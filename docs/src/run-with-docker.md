@@ -7,7 +7,7 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/ma
 ```shell
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@postgres.example.com/db \
+  -e DATABASE_URL=postgresql://postgres@postgres.example.org/db \
   ghcr.io/maplibre/martin
 ```
 
