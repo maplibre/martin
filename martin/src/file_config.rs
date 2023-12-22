@@ -36,6 +36,9 @@ pub enum FileError {
     #[error(r"Unable to parse metadata in file {}: {0}", .1.display())]
     InvalidMetadata(String, PathBuf),
 
+    #[error(r"Unable to parse metadata in file {1}: {0}")]
+    InvalidUrlMetadata(String, Url),
+
     #[error(r#"Unable to aquire connection to file: {0}"#)]
     AquireConnError(String),
 
