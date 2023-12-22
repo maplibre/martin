@@ -115,7 +115,7 @@ jobs:
           tool: cross
       - name: Checkout sources
         uses: actions/checkout@v4
-        with:
+          with:
           set-safe-directory: false
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -336,7 +336,7 @@ jobs:
           dir
           echo "$PWD.Path"
           # Replace the default Nginx configuration file
-          
+
           $nginxConf = @"
           worker_processes     1;
           events {
@@ -355,8 +355,9 @@ jobs:
                 index      index.html index.htm;
               }
             }
-          }"@
-          
+          }
+          "@
+
           Set-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf" -Value $nginxConf
           Get-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf"
       - name: Start Nginx (on Windows systems)

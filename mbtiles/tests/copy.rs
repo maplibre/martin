@@ -52,7 +52,7 @@ const TILES_V2: &str = "
    -- , (6, 2, 6, cast('1-keep-1-rm' as blob)) -- this row is removed
       , (5, 3, 7, cast('new' as blob))         -- this row is added, dup value
       , (5, 3, 8, cast('new' as blob))         -- this row is added, dup value
-      
+
       -- Expected delta:
       --   5/1/1 edit
       --   5/1/2 edit
