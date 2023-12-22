@@ -1,6 +1,17 @@
 version: '3'
 
 services:
+  martin:
+    image: ghcr.io/maplibre/martin:v0.8.7
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db/db
+      - RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
+    depends_on:
+      - db
+
   fileserver:
     image: nginx:alpine
     restart: unless-stopped
