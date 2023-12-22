@@ -335,8 +335,8 @@ jobs:
         run: |
           dir
           echo "$PWD.Path"
+          #
           # Replace the default Nginx configuration file
-
           $nginxConf = @"
           worker_processes     1;
           events {
@@ -357,7 +357,8 @@ jobs:
             }
           }
           "@
-
+          #
+          # Create the Nginx configuration file
           Set-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf" -Value $nginxConf
           Get-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf"
       - name: Start Nginx (on Windows systems)
