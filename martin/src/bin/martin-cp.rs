@@ -19,6 +19,7 @@ use martin::{
 };
 use martin_tile_utils::{bbox_to_xyz, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
+use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::{
     init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtError, MbtType, MbtTypeCli,
     Mbtiles,
@@ -352,6 +353,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     )?;
 
     info!("{progress}");
+
+    mbt.update_metadata(&mut conn, GrowOnly).await?;
 
     for (key, value) in args.set_meta {
         info!("Setting metadata key={key} value={value}");

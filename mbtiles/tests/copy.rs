@@ -12,7 +12,7 @@ use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
 use mbtiles::{
     apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
-    MbtilesCopier,
+    MbtilesCopier, UpdateZoomType,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
@@ -249,7 +249,7 @@ fn databases() -> Databases {
 #[actix_rt::test]
 async fn update() -> MbtResult<()> {
     let (mbt, mut cn) = new_file_no_hash!(databases, Flat, METADATA_V1, TILES_V1, "update");
-    mbt.update_metadata().await?;
+    mbt.update_metadata(&mut cn, UpdateZoomType::Reset).await?;
     let dmp = dump(&mut cn).await?;
     assert_snapshot!(&dmp, "update");
 
