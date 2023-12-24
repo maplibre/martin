@@ -5,7 +5,7 @@ pub use file_pmtiles::PmtFileSource;
 pub use http_pmtiles::PmtHttpSource;
 
 macro_rules! impl_pmtiles_source {
-    ($name: ident, $backend: ty, $cache: ty, $path: ty) => {
+    ($name: ident, $backend: ty, $cache: ty, $path: ty, $display_path: path, $err: ident) => {
         #[derive(Clone)]
         pub struct $name {
             id: String,
@@ -36,7 +36,7 @@ macro_rules! impl_pmtiles_source {
                 let hdr = &reader.get_header();
 
                 if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
-                    return Err(Self::metadata_err(
+                    return Err($err(
                         format!(
                             "Format {:?} and compression {:?} are not yet supported",
                             hdr.tile_type, hdr.tile_compression
@@ -53,7 +53,7 @@ macro_rules! impl_pmtiles_source {
                             Compression::Unknown => {
                                 warn!(
                                     "MVT tiles have unknown compression in file {}",
-                                    Self::display_path(&path)
+                                    $display_path(&path)
                                 );
                                 Encoding::Uncompressed
                             }
@@ -66,15 +66,13 @@ macro_rules! impl_pmtiles_source {
                     TileType::Png => Format::Png.into(),
                     TileType::Jpeg => Format::Jpeg.into(),
                     TileType::Webp => Format::Webp.into(),
-                    TileType::Unknown => {
-                        return Err(Self::metadata_err("Unknown tile type".to_string(), path))
-                    }
+                    TileType::Unknown => return Err($err("Unknown tile type".to_string(), path)),
                 };
 
                 let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
                     warn!(
                         "{e:?}: Unable to parse metadata for {}",
-                        Self::display_path(&path)
+                        $display_path(&path)
                     );
                     hdr.get_tilejson(Vec::new())
                 });

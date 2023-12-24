@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -13,12 +13,19 @@ use pmtiles::{Compression, TileType};
 use tilejson::TileJSON;
 
 use crate::file_config::FileError::{InvalidMetadata, IoError};
-use crate::file_config::{FileError, FileResult};
+use crate::file_config::FileResult;
 use crate::pmtiles::impl_pmtiles_source;
 use crate::source::{Source, UrlQuery};
 use crate::{MartinResult, TileCoord, TileData};
 
-impl_pmtiles_source!(PmtFileSource, MmapBackend, NoCache, PathBuf);
+impl_pmtiles_source!(
+    PmtFileSource,
+    MmapBackend,
+    NoCache,
+    PathBuf,
+    Path::display,
+    InvalidMetadata
+);
 
 impl PmtFileSource {
     pub async fn new_box(id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
@@ -47,13 +54,5 @@ impl PmtFileSource {
             .map_err(|e| IoError(e, path.clone()))?;
 
         Self::new_int(id, path, reader).await
-    }
-
-    fn display_path(path: &Path) -> impl Display + '_ {
-        path.display()
-    }
-
-    fn metadata_err(message: String, path: PathBuf) -> FileError {
-        InvalidMetadata(message, path)
     }
 }

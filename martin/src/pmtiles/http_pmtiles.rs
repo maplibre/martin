@@ -1,4 +1,5 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::convert::identity;
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -41,7 +42,14 @@ impl DirectoryCache for PmtCache {
     }
 }
 
-impl_pmtiles_source!(PmtHttpSource, HttpBackend, PmtCache, Url);
+impl_pmtiles_source!(
+    PmtHttpSource,
+    HttpBackend,
+    PmtCache,
+    Url,
+    identity,
+    InvalidUrlMetadata
+);
 
 impl PmtHttpSource {
     pub async fn new_url_box(id: String, url: Url) -> FileResult<Box<dyn Source>> {
@@ -57,13 +65,5 @@ impl PmtHttpSource {
         let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
-    }
-
-    fn display_path(path: &Url) -> impl Display + '_ {
-        path
-    }
-
-    fn metadata_err(message: String, path: Url) -> FileError {
-        InvalidUrlMetadata(message, path)
     }
 }
