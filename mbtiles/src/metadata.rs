@@ -11,6 +11,7 @@ use sqlx::{query, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
 
 use crate::errors::MbtResult;
+use crate::MbtError::InvalidZoomValue;
 use crate::Mbtiles;
 
 #[serde_with::skip_serializing_none]
@@ -61,6 +62,20 @@ impl Mbtiles {
             }
         }
         Ok(None)
+    }
+
+    pub async fn get_metadata_zoom_value<T>(
+        &self,
+        conn: &mut T,
+        zoom_name: &'static str,
+    ) -> MbtResult<Option<u8>>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        self.get_metadata_value(conn, zoom_name)
+            .await?
+            .map(|v| v.parse().map_err(|_| InvalidZoomValue(zoom_name, v)))
+            .transpose()
     }
 
     pub async fn set_metadata_value<T, S>(&self, conn: &mut T, key: &str, value: S) -> MbtResult<()>

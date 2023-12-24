@@ -27,6 +27,7 @@ pub use queries::*;
 mod summary;
 
 mod update;
+pub use update::UpdateZoomType;
 
 mod validation;
 pub use validation::{

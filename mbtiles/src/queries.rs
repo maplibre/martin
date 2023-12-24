@@ -1,7 +1,9 @@
 use log::debug;
+use martin_tile_utils::MAX_ZOOM;
 use sqlx::{query, Executor as _, SqliteExecutor};
 
 use crate::errors::MbtResult;
+use crate::MbtError::InvalidZoomValue;
 use crate::MbtType;
 
 /// Returns true if the database is empty (no tables/indexes/...)
@@ -307,4 +309,39 @@ where
         .execute(conn)
         .await?;
     Ok(())
+}
+
+fn validate_zoom(zoom: Option<i32>, zoom_name: &'static str) -> MbtResult<Option<u8>> {
+    if let Some(zoom) = zoom {
+        let z = u8::try_from(zoom).ok().filter(|v| *v <= MAX_ZOOM);
+        if z.is_none() {
+            Err(InvalidZoomValue(zoom_name, zoom.to_string()))
+        } else {
+            Ok(z)
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+pub async fn compute_min_max_zoom<T>(conn: &mut T) -> MbtResult<Option<(u8, u8)>>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let info = query!(
+        "
+SELECT min(zoom_level) AS min_zoom,
+       max(zoom_level) AS max_zoom
+FROM tiles;"
+    )
+    .fetch_one(conn)
+    .await?;
+
+    let min_zoom = validate_zoom(info.min_zoom, "zoom_level")?;
+    let max_zoom = validate_zoom(info.max_zoom, "zoom_level")?;
+
+    match (min_zoom, max_zoom) {
+        (Some(min_zoom), Some(max_zoom)) => Ok(Some((min_zoom, max_zoom))),
+        _ => Ok(None),
+    }
 }

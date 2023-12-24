@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n    SELECT min(zoom_level) AS min_zoom,\n           max(zoom_level) AS max_zoom\n    FROM tiles",
+  "query": "\nSELECT min(zoom_level) AS min_zoom,\n       max(zoom_level) AS max_zoom\nFROM tiles;",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       true
     ]
   },
-  "hash": "47bdc12fe7b34fb2e4e1fc3b937bba64268170ab6e5381abfe07df24d8133229"
+  "hash": "96f3201d2151fbef63593c0e87648a2991e05060e71aa96141ece0867afa2d6c"
 }

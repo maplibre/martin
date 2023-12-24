@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
     apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
-    MbtTypeCli, Mbtiles, MbtilesCopier,
+    MbtTypeCli, Mbtiles, MbtilesCopier, UpdateZoomType,
 };
 use tilejson::Bounds;
 
@@ -68,6 +68,9 @@ enum Commands {
     UpdateMetadata {
         /// MBTiles file to validate
         file: PathBuf,
+        /// Update the min and max zoom levels in the metadata table to match the tiles table.
+        #[arg(long, value_enum, default_value_t=UpdateZoomType::default())]
+        update_zoom: UpdateZoomType,
     },
     /// Validate tile data if hash of tile data exists in file
     #[command(name = "validate", alias = "check", alias = "verify")]
@@ -179,9 +182,10 @@ async fn main_int() -> anyhow::Result<()> {
         } => {
             apply_patch(src_file, diff_file).await?;
         }
-        Commands::UpdateMetadata { file } => {
+        Commands::UpdateMetadata { file, update_zoom } => {
             let mbt = Mbtiles::new(file.as_path())?;
-            mbt.update_metadata().await?;
+            let mut conn = mbt.open().await?;
+            mbt.update_metadata(&mut conn, update_zoom).await?;
         }
         Commands::Validate {
             file,

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileInfo, MAX_ZOOM};
 use sqlite_hashes::rusqlite;
 
 use crate::MbtType;
@@ -74,6 +74,9 @@ pub enum MbtError {
 
     #[error("Unless  --on-duplicate (override|ignore|abort)  is set, writing tiles to an existing non-empty MBTiles file is disabled. Either set --on-duplicate flag, or delete {}", .0.display())]
     DestinationFileExists(PathBuf),
+
+    #[error("Invalid zoom value {0}={1}, expecting an integer between 0..{MAX_ZOOM}")]
+    InvalidZoomValue(&'static str, String),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;
