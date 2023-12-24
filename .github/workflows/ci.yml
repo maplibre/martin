@@ -56,10 +56,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --package martin-tile-utils -- -D warnings
-      - run: cargo clippy --package mbtiles --no-default-features -- -D warnings
-      - run: cargo clippy --package mbtiles -- -D warnings
-      - run: cargo clippy --package martin -- -D warnings
+      - run: cargo clippy --package martin-tile-utils --tests --lib --bins --benches -- -D warnings
+      - run: cargo clippy --package mbtiles --tests --lib --bins --benches --no-default-features -- -D warnings
+      - run: cargo clippy --package mbtiles --tests --lib --bins --benches -- -D warnings
+      - run: cargo clippy --package martin --tests --lib --bins --benches -- -D warnings
+      - run: RUSTFLAGS='-D warnings' cargo check --package martin --tests --lib --bins --benches --no-default-features
+      - run: RUSTFLAGS='-D warnings' cargo check --package martin --tests --lib --bins --benches --no-default-features --features fonts
+      - run: RUSTFLAGS='-D warnings' cargo check --package martin --tests --lib --bins --benches --no-default-features --features sprites
       - run: cargo clippy --package martin --features bless-tests -- -D warnings
       - run: cargo doc --no-deps --workspace
         env:

@@ -12,11 +12,13 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::file_config::{resolve_files, resolve_files_urls, FileConfigEnum};
+#[cfg(feature = "fonts")]
 use crate::fonts::FontSources;
 use crate::mbtiles::MbtSource;
 use crate::pg::PgConfig;
 use crate::pmtiles::{PmtFileSource, PmtHttpSource};
 use crate::source::{TileInfoSources, TileSources};
+#[cfg(feature = "sprites")]
 use crate::sprites::SpriteSources;
 use crate::srv::SrvConfig;
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
@@ -26,7 +28,9 @@ pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
 pub struct ServerState {
     pub tiles: TileSources,
+    #[cfg(feature = "sprites")]
     pub sprites: SpriteSources,
+    #[cfg(feature = "fonts")]
     pub fonts: FontSources,
 }
 
@@ -44,6 +48,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum,
 
+    #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: FileConfigEnum,
 
@@ -66,17 +71,22 @@ impl Config {
 
         res.extend(self.pmtiles.finalize("pmtiles.")?);
         res.extend(self.mbtiles.finalize("mbtiles.")?);
+        #[cfg(feature = "sprites")]
         res.extend(self.sprites.finalize("sprites.")?);
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
 
-        if self.postgres.is_empty()
-            && self.pmtiles.is_empty()
-            && self.mbtiles.is_empty()
-            && self.sprites.is_empty()
-            && self.fonts.is_empty()
-        {
+        let is_empty =
+            self.postgres.is_empty() && self.pmtiles.is_empty() && self.mbtiles.is_empty();
+
+        #[cfg(feature = "sprites")]
+        let is_empty = is_empty && self.sprites.is_empty();
+
+        #[cfg(feature = "fonts")]
+        let is_empty = is_empty && self.fonts.is_empty();
+
+        if is_empty {
             Err(NoSources)
         } else {
             Ok(res)
@@ -86,7 +96,9 @@ impl Config {
     pub async fn resolve(&mut self, idr: IdResolver) -> MartinResult<ServerState> {
         Ok(ServerState {
             tiles: self.resolve_tile_sources(idr).await?,
+            #[cfg(feature = "sprites")]
             sprites: SpriteSources::resolve(&mut self.sprites)?,
+            #[cfg(feature = "fonts")]
             fonts: FontSources::resolve(&mut self.fonts)?,
         })
     }

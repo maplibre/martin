@@ -6,7 +6,7 @@ use actix_http::ContentEncoding;
 use actix_web::dev::Server;
 use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound};
 use actix_web::http::header::{
-    AcceptEncoding, ContentType, Encoding as HeaderEnc, Preference, CACHE_CONTROL, CONTENT_ENCODING,
+    AcceptEncoding, Encoding as HeaderEnc, Preference, CACHE_CONTROL, CONTENT_ENCODING,
 };
 use actix_web::http::Uri;
 use actix_web::middleware::TrailingSlash;
@@ -23,8 +23,10 @@ use serde::{Deserialize, Serialize};
 use tilejson::{tilejson, TileJSON};
 
 use crate::config::ServerState;
+#[cfg(feature = "fonts")]
 use crate::fonts::{FontCatalog, FontError, FontSources};
 use crate::source::{Source, TileCatalog, TileSources, UrlQuery};
+#[cfg(feature = "sprites")]
 use crate::sprites::{SpriteCatalog, SpriteError, SpriteSources};
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
@@ -48,7 +50,9 @@ static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Catalog {
     pub tiles: TileCatalog,
+    #[cfg(feature = "sprites")]
     pub sprites: SpriteCatalog,
+    #[cfg(feature = "fonts")]
     pub fonts: FontCatalog,
 }
 
@@ -56,7 +60,9 @@ impl Catalog {
     pub fn new(state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
             tiles: state.tiles.get_catalog(),
+            #[cfg(feature = "sprites")]
             sprites: state.sprites.get_catalog()?,
+            #[cfg(feature = "fonts")]
             fonts: state.fonts.get_catalog(),
         })
     }
@@ -80,6 +86,7 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     ErrorInternalServerError(e.to_string())
 }
 
+#[cfg(feature = "sprites")]
 pub fn map_sprite_error(e: SpriteError) -> actix_web::Error {
     use SpriteError::SpriteNotFound;
     match e {
@@ -88,6 +95,7 @@ pub fn map_sprite_error(e: SpriteError) -> actix_web::Error {
     }
 }
 
+#[cfg(feature = "fonts")]
 pub fn map_font_error(e: FontError) -> actix_web::Error {
     #[allow(clippy::enum_glob_use)]
     use FontError::*;
@@ -131,6 +139,7 @@ async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
     HttpResponse::Ok().json(catalog)
 }
 
+#[cfg(feature = "sprites")]
 #[route("/sprite/{source_ids}.png", method = "GET", method = "HEAD")]
 async fn get_sprite_png(
     path: Path<TileJsonRequest>,
@@ -141,10 +150,11 @@ async fn get_sprite_png(
         .await
         .map_err(map_sprite_error)?;
     Ok(HttpResponse::Ok()
-        .content_type(ContentType::png())
+        .content_type(actix_web::http::header::ContentType::png())
         .body(sheet.encode_png().map_err(map_internal_error)?))
 }
 
+#[cfg(feature = "sprites")]
 #[route(
     "/sprite/{source_ids}.json",
     method = "GET",
@@ -162,6 +172,7 @@ async fn get_sprite_json(
     Ok(HttpResponse::Ok().json(sheet.get_index()))
 }
 
+#[cfg(feature = "fonts")]
 #[derive(Deserialize, Debug)]
 struct FontRequest {
     fontstack: String,
@@ -169,6 +180,7 @@ struct FontRequest {
     end: u32,
 }
 
+#[cfg(feature = "fonts")]
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
@@ -495,10 +507,13 @@ pub fn router(cfg: &mut web::ServiceConfig) {
         .service(get_index)
         .service(get_catalog)
         .service(git_source_info)
-        .service(get_tile)
-        .service(get_sprite_json)
-        .service(get_sprite_png)
-        .service(get_font);
+        .service(get_tile);
+
+    #[cfg(feature = "sprites")]
+    cfg.service(get_sprite_json).service(get_sprite_png);
+
+    #[cfg(feature = "fonts")]
+    cfg.service(get_font);
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.
@@ -515,11 +530,15 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .allow_any_origin()
             .allowed_methods(vec!["GET"]);
 
-        App::new()
-            .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.sprites.clone()))
-            .app_data(Data::new(state.fonts.clone()))
-            .app_data(Data::new(catalog.clone()))
+        let app = App::new().app_data(Data::new(state.tiles.clone()));
+
+        #[cfg(feature = "sprites")]
+        let app = app.app_data(Data::new(state.sprites.clone()));
+
+        #[cfg(feature = "fonts")]
+        let app = app.app_data(Data::new(state.fonts.clone()));
+
+        app.app_data(Data::new(catalog.clone()))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())

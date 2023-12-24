@@ -15,10 +15,12 @@ pub use utils::{
 
 pub mod args;
 pub mod file_config;
+#[cfg(feature = "fonts")]
 pub mod fonts;
 pub mod mbtiles;
 pub mod pg;
 pub mod pmtiles;
+#[cfg(feature = "sprites")]
 pub mod sprites;
 pub mod srv;
 

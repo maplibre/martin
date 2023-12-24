@@ -97,6 +97,7 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles", false);
         }
 
+        #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfigEnum::new(self.extras.sprite);
         }
