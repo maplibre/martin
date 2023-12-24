@@ -6,8 +6,10 @@ use std::path::PathBuf;
 use mbtiles::MbtError;
 
 use crate::file_config::FileError;
+#[cfg(feature = "fonts")]
 use crate::fonts::FontError;
 use crate::pg::PgError;
+#[cfg(feature = "sprites")]
 use crate::sprites::SpriteError;
 
 /// A convenience [`Result`] for Martin crate.
@@ -65,9 +67,11 @@ pub enum MartinError {
     #[error(transparent)]
     FileError(#[from] FileError),
 
+    #[cfg(feature = "sprites")]
     #[error(transparent)]
     SpriteError(#[from] SpriteError),
 
+    #[cfg(feature = "fonts")]
     #[error(transparent)]
     FontError(#[from] FontError),
 
