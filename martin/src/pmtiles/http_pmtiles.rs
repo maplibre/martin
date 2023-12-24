@@ -23,8 +23,15 @@ use crate::{MartinResult, TileCoord, TileData};
 struct PmtCache(Cache<usize, Directory>);
 
 impl PmtCache {
-    fn new() -> Self {
-        Self(Cache::new(500))
+    fn new(max_capacity: u64) -> Self {
+        Self(
+            Cache::builder()
+                .weigher(|_key, value: &Directory| -> u32 {
+                    value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
+                })
+                .max_capacity(max_capacity)
+                .build(),
+        )
     }
 }
 
@@ -54,7 +61,7 @@ impl_pmtiles_source!(
 impl PmtHttpSource {
     pub async fn new_url_box(id: String, url: Url) -> FileResult<Box<dyn Source>> {
         let client = Client::new();
-        let cache = PmtCache::new();
+        let cache = PmtCache::new(4 * 1024 * 1024);
         Ok(Box::new(
             PmtHttpSource::new_url(client, cache, id, url).await?,
         ))
