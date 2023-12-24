@@ -59,7 +59,8 @@ name = "bench"
 harness = false
 
 [features]
-default = ["sprites", "fonts"]
+default = []
+#default = ["sprites", "fonts"]
 sprites = []
 fonts = []
 bless-tests = []

@@ -168,7 +168,15 @@ impl_pmtiles_source!(
 
 #[async_trait]
 impl FileConfigExtras for PmtConfig {
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<Box<dyn Source>> {
+    fn parse_urls() -> bool {
+        true
+    }
+
+    async fn new_sources(
+        _cfg: Option<&Self>,
+        id: String,
+        path: PathBuf,
+    ) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(PmtFileSource::new(id, path).await?))
 
         // let client = Client::new();
@@ -176,6 +184,14 @@ impl FileConfigExtras for PmtConfig {
         // Ok(Box::new(
         //     PmtHttpSource::new_url(client, cache, id, url).await?,
         // ))
+    }
+
+    async fn new_sources_url(
+        _cfg: Option<&Self>,
+        _id: String,
+        _url: Url,
+    ) -> FileResult<Box<dyn Source>> {
+        unreachable!()
     }
 }
 

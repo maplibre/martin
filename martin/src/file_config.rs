@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
-use std::future::Future;
 use std::mem;
 use std::path::{Path, PathBuf};
 
@@ -49,17 +48,20 @@ pub enum FileError {
 }
 
 #[async_trait]
-pub trait FileConfigExtras: Clone + Debug + Default + PartialEq {
-    // new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
-    // new_url_source: &mut impl FnMut(String, Url) -> Fut2,
-    // ) -> FileResult<TileInfoSources>
-    // where
-    // Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
-    // Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
+pub trait FileConfigExtras: Clone + Debug + Default + PartialEq + Send {
+    fn parse_urls() -> bool;
+    async fn new_sources(
+        cfg: Option<&Self>,
+        id: String,
+        path: PathBuf,
+    ) -> FileResult<Box<dyn Source>>;
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<Box<dyn Source>>;
+    async fn new_sources_url(
+        cfg: Option<&Self>,
+        id: String,
+        url: Url,
+    ) -> FileResult<Box<dyn Source>>;
 }
-// impl<T: Clone + Debug + Default + PartialEq> FileConfigExtras for T {}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -200,21 +202,12 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
-async fn dummy_resolver(_id: String, _url: Url) -> FileResult<Box<dyn Source>> {
-    unreachable!()
-}
-
-pub async fn resolve_files<T: FileConfigExtras, Fut>(
+pub async fn resolve_files<T: FileConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
-    new_source: &mut impl FnMut(String, PathBuf) -> Fut,
-) -> MartinResult<TileInfoSources>
-where
-    Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
-{
-    let dummy = &mut dummy_resolver;
-    resolve_int(config, idr, extension, false, new_source, dummy)
+) -> MartinResult<TileInfoSources> {
+    resolve_int(config, idr, extension)
         .map_err(crate::MartinError::from)
         .await
 }
@@ -226,7 +219,7 @@ pub async fn resolve_files_urls<T: FileConfigExtras>(
     // new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
     // new_url_source: &mut impl FnMut(String, Url) -> Fut2,
 ) -> MartinResult<TileInfoSources> {
-    resolve_int(config, idr, extension, true)
+    resolve_int(config, idr, extension)
         .map_err(crate::MartinError::from)
         .await
 }
@@ -235,7 +228,6 @@ async fn resolve_int<T: FileConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
-    parse_urls: bool,
 ) -> FileResult<TileInfoSources> {
     let Some(cfg) = config.extract_file_config() else {
         return Ok(TileInfoSources::default());
@@ -248,12 +240,13 @@ async fn resolve_int<T: FileConfigExtras>(
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            if let Some(url) = parse_url(parse_urls, source.get_path())? {
+            if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
                 let dup = !files.insert(source.get_path().clone());
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(config.new_sources(id.clone(), url.clone()).await?);
+                results
+                    .push(T::new_sources_url(cfg.extras.as_ref(), id.clone(), url.clone()).await?);
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -267,13 +260,13 @@ async fn resolve_int<T: FileConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(new_source(id, source.into_path()).await?);
+                results.push(T::new_sources(cfg.extras.as_ref(), id, source.into_path()).await?);
             }
         }
     }
 
     for path in cfg.paths {
-        if let Some(url) = parse_url(parse_urls, &path)? {
+        if let Some(url) = parse_url(T::parse_urls(), &path)? {
             let id = url
                 .path_segments()
                 .and_then(Iterator::last)
@@ -287,7 +280,7 @@ async fn resolve_int<T: FileConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(new_url_source(id.clone(), url.clone()).await?);
+            results.push(T::new_sources_url(cfg.extras.as_ref(), id.clone(), url.clone()).await?);
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -316,7 +309,7 @@ async fn resolve_int<T: FileConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(new_source(id, path).await?);
+                results.push(T::new_sources(cfg.extras.as_ref(), id, path).await?);
             }
         }
     }

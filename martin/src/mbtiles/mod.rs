@@ -9,6 +9,7 @@ use martin_tile_utils::TileInfo;
 use mbtiles::MbtilesPool;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
+use url::Url;
 
 use crate::file_config::FileError::{AquireConnError, InvalidMetadata, IoError};
 use crate::file_config::{FileConfigExtras, FileResult};
@@ -20,8 +21,24 @@ pub struct MbtilesConfig;
 
 #[async_trait]
 impl FileConfigExtras for MbtilesConfig {
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<Box<dyn Source>> {
+    async fn new_sources(
+        _cfg: Option<&Self>,
+        id: String,
+        path: PathBuf,
+    ) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(MbtSource::new(id, path).await?))
+    }
+
+    fn parse_urls() -> bool {
+        false
+    }
+
+    async fn new_sources_url(
+        _cfg: Option<&Self>,
+        _id: String,
+        _url: Url,
+    ) -> FileResult<Box<dyn Source>> {
+        unreachable!()
     }
 }
 
