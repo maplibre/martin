@@ -11,10 +11,10 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-use crate::file_config::{resolve_files, resolve_files_urls, FileConfigEnum, FileConfigNoExtras};
+use crate::file_config::{resolve_files, resolve_files_urls, FileConfigEnum};
 #[cfg(feature = "fonts")]
 use crate::fonts::FontSources;
-use crate::mbtiles::MbtSource;
+use crate::mbtiles::{MbtSource, MbtilesConfig};
 use crate::pg::PgConfig;
 use crate::pmtiles::{PmtConfig, PmtFileSource, PmtHttpSource};
 use crate::source::{TileInfoSources, TileSources};
@@ -46,7 +46,7 @@ pub struct Config {
     pub pmtiles: FileConfigEnum<PmtConfig>,
 
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum<FileConfigNoExtras>,
+    pub mbtiles: FileConfigEnum<MbtilesConfig>,
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]

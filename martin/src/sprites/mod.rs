@@ -13,7 +13,7 @@ use spreet::{
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
-use crate::file_config::{FileConfigEnum, FileConfigNoExtras, FileResult};
+use crate::file_config::{FileConfigEnum, FileResult};
 
 pub type SpriteResult<T> = Result<T, SpriteError>;
 

@@ -1,9 +1,27 @@
-mod file_pmtiles;
-mod http_pmtiles;
+use std::convert::identity;
+use std::fmt::{Debug, Formatter};
+use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-pub use file_pmtiles::PmtFileSource;
-pub use http_pmtiles::PmtHttpSource;
+use async_trait::async_trait;
+use log::{trace, warn};
+use martin_tile_utils::{Encoding, Format, TileInfo};
+use moka::future::Cache;
+use pmtiles::async_reader::AsyncPmTilesReader;
+use pmtiles::cache::{DirCacheResult, DirectoryCache, NoCache};
+use pmtiles::http::HttpBackend;
+use pmtiles::mmap::MmapBackend;
+use pmtiles::{Compression, Directory, TileType};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tilejson::TileJSON;
+use url::Url;
+
+use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
+use crate::file_config::{FileConfigExtras, FileError, FileResult};
+use crate::source::{Source, UrlQuery};
+use crate::{MartinResult, TileCoord, TileData};
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -139,4 +157,97 @@ macro_rules! impl_pmtiles_source {
     };
 }
 
-pub(crate) use impl_pmtiles_source;
+impl_pmtiles_source!(
+    PmtFileSource,
+    MmapBackend,
+    NoCache,
+    PathBuf,
+    Path::display,
+    InvalidMetadata
+);
+
+#[async_trait]
+impl FileConfigExtras for PmtConfig {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<Box<dyn Source>> {
+        Ok(Box::new(PmtFileSource::new(id, path).await?))
+
+        // let client = Client::new();
+        // let cache = PmtCache::new(4 * 1024 * 1024);
+        // Ok(Box::new(
+        //     PmtHttpSource::new_url(client, cache, id, url).await?,
+        // ))
+    }
+}
+
+impl PmtFileSource {
+    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
+        let backend = MmapBackend::try_from(path.as_path())
+            .await
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{e:?}: Cannot open file {}", path.display()),
+                )
+            })
+            .map_err(|e| IoError(e, path.clone()))?;
+
+        let reader = AsyncPmTilesReader::try_from_source(backend).await;
+        let reader = reader
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{e:?}: Cannot open file {}", path.display()),
+                )
+            })
+            .map_err(|e| IoError(e, path.clone()))?;
+
+        Self::new_int(id, path, reader).await
+    }
+}
+
+struct PmtCache(Cache<usize, Directory>);
+
+impl PmtCache {
+    fn new(max_capacity: u64) -> Self {
+        Self(
+            Cache::builder()
+                .weigher(|_key, value: &Directory| -> u32 {
+                    value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
+                })
+                .max_capacity(max_capacity)
+                .build(),
+        )
+    }
+}
+
+#[async_trait]
+impl DirectoryCache for PmtCache {
+    async fn get_dir_entry(&self, offset: usize, tile_id: u64) -> DirCacheResult {
+        match self.0.get(&offset).await {
+            Some(dir) => dir.find_tile_id(tile_id).into(),
+            None => DirCacheResult::NotCached,
+        }
+    }
+
+    async fn insert_dir(&self, offset: usize, directory: Directory) {
+        self.0.insert(offset, directory).await;
+    }
+}
+
+impl_pmtiles_source!(
+    PmtHttpSource,
+    HttpBackend,
+    PmtCache,
+    Url,
+    identity,
+    InvalidUrlMetadata
+);
+
+impl PmtHttpSource {
+    async fn new_url(client: Client, cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+        let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
+        let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+
+        Self::new_int(id, url, reader).await
+    }
+}

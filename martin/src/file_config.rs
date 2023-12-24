@@ -4,6 +4,7 @@ use std::future::Future;
 use std::mem;
 use std::path::{Path, PathBuf};
 
+use async_trait::async_trait;
 use futures::TryFutureExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -47,11 +48,18 @@ pub enum FileError {
     PmtError(pmtiles::PmtError, String),
 }
 
-pub trait FileConfigExtras: Clone + Debug + Default + PartialEq {}
-impl<T: Clone + Debug + Default + PartialEq> FileConfigExtras for T {}
+#[async_trait]
+pub trait FileConfigExtras: Clone + Debug + Default + PartialEq {
+    // new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
+    // new_url_source: &mut impl FnMut(String, Url) -> Fut2,
+    // ) -> FileResult<TileInfoSources>
+    // where
+    // Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
+    // Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct FileConfigNoExtras;
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<Box<dyn Source>>;
+}
+// impl<T: Clone + Debug + Default + PartialEq> FileConfigExtras for T {}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -211,34 +219,24 @@ where
         .await
 }
 
-pub async fn resolve_files_urls<T: FileConfigExtras, Fut1, Fut2>(
+pub async fn resolve_files_urls<T: FileConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
-    new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
-    new_url_source: &mut impl FnMut(String, Url) -> Fut2,
-) -> MartinResult<TileInfoSources>
-where
-    Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
-    Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
-{
-    resolve_int(config, idr, extension, true, new_source, new_url_source)
+    // new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
+    // new_url_source: &mut impl FnMut(String, Url) -> Fut2,
+) -> MartinResult<TileInfoSources> {
+    resolve_int(config, idr, extension, true)
         .map_err(crate::MartinError::from)
         .await
 }
 
-async fn resolve_int<T: FileConfigExtras, Fut1, Fut2>(
+async fn resolve_int<T: FileConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
     parse_urls: bool,
-    new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
-    new_url_source: &mut impl FnMut(String, Url) -> Fut2,
-) -> FileResult<TileInfoSources>
-where
-    Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
-    Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
-{
+) -> FileResult<TileInfoSources> {
     let Some(cfg) = config.extract_file_config() else {
         return Ok(TileInfoSources::default());
     };
@@ -255,7 +253,7 @@ where
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(new_url_source(id.clone(), url.clone()).await?);
+                results.push(config.new_sources(id.clone(), url.clone()).await?);
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -370,11 +368,12 @@ mod tests {
 
     use indoc::indoc;
 
-    use crate::file_config::{FileConfigEnum, FileConfigNoExtras, FileConfigSource, FileConfigSrc};
+    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
+    use crate::mbtiles::MbtilesConfig;
 
     #[test]
     fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum<FileConfigNoExtras>>(indoc! {"
+        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtilesConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext

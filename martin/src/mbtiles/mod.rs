@@ -7,12 +7,23 @@ use async_trait::async_trait;
 use log::trace;
 use martin_tile_utils::TileInfo;
 use mbtiles::MbtilesPool;
+use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
 use crate::file_config::FileError::{AquireConnError, InvalidMetadata, IoError};
-use crate::file_config::FileResult;
+use crate::file_config::{FileConfigExtras, FileResult};
 use crate::source::{TileData, UrlQuery};
 use crate::{MartinResult, Source, TileCoord};
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct MbtilesConfig;
+
+#[async_trait]
+impl FileConfigExtras for MbtilesConfig {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<Box<dyn Source>> {
+        Ok(Box::new(MbtSource::new(id, path).await?))
+    }
+}
 
 #[derive(Clone)]
 pub struct MbtSource {
@@ -34,10 +45,6 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
-    pub async fn new_box(id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
-    }
-
     async fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let mbt = MbtilesPool::new(&path)
             .await
