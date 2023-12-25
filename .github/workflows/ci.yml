@@ -235,9 +235,6 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-      - name: Stop HTTP Server
-        if: always()
-        run: docker stop fileserver
 
   build:
     name: Build ${{ matrix.target }}
@@ -309,17 +306,47 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install Docker (MacOS)
-        if: runner.os == 'macos'
-        run: brew install docker && colima start
+      # - name: Install Docker (MacOS)
+      #   if: runner.os == 'macos'
+      #   run: brew install docker && colima start
       - name: Start HTTP Server (with Docker)
-        if: runner.os != 'windows'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           docker run --rm -d \
             --name fileserver \
             -p 5412:80 \
             -v ${{ github.workspace }}/tests/fixtures/pmtiles2:/usr/share/nginx/html \
             nginx:alpine
+      - name: Start HTTP Server (MacOS, no Docker)
+        if: runner.os == 'macos'
+        run: |
+          cat << EOF > /usr/local/etc/nginx/nginx.conf
+          worker_processes     1;
+          events {
+            worker_connections 1024;
+          }
+          http {
+            include            mime.types;
+            default_type       application/octet-stream;
+            sendfile           on;
+            keepalive_timeout  65;
+            server {
+              listen       5412;
+              server_name  localhost;
+              location / {
+                root       $PWD/tests/fixtures/pmtiles2;
+                index      index.html index.htm;
+              }
+            }
+          }
+          EOF
+                    
+          brew services info nginx
+          brew services start nginx
+          sleep 2
+          curl -I http://localhost:5412/
+          curl -I http://localhost:5412/webp2.pmtiles
+
       - name: Start HTTP Server (Windows, no Docker)
         if: runner.os == 'windows'
         shell: pwsh
@@ -417,9 +444,6 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Stop HTTP Server (with Docker)
-        if: runner.os != 'windows'
-        run: docker stop fileserver
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v3
@@ -555,9 +579,6 @@ jobs:
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-      - name: Stop HTTP Server
-        if: always()
-        run: docker stop fileserver
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v3
