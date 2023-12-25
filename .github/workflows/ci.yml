@@ -235,9 +235,6 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-      - name: Stop HTTP Server
-        if: always()
-        run: docker stop fileserver
 
   build:
     name: Build ${{ matrix.target }}
@@ -447,9 +444,6 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Stop HTTP Server (with Docker)
-        if: runner.os != 'windows'
-        run: docker stop fileserver
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v3
@@ -585,9 +579,6 @@ jobs:
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-      - name: Stop HTTP Server
-        if: always()
-        run: docker stop fileserver
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v3
