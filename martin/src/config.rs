@@ -11,15 +11,13 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-use crate::file_config::{resolve_files, resolve_files_urls, FileConfigEnum};
+#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
+use crate::file_config::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::fonts::FontSources;
-use crate::mbtiles::MbtSource;
-use crate::pg::PgConfig;
-use crate::pmtiles::{PmtFileSource, PmtHttpSource};
 use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
-use crate::sprites::SpriteSources;
+use crate::sprites::{SpriteConfig, SpriteSources};
 use crate::srv::SrvConfig;
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 use crate::{IdResolver, MartinResult, OptOneMany};
@@ -39,18 +37,21 @@ pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
 
+    #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<PgConfig>,
+    pub postgres: OptOneMany<crate::pg::PgConfig>,
 
+    #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum,
+    pub pmtiles: FileConfigEnum<crate::pmtiles::PmtConfig>,
 
+    #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum,
+    pub mbtiles: FileConfigEnum<crate::mbtiles::MbtConfig>,
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub sprites: FileConfigEnum,
+    pub sprites: FileConfigEnum<SpriteConfig>,
 
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: OptOneMany<PathBuf>,
@@ -65,20 +66,33 @@ impl Config {
         let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
+        #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {
             res.extend(pg.finalize()?);
         }
 
+        #[cfg(feature = "pmtiles")]
         res.extend(self.pmtiles.finalize("pmtiles.")?);
+
+        #[cfg(feature = "mbtiles")]
         res.extend(self.mbtiles.finalize("mbtiles.")?);
+
         #[cfg(feature = "sprites")]
         res.extend(self.sprites.finalize("sprites.")?);
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
 
-        let is_empty =
-            self.postgres.is_empty() && self.pmtiles.is_empty() && self.mbtiles.is_empty();
+        let is_empty = true;
+
+        #[cfg(feature = "postgres")]
+        let is_empty = is_empty && self.postgres.is_empty();
+
+        #[cfg(feature = "pmtiles")]
+        let is_empty = is_empty && self.pmtiles.is_empty();
+
+        #[cfg(feature = "mbtiles")]
+        let is_empty = is_empty && self.mbtiles.is_empty();
 
         #[cfg(feature = "sprites")]
         let is_empty = is_empty && self.sprites.is_empty();
@@ -103,26 +117,30 @@ impl Config {
         })
     }
 
-    async fn resolve_tile_sources(&mut self, idr: IdResolver) -> MartinResult<TileSources> {
-        let new_pmt_src = &mut PmtFileSource::new_box;
-        let new_pmt_url_src = &mut PmtHttpSource::new_url_box;
-        let new_mbt_src = &mut MbtSource::new_box;
+    async fn resolve_tile_sources(
+        &mut self,
+        #[allow(unused_variables)] idr: IdResolver,
+    ) -> MartinResult<TileSources> {
+        #[allow(unused_mut)]
         let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<TileInfoSources>>>>> =
             Vec::new();
 
+        #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
             sources.push(Box::pin(s.resolve(idr.clone())));
         }
 
+        #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
             let cfg = &mut self.pmtiles;
-            let val = resolve_files_urls(cfg, idr.clone(), "pmtiles", new_pmt_src, new_pmt_url_src);
+            let val = crate::file_config::resolve_files(cfg, idr.clone(), "pmtiles");
             sources.push(Box::pin(val));
         }
 
+        #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = resolve_files(cfg, idr.clone(), "mbtiles", new_mbt_src);
+            let val = crate::file_config::resolve_files(cfg, idr.clone(), "mbtiles");
             sources.push(Box::pin(val));
         }
 
@@ -183,6 +201,7 @@ where
     subst::yaml::from_str(contents, env).map_err(|e| ConfigParseError(e, file_name.into()))
 }
 
+#[cfg(feature = "postgres")]
 #[cfg(test)]
 pub mod tests {
     use super::*;

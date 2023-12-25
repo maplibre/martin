@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};

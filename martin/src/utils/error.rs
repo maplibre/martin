@@ -8,7 +8,6 @@ use mbtiles::MbtError;
 use crate::file_config::FileError;
 #[cfg(feature = "fonts")]
 use crate::fonts::FontError;
-use crate::pg::PgError;
 #[cfg(feature = "sprites")]
 use crate::sprites::SpriteError;
 
@@ -58,8 +57,9 @@ pub enum MartinError {
     #[error("Unrecognizable connection strings: {0:?}")]
     UnrecognizableConnections(Vec<String>),
 
+    #[cfg(feature = "postgres")]
     #[error(transparent)]
-    PostgresError(#[from] PgError),
+    PostgresError(#[from] crate::pg::PgError),
 
     #[error(transparent)]
     MbtilesError(#[from] MbtError),

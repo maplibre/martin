@@ -17,8 +17,11 @@ pub mod args;
 pub mod file_config;
 #[cfg(feature = "fonts")]
 pub mod fonts;
+#[cfg(feature = "mbtiles")]
 pub mod mbtiles;
+#[cfg(feature = "postgres")]
 pub mod pg;
+#[cfg(feature = "pmtiles")]
 pub mod pmtiles;
 #[cfg(feature = "sprites")]
 pub mod sprites;

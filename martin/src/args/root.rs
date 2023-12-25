@@ -2,14 +2,12 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use log::warn;
-use url::Url;
 
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;
-use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
-use crate::args::State::{Ignore, Share, Take};
 use crate::config::Config;
+#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
 use crate::file_config::FileConfigEnum;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::{MartinResult, OptOneMany};
@@ -27,8 +25,9 @@ pub struct Args {
     pub extras: ExtraArgs,
     #[command(flatten)]
     pub srv: SrvArgs,
+    #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<PgArgs>,
+    pub pg: Option<crate::args::pg::PgArgs>,
 }
 
 // None of these params will be transferred to the config
@@ -80,19 +79,26 @@ impl Args {
 
         self.srv.merge_into_config(&mut config.srv);
 
+        #[allow(unused_mut)]
         let mut cli_strings = Arguments::new(self.meta.connection);
-        let pg_args = self.pg.unwrap_or_default();
-        if config.postgres.is_none() {
-            config.postgres = pg_args.into_config(&mut cli_strings, env);
-        } else {
-            // config was loaded from a file, we can only apply a few CLI overrides to it
-            pg_args.override_config(&mut config.postgres, env);
+
+        #[cfg(feature = "postgres")]
+        {
+            let pg_args = self.pg.unwrap_or_default();
+            if config.postgres.is_none() {
+                config.postgres = pg_args.into_config(&mut cli_strings, env);
+            } else {
+                // config was loaded from a file, we can only apply a few CLI overrides to it
+                pg_args.override_config(&mut config.postgres, env);
+            }
         }
 
+        #[cfg(feature = "pmtiles")]
         if !cli_strings.is_empty() {
             config.pmtiles = parse_file_args(&mut cli_strings, "pmtiles", true);
         }
 
+        #[cfg(feature = "mbtiles")]
         if !cli_strings.is_empty() {
             config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles", false);
         }
@@ -110,9 +116,10 @@ impl Args {
     }
 }
 
+#[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
 fn is_url(s: &str, extension: &str) -> bool {
     if s.starts_with("http") {
-        if let Ok(url) = Url::parse(s) {
+        if let Ok(url) = url::Url::parse(s) {
             if url.scheme() == "http" || url.scheme() == "https" {
                 if let Some(ext) = url.path().rsplit('.').next() {
                     return ext == extension;
@@ -123,11 +130,14 @@ fn is_url(s: &str, extension: &str) -> bool {
     false
 }
 
-pub fn parse_file_args(
+#[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
     extension: &str,
     allow_url: bool,
-) -> FileConfigEnum {
+) -> FileConfigEnum<T> {
+    use crate::args::State::{Ignore, Share, Take};
+
     let paths = cli_strings.process(|s| match PathBuf::try_from(s) {
         Ok(v) => {
             if allow_url && is_url(s, extension) {
@@ -149,9 +159,7 @@ pub fn parse_file_args(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pg::PgConfig;
-    use crate::test_utils::{some, FauxEnv};
-    use crate::utils::OptOneMany;
+    use crate::test_utils::FauxEnv;
     use crate::MartinError::UnrecognizableConnections;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
@@ -169,8 +177,12 @@ mod tests {
         assert_eq!(args, expected);
     }
 
+    #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
+        use crate::test_utils::some;
+        use crate::utils::OptOneMany;
+
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
             config: Some(PathBuf::from("c.toml")),
@@ -188,7 +200,7 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(PgConfig {
+            postgres: OptOneMany::One(crate::pg::PgConfig {
                 connection_string: some("postgres://connection"),
                 ..Default::default()
             }),

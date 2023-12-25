@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, HashSet};
-use std::future::Future;
+use std::fmt::Debug;
 use std::mem;
 use std::path::{Path, PathBuf};
 
+use async_trait::async_trait;
 use futures::TryFutureExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -39,36 +40,60 @@ pub enum FileError {
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
-    #[error(r#"Unable to aquire connection to file: {0}"#)]
-    AquireConnError(String),
+    #[error(r#"Unable to acquire connection to file: {0}"#)]
+    AcquireConnError(String),
 
     #[error(r#"PMTiles error {0} processing {1}"#)]
     PmtError(pmtiles::PmtError, String),
 }
 
+pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
+    fn init_parsing(&mut self) -> FileResult<()> {
+        Ok(())
+    }
+
+    #[must_use]
+    fn is_default(&self) -> bool {
+        true
+    }
+
+    fn get_unrecognized(&self) -> &UnrecognizedValues;
+}
+
+#[async_trait]
+pub trait SourceConfigExtras: ConfigExtras {
+    #[must_use]
+    fn parse_urls() -> bool {
+        false
+    }
+    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>>;
+
+    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<Box<dyn Source>>;
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum FileConfigEnum {
+pub enum FileConfigEnum<T> {
     #[default]
     None,
     Path(PathBuf),
     Paths(Vec<PathBuf>),
-    Config(FileConfig),
+    Config(FileConfig<T>),
 }
 
-impl FileConfigEnum {
+impl<T: ConfigExtras> FileConfigEnum<T> {
     #[must_use]
-    pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum {
-        Self::new_extended(paths, BTreeMap::new(), UnrecognizedValues::new())
+    pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum<T> {
+        Self::new_extended(paths, BTreeMap::new(), T::default())
     }
 
     #[must_use]
     pub fn new_extended(
         paths: Vec<PathBuf>,
         configs: BTreeMap<String, FileConfigSrc>,
-        unrecognized: UnrecognizedValues,
-    ) -> FileConfigEnum {
-        if configs.is_empty() && unrecognized.is_empty() {
+        custom: T,
+    ) -> Self {
+        if configs.is_empty() && custom.is_default() {
             match paths.len() {
                 0 => FileConfigEnum::None,
                 1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
@@ -82,7 +107,7 @@ impl FileConfigEnum {
                 } else {
                     Some(configs)
                 },
-                unrecognized,
+                custom,
             })
         }
     }
@@ -102,25 +127,27 @@ impl FileConfigEnum {
         }
     }
 
-    pub fn extract_file_config(&mut self) -> Option<FileConfig> {
-        match self {
-            FileConfigEnum::None => None,
-            FileConfigEnum::Path(path) => Some(FileConfig {
+    pub fn extract_file_config(&mut self) -> FileResult<Option<FileConfig<T>>> {
+        let mut res = match self {
+            FileConfigEnum::None => return Ok(None),
+            FileConfigEnum::Path(path) => FileConfig {
                 paths: One(mem::take(path)),
                 ..FileConfig::default()
-            }),
-            FileConfigEnum::Paths(paths) => Some(FileConfig {
+            },
+            FileConfigEnum::Paths(paths) => FileConfig {
                 paths: Many(mem::take(paths)),
                 ..Default::default()
-            }),
-            FileConfigEnum::Config(cfg) => Some(mem::take(cfg)),
-        }
+            },
+            FileConfigEnum::Config(cfg) => mem::take(cfg),
+        };
+        res.custom.init_parsing()?;
+        Ok(Some(res))
     }
 
     pub fn finalize(&self, prefix: &str) -> MartinResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         if let Self::Config(cfg) = self {
-            copy_unrecognized_config(&mut res, prefix, &cfg.unrecognized);
+            copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
         }
         Ok(res)
     }
@@ -128,20 +155,28 @@ impl FileConfigEnum {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct FileConfig {
+pub struct FileConfig<T> {
     /// A list of file paths
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub paths: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
     pub sources: Option<BTreeMap<String, FileConfigSrc>>,
+    /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
-    pub unrecognized: UnrecognizedValues,
+    pub custom: T,
 }
 
-impl FileConfig {
+impl<T: ConfigExtras> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none() && self.sources.is_none()
+        self.paths.is_none()
+            && self.sources.is_none()
+            && self.get_unrecognized().is_empty()
+            && self.custom.is_default()
+    }
+
+    pub fn get_unrecognized(&self) -> &UnrecognizedValues {
+        self.custom.get_unrecognized()
     }
 }
 
@@ -181,54 +216,22 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
-async fn dummy_resolver(_id: String, _url: Url) -> FileResult<Box<dyn Source>> {
-    unreachable!()
-}
-
-pub async fn resolve_files<Fut>(
-    config: &mut FileConfigEnum,
+pub async fn resolve_files<T: SourceConfigExtras>(
+    config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
-    new_source: &mut impl FnMut(String, PathBuf) -> Fut,
-) -> MartinResult<TileInfoSources>
-where
-    Fut: Future<Output = Result<Box<dyn Source>, FileError>>,
-{
-    let dummy = &mut dummy_resolver;
-    resolve_int(config, idr, extension, false, new_source, dummy)
+) -> MartinResult<TileInfoSources> {
+    resolve_int(config, idr, extension)
         .map_err(crate::MartinError::from)
         .await
 }
 
-pub async fn resolve_files_urls<Fut1, Fut2>(
-    config: &mut FileConfigEnum,
+async fn resolve_int<T: SourceConfigExtras>(
+    config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
-    new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
-    new_url_source: &mut impl FnMut(String, Url) -> Fut2,
-) -> MartinResult<TileInfoSources>
-where
-    Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
-    Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
-{
-    resolve_int(config, idr, extension, true, new_source, new_url_source)
-        .map_err(crate::MartinError::from)
-        .await
-}
-
-async fn resolve_int<Fut1, Fut2>(
-    config: &mut FileConfigEnum,
-    idr: IdResolver,
-    extension: &str,
-    parse_urls: bool,
-    new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
-    new_url_source: &mut impl FnMut(String, Url) -> Fut2,
-) -> FileResult<TileInfoSources>
-where
-    Fut1: Future<Output = Result<Box<dyn Source>, FileError>>,
-    Fut2: Future<Output = Result<Box<dyn Source>, FileError>>,
-{
-    let Some(cfg) = config.extract_file_config() else {
+) -> FileResult<TileInfoSources> {
+    let Some(cfg) = config.extract_file_config()? else {
         return Ok(TileInfoSources::default());
     };
 
@@ -239,12 +242,12 @@ where
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            if let Some(url) = parse_url(parse_urls, source.get_path())? {
+            if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
                 let dup = !files.insert(source.get_path().clone());
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(new_url_source(id.clone(), url.clone()).await?);
+                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -258,13 +261,13 @@ where
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(new_source(id, source.into_path()).await?);
+                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
             }
         }
     }
 
     for path in cfg.paths {
-        if let Some(url) = parse_url(parse_urls, &path)? {
+        if let Some(url) = parse_url(T::parse_urls(), &path)? {
             let id = url
                 .path_segments()
                 .and_then(Iterator::last)
@@ -278,7 +281,7 @@ where
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(new_url_source(id.clone(), url.clone()).await?);
+            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -307,12 +310,12 @@ where
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(new_source(id, path).await?);
+                results.push(cfg.custom.new_sources(id, path).await?);
             }
         }
     }
 
-    *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
+    *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
     Ok(results)
 }
@@ -350,71 +353,4 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-    use std::path::PathBuf;
-
-    use indoc::indoc;
-
-    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
-
-    #[test]
-    fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum>(indoc! {"
-            paths:
-              - /dir-path
-              - /path/to/file2.ext
-              - http://example.org/file.ext
-            sources:
-                pm-src1: /tmp/file.ext
-                pm-src2:
-                  path: /tmp/file.ext
-                pm-src3: https://example.org/file3.ext
-                pm-src4:
-                  path: https://example.org/file4.ext
-        "})
-        .unwrap();
-        let res = cfg.finalize("").unwrap();
-        assert!(res.is_empty(), "unrecognized config: {res:?}");
-        let FileConfigEnum::Config(cfg) = cfg else {
-            panic!();
-        };
-        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
-        assert_eq!(
-            paths,
-            vec![
-                PathBuf::from("/dir-path"),
-                PathBuf::from("/path/to/file2.ext"),
-                PathBuf::from("http://example.org/file.ext"),
-            ]
-        );
-        assert_eq!(
-            cfg.sources,
-            Some(BTreeMap::from_iter(vec![
-                (
-                    "pm-src1".to_string(),
-                    FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
-                ),
-                (
-                    "pm-src2".to_string(),
-                    FileConfigSrc::Obj(FileConfigSource {
-                        path: PathBuf::from("/tmp/file.ext"),
-                    })
-                ),
-                (
-                    "pm-src3".to_string(),
-                    FileConfigSrc::Path(PathBuf::from("https://example.org/file3.ext"))
-                ),
-                (
-                    "pm-src4".to_string(),
-                    FileConfigSrc::Obj(FileConfigSource {
-                        path: PathBuf::from("https://example.org/file4.ext"),
-                    })
-                ),
-            ]))
-        );
-    }
 }

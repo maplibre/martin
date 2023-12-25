@@ -11,7 +11,7 @@ use clap::Parser;
 use futures::stream::{self, StreamExt};
 use futures::TryStreamExt;
 use log::{debug, error, info, log_enabled};
-use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, PgArgs, SrvArgs};
+use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::srv::{get_tile_content, merge_tilejson, RESERVED_KEYWORDS};
 use martin::{
     append_rect, read_config, Config, IdResolver, MartinError, MartinResult, ServerState, Source,
@@ -46,8 +46,9 @@ pub struct CopierArgs {
     pub copy: CopyArgs,
     #[command(flatten)]
     pub meta: MetaArgs,
+    #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<PgArgs>,
+    pub pg: Option<martin::args::PgArgs>,
 }
 
 #[serde_with::serde_as]
@@ -137,6 +138,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         meta: copy_args.meta,
         extras: ExtraArgs::default(),
         srv: SrvArgs::default(),
+        #[cfg(feature = "postgres")]
         pg: copy_args.pg,
     };
 

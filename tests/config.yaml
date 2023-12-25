@@ -166,6 +166,7 @@ postgres:
 
 
 pmtiles:
+  dir_cache_size_mb: 100
   paths:
     - http://localhost:5412/webp2.pmtiles
   sources:

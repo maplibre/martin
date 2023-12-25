@@ -273,7 +273,16 @@ fmt2:
 
 # Run cargo check
 check:
-    cargo check --workspace --all-targets --bins --tests --lib --benches
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin-tile-utils
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p mbtiles
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p mbtiles --no-default-features
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features fonts
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features mbtiles
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features pmtiles
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features postgres
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features sprites
 
 # Verify doc build
 check-doc:
@@ -289,7 +298,7 @@ clippy-md:
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # These steps automatically run before git push via a git hook
-git-pre-push: env-info restart fmt clippy check check-doc test
+git-pre-push: env-info restart fmt clippy check-doc test check
 
 # Get environment info
 [private]

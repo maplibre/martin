@@ -1,16 +1,173 @@
-mod file_pmtiles;
-mod http_pmtiles;
+use std::convert::identity;
+use std::fmt::{Debug, Formatter};
+use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::Relaxed;
+use std::sync::Arc;
 
-pub use file_pmtiles::PmtFileSource;
-pub use http_pmtiles::PmtHttpSource;
+use async_trait::async_trait;
+use log::{trace, warn};
+use martin_tile_utils::{Encoding, Format, TileInfo};
+use moka::future::Cache;
+use pmtiles::async_reader::AsyncPmTilesReader;
+use pmtiles::cache::{DirCacheResult, DirectoryCache};
+use pmtiles::http::HttpBackend;
+use pmtiles::mmap::MmapBackend;
+use pmtiles::{Compression, Directory, TileType};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use tilejson::TileJSON;
+use url::Url;
+
+use crate::config::UnrecognizedValues;
+use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
+use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras};
+use crate::source::UrlQuery;
+use crate::{MartinResult, Source, TileCoord, TileData};
+
+type PmtCacheObject = Cache<(usize, usize), Directory>;
+
+#[derive(Clone, Debug)]
+pub struct PmtCache {
+    id: usize,
+    /// (id, offset) -> Directory, or None to disable caching
+    cache: Option<PmtCacheObject>,
+}
+
+impl PmtCache {
+    #[must_use]
+    pub fn new(id: usize, cache: Option<PmtCacheObject>) -> Self {
+        Self { id, cache }
+    }
+}
+
+#[async_trait]
+impl DirectoryCache for PmtCache {
+    async fn get_dir_entry(&self, offset: usize, tile_id: u64) -> DirCacheResult {
+        if let Some(cache) = &self.cache {
+            if let Some(dir) = cache.get(&(self.id, offset)).await {
+                return dir.find_tile_id(tile_id).into();
+            }
+        }
+        DirCacheResult::NotCached
+    }
+
+    async fn insert_dir(&self, offset: usize, directory: Directory) {
+        if let Some(cache) = &self.cache {
+            cache.insert((self.id, offset), directory).await;
+        }
+    }
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct PmtConfig {
+    pub dir_cache_size_mb: Option<u64>,
+
+    #[serde(flatten)]
+    pub unrecognized: UnrecognizedValues,
+
+    //
+    // The rest are internal state, not serialized
+    //
+    #[serde(skip)]
+    pub client: Option<Client>,
+
+    #[serde(skip)]
+    pub next_cache_id: AtomicUsize,
+
+    #[serde(skip)]
+    pub cache: Option<PmtCacheObject>,
+}
+
+impl PartialEq for PmtConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.dir_cache_size_mb == other.dir_cache_size_mb && self.unrecognized == other.unrecognized
+    }
+}
+
+impl Clone for PmtConfig {
+    fn clone(&self) -> Self {
+        // State is not shared between clones, only the serialized config
+        Self {
+            dir_cache_size_mb: self.dir_cache_size_mb,
+            unrecognized: self.unrecognized.clone(),
+            ..Default::default()
+        }
+    }
+}
+
+impl PmtConfig {
+    /// Create a new cache object for a source, giving it a unique internal ID
+    /// and a reference to the global cache.
+    pub fn new_cached_source(&self) -> PmtCache {
+        PmtCache::new(self.next_cache_id.fetch_add(1, Relaxed), self.cache.clone())
+    }
+}
+
+impl ConfigExtras for PmtConfig {
+    fn init_parsing(&mut self) -> FileResult<()> {
+        assert!(self.client.is_none());
+        assert!(self.cache.is_none());
+
+        self.client = Some(Client::new());
+
+        // Allow cache size to be disabled with 0
+        let cache_size = self.dir_cache_size_mb.unwrap_or(32) * 1024 * 1024;
+        if cache_size > 0 {
+            self.cache = Some(
+                Cache::builder()
+                    .weigher(|_key, value: &Directory| -> u32 {
+                        value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
+                    })
+                    .max_capacity(cache_size)
+                    .build(),
+            );
+        }
+        Ok(())
+    }
+
+    fn is_default(&self) -> bool {
+        true
+    }
+
+    fn get_unrecognized(&self) -> &UnrecognizedValues {
+        &self.unrecognized
+    }
+}
+#[async_trait]
+impl SourceConfigExtras for PmtConfig {
+    fn parse_urls() -> bool {
+        true
+    }
+
+    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
+        Ok(Box::new(
+            PmtFileSource::new(self.new_cached_source(), id, path).await?,
+        ))
+    }
+
+    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<Box<dyn Source>> {
+        Ok(Box::new(
+            PmtHttpSource::new(
+                self.client.clone().unwrap(),
+                self.new_cached_source(),
+                id,
+                url,
+            )
+            .await?,
+        ))
+    }
+}
 
 macro_rules! impl_pmtiles_source {
-    ($name: ident, $backend: ty, $cache: ty, $path: ty, $display_path: path, $err: ident) => {
+    ($name: ident, $backend: ty, $path: ty, $display_path: path, $err: ident) => {
         #[derive(Clone)]
         pub struct $name {
             id: String,
             path: $path,
-            pmtiles: Arc<AsyncPmTilesReader<$backend, $cache>>,
+            pmtiles: Arc<AsyncPmTilesReader<$backend, PmtCache>>,
             tilejson: TileJSON,
             tile_info: TileInfo,
         }
@@ -31,7 +188,7 @@ macro_rules! impl_pmtiles_source {
             async fn new_int(
                 id: String,
                 path: $path,
-                reader: AsyncPmTilesReader<$backend, $cache>,
+                reader: AsyncPmTilesReader<$backend, PmtCache>,
             ) -> FileResult<Self> {
                 let hdr = &reader.get_header();
 
@@ -132,4 +289,53 @@ macro_rules! impl_pmtiles_source {
     };
 }
 
-pub(crate) use impl_pmtiles_source;
+impl_pmtiles_source!(
+    PmtHttpSource,
+    HttpBackend,
+    Url,
+    identity,
+    InvalidUrlMetadata
+);
+
+impl PmtHttpSource {
+    pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+        let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
+        let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+
+        Self::new_int(id, url, reader).await
+    }
+}
+
+impl_pmtiles_source!(
+    PmtFileSource,
+    MmapBackend,
+    PathBuf,
+    Path::display,
+    InvalidMetadata
+);
+
+impl PmtFileSource {
+    pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> FileResult<Self> {
+        let backend = MmapBackend::try_from(path.as_path())
+            .await
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{e:?}: Cannot open file {}", path.display()),
+                )
+            })
+            .map_err(|e| IoError(e, path.clone()))?;
+
+        let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache).await;
+        let reader = reader
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{e:?}: Cannot open file {}", path.display()),
+                )
+            })
+            .map_err(|e| IoError(e, path.clone()))?;
+
+        Self::new_int(id, path, reader).await
+    }
+}
