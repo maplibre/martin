@@ -1,7 +1,7 @@
 # martin-tile-utils
 
 [![docs.rs docs](https://docs.rs/martin-tile-utils/badge.svg)](https://docs.rs/martin-tile-utils)
-[![Slack chat](https://img.shields.io/badge/Chat-on%20Slack-blueviolet)](https://slack.openstreetmap.us/)
+[![](https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
 [![crates.io version](https://img.shields.io/crates/v/martin-tile-utils.svg)](https://crates.io/crates/martin-tile-utils)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin-tile-utils/actions)
