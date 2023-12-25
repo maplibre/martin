@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use async_trait::async_trait;
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,8 @@ use spreet::{
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
-use crate::file_config::{FileConfigEnum, FileResult};
+use crate::config::UnrecognizedValues;
+use crate::file_config::{ConfigExtras, FileConfigEnum, FileResult};
 
 pub type SpriteResult<T> = Result<T, SpriteError>;
 
@@ -57,12 +59,25 @@ pub struct CatalogSpriteEntry {
 
 pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SpriteConfig {
+    #[serde(flatten)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+#[async_trait]
+impl ConfigExtras for SpriteConfig {
+    fn get_unrecognized(&self) -> &UnrecognizedValues {
+        &self.unrecognized
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SpriteSources(HashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn resolve(config: &mut FileConfigEnum<FileConfigNoExtras>) -> FileResult<Self> {
-        let Some(cfg) = config.extract_file_config() else {
+    pub fn resolve(config: &mut FileConfigEnum<SpriteConfig>) -> FileResult<Self> {
+        let Some(cfg) = config.extract_file_config()? else {
             return Ok(Self::default());
         };
 
@@ -89,7 +104,7 @@ impl SpriteSources {
             results.add_source(name.to_string_lossy().to_string(), path);
         }
 
-        *config = FileConfigEnum::new_extended(directories, configs, cfg.extras, cfg.unrecognized);
+        *config = FileConfigEnum::new_extended(directories, configs, cfg.extras);
 
         Ok(results)
     }

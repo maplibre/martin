@@ -36,7 +36,7 @@ pub struct PgBuilderFuncs {
 #[derive(Debug, Default, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PgBuilderTables {
-    #[cfg_attr(test, serde(serialize_with = "crate::utils::sorted_opt_set"))]
+    #[cfg_attr(test, serde(serialize_with = "crate::pg::utils::sorted_opt_set"))]
     schemas: Option<HashSet<String>>,
     source_id_format: String,
     id_columns: Option<Vec<String>>,

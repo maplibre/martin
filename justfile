@@ -273,7 +273,16 @@ fmt2:
 
 # Run cargo check
 check:
-    cargo check --workspace --all-targets --bins --tests --lib --benches
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin-tile-utils
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p mbtiles
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p mbtiles --no-default-features
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features fonts
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features mbtiles
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features pmtiles
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features postgres
+    RUSTFLAGS='-D warnings' cargo check --bins --tests --lib --benches --examples -p martin --no-default-features --features sprites
 
 # Verify doc build
 check-doc:

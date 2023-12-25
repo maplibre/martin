@@ -11,9 +11,10 @@ use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::configurator::PgBuilder;
+use crate::pg::utils::on_slow;
 use crate::pg::PgResult;
 use crate::source::TileInfoSources;
-use crate::utils::{on_slow, IdResolver, OptBoolObj, OptOneMany};
+use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
 use crate::MartinResult;
 
 pub trait PgInfo {

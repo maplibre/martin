@@ -3,7 +3,7 @@ lints.workspace = true
 [package]
 name = "martin"
 # Once the release is published with the hash, update https://github.com/maplibre/homebrew-martin
-version = "0.11.6"
+version = "0.12.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -59,10 +59,12 @@ name = "bench"
 harness = false
 
 [features]
-default = []
-#default = ["sprites", "fonts"]
-sprites = []
-fonts = []
+default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
+fonts = ["dep:bit-set","dep:pbf_font_tools"]
+mbtiles = []
+pmtiles = ["dep:moka"]
+postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
+sprites = ["dep:spreet"]
 bless-tests = []
 
 [dependencies]
@@ -71,41 +73,41 @@ actix-http.workspace = true
 actix-rt.workspace = true
 actix-web.workspace = true
 async-trait.workspace = true
-bit-set.workspace = true
+bit-set = { workspace = true, optional = true }
 brotli.workspace = true
 clap.workspace = true
-deadpool-postgres.workspace = true
+deadpool-postgres = { workspace = true, optional = true }
 env_logger.workspace = true
 flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
-json-patch.workspace = true
+json-patch = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
-moka.workspace = true
+moka = { workspace = true, optional = true }
 num_cpus.workspace = true
-pbf_font_tools.workspace = true
+pbf_font_tools = { workspace = true, optional = true }
 pmtiles.workspace = true
-postgis.workspace = true
-postgres-protocol.workspace = true
-postgres.workspace = true
+postgis = { workspace = true, optional = true }
+postgres-protocol = { workspace = true, optional = true }
+postgres = { workspace = true, optional = true }
 regex.workspace = true
 reqwest.workspace = true
 rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
 rustls.workspace = true
-semver.workspace = true
+semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
-spreet.workspace = true
+spreet = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
-tokio-postgres-rustls.workspace = true
+tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 
 [dev-dependencies]

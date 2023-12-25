@@ -17,7 +17,7 @@ worker_processes: 8
 #   auto_bounds: skip
 
 # pmtiles:
-#   dir_cache_size: 100
+#   dir_cache_size_mb: 100
 #   paths:
 #     - /dir-path
 #     - /path/to/pmtiles.pmtiles
@@ -32,6 +32,9 @@ worker_processes: 8
 #     - /path/to/mbtiles.mbtiles
 #   sources:
 #     mb-src1: /path/to/mbtiles1.mbtiles
+
+# sprites:
+#   - /path/to/sprites_dir
 
 # fonts:
 #   - /path/to/font/file.ttf

@@ -11,33 +11,31 @@ use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
 
-use crate::file_config::FileError::{AquireConnError, InvalidMetadata, IoError};
-use crate::file_config::{FileConfigExtras, FileResult};
+use crate::config::UnrecognizedValues;
+use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
+use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::source::{TileData, UrlQuery};
 use crate::{MartinResult, Source, TileCoord};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct MbtilesConfig;
+pub struct MbtConfig {
+    #[serde(flatten)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl ConfigExtras for MbtConfig {
+    fn get_unrecognized(&self) -> &UnrecognizedValues {
+        &self.unrecognized
+    }
+}
 
 #[async_trait]
-impl FileConfigExtras for MbtilesConfig {
-    async fn new_sources(
-        _cfg: Option<&Self>,
-        id: String,
-        path: PathBuf,
-    ) -> FileResult<Box<dyn Source>> {
+impl SourceConfigExtras for MbtConfig {
+    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }
 
-    fn parse_urls() -> bool {
-        false
-    }
-
-    async fn new_sources_url(
-        _cfg: Option<&Self>,
-        _id: String,
-        _url: Url,
-    ) -> FileResult<Box<dyn Source>> {
+    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
         unreachable!()
     }
 }
@@ -114,7 +112,7 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|_| AquireConnError(self.id.clone()))?
+            .map_err(|_| AcquireConnError(self.id.clone()))?
         {
             Ok(tile)
         } else {
@@ -127,5 +125,73 @@ impl Source for MbtSource {
             );
             Ok(Vec::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+    use std::path::PathBuf;
+
+    use indoc::indoc;
+
+    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
+    use crate::mbtiles::MbtConfig;
+
+    #[test]
+    fn parse() {
+        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+            paths:
+              - /dir-path
+              - /path/to/file2.ext
+              - http://example.org/file.ext
+            sources:
+                pm-src1: /tmp/file.ext
+                pm-src2:
+                  path: /tmp/file.ext
+                pm-src3: https://example.org/file3.ext
+                pm-src4:
+                  path: https://example.org/file4.ext
+        "})
+        .unwrap();
+        let res = cfg.finalize("").unwrap();
+        assert!(res.is_empty(), "unrecognized config: {res:?}");
+        let FileConfigEnum::Config(cfg) = cfg else {
+            panic!();
+        };
+        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            vec![
+                PathBuf::from("/dir-path"),
+                PathBuf::from("/path/to/file2.ext"),
+                PathBuf::from("http://example.org/file.ext"),
+            ]
+        );
+        assert_eq!(
+            cfg.sources,
+            Some(BTreeMap::from_iter(vec![
+                (
+                    "pm-src1".to_string(),
+                    FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
+                ),
+                (
+                    "pm-src2".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("/tmp/file.ext"),
+                    })
+                ),
+                (
+                    "pm-src3".to_string(),
+                    FileConfigSrc::Path(PathBuf::from("https://example.org/file3.ext"))
+                ),
+                (
+                    "pm-src4".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("https://example.org/file4.ext"),
+                    })
+                ),
+            ]))
+        );
     }
 }

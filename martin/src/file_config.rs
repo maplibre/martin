@@ -40,32 +40,40 @@ pub enum FileError {
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
-    #[error(r#"Unable to aquire connection to file: {0}"#)]
-    AquireConnError(String),
+    #[error(r#"Unable to acquire connection to file: {0}"#)]
+    AcquireConnError(String),
 
     #[error(r#"PMTiles error {0} processing {1}"#)]
     PmtError(pmtiles::PmtError, String),
 }
 
-#[async_trait]
-pub trait FileConfigExtras: Clone + Debug + Default + PartialEq + Send {
-    fn parse_urls() -> bool;
-    async fn new_sources(
-        cfg: Option<&Self>,
-        id: String,
-        path: PathBuf,
-    ) -> FileResult<Box<dyn Source>>;
+pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
+    fn init_parsing(&mut self) -> FileResult<()> {
+        Ok(())
+    }
 
-    async fn new_sources_url(
-        cfg: Option<&Self>,
-        id: String,
-        url: Url,
-    ) -> FileResult<Box<dyn Source>>;
+    #[must_use]
+    fn is_default(&self) -> bool {
+        true
+    }
+
+    fn get_unrecognized(&self) -> &UnrecognizedValues;
+}
+
+#[async_trait]
+pub trait SourceConfigExtras: ConfigExtras {
+    #[must_use]
+    fn parse_urls() -> bool {
+        false
+    }
+    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>>;
+
+    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<Box<dyn Source>>;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum FileConfigEnum<T: FileConfigExtras> {
+pub enum FileConfigEnum<T: ConfigExtras> {
     #[default]
     None,
     Path(PathBuf),
@@ -73,20 +81,19 @@ pub enum FileConfigEnum<T: FileConfigExtras> {
     Config(FileConfig<T>),
 }
 
-impl<T: FileConfigExtras> FileConfigEnum<T> {
+impl<T: ConfigExtras> FileConfigEnum<T> {
     #[must_use]
     pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum<T> {
-        Self::new_extended(paths, BTreeMap::new(), None, UnrecognizedValues::new())
+        Self::new_extended(paths, BTreeMap::new(), T::default())
     }
 
     #[must_use]
     pub fn new_extended(
         paths: Vec<PathBuf>,
         configs: BTreeMap<String, FileConfigSrc>,
-        extras: Option<T>,
-        unrecognized: UnrecognizedValues,
+        extras: T,
     ) -> Self {
-        if configs.is_empty() && extras.is_none() && unrecognized.is_empty() {
+        if configs.is_empty() && extras.is_default() {
             match paths.len() {
                 0 => FileConfigEnum::None,
                 1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
@@ -101,7 +108,6 @@ impl<T: FileConfigExtras> FileConfigEnum<T> {
                     Some(configs)
                 },
                 extras,
-                unrecognized,
             })
         }
     }
@@ -121,25 +127,27 @@ impl<T: FileConfigExtras> FileConfigEnum<T> {
         }
     }
 
-    pub fn extract_file_config(&mut self) -> Option<FileConfig<T>> {
-        match self {
-            FileConfigEnum::None => None,
-            FileConfigEnum::Path(path) => Some(FileConfig {
+    pub fn extract_file_config(&mut self) -> FileResult<Option<FileConfig<T>>> {
+        let mut res = match self {
+            FileConfigEnum::None => return Ok(None),
+            FileConfigEnum::Path(path) => FileConfig {
                 paths: One(mem::take(path)),
                 ..FileConfig::default()
-            }),
-            FileConfigEnum::Paths(paths) => Some(FileConfig {
+            },
+            FileConfigEnum::Paths(paths) => FileConfig {
                 paths: Many(mem::take(paths)),
                 ..Default::default()
-            }),
-            FileConfigEnum::Config(cfg) => Some(mem::take(cfg)),
-        }
+            },
+            FileConfigEnum::Config(cfg) => mem::take(cfg),
+        };
+        res.extras.init_parsing()?;
+        Ok(Some(res))
     }
 
     pub fn finalize(&self, prefix: &str) -> MartinResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         if let Self::Config(cfg) = self {
-            copy_unrecognized_config(&mut res, prefix, &cfg.unrecognized);
+            copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
         }
         Ok(res)
     }
@@ -153,16 +161,22 @@ pub struct FileConfig<T> {
     pub paths: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
     pub sources: Option<BTreeMap<String, FileConfigSrc>>,
+    /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
-    pub extras: Option<T>,
-    #[serde(flatten)]
-    pub unrecognized: UnrecognizedValues,
+    pub extras: T,
 }
 
-impl<T> FileConfig<T> {
+impl<T: ConfigExtras> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none() && self.sources.is_none()
+        self.paths.is_none()
+            && self.sources.is_none()
+            && self.get_unrecognized().is_empty()
+            && self.extras.is_default()
+    }
+
+    pub fn get_unrecognized(&self) -> &UnrecognizedValues {
+        self.extras.get_unrecognized()
     }
 }
 
@@ -202,7 +216,7 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
-pub async fn resolve_files<T: FileConfigExtras>(
+pub async fn resolve_files<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
@@ -212,24 +226,12 @@ pub async fn resolve_files<T: FileConfigExtras>(
         .await
 }
 
-pub async fn resolve_files_urls<T: FileConfigExtras>(
-    config: &mut FileConfigEnum<T>,
-    idr: IdResolver,
-    extension: &str,
-    // new_source: &mut impl FnMut(String, PathBuf) -> Fut1,
-    // new_url_source: &mut impl FnMut(String, Url) -> Fut2,
-) -> MartinResult<TileInfoSources> {
-    resolve_int(config, idr, extension)
-        .map_err(crate::MartinError::from)
-        .await
-}
-
-async fn resolve_int<T: FileConfigExtras>(
+async fn resolve_int<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: IdResolver,
     extension: &str,
 ) -> FileResult<TileInfoSources> {
-    let Some(cfg) = config.extract_file_config() else {
+    let Some(cfg) = config.extract_file_config()? else {
         return Ok(TileInfoSources::default());
     };
 
@@ -245,8 +247,7 @@ async fn resolve_int<T: FileConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results
-                    .push(T::new_sources_url(cfg.extras.as_ref(), id.clone(), url.clone()).await?);
+                results.push(cfg.extras.new_sources_url(id.clone(), url.clone()).await?);
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -260,7 +261,7 @@ async fn resolve_int<T: FileConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(T::new_sources(cfg.extras.as_ref(), id, source.into_path()).await?);
+                results.push(cfg.extras.new_sources(id, source.into_path()).await?);
             }
         }
     }
@@ -280,7 +281,7 @@ async fn resolve_int<T: FileConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(T::new_sources_url(cfg.extras.as_ref(), id.clone(), url.clone()).await?);
+            results.push(cfg.extras.new_sources_url(id.clone(), url.clone()).await?);
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -309,12 +310,12 @@ async fn resolve_int<T: FileConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(T::new_sources(cfg.extras.as_ref(), id, path).await?);
+                results.push(cfg.extras.new_sources(id, path).await?);
             }
         }
     }
 
-    *config = FileConfigEnum::new_extended(directories, configs, cfg.extras, cfg.unrecognized);
+    *config = FileConfigEnum::new_extended(directories, configs, cfg.extras);
 
     Ok(results)
 }
@@ -352,72 +353,4 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-    use std::path::PathBuf;
-
-    use indoc::indoc;
-
-    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
-    use crate::mbtiles::MbtilesConfig;
-
-    #[test]
-    fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtilesConfig>>(indoc! {"
-            paths:
-              - /dir-path
-              - /path/to/file2.ext
-              - http://example.org/file.ext
-            sources:
-                pm-src1: /tmp/file.ext
-                pm-src2:
-                  path: /tmp/file.ext
-                pm-src3: https://example.org/file3.ext
-                pm-src4:
-                  path: https://example.org/file4.ext
-        "})
-        .unwrap();
-        let res = cfg.finalize("").unwrap();
-        assert!(res.is_empty(), "unrecognized config: {res:?}");
-        let FileConfigEnum::Config(cfg) = cfg else {
-            panic!();
-        };
-        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
-        assert_eq!(
-            paths,
-            vec![
-                PathBuf::from("/dir-path"),
-                PathBuf::from("/path/to/file2.ext"),
-                PathBuf::from("http://example.org/file.ext"),
-            ]
-        );
-        assert_eq!(
-            cfg.sources,
-            Some(BTreeMap::from_iter(vec![
-                (
-                    "pm-src1".to_string(),
-                    FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
-                ),
-                (
-                    "pm-src2".to_string(),
-                    FileConfigSrc::Obj(FileConfigSource {
-                        path: PathBuf::from("/tmp/file.ext"),
-                    })
-                ),
-                (
-                    "pm-src3".to_string(),
-                    FileConfigSrc::Path(PathBuf::from("https://example.org/file3.ext"))
-                ),
-                (
-                    "pm-src4".to_string(),
-                    FileConfigSrc::Obj(FileConfigSource {
-                        path: PathBuf::from("https://example.org/file4.ext"),
-                    })
-                ),
-            ]))
-        );
-    }
 }
