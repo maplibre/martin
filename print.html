@@ -596,6 +596,8 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
+  # Memory (in MB) to use for caching PMTiles directories [default: 32, 0 to disable]] 
+  dir_cache_size_mb: 100
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
