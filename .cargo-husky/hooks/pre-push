@@ -6,6 +6,9 @@
 echo "----------------------------------------------------------------------------------------"
 echo "These tests run automatically before the    git push"
 echo "If you want to push your changes without testing them first, use    git push --no-verify"
+echo "To simplify this, create an alias, e.g. like so:"
+echo "      git config --global alias.pushn 'push --no-verify'"
+echo "Then you can use    git pushn   to push without testing"
 echo "----------------------------------------------------------------------------------------"
 
 set -e

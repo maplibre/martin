@@ -275,10 +275,13 @@ fmt2:
 check:
     cargo check --workspace --all-targets --bins --tests --lib --benches
 
+# Verify doc build
+check-doc:
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
+
 # Run cargo clippy
 clippy:
     cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -286,8 +289,7 @@ clippy-md:
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # These steps automatically run before git push via a git hook
-[private]
-git-pre-push: env-info restart lint test
+git-pre-push: env-info restart fmt clippy check check-doc test
 
 # Get environment info
 [private]
@@ -296,6 +298,7 @@ env-info:
     {{ just_executable() }} --version
     rustc --version
     cargo --version
+    rustup --version
 
 # Update sqlite database schema.
 prepare-sqlite: install-sqlx
