@@ -73,7 +73,7 @@ pub trait SourceConfigExtras: ConfigExtras {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum FileConfigEnum<T: ConfigExtras> {
+pub enum FileConfigEnum<T> {
     #[default]
     None,
     Path(PathBuf),
@@ -91,9 +91,9 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
     pub fn new_extended(
         paths: Vec<PathBuf>,
         configs: BTreeMap<String, FileConfigSrc>,
-        extras: T,
+        custom: T,
     ) -> Self {
-        if configs.is_empty() && extras.is_default() {
+        if configs.is_empty() && custom.is_default() {
             match paths.len() {
                 0 => FileConfigEnum::None,
                 1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
@@ -107,7 +107,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
                 } else {
                     Some(configs)
                 },
-                extras,
+                custom,
             })
         }
     }
@@ -140,7 +140,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),
         };
-        res.extras.init_parsing()?;
+        res.custom.init_parsing()?;
         Ok(Some(res))
     }
 
@@ -163,7 +163,7 @@ pub struct FileConfig<T> {
     pub sources: Option<BTreeMap<String, FileConfigSrc>>,
     /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
-    pub extras: T,
+    pub custom: T,
 }
 
 impl<T: ConfigExtras> FileConfig<T> {
@@ -172,11 +172,11 @@ impl<T: ConfigExtras> FileConfig<T> {
         self.paths.is_none()
             && self.sources.is_none()
             && self.get_unrecognized().is_empty()
-            && self.extras.is_default()
+            && self.custom.is_default()
     }
 
     pub fn get_unrecognized(&self) -> &UnrecognizedValues {
-        self.extras.get_unrecognized()
+        self.custom.get_unrecognized()
     }
 }
 
@@ -247,7 +247,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(cfg.extras.new_sources_url(id.clone(), url.clone()).await?);
+                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -261,7 +261,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(cfg.extras.new_sources(id, source.into_path()).await?);
+                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
             }
         }
     }
@@ -281,7 +281,7 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(cfg.extras.new_sources_url(id.clone(), url.clone()).await?);
+            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -310,12 +310,12 @@ async fn resolve_int<T: SourceConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(cfg.extras.new_sources(id, path).await?);
+                results.push(cfg.custom.new_sources(id, path).await?);
             }
         }
     }
 
-    *config = FileConfigEnum::new_extended(directories, configs, cfg.extras);
+    *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
     Ok(results)
 }

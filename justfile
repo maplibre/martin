@@ -298,7 +298,7 @@ clippy-md:
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # These steps automatically run before git push via a git hook
-git-pre-push: env-info restart fmt clippy check check-doc test
+git-pre-push: env-info restart fmt clippy check-doc test check
 
 # Get environment info
 [private]

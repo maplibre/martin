@@ -104,7 +104,7 @@ impl SpriteSources {
             results.add_source(name.to_string_lossy().to_string(), path);
         }
 
-        *config = FileConfigEnum::new_extended(directories, configs, cfg.extras);
+        *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
         Ok(results)
     }
