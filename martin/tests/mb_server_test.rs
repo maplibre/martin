@@ -48,7 +48,7 @@ async fn mbt_get_catalog() {
 
     let req = test_get("/catalog").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @r###"
     ---
@@ -79,7 +79,7 @@ async fn mbt_get_catalog_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/catalog").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r###"
@@ -110,7 +110,7 @@ async fn mbt_get_tilejson() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_mvt").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let headers = response.headers();
     assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
     assert!(headers.get(CONTENT_ENCODING).is_none());
@@ -124,7 +124,7 @@ async fn mbt_get_tilejson_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_webp").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let headers = response.headers();
     assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
     assert_eq!(headers.get(CONTENT_ENCODING).unwrap(), "gzip");
@@ -138,7 +138,7 @@ async fn mbt_get_raster() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_webp/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/webp");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
@@ -152,7 +152,7 @@ async fn mbt_get_raster_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_webp/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/webp");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
@@ -164,7 +164,7 @@ async fn mbt_get_mvt() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -181,7 +181,7 @@ async fn mbt_get_mvt_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -200,7 +200,7 @@ async fn mbt_get_mvt_brotli() {
     let accept = (ACCEPT_ENCODING, "br");
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -218,7 +218,7 @@ async fn mbt_get_raw_mvt() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_raw_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -237,7 +237,7 @@ async fn mbt_get_raw_mvt_gzip() {
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -259,7 +259,7 @@ async fn mbt_get_raw_mvt_gzip_br() {
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -277,7 +277,7 @@ async fn mbt_get_json() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_json/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/json"
@@ -294,7 +294,7 @@ async fn mbt_get_json_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_json/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/json"

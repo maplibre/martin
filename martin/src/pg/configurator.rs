@@ -214,7 +214,7 @@ impl PgBuilder {
                     continue;
                 }
                 Ok((id, pg_sql, src_inf)) => {
-                    debug!("{id} query: {}", pg_sql.query);
+                    debug!("{id} query: {}", pg_sql.sql_query);
                     self.add_func_src(&mut res, id.clone(), &src_inf, pg_sql.clone());
                     info_map.insert(id, src_inf);
                 }
@@ -252,7 +252,7 @@ impl PgBuilder {
             warn_on_rename(id, &id2, "Function");
             let signature = &pg_sql.signature;
             info!("Configured {dup}source {id2} from the function {signature}");
-            debug!("{id2} query: {}", pg_sql.query);
+            debug!("{id2} query: {}", pg_sql.sql_query);
             info_map.insert(id2, merged_inf);
         }
 
@@ -285,7 +285,7 @@ impl PgBuilder {
                     let id2 = self.resolve_id(&source_id, &db_inf);
                     self.add_func_src(&mut res, id2.clone(), &db_inf, pg_sql.clone());
                     info!("Discovered source {id2} from function {}", pg_sql.signature);
-                    debug!("{id2} query: {}", pg_sql.query);
+                    debug!("{id2} query: {}", pg_sql.sql_query);
                     info_map.insert(id2, db_inf);
                 }
             }
@@ -302,11 +302,11 @@ impl PgBuilder {
         &self,
         sources: &mut TileInfoSources,
         id: String,
-        info: &impl PgInfo,
-        sql: PgSqlInfo,
+        pg_info: &impl PgInfo,
+        sql_info: PgSqlInfo,
     ) {
-        let tilejson = info.to_tilejson(id.clone());
-        let source = PgSource::new(id, sql, tilejson, self.pool.clone());
+        let tilejson = pg_info.to_tilejson(id.clone());
+        let source = PgSource::new(id, sql_info, tilejson, self.pool.clone());
         sources.push(Box::new(source));
     }
 }

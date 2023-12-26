@@ -114,14 +114,14 @@ impl ConfigExtras for PmtConfig {
         self.client = Some(Client::new());
 
         // Allow cache size to be disabled with 0
-        let cache_size = self.dir_cache_size_mb.unwrap_or(32) * 1024 * 1024;
-        if cache_size > 0 {
+        let dir_cache_size = self.dir_cache_size_mb.unwrap_or(32) * 1024 * 1024;
+        if dir_cache_size > 0 {
             self.cache = Some(
                 Cache::builder()
                     .weigher(|_key, value: &Directory| -> u32 {
                         value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
                     })
-                    .max_capacity(cache_size)
+                    .max_capacity(dir_cache_size)
                     .build(),
             );
         }
@@ -264,8 +264,8 @@ macro_rules! impl_pmtiles_source {
 
             async fn get_tile(
                 &self,
-                xyz: &TileCoord,
-                _url_query: &Option<UrlQuery>,
+                xyz: TileCoord,
+                _url_query: Option<&UrlQuery>,
             ) -> MartinResult<TileData> {
                 // TODO: optimize to return Bytes
                 if let Some(t) = self

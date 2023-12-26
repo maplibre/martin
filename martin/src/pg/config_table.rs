@@ -100,6 +100,6 @@ impl PgInfo for TableInfo {
             other: BTreeMap::default(),
         };
         tilejson.vector_layers = Some(vec![layer]);
-        patch_json(tilejson, &self.tilejson)
+        patch_json(tilejson, self.tilejson.as_ref())
     }
 }

@@ -45,8 +45,8 @@ impl Source for NullSource {
 
     async fn get_tile(
         &self,
-        _xyz: &TileCoord,
-        _query: &Option<UrlQuery>,
+        _xyz: TileCoord,
+        _url_query: Option<&UrlQuery>,
     ) -> MartinResult<TileData> {
         Ok(Vec::new())
     }

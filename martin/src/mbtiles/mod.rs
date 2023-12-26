@@ -105,8 +105,8 @@ impl Source for MbtSource {
 
     async fn get_tile(
         &self,
-        xyz: &TileCoord,
-        _url_query: &Option<UrlQuery>,
+        xyz: TileCoord,
+        _url_query: Option<&UrlQuery>,
     ) -> MartinResult<TileData> {
         if let Some(tile) = self
             .mbtiles

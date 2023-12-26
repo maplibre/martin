@@ -102,7 +102,7 @@ bench-server: start
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
 bench-http: (cargo-install "oha")
-    @echo "Make sure Martin was started with 'just run-release'"
+    @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
     oha -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha -z 60s  http://localhost:3000/function_zxy_query/18/235085/122323

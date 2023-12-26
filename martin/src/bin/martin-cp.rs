@@ -311,7 +311,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = get_tile_content(sources, info, &xyz, query, encodings).await?;
+                        let tile = get_tile_content(sources, info, xyz, query, encodings).await?;
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
