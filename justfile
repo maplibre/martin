@@ -96,12 +96,20 @@ start-pmtiles-server:
 bench: start
     cargo bench
 
-# Run HTTP requests benchmark using OHA tool. Use with `just run-release`
+# Start release-compiled Martin server and a test database
+bench-server: start
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+
+# Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
 bench-http: (cargo-install "oha")
     @echo "Make sure Martin was started with 'just run-release'"
     @echo "Warming up..."
     oha -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha -z 120s  http://localhost:3000/function_zxy_query/18/235085/122323
+    oha -z 60s  http://localhost:3000/function_zxy_query/18/235085/122323
+    oha -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
+    oha -z 60s  http://localhost:3000/png/0/0/0
+    oha -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
+    oha -z 60s  http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Run all tests using a test database
 test: start (test-cargo "--all-targets") test-doc test-int
