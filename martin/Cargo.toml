@@ -60,7 +60,7 @@ harness = false
 
 [features]
 default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
-fonts = ["dep:bit-set","dep:pbf_font_tools"]
+fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 mbtiles = []
 pmtiles = ["dep:moka"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]

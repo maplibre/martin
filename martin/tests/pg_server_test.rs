@@ -46,7 +46,7 @@ postgres:
 
     let req = test_get("/catalog");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r###"
@@ -285,7 +285,7 @@ postgres:
 
     let req = test_get("/table_source/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -371,11 +371,11 @@ postgres:
 
     let req = test_get("/table_source_multiple_geom.geom1/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/table_source_multiple_geom.geom2/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -433,12 +433,12 @@ postgres:
     // zoom = 6 (points1)
     let req = test_get("/points1/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (points1)
     let req = test_get("/points1/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (nothing)
     let req = test_get("/points1/13/4952/2560");
@@ -448,22 +448,22 @@ postgres:
     // zoom = 0 (points2)
     let req = test_get("/points2/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 6 (points2)
     let req = test_get("/points2/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (points2)
     let req = test_get("/points2/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (points2)
     let req = test_get("/points2/13/4952/2560");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 0 (nothing)
     let req = test_get("/points3857/0/0/0");
@@ -473,12 +473,12 @@ postgres:
     // zoom = 12 (points3857)
     let req = test_get("/points3857/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 0 (table_source)
     let req = test_get("/table_source/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (nothing)
     let req = test_get("/table_source/12/2476/1280");
@@ -604,7 +604,7 @@ postgres:
 
     let req = test_get("/points1,points2,points3857");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -694,7 +694,7 @@ postgres:
 
     let req = test_get("/points1,points2,points3857/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -735,27 +735,27 @@ postgres:
     // zoom = 6 (points1)
     let req = test_get("/points1,points2/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (points1)
     let req = test_get("/points1,points2/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (points1, points2)
     let req = test_get("/points1,points2/13/4952/2560");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 14 (points2)
     let req = test_get("/points1,points2/14/9904/5121");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 20 (points2)
     let req = test_get("/points1,points2/20/633856/327787");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 21 (nothing)
     let req = test_get("/points1,points2/21/1267712/655574");
@@ -796,35 +796,35 @@ postgres:
 
     let req = test_get("/function_zoom_xy");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_query");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_query_jsonb");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_query_test");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_row");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_Mixed_Name");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_row_key");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -867,7 +867,7 @@ postgres:
 
     let req = test_get("/function_zxy_query/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -890,22 +890,22 @@ postgres:
     // zoom = 0 (function_source1)
     let req = test_get("/function_source1/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 6 (function_source1)
     let req = test_get("/function_source1/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (function_source1)
     let req = test_get("/function_source1/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (function_source1)
     let req = test_get("/function_source1/13/4952/2560");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 0 (nothing)
     let req = test_get("/function_source2/0/0/0");
@@ -915,12 +915,12 @@ postgres:
     // zoom = 6 (function_source2)
     let req = test_get("/function_source2/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (function_source2)
     let req = test_get("/function_source2/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (nothing)
     let req = test_get("/function_source2/13/4952/2560");
@@ -941,7 +941,7 @@ postgres:
 
     let req = test_get("/function_zxy_query_test/0/0/0?token=martin");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -953,7 +953,7 @@ postgres:
 
     let req = test_get("/health");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -1097,6 +1097,6 @@ tables:
     for (name, _) in cfg.tables.unwrap_or_default() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;
-        assert!(response.status().is_success());
+        assert_response(response).await;
     }
 }

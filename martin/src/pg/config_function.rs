@@ -80,6 +80,6 @@ impl PgInfo for FunctionInfo {
         tilejson.minzoom = self.minzoom;
         tilejson.maxzoom = self.maxzoom;
         tilejson.bounds = self.bounds;
-        patch_json(tilejson, &self.tilejson)
+        patch_json(tilejson, self.tilejson.as_ref())
     }
 }

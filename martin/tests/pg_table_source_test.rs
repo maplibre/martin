@@ -129,7 +129,7 @@ async fn tables_tilejson() {
 async fn tables_tile_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tile = source(&mock, "table_source")
-        .get_tile(&TileCoord { z: 0, x: 0, y: 0 }, &None)
+        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
         .await
         .unwrap();
 

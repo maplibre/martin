@@ -29,10 +29,10 @@ pub async fn query_available_function(pool: &PgPool) -> PgResult<SqlFuncInfoMapM
             let schema: String = row.get("schema");
             let function: String = row.get("name");
             let output_type: String = row.get("output_type");
-            let output_record_types = jsonb_to_vec(&row.get("output_record_types"));
-            let output_record_names = jsonb_to_vec(&row.get("output_record_names"));
-            let input_types = jsonb_to_vec(&row.get("input_types")).expect("Can't get input types");
-            let input_names = jsonb_to_vec(&row.get("input_names")).expect("Can't get input names");
+            let output_record_types = jsonb_to_vec(row.get("output_record_types"));
+            let output_record_names = jsonb_to_vec(row.get("output_record_names"));
+            let input_types = jsonb_to_vec(row.get("input_types")).expect("Can't get input types");
+            let input_names = jsonb_to_vec(row.get("input_names")).expect("Can't get input names");
             let tilejson = if let Some(text) = row.get("description") {
                 match serde_json::from_str::<Value>(text) {
                     Ok(v) => Some(v),
@@ -126,8 +126,8 @@ pub fn merge_func_info(cfg_inf: &FunctionInfo, db_inf: &FunctionInfo) -> Functio
     }
 }
 
-fn jsonb_to_vec(jsonb: &Option<Value>) -> Option<Vec<String>> {
-    jsonb.as_ref().map(|json| {
+fn jsonb_to_vec(jsonb: Option<Value>) -> Option<Vec<String>> {
+    jsonb.map(|json| {
         json.as_array()
             .unwrap()
             .iter()

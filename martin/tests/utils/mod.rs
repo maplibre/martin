@@ -4,6 +4,8 @@
 
 mod pg_utils;
 
+use actix_web::dev::ServiceResponse;
+use actix_web::test::read_body;
 use log::warn;
 use martin::Config;
 pub use pg_utils::*;
@@ -25,4 +27,15 @@ pub fn mock_cfg(yaml: &str) -> Config {
     let res = cfg.finalize().unwrap();
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
+}
+
+pub async fn assert_response(response: ServiceResponse) -> ServiceResponse {
+    if !response.status().is_success() {
+        let status = response.status();
+        let headers = response.headers().clone();
+        let bytes = read_body(response).await;
+        let body = String::from_utf8_lossy(&bytes);
+        panic!("response status: {status}\nresponse headers: {headers:?}\nresponse body: {body}");
+    }
+    response
 }

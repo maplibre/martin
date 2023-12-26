@@ -192,13 +192,19 @@ impl MbtileCopierInt {
             let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
 
             if self.options.copy.copy_tiles() {
-                self.copy_tiles(&rusqlite_conn, &dif, src_type, dst_type, on_duplicate)?;
+                self.copy_tiles(
+                    &rusqlite_conn,
+                    dif.as_ref(),
+                    src_type,
+                    dst_type,
+                    on_duplicate,
+                )?;
             } else {
                 debug!("Skipping copying tiles");
             }
 
             if self.options.copy.copy_metadata() {
-                self.copy_metadata(&rusqlite_conn, &dif, on_duplicate)?;
+                self.copy_metadata(&rusqlite_conn, dif.as_ref(), on_duplicate)?;
             } else {
                 debug!("Skipping copying metadata");
             }
@@ -218,7 +224,7 @@ impl MbtileCopierInt {
     fn copy_metadata(
         &self,
         rusqlite_conn: &Connection,
-        dif: &Option<(Mbtiles, MbtType, MbtType)>,
+        dif: Option<&(Mbtiles, MbtType, MbtType)>,
         on_duplicate: CopyDuplicateMode,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
@@ -277,7 +283,7 @@ impl MbtileCopierInt {
     fn copy_tiles(
         &self,
         rusqlite_conn: &Connection,
-        dif: &Option<(Mbtiles, MbtType, MbtType)>,
+        dif: Option<&(Mbtiles, MbtType, MbtType)>,
         src_type: MbtType,
         dst_type: MbtType,
         on_duplicate: CopyDuplicateMode,

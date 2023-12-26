@@ -57,7 +57,7 @@ pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
 }
 
 #[must_use]
-pub fn patch_json(target: TileJSON, patch: &Option<serde_json::Value>) -> TileJSON {
+pub fn patch_json(target: TileJSON, patch: Option<&serde_json::Value>) -> TileJSON {
     let Some(tj) = patch else {
         // Nothing to merge in, keep the original
         return target;
@@ -85,13 +85,15 @@ pub fn patch_json(target: TileJSON, patch: &Option<serde_json::Value>) -> TileJS
 }
 
 #[must_use]
-pub fn query_to_json(query: &UrlQuery) -> Json<HashMap<String, serde_json::Value>> {
+pub fn query_to_json(query: Option<&UrlQuery>) -> Json<HashMap<String, serde_json::Value>> {
     let mut query_as_json = HashMap::new();
-    for (k, v) in query {
-        let json_value: serde_json::Value =
-            serde_json::from_str(v).unwrap_or_else(|_| serde_json::Value::String(v.clone()));
+    if let Some(query) = query {
+        for (k, v) in query {
+            let json_value: serde_json::Value =
+                serde_json::from_str(v).unwrap_or_else(|_| serde_json::Value::String(v.clone()));
 
-        query_as_json.insert(k.clone(), json_value);
+            query_as_json.insert(k.clone(), json_value);
+        }
     }
 
     Json(query_as_json)

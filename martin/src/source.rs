@@ -113,7 +113,11 @@ pub trait Source: Send + Debug {
         false
     }
 
-    async fn get_tile(&self, xyz: &TileCoord, query: &Option<UrlQuery>) -> MartinResult<TileData>;
+    async fn get_tile(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinResult<TileData>;
 
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();
