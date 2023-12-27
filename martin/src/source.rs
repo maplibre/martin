@@ -167,6 +167,7 @@ mod tests {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Tile {
     pub data: TileData,
     pub info: TileInfo,

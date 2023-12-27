@@ -62,7 +62,7 @@ harness = false
 default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 mbtiles = []
-pmtiles = ["dep:moka"]
+pmtiles = []
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet"]
 bless-tests = []
@@ -85,7 +85,7 @@ json-patch = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
-moka = { workspace = true, optional = true }
+moka.workspace = true
 num_cpus.workspace = true
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles.workspace = true

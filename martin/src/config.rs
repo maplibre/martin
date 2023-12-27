@@ -18,13 +18,15 @@ use crate::fonts::FontSources;
 use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
 use crate::sprites::{SpriteConfig, SpriteSources};
-use crate::srv::SrvConfig;
+use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
+use crate::utils::{CacheValue, MainCache, OptMainCache};
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 use crate::{IdResolver, MartinResult, OptOneMany};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
 pub struct ServerState {
+    pub cache: OptMainCache,
     pub tiles: TileSources,
     #[cfg(feature = "sprites")]
     pub sprites: SpriteSources,
@@ -32,8 +34,11 @@ pub struct ServerState {
     pub fonts: FontSources,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
+    pub cache_size_mb: Option<u64>,
+
     #[serde(flatten)]
     pub srv: SrvConfig,
 
@@ -107,19 +112,43 @@ impl Config {
         }
     }
 
-    pub async fn resolve(&mut self, idr: IdResolver) -> MartinResult<ServerState> {
+    pub async fn resolve(&mut self) -> MartinResult<ServerState> {
+        let resolver = IdResolver::new(RESERVED_KEYWORDS);
+        let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
+        let cache = if cache_size > 0 {
+            info!("Initializing main cache with maximum size {cache_size}B");
+            Some(
+                MainCache::builder()
+                    .weigher(|_key, value: &CacheValue| -> u32 {
+                        match value {
+                            CacheValue::Tile(v) => v.len().try_into().unwrap_or(u32::MAX),
+                            CacheValue::PmtDirectory(v) => {
+                                v.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
+                            }
+                        }
+                    })
+                    .max_capacity(cache_size)
+                    .build(),
+            )
+        } else {
+            info!("Caching is disabled");
+            None
+        };
+
         Ok(ServerState {
-            tiles: self.resolve_tile_sources(idr).await?,
+            tiles: self.resolve_tile_sources(&resolver, cache.clone()).await?,
             #[cfg(feature = "sprites")]
             sprites: SpriteSources::resolve(&mut self.sprites)?,
             #[cfg(feature = "fonts")]
             fonts: FontSources::resolve(&mut self.fonts)?,
+            cache,
         })
     }
 
     async fn resolve_tile_sources(
         &mut self,
-        #[allow(unused_variables)] idr: IdResolver,
+        #[allow(unused_variables)] idr: &IdResolver,
+        #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
         let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<TileInfoSources>>>>> =
@@ -133,14 +162,14 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
             let cfg = &mut self.pmtiles;
-            let val = crate::file_config::resolve_files(cfg, idr.clone(), "pmtiles");
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), "pmtiles");
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::file_config::resolve_files(cfg, idr.clone(), "mbtiles");
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), "mbtiles");
             sources.push(Box::pin(val));
         }
 

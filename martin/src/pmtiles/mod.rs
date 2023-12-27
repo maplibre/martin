@@ -9,7 +9,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileInfo};
-use moka::future::Cache;
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::http::HttpBackend;
@@ -24,20 +23,20 @@ use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
 use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras};
 use crate::source::UrlQuery;
+use crate::utils::cache::get_cached_value;
+use crate::utils::{CacheKey, CacheValue, OptMainCache};
 use crate::{MartinResult, Source, TileCoord, TileData};
-
-type PmtCacheObject = Cache<(usize, usize), Directory>;
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {
     id: usize,
-    /// (id, offset) -> Directory, or None to disable caching
-    cache: Option<PmtCacheObject>,
+    /// Storing (id, offset) -> Directory, or None to disable caching
+    cache: OptMainCache,
 }
 
 impl PmtCache {
     #[must_use]
-    pub fn new(id: usize, cache: Option<PmtCacheObject>) -> Self {
+    pub fn new(id: usize, cache: OptMainCache) -> Self {
         Self { id, cache }
     }
 }
@@ -45,17 +44,23 @@ impl PmtCache {
 #[async_trait]
 impl DirectoryCache for PmtCache {
     async fn get_dir_entry(&self, offset: usize, tile_id: u64) -> DirCacheResult {
-        if let Some(cache) = &self.cache {
-            if let Some(dir) = cache.get(&(self.id, offset)).await {
-                return dir.find_tile_id(tile_id).into();
-            }
+        if let Some(dir) = get_cached_value!(&self.cache, CacheValue::PmtDirectory, {
+            CacheKey::PmtDirectory(self.id, offset)
+        }) {
+            dir.find_tile_id(tile_id).into()
+        } else {
+            DirCacheResult::NotCached
         }
-        DirCacheResult::NotCached
     }
 
     async fn insert_dir(&self, offset: usize, directory: Directory) {
         if let Some(cache) = &self.cache {
-            cache.insert((self.id, offset), directory).await;
+            cache
+                .insert(
+                    CacheKey::PmtDirectory(self.id, offset),
+                    CacheValue::PmtDirectory(directory),
+                )
+                .await;
         }
     }
 }
@@ -63,6 +68,8 @@ impl DirectoryCache for PmtCache {
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
+    /// This field is deprecated, will not be serialized, and will be eventually removed
+    #[serde(skip_serializing)]
     pub dir_cache_size_mb: Option<u64>,
 
     #[serde(flatten)]
@@ -78,7 +85,7 @@ pub struct PmtConfig {
     pub next_cache_id: AtomicUsize,
 
     #[serde(skip)]
-    pub cache: Option<PmtCacheObject>,
+    pub cache: OptMainCache,
 }
 
 impl PartialEq for PmtConfig {
@@ -107,24 +114,17 @@ impl PmtConfig {
 }
 
 impl ConfigExtras for PmtConfig {
-    fn init_parsing(&mut self) -> FileResult<()> {
+    fn init_parsing(&mut self, cache: OptMainCache) -> FileResult<()> {
         assert!(self.client.is_none());
         assert!(self.cache.is_none());
 
         self.client = Some(Client::new());
+        self.cache = cache;
 
-        // Allow cache size to be disabled with 0
-        let dir_cache_size = self.dir_cache_size_mb.unwrap_or(32) * 1024 * 1024;
-        if dir_cache_size > 0 {
-            self.cache = Some(
-                Cache::builder()
-                    .weigher(|_key, value: &Directory| -> u32 {
-                        value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
-                    })
-                    .max_capacity(dir_cache_size)
-                    .build(),
-            );
+        if self.dir_cache_size_mb.is_some() {
+            warn!("dir_cache_size_mb is no longer used. Use global cache_size_mb instead.");
         }
+
         Ok(())
     }
 

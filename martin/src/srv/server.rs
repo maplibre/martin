@@ -112,7 +112,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .allow_any_origin()
             .allowed_methods(vec!["GET"]);
 
-        let app = App::new().app_data(Data::new(state.tiles.clone()));
+        let app = App::new()
+            .app_data(Data::new(state.tiles.clone()))
+            .app_data(Data::new(state.cache.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app.app_data(Data::new(state.sprites.clone()));
