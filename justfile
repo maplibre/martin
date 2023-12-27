@@ -93,8 +93,14 @@ start-pmtiles-server:
     docker-compose up -d fileserver
 
 # Run benchmark tests
-bench: start
-    cargo bench
+bench:
+    cargo bench --bench bench
+    open target/criterion/report/index.html
+
+# Run benchmark tests showing a flamegraph
+flamegraph:
+    cargo bench --bench bench -- --profile-time=10
+    /opt/google/chrome/chrome "file://$PWD/target/criterion/get_table_source_tile/profile/flamegraph.svg"
 
 # Start release-compiled Martin server and a test database
 bench-server: start

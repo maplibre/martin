@@ -6,6 +6,7 @@ use martin::{
     CatalogSourceEntry, MartinResult, Source, TileCoord, TileData, TileSources, UrlQuery,
 };
 use martin_tile_utils::{Encoding, Format, TileInfo};
+use pprof::criterion::{Output, PProfProfiler};
 use tilejson::{tilejson, TileJSON};
 
 #[derive(Clone, Debug)]
@@ -48,7 +49,7 @@ impl Source for NullSource {
         _xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinResult<TileData> {
-        Ok(Vec::new())
+        Ok(b"empty".to_vec())
     }
 
     fn get_catalog_entry(&self) -> CatalogSourceEntry {
@@ -69,5 +70,10 @@ fn bench_null_source(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_null_source);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().with_profiler(PProfProfiler::new(1000, Output::Flamegraph(None)));
+    targets = bench_null_source
+}
+
 criterion_main!(benches);
