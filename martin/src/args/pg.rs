@@ -105,7 +105,6 @@ impl PgArgs {
         }
 
         for v in &[
-            "CA_ROOT_FILE",
             "DANGER_ACCEPT_INVALID_CERTS",
             "DATABASE_URL",
             "DEFAULT_SRID",
@@ -166,13 +165,6 @@ impl PgArgs {
         };
         if result.ssl_root_cert.is_none() {
             result.ssl_root_cert = Self::parse_env_var(env, "PGSSLROOTCERT", "root certificate(s)");
-        }
-        if result.ssl_root_cert.is_none() {
-            result.ssl_root_cert = Self::parse_env_var(
-                env,
-                "CA_ROOT_FILE",
-                "root certificate(s). This setting is obsolete, please use PGSSLROOTCERT instead",
-            );
         }
 
         result
@@ -255,7 +247,7 @@ mod tests {
                 ("DATABASE_URL", os("postgres://localhost:5432")),
                 ("DEFAULT_SRID", os("10")),
                 ("DANGER_ACCEPT_INVALID_CERTS", os("1")),
-                ("CA_ROOT_FILE", os("file")),
+                ("PGSSLROOTCERT", os("file")),
             ]
             .into_iter()
             .collect(),

@@ -65,13 +65,10 @@ impl Args {
     pub fn merge_into_config<'a>(
         self,
         config: &mut Config,
-        env: &impl Env<'a>,
+        #[allow(unused_variables)] env: &impl Env<'a>,
     ) -> MartinResult<()> {
         if self.meta.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
-        }
-        if env.has_unused_var("WATCH_MODE") {
-            warn!("The WATCH_MODE env variable is no longer supported, and will be ignored");
         }
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
@@ -138,19 +135,17 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 ) -> FileConfigEnum<T> {
     use crate::args::State::{Ignore, Share, Take};
 
-    let paths = cli_strings.process(|s| match PathBuf::try_from(s) {
-        Ok(v) => {
-            if allow_url && is_url(s, extension) {
-                Take(v)
-            } else if v.is_dir() {
-                Share(v)
-            } else if v.is_file() && v.extension().map_or(false, |e| e == extension) {
-                Take(v)
-            } else {
-                Ignore
-            }
+    let paths = cli_strings.process(|s| {
+        let path = PathBuf::from(s);
+        if allow_url && is_url(s, extension) {
+            Take(path)
+        } else if path.is_dir() {
+            Share(path)
+        } else if path.is_file() && path.extension().map_or(false, |e| e == extension) {
+            Take(path)
+        } else {
+            Ignore
         }
-        Err(_) => Ignore,
     });
 
     FileConfigEnum::new(paths)

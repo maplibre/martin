@@ -456,6 +456,41 @@ LIMIT 1;"
     }
 }
 
+/// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
+/// This should work on all mbtiles files perf `MBTiles` specification.
+pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    debug!("Calculating agg_tiles_hash");
+    let query = query(
+        // The md5_concat func will return NULL if there are no rows in the tiles table.
+        // For our use case, we will treat it as an empty string, and hash that.
+        // `tile_data` values must be stored as a blob per MBTiles spec
+        // `md5` functions will fail if the value is not text/blob/null
+        //
+        // Note that ORDER BY controls the output ordering, which is important for the hash value,
+        // and having it at the top level would not order values properly.
+        // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
+        "
+SELECT coalesce(
+    (SELECT md5_concat_hex(
+               cast(zoom_level AS text),
+               cast(tile_column AS text),
+               cast(tile_row AS text),
+               tile_data
+           )
+           OVER (ORDER BY zoom_level, tile_column, tile_row ROWS
+                 BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+     FROM tiles
+     LIMIT 1),
+    md5_hex('')
+);
+",
+    );
+    Ok(query.fetch_one(conn).await?.get::<String, _>(0))
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -498,39 +533,4 @@ pub(crate) mod tests {
         assert!(matches!(result, Err(AggHashMismatch(..))));
         Ok(())
     }
-}
-
-/// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
-/// This should work on all mbtiles files perf `MBTiles` specification.
-pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
-where
-    for<'e> &'e mut T: SqliteExecutor<'e>,
-{
-    debug!("Calculating agg_tiles_hash");
-    let query = query(
-        // The md5_concat func will return NULL if there are no rows in the tiles table.
-        // For our use case, we will treat it as an empty string, and hash that.
-        // `tile_data` values must be stored as a blob per MBTiles spec
-        // `md5` functions will fail if the value is not text/blob/null
-        //
-        // Note that ORDER BY controls the output ordering, which is important for the hash value,
-        // and having it at the top level would not order values properly.
-        // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
-        "
-SELECT coalesce(
-    (SELECT md5_concat_hex(
-               cast(zoom_level AS text),
-               cast(tile_column AS text),
-               cast(tile_row AS text),
-               tile_data
-           )
-           OVER (ORDER BY zoom_level, tile_column, tile_row ROWS
-                 BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-     FROM tiles
-     LIMIT 1),
-    md5_hex('')
-);
-",
-    );
-    Ok(query.fetch_one(conn).await?.get::<String, _>(0))
 }
