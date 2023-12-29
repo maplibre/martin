@@ -68,10 +68,6 @@ impl DirectoryCache for PmtCache {
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
-    /// This field is deprecated, will not be serialized, and will be eventually removed
-    #[serde(skip_serializing)]
-    pub dir_cache_size_mb: Option<u64>,
-
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
@@ -90,7 +86,7 @@ pub struct PmtConfig {
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.dir_cache_size_mb == other.dir_cache_size_mb && self.unrecognized == other.unrecognized
+        self.unrecognized == other.unrecognized
     }
 }
 
@@ -98,7 +94,6 @@ impl Clone for PmtConfig {
     fn clone(&self) -> Self {
         // State is not shared between clones, only the serialized config
         Self {
-            dir_cache_size_mb: self.dir_cache_size_mb,
             unrecognized: self.unrecognized.clone(),
             ..Default::default()
         }
@@ -121,8 +116,8 @@ impl ConfigExtras for PmtConfig {
         self.client = Some(Client::new());
         self.cache = cache;
 
-        if self.dir_cache_size_mb.is_some() {
-            warn!("dir_cache_size_mb is no longer used. Use global cache_size_mb instead.");
+        if self.unrecognized.contains_key("dir_cache_size_mb") {
+            warn!("dir_cache_size_mb is no longer used. Instead, use cache_size_mb param in the root of the config file.");
         }
 
         Ok(())

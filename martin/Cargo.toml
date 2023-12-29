@@ -3,7 +3,7 @@ lints.workspace = true
 [package]
 name = "martin"
 # Once the release is published with the hash, update https://github.com/maplibre/homebrew-martin
-version = "0.12.0"
+version = "0.13.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
