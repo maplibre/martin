@@ -114,7 +114,7 @@ impl<'a> DynTileSource<'a> {
     }
 
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
-        let mut tiles = try_join_all(self.sources.iter().map(|s| {
+        let mut tiles = try_join_all(self.sources.iter().map(|s| async {
             get_or_insert_cached_value!(
                 self.cache,
                 CacheValue::Tile,

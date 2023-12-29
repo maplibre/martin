@@ -68,27 +68,24 @@ macro_rules! get_cached_value {
 }
 
 macro_rules! get_or_insert_cached_value {
-    ($cache: expr, $value_type: path, $make_item:expr, $make_key: expr) => {
-        async {
-            if let Some(cache) = $cache {
-                let key = $make_key;
-                Ok(if let Some(data) = cache.get(&key).await {
-                    $crate::utils::cache::trace_cache!("HIT", cache, key);
-                    $crate::utils::cache::from_cache_value!($value_type, data, key)
-                } else {
-                    $crate::utils::cache::trace_cache!("MISS", cache, key);
-                    let data = $make_item.await?;
-                    cache.insert(key, $value_type(data.clone())).await;
-                    data
-                })
+    ($cache: expr, $value_type: path, $make_item:expr, $make_key: expr) => {{
+        if let Some(cache) = $cache {
+            let key = $make_key;
+            Ok(if let Some(data) = cache.get(&key).await {
+                $crate::utils::cache::trace_cache!("HIT", cache, key);
+                $crate::utils::cache::from_cache_value!($value_type, data, key)
             } else {
-                $make_item.await
-            }
+                $crate::utils::cache::trace_cache!("MISS", cache, key);
+                let data = $make_item.await?;
+                cache.insert(key, $value_type(data.clone())).await;
+                data
+            })
+        } else {
+            $make_item.await
         }
-    };
+    }};
 }
 
 #[cfg(feature = "pmtiles")]
 pub(crate) use get_cached_value;
-
 pub(crate) use {from_cache_value, get_or_insert_cached_value, trace_cache};
