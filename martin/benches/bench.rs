@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
 use criterion::{criterion_group, criterion_main, Criterion};
-use martin::srv::get_tile_response;
+use martin::srv::DynTileSource;
 use martin::{
     CatalogSourceEntry, MartinResult, Source, TileCoord, TileData, TileSources, UrlQuery,
 };
@@ -58,7 +58,8 @@ impl Source for NullSource {
 }
 
 async fn process_tile(sources: &TileSources) {
-    get_tile_response(sources, TileCoord { z: 0, x: 0, y: 0 }, "null", "", None)
+    let src = DynTileSource::new(sources, "null", Some(0), "", None, None).unwrap();
+    src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
         .unwrap();
 }

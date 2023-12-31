@@ -77,7 +77,7 @@ pub struct SpriteSources(HashMap<String, SpriteSource>);
 
 impl SpriteSources {
     pub fn resolve(config: &mut FileConfigEnum<SpriteConfig>) -> FileResult<Self> {
-        let Some(cfg) = config.extract_file_config()? else {
+        let Some(cfg) = config.extract_file_config(None)? else {
             return Ok(Self::default());
         };
 

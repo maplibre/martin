@@ -1,6 +1,6 @@
 use indoc::formatdoc;
 pub use martin::args::Env;
-use martin::{Config, IdResolver, ServerState, Source};
+use martin::{Config, ServerState, Source};
 
 use crate::mock_cfg;
 
@@ -22,7 +22,7 @@ pub fn mock_pgcfg(yaml: &str) -> Config {
 
 #[allow(dead_code)]
 pub async fn mock_sources(mut config: Config) -> MockSource {
-    let res = config.resolve(IdResolver::default()).await;
+    let res = config.resolve().await;
     let res = res.unwrap_or_else(|e| panic!("Failed to resolve config {config:?}: {e}"));
     (res, config)
 }

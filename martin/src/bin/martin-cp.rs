@@ -12,10 +12,10 @@ use futures::stream::{self, StreamExt};
 use futures::TryStreamExt;
 use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
-use martin::srv::{get_tile_content, merge_tilejson, RESERVED_KEYWORDS};
+use martin::srv::{merge_tilejson, DynTileSource};
 use martin::{
-    append_rect, read_config, Config, IdResolver, MartinError, MartinResult, ServerState, Source,
-    TileCoord, TileData, TileRect,
+    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileCoord,
+    TileData, TileRect,
 };
 use martin_tile_utils::{bbox_to_xyz, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
@@ -144,7 +144,8 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
-    let sources = config.resolve(IdResolver::new(RESERVED_KEYWORDS)).await?;
+
+    let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
         config.save_to_file(file_name)?;
@@ -274,9 +275,18 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
-    let (sources, _use_url_query, info) = state.tiles.get_sources(args.source.as_str(), None)?;
-    let sources = sources.as_slice();
-    let tile_info = sources.first().unwrap().get_tile_info();
+
+    let src = DynTileSource::new(
+        &state.tiles,
+        args.source.as_str(),
+        None,
+        args.url_query.as_deref().unwrap_or_default(),
+        Some(parse_encoding(args.encoding.as_str())?),
+        None,
+    )?;
+    // parallel async below uses move, so we must only use copyable types
+    let src = &src;
+
     let (tx, mut rx) = channel::<TileXyz>(500);
     let tiles = compute_tile_ranges(&args);
     let mbt = Mbtiles::new(output_file)?;
@@ -288,30 +298,26 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     } else {
         CopyDuplicateMode::Override
     };
-    let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, &args).await?;
-    let query = args.url_query.as_deref();
-    let req = TestRequest::default()
-        .insert_header((ACCEPT_ENCODING, args.encoding.as_str()))
-        .finish();
-    let accept_encoding = AcceptEncoding::parse(&req)?;
-    let encodings = Some(&accept_encoding);
+    let mbt_type = init_schema(&mbt, &mut conn, src.sources.as_slice(), src.info, &args).await?;
 
     let progress = Progress::new(&tiles);
     info!(
-        "Copying {} {tile_info} tiles from {} to {}",
+        "Copying {} {} tiles from {} to {}",
         progress.total,
+        src.info,
         args.source,
         args.output_file.display()
     );
 
     try_join!(
+        // Note: for some reason, tests hang here without the `move` keyword
         async move {
             stream::iter(iterate_tiles(tiles))
                 .map(MartinResult::Ok)
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = get_tile_content(sources, info, xyz, query, encodings).await?;
+                        let tile = src.get_tile_content(xyz).await?;
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
@@ -373,6 +379,13 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     }
 
     Ok(())
+}
+
+fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
+    let req = TestRequest::default()
+        .insert_header((ACCEPT_ENCODING, encoding))
+        .finish();
+    Ok(AcceptEncoding::parse(&req)?)
 }
 
 async fn init_schema(

@@ -1,3 +1,6 @@
+pub(crate) mod cache;
+pub use cache::{CacheKey, CacheValue, MainCache, OptMainCache, NO_MAIN_CACHE};
+
 mod cfg_containers;
 pub use cfg_containers::{OptBoolObj, OptOneMany};
 

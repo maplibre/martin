@@ -86,7 +86,7 @@ impl Display for Format {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Encoding {
     /// Data is not compressed, but it can be
     Uncompressed = 0b0000_0000,
