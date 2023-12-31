@@ -14,7 +14,7 @@ use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{Source, TileInfoSources};
-use crate::utils::{IdResolver, OptOneMany};
+use crate::utils::{IdResolver, OptMainCache, OptOneMany};
 use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
 
@@ -48,7 +48,7 @@ pub enum FileError {
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
-    fn init_parsing(&mut self) -> FileResult<()> {
+    fn init_parsing(&mut self, _cache: OptMainCache) -> FileResult<()> {
         Ok(())
     }
 
@@ -127,7 +127,10 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         }
     }
 
-    pub fn extract_file_config(&mut self) -> FileResult<Option<FileConfig<T>>> {
+    pub fn extract_file_config(
+        &mut self,
+        cache: OptMainCache,
+    ) -> FileResult<Option<FileConfig<T>>> {
         let mut res = match self {
             FileConfigEnum::None => return Ok(None),
             FileConfigEnum::Path(path) => FileConfig {
@@ -140,7 +143,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),
         };
-        res.custom.init_parsing()?;
+        res.custom.init_parsing(cache)?;
         Ok(Some(res))
     }
 
@@ -218,20 +221,22 @@ pub struct FileConfigSource {
 
 pub async fn resolve_files<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
-    idr: IdResolver,
+    idr: &IdResolver,
+    cache: OptMainCache,
     extension: &str,
 ) -> MartinResult<TileInfoSources> {
-    resolve_int(config, idr, extension)
+    resolve_int(config, idr, cache, extension)
         .map_err(crate::MartinError::from)
         .await
 }
 
 async fn resolve_int<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
-    idr: IdResolver,
+    idr: &IdResolver,
+    cache: OptMainCache,
     extension: &str,
 ) -> FileResult<TileInfoSources> {
-    let Some(cfg) = config.extract_file_config()? else {
+    let Some(cfg) = config.extract_file_config(cache)? else {
         return Ok(TileInfoSources::default());
     };
 

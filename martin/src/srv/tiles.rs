@@ -6,13 +6,18 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{route, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
 use futures::future::try_join_all;
+use log::trace;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::Deserialize;
 
 use crate::source::{Source, TileSources, UrlQuery};
 use crate::srv::server::map_internal_error;
-use crate::utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip};
-use crate::{Tile, TileCoord};
+use crate::utils::cache::get_or_insert_cached_value;
+use crate::utils::{
+    decode_brotli, decode_gzip, encode_brotli, encode_gzip, CacheKey, CacheValue, MainCache,
+    OptMainCache,
+};
+use crate::{Tile, TileCoord, TileData};
 
 static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
     HeaderEnc::brotli(),
@@ -33,125 +38,165 @@ async fn get_tile(
     req: HttpRequest,
     path: Path<TileRequest>,
     sources: Data<TileSources>,
+    cache: Data<OptMainCache>,
 ) -> ActixResult<HttpResponse> {
-    let xyz = TileCoord {
+    let src = DynTileSource::new(
+        sources.as_ref(),
+        &path.source_ids,
+        Some(path.z),
+        req.query_string(),
+        req.get_header::<AcceptEncoding>(),
+        cache.as_ref().as_ref(),
+    )?;
+
+    src.get_http_response(TileCoord {
         z: path.z,
         x: path.x,
         y: path.y,
-    };
-
-    let source_ids = &path.source_ids;
-    let query = req.query_string();
-    let encodings = req.get_header::<AcceptEncoding>();
-
-    get_tile_response(sources.as_ref(), xyz, source_ids, query, encodings).await
-}
-
-pub async fn get_tile_response(
-    sources: &TileSources,
-    xyz: TileCoord,
-    source_ids: &str,
-    query: &str,
-    encodings: Option<AcceptEncoding>,
-) -> ActixResult<HttpResponse> {
-    let (sources, use_url_query, info) = sources.get_sources(source_ids, Some(xyz.z))?;
-
-    let query = use_url_query.then_some(query);
-    let tile = get_tile_content(sources.as_slice(), info, xyz, query, encodings.as_ref()).await?;
-
-    Ok(if tile.data.is_empty() {
-        HttpResponse::NoContent().finish()
-    } else {
-        let mut response = HttpResponse::Ok();
-        response.content_type(tile.info.format.content_type());
-        if let Some(val) = tile.info.encoding.content_encoding() {
-            response.insert_header((CONTENT_ENCODING, val));
-        }
-        response.body(tile.data)
     })
+    .await
 }
 
-pub async fn get_tile_content(
-    sources: &[&dyn Source],
-    info: TileInfo,
-    xyz: TileCoord,
-    query: Option<&str>,
-    encodings: Option<&AcceptEncoding>,
-) -> ActixResult<Tile> {
-    if sources.is_empty() {
-        return Err(ErrorNotFound("No valid sources found"));
-    }
-    let query_str = query.filter(|v| !v.is_empty());
-    let query = match query_str {
-        Some(v) => Some(Query::<UrlQuery>::from_query(v)?.into_inner()),
-        None => None,
-    };
+pub struct DynTileSource<'a> {
+    pub sources: Vec<&'a dyn Source>,
+    pub info: TileInfo,
+    pub query_str: Option<&'a str>,
+    pub query_obj: Option<UrlQuery>,
+    pub encodings: Option<AcceptEncoding>,
+    pub cache: Option<&'a MainCache>,
+}
 
-    let mut tiles = try_join_all(sources.iter().map(|s| s.get_tile(xyz, query.as_ref())))
+impl<'a> DynTileSource<'a> {
+    pub fn new(
+        sources: &'a TileSources,
+        source_ids: &str,
+        zoom: Option<u8>,
+        query: &'a str,
+        encodings: Option<AcceptEncoding>,
+        cache: Option<&'a MainCache>,
+    ) -> ActixResult<Self> {
+        let (sources, use_url_query, info) = sources.get_sources(source_ids, zoom)?;
+
+        if sources.is_empty() {
+            return Err(ErrorNotFound("No valid sources found"));
+        }
+
+        let mut query_obj = None;
+        let mut query_str = None;
+        if use_url_query && !query.is_empty() {
+            query_obj = Some(Query::<UrlQuery>::from_query(query)?.into_inner());
+            query_str = Some(query);
+        }
+
+        Ok(Self {
+            sources,
+            info,
+            query_str,
+            query_obj,
+            encodings,
+            cache,
+        })
+    }
+
+    pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
+        let tile = self.get_tile_content(xyz).await?;
+
+        Ok(if tile.data.is_empty() {
+            HttpResponse::NoContent().finish()
+        } else {
+            let mut response = HttpResponse::Ok();
+            response.content_type(tile.info.format.content_type());
+            if let Some(val) = tile.info.encoding.content_encoding() {
+                response.insert_header((CONTENT_ENCODING, val));
+            }
+            response.body(tile.data)
+        })
+    }
+
+    pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
+        let mut tiles = try_join_all(self.sources.iter().map(|s| async {
+            get_or_insert_cached_value!(
+                self.cache,
+                CacheValue::Tile,
+                s.get_tile(xyz, self.query_obj.as_ref()),
+                {
+                    let id = s.get_id().to_owned();
+                    if let Some(query_str) = self.query_str {
+                        CacheKey::TileWithQuery(id, xyz, query_str.to_owned())
+                    } else {
+                        CacheKey::Tile(id, xyz)
+                    }
+                }
+            )
+        }))
         .await
         .map_err(map_internal_error)?;
 
-    let mut layer_count = 0;
-    let mut last_non_empty_layer = 0;
-    for (idx, tile) in tiles.iter().enumerate() {
-        if !tile.is_empty() {
-            layer_count += 1;
-            last_non_empty_layer = idx;
+        let mut layer_count = 0;
+        let mut last_non_empty_layer = 0;
+        for (idx, tile) in tiles.iter().enumerate() {
+            if !tile.is_empty() {
+                layer_count += 1;
+                last_non_empty_layer = idx;
+            }
         }
+
+        // Minor optimization to prevent concatenation if there are less than 2 tiles
+        let data = match layer_count {
+            1 => tiles.swap_remove(last_non_empty_layer),
+            0 => return Ok(Tile::new(Vec::new(), self.info)),
+            _ => {
+                // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
+                // TODO: can zlib, brotli, or zstd be concatenated?
+                // TODO: implement decompression step for other concatenate-able formats
+                let can_join = self.info.format == Format::Mvt
+                    && (self.info.encoding == Encoding::Uncompressed
+                        || self.info.encoding == Encoding::Gzip);
+                if !can_join {
+                    return Err(ErrorBadRequest(format!(
+                        "Can't merge {} tiles. Make sure there is only one non-empty tile source at zoom level {}",
+                        self.info,
+                        xyz.z
+                    )))?;
+                }
+                tiles.concat()
+            }
+        };
+
+        // decide if (re-)encoding of the tile data is needed, and recompress if so
+        self.recompress(data)
     }
 
-    // Minor optimization to prevent concatenation if there are less than 2 tiles
-    let data = match layer_count {
-        1 => tiles.swap_remove(last_non_empty_layer),
-        0 => return Ok(Tile::new(Vec::new(), info)),
-        _ => {
-            // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
-            // TODO: can zlib, brotli, or zstd be concatenated?
-            // TODO: implement decompression step for other concatenate-able formats
-            let can_join = info.format == Format::Mvt
-                && (info.encoding == Encoding::Uncompressed || info.encoding == Encoding::Gzip);
-            if !can_join {
-                return Err(ErrorBadRequest(format!(
-                    "Can't merge {info} tiles. Make sure there is only one non-empty tile source at zoom level {}",
-                    xyz.z
-                )))?;
-            }
-            tiles.concat()
-        }
-    };
-
-    // decide if (re-)encoding of the tile data is needed, and recompress if so
-    let tile = recompress(Tile::new(data, info), encodings)?;
-
-    Ok(tile)
-}
-
-fn recompress(mut tile: Tile, accept_enc: Option<&AcceptEncoding>) -> ActixResult<Tile> {
-    if let Some(accept_enc) = accept_enc {
-        if tile.info.encoding.is_encoded() {
-            // already compressed, see if we can send it as is, or need to re-compress
-            if !accept_enc.iter().any(|e| {
-                if let Preference::Specific(HeaderEnc::Known(enc)) = e.item {
-                    to_encoding(enc) == Some(tile.info.encoding)
-                } else {
-                    false
+    fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
+        let mut tile = Tile::new(tile, self.info);
+        if let Some(accept_enc) = &self.encodings {
+            if self.info.encoding.is_encoded() {
+                // already compressed, see if we can send it as is, or need to re-compress
+                if !accept_enc.iter().any(|e| {
+                    if let Preference::Specific(HeaderEnc::Known(enc)) = e.item {
+                        to_encoding(enc) == Some(tile.info.encoding)
+                    } else {
+                        false
+                    }
+                }) {
+                    // need to re-compress the tile - uncompress it first
+                    tile = decode(tile)?;
                 }
-            }) {
-                // need to re-compress the tile - uncompress it first
-                tile = decode(tile)?;
             }
-        }
-        if tile.info.encoding == Encoding::Uncompressed {
-            // only apply compression if the content supports it
-            if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENCODINGS.iter()) {
-                // (re-)compress the tile into the preferred encoding
-                tile = encode(tile, enc)?;
+            if tile.info.encoding == Encoding::Uncompressed {
+                // only apply compression if the content supports it
+                if let Some(HeaderEnc::Known(enc)) =
+                    accept_enc.negotiate(SUPPORTED_ENCODINGS.iter())
+                {
+                    // (re-)compress the tile into the preferred encoding
+                    tile = encode(tile, enc)?;
+                }
             }
+            Ok(tile)
+        } else {
+            // no accepted-encoding header, decode the tile if compressed
+            decode(tile)
         }
-        Ok(tile)
-    } else {
-        // no accepted-encoding header, decode the tile if compressed
-        decode(tile)
     }
 }
 
@@ -189,7 +234,7 @@ fn decode(tile: Tile) -> ActixResult<Tile> {
     })
 }
 
-fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
+pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
     Some(match val {
         ContentEncoding::Identity => Encoding::Uncompressed,
         ContentEncoding::Gzip => Encoding::Gzip,
@@ -233,15 +278,9 @@ mod tests {
             ("empty,non-empty", vec![1_u8, 2, 3]),
             ("empty,non-empty,empty", vec![1_u8, 2, 3]),
         ] {
-            let (src, _, info) = sources.get_sources(source_id, None).unwrap();
+            let src = DynTileSource::new(&sources, source_id, None, "", None, None).unwrap();
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
-            assert_eq!(
-                expected,
-                &get_tile_content(src.as_slice(), info, xyz, None, None)
-                    .await
-                    .unwrap()
-                    .data
-            );
+            assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
     }
 }
