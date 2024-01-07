@@ -1,0 +1,11 @@
+.tile-set-list-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #ccc;
+}
+
+.tile-set-list-item :hover {
+  background-color: #eee;
+}

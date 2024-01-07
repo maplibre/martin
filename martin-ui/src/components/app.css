@@ -1,0 +1,47 @@
+.app {
+}
+
+.app-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+.app-header {
+  background-color: #282c34;
+  align-items: center;
+  justify-content: start;
+  color: white;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  font-weight: 700;
+  position: sticky;
+  z-index: 3;
+}
+
+.side-bar {
+  display: flex;
+  background-color: #fff !important;
+  color: white;
+  width: 300px;
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+}
+
+.modal {
+  z-index: 10;
+}
+
+.add-tile-set-button {
+  border: 1px solid lightgray;
+  padding: 10px;
+  background-color: rgb(102, 119, 196);
+  color: white;
+  height: 100%;
+  cursor: pointer;
+}
+
+.add-tile-set-button :hover {
+  background-color: rgb(160, 167, 180);
+}

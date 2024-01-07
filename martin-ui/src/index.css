@@ -1,0 +1,113 @@
+body {
+  margin: 0;
+  background: #151616;
+  font-family: "Open Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+:root {
+  --bg: #fff;
+  --bg-subcontent: #f4f8f8;
+  --bg-main-content: #617889;
+  --bg-accent: #484a4d;
+  --text-color: #dadce1;
+  --nav-size: 60px;
+  --speed: 500ms;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+/* Icon Button */
+.icon-button {
+  --button-size: 15px;
+  width: var(--button-size);
+  height: var(--button-size);
+  background-color: #617889;
+  cursor: pointer;
+  color: white;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: filter 300ms;
+}
+
+.icon-button:hover {
+  filter: brightness(1.2);
+  border-radius: 4px;
+}
+
+.icon-button svg {
+  fill: var(--text-color);
+  width: 20px;
+  height: 20px;
+}
+
+.text-bold {
+  font-weight: 700;
+}
+.txt-xs {
+  font-size: 10px;
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+}
+
+.main-row {
+  display: flex;
+  align-items: center;
+  color: white;
+  border: 1px solid lightgrey;
+  gap: 4px;
+  padding: 4px;
+  background-color: rgb(98, 120, 137);
+}
+
+.sub-row {
+  background-color: #f4f8f8;
+  color: #617889 !important;
+  padding: 4px;
+  margin: 4px 0;
+  border: 1px solid lightgray;
+  line-height: 15px;
+  gap: 4px;
+  font-family: "Open Sans", sans-serif;
+}
+
+.call-to-action {
+  display: flex;
+  align-items: center;
+  color: white;
+  border: 1px solid lightgrey;
+  gap: 4px;
+  padding: 4px;
+  background-color: rgb(98, 120, 137);
+}
+.minimized {
+  width: fit-content;
+  height: fit-content;
+}
+
+.transparent-button {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
