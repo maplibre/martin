@@ -1,4 +1,5 @@
 use moka::future::Cache;
+#[cfg(feature = "pmtiles")]
 use pmtiles::Directory;
 
 use crate::{TileCoord, TileData};
@@ -20,6 +21,7 @@ pub enum CacheKey {
 #[derive(Debug, Clone)]
 pub enum CacheValue {
     Tile(TileData),
+    #[cfg(feature = "pmtiles")]
     PmtDirectory(Directory),
 }
 
@@ -38,6 +40,7 @@ macro_rules! trace_cache {
 
 macro_rules! from_cache_value {
     ($value_type: path, $data: expr, $key: expr) => {
+        #[allow(irrefutable_let_patterns)]
         if let $value_type(data) = $data {
             data
         } else {

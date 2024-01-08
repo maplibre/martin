@@ -53,6 +53,7 @@ path = "src/bin/martin.rs"
 [[bin]]
 name = "martin-cp"
 path = "src/bin/martin-cp.rs"
+required-features = ["mbtiles"]
 
 [[bench]]
 name = "bench"
@@ -61,8 +62,8 @@ harness = false
 [features]
 default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
-mbtiles = []
-pmtiles = []
+mbtiles = ["dep:mbtiles"]
+pmtiles = ["dep:pmtiles", "dep:reqwest"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet"]
 bless-tests = []
@@ -84,16 +85,16 @@ itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
-mbtiles.workspace = true
+mbtiles = { workspace = true, optional = true }
 moka.workspace = true
 num_cpus.workspace = true
 pbf_font_tools = { workspace = true, optional = true }
-pmtiles.workspace = true
+pmtiles = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 regex.workspace = true
-reqwest.workspace = true
+reqwest = { workspace = true, optional = true }
 rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
 rustls.workspace = true
