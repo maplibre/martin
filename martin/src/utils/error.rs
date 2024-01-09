@@ -3,6 +3,7 @@ use std::fmt::Write as _;
 use std::io;
 use std::path::PathBuf;
 
+#[cfg(feature = "mbtiles")]
 use mbtiles::MbtError;
 
 use crate::file_config::FileError;
@@ -61,6 +62,7 @@ pub enum MartinError {
     #[error(transparent)]
     PostgresError(#[from] crate::pg::PgError),
 
+    #[cfg(feature = "mbtiles")]
     #[error(transparent)]
     MbtilesError(#[from] MbtError),
 
