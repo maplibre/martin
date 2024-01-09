@@ -65,7 +65,7 @@ fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:reqwest"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
-sprites = ["dep:spreet"]
+sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
 
 [dependencies]
