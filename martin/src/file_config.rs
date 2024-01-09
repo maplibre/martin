@@ -43,6 +43,7 @@ pub enum FileError {
     #[error(r#"Unable to acquire connection to file: {0}"#)]
     AcquireConnError(String),
 
+    #[cfg(feature = "pmtiles")]
     #[error(r#"PMTiles error {0} processing {1}"#)]
     PmtError(pmtiles::PmtError, String),
 }
