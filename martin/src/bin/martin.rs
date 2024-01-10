@@ -1,6 +1,6 @@
 use std::fmt::Display;
+use std::future::Future;
 
-use actix_web::dev::Server;
 use clap::Parser;
 use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
@@ -9,7 +9,7 @@ use martin::{read_config, Config, MartinResult};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-async fn start(args: Args) -> MartinResult<Server> {
+async fn start(args: Args) -> MartinResult<impl Future<Output = MartinResult<()>>> {
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv::default();

@@ -80,6 +80,9 @@ pub enum MartinError {
     #[error(transparent)]
     WebError(#[from] actix_web::Error),
 
+    #[error(transparent)]
+    IoError(#[from] io::Error),
+
     #[error("Internal error: {0}")]
-    InternalError(Box<dyn Error>),
+    InternalError(#[from] Box<dyn Error + Send + Sync>),
 }
