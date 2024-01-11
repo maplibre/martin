@@ -129,30 +129,27 @@ pub fn new_server(
             .configure(router)
     };
 
-    match () {
-        #[cfg(feature = "lambda")]
-        () if is_running_on_lambda() => {
-            let server = run_actix_on_lambda(factory).err_into();
-            Ok((Box::pin(server), "(aws lambda)".into()))
-        }
-        () => {
-            let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
-            let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
-            let listen_addresses = config
-                .listen_addresses
-                .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
-
-            let server = HttpServer::new(factory)
-                .bind(listen_addresses.clone())
-                .map_err(|e| BindingError(e, listen_addresses.clone()))?
-                .keep_alive(keep_alive)
-                .shutdown_timeout(0)
-                .workers(worker_processes)
-                .run()
-                .err_into();
-            Ok((Box::pin(server), listen_addresses))
-        }
+    #[cfg(feature = "lambda")]
+    if is_running_on_lambda() {
+        let server = run_actix_on_lambda(factory).err_into();
+        return Ok((Box::pin(server), "(aws lambda)".into()));
     }
+
+    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
+    let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
+    let listen_addresses = config
+        .listen_addresses
+        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
+
+    let server = HttpServer::new(factory)
+        .bind(listen_addresses.clone())
+        .map_err(|e| BindingError(e, listen_addresses.clone()))?
+        .keep_alive(keep_alive)
+        .shutdown_timeout(0)
+        .workers(worker_processes)
+        .run()
+        .err_into();
+    Ok((Box::pin(server), listen_addresses))
 }
 
 #[cfg(test)]
