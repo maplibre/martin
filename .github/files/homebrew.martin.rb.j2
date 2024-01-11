@@ -35,8 +35,8 @@ class Martin < Formula
 
   def install
     bin.install "martin"
-    bin.install "mbtiles"
     bin.install "martin-cp"
+    bin.install "mbtiles"
   end
 
   def caveats; <<~EOS
@@ -48,6 +48,7 @@ class Martin < Formula
 
   test do
     `#{bin}/martin --version`
+    `#{bin}/martin-cp --version`
     `#{bin}/mbtiles --version`
   end
 end
