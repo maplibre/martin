@@ -35,6 +35,7 @@ class Martin < Formula
 
   def install
     bin.install "martin"
+    bin.install "martin-cp"
     bin.install "mbtiles"
   end
 
@@ -47,6 +48,7 @@ class Martin < Formula
 
   test do
     `#{bin}/martin --version`
+    `#{bin}/martin-cp --version`
     `#{bin}/mbtiles --version`
   end
 end
