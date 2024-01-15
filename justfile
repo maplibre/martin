@@ -4,8 +4,11 @@ set shell := ["bash", "-c"]
 
 #export DATABASE_URL="postgres://postgres:postgres@localhost:5411/db"
 
-export PGPORT := "5411"
-export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db"
+# Set additional database connection parameters, e.g.   just  PGPARAMS='keepalives=0&keepalives_idle=15'  psql
+PGPARAMS := ""
+PGPORT := "5411"
+
+export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db" + (if PGPARAMS != "" { "?" + PGPARAMS } else { "" })
 export CARGO_TERM_COLOR := "always"
 
 #export RUST_LOG := "debug"
@@ -38,11 +41,11 @@ debug-page *ARGS: start
 
 # Run PSQL utility against the test database
 psql *ARGS:
-    psql {{ ARGS }} {{ DATABASE_URL }}
+    psql {{ ARGS }} {{ quote(DATABASE_URL) }}
 
 # Run pg_dump utility against the test database
 pg_dump *ARGS:
-    pg_dump {{ ARGS }} {{ DATABASE_URL }}
+    pg_dump {{ ARGS }} {{ quote(DATABASE_URL) }}
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop
@@ -268,7 +271,7 @@ git *ARGS: start
 
 # Print the connection string for the test database
 print-conn-str:
-    @echo {{ DATABASE_URL }}
+    @echo {{ quote(DATABASE_URL) }}
 
 # Run cargo fmt and cargo clippy
 lint: fmt clippy
