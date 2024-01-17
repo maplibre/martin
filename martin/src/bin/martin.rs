@@ -34,7 +34,7 @@ async fn start(args: Args) -> MartinResult<()> {
     let (server, listen_addresses) = new_server(config.srv, sources)?;
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
-    Ok(server.await?)
+    server.await
 }
 
 #[actix_web::main]
