@@ -109,7 +109,7 @@ Martin data is available via the HTTP `GET` endpoints:
 
 Martin can be used as a standalone server, or as a library in your own Rust application. When used as a library, you can use the following features:
 
-* **webui** - enable webUI at `/` endpoint 
+* **webui** - enable webUI at `/` endpoint
 * **postgres** - enable PostgreSQL/PostGIS tile sources
 * **pmtiles** - enable PMTile tile sources
 * **mbtiles** - enable MBTile tile sources
