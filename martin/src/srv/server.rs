@@ -1,3 +1,5 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
@@ -7,7 +9,7 @@ use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::Data;
 use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder};
-use futures::{future::LocalBoxFuture, TryFutureExt};
+use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
@@ -100,11 +102,10 @@ pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::srv::fonts::get_font);
 }
 
+type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
+
 /// Create a future for an Actix web server together with the listening address.
-pub fn new_server(
-    config: SrvConfig,
-    state: ServerState,
-) -> MartinResult<(LocalBoxFuture<'static, MartinResult<()>>, String)> {
+pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
     let catalog = Catalog::new(&state)?;
 
     let factory = move || {

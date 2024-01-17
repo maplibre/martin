@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::future::Future;
 
 use clap::Parser;
 use log::{error, info, log_enabled};
@@ -9,7 +8,7 @@ use martin::{read_config, Config, MartinResult};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-async fn start(args: Args) -> MartinResult<impl Future<Output = MartinResult<()>>> {
+async fn start(args: Args) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv::default();
@@ -35,8 +34,7 @@ async fn start(args: Args) -> MartinResult<impl Future<Output = MartinResult<()>
     let (server, listen_addresses) = new_server(config.srv, sources)?;
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
-
-    Ok(server)
+    Ok(server.await?)
 }
 
 #[actix_web::main]
@@ -44,11 +42,7 @@ async fn main() {
     let env = env_logger::Env::default().default_filter_or("martin=info");
     env_logger::Builder::from_env(env).init();
 
-    start(Args::parse())
-        .await
-        .unwrap_or_else(|e| on_error(e))
-        .await
-        .unwrap_or_else(|e| on_error(e));
+    start(Args::parse()).await.unwrap_or_else(|e| on_error(e));
 }
 
 fn on_error<E: Display>(e: E) -> ! {
