@@ -21,7 +21,11 @@ use crate::MartinResult;
 
 // Include Web UI resources
 #[cfg(feature = "webui")]
-include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+mod webui {
+    #![allow(clippy::unreadable_literal)]
+    #![allow(clippy::wildcard_imports)]
+    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+}
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -102,7 +106,10 @@ pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::srv::fonts::get_font);
 
     #[cfg(feature = "webui")]
-    cfg.service(actix_web_static_files::ResourceFiles::new("/", generate()));
+    cfg.service(actix_web_static_files::ResourceFiles::new(
+        "/",
+        webui::generate(),
+    ));
 
     #[cfg(not(feature = "webui"))]
     cfg.service(get_index);
