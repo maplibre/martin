@@ -132,6 +132,10 @@ jobs:
         with:
           install: true
           platforms: linux/amd64,linux/arm64
+      - name: Set up AWS SAM
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
 
       - name: Build targets
         run: |
@@ -177,6 +181,7 @@ jobs:
           load: true
           tags: ${{ github.repository }}:linux-arm64
           platforms: linux/arm64
+
       - name: Test linux/arm64 Docker image
         run: |
           PLATFORM=linux/arm64
@@ -209,6 +214,16 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+
+      - name: Test Lambda function
+        run: |
+          EVENT=$(sam local generate-event apigateway http-api-proxy \
+            | jq '.rawPath="/"|.requestContext.http.method="GET"')
+          TAG=${{ github.repository }}:linux-amd64
+          sam build -t .github/files/lambda.yaml
+          sam local invoke \
+            --parameter-overrides TAG="$TAG" -e "$(echo "$EVENT")" \
+            | jq -e '.statusCode==200'
 
       - name: Login to GitHub Docker registry
         if: github.event_name != 'pull_request'

@@ -23,3 +23,4 @@ pg_data/
 config.yml
 tests/output/
 tmp/
+.aws-sam/

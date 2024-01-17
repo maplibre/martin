@@ -1,0 +1,15 @@
+# This is a minimal AWS SAM template sufficient to invoke the handler
+# in the CI environment. It probably hasn't been tested for actual
+# deployments.
+
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  MartinFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      PackageType: Image
+      ImageUri: !Sub "${TAG}"
+Parameters:
+  TAG:
+    Type: String
