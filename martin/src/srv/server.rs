@@ -19,6 +19,10 @@ use crate::srv::tiles_info::git_source_info;
 use crate::MartinError::BindingError;
 use crate::MartinResult;
 
+// Include Web UI resources
+#[cfg(feature = "webui")]
+include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
 /// This list is documented in the `docs/src/using.md` file, which should be kept in sync.
@@ -53,12 +57,13 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     ErrorInternalServerError(e.to_string())
 }
 
-/// Root path will eventually have a web front. For now, just a stub.
+/// Root path in case web front is disabled.
+#[cfg(not(feature = "webui"))]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
 async fn get_index() -> &'static str {
     // todo: once this becomes more substantial, add wrap = "middleware::Compress::default()"
-    "Martin server is running. Eventually this will be a nice web front.\n\n\
+    "Martin server is running. The WebUI feature is disabled.\n\n\
     A list of all available sources is at /catalog\n\n\
     See documentation https://github.com/maplibre/martin"
 }
@@ -85,7 +90,6 @@ async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
 
 pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_health)
-        .service(get_index)
         .service(get_catalog)
         .service(git_source_info)
         .service(get_tile);
@@ -96,6 +100,12 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 
     #[cfg(feature = "fonts")]
     cfg.service(crate::srv::fonts::get_font);
+
+    #[cfg(feature = "webui")]
+    cfg.service(actix_web_static_files::ResourceFiles::new("/", generate()));
+
+    #[cfg(not(feature = "webui"))]
+    cfg.service(get_index);
 }
 
 /// Create a new initialized Actix `App` instance together with the listening address.

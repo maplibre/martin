@@ -92,23 +92,24 @@ _See [API documentation](https://maplibre.org/martin/using.html) in the Martin b
 
 Martin data is available via the HTTP `GET` endpoints:
 
-| URL                                     | Description                                   |
-|-----------------------------------------|-----------------------------------------------|
-| `/`                                     | Status text, that will eventually show web UI |
-| `/catalog`                              | List of all sources                           |
-| `/{sourceID}`                           | Source TileJSON                               |
-| `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                     |
-| `/{source1},…,{sourceN}`                | Composite Source TileJSON                     |
-| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | Composite Source Tiles                        |
-| `/sprite/{spriteID}[@2x].{json,png}`    | Sprites (low and high DPI, index/png)         |
-| `/font/{font}/{start}-{end}`            | Font source                                   |
-| `/font/{font1},…,{fontN}/{start}-{end}` | Composite Font source                         |
-| `/health`                               | Martin server health check: returns 200 `OK`  |
+| URL                                     | Description                                  |
+|-----------------------------------------|----------------------------------------------|
+| `/`                                     | Web UI                                       |
+| `/catalog`                              | List of all sources                          |
+| `/{sourceID}`                           | Source TileJSON                              |
+| `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                    |
+| `/{source1},…,{sourceN}`                | Composite Source TileJSON                    |
+| `/{source1},…,{sourceN}/{z}/{x}/{y}`    | Composite Source Tiles                       |
+| `/sprite/{spriteID}[@2x].{json,png}`    | Sprites (low and high DPI, index/png)        |
+| `/font/{font}/{start}-{end}`            | Font source                                  |
+| `/font/{font1},…,{fontN}/{start}-{end}` | Composite Font source                        |
+| `/health`                               | Martin server health check: returns 200 `OK` |
 
 ## Re-use Martin as a library
 
 Martin can be used as a standalone server, or as a library in your own Rust application. When used as a library, you can use the following features:
 
+* **webui** - enable webUI at `/` endpoint 
 * **postgres** - enable PostgreSQL/PostGIS tile sources
 * **pmtiles** - enable PMTile tile sources
 * **mbtiles** - enable MBTile tile sources

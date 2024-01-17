@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 9000",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -18,7 +18,7 @@
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.2.0",
-    "react-map-gl":"7.1.7",
+    "react-map-gl": "7.1.7",
     "react-spinners": "^0.13.8",
     "react-virtualized": "^9.22.5",
     "react18-json-view": "^0.2.7-canary.2",
