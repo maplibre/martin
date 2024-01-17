@@ -60,7 +60,8 @@ name = "bench"
 harness = false
 
 [features]
-default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
+default = ["webui", "fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
+webui = ["dep:actix-web-static-files", "dep:static-files"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:reqwest"]
@@ -72,6 +73,7 @@ bless-tests = []
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-rt.workspace = true
+actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
 bit-set = { workspace = true, optional = true }
@@ -91,8 +93,8 @@ num_cpus.workspace = true
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
-postgres-protocol = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
+postgres-protocol = { workspace = true, optional = true }
 regex.workspace = true
 reqwest = { workspace = true, optional = true }
 rustls-native-certs.workspace = true
@@ -104,12 +106,16 @@ serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
 spreet = { workspace = true, optional = true }
+static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+
+[build-dependencies]
+static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
 cargo-husky.workspace = true

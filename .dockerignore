@@ -23,3 +23,5 @@ pg_data/
 config.yml
 tests/output/
 tmp/
+**/node_modules/
+**/dist/
