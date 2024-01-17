@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -7,9 +8,12 @@ use deadpool_postgres::tokio_postgres::config::SslMode;
 use deadpool_postgres::tokio_postgres::Config;
 use log::{info, warn};
 use regex::Regex;
-use rustls::{Certificate, PrivateKey};
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::{DigitallySignedStruct, Error, SignatureScheme};
 use rustls_native_certs::load_native_certs;
-use rustls_pemfile::Item::RSAKey;
+use rustls_pemfile::Item::Pkcs1Key;
 use tokio_postgres_rustls::MakeRustlsConnect;
 
 use crate::pg::PgError::{
@@ -51,28 +55,60 @@ pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
     Ok((pg_cfg, mode))
 }
 
+#[derive(Debug)]
 struct NoCertificateVerification {}
 
-impl rustls::client::ServerCertVerifier for NoCertificateVerification {
+impl ServerCertVerifier for NoCertificateVerification {
     fn verify_server_cert(
         &self,
-        _end_entity: &Certificate,
-        _intermediates: &[Certificate],
-        _server_name: &rustls::ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
-        _ocsp: &[u8],
-        _now: std::time::SystemTime,
-    ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::ServerCertVerified::assertion())
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        rustls::crypto::ring::default_provider()
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }
 
-fn read_certs(file: &PathBuf) -> PgResult<Vec<Certificate>> {
-    Ok(rustls_pemfile::certs(&mut cert_reader(file)?)
-        .map_err(|e| CannotParseCert(e, file.clone()))?
-        .into_iter()
-        .map(Certificate)
-        .collect())
+fn read_certs(file: &PathBuf) -> PgResult<Vec<CertificateDer<'static>>> {
+    rustls_pemfile::certs(&mut cert_reader(file)?)
+        .collect::<Result<Vec<_>, io::Error>>()
+        .map_err(|e| CannotParseCert(e, file.clone()))
 }
 
 fn cert_reader(file: &PathBuf) -> PgResult<BufReader<File>> {
@@ -108,7 +144,7 @@ pub fn make_connector(
 
     if let Some(file) = &pg_certs.ssl_root_cert {
         for cert in read_certs(file)? {
-            roots.add(&cert)?;
+            roots.add(cert)?;
         }
         info!("Using {} as a root certificate", file.display());
     }
@@ -116,22 +152,19 @@ pub fn make_connector(
     if verify_ca || pg_certs.ssl_root_cert.is_some() || pg_certs.ssl_cert.is_some() {
         let certs = load_native_certs().map_err(CannotLoadRoots)?;
         for cert in certs {
-            roots.add(&Certificate(cert.0))?;
+            roots.add(cert)?;
         }
     }
 
-    let builder = rustls::ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(roots);
+    let builder = rustls::ClientConfig::builder().with_root_certificates(roots);
 
     let mut builder = if let (Some(cert), Some(key)) = (&pg_certs.ssl_cert, &pg_certs.ssl_key) {
-        match rustls_pemfile::read_one(&mut cert_reader(key)?)
-            .map_err(|e| CannotParseCert(e, key.clone()))?
-        {
-            Some(RSAKey(rsa_key)) => builder
-                .with_client_auth_cert(read_certs(cert)?, PrivateKey(rsa_key))
+        match rustls_pemfile::read_one(&mut cert_reader(key)?) {
+            Ok(Some(Pkcs1Key(rsa_key))) => builder
+                .with_client_auth_cert(read_certs(cert)?, rsa_key.into())
                 .map_err(|e| CannotUseClientKey(e, cert.clone(), key.clone()))?,
-            _ => Err(InvalidPrivateKey(key.clone()))?,
+            Ok(_) => Err(InvalidPrivateKey(key.clone()))?,
+            Err(e) => Err(CannotParseCert(e, key.clone()))?,
         }
     } else {
         if pg_certs.ssl_key.is_some() || pg_certs.ssl_key.is_some() {
