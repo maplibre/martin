@@ -223,7 +223,7 @@ jobs:
           sam build -t .github/files/lambda.yaml
           echo "$EVENT" | sam local invoke \
             --parameter-overrides TAG="$TAG" -e - \
-            | jq -e '.statusCode==200'
+            | jq -ne 'input.statusCode==200'
 
       - name: Login to GitHub Docker registry
         if: github.event_name != 'pull_request'
