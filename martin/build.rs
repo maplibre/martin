@@ -1,9 +1,9 @@
 #[cfg(feature = "webui")]
 fn main() -> std::io::Result<()> {
-    static_files::NpmBuild::new("../ui")
+    static_files::NpmBuild::new("../martin-ui")
         .install()?
         .run("build")?
-        .target("../ui/dist")
+        .target("../martin-ui/dist")
         .change_detection()
         .to_resource_dir()
         .build()
