@@ -40,7 +40,7 @@ criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html
 ctor = "0.2"
 deadpool-postgres = "0.12"
 enum-display = "0.1"
-env_logger = "0.10"
+env_logger = "0.11"
 flate2 = "1"
 futures = "0.3"
 indoc = "2"
