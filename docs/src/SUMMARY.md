@@ -21,6 +21,7 @@
   - [Using with Leaflet](using-with-leaflet.md)
   - [Using with deck.gl](using-with-deck-gl.md)
   - [Using with Mapbox](using-with-mapbox.md)
+  - [Using with OpenLayers](using-with-openlayers.md)
   - [Recipes](recipes.md)
 - [Tools](tools.md)
   - [martin-cp bulk tile generation](martin-cp.md)
