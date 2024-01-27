@@ -216,7 +216,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
       - name: Test Lambda function
-        run:
+        run: |
           export TAG=${{ github.repository }}:linux-amd64
           tests/lambda-test.sh
 
