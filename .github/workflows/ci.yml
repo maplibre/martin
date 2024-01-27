@@ -216,14 +216,9 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
       - name: Test Lambda function
-        run: |
-          EVENT=$(sam local generate-event apigateway http-api-proxy \
-            | jq '.rawPath="/"|.requestContext.http.method="GET"')
-          TAG=${{ github.repository }}:linux-amd64
-          sam build -t .github/files/lambda.yaml
-          echo "$EVENT" | sam local invoke \
-            --parameter-overrides TAG="$TAG" -e - \
-            | jq -ne 'input.statusCode==200'
+        run:
+          export TAG=${{ github.repository }}:linux-amd64
+          tests/lambda-test.sh
 
       - name: Login to GitHub Docker registry
         if: github.event_name != 'pull_request'
