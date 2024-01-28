@@ -470,22 +470,18 @@ where
         // `md5` functions will fail if the value is not text/blob/null
         //
         // Note that ORDER BY controls the output ordering, which is important for the hash value,
-        // and having it at the top level would not order values properly.
+        // and we must use ORDER BY as a parameter to the aggregate function itself (available since SQLite 3.44.0)
         // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
         "
 SELECT coalesce(
-    (SELECT md5_concat_hex(
+           md5_concat_hex(
                cast(zoom_level AS text),
                cast(tile_column AS text),
                cast(tile_row AS text),
                tile_data
-           )
-           OVER (ORDER BY zoom_level, tile_column, tile_row ROWS
-                 BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-     FROM tiles
-     LIMIT 1),
-    md5_hex('')
-);
+               ORDER BY zoom_level, tile_column, tile_row),
+           md5_hex(''))
+FROM tiles;
 ",
     );
     Ok(query.fetch_one(conn).await?.get::<String, _>(0))
