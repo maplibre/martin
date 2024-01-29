@@ -2,6 +2,8 @@
 
 set shell := ["bash", "-c"]
 
+dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
+
 @_default:
     just --list --unsorted
 
@@ -9,20 +11,20 @@ clean:
     rm -rf frontend/node_modules
 
 up:
-    docker-compose up
+    {{ dockercompose }} up
 
 up-build:
-    docker-compose up --build
+    {{ dockercompose }} up --build
 
 build:
-    docker-compose build
+    {{ dockercompose }} build
 
 up-backend:
-    docker-compose up db tiles --detach
+    {{ dockercompose }} up db tiles --detach
 
 frontend *ARGS:
-    docker-compose up frontend {{ ARGS }}
+    {{ dockercompose }} up frontend {{ ARGS }}
 
 [no-exit-message]
 frontend-sh:
-    docker-compose run --interactive --entrypoint sh frontend
+    {{ dockercompose }} run --interactive --entrypoint sh frontend
