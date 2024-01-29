@@ -11,7 +11,7 @@ clean:
     rm -rf frontend/node_modules
 
 up:
-   {{ dockercompose }} up
+    {{ dockercompose }} up
 
 up-build:
     {{ dockercompose }} up --build
