@@ -298,6 +298,23 @@ jobs:
           name: build-${{ matrix.target }}
           path: target_releases/*
 
+  test-aws-lambda:
+    name: Test AWS Lambda
+    runs-on: ubuntu-latest
+    needs: [ build ]
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Download build artifact build-x86_64-unknown-linux-gnu
+        uses: actions/download-artifact@v3
+        with:
+          name: build-x86_64-unknown-linux-gnu
+          path: target/
+      - run: chmod +x target/martin
+      - run: test/test-aws-lambda.sh
+        env:
+          MARTIN_BIN=target/martin
+
+
   test-multi-os:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

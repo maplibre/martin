@@ -5,11 +5,15 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 Resources:
+  MartinLayer:
+    Type: 'AWS::Serverless::LayerVersion'
+    Properties:
+      ContentUri: lambda-layer/
   MartinFunction:
     Type: 'AWS::Serverless::Function'
     Properties:
-      PackageType: Image
-      ImageUri: !Sub "${TAG}"
-Parameters:
-  TAG:
-    Type: String
+      Runtime: provided.al2023
+      Layers:
+        - Ref: MartinLayer
+      CodeUri: lambda-function/
+      Handler: config.yaml
