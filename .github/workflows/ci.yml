@@ -306,7 +306,7 @@ jobs:
           name: build-x86_64-unknown-linux-gnu
           path: target/
       - run: chmod +x target/martin
-      - run: test/test-aws-lambda.sh
+      - run: tests/test-aws-lambda.sh
         env:
           MARTIN_BIN: target/martin
 
