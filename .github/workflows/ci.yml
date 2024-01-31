@@ -302,6 +302,7 @@ jobs:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
     needs: [ build ]
+    steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Download build artifact build-x86_64-unknown-linux-gnu
