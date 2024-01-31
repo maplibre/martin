@@ -300,15 +300,18 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Download build artifact build-x86_64-unknown-linux-gnu
+      - name: Download build artifact cross-build
         uses: actions/download-artifact@v3
         with:
-          name: build-x86_64-unknown-linux-gnu
-          path: target/
-      - run: chmod +x target/martin
+          name: cross-build
+          path: cross-build.zip
+      - name: Extract artifact
+      - run: |
+          unzip -j cross-build.zip x86_64-unknown-linux-musl/martin
+          chmod +x martin
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: target/martin
+          MARTIN_BIN: ./martin
 
 
   test-multi-os:
