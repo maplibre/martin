@@ -34,7 +34,6 @@ Now you can go to the [Lambda console](https://console.aws.amazon.com/lambda) an
 9. Set “Auth type” to NONE. (Don’t enable CORS, as Martin already will, and you will have duplicate headers and your CORS will be broken.)
 10. Click on the “Function URL”. If it works, hooray! If it doesn’t, open the “Monitor” tab, “View CloudWatch logs”, find the most recent Log stream.
 
-
 ### Zip deployment
 
 It’s possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model. Our function will consist of a “Layer”, containing the Martin binary, and our function itself will contain the configuration in .yaml format.
@@ -44,10 +43,10 @@ It’s possible to deploy the entire codebase from the AWS console, but we will 
 Download the binary and place it in your staging directory. The `bin` directory of your Layer will be added to the PATH.
 
 ```bash
-$ mkdir -p martin_layer/src/bin/
-$ cd martin_layer
-$ curl -OL https://github.com/maplibre/martin/releases/download/VERSION_NUMBER_HERE/martin-aarch64-unknown-linux-musl.tar.gz
-$ tar -C src/bin/ -xzf martin-aarch64-unknown-linux-musl.tar.gz martin
+mkdir -p martin_layer/src/bin/
+cd martin_layer
+curl -OL https://github.com/maplibre/martin/releases/download/VERSION_NUMBER_HERE/martin-aarch64-unknown-linux-musl.tar.gz
+tar -C src/bin/ -xzf martin-aarch64-unknown-linux-musl.tar.gz martin
 ```
 
 Every zip-based Lambda function runs a file called `bootstrap`. `vim src/bootstrap`
@@ -105,11 +104,13 @@ Add your layer:
 Add your configuration file in the function source code:
 
 1. Code tab, File, New File: `hello.handler.yaml`.
+
    ```yaml
    pmtiles:
      sources:
        demotiles: <url to a pmtiles file>
    ```
+
 2. Click Deploy, wait for the success banner, and visit your function URL.
 
 ### Extra things
