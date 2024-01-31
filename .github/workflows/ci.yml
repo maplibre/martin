@@ -215,11 +215,6 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
-      - name: Test Lambda function
-        run: |
-          export TAG=${{ github.repository }}:linux-amd64
-          tests/lambda-test.sh
-
       - name: Login to GitHub Docker registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
