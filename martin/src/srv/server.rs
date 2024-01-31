@@ -15,7 +15,7 @@ use crate::config::ServerState;
 use crate::source::TileCatalog;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
-use crate::srv::tiles_info::git_source_info;
+use crate::srv::tiles_info::get_source_info;
 use crate::MartinError::BindingError;
 use crate::MartinResult;
 
@@ -87,7 +87,7 @@ pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_health)
         .service(get_index)
         .service(get_catalog)
-        .service(git_source_info)
+        .service(get_source_info)
         .service(get_tile);
 
     #[cfg(feature = "sprites")]
