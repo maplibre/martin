@@ -304,7 +304,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cross-build
-          path: ${{ github.workspace }}/cross-build.zip
       - run: |
           chmod +x martin
           tests/test-aws-lambda.sh
