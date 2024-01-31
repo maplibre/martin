@@ -307,6 +307,9 @@ jobs:
           path: cross-build.zip
       - name: Extract artifact
         run: |
+          set -eux
+          env
+          ls -la
           unzip -j cross-build.zip x86_64-unknown-linux-musl/martin
           chmod +x martin
       - run: tests/test-aws-lambda.sh
