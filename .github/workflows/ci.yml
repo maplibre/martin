@@ -304,9 +304,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cross-build
-      - run: |
-          chmod +x martin
-          tests/test-aws-lambda.sh
+      - run: tests/test-aws-lambda.sh
         env:
           MARTIN_BIN: x86_64-unknown-linux-musl/martin
 

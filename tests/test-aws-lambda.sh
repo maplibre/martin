@@ -7,7 +7,7 @@ EVENT=$(sam local generate-event apigateway http-api-proxy \
 # `sam build` will copy the _entire_ context to a temporary directory,
 # so just give it the files we need
 mkdir -p .github/files/lambda-layer/bin/
-cp ${MARTIN_BIN:-target/debug/martin} .github/files/lambda-layer/bin/
+install ${MARTIN_BIN:-target/debug/martin} .github/files/lambda-layer/bin/
 cp ./tests/fixtures/pmtiles2/webp2.pmtiles .github/files/lambda-function/
 sam build -t .github/files/lambda.yaml
 
