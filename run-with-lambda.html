@@ -1,0 +1,347 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Running in AWS Lambda - Martin Tile Server Documentation</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="run.html"><strong aria-hidden="true">2.</strong> Running</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="run-with-cli.html"><strong aria-hidden="true">2.1.</strong> Command Line Interface</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="env-vars.html"><strong aria-hidden="true">2.1.1.</strong> Environment Variables</a></li></ol></li><li class="chapter-item expanded "><a href="run-with-docker.html"><strong aria-hidden="true">2.2.</strong> Running with Docker</a></li><li class="chapter-item expanded "><a href="run-with-docker-compose.html"><strong aria-hidden="true">2.3.</strong> Running with Docker Compose</a></li><li class="chapter-item expanded "><a href="run-with-nginx.html"><strong aria-hidden="true">2.4.</strong> Running with NGINX</a></li><li class="chapter-item expanded "><a href="run-with-lambda.html" class="active"><strong aria-hidden="true">2.5.</strong> Running in AWS Lambda</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">2.6.</strong> Troubleshooting</a></li></ol></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">3.</strong> Configuration File</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="pg-connections.html"><strong aria-hidden="true">3.1.</strong> PostgreSQL Connections</a></li><li class="chapter-item expanded "><a href="sources-pg-tables.html"><strong aria-hidden="true">3.2.</strong> PostgreSQL Table Sources</a></li><li class="chapter-item expanded "><a href="sources-pg-functions.html"><strong aria-hidden="true">3.3.</strong> PostgreSQL Function Sources</a></li><li class="chapter-item expanded "><a href="sources-files.html"><strong aria-hidden="true">3.4.</strong> MBTiles and PMTiles File Sources</a></li><li class="chapter-item expanded "><a href="sources-composite.html"><strong aria-hidden="true">3.5.</strong> Composite Sources</a></li><li class="chapter-item expanded "><a href="sources-sprites.html"><strong aria-hidden="true">3.6.</strong> Sprite Sources</a></li><li class="chapter-item expanded "><a href="sources-fonts.html"><strong aria-hidden="true">3.7.</strong> Font Sources</a></li></ol></li><li class="chapter-item expanded "><a href="using.html"><strong aria-hidden="true">4.</strong> Usage and Endpoint API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="using-with-maplibre.html"><strong aria-hidden="true">4.1.</strong> Using with MapLibre</a></li><li class="chapter-item expanded "><a href="using-with-leaflet.html"><strong aria-hidden="true">4.2.</strong> Using with Leaflet</a></li><li class="chapter-item expanded "><a href="using-with-deck-gl.html"><strong aria-hidden="true">4.3.</strong> Using with deck.gl</a></li><li class="chapter-item expanded "><a href="using-with-mapbox.html"><strong aria-hidden="true">4.4.</strong> Using with Mapbox</a></li><li class="chapter-item expanded "><a href="using-with-openlayers.html"><strong aria-hidden="true">4.5.</strong> Using with OpenLayers</a></li><li class="chapter-item expanded "><a href="recipes.html"><strong aria-hidden="true">4.6.</strong> Recipes</a></li></ol></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">5.</strong> Tools</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="martin-cp.html"><strong aria-hidden="true">5.1.</strong> martin-cp bulk tile generation</a></li><li class="chapter-item expanded "><a href="mbtiles-meta.html"><strong aria-hidden="true">5.2.</strong> MBTiles Info and Metadata</a></li><li class="chapter-item expanded "><a href="mbtiles-copy.html"><strong aria-hidden="true">5.3.</strong> MBTiles Copying / Diffing</a></li><li class="chapter-item expanded "><a href="mbtiles-validation.html"><strong aria-hidden="true">5.4.</strong> MBTiles Validation</a></li><li class="chapter-item expanded "><a href="mbtiles-schema.html"><strong aria-hidden="true">5.5.</strong> MBTiles Schemas</a></li></ol></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Martin Tile Server Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/maplibre/martin" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/maplibre/martin/edit/main/docs/src/run-with-lambda.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="using-with-aws-lambda"><a class="header" href="#using-with-aws-lambda">Using with AWS Lambda</a></h2>
+<p>Martin can be run in AWS Lambda. This is useful if you want to serve tiles from a serverless environment, while accessing “nearby” data from a PostgreSQL database or PMTiles file in S3, without exposing the raw file to the world to prevent download abuse and improve performance.</p>
+<p>Some very brief context: Lambda has two deployment models, zip file and container-based. When using zip file deployment, the online code editor is available, in which we can edit the .yaml configuration. When using container-based deployment, we can pass our configuration on the command line or environment variables.</p>
+<p>Everything can be performed from AWS CloudShell, otherwise you will need to install the AWS CLI and the AWS SAM CLI, and configure authentication. The CloudShell also runs in a particular AWS region.</p>
+<h3 id="container-deployment"><a class="header" href="#container-deployment">Container deployment</a></h3>
+<p>Lambda images must come from a public or private ECR registry. Pull the image from GHCR and push it to ECR.</p>
+<pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:latest --platform linux/arm64
+$ aws ecr create-repository --repository-name martin
+[…]
+        &quot;repositoryUri&quot;: &quot;493749042871.dkr.ecr.us-east-2.amazonaws.com/martin&quot;,
+# Read the repositoryUri which includes your account number
+$ docker tag ghcr.io/maplibre/martin:latest 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
+$ aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
+$ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
+</code></pre>
+<p>Now you can go to the <a href="https://console.aws.amazon.com/lambda">Lambda console</a> and create your function.</p>
+<ol>
+<li>Click “Create function”.</li>
+<li>Choose “Container image”.</li>
+<li>Put something in “Function name”. (Note: This is an internal identifier, not exposed in the function URL.)</li>
+<li>Click “Browse images”, and select your repository and the tag. (If you can’t find it, see if you’re in the same region?)</li>
+<li>Expand “Container image overrides”, and under CMD put the URL of a .pmtiles file.</li>
+<li>Set “Architecture” to arm64 to match the platform that we pulled. (Lambda has better ARM CPUs than x86.)</li>
+<li>Click “Create function”.</li>
+<li>Find the “Configuration” tab, select “Function URL”, “Create function URL”.</li>
+<li>Set “Auth type” to <code>NONE</code>
+<ul>
+<li>Do not enable CORS. Martin already has CORS support, so it will create duplicate headers and break CORS.</li>
+</ul>
+</li>
+<li>Click on the “Function URL”. If it works, hooray! If it doesn’t, open the “Monitor” tab, “View CloudWatch logs”, find the most recent Log stream.</li>
+</ol>
+<h3 id="zip-deployment"><a class="header" href="#zip-deployment">Zip deployment</a></h3>
+<p>It’s possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model. Our function will consist of a “Layer”, containing the Martin binary, and our function itself will contain the configuration in .yaml format.</p>
+<h4 id="the-layer"><a class="header" href="#the-layer">The layer</a></h4>
+<p>Download the binary and place it in your staging directory. The <code>bin</code> directory of your Layer will be added to the PATH.</p>
+<pre><code class="language-bash">mkdir -p martin_layer/src/bin/
+cd martin_layer
+curl -OL https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz
+tar -C src/bin/ -xzf martin-aarch64-unknown-linux-musl.tar.gz martin
+</code></pre>
+<p>Every zip-based Lambda function runs a file called <code>bootstrap</code>.</p>
+<pre><code class="language-bash">cat &lt;&lt;EOF &gt;src/bootstrap
+#!/bin/sh
+set -eu
+exec martin -c ${_HANDLER}.yaml
+EOF
+</code></pre>
+<p>Write the SAM template.</p>
+<pre><code class="language-yaml">cat &lt;&lt;EOF &gt;template.yaml
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  martin:
+    Type: 'AWS::Serverless::LayerVersion'
+    DeletionPolicy: Delete
+    Properties:
+      ContentUri: src
+      CompatibleRuntimes:
+      - provided.al2023
+      CompatibleArchitectures:
+      - arm64
+Outputs:
+  LayerArn:
+    Value: !Ref MartinLayer
+    Export:
+      Name: !Sub &quot;${AWS::StackName}-LayerArn&quot;
+EOF
+</code></pre>
+<p>Run <code>sam deploy --guided</code>.</p>
+<ol>
+<li>Stack Name: Name your CloudFormation stack something like <code>martin-layer</code>.</li>
+<li>Press enter for everything else</li>
+<li>The settings are saved to <code>samconfig.toml</code>, so you can later do <code>sam deploy</code> to update the version, or <code>sam delete</code>.</li>
+</ol>
+<p>Now if you visit the <a href="https://console.aws.amazon.com/lambda/home">Lambda console</a> and select “Layers”, you should see your layer.</p>
+<h4 id="the-function"><a class="header" href="#the-function">The function</a></h4>
+<ol>
+<li>Select “Functions”, “Create function”.</li>
+<li>Put something in “Function name”.</li>
+<li>Set “Runtime” to “Amazon Linux 2023”.</li>
+<li>Set “Architecture” to “arm64”.</li>
+<li>Under “Advanced settings”, choose “Enable function URL” with “Auth type” of “NONE”.</li>
+<li>Click “Create function”.</li>
+</ol>
+<p>Add your layer:</p>
+<ol>
+<li>Click “add a layer” (green banner at the top, or the very bottom).</li>
+<li>Choose “Custom layers”, and select your layer and its version.</li>
+<li>Click “Add”.</li>
+</ol>
+<p>Add your configuration file in the function source code:</p>
+<ol>
+<li>
+<p>Code tab, File, New File: <code>hello.handler.yaml</code>.</p>
+<pre><code class="language-yaml">pmtiles:
+  sources:
+    demotiles: &lt;url to a pmtiles file&gt;
+</code></pre>
+</li>
+<li>
+<p>Click Deploy, wait for the success banner, and visit your function URL.</p>
+</li>
+</ol>
+<h3 id="todo"><a class="header" href="#todo">TODO</a></h3>
+<p>This support is preliminary; there are features to add to Martin, configuration to tweak, and documentation to write.</p>
+<ul>
+<li>Lambda has a default timeout of 3 seconds, and 128 MB of memory, maybe this is suboptimal.</li>
+<li>Document how to connect to a PostgreSQL database on RDS.</li>
+<li>Set up a CloudFront CDN, this is a whole thing, but explain the motivation and the basics.</li>
+<li>Grant the execution role permission to read objects from an S3 bucket, and teach Martin how to make authenticated requests to S3.</li>
+<li>Teach Martin how to serve all PMTiles files from an S3 bucket rather than having to list them at startup.</li>
+<li>Teach Martin how to set the Cache-Control and Etag headers for better defaults.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="run-with-nginx.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="run-with-nginx.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
