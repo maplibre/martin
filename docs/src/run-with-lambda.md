@@ -31,7 +31,8 @@ Now you can go to the [Lambda console](https://console.aws.amazon.com/lambda) an
 6. Set “Architecture” to arm64 to match the platform that we pulled. (Lambda has better ARM CPUs than x86.)
 7. Click “Create function”.
 8. Find the “Configuration” tab, select “Function URL”, “Create function URL”.
-9. Set “Auth type” to NONE. (Don’t enable CORS, as Martin already will, and you will have duplicate headers and your CORS will be broken.)
+9. Set “Auth type” to `NONE`
+   * Do not enable CORS. Martin already has CORS support, so it will create duplicate headers and break CORS.
 10. Click on the “Function URL”. If it works, hooray! If it doesn’t, open the “Monitor” tab, “View CloudWatch logs”, find the most recent Log stream.
 
 ### Zip deployment
