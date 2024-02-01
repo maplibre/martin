@@ -60,8 +60,9 @@ name = "bench"
 harness = false
 
 [features]
-default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
+default = ["fonts", "lambda", "mbtiles", "pmtiles", "postgres", "sprites"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
+lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:reqwest"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
@@ -110,6 +111,7 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+lambda-web = { workspace = true, optional = true }
 
 [dev-dependencies]
 cargo-husky.workspace = true

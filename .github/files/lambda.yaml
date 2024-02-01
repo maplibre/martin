@@ -1,0 +1,19 @@
+# This is a minimal AWS SAM template sufficient to invoke the handler
+# in the CI environment. It probably hasn't been tested for actual
+# deployments.
+
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  MartinLayer:
+    Type: 'AWS::Serverless::LayerVersion'
+    Properties:
+      ContentUri: lambda-layer/
+  MartinFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Runtime: provided.al2023
+      Layers:
+        - Ref: MartinLayer
+      CodeUri: lambda-function/
+      Handler: config.yaml

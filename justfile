@@ -177,6 +177,10 @@ test-int: clean-test install-sqlx
         fi
     fi
 
+# Run AWS Lambda smoke test against SAM local
+test-lambda:
+    tests/test-aws-lambda.sh
+
 # Run integration tests and save its output as the new expected output
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
 

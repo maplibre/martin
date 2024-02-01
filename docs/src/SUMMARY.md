@@ -7,6 +7,7 @@
   - [Running with Docker](run-with-docker.md)
   - [Running with Docker Compose](run-with-docker-compose.md)
   - [Running with NGINX](run-with-nginx.md)
+  - [Running in AWS Lambda](run-with-lambda.md)
   - [Troubleshooting](troubleshooting.md)
 - [Configuration File](config-file.md)
   - [PostgreSQL Connections](pg-connections.md)

@@ -430,19 +430,15 @@ async fn main() {
     let env = env_logger::Env::default().default_filter_or("martin_cp=info");
     env_logger::Builder::from_env(env).init();
 
-    start(CopierArgs::parse())
-        .await
-        .unwrap_or_else(|e| on_error(e));
-}
-
-fn on_error<E: Display>(e: E) -> ! {
-    // Ensure the message is printed, even if the logging is disabled
-    if log_enabled!(log::Level::Error) {
-        error!("{e}");
-    } else {
-        eprintln!("{e}");
+    if let Err(e) = start(CopierArgs::parse()).await {
+        // Ensure the message is printed, even if the logging is disabled
+        if log_enabled!(log::Level::Error) {
+            error!("{e}");
+        } else {
+            eprintln!("{e}");
+        }
+        std::process::exit(1);
     }
-    std::process::exit(1);
 }
 
 #[cfg(test)]
