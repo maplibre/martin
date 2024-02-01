@@ -49,16 +49,20 @@ curl -OL https://github.com/maplibre/martin/releases/download/VERSION_NUMBER_HER
 tar -C src/bin/ -xzf martin-aarch64-unknown-linux-musl.tar.gz martin
 ```
 
-Every zip-based Lambda function runs a file called `bootstrap`. `vim src/bootstrap`
+Every zip-based Lambda function runs a file called `bootstrap`.
 
 ```bash
+cat <<EOF >src/bootstrap
 #!/bin/sh
+set -eu
 exec martin -c ${_HANDLER}.yaml
+EOF
 ```
 
-Write the SAM template. `vim template.yaml`
+Write the SAM template.
 
 ```yaml
+cat <<EOF >template.yaml
 AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 Resources:
@@ -76,6 +80,7 @@ Outputs:
     Value: !Ref MartinLayer
     Export:
       Name: !Sub "${AWS::StackName}-LayerArn"
+EOF
 ```
 
 Run `sam deploy --guided`.
