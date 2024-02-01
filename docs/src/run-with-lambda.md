@@ -46,7 +46,7 @@ Download the binary and place it in your staging directory. The `bin` directory 
 ```bash
 mkdir -p martin_layer/src/bin/
 cd martin_layer
-curl -OL https://github.com/maplibre/martin/releases/download/VERSION_NUMBER_HERE/martin-aarch64-unknown-linux-musl.tar.gz
+curl -OL https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz
 tar -C src/bin/ -xzf martin-aarch64-unknown-linux-musl.tar.gz martin
 ```
 
