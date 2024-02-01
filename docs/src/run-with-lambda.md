@@ -118,10 +118,11 @@ Add your configuration file in the function source code:
 
 2. Click Deploy, wait for the success banner, and visit your function URL.
 
-### Extra things
+### TODO
+
+This support is preliminary; there are features to add to Martin, configuration to tweak, and documentation to write.
 
 - Lambda has a default timeout of 3 seconds, and 128 MB of memory, maybe this is suboptimal.
-- Martin will cache tiles in memory, but this might be useless for an ephemeral server.
 - Document how to connect to a PostgreSQL database on RDS.
 - Set up a CloudFront CDN, this is a whole thing, but explain the motivation and the basics.
 - Grant the execution role permission to read objects from an S3 bucket, and teach Martin how to make authenticated requests to S3.
