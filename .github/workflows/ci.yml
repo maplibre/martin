@@ -244,11 +244,11 @@ jobs:
       matrix:
         include:
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-14  # M1 CPU
           - target: debian-x86_64
             os: ubuntu-latest
           - target: x86_64-apple-darwin
-            os: macos-14 
+            os: macos-13  # x64 CPU
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
@@ -297,7 +297,7 @@ jobs:
       matrix:
         include:
           - target: x86_64-apple-darwin
-            os: macos-14 
+            os: macOS-latest
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
