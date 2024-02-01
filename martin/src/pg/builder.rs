@@ -9,12 +9,10 @@ use crate::args::BoundsCalcType;
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
-use crate::pg::function_source::{merge_func_info, query_available_function};
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
-use crate::pg::table_source::{
-    calc_srid, merge_table_info, query_available_tables, table_to_query,
-};
+use crate::pg::query_functions::query_available_function;
+use crate::pg::query_tables::{query_available_tables, table_to_query};
 use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, PgResult};
@@ -25,6 +23,20 @@ use crate::OptBoolObj::{Bool, NoValue, Object};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
+
+/// A builder for creating a set of sources from a Postgres database
+#[derive(Debug)]
+pub struct PgBuilder {
+    pool: PgPool,
+    default_srid: Option<i32>,
+    auto_bounds: BoundsCalcType,
+    max_feature_count: Option<usize>,
+    auto_functions: Option<PgBuilderFuncs>,
+    auto_tables: Option<PgBuilderTables>,
+    id_resolver: IdResolver,
+    tables: TableInfoSources,
+    functions: FuncInfoSources,
+}
 
 #[derive(Debug, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
@@ -43,19 +55,6 @@ pub struct PgBuilderTables {
     clip_geom: Option<bool>,
     buffer: Option<u32>,
     extent: Option<u32>,
-}
-
-#[derive(Debug)]
-pub struct PgBuilder {
-    pool: PgPool,
-    default_srid: Option<i32>,
-    auto_bounds: BoundsCalcType,
-    max_feature_count: Option<usize>,
-    auto_functions: Option<PgBuilderFuncs>,
-    auto_tables: Option<PgBuilderTables>,
-    id_resolver: IdResolver,
-    tables: TableInfoSources,
-    functions: FuncInfoSources,
 }
 
 /// Combine `from_schema` field from the `config.auto_publish` and `config.auto_publish.tables/functions`
@@ -140,8 +139,7 @@ impl PgBuilder {
             let dup = if dup { "duplicate " } else { "" };
 
             let id2 = self.resolve_id(id, cfg_inf);
-            let Some(merged_inf) = merge_table_info(self.default_srid, &id2, cfg_inf, db_inf)
-            else {
+            let Some(merged_inf) = db_inf.append_cfg_info(cfg_inf, &id2, self.default_srid) else {
                 continue;
             };
             warn_on_rename(id, &id2, "Table");
@@ -184,9 +182,7 @@ impl PgBuilder {
                             .replace("{table}", &table)
                             .replace("{column}", &geom_column);
                         let id2 = self.resolve_id(&source_id, &db_inf);
-                        let Some(srid) =
-                            calc_srid(&db_inf.format_id(), &id2, db_inf.srid, 0, self.default_srid)
-                        else {
+                        let Some(srid) = db_inf.calc_srid(&id2, 0, self.default_srid) else {
                             continue;
                         };
                         db_inf.srid = srid;
@@ -243,7 +239,7 @@ impl PgBuilder {
                 continue;
             };
 
-            let merged_inf = merge_func_info(cfg_inf, db_inf);
+            let merged_inf = db_inf.append_cfg_info(cfg_inf);
 
             let dup = !used.insert((&cfg_inf.schema, func_name));
             let dup = if dup { "duplicate " } else { "" };

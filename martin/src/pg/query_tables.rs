@@ -1,7 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use futures::pin_mut;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;
@@ -9,12 +9,12 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+use crate::pg::builder::SqlTableInfoMapMapMap;
 use crate::pg::config::PgInfo;
 use crate::pg::config_table::TableInfo;
-use crate::pg::configurator::SqlTableInfoMapMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
-use crate::pg::utils::{json_to_hashmap, normalize_key, polygon_to_bbox};
+use crate::pg::utils::{json_to_hashmap, polygon_to_bbox};
 use crate::pg::PgError::PostgresError;
 use crate::pg::PgResult;
 
@@ -22,6 +22,7 @@ static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
+/// Examine a database to get a list of all tables that have geometry columns.
 pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
     let conn = pool.get().await?;
     let rows = conn
@@ -82,6 +83,8 @@ pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMa
     Ok(res)
 }
 
+/// Generate an SQL snippet to escape a column name, and optionally alias it.
+/// Assumes to not be the first column in a SELECT statement.
 fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     let column = mapping.get(field).map_or(field, |v| v.as_str());
     if field == column {
@@ -95,6 +98,8 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     }
 }
 
+/// Generate a query to fetch tiles from a table.
+/// The function is async because it may need to query the database for the table bounds (could be very slow).
 pub async fn table_to_query(
     id: String,
     mut info: TableInfo,
@@ -193,6 +198,7 @@ FROM (
     Ok((id, PgSqlInfo::new(query, false, info.format_id()), info))
 }
 
+/// Compute the bounds of a table. This could be slow if the table is large or has no geo index.
 async fn calc_bounds(
     pool: &PgPool,
     schema: &str,
@@ -219,81 +225,4 @@ FROM {schema}.{table};
         .map_err(|e| PostgresError(e, "querying table bounds"))?
         .get::<_, Option<ewkb::Polygon>>("bounds")
         .and_then(|p| polygon_to_bbox(&p)))
-}
-
-#[must_use]
-pub fn merge_table_info(
-    default_srid: Option<i32>,
-    new_id: &String,
-    cfg_inf: &TableInfo,
-    db_inf: &TableInfo,
-) -> Option<TableInfo> {
-    // Assume cfg_inf and db_inf have the same schema/table/geometry_column
-    let table_id = db_inf.format_id();
-    let mut inf = TableInfo {
-        // These values must match the database exactly
-        schema: db_inf.schema.clone(),
-        table: db_inf.table.clone(),
-        geometry_column: db_inf.geometry_column.clone(),
-        // These values are not serialized, so copy auto-detected values from the database
-        geometry_index: db_inf.geometry_index,
-        is_view: db_inf.is_view,
-        tilejson: db_inf.tilejson.clone(),
-        // Srid requires some logic
-        srid: calc_srid(&table_id, new_id, db_inf.srid, cfg_inf.srid, default_srid)?,
-        prop_mapping: HashMap::new(),
-        ..cfg_inf.clone()
-    };
-
-    match (&db_inf.geometry_type, &cfg_inf.geometry_type) {
-        (Some(src), Some(cfg)) if src != cfg => {
-            warn!(r#"Table {table_id} has geometry type={src}, but source {new_id} has {cfg}"#);
-        }
-        _ => {}
-    }
-
-    let empty = BTreeMap::new();
-    let props = db_inf.properties.as_ref().unwrap_or(&empty);
-
-    if let Some(id_column) = &cfg_inf.id_column {
-        let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
-        inf.prop_mapping.insert(id_column.clone(), prop);
-    }
-
-    if let Some(p) = &cfg_inf.properties {
-        for key in p.keys() {
-            let prop = normalize_key(props, key.as_str(), "property", new_id)?;
-            inf.prop_mapping.insert(key.clone(), prop);
-        }
-    }
-
-    Some(inf)
-}
-
-#[must_use]
-pub fn calc_srid(
-    table_id: &str,
-    new_id: &str,
-    db_srid: i32,
-    cfg_srid: i32,
-    default_srid: Option<i32>,
-) -> Option<i32> {
-    match (db_srid, cfg_srid, default_srid) {
-        (0, 0, Some(default_srid)) => {
-            info!("Table {table_id} has SRID=0, using provided default SRID={default_srid}");
-            Some(default_srid)
-        }
-        (0, 0, None) => {
-            let info = "To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=...";
-            warn!("Table {table_id} has SRID=0, skipping. {info}");
-            None
-        }
-        (0, cfg, _) => Some(cfg), // Use the configured SRID
-        (src, 0, _) => Some(src), // Use the source SRID
-        (src, cfg, _) if src != cfg => {
-            warn!("Table {table_id} has SRID={src}, but source {new_id} has SRID={cfg}");
-            None
-        }
-        (_, cfg, _) => Some(cfg),
-    }
 }
