@@ -85,7 +85,7 @@ EOF
 
 Run `sam deploy --guided`.
 
-1. Stack Name: [martin-layer]
+1. Stack Name: Name your CloudFormation stack something like `martin-layer`.
 2. Press enter for everything else
 3. The settings are saved to `samconfig.toml`, so you can later do `sam deploy` to update the version, or `sam delete`.
 
