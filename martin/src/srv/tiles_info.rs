@@ -22,7 +22,7 @@ pub struct SourceIDsRequest {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn git_source_info(
+async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
     sources: Data<TileSources>,

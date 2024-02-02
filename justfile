@@ -15,6 +15,8 @@ export CARGO_TERM_COLOR := "always"
 #export RUST_LOG := "sqlx::query=info,trace"
 #export RUST_BACKTRACE := "1"
 
+dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
+
 @_default:
     {{ just_executable() }} --list --unsorted
 
@@ -71,12 +73,12 @@ start-legacy: (docker-up "db-legacy") docker-is-ready
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name: start-pmtiles-server
-    docker-compose up -d {{ name }}
+    {{ dockercompose }} up -d {{ name }}
 
 # Wait for the test database to be ready
 [private]
 docker-is-ready:
-    docker-compose run -T --rm db-is-ready
+    {{ dockercompose }} run -T --rm db-is-ready
 
 alias _down := stop
 alias _stop-db := stop
@@ -89,11 +91,11 @@ restart:
 
 # Stop the test database
 stop:
-    docker-compose down --remove-orphans
+    {{ dockercompose }} down --remove-orphans
 
 # Start test server for testing HTTP pmtiles
 start-pmtiles-server:
-    docker-compose up -d fileserver
+    {{ dockercompose }} up -d fileserver
 
 # Run benchmark tests
 bench:
@@ -174,6 +176,10 @@ test-int: clean-test install-sqlx
             echo "** Expected output matches actual output"
         fi
     fi
+
+# Run AWS Lambda smoke test against SAM local
+test-lambda:
+    tests/test-aws-lambda.sh
 
 # Run integration tests and save its output as the new expected output
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int

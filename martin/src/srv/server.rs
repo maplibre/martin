@@ -1,13 +1,17 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
 use actix_cors::Cors;
-use actix_web::dev::Server;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::Data;
 use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder};
+use futures::TryFutureExt;
+#[cfg(feature = "lambda")]
+use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +19,7 @@ use crate::config::ServerState;
 use crate::source::TileCatalog;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
-use crate::srv::tiles_info::git_source_info;
+use crate::srv::tiles_info::get_source_info;
 use crate::MartinError::BindingError;
 use crate::MartinResult;
 
@@ -95,7 +99,7 @@ async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
 pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_health)
         .service(get_catalog)
-        .service(git_source_info)
+        .service(get_source_info)
         .service(get_tile);
 
     #[cfg(feature = "sprites")]
@@ -115,16 +119,13 @@ pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_index);
 }
 
-/// Create a new initialized Actix `App` instance together with the listening address.
+type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
+
+/// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
     let catalog = Catalog::new(&state)?;
-    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
-    let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
-    let listen_addresses = config
-        .listen_addresses
-        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
 
-    let server = HttpServer::new(move || {
+    let factory = move || {
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .allowed_methods(vec!["GET"]);
@@ -144,15 +145,29 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
             .configure(router)
-    })
-    .bind(listen_addresses.clone())
-    .map_err(|e| BindingError(e, listen_addresses.clone()))?
-    .keep_alive(keep_alive)
-    .shutdown_timeout(0)
-    .workers(worker_processes)
-    .run();
+    };
 
-    Ok((server, listen_addresses))
+    #[cfg(feature = "lambda")]
+    if is_running_on_lambda() {
+        let server = run_actix_on_lambda(factory).err_into();
+        return Ok((Box::pin(server), "(aws lambda)".into()));
+    }
+
+    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
+    let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
+    let listen_addresses = config
+        .listen_addresses
+        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
+
+    let server = HttpServer::new(factory)
+        .bind(listen_addresses.clone())
+        .map_err(|e| BindingError(e, listen_addresses.clone()))?
+        .keep_alive(keep_alive)
+        .shutdown_timeout(0)
+        .workers(worker_processes)
+        .run()
+        .err_into();
+    Ok((Box::pin(server), listen_addresses))
 }
 
 #[cfg(test)]

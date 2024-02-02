@@ -5,8 +5,8 @@ use log::{debug, warn};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 
+use crate::pg::builder::SqlFuncInfoMapMap;
 use crate::pg::config_function::FunctionInfo;
-use crate::pg::configurator::SqlFuncInfoMapMap;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
 use crate::pg::PgError::PostgresError;
@@ -62,7 +62,7 @@ pub async fn query_available_function(pool: &PgPool) -> PgResult<SqlFuncInfoMapM
 
             // Query preparation: the schema and function can't be part of a prepared query, so they
             // need to be escaped by hand.
-            // However schema and function comes from database introspection so they should be safe.
+            // However, schema and function comes from database introspection, so they should be safe.
             let mut query = String::new();
             query.push_str(&escape_identifier(&schema));
             query.push('.');
@@ -116,14 +116,6 @@ pub async fn query_available_function(pool: &PgPool) -> PgResult<SqlFuncInfoMapM
         });
 
     Ok(res)
-}
-
-pub fn merge_func_info(cfg_inf: &FunctionInfo, db_inf: &FunctionInfo) -> FunctionInfo {
-    FunctionInfo {
-        // TileJson does not need to be merged because it cannot be de-serialized from config
-        tilejson: db_inf.tilejson.clone(),
-        ..cfg_inf.clone()
-    }
 }
 
 fn jsonb_to_vec(jsonb: Option<Value>) -> Option<Vec<String>> {

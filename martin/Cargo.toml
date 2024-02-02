@@ -60,9 +60,10 @@ name = "bench"
 harness = false
 
 [features]
-default = ["webui", "fonts", "mbtiles", "pmtiles", "postgres", "sprites"]
+default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "postgres", "sprites"]
 webui = ["dep:actix-web-static-files", "dep:static-files"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
+lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:reqwest"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
@@ -113,6 +114,7 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+lambda-web = { workspace = true, optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
