@@ -10,6 +10,7 @@ use actix_web::web::Data;
 use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder};
 use log::error;
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, RwLock};
 
 use crate::config::ServerState;
 use crate::source::TileCatalog;
@@ -79,8 +80,9 @@ async fn get_health() -> impl Responder {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
-    HttpResponse::Ok().json(catalog)
+async fn get_catalog(catalog: Data<Arc<RwLock<Catalog>>>) -> impl Responder {
+    let catalog_read = catalog.read().expect("Failed to acquire read lock on catalog");
+    HttpResponse::Ok().json(&*catalog_read)
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
@@ -100,7 +102,9 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 
 /// Create a new initialized Actix `App` instance together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
-    let catalog = Catalog::new(&state)?;
+    let catalog = Arc::new(RwLock::new(Catalog::new(&state)?));
+
+
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
@@ -114,7 +118,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.cache.clone()));
+            .app_data(Data::new(state.cache.clone()))
+            .app_data(Data::new(catalog.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app.app_data(Data::new(state.sprites.clone()));
