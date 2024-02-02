@@ -249,11 +249,11 @@ jobs:
       matrix:
         include:
           - target: aarch64-apple-darwin
-            os: macOS-latest
+            os: macos-14  # M1 CPU
           - target: debian-x86_64
             os: ubuntu-latest
           - target: x86_64-apple-darwin
-            os: macOS-latest
+            os: macos-12  # x64 CPU
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
@@ -341,6 +341,7 @@ jobs:
       - name: Start HTTP Server (MacOS, no Docker)
         if: runner.os == 'macos'
         run: |
+          mkdir -p /usr/local/etc/nginx
           cat << EOF > /usr/local/etc/nginx/nginx.conf
           worker_processes     1;
           events {
