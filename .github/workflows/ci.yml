@@ -248,7 +248,7 @@ jobs:
           - target: debian-x86_64
             os: ubuntu-latest
           - target: x86_64-apple-darwin
-            os: macos-14  # M1 CPU
+            os: macos-12 # x64 CPU
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
