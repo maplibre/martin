@@ -179,40 +179,50 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h2 id="using-with-aws-lambda"><a class="header" href="#using-with-aws-lambda">Using with AWS Lambda</a></h2>
-<p>Martin can be run in AWS Lambda. This is useful if you want to serve tiles from a serverless environment, while accessing “nearby” data from a PostgreSQL database or PMTiles file in S3, without exposing the raw file to the world to prevent download abuse and improve performance.</p>
-<p>Some very brief context: Lambda has two deployment models, zip file and container-based. When using zip file deployment, the online code editor is available, in which we can edit the .yaml configuration. When using container-based deployment, we can pass our configuration on the command line or environment variables.</p>
-<p>Everything can be performed from AWS CloudShell, otherwise you will need to install the AWS CLI and the AWS SAM CLI, and configure authentication. The CloudShell also runs in a particular AWS region.</p>
+                        <h2 id="using-with-aws-lambda---v014"><a class="header" href="#using-with-aws-lambda---v014">Using with AWS Lambda - v0.14+</a></h2>
+<p>Martin can run in AWS Lambda. This is useful if you want to serve tiles from a serverless environment, while accessing “nearby” data from a PostgreSQL database or PMTiles file in S3, without exposing the raw file to the world to prevent download abuse and improve performance.</p>
+<p>Lambda has two deployment models: zip file and container-based. When using zip file deployment, there is an online code editor to edit the yaml configuration. When using container-based deployment, we can pass our configuration on the command line or environment variables.</p>
+<p>Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication. The CloudShell also runs in a particular AWS region.</p>
 <h3 id="container-deployment"><a class="header" href="#container-deployment">Container deployment</a></h3>
 <p>Lambda images must come from a public or private ECR registry. Pull the image from GHCR and push it to ECR.</p>
 <pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:latest --platform linux/arm64
 $ aws ecr create-repository --repository-name martin
 […]
         &quot;repositoryUri&quot;: &quot;493749042871.dkr.ecr.us-east-2.amazonaws.com/martin&quot;,
+
 # Read the repositoryUri which includes your account number
 $ docker tag ghcr.io/maplibre/martin:latest 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 $ aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
 $ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 </code></pre>
-<p>Now you can go to the <a href="https://console.aws.amazon.com/lambda">Lambda console</a> and create your function.</p>
+<p>Open <a href="https://console.aws.amazon.com/lambda">Lambda console</a> and create your function:</p>
 <ol>
 <li>Click “Create function”.</li>
 <li>Choose “Container image”.</li>
-<li>Put something in “Function name”. (Note: This is an internal identifier, not exposed in the function URL.)</li>
-<li>Click “Browse images”, and select your repository and the tag. (If you can’t find it, see if you’re in the same region?)</li>
-<li>Expand “Container image overrides”, and under CMD put the URL of a .pmtiles file.</li>
-<li>Set “Architecture” to arm64 to match the platform that we pulled. (Lambda has better ARM CPUs than x86.)</li>
+<li>Put something in “Function name”.
+<ul>
+<li><strong>Note</strong>: This is an internal identifier, not exposed in the function URL.</li>
+</ul>
+</li>
+<li>Click “Browse images”, and select your repository and the tag.
+<ul>
+<li>If you cannot find it, see if you are in the same region?</li>
+</ul>
+</li>
+<li>Expand “Container image overrides”, and under CMD put the URL of a <code>.pmtiles</code> file.</li>
+<li>Set “Architecture” to <code>arm64</code> to match the platform that we pulled. Lambda has better ARM CPUs than x86.</li>
 <li>Click “Create function”.</li>
 <li>Find the “Configuration” tab, select “Function URL”, “Create function URL”.</li>
 <li>Set “Auth type” to <code>NONE</code>
 <ul>
-<li>Do not enable CORS. Martin already has CORS support, so it will create duplicate headers and break CORS.</li>
+<li>Do not enable <code>CORS</code>. Martin already has <code>CORS</code> support, so it will create incorrect duplicate headers.</li>
 </ul>
 </li>
-<li>Click on the “Function URL”. If it works, hooray! If it doesn’t, open the “Monitor” tab, “View CloudWatch logs”, find the most recent Log stream.</li>
+<li>Click on the “Function URL”.</li>
+<li>To debug an issue, open the “Monitor” tab, “View CloudWatch logs”, find the most recent Log stream.</li>
 </ol>
 <h3 id="zip-deployment"><a class="header" href="#zip-deployment">Zip deployment</a></h3>
-<p>It’s possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model. Our function will consist of a “Layer”, containing the Martin binary, and our function itself will contain the configuration in .yaml format.</p>
+<p>It’s possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model. Our function will consist of a “Layer”, containing the Martin binary, and our function itself will contain the configuration in yaml format.</p>
 <h4 id="the-layer"><a class="header" href="#the-layer">The layer</a></h4>
 <p>Download the binary and place it in your staging directory. The <code>bin</code> directory of your Layer will be added to the PATH.</p>
 <pre><code class="language-bash">mkdir -p martin_layer/src/bin/
@@ -224,7 +234,7 @@ tar -C src/bin/ -xzf martin-aarch64-unknown-linux-musl.tar.gz martin
 <pre><code class="language-bash">cat &lt;&lt;EOF &gt;src/bootstrap
 #!/bin/sh
 set -eu
-exec martin -c ${_HANDLER}.yaml
+exec martin --config ${_HANDLER}.yaml
 EOF
 </code></pre>
 <p>Write the SAM template.</p>
@@ -284,7 +294,7 @@ EOF
 </li>
 </ol>
 <h3 id="todo"><a class="header" href="#todo">TODO</a></h3>
-<p>This support is preliminary; there are features to add to Martin, configuration to tweak, and documentation to write.</p>
+<p>AWS Lambda support is preliminary; there are features to add to Martin, configuration to tweak, and documentation to improve.  Your help is welcome.</p>
 <ul>
 <li>Lambda has a default timeout of 3 seconds, and 128 MB of memory, maybe this is suboptimal.</li>
 <li>Document how to connect to a PostgreSQL database on RDS.</li>
