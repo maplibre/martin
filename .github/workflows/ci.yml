@@ -320,6 +320,7 @@ jobs:
       - name: Start HTTP Server (MacOS, no Docker)
         if: runner.os == 'macos'
         run: |
+          mkdir -p /usr/local/etc/nginx
           cat << EOF > /usr/local/etc/nginx/nginx.conf
           worker_processes     1;
           events {
