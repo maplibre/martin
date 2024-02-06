@@ -137,6 +137,13 @@ pub async fn table_to_query(
                 }
             }
         }
+
+        if let Some(bounds) = info.bounds {
+            debug!(
+                "The computed bounds for {id} from {} are {bounds}",
+                info.format_id()
+            );
+        }
     }
 
     let properties = if let Some(props) = &info.properties {
