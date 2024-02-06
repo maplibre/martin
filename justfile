@@ -344,7 +344,14 @@ install-sqlx: (cargo-install "cargo-sqlx" "sqlx-cli" "--no-default-features" "--
 # Check if a certain Cargo command is installed, and install it if needed
 [private]
 cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
-    @if ! command -v $COMMAND &> /dev/null; then \
-        echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}" ;\
-        cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }} ;\
+    #!/usr/bin/env sh
+    set -eu
+    if [ ! command -v $COMMAND &> /dev/null ]; then
+        if [ ! command -v cargo-binstall &> /dev/null ]; then
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}"
+            cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}
+        else
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{ ARGS }}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{ ARGS }}
+        fi
     fi
