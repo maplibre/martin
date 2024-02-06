@@ -115,20 +115,25 @@ pub async fn table_to_query(
     if info.bounds.is_none() {
         match bounds_type {
             BoundsCalcType::Skip => {}
-            BoundsCalcType::Quick | BoundsCalcType::Calc => {
+            BoundsCalcType::Calc => {
+                debug!("Computing {} table bounds for {id}", info.format_id());
+                info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
+            }
+            BoundsCalcType::Quick => {
+                debug!(
+                    "Computing {} table bounds with {}s timeout for {id}",
+                    info.format_id(),
+                    DEFAULT_BOUNDS_TIMEOUT.as_secs()
+                );
                 let bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid);
-                if bounds_type == BoundsCalcType::Calc {
-                    info.bounds = bounds.await?;
+                pin_mut!(bounds);
+                if let Ok(bounds) = timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await {
+                    info.bounds = bounds?;
                 } else {
-                    pin_mut!(bounds);
-                    if let Ok(bounds) = timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await {
-                        info.bounds = bounds?;
-                    } else {
-                        warn!(
+                    warn!(
                             "Timeout computing {} bounds for {id}, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices.",
                             info.format_id(),
                         );
-                    }
                 }
             }
         }
