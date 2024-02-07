@@ -70,13 +70,13 @@ pub async fn query_available_function(pool: &PgPool) -> PgResult<SqlFuncInfoMapM
             query.push('(');
             for (idx, (_name, typ)) in zip(input_names.iter(), input_types.iter()).enumerate() {
                 if idx > 0 {
-                    write!(query, ", ").unwrap();
+                    query.push_str(", ");
                 }
                 // This could also be done as "{name} => ${index}::{typ}"
                 // where the name must be passed through escape_identifier
                 write!(query, "${index}::{typ}", index = idx + 1).unwrap();
             }
-            write!(query, ")").unwrap();
+            query.push(')');
 
             // TODO: Rewrite as a if-let chain:  if Some(names) = output_record_names && output_type == "record" { ... }
             let ret_inf = if let (Some(names), "record") = (output_record_names, output_type.as_str()) {
