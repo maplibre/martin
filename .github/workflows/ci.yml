@@ -50,8 +50,7 @@ jobs:
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - uses: taiki-e/install-action@v2
-        with:
-          tool: just
+        with: { tool: just }
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -108,8 +107,7 @@ jobs:
 
     steps:
       - uses: taiki-e/install-action@v2
-        with:
-          tool: cross
+        with: { tool: cross }
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
@@ -362,7 +360,7 @@ jobs:
             }
           }
           EOF
-                    
+          
           brew services info nginx
           brew services start nginx
           sleep 2

@@ -55,7 +55,7 @@ jobs:
           override: true
 
       - name: Cleanup GCDA files
-        run:  rm -rf martin/target/debug/deps/*.gcda
+        run: rm -rf martin/target/debug/deps/*.gcda
 
       - name: Run tests
         run: cargo test
