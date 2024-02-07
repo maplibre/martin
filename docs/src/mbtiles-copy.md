@@ -43,7 +43,7 @@ Apply the diff file generated from `copy` command above to an mbtiles file. The 
 Note that the `agg_tiles_hash_in_diff` metadata value will be renamed to `agg_tiles_hash` when applying the diff. This is done to avoid confusion when applying the diff file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied.
 
 ```shell
-mbtiles apply_diff src_file.mbtiles diff_file.mbtiles
+mbtiles apply-patch src_file.mbtiles diff_file.mbtiles
 ```
 
 #### Applying diff with SQLite
