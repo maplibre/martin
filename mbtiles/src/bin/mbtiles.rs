@@ -52,6 +52,13 @@ enum Commands {
         /// Value to set, or nothing if the key should be deleted.
         value: Option<String>,
     },
+    /// Compare two files A and B, and generate a new diff file. If the diff file is applied to A, it will produce B.
+    #[command(name = "diff")]
+    Diff {
+        file_a: PathBuf,
+        file_b: PathBuf,
+        diff: PathBuf,
+    },
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy", alias = "cp")]
     Copy(CopyArgs),
@@ -211,6 +218,28 @@ async fn main_int() -> anyhow::Result<()> {
             let mut conn = mbt.open_readonly().await?;
             println!("MBTiles file summary for {mbt}");
             println!("{}", mbt.summary(&mut conn).await?);
+        }
+        Commands::Diff {
+            file_a,
+            file_b,
+            diff,
+        } => {
+            let opts = MbtilesCopier {
+                src_file: file_a,
+                diff_with_file: Some(file_b),
+                dst_file: diff,
+                copy: CopyType::All,
+                skip_agg_tiles_hash: false,
+                on_duplicate: Some(CopyDuplicateMode::Override),
+                dst_type_cli: None,
+                dst_type: None,
+                min_zoom: None,
+                max_zoom: None,
+                zoom_levels: vec![],
+                bbox: vec![],
+                apply_patch: None,
+            };
+            opts.run().await?;
         }
     }
 
