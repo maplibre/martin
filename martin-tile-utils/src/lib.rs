@@ -75,14 +75,14 @@ impl Format {
 
 impl Display for Format {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::Gif => write!(f, "gif"),
-            Self::Jpeg => write!(f, "jpeg"),
-            Self::Json => write!(f, "json"),
-            Self::Mvt => write!(f, "mvt"),
-            Self::Png => write!(f, "png"),
-            Self::Webp => write!(f, "webp"),
-        }
+        f.write_str(match *self {
+            Self::Gif => "gif",
+            Self::Jpeg => "jpeg",
+            Self::Json => "json",
+            Self::Mvt => "mvt",
+            Self::Png => "png",
+            Self::Webp => "webp",
+        })
     }
 }
 
@@ -194,7 +194,7 @@ impl Display for TileInfo {
         if let Some(encoding) = self.encoding.content_encoding() {
             write!(f, "; encoding={encoding}")?;
         } else if self.encoding != Encoding::Uncompressed {
-            write!(f, "; uncompressed")?;
+            f.write_str("; uncompressed")?;
         }
         Ok(())
     }

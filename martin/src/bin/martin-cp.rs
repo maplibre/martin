@@ -253,9 +253,9 @@ impl Display for Progress {
 
         let left = self.total - done;
         if left == 0 {
-            write!(f, " | done")
+            f.write_str(" | done")
         } else if done == 0 {
-            write!(f, " | ??? left")
+            f.write_str(" | ??? left")
         } else {
             let left = Duration::from_secs_f32(elapsed_s * left as f32 / done as f32);
             write!(f, " | {left:.0?} left")
