@@ -188,7 +188,7 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - &quot;80:80&quot;
+      - "80:80"
     volumes:
       - ./cache:/var/cache/nginx
       - ./nginx.conf:/etc/nginx/nginx.conf:ro

@@ -188,7 +188,7 @@ services:
     image: ghcr.io/maplibre/martin:v0.11.2
     restart: unless-stopped
     ports:
-      - &quot;3000:3000&quot;
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgresql://postgres:password@db/db
     depends_on:

@@ -199,7 +199,7 @@ export PGSSLROOTCERT=DIRECTORY/PREFIXroot.crt
 martin
 </code></pre>
 <p>You may also be able to validate SSL certificate with an explicit sslmode, e.g.</p>
-<pre><code class="language-shell">export DATABASE_URL=&quot;$(heroku config:get DATABASE_URL -a APP_NAME)?sslmode=verify-ca&quot;
+<pre><code class="language-shell">export DATABASE_URL="$(heroku config:get DATABASE_URL -a APP_NAME)?sslmode=verify-ca"
 </code></pre>
 
                     </main>

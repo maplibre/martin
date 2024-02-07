@@ -242,16 +242,16 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
   --data-urlencode 'numberParam=42' \
   --data-urlencode 'stringParam=value' \
   --data-urlencode 'booleanParam=true' \
-  --data-urlencode 'objectParam={&quot;answer&quot; : 42}' \
+  --data-urlencode 'objectParam={"answer" : 42}' \
   --get localhost:3000/function_zxy_query/0/0/0
 </code></pre>
 <p>then <code>query_params</code> will be parsed as:</p>
 <pre><code class="language-json">{
-  &quot;arrayParam&quot;: [1, 2, 3],
-  &quot;numberParam&quot;: 42,
-  &quot;stringParam&quot;: &quot;value&quot;,
-  &quot;booleanParam&quot;: true,
-  &quot;objectParam&quot;: { &quot;answer&quot;: 42 }
+  "arrayParam": [1, 2, 3],
+  "numberParam": 42,
+  "stringParam": "value",
+  "booleanParam": true,
+  "objectParam": { "answer": 42 }
 }
 </code></pre>
 <p>You can access this params using <a href="https://www.postgresql.org/docs/current/functions-json.html">json operators</a>:</p>
@@ -260,12 +260,12 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 <h3 id="modifying-tilejson"><a class="header" href="#modifying-tilejson">Modifying TileJSON</a></h3>
 <p>Martin will automatically generate a basic <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> manifest for each function source that will contain the name and description of the function, plus optionally <code>minzoom</code>, <code>maxzoom</code>, and <code>bounds</code> (if they were specified via one of the configuration methods).  For example, if there is a function <code>public.function_zxy_query_jsonb</code>, the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
 <pre><code class="language-json">{
-  &quot;tilejson&quot;: &quot;3.0.0&quot;,
-  &quot;tiles&quot;: [
-    &quot;http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}&quot;
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}"
   ],
-  &quot;name&quot;: &quot;function_zxy_query_jsonb&quot;,
-  &quot;description&quot;: &quot;public.function_zxy_query_jsonb&quot;
+  "name": "function_zxy_query_jsonb",
+  "description": "public.function_zxy_query_jsonb"
 }
 </code></pre>
 <h4 id="tilejson-in-sql-comments"><a class="header" href="#tilejson-in-sql-comments">TileJSON in SQL Comments</a></h4>
@@ -274,14 +274,14 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 <pre><code class="language-sql">DO $do$ BEGIN
     EXECUTE 'COMMENT ON FUNCTION my_function_name IS $tj$' || $$
     {
-        &quot;description&quot;: &quot;my new description&quot;,
-        &quot;attribution&quot;: &quot;my attribution&quot;,
-        &quot;vector_layers&quot;: [
+        "description": "my new description",
+        "attribution": "my attribution",
+        "vector_layers": [
             {
-                &quot;id&quot;: &quot;my_layer_id&quot;,
-                &quot;fields&quot;: {
-                    &quot;field1&quot;: &quot;String&quot;,
-                    &quot;field2&quot;: &quot;Number&quot;
+                "id": "my_layer_id",
+                "fields": {
+                    "field1": "String",
+                    "field2": "Number"
                 }
             }
         ]

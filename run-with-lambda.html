@@ -188,7 +188,7 @@
 <pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:latest --platform linux/arm64
 $ aws ecr create-repository --repository-name martin
 […]
-        &quot;repositoryUri&quot;: &quot;493749042871.dkr.ecr.us-east-2.amazonaws.com/martin&quot;,
+        "repositoryUri": "493749042871.dkr.ecr.us-east-2.amazonaws.com/martin",
 
 # Read the repositoryUri which includes your account number
 $ docker tag ghcr.io/maplibre/martin:latest 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
@@ -255,7 +255,7 @@ Outputs:
   LayerArn:
     Value: !Ref MartinLayer
     Export:
-      Name: !Sub &quot;${AWS::StackName}-LayerArn&quot;
+      Name: !Sub "${AWS::StackName}-LayerArn"
 EOF
 </code></pre>
 <p>Run <code>sam deploy --guided</code>.</p>

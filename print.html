@@ -235,7 +235,7 @@ Options:
           Path to config file. If set, no tile source-related parameters are allowed
 
       --save-config &lt;SAVE_CONFIG&gt;
-          Save resulting config to a file or use &quot;-&quot; to print to stdout. By default, only print if sources are auto-detected
+          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
 
   -s, --sprite &lt;SPRITE&gt;
           Export a directory with SVG files as a sprite source. Can be specified multiple times
@@ -334,7 +334,7 @@ services:
     image: ghcr.io/maplibre/martin:v0.11.2
     restart: unless-stopped
     ports:
-      - &quot;3000:3000&quot;
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgresql://postgres:password@db/db
     depends_on:
@@ -367,7 +367,7 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - &quot;80:80&quot;
+      - "80:80"
     volumes:
       - ./cache:/var/cache/nginx
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
@@ -448,7 +448,7 @@ services:
 <pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:latest --platform linux/arm64
 $ aws ecr create-repository --repository-name martin
 […]
-        &quot;repositoryUri&quot;: &quot;493749042871.dkr.ecr.us-east-2.amazonaws.com/martin&quot;,
+        "repositoryUri": "493749042871.dkr.ecr.us-east-2.amazonaws.com/martin",
 
 # Read the repositoryUri which includes your account number
 $ docker tag ghcr.io/maplibre/martin:latest 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
@@ -515,7 +515,7 @@ Outputs:
   LayerArn:
     Value: !Ref MartinLayer
     Export:
-      Name: !Sub &quot;${AWS::StackName}-LayerArn&quot;
+      Name: !Sub "${AWS::StackName}-LayerArn"
 EOF
 </code></pre>
 <p>Run <code>sam deploy --guided</code>.</p>
@@ -751,10 +751,10 @@ mbtiles:
 # Sprite configuration
 sprites:
   paths:
-    # all SVG files in this dir will be published as a &quot;my_images&quot; sprite source
+    # all SVG files in this dir will be published as a "my_images" sprite source
     - /path/to/my_images
   sources:
-    # SVG images in this directory will be published as a &quot;my_sprites&quot; sprite source
+    # SVG images in this directory will be published as a "my_sprites" sprite source
     my_sprites: /path/to/some_dir
 
 # Font configuration
@@ -775,30 +775,30 @@ fonts:
 For example, if there is a table <code>public.table_source</code>:
 the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
 <p>The table:</p>
-<pre><code class="language-sql">CREATE TABLE &quot;public&quot;.&quot;table_source&quot; ( &quot;gid&quot; int4 NOT NULL, &quot;geom&quot; &quot;public&quot;.&quot;geometry&quot; );
+<pre><code class="language-sql">CREATE TABLE "public"."table_source" ( "gid" int4 NOT NULL, "geom" "public"."geometry" );
 </code></pre>
 <p>The TileJSON:</p>
 <pre><code class="language-json">{
-    &quot;tilejson&quot;: &quot;3.0.0&quot;,
-    &quot;tiles&quot;: [
-        &quot;http://localhost:3000/table_source/{z}/{x}/{y}&quot;
+    "tilejson": "3.0.0",
+    "tiles": [
+        "http://localhost:3000/table_source/{z}/{x}/{y}"
     ],
-    &quot;vector_layers&quot;: [
+    "vector_layers": [
         {
-            &quot;id&quot;: &quot;table_source&quot;,
-            &quot;fields&quot;: {
-                &quot;gid&quot;: &quot;int4&quot;
+            "id": "table_source",
+            "fields": {
+                "gid": "int4"
             }
         }
     ],
-    &quot;bounds&quot;: [
+    "bounds": [
         -2.0,
         -1.0,
         142.84131509869133,
         45.0
     ],
-    &quot;description&quot;: &quot;public.table_source.geom&quot;,
-    &quot;name&quot;: &quot;table_source&quot;
+    "description": "public.table_source.geom",
+    "name": "table_source"
 }
 </code></pre>
 <p>By default the <code>description</code> and <code>name</code> is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting <code>auto_publish</code> section in <a href="https://maplibre.org/martin/config-file.html#config-example">configuration file</a>.</p>
@@ -808,10 +808,10 @@ the default <code>TileJSON</code> might look like this (note that URL will be au
 <pre><code class="language-sql">DO $do$ BEGIN
     EXECUTE 'COMMENT ON TABLE table_source IS $tj$' || $$
     {
-        &quot;version&quot;: &quot;1.2.3&quot;,
-        &quot;attribution&quot;: &quot;osm&quot;,
-        &quot;description&quot;: &quot;a description from table comment&quot;,
-        &quot;foo&quot;: {&quot;bar&quot;: &quot;foo&quot;}
+        "version": "1.2.3",
+        "attribution": "osm",
+        "description": "a description from table comment",
+        "foo": {"bar": "foo"}
     }
     $$::json || '$tj$';
 END $do$;
@@ -879,16 +879,16 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
   --data-urlencode 'numberParam=42' \
   --data-urlencode 'stringParam=value' \
   --data-urlencode 'booleanParam=true' \
-  --data-urlencode 'objectParam={&quot;answer&quot; : 42}' \
+  --data-urlencode 'objectParam={"answer" : 42}' \
   --get localhost:3000/function_zxy_query/0/0/0
 </code></pre>
 <p>then <code>query_params</code> will be parsed as:</p>
 <pre><code class="language-json">{
-  &quot;arrayParam&quot;: [1, 2, 3],
-  &quot;numberParam&quot;: 42,
-  &quot;stringParam&quot;: &quot;value&quot;,
-  &quot;booleanParam&quot;: true,
-  &quot;objectParam&quot;: { &quot;answer&quot;: 42 }
+  "arrayParam": [1, 2, 3],
+  "numberParam": 42,
+  "stringParam": "value",
+  "booleanParam": true,
+  "objectParam": { "answer": 42 }
 }
 </code></pre>
 <p>You can access this params using <a href="https://www.postgresql.org/docs/current/functions-json.html">json operators</a>:</p>
@@ -897,12 +897,12 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 <h3 id="modifying-tilejson-1"><a class="header" href="#modifying-tilejson-1">Modifying TileJSON</a></h3>
 <p>Martin will automatically generate a basic <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> manifest for each function source that will contain the name and description of the function, plus optionally <code>minzoom</code>, <code>maxzoom</code>, and <code>bounds</code> (if they were specified via one of the configuration methods).  For example, if there is a function <code>public.function_zxy_query_jsonb</code>, the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
 <pre><code class="language-json">{
-  &quot;tilejson&quot;: &quot;3.0.0&quot;,
-  &quot;tiles&quot;: [
-    &quot;http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}&quot;
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/function_zxy_query_jsonb/{z}/{x}/{y}"
   ],
-  &quot;name&quot;: &quot;function_zxy_query_jsonb&quot;,
-  &quot;description&quot;: &quot;public.function_zxy_query_jsonb&quot;
+  "name": "function_zxy_query_jsonb",
+  "description": "public.function_zxy_query_jsonb"
 }
 </code></pre>
 <h4 id="tilejson-in-sql-comments-1"><a class="header" href="#tilejson-in-sql-comments-1">TileJSON in SQL Comments</a></h4>
@@ -911,14 +911,14 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 <pre><code class="language-sql">DO $do$ BEGIN
     EXECUTE 'COMMENT ON FUNCTION my_function_name IS $tj$' || $$
     {
-        &quot;description&quot;: &quot;my new description&quot;,
-        &quot;attribution&quot;: &quot;my attribution&quot;,
-        &quot;vector_layers&quot;: [
+        "description": "my new description",
+        "attribution": "my attribution",
+        "vector_layers": [
             {
-                &quot;id&quot;: &quot;my_layer_id&quot;,
-                &quot;fields&quot;: {
-                    &quot;field1&quot;: &quot;String&quot;,
-                    &quot;field2&quot;: &quot;Number&quot;
+                "id": "my_layer_id",
+                "fields": {
+                    "field1": "String",
+                    "field2": "Number"
                 }
             }
         ]
@@ -952,12 +952,12 @@ curl localhost:3000/points,lines/0/0/0
 <h5 id="sprite-index"><a class="header" href="#sprite-index">Sprite index</a></h5>
 <p><code>/sprite/&lt;sprite_id&gt;.json</code> metadata index describing the position and size of each image inside the sprite. Just like the PNG, there is a high DPI version available at <code>/sprite/&lt;sprite_id&gt;@2x.json</code>.</p>
 <pre><code class="language-json">{
-  &quot;bicycle&quot;: {
-    &quot;height&quot;: 15,
-    &quot;pixelRatio&quot;: 1,
-    &quot;width&quot;: 15,
-    &quot;x&quot;: 20,
-    &quot;y&quot;: 16
+  "bicycle": {
+    "height": 15,
+    "pixelRatio": 1,
+    "width": 15,
+    "x": 20,
+    "y": 16
   },
   ...
 }
@@ -973,10 +973,10 @@ curl localhost:3000/points,lines/0/0/0
 <pre><code class="language-yaml"># Sprite configuration
 sprites:
   paths:
-    # all SVG files in this dir will be published as a &quot;my_images&quot; sprite source
+    # all SVG files in this dir will be published as a "my_images" sprite source
     - /path/to/my_images
   sources:
-    # SVG images in this directory will be published as a &quot;my_sprites&quot; sprite source
+    # SVG images in this directory will be published as a "my_sprites" sprite source
     my_sprites: /path/to/some_dir
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="font-sources"><a class="header" href="#font-sources">Font Sources</a></h2>
@@ -1000,27 +1000,27 @@ The glyph range generation is not yet cached, and may require external reverse p
 <p>Martin will show all available fonts at the <code>/catalog</code> endpoint.</p>
 <pre><code class="language-shell">curl http://127.0.0.1:3000/catalog
 {
-  &quot;fonts&quot;: {
-    &quot;Overpass Mono Bold&quot;: {
-      &quot;family&quot;: &quot;Overpass Mono&quot;,
-      &quot;style&quot;: &quot;Bold&quot;,
-      &quot;glyphs&quot;: 931,
-      &quot;start&quot;: 0,
-      &quot;end&quot;: 64258
+  "fonts": {
+    "Overpass Mono Bold": {
+      "family": "Overpass Mono",
+      "style": "Bold",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
     },
-    &quot;Overpass Mono Light&quot;: {
-      &quot;family&quot;: &quot;Overpass Mono&quot;,
-      &quot;style&quot;: &quot;Light&quot;,
-      &quot;glyphs&quot;: 931,
-      &quot;start&quot;: 0,
-      &quot;end&quot;: 64258
+    "Overpass Mono Light": {
+      "family": "Overpass Mono",
+      "style": "Light",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
     },
-    &quot;Overpass Mono SemiBold&quot;: {
-      &quot;family&quot;: &quot;Overpass Mono&quot;,
-      &quot;style&quot;: &quot;SemiBold&quot;,
-      &quot;glyphs&quot;: 931,
-      &quot;start&quot;: 0,
-      &quot;end&quot;: 64258
+    "Overpass Mono SemiBold": {
+      "family": "Overpass Mono",
+      "style": "SemiBold",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
     }
   }
 }
@@ -1063,33 +1063,33 @@ fonts:
 <pre><code class="language-shell">curl localhost:3000/catalog | jq
 </code></pre>
 <pre><code class="language-yaml">{
-  &quot;tiles&quot; {
-    &quot;function_zxy_query&quot;: {
-      &quot;name&quot;: &quot;public.function_zxy_query&quot;,
-      &quot;content_type&quot;: &quot;application/x-protobuf&quot;
+  "tiles" {
+    "function_zxy_query": {
+      "name": "public.function_zxy_query",
+      "content_type": "application/x-protobuf"
     },
-    &quot;points1&quot;: {
-      &quot;name&quot;: &quot;public.points1.geom&quot;,
-      &quot;content_type&quot;: &quot;image/webp&quot;
+    "points1": {
+      "name": "public.points1.geom",
+      "content_type": "image/webp"
     },
     ...
   },
-  &quot;sprites&quot;: {
-    &quot;cool_icons&quot;: {
-      &quot;images&quot;: [
-        &quot;bicycle&quot;,
-        &quot;bear&quot;,
+  "sprites": {
+    "cool_icons": {
+      "images": [
+        "bicycle",
+        "bear",
       ]
     },
     ...
   },
-  &quot;fonts&quot;: {
-    &quot;Noto Mono Regular&quot;: {
-      &quot;family&quot;: &quot;Noto Mono&quot;,
-      &quot;style&quot;: &quot;Regular&quot;,
-      &quot;glyphs&quot;: 875,
-      &quot;start&quot;: 0,
-      &quot;end&quot;: 65533
+  "fonts": {
+    "Noto Mono Regular": {
+      "family": "Noto Mono",
+      "style": "Regular",
+      "glyphs": 875,
+      "start": 0,
+      "end": 65533
     },
     ...
   }
@@ -1245,7 +1245,7 @@ export PGSSLROOTCERT=DIRECTORY/PREFIXroot.crt
 martin
 </code></pre>
 <p>You may also be able to validate SSL certificate with an explicit sslmode, e.g.</p>
-<pre><code class="language-shell">export DATABASE_URL=&quot;$(heroku config:get DATABASE_URL -a APP_NAME)?sslmode=verify-ca&quot;
+<pre><code class="language-shell">export DATABASE_URL="$(heroku config:get DATABASE_URL -a APP_NAME)?sslmode=verify-ca"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="cli-tools"><a class="header" href="#cli-tools">CLI Tools</a></h1>
 <p>Martin project contains additional tooling to help manage the data servable with Martin tile server.</p>
@@ -1263,7 +1263,7 @@ martin
 <p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="mbtiles-schema.html">normalized</a> schema, with zoom levels from 0 to 10, and bounds of the whole world.</p>
 <pre><code class="language-shell">martin-cp  --output-file tileset.mbtiles \
            --mbtiles-type normalized     \
-           &quot;--bbox=-180,-90,180,90&quot;      \
+           "--bbox=-180,-90,180,90"      \
            --min-zoom 0                  \
            --max-zoom 10                 \
            --source source_name          \
@@ -1298,7 +1298,7 @@ Page count: 12
 </code></pre>
 <h2 id="meta-set"><a class="header" href="#meta-set">meta-set</a></h2>
 <p>Set metadata value by its name, or delete the key if no value is supplied. For example, to set the <code>description</code> value to <code>A vector tile dataset</code>:</p>
-<pre><code class="language-shell">mbtiles meta-set my_file.mbtiles description &quot;A vector tile dataset&quot;
+<pre><code class="language-shell">mbtiles meta-set my_file.mbtiles description "A vector tile dataset"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="copying-diffing-and-patching-mbtiles"><a class="header" href="#copying-diffing-and-patching-mbtiles">Copying, Diffing, and Patching MBTiles</a></h1>
 <h2 id="mbtiles-copy"><a class="header" href="#mbtiles-copy"><code>mbtiles copy</code></a></h2>
@@ -1324,16 +1324,16 @@ Page count: 12
 <h2 id="mbtiles-apply-patch"><a class="header" href="#mbtiles-apply-patch"><code>mbtiles apply-patch</code></a></h2>
 <p>Apply the diff file generated from <code>copy</code> command above to an mbtiles file. The diff file can be applied to the <code>src_file.mbtiles</code> elsewhere, to avoid copying/transmitting the entire modified dataset.</p>
 <p>Note that the <code>agg_tiles_hash_in_diff</code> metadata value will be renamed to <code>agg_tiles_hash</code> when applying the diff. This is done to avoid confusion when applying the diff file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied.</p>
-<pre><code class="language-shell">mbtiles apply_diff src_file.mbtiles diff_file.mbtiles
+<pre><code class="language-shell">mbtiles apply-patch src_file.mbtiles diff_file.mbtiles
 </code></pre>
 <h4 id="applying-diff-with-sqlite"><a class="header" href="#applying-diff-with-sqlite">Applying diff with SQLite</a></h4>
 <p>Another way to apply the diff is to use the <code>sqlite3</code> command line tool directly. This SQL will delete all tiles from <code>src_file.mbtiles</code> that are set to <code>NULL</code> in <code>diff_file.mbtiles</code>, and then insert or update all new tiles from <code>diff_file.mbtiles</code> into <code>src_file.mbtiles</code>, where both files are of <code>flat</code> type. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.  Note that this does not update the <code>agg_tiles_hash</code> metadata value, so it will be incorrect after the diff is applied.</p>
 <pre><code class="language-shell">sqlite3 src_file.mbtiles \
   -bail \
-  -cmd &quot;.parameter set @diffDbFilename diff_file.mbtiles&quot; \
-  &quot;ATTACH DATABASE @diffDbFilename AS diffDb;&quot; \
-  &quot;DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);&quot; \
-  &quot;INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;&quot;
+  -cmd ".parameter set @diffDbFilename diff_file.mbtiles" \
+  "ATTACH DATABASE @diffDbFilename AS diffDb;" \
+  "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
+  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="mbtiles-validation"><a class="header" href="#mbtiles-validation">MBTiles Validation</a></h1>
 <p>The original <a href="https://github.com/mapbox/mbtiles-spec#readme">MBTiles specification</a> does not provide any guarantees for the content of the tile data in MBTiles. <code>mbtiles validate</code> assumes a few additional conventions and uses them to ensure that the content of the tile data is valid performing several validation steps. If the file is not valid, the command will print an error message and exit with a non-zero exit code.</p>

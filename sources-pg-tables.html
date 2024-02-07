@@ -186,30 +186,30 @@
 For example, if there is a table <code>public.table_source</code>:
 the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
 <p>The table:</p>
-<pre><code class="language-sql">CREATE TABLE &quot;public&quot;.&quot;table_source&quot; ( &quot;gid&quot; int4 NOT NULL, &quot;geom&quot; &quot;public&quot;.&quot;geometry&quot; );
+<pre><code class="language-sql">CREATE TABLE "public"."table_source" ( "gid" int4 NOT NULL, "geom" "public"."geometry" );
 </code></pre>
 <p>The TileJSON:</p>
 <pre><code class="language-json">{
-    &quot;tilejson&quot;: &quot;3.0.0&quot;,
-    &quot;tiles&quot;: [
-        &quot;http://localhost:3000/table_source/{z}/{x}/{y}&quot;
+    "tilejson": "3.0.0",
+    "tiles": [
+        "http://localhost:3000/table_source/{z}/{x}/{y}"
     ],
-    &quot;vector_layers&quot;: [
+    "vector_layers": [
         {
-            &quot;id&quot;: &quot;table_source&quot;,
-            &quot;fields&quot;: {
-                &quot;gid&quot;: &quot;int4&quot;
+            "id": "table_source",
+            "fields": {
+                "gid": "int4"
             }
         }
     ],
-    &quot;bounds&quot;: [
+    "bounds": [
         -2.0,
         -1.0,
         142.84131509869133,
         45.0
     ],
-    &quot;description&quot;: &quot;public.table_source.geom&quot;,
-    &quot;name&quot;: &quot;table_source&quot;
+    "description": "public.table_source.geom",
+    "name": "table_source"
 }
 </code></pre>
 <p>By default the <code>description</code> and <code>name</code> is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting <code>auto_publish</code> section in <a href="https://maplibre.org/martin/config-file.html#config-example">configuration file</a>.</p>
@@ -219,10 +219,10 @@ the default <code>TileJSON</code> might look like this (note that URL will be au
 <pre><code class="language-sql">DO $do$ BEGIN
     EXECUTE 'COMMENT ON TABLE table_source IS $tj$' || $$
     {
-        &quot;version&quot;: &quot;1.2.3&quot;,
-        &quot;attribution&quot;: &quot;osm&quot;,
-        &quot;description&quot;: &quot;a description from table comment&quot;,
-        &quot;foo&quot;: {&quot;bar&quot;: &quot;foo&quot;}
+        "version": "1.2.3",
+        "attribution": "osm",
+        "description": "a description from table comment",
+        "foo": {"bar": "foo"}
     }
     $$::json || '$tj$';
 END $do$;
