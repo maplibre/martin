@@ -81,8 +81,10 @@ async fn get_health() -> impl Responder {
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<Arc<RwLock<Catalog>>>) -> impl Responder {
-    let catalog_read = catalog.read().expect("Failed to acquire read lock on catalog");
-    HttpResponse::Ok().json(&*catalog_read)
+    let catalog = catalog
+        .read()
+        .expect("Failed to acquire read lock on catalog");
+    HttpResponse::Ok().json(&*catalog)
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
