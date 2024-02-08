@@ -10,7 +10,7 @@ The only exception is `agg_tiles_has` metadata value. It will be renamed to `agg
 new `agg_tiles_hash` will be generated for the diff file itself.
 
 ```shell
-# This command will comapre `file_a.mbtiles` and `file_b.mbtiles`, and generate a new diff file `diff_result.mbtiles`,This command will compares file_a.mbtiles and file_b.mbtiles, and generates a new diff file diff_result.mbtiles 
-# If the diff file is applied to file_a, it will produce file_b. 
-mbtiles diff file_a.mbtiles file_b.mbtiles diff_result.mbtiles
+# This command will comapre `a.mbtiles` and `b.mbtiles`, and generate a new diff file `diff.mbtiles`.
+# If diff.mbtiles is applied to a.mbtiles, it will produce b.mbtiles 
+mbtiles diff a.mbtiles b.mbtiles diff.mbtiles
 ```
