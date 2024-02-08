@@ -7,18 +7,18 @@ use crate::queries::detach_db;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::{MbtResult, MbtType, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
 
-pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()> {
-    let src_mbt = Mbtiles::new(src_file)?;
+pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf) -> MbtResult<()> {
+    let base_mbt = Mbtiles::new(base_file)?;
     let patch_mbt = Mbtiles::new(patch_file)?;
     let patch_type = patch_mbt.open_and_detect_type().await?;
 
-    let mut conn = src_mbt.open().await?;
-    let src_type = src_mbt.detect_type(&mut conn).await?;
+    let mut conn = base_mbt.open().await?;
+    let base_type = base_mbt.detect_type(&mut conn).await?;
     patch_mbt.attach_to(&mut conn, "patchDb").await?;
 
-    info!("Applying patch file {patch_mbt} ({patch_type}) to {src_mbt} ({src_type})");
-    let select_from = get_select_from(src_type, patch_type);
-    let (main_table, insert1, insert2) = get_insert_sql(src_type, select_from);
+    info!("Applying patch file {patch_mbt} ({patch_type}) to {base_mbt} ({base_type})");
+    let select_from = get_select_from(base_type, patch_type);
+    let (main_table, insert1, insert2) = get_insert_sql(base_type, select_from);
 
     query(&format!("{insert1} WHERE tile_data NOTNULL"))
         .execute(&mut conn)
@@ -40,7 +40,7 @@ pub async fn apply_patch(src_file: PathBuf, patch_file: PathBuf) -> MbtResult<()
     .execute(&mut conn)
     .await?;
 
-    if src_type.is_normalized() {
+    if base_type.is_normalized() {
         debug!("Removing unused tiles from the images table (normalized schema)");
         query("DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)")
             .execute(&mut conn)

@@ -150,6 +150,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .workers(worker_processes)
         .run()
         .err_into();
+
     Ok((Box::pin(server), listen_addresses))
 }
 
