@@ -556,24 +556,20 @@ mod tests {
 
     #[test]
     fn test_diff() {
-        let file_a = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
-        let file_b = PathBuf::from("file:copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
-
-        let diff = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles");
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
                 "diff",
-                file_a.to_str().unwrap(),
-                file_b.to_str().unwrap(),
-                diff.to_str().unwrap()
+                "file-a.mbtiles",
+                "file-b.mbtiles",
+                "../delta.mbtiles",
             ]),
             Args {
                 verbose: false,
                 command: Diff {
-                    file_a,
-                    file_b,
-                    diff,
+                    file_a: PathBuf::from("file-a.mbtiles"),
+                    file_b: PathBuf::from("file-b.mbtiles"),
+                    diff: PathBuf::from("../delta.mbtiles"),
                 }
             }
         );
