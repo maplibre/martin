@@ -63,7 +63,8 @@ pub struct MbtilesCopier {
     /// Bounding box to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be used multiple times.
     pub bbox: Vec<Bounds>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
-    /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
+    /// Use `mbtiles diff` as a more convenient way to generate this file.
+    /// It should be later possible to run `mbtiles apply-diff` to merge it in.
     pub diff_with_file: Option<PathBuf>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
