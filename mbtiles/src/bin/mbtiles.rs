@@ -52,6 +52,13 @@ enum Commands {
         /// Value to set, or nothing if the key should be deleted.
         value: Option<String>,
     },
+    /// Compare two files A and B, and generate a new diff file. If the diff file is applied to A, it will produce B.
+    #[command(name = "diff")]
+    Diff {
+        file_a: PathBuf,
+        file_b: PathBuf,
+        diff: PathBuf,
+    },
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy", alias = "cp")]
     Copy(CopyArgs),
@@ -212,6 +219,28 @@ async fn main_int() -> anyhow::Result<()> {
             println!("MBTiles file summary for {mbt}");
             println!("{}", mbt.summary(&mut conn).await?);
         }
+        Commands::Diff {
+            file_a,
+            file_b,
+            diff,
+        } => {
+            let opts = MbtilesCopier {
+                src_file: file_a,
+                diff_with_file: Some(file_b),
+                dst_file: diff,
+                copy: CopyType::All,
+                skip_agg_tiles_hash: false,
+                on_duplicate: Some(CopyDuplicateMode::Override),
+                dst_type_cli: None,
+                dst_type: None,
+                min_zoom: None,
+                max_zoom: None,
+                zoom_levels: vec![],
+                bbox: vec![],
+                apply_patch: None,
+            };
+            opts.run().await?;
+        }
     }
 
     Ok(())
@@ -253,7 +282,7 @@ mod tests {
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
-    use crate::Commands::{ApplyPatch, Copy, MetaGetValue, MetaSetValue, Validate};
+    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Validate};
     use crate::{Args, IntegrityCheckType};
 
     #[test]
@@ -520,6 +549,27 @@ mod tests {
                     integrity_check: IntegrityCheckType::Quick,
                     update_agg_tiles_hash: false,
                     agg_hash: Some(AggHashType::Off),
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_diff() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "diff",
+                "file-a.mbtiles",
+                "file-b.mbtiles",
+                "../delta.mbtiles",
+            ]),
+            Args {
+                verbose: false,
+                command: Diff {
+                    file_a: PathBuf::from("file-a.mbtiles"),
+                    file_b: PathBuf::from("file-b.mbtiles"),
+                    diff: PathBuf::from("../delta.mbtiles"),
                 }
             }
         );
