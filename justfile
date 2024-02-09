@@ -313,7 +313,7 @@ check-doc:
 
 # Run cargo clippy
 clippy:
-    cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
+    cargo clippy --workspace --all-targets --bins --tests --lib --benches --examples -- -D warnings
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
