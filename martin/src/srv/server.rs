@@ -115,7 +115,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.cache.clone()));
+            .app_data(Data::new(state.cache.clone()))
+            .app_data(Data::new(state.preferred_encoding));
 
         #[cfg(feature = "sprites")]
         let app = app.app_data(Data::new(state.sprites.clone()));

@@ -1,3 +1,4 @@
+use martin_tile_utils::Encoding;
 use serde::{Deserialize, Serialize};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
@@ -9,6 +10,7 @@ pub struct SrvConfig {
     pub keep_alive: Option<u64>,
     pub listen_addresses: Option<String>,
     pub worker_processes: Option<usize>,
+    pub preferred_encoding: Option<Encoding>,
 }
 
 #[cfg(test)]
@@ -31,6 +33,7 @@ mod tests {
                 keep_alive: Some(75),
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
+                preferred_encoding: None,
             }
         );
     }

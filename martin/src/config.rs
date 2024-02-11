@@ -10,6 +10,7 @@ use futures::future::try_join_all;
 use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
+use martin_tile_utils::Encoding;
 
 #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
 use crate::file_config::FileConfigEnum;
@@ -32,6 +33,7 @@ pub struct ServerState {
     pub sprites: SpriteSources,
     #[cfg(feature = "fonts")]
     pub fonts: FontSources,
+    pub preferred_encoding: Encoding,
 }
 
 #[serde_with::skip_serializing_none]
@@ -143,6 +145,7 @@ impl Config {
             #[cfg(feature = "fonts")]
             fonts: FontSources::resolve(&mut self.fonts)?,
             cache,
+            preferred_encoding: self.srv.preferred_encoding.unwrap_or(Encoding::Brotli),
         })
     }
 
