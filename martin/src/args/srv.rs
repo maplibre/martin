@@ -1,6 +1,6 @@
 use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
-use martin_tile_utils::Encoding;
-use TileEncoding::{Brotli, Gzip};
+use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -12,8 +12,18 @@ pub struct SrvArgs {
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
-    #[arg(help = "to do", short, long)]
-    pub preferred_encoding: Option<String>,
+    /// Preferred tiles encoding. gzip or brotli, default brotili. You could also use br as a shortcut for brotli
+    #[arg(short, long)]
+    pub preferred_encoding: Option<PreferredEncoding>,
+}
+
+#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum PreferredEncoding {
+    #[default]
+    #[serde(alias = "br")]
+    Brotli,
+    Gzip,
 }
 
 impl SrvArgs {
@@ -28,15 +38,8 @@ impl SrvArgs {
         if self.workers.is_some() {
             srv_config.worker_processes = self.workers;
         }
-        if let Some(encoding_str) = self.preferred_encoding {
-            match encoding_str.as_str() {
-                "gzip" => srv_config.preferred_encoding = Option::from(Encoding::Gzip),
-                "brotli" => srv_config.preferred_encoding = Option::from(Encoding::Brotli),
-                "br" => srv_config.preferred_encoding = Option::from(Encoding::Brotli),
-                _ => panic!("Invalid encoding: {}", encoding_str),
-            }
-        } else {
-            srv_config.preferred_encoding = Option::from(Encoding::Brotli);
+        if self.preferred_encoding.is_some() {
+            srv_config.preferred_encoding = self.preferred_encoding;
         }
     }
 }

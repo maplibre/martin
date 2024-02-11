@@ -107,7 +107,6 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
     let catalog = Catalog::new(&state)?;
-
     let factory = move || {
         let cors_middleware = Cors::default()
             .allow_any_origin()
@@ -115,8 +114,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.cache.clone()))
-            .app_data(Data::new(state.preferred_encoding));
+            .app_data(Data::new(state.cache.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app.app_data(Data::new(state.sprites.clone()));
@@ -125,6 +123,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         let app = app.app_data(Data::new(state.fonts.clone()));
 
         app.app_data(Data::new(catalog.clone()))
+            .app_data(Data::new(config.clone()))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
