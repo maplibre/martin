@@ -107,6 +107,14 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
     let catalog = Catalog::new(&state)?;
+
+    let keep_alive = Duration::from_secs(config.keep_alive.clone().unwrap_or(KEEP_ALIVE_DEFAULT));
+    let worker_processes = config.worker_processes.clone().unwrap_or_else(num_cpus::get);
+    let listen_addresses = config
+        .listen_addresses
+        .clone()
+        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
+
     let factory = move || {
         let cors_middleware = Cors::default()
             .allow_any_origin()
@@ -135,12 +143,6 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         let server = run_actix_on_lambda(factory).err_into();
         return Ok((Box::pin(server), "(aws lambda)".into()));
     }
-
-    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
-    let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
-    let listen_addresses = config
-        .listen_addresses
-        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
 
     let server = HttpServer::new(factory)
         .bind(listen_addresses.clone())
