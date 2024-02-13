@@ -2540,9 +2540,9 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
 name = "pbf_font_tools"
-version = "2.5.0"
+version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67768bb2719d708e2de28cec7271dae35c717122c0fa4d9f8558ef5e7fa83db7"
+checksum = "badfb0f3113910e4bde7e68975d0c2b85d2b48c3e68842c0cebbb80430e9f61c"
 dependencies = [
  "futures",
  "glob",
