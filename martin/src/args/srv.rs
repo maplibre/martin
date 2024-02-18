@@ -13,7 +13,7 @@ pub struct SrvArgs {
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
     /// Preferred tiles encoding. gzip or brotli, default brotili. You could also use br as a shortcut for brotli
-    #[arg(short, long)]
+    #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
 }
 
