@@ -4,8 +4,8 @@ use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::decode_gzip;
-use tilejson::TileJSON;
 use martin::srv::SrvConfig;
+use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
@@ -18,21 +18,21 @@ fn init() {
 macro_rules! create_app {
     ($sources:expr) => {{
         let state = mock_sources(mock_cfg($sources)).await.0;
-                ::actix_web::test::init_service(
-                    ::actix_web::App::new()
-                        .app_data(actix_web::web::Data::new(
-                            ::martin::srv::Catalog::new(&state).unwrap(),
-                        ))
-                        .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
-                        .app_data(actix_web::web::Data::new(state.tiles))
-                        .app_data(actix_web::web::Data::new(SrvConfig {
-                            keep_alive: None,
-                            listen_addresses: None,
-                            worker_processes: None,
-                            preferred_encoding: None,
-                        }))
-                        .configure(::martin::srv::router),
-                )
+        ::actix_web::test::init_service(
+            ::actix_web::App::new()
+                .app_data(actix_web::web::Data::new(
+                    ::martin::srv::Catalog::new(&state).unwrap(),
+                ))
+                .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
+                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(SrvConfig {
+                    keep_alive: None,
+                    listen_addresses: None,
+                    worker_processes: None,
+                    preferred_encoding: None,
+                }))
+                .configure(::martin::srv::router),
+        )
         .await
     }};
 }
