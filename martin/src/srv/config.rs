@@ -6,7 +6,7 @@ pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone,Debug, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct SrvConfig {
     pub keep_alive: Option<u64>,
     pub listen_addresses: Option<String>,
