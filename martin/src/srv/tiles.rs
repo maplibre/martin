@@ -268,7 +268,6 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 
 #[cfg(test)]
 mod tests {
-    use actix_http::header::HeaderValue;
     use tilejson::tilejson;
 
     use super::*;
