@@ -22,7 +22,7 @@ mod tests {
     use crate::test_utils::some;
 
     #[test]
-    fn parse_empty_config() {
+    fn parse_config() {
         assert_eq!(
             serde_yaml::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
@@ -35,6 +35,36 @@ mod tests {
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
                 preferred_encoding: None,
+            }
+        );
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                preferred_encoding: br
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                preferred_encoding: Some(PreferredEncoding::Brotli), 
+            }
+        );
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                preferred_encoding: brotli
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                preferred_encoding: Some(PreferredEncoding::Brotli), 
             }
         );
     }
