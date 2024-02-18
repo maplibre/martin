@@ -1096,6 +1096,12 @@ tables:
             ))
             .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
             .app_data(actix_web::web::Data::new(state.tiles))
+            .app_data(actix_web::web::Data::new(SrvConfig {
+                keep_alive: None,
+                listen_addresses: None,
+                worker_processes: None,
+                preferred_encoding: None,
+            }))
             .configure(::martin::srv::router),
     )
     .await;
