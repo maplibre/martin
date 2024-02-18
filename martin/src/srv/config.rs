@@ -49,7 +49,7 @@ mod tests {
                 keep_alive: Some(75),
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
-                preferred_encoding: Some(PreferredEncoding::Brotli), 
+                preferred_encoding: Some(PreferredEncoding::Brotli),
             }
         );
         assert_eq!(
@@ -64,7 +64,7 @@ mod tests {
                 keep_alive: Some(75),
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
-                preferred_encoding: Some(PreferredEncoding::Brotli), 
+                preferred_encoding: Some(PreferredEncoding::Brotli),
             }
         );
     }
