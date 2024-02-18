@@ -31,6 +31,11 @@ Options:
   -W, --workers <WORKERS>
           Number of web server workers
 
+      --preferred-encoding <PREFERRED_ENCODING>
+          Preferred tiles encoding. gzip or brotli, default brotili. You could also use br as a shortcut for brotli
+          
+          [possible values: brotli, gzip]
+          
   -b, --auto-bounds <AUTO_BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
