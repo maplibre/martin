@@ -268,11 +268,59 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 
 #[cfg(test)]
 mod tests {
+    use actix_http::header::HeaderValue;
     use tilejson::tilejson;
 
     use super::*;
     use crate::srv::server::tests::TestSource;
 
+    #[actix_rt::test]
+    async fn test_encoding_preference() {
+        let source = TestSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+        };
+        let sources = TileSources::new(vec![vec![Box::new(source)]]);
+
+        for (accept_encodings, prefered_encoding, result_encoding) in [
+            (
+                Some(AcceptEncoding(vec![
+                    "gzip;q=1".parse().unwrap(),
+                    "br;q=1".parse().unwrap(),
+                ])),
+                Some(PreferredEncoding::Brotli),
+                Encoding::Brotli,
+            ),
+            (
+                Some(AcceptEncoding(vec![
+                    "gzip;q=1".parse().unwrap(),
+                    "br;q=0.5".parse().unwrap(),
+                ])),
+                Some(PreferredEncoding::Brotli),
+                Encoding::Gzip,
+            ),
+        ] {
+            let src = DynTileSource::new(
+                &sources,
+                "test_source",
+                None,
+                "",
+                accept_encodings,
+                prefered_encoding,
+                None,
+            )
+            .unwrap();
+            let xyz = TileCoord { z: 0, x: 0, y: 0 };
+            let data = &src.get_tile_content(xyz).await.unwrap().data;
+            let decoded = match result_encoding {
+                Encoding::Gzip => decode_gzip(data),
+                Encoding::Brotli => decode_brotli(data),
+                _ => panic!("Unexpected encoding"),
+            };
+            assert_eq!(vec![1_u8, 2, 3], decoded.unwrap());
+        }
+    }
     #[actix_rt::test]
     async fn test_tile_content() {
         let non_empty_source = TestSource {
