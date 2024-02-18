@@ -22,6 +22,7 @@ pub struct SrvArgs {
 pub enum PreferredEncoding {
     #[default]
     #[serde(alias = "br")]
+    #[clap(alias("br"))]
     Brotli,
     Gzip,
 }
