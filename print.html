@@ -252,6 +252,11 @@ Options:
   -W, --workers &lt;WORKERS&gt;
           Number of web server workers
 
+      --preferred-encoding &lt;PREFERRED_ENCODING&gt;
+          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli
+          
+          [possible values: brotli, gzip]
+          
   -b, --auto-bounds &lt;AUTO_BOUNDS&gt;
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
@@ -592,6 +597,9 @@ worker_processes: 8
 
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
+
+# If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli.
+preferred_encoding: gzip
 
 # Database configuration. This can also be a list of PG configs.
 postgres:
