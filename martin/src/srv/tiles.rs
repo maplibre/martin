@@ -205,7 +205,6 @@ impl<'a> DynTileSource<'a> {
 
                 // only apply compression if the content supports it
                 if let Some(HeaderEnc::Known(enc)) =
-                    // accept_enc.negotiate(SUPPORTED_ENCODINGS.iter())
                     accept_enc.negotiate(ordered_encodings.iter())
                 {
                     // (re-)compress the tile into the preferred encoding
