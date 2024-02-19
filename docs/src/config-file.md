@@ -27,7 +27,7 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
 
-# Preferred tiles encoding, gzip or brotli, default brotili. You could also use br as a shortcut for brotli
+# If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli.
 preferred_encoding: gzip
 
 # Database configuration. This can also be a list of PG configs.
