@@ -27,6 +27,9 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
 
+# Preferred tiles encoding, gzip or brotli, default brotili. You could also use br as a shortcut for brotli
+preferred_encoding: gzip
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string. You can use env vars too, for example:
