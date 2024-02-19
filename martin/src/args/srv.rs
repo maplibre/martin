@@ -1,4 +1,6 @@
 use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -10,6 +12,19 @@ pub struct SrvArgs {
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
+    /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli.
+    #[arg(long)]
+    pub preferred_encoding: Option<PreferredEncoding>,
+}
+
+#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum PreferredEncoding {
+    #[default]
+    #[serde(alias = "br")]
+    #[clap(alias("br"))]
+    Brotli,
+    Gzip,
 }
 
 impl SrvArgs {
@@ -23,6 +38,9 @@ impl SrvArgs {
         }
         if self.workers.is_some() {
             srv_config.worker_processes = self.workers;
+        }
+        if self.preferred_encoding.is_some() {
+            srv_config.preferred_encoding = self.preferred_encoding;
         }
     }
 }

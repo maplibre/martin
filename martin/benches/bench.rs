@@ -58,7 +58,7 @@ impl Source for NullSource {
 }
 
 async fn process_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "null", Some(0), "", None, None).unwrap();
+    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None).unwrap();
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
         .unwrap();
