@@ -32,7 +32,7 @@ Options:
           Number of web server workers
 
       --preferred-encoding <PREFERRED_ENCODING>
-          Preferred tiles encoding. gzip or brotli, default brotili. You could also use br as a shortcut for brotli
+          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli
           
           [possible values: brotli, gzip]
           
