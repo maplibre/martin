@@ -21,6 +21,18 @@ use crate::utils::{
 };
 use crate::{Tile, TileCoord, TileData};
 
+static PREFER_BROTLI_ENC: &[HeaderEnc] = &[
+    HeaderEnc::brotli(),
+    HeaderEnc::gzip(),
+    HeaderEnc::identity(),
+];
+
+static PREFER_GZIP_ENC: &[HeaderEnc] = &[
+    HeaderEnc::gzip(),
+    HeaderEnc::brotli(),
+    HeaderEnc::identity(),
+];
+
 #[derive(Deserialize, Clone)]
 pub struct TileRequest {
     source_ids: String,
@@ -60,8 +72,8 @@ pub struct DynTileSource<'a> {
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,
-    pub accept_encodings: Option<AcceptEncoding>,
-    pub prefered_encodings: Option<PreferredEncoding>,
+    pub accept_enc: Option<AcceptEncoding>,
+    pub preferred_enc: Option<PreferredEncoding>,
     pub cache: Option<&'a MainCache>,
 }
 
@@ -71,8 +83,8 @@ impl<'a> DynTileSource<'a> {
         source_ids: &str,
         zoom: Option<u8>,
         query: &'a str,
-        accpect_encodings: Option<AcceptEncoding>,
-        preferred_encoding: Option<PreferredEncoding>,
+        accept_enc: Option<AcceptEncoding>,
+        preferred_enc: Option<PreferredEncoding>,
         cache: Option<&'a MainCache>,
     ) -> ActixResult<Self> {
         let (sources, use_url_query, info) = sources.get_sources(source_ids, zoom)?;
@@ -93,8 +105,8 @@ impl<'a> DynTileSource<'a> {
             info,
             query_str,
             query_obj,
-            accept_encodings: accpect_encodings,
-            prefered_encodings: preferred_encoding,
+            accept_enc,
+            preferred_enc,
             cache,
         })
     }
@@ -170,7 +182,7 @@ impl<'a> DynTileSource<'a> {
 
     fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
         let mut tile = Tile::new(tile, self.info);
-        if let Some(accept_enc) = &self.accept_encodings {
+        if let Some(accept_enc) = &self.accept_enc {
             if self.info.encoding.is_encoded() {
                 // already compressed, see if we can send it as is, or need to re-compress
                 if !accept_enc.iter().any(|e| {
@@ -184,27 +196,13 @@ impl<'a> DynTileSource<'a> {
                     tile = decode(tile)?;
                 }
             }
+
             if tile.info.encoding == Encoding::Uncompressed {
-                let ordered_encodings = if let Some(prefered) = self.prefered_encodings {
-                    match prefered {
-                        PreferredEncoding::Brotli => [
-                            HeaderEnc::brotli(),
-                            HeaderEnc::gzip(),
-                            HeaderEnc::identity(),
-                        ],
-                        PreferredEncoding::Gzip => [
-                            HeaderEnc::gzip(),
-                            HeaderEnc::brotli(),
-                            HeaderEnc::identity(),
-                        ],
-                    }
-                } else {
-                    [
-                        HeaderEnc::brotli(),
-                        HeaderEnc::gzip(),
-                        HeaderEnc::identity(),
-                    ]
+                let ordered_encodings = match self.preferred_enc {
+                    Some(PreferredEncoding::Gzip) => PREFER_GZIP_ENC,
+                    Some(PreferredEncoding::Brotli) | None => PREFER_BROTLI_ENC,
                 };
+
                 // only apply compression if the content supports it
                 if let Some(HeaderEnc::Known(enc)) =
                     // accept_enc.negotiate(SUPPORTED_ENCODINGS.iter())
