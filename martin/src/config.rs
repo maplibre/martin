@@ -20,7 +20,9 @@ use crate::source::{TileInfoSources, TileSources};
 use crate::sprites::{SpriteConfig, SpriteSources};
 use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
 use crate::utils::{CacheValue, MainCache, OptMainCache};
-use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
+use crate::MartinError::{
+    BasePathError, ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources,
+};
 use crate::{IdResolver, MartinResult, OptOneMany};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
@@ -70,6 +72,17 @@ impl Config {
     pub fn finalize(&mut self) -> MartinResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
+
+        if self
+            .srv
+            .base_path
+            .as_ref()
+            .is_some_and(|v| !v.starts_with('/'))
+        {
+            return Err(BasePathError(
+                self.srv.base_path.as_ref().unwrap().to_string(),
+            ));
+        }
 
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {

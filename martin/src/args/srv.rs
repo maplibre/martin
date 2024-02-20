@@ -9,6 +9,8 @@ pub struct SrvArgs {
     pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {}]", LISTEN_ADDRESSES_DEFAULT), short, long)]
     pub listen_addresses: Option<String>,
+    #[arg(help = format!("Base path of martin if it's behind a proxy server. It's useful when you couldn't set x-rewrite-url of proxy server"), long)]
+    pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
@@ -41,6 +43,9 @@ impl SrvArgs {
         }
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
+        }
+        if self.base_path.is_some() {
+            srv_config.base_path = self.base_path;
         }
     }
 }

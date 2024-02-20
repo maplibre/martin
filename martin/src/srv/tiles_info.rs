@@ -9,6 +9,7 @@ use serde::Deserialize;
 use tilejson::{tilejson, TileJSON};
 
 use crate::source::{Source, TileSources};
+use crate::srv::SrvConfig;
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -26,18 +27,24 @@ async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
     sources: Data<TileSources>,
+    srv_config: Data<SrvConfig>,
 ) -> ActixResult<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
 
-    // Get `X-REWRITE-URL` header value, and extract its `path` component.
-    // If the header is not present or cannot be parsed as a URL, return the request path.
-    let tiles_path = req
-        .headers()
-        .get("x-rewrite-url")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<Uri>().ok())
-        .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned());
-
+    // if base_path is set, use it as the tiles path
+    // or try to use x-rewrite-url header value as the tiles path
+    let tiles_path =
+        if srv_config.base_path.is_some() & req.headers().get("x-rewrite-url").is_none() {
+            srv_config.base_path.clone().unwrap()
+        } else {
+            // Get `X-REWRITE-URL` header value, and extract its `path` component.
+            // If the header is not present or cannot be parsed as a URL, return the request path.
+            req.headers()
+                .get("x-rewrite-url")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.parse::<Uri>().ok())
+                .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned())
+        };
     let query_string = req.query_string();
     let path_and_query = if query_string.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
