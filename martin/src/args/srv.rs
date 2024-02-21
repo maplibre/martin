@@ -9,7 +9,8 @@ pub struct SrvArgs {
     pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {}]", LISTEN_ADDRESSES_DEFAULT), short, long)]
     pub listen_addresses: Option<String>,
-    #[arg(help = format!("Base path of martin if it's behind a proxy server. It's useful when you couldn't set x-rewrite-url of proxy server"), long)]
+    /// Set TileJSON URL path prefix. Must begin with a `/`. Examples: `/`, `/tiles`
+    #[arg(long)]
     pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
