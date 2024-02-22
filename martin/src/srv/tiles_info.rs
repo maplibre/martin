@@ -31,23 +31,7 @@ async fn get_source_info(
 ) -> ActixResult<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
 
-    let tiles_path;
-
-    // if base_path is set, use it as the tiles path
-    // or try to use x-rewrite-url header value as the tiles path
-    if let Some(base_path) = &srv_config.base_path {
-        tiles_path = base_path.clone(); // already parse_base_path() and set at config.finalize()
-    } else {
-        // Get `X-REWRITE-URL` header value, and extract its `path` component.
-        // If the header is not present or cannot be parsed as a URL, return the request path.
-
-        tiles_path = req
-            .headers()
-            .get("x-rewrite-url")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| parse_base_path(&v.to_string()).ok())
-            .map_or_else(|| req.path().to_owned(), |v| v);
-    }
+    let tiles_path = generate_tiles_base(&srv_config, &req, &path);
 
     let query_string = req.query_string();
     let path_and_query = if query_string.is_empty() {
@@ -67,6 +51,29 @@ async fn get_source_info(
         .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
 
     Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
+}
+
+fn generate_tiles_base(
+    srv_config: &SrvConfig,
+    req: &HttpRequest,
+    path: &Path<SourceIDsRequest>,
+) -> String {
+    let mut result = None;
+    if let Some(path_from_config) = &srv_config.base_path {
+        let base = format!("{path_from_config}/{0}", &path.source_ids);
+        result = parse_base_path(&base).ok();
+    } else if let Some(rewrite_url) = req.headers().get("x-rewrite-url") {
+        if let Ok(url_str) = rewrite_url.to_str() {
+            result = parse_base_path(&url_str.to_string()).ok();
+        } else {
+            result = None;
+        }
+    }
+    if let Some(base_path) = result {
+        base_path
+    } else {
+        req.path().to_owned()
+    }
 }
 
 #[must_use]
@@ -166,10 +173,66 @@ pub fn merge_tilejson(sources: &[&dyn Source], tiles_url: String) -> TileJSON {
 pub mod tests {
     use std::collections::BTreeMap;
 
-    use tilejson::{tilejson, Bounds, VectorLayer};
-
     use super::*;
     use crate::srv::server::tests::TestSource;
+    use actix_web::test::TestRequest;
+    use tilejson::{Bounds, VectorLayer};
+
+    #[actix_web::test]
+    #[test]
+    async fn test_generate_tiles_base_path() {
+        // With config but rewrite url
+        let srv_config = SrvConfig {
+            base_path: Some("/tiles".to_string()),
+            ..Default::default()
+        };
+        let req = TestRequest::default().uri("/MixedPoints").to_http_request();
+        let path = Path::from(SourceIDsRequest {
+            source_ids: "MixedPoints".to_string(),
+        });
+
+        let base = generate_tiles_base(&srv_config, &req, &path);
+        assert_eq!(base, "/tiles/MixedPoints");
+
+        // With rewrite url but config
+        let srv_config = SrvConfig::default();
+        let req = TestRequest::default()
+            .insert_header(("x-rewrite-url", "/tiles/MixedPoints"))
+            .to_http_request();
+        let path = Path::from(SourceIDsRequest {
+            source_ids: "MixedPoints".to_string(),
+        });
+
+        let base = generate_tiles_base(&srv_config, &req, &path);
+        assert_eq!(base, "/tiles/MixedPoints");
+
+        // no config, no rewrite url
+        let srv_config = SrvConfig::default();
+        let req = TestRequest::default().uri("/MixedPoints").to_http_request();
+        let path = Path::from(SourceIDsRequest {
+            source_ids: "MixedPoints".to_string(),
+        });
+
+        let base = generate_tiles_base(&srv_config, &req, &path);
+        assert_eq!(base, "/MixedPoints");
+
+        // both
+        let srv_config = SrvConfig {
+            base_path: Some("/foo".to_string()),
+            ..Default::default()
+        };
+        let req = TestRequest::default()
+            .insert_header(("x-rewrite-url", "/bar"))
+            .to_http_request();
+        let path = Path::from(SourceIDsRequest {
+            source_ids: "MixedPoints".to_string(),
+        });
+
+        let base = generate_tiles_base(&srv_config, &req, &path);
+        assert_eq!(base, "/foo/MixedPoints");
+
+        // todo  other edge cases
+    }
 
     #[test]
     fn test_merge_tilejson() {
