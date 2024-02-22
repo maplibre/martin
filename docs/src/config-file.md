@@ -21,6 +21,10 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
+
+# To generate correct tilejson, use this to tell martin the real path if it's running behind a proxy server
+base_path: /tiles
+
 # Number of web server workers
 worker_processes: 8
 
