@@ -71,7 +71,9 @@ impl Config {
         let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
-        self.srv.base_path = Some(parse_base_path(&self.srv.base_path)?);
+        if let Some(path) = &self.srv.base_path {
+            self.srv.base_path = Some(parse_base_path(path)?);
+        }
 
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {

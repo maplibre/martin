@@ -32,17 +32,31 @@ pub fn encode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     Ok(encoder.into_inner())
 }
 
-pub fn parse_base_path(base_path: &Option<String>) -> MartinResult<String> {
-    match base_path {
-        Some(path) => {
-            if !path.starts_with('/') {
-                return Err(BasePathError(path.to_string()));
-            }
-            if let Ok(uri) = path.parse::<Uri>() {
-                return Ok(uri.path().to_string());
-            }
-            Err(BasePathError(path.to_string()))
-        }
-        None => Err(BasePathError(String::new())),
+pub fn parse_base_path(path: &String) -> MartinResult<String> {
+    if !path.starts_with('/') {
+        return Err(BasePathError(path.to_string()));
+    }
+    if let Ok(uri) = path.parse::<Uri>() {
+        return Ok(uri.path().to_string());
+    }
+    Err(BasePathError(path.to_string()))
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::utils::parse_base_path;
+    #[test]
+    fn test_parse_base_path() {
+        let case1 = "/".to_string();
+        assert_eq!("/", parse_base_path(&case1).unwrap());
+
+        let case2 = "".to_string();
+        assert_eq!(true, parse_base_path(&case2).is_err());
+
+        let case3 = "/foo/bar".to_string();
+        assert_eq!("/foo/bar", parse_base_path(&case3).unwrap());
+
+        let case4 = "foo/bar".to_string();
+        assert_eq!(true, parse_base_path(&case4).is_err());
     }
 }
