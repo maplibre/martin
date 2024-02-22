@@ -1,5 +1,8 @@
 use std::io::{Read as _, Write as _};
 
+use crate::MartinError::BasePathError;
+use crate::MartinResult;
+use actix_web::http::Uri;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 
@@ -27,4 +30,19 @@ pub fn encode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut encoder = brotli::CompressorWriter::new(Vec::new(), 4096, 11, 22);
     encoder.write_all(data)?;
     Ok(encoder.into_inner())
+}
+
+pub fn parse_base_path(base_path: &Option<String>) -> MartinResult<String> {
+    match base_path {
+        Some(path) => {
+            if !path.starts_with('/') {
+                return Err(BasePathError(path.to_string()));
+            }
+            if let Ok(uri) = path.parse::<Uri>() {
+                return Ok(uri.path().to_string());
+            }
+            Err(BasePathError(path.to_string()))
+        }
+        None => Err(BasePathError(String::new())),
+    }
 }
