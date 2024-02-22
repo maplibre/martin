@@ -50,13 +50,13 @@ pub mod tests {
         let case1 = "/".to_string();
         assert_eq!("/", parse_base_path(&case1).unwrap());
 
-        let case2 = "".to_string();
-        assert_eq!(true, parse_base_path(&case2).is_err());
+        let case2 = String::new();
+        assert!(parse_base_path(&case2).is_err());
 
         let case3 = "/foo/bar".to_string();
         assert_eq!("/foo/bar", parse_base_path(&case3).unwrap());
 
         let case4 = "foo/bar".to_string();
-        assert_eq!(true, parse_base_path(&case4).is_err());
+        assert!(parse_base_path(&case4).is_err());
     }
 }
