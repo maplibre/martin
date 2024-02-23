@@ -58,22 +58,20 @@ fn generate_tiles_base(
     req: &HttpRequest,
     path: &Path<SourceIDsRequest>,
 ) -> String {
-    let mut result = None;
-    if let Some(path_from_config) = &srv_config.base_path {
+    let result = if let Some(path_from_config) = &srv_config.base_path {
         let base = format!("{path_from_config}/{0}", &path.source_ids);
-        result = parse_base_path(&base).ok();
-    } else if let Some(rewrite_url) = req.headers().get("x-rewrite-url") {
-        if let Ok(url_str) = rewrite_url.to_str() {
-            result = parse_base_path(&url_str.to_string()).ok();
-        } else {
-            result = None;
-        }
-    }
-    if let Some(base_path) = result {
-        base_path
+        parse_base_path(&base).ok()
+    } else if let Some(rewrite_url) = req
+        .headers()
+        .get("x-rewrite-url")
+        .and_then(|url| url.to_str().ok())
+    {
+        parse_base_path(&rewrite_url.to_string()).ok()
     } else {
-        req.path().to_owned()
-    }
+        None
+    };
+
+    result.map_or(req.path().to_owned(), |v| v)
 }
 
 #[must_use]
@@ -182,56 +180,54 @@ pub mod tests {
     #[test]
     async fn test_generate_tiles_base_path() {
         // With config but rewrite url
-        let srv_config = SrvConfig {
+        let srv_config1 = SrvConfig {
             base_path: Some("/tiles".to_string()),
             ..Default::default()
         };
-        let req = TestRequest::default().uri("/MixedPoints").to_http_request();
-        let path = Path::from(SourceIDsRequest {
+        let req1 = TestRequest::default().uri("/MixedPoints").to_http_request();
+        let path1 = Path::from(SourceIDsRequest {
             source_ids: "MixedPoints".to_string(),
         });
 
-        let base = generate_tiles_base(&srv_config, &req, &path);
-        assert_eq!(base, "/tiles/MixedPoints");
+        let base1 = generate_tiles_base(&srv_config1, &req1, &path1);
+        assert_eq!(base1, "/tiles/MixedPoints");
 
         // With rewrite url but config
-        let srv_config = SrvConfig::default();
-        let req = TestRequest::default()
+        let srv_config2 = SrvConfig::default();
+        let req2 = TestRequest::default()
             .insert_header(("x-rewrite-url", "/tiles/MixedPoints"))
             .to_http_request();
-        let path = Path::from(SourceIDsRequest {
+        let path2 = Path::from(SourceIDsRequest {
             source_ids: "MixedPoints".to_string(),
         });
 
-        let base = generate_tiles_base(&srv_config, &req, &path);
-        assert_eq!(base, "/tiles/MixedPoints");
+        let base2 = generate_tiles_base(&srv_config2, &req2, &path2);
+        assert_eq!(base2, "/tiles/MixedPoints");
 
         // no config, no rewrite url
-        let srv_config = SrvConfig::default();
-        let req = TestRequest::default().uri("/MixedPoints").to_http_request();
-        let path = Path::from(SourceIDsRequest {
+        let srv_config3 = SrvConfig::default();
+        let req3 = TestRequest::default().uri("/MixedPoints").to_http_request();
+        let path3 = Path::from(SourceIDsRequest {
             source_ids: "MixedPoints".to_string(),
         });
 
-        let base = generate_tiles_base(&srv_config, &req, &path);
-        assert_eq!(base, "/MixedPoints");
+        let base3 = generate_tiles_base(&srv_config3, &req3, &path3);
+        assert_eq!(base3, "/MixedPoints");
 
         // both
-        let srv_config = SrvConfig {
+        let srv_config4 = SrvConfig {
             base_path: Some("/foo".to_string()),
             ..Default::default()
         };
-        let req = TestRequest::default()
+        let req4 = TestRequest::default()
             .insert_header(("x-rewrite-url", "/bar"))
             .to_http_request();
-        let path = Path::from(SourceIDsRequest {
+        let path4 = Path::from(SourceIDsRequest {
             source_ids: "MixedPoints".to_string(),
         });
 
-        let base = generate_tiles_base(&srv_config, &req, &path);
-        assert_eq!(base, "/foo/MixedPoints");
-
-        // todo  other edge cases
+        let base4 = generate_tiles_base(&srv_config4, &req4, &path4);
+        assert_eq!(base4, "/foo/MixedPoints");
     }
 
     #[test]
