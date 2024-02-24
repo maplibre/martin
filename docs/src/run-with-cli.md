@@ -28,7 +28,7 @@ Options:
   -l, --listen-addresses <LISTEN_ADDRESSES>
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
       --base-path <BASE_PATH>
-          Set TileJSON URL path prefix. Must begin with a `/`. Examples: `/`, `/tiles`
+          Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`. Examples: `/`, `/tiles`
           
   -W, --workers <WORKERS>
           Number of web server workers
