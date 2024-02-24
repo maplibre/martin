@@ -393,7 +393,6 @@ jobs:
           "@
 
           # Replace the default Nginx configuration file
-          mkdir "C:\tools\nginx-1.25.3\conf\"
           echo "$nginxConf"
           Set-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf" -Value $nginxConf
           Get-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf"
