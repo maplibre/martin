@@ -394,22 +394,22 @@ jobs:
 
           # Replace the default Nginx configuration file
           echo "$nginxConf"
-          Set-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf" -Value $nginxConf
-          Get-Content -Path "C:\tools\nginx-1.25.3\conf\nginx.conf"
+          Set-Content -Path "C:\tools\nginx-1.25.4\conf\nginx.conf" -Value $nginxConf
+          Get-Content -Path "C:\tools\nginx-1.25.4\conf\nginx.conf"
 
           # Start Nginx
           #Get-Service -ErrorAction SilentlyContinue
           #Get-CimInstance -ClassName Win32_Service
           Set-Service nginx -StartupType manual
           Start-Service nginx
-          #Start-Process -FilePath "C:\tools\nginx-1.25.3\nginx.exe"
-          dir C:\tools\nginx-1.25.3\logs\
+          #Start-Process -FilePath "C:\tools\nginx-1.25.4\nginx.exe"
+          dir C:\tools\nginx-1.25.4\logs\
           Start-Sleep -Seconds 5
           netstat -a
 
           # Print Nginx Error Logs (on Windows systems)
           #nginx -t
-          Get-Content -Path "C:\tools\nginx-1.25.3\logs\error.log"
+          Get-Content -Path "C:\tools\nginx-1.25.4\logs\error.log"
           dir D:\a\martin\martin\
       - name: Start postgres
         uses: nyurik/action-setup-postgis@v1.1
