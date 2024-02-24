@@ -37,7 +37,11 @@ pub fn parse_base_path(path: &String) -> MartinResult<String> {
         return Err(BasePathError(path.to_string()));
     }
     if let Ok(uri) = path.parse::<Uri>() {
-        return Ok(uri.path().to_string());
+        let mut result = uri.path().to_string().clone();
+        while result.chars().last().is_some_and(|v| v == '/') && result.len() > 1 {
+            result.pop();
+        }
+        return Ok(result);
     }
     Err(BasePathError(path.to_string()))
 }
@@ -47,16 +51,19 @@ pub mod tests {
     use crate::utils::parse_base_path;
     #[test]
     fn test_parse_base_path() {
-        let case1 = "/".to_string();
-        assert_eq!("/", parse_base_path(&case1).unwrap());
-
-        let case2 = String::new();
-        assert!(parse_base_path(&case2).is_err());
-
-        let case3 = "/foo/bar".to_string();
-        assert_eq!("/foo/bar", parse_base_path(&case3).unwrap());
-
-        let case4 = "foo/bar".to_string();
-        assert!(parse_base_path(&case4).is_err());
+        for (path, expected) in [
+            ("/", Some("/")),
+            ("//", Some("/")),
+            ("/foo/bar", Some("/foo/bar")),
+            ("/foo/bar/", Some("/foo/bar")),
+            ("", None),
+            ("foo/bar", None),
+        ] {
+            let path = path.to_string();
+            match expected {
+                Some(v) => assert_eq!(v, parse_base_path(&path).unwrap()),
+                None => assert!(parse_base_path(&path).is_err()),
+            }
+        }
     }
 }
