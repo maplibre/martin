@@ -1,6 +1,7 @@
-use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+
+use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]

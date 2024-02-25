@@ -9,7 +9,6 @@ use serde::Deserialize;
 use tilejson::{tilejson, TileJSON};
 
 use crate::source::{Source, TileSources};
-
 use crate::srv::SrvConfig;
 use crate::utils::parse_base_path;
 
@@ -173,10 +172,11 @@ pub fn merge_tilejson(sources: &[&dyn Source], tiles_url: String) -> TileJSON {
 pub mod tests {
     use std::collections::BTreeMap;
 
-    use super::*;
-    use crate::srv::server::tests::TestSource;
     use actix_web::test::TestRequest;
     use tilejson::{Bounds, VectorLayer};
+
+    use super::*;
+    use crate::srv::server::tests::TestSource;
 
     #[actix_web::test]
     #[test]

@@ -1,10 +1,11 @@
 use std::io::{Read as _, Write as _};
 
-use crate::MartinError::BasePathError;
-use crate::MartinResult;
 use actix_web::http::Uri;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+
+use crate::MartinError::BasePathError;
+use crate::MartinResult;
 
 pub fn decode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut decoder = GzDecoder::new(data);
