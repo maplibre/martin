@@ -294,7 +294,7 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
-    needs: [ build ]
+    needs: [ docker-build-test ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -477,7 +477,7 @@ jobs:
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
-    needs: [ build ]
+    needs: [ build, docker-build-test ]
     strategy:
       fail-fast: true
       matrix:
