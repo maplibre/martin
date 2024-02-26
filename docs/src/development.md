@@ -30,7 +30,7 @@ sudo apt install -y  build-essential pkg-config jq file
 Install [Just](https://github.com/casey/just#readme) (improved makefile processor). Note that some Linux and Homebrew distros have outdated versions of Just, so you should install it from source:
 
 ```shell, ignore
-cargo install just
+cargo install just --locked
 ```
 
 When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified. Run `just` to see all available commands.

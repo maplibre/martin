@@ -269,7 +269,7 @@ jobs:
         run: |
           set -x
           sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-          cargo install cargo-deb
+          cargo install cargo-deb --locked
           cargo deb -v -p martin --output target/debian/debian-x86_64.deb
           mkdir -p target_releases
           mv target/debian/debian-x86_64.deb target_releases/

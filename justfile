@@ -348,10 +348,10 @@ cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
     set -eu
     if ! command -v $COMMAND > /dev/null; then
         if ! command -v cargo-binstall > /dev/null; then
-            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}"
-            cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{ ARGS }}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} {{ ARGS }}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
         fi
     fi

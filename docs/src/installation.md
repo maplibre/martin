@@ -21,7 +21,7 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 If you [install Rust](https://www.rust-lang.org/tools/install), you can build martin from source with Cargo:
 
 ```shell
-cargo install martin
+cargo install martin --locked
 martin --help
 ```
 
