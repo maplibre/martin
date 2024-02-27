@@ -10,7 +10,6 @@ use tilejson::{tilejson, TileJSON};
 
 use crate::source::{Source, TileSources};
 use crate::srv::SrvConfig;
-use crate::utils::parse_base_path;
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -37,9 +36,9 @@ async fn get_source_info(
     } else {
         req.headers()
             .get("x-rewrite-url")
-            .and_then(|url| url.to_str().ok())
-            .and_then(|v| parse_base_path(v).ok())
-            .unwrap_or_else(|| req.path().to_owned())
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<Uri>().ok())
+            .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned())
     };
 
     let query_string = req.query_string();
