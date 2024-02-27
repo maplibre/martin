@@ -196,7 +196,7 @@ sudo apt install -y  docker.io docker-compose
 sudo apt install -y  build-essential pkg-config jq file
 </code></pre>
 <p>Install <a href="https://github.com/casey/just#readme">Just</a> (improved makefile processor). Note that some Linux and Homebrew distros have outdated versions of Just, so you should install it from source:</p>
-<pre><code class="language-shell  ignore">cargo install just
+<pre><code class="language-shell  ignore">cargo install just --locked
 </code></pre>
 <p>When developing MBTiles SQL code, you may need to use <code>just prepare-sqlite</code> whenever SQL queries are modified. Run <code>just</code> to see all available commands.</p>
 

@@ -200,7 +200,7 @@
 </div>
 <h3 id="building-with-cargo"><a class="header" href="#building-with-cargo">Building with Cargo</a></h3>
 <p>If you <a href="https://www.rust-lang.org/tools/install">install Rust</a>, you can build martin from source with Cargo:</p>
-<pre><code class="language-shell">cargo install martin
+<pre><code class="language-shell">cargo install martin --locked
 martin --help
 </code></pre>
 <h3 id="homebrew"><a class="header" href="#homebrew">Homebrew</a></h3>
@@ -1262,7 +1262,7 @@ martin
 <h2 id="mbtiles"><a class="header" href="#mbtiles"><code>mbtiles</code></a></h2>
 <p><code>mbtiles</code> is a small utility to interact with the <code>*.mbtiles</code> files from the command line. It allows users to examine, copy, validate, compare, and apply diffs between them.</p>
 <p>Use <code>mbtiles --help</code> to see a list of available commands, and <code>mbtiles &lt;command&gt; --help</code> to see help for a specific command.</p>
-<p>This tool can be installed by compiling the latest released version with <code>cargo install mbtiles</code>, or by downloading a pre-built binary from the <a href="https://github.com/maplibre/martin/releases/latest">releases page</a>.</p>
+<p>This tool can be installed by compiling the latest released version with <code>cargo install mbtiles --locked</code>, or by downloading a pre-built binary from the <a href="https://github.com/maplibre/martin/releases/latest">releases page</a>.</p>
 <p>The <code>mbtiles</code> utility builds on top of the <a href="https://github.com/mapbox/mbtiles-spec">MBTiles specification</a>. It adds a few additional conventions to ensure that the content of the tile data is valid, and can be used for reliable diffing and patching of the tilesets.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="generating-tiles-in-bulk"><a class="header" href="#generating-tiles-in-bulk">Generating Tiles in Bulk</a></h1>
 <p><code>martin-cp</code> is a tool for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file. <code>martin-cp</code> can be used to generate tiles for a large area or multiple areas (bounding boxes). If multiple areas overlap, it will ensure each tile is generated only once. <code>martin-cp</code> supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.</p>
@@ -1470,7 +1470,7 @@ sudo apt install -y  docker.io docker-compose
 sudo apt install -y  build-essential pkg-config jq file
 </code></pre>
 <p>Install <a href="https://github.com/casey/just#readme">Just</a> (improved makefile processor). Note that some Linux and Homebrew distros have outdated versions of Just, so you should install it from source:</p>
-<pre><code class="language-shell  ignore">cargo install just
+<pre><code class="language-shell  ignore">cargo install just --locked
 </code></pre>
 <p>When developing MBTiles SQL code, you may need to use <code>just prepare-sqlite</code> whenever SQL queries are modified. Run <code>just</code> to see all available commands.</p>
 
