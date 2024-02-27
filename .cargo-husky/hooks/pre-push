@@ -16,7 +16,7 @@ set -e
 if ! command -v just > /dev/null; then
     echo "Command 'just' is not installed. See https://github.com/casey/just#readme for installation instructions, or use"
     echo ""
-    echo "  cargo install just"
+    echo "  cargo install just --locked"
     echo ""
     exit 1
 fi
