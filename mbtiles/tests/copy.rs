@@ -187,6 +187,29 @@ fn databases() -> Databases {
         let mut result = Databases::default();
         for &mbt_typ in &[Flat, FlatWithHash, Normalized] {
             let typ = shorten(mbt_typ);
+
+            let (raw_empty_mbt, mut raw_empty_cn) =
+                new_file_no_hash!(databases, mbt_typ, "", "", "{typ}__empty-no-hash");
+            let dmp = dump(&mut raw_empty_cn).await.unwrap();
+            assert_snapshot!(&dmp, "{typ}__empty-no-hash");
+            result.add("empty_no_hash", mbt_typ, dmp, raw_empty_mbt, raw_empty_cn);
+
+            let (empty_mbt, mut empty_cn) = open!(databases, "{typ}__empty");
+            let raw_empty_mbt = result.mbtiles("empty_no_hash", mbt_typ);
+            let opt = MbtilesCopier {
+                src_file: path(raw_empty_mbt),
+                dst_file: path(&empty_mbt),
+                ..Default::default()
+            };
+            opt.run().await.unwrap();
+            let dmp = dump(&mut empty_cn).await.unwrap();
+            assert_snapshot!(&dmp, "{typ}__empty");
+            let hash = empty_mbt.validate(Off, Verify).await.unwrap();
+            allow_duplicates! {
+                assert_display_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
+            }
+            result.add("empty", mbt_typ, dmp, empty_mbt, empty_cn);
+
             let (raw_mbt, mut raw_cn) = new_file_no_hash!(
                 databases,
                 mbt_typ,
