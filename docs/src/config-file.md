@@ -22,7 +22,7 @@ keep_alive: 75
 listen_addresses: '0.0.0.0:3000'
 
 
-# To generate correct tilejson, use this to tell martin the real path if it's running behind a proxy server
+# Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`
 base_path: /tiles
 
 # Number of web server workers
