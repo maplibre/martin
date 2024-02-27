@@ -38,11 +38,11 @@ pub fn parse_base_path(path: &str) -> MartinResult<String> {
         return Err(BasePathError(path.to_string()));
     }
     if let Ok(uri) = path.parse::<Uri>() {
-        let mut result = uri.path();
-        while result.len() > 1 {
-            result = result.trim_end_matches('/');
+        let mut result = uri.path().to_string();
+        while result.chars().last().is_some_and(|v| v == '/') && result.len() > 1 {
+            result.pop();
         }
-        return Ok(result.to_string());
+        return Ok(result);
     }
     Err(BasePathError(path.to_string()))
 }
@@ -62,7 +62,7 @@ pub mod tests {
         ] {
             match expected {
                 Some(v) => assert_eq!(v, parse_base_path(path).unwrap()),
-                None => assert!(parse_base_path(&path).is_err()),
+                None => assert!(parse_base_path(path).is_err()),
             }
         }
     }
