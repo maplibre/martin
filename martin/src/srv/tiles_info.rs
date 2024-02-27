@@ -32,8 +32,8 @@ async fn get_source_info(
 ) -> ActixResult<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
 
-    let tiles_path = if let Some(path_from_config) = &srv_config.base_path {
-        format!("{path_from_config}/{0}", &path.source_ids)
+    let tiles_path = if let Some(base_path) = &srv_config.base_path {
+        format!("{base_path}/{}", path.source_ids)
     } else {
         req.headers()
             .get("x-rewrite-url")
