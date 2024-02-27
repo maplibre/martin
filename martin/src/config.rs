@@ -19,7 +19,7 @@ use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
 use crate::sprites::{SpriteConfig, SpriteSources};
 use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
-use crate::utils::{CacheValue, MainCache, OptMainCache};
+use crate::utils::{parse_base_path, CacheValue, MainCache, OptMainCache};
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 use crate::{IdResolver, MartinResult, OptOneMany};
 
@@ -70,6 +70,10 @@ impl Config {
     pub fn finalize(&mut self) -> MartinResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
+
+        if let Some(path) = &self.srv.base_path {
+            self.srv.base_path = Some(parse_base_path(path)?);
+        }
 
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {

@@ -1,6 +1,7 @@
-use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+
+use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -9,6 +10,9 @@ pub struct SrvArgs {
     pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {}]", LISTEN_ADDRESSES_DEFAULT), short, long)]
     pub listen_addresses: Option<String>,
+    /// Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`. Examples: `/`, `/tiles`
+    #[arg(long)]
+    pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
@@ -41,6 +45,9 @@ impl SrvArgs {
         }
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
+        }
+        if self.base_path.is_some() {
+            srv_config.base_path = self.base_path;
         }
     }
 }

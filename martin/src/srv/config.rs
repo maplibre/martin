@@ -10,6 +10,7 @@ pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
 pub struct SrvConfig {
     pub keep_alive: Option<u64>,
     pub listen_addresses: Option<String>,
+    pub base_path: Option<String>,
     pub worker_processes: Option<usize>,
     pub preferred_encoding: Option<PreferredEncoding>,
 }
@@ -35,6 +36,7 @@ mod tests {
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
                 preferred_encoding: None,
+                base_path: None,
             }
         );
         assert_eq!(
@@ -50,6 +52,7 @@ mod tests {
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
+                base_path: None
             }
         );
         assert_eq!(
@@ -65,6 +68,7 @@ mod tests {
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
+                base_path: None,
             }
         );
     }

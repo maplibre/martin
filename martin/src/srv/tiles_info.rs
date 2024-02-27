@@ -9,6 +9,7 @@ use serde::Deserialize;
 use tilejson::{tilejson, TileJSON};
 
 use crate::source::{Source, TileSources};
+use crate::srv::SrvConfig;
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -26,17 +27,19 @@ async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
     sources: Data<TileSources>,
+    srv_config: Data<SrvConfig>,
 ) -> ActixResult<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
 
-    // Get `X-REWRITE-URL` header value, and extract its `path` component.
-    // If the header is not present or cannot be parsed as a URL, return the request path.
-    let tiles_path = req
-        .headers()
-        .get("x-rewrite-url")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<Uri>().ok())
-        .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned());
+    let tiles_path = if let Some(base_path) = &srv_config.base_path {
+        format!("{base_path}/{}", path.source_ids)
+    } else {
+        req.headers()
+            .get("x-rewrite-url")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<Uri>().ok())
+            .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned())
+    };
 
     let query_string = req.query_string();
     let path_and_query = if query_string.is_empty() {
@@ -155,7 +158,7 @@ pub fn merge_tilejson(sources: &[&dyn Source], tiles_url: String) -> TileJSON {
 pub mod tests {
     use std::collections::BTreeMap;
 
-    use tilejson::{tilejson, Bounds, VectorLayer};
+    use tilejson::{Bounds, VectorLayer};
 
     use super::*;
     use crate::srv::server::tests::TestSource;
