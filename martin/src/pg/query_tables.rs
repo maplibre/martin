@@ -117,7 +117,8 @@ pub async fn table_to_query(
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
                 debug!("Computing {} table bounds for {id}", info.format_id());
-                info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
+                info.bounds =
+                    calc_bounds(&pool, &schema, &table, &geometry_column, srid, false).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
@@ -125,7 +126,7 @@ pub async fn table_to_query(
                     info.format_id(),
                     DEFAULT_BOUNDS_TIMEOUT.as_secs()
                 );
-                let bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid);
+                let bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid, true);
                 pin_mut!(bounds);
                 if let Ok(bounds) = timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await {
                     info.bounds = bounds?;
@@ -217,10 +218,12 @@ async fn calc_bounds(
     table: &str,
     geometry_column: &str,
     srid: i32,
+    is_quick: bool,
 ) -> PgResult<Option<Bounds>> {
-    Ok(pool.get()
-        .await?
-        .query_one(&format!(
+    let sql = if is_quick {
+        format!("SELECT ST_EstimatedExtent('{schema}', '{table}', '{geometry_column}') as bounds")
+    } else {
+        format!(
             r#"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
@@ -232,7 +235,14 @@ SELECT ST_Transform(
             4326
         ) AS bounds
 FROM {schema}.{table};
-                "#), &[])
+                "#
+        )
+    };
+
+    Ok(pool
+        .get()
+        .await?
+        .query_one(&sql, &[])
         .await
         .map_err(|e| PostgresError(e, "querying table bounds"))?
         .get::<_, Option<ewkb::Polygon>>("bounds")
