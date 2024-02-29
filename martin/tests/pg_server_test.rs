@@ -57,6 +57,9 @@ postgres:
     fonts: {}
     sprites: {}
     tiles:
+      ".-Points---quote":
+        content_type: application/x-protobuf
+        description: Escaping test table
       MixPoints:
         content_type: application/x-protobuf
         description: a description from comment on table
