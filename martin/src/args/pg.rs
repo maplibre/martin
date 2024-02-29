@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use clap::ValueEnum;
+use enum_display::EnumDisplay;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
@@ -13,8 +14,11 @@ use crate::utils::{OptBoolObj, OptOneMany};
 // Must match the help string for BoundsType::Quick
 pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[derive(
+    PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum, EnumDisplay,
+)]
 #[serde(rename_all = "lowercase")]
+#[enum_display(case = "Kebab")]
 pub enum BoundsCalcType {
     /// Compute table geometry bounds, but abort if it takes longer than 5 seconds.
     #[default]
@@ -76,29 +80,35 @@ impl PgArgs {
         }
     }
 
+    /// Apply CLI parameters from `self` to the configuration loaded from the config file `pg_config`
     pub fn override_config<'a>(self, pg_config: &mut OptOneMany<PgConfig>, env: &impl Env<'a>) {
-        if self.default_srid.is_some() {
-            info!("Overriding configured default SRID to {} on all Postgres connections because of a CLI parameter", self.default_srid.unwrap());
+        if let Some(default_srid) = self.default_srid {
+            info!("Overriding configured default SRID to {default_srid} on all Postgres connections because of a CLI parameter");
             pg_config.iter_mut().for_each(|c| {
                 c.default_srid = self.default_srid;
             });
         }
-        if self.pool_size.is_some() {
-            info!("Overriding configured pool size to {} on all Postgres connections because of a CLI parameter", self.pool_size.unwrap());
+        if let Some(pool_size) = self.pool_size {
+            info!("Overriding configured pool size to {pool_size} on all Postgres connections because of a CLI parameter");
             pg_config.iter_mut().for_each(|c| {
                 c.pool_size = self.pool_size;
             });
         }
-        if self.max_feature_count.is_some() {
-            info!("Overriding maximum feature count to {} on all Postgres connections because of a CLI parameter", self.max_feature_count.unwrap());
+        if let Some(auto_bounds) = self.auto_bounds {
+            info!("Overriding auto_bounds to {auto_bounds} on all Postgres connections because of a CLI parameter");
+            pg_config.iter_mut().for_each(|c| {
+                c.auto_bounds = self.auto_bounds;
+            });
+        }
+        if let Some(max_feature_count) = self.max_feature_count {
+            info!("Overriding maximum feature count to {max_feature_count} on all Postgres connections because of a CLI parameter");
             pg_config.iter_mut().for_each(|c| {
                 c.max_feature_count = self.max_feature_count;
             });
         }
-
-        if self.ca_root_file.is_some() {
+        if let Some(ref ca_root_file) = self.ca_root_file {
             info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
-                self.ca_root_file.as_ref().unwrap().display());
+                ca_root_file.display());
             pg_config.iter_mut().for_each(|c| {
                 c.ssl_certificates.ssl_root_cert = self.ca_root_file.clone();
             });
