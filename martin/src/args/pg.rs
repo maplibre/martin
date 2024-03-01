@@ -82,35 +82,44 @@ impl PgArgs {
 
     /// Apply CLI parameters from `self` to the configuration loaded from the config file `pg_config`
     pub fn override_config<'a>(self, pg_config: &mut OptOneMany<PgConfig>, env: &impl Env<'a>) {
-        if let Some(default_srid) = self.default_srid {
-            info!("Overriding configured default SRID to {default_srid} on all Postgres connections because of a CLI parameter");
+        // This ensures that if a new parameter is added to the struct, it will not be forgotten here
+        let Self {
+            default_srid,
+            pool_size,
+            auto_bounds,
+            max_feature_count,
+            ca_root_file,
+        } = self;
+
+        if let Some(value) = default_srid {
+            info!("Overriding configured default SRID to {value} on all Postgres connections because of a CLI parameter");
             pg_config.iter_mut().for_each(|c| {
-                c.default_srid = self.default_srid;
+                c.default_srid = default_srid;
             });
         }
-        if let Some(pool_size) = self.pool_size {
-            info!("Overriding configured pool size to {pool_size} on all Postgres connections because of a CLI parameter");
+        if let Some(value) = pool_size {
+            info!("Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter");
             pg_config.iter_mut().for_each(|c| {
-                c.pool_size = self.pool_size;
+                c.pool_size = pool_size;
             });
         }
-        if let Some(auto_bounds) = self.auto_bounds {
-            info!("Overriding auto_bounds to {auto_bounds} on all Postgres connections because of a CLI parameter");
+        if let Some(value) = auto_bounds {
+            info!("Overriding auto_bounds to {value} on all Postgres connections because of a CLI parameter");
             pg_config.iter_mut().for_each(|c| {
-                c.auto_bounds = self.auto_bounds;
+                c.auto_bounds = auto_bounds;
             });
         }
-        if let Some(max_feature_count) = self.max_feature_count {
-            info!("Overriding maximum feature count to {max_feature_count} on all Postgres connections because of a CLI parameter");
+        if let Some(value) = max_feature_count {
+            info!("Overriding maximum feature count to {value} on all Postgres connections because of a CLI parameter");
             pg_config.iter_mut().for_each(|c| {
-                c.max_feature_count = self.max_feature_count;
+                c.max_feature_count = max_feature_count;
             });
         }
-        if let Some(ref ca_root_file) = self.ca_root_file {
+        if let Some(ref value) = ca_root_file {
             info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
-                ca_root_file.display());
+                value.display());
             pg_config.iter_mut().for_each(|c| {
-                c.ssl_certificates.ssl_root_cert = self.ca_root_file.clone();
+                c.ssl_certificates.ssl_root_cert = ca_root_file.clone();
             });
         }
 
