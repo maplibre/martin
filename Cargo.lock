@@ -2106,6 +2106,7 @@ dependencies = [
  "criterion",
  "ctor",
  "deadpool-postgres",
+ "enum-display",
  "env_logger",
  "flate2",
  "futures",
