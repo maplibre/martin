@@ -4,6 +4,20 @@ postgres:
   auto_bounds: calc
   auto_publish: true
   tables:
+    .-Points---quote:
+      schema: '"Quotes'' and Space.Dot.'
+      table: . Points" 'quote
+      srid: 4326
+      geometry_column: . "Geom"
+      bounds:
+      - -170.94984639004662
+      - -84.20025580733805
+      - 167.70892858284475
+      - 74.23573284753762
+      geometry_type: POINT
+      properties:
+        ''' id ''': int4
+        '.namE ': text
     MixPoints:
       schema: MixedCase
       table: MixPoints
