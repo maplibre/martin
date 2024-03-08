@@ -164,6 +164,9 @@ postgres:
       properties:
         gid: int4
   functions:
+    -function.withweired---_-characters:
+      schema: public
+      function: '"function.withweired$*;_ characters'
     function_Mixed_Name:
       schema: MixedCase
       function: function_Mixed_Name
