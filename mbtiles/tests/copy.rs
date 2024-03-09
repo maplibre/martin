@@ -248,6 +248,7 @@ fn databases() -> Databases {
             }
             result.add("v1", mbt_typ, dmp, v1_mbt, v1_cn);
 
+            // ----------------- v2 -----------------
             let (v2_mbt, mut v2_cn) =
                 new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
             let dmp = dump(&mut v2_cn).await.unwrap();
@@ -474,7 +475,9 @@ async fn patch_on_copy(
 #[actix_rt::test]
 #[ignore]
 async fn test_one() {
-    let db = Databases::default();
+    // This will cause an error if ran together with other tests
+    let db = databases();
+    // let db = Databases::default();
 
     // Test convert
     convert(Flat, Flat, &db).await.unwrap();
