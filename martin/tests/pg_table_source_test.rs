@@ -18,6 +18,9 @@ async fn table_source() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     assert_yaml_snapshot!(mock.0.tiles.get_catalog(), @r###"
     ---
+    "-function.withweired---_-characters":
+      content_type: application/x-protobuf
+      description: a function source with special characters
     ".-Points---quote":
       content_type: application/x-protobuf
       description: Escaping test table
