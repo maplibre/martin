@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 
 use ctor::ctor;
-use insta::{allow_duplicates, assert_display_snapshot};
+use insta::{allow_duplicates, assert_snapshot};
 use itertools::Itertools as _;
 use log::info;
 use martin_tile_utils::xyz_to_bbox;
@@ -145,7 +145,7 @@ macro_rules! new_file {
     }};
 }
 
-macro_rules! assert_snapshot {
+macro_rules! assert_dump {
     ($actual_value:expr, $($arg:tt)*) => {{
         let mut settings = insta::Settings::clone_current();
         settings.set_snapshot_suffix(format!($($arg)*));
@@ -191,7 +191,7 @@ fn databases() -> Databases {
             let (raw_empty_mbt, mut raw_empty_cn) =
                 new_file_no_hash!(databases, mbt_typ, "", "", "{typ}__empty-no-hash");
             let dmp = dump(&mut raw_empty_cn).await.unwrap();
-            assert_snapshot!(&dmp, "{typ}__empty-no-hash");
+            assert_dump!(&dmp, "{typ}__empty-no-hash");
             result.add("empty_no_hash", mbt_typ, dmp, raw_empty_mbt, raw_empty_cn);
 
             let (empty_mbt, mut empty_cn) = open!(databases, "{typ}__empty");
@@ -203,10 +203,10 @@ fn databases() -> Databases {
             };
             opt.run().await.unwrap();
             let dmp = dump(&mut empty_cn).await.unwrap();
-            assert_snapshot!(&dmp, "{typ}__empty");
+            assert_dump!(&dmp, "{typ}__empty");
             let hash = empty_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
+                assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
             }
             result.add("empty", mbt_typ, dmp, empty_mbt, empty_cn);
 
@@ -218,7 +218,7 @@ fn databases() -> Databases {
                 "{typ}__v1-no-hash"
             );
             let dmp = dump(&mut raw_cn).await.unwrap();
-            assert_snapshot!(&dmp, "{typ}__v1-no-hash");
+            assert_dump!(&dmp, "{typ}__v1-no-hash");
             result.add("v1_no_hash", mbt_typ, dmp, raw_mbt, raw_cn);
 
             let (v1_mbt, mut v1_cn) = open!(databases, "{typ}__v1");
@@ -230,20 +230,20 @@ fn databases() -> Databases {
             };
             opt.run().await.unwrap();
             let dmp = dump(&mut v1_cn).await.unwrap();
-            assert_snapshot!(&dmp, "{typ}__v1");
+            assert_dump!(&dmp, "{typ}__v1");
             let hash = v1_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
+                assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
             }
             result.add("v1", mbt_typ, dmp, v1_mbt, v1_cn);
 
             let (v2_mbt, mut v2_cn) =
                 new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
             let dmp = dump(&mut v2_cn).await.unwrap();
-            assert_snapshot!(&dmp, "{typ}__v2");
+            assert_dump!(&dmp, "{typ}__v2");
             let hash = v2_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"3BCDEE3F52407FF1315629298CB99133");
+                assert_snapshot!(hash, @"3BCDEE3F52407FF1315629298CB99133");
             }
             result.add("v2", mbt_typ, dmp, v2_mbt, v2_cn);
 
@@ -258,10 +258,10 @@ fn databases() -> Databases {
             };
             opt.run().await.unwrap();
             let dmp = dump(&mut dif_cn).await.unwrap();
-            assert_snapshot!(&dmp, "{typ}__dif");
+            assert_dump!(&dmp, "{typ}__dif");
             let hash = dif_mbt.validate(Off, Verify).await.unwrap();
             allow_duplicates! {
-                assert_display_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
+                assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
             }
             result.add("dif", mbt_typ, dmp, dif_mbt, dif_cn);
         }
@@ -274,7 +274,7 @@ async fn update() -> MbtResult<()> {
     let (mbt, mut cn) = new_file_no_hash!(databases, Flat, METADATA_V1, TILES_V1, "update");
     mbt.update_metadata(&mut cn, UpdateZoomType::Reset).await?;
     let dmp = dump(&mut cn).await?;
-    assert_snapshot!(&dmp, "update");
+    assert_dump!(&dmp, "update");
 
     Ok(())
 }
@@ -309,7 +309,7 @@ async fn convert(
     };
     let dmp = dump(&mut opt.run().await?).await?;
     allow_duplicates! {
-        assert_snapshot!(dmp, "v1__meta__{to}");
+        assert_dump!(dmp, "v1__meta__{to}");
     };
 
     let opt = MbtilesCopier {
@@ -321,7 +321,7 @@ async fn convert(
     };
     let dmp = dump(&mut opt.run().await?).await?;
     allow_duplicates! {
-        assert_snapshot!(dmp, "v1__tiles__{to}");
+        assert_dump!(dmp, "v1__tiles__{to}");
     }
 
     let opt = MbtilesCopier {
@@ -333,7 +333,7 @@ async fn convert(
     };
     let z6only = dump(&mut opt.run().await?).await?;
     allow_duplicates! {
-        assert_snapshot!(z6only, "v1__z6__{to}");
+        assert_dump!(z6only, "v1__z6__{to}");
     }
 
     // Filter (0, 0, 2, 2) in mbtiles coordinates, which is (0, 2^5-1-2, 2, 2^5-1-0) = (0, 29, 2, 31) in XYZ coordinates, and slightly decrease it
@@ -352,7 +352,7 @@ async fn convert(
     };
     let dmp = dump(&mut opt.run().await?).await?;
     allow_duplicates! {
-        assert_snapshot!(dmp, "v1__bbox__{to}");
+        assert_dump!(dmp, "v1__bbox__{to}");
     }
 
     let opt = MbtilesCopier {
@@ -392,7 +392,7 @@ async fn diff_and_patch(
 
     let v1_mbt = databases.mbtiles("v1", v1_type);
     let v2_mbt = databases.mbtiles("v2", v2_type);
-    let (dif_mbt, mut dif_cn) = open!(diff_and_patchdiff_and_patch, "{prefix}__dif");
+    let (dif_mbt, mut dif_cn) = open!(diff_and_patch, "{prefix}__dif");
 
     info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
     let mut opt = MbtilesCopier {
@@ -426,7 +426,7 @@ async fn diff_and_patch(
         apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
         let hash_v1 = tar1_mbt.validate(Off, Verify).await?;
         allow_duplicates! {
-            assert_display_snapshot!(hash_v1, @"3BCDEE3F52407FF1315629298CB99133");
+            assert_snapshot!(hash_v1, @"3BCDEE3F52407FF1315629298CB99133");
         }
         let dmp = dump(&mut tar1_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
@@ -437,7 +437,7 @@ async fn diff_and_patch(
         apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
         let hash_v2 = tar2_mbt.validate(Off, Verify).await?;
         allow_duplicates! {
-            assert_display_snapshot!(hash_v2, @"3BCDEE3F52407FF1315629298CB99133");
+            assert_snapshot!(hash_v2, @"3BCDEE3F52407FF1315629298CB99133");
         }
         let dmp = dump(&mut tar2_cn).await?;
         pretty_assert_eq!(&dmp, expected_v2);
