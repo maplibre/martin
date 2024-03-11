@@ -17,7 +17,7 @@ use crate::queries::{
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::{
     invert_y_value, reset_db_settings, CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles,
-    AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF,
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -233,13 +233,13 @@ impl MbtileCopierInt {
         if dif.is_some() {
             // Insert all rows from diffDb.metadata if they do not exist or are different in sourceDb.metadata.
             // Also insert all names from sourceDb.metadata that do not exist in diffDb.metadata, with their value set to NULL.
-            // Rename agg_tiles_hash to agg_tiles_hash_in_diff because agg_tiles_hash will be auto-added later
+            // Rename agg_tiles_hash to agg_tiles_hash_after_apply because agg_tiles_hash will be auto-added later
             if self.options.diff_with_file.is_some() {
                 // Include agg_tiles_hash value even if it is the same because we will still need it when applying the diff
                 sql = format!(
                     "
     INSERT {on_dupl} INTO metadata (name, value)
-        SELECT IIF(name = '{AGG_TILES_HASH}','{AGG_TILES_HASH_IN_DIFF}', name) as name
+        SELECT IIF(name = '{AGG_TILES_HASH}','{AGG_TILES_HASH_AFTER_APPLY}', name) as name
              , value
         FROM (
             SELECT COALESCE(difMD.name, srcMD.name) as name
@@ -248,14 +248,14 @@ impl MbtileCopierInt {
                  ON srcMD.name = difMD.name
             WHERE srcMD.value != difMD.value OR srcMD.value ISNULL OR difMD.value ISNULL OR srcMD.name = '{AGG_TILES_HASH}'
         ) joinedMD
-        WHERE name != '{AGG_TILES_HASH_IN_DIFF}'"
+        WHERE name != '{AGG_TILES_HASH_AFTER_APPLY}'"
                 );
                 debug!("Copying metadata, taking into account diff file with {sql}");
             } else {
                 sql = format!(
                     "
     INSERT {on_dupl} INTO metadata (name, value)
-        SELECT IIF(name = '{AGG_TILES_HASH_IN_DIFF}','{AGG_TILES_HASH}', name) as name
+        SELECT IIF(name = '{AGG_TILES_HASH_AFTER_APPLY}','{AGG_TILES_HASH}', name) as name
              , value
         FROM (
             SELECT COALESCE(srcMD.name, difMD.name) as name
