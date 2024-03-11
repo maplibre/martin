@@ -235,6 +235,7 @@ impl MbtileCopierInt {
             // Also insert all names from sourceDb.metadata that do not exist in diffDb.metadata, with their value set to NULL.
             // Rename agg_tiles_hash to agg_tiles_hash_in_diff because agg_tiles_hash will be auto-added later
             if self.options.diff_with_file.is_some() {
+                // Include agg_tiles_hash value even if it is the same because we will still need it when applying the diff
                 sql = format!(
                     "
     INSERT {on_dupl} INTO metadata (name, value)
@@ -245,7 +246,7 @@ impl MbtileCopierInt {
                  , difMD.value as value
             FROM sourceDb.metadata AS srcMD FULL JOIN diffDb.metadata AS difMD
                  ON srcMD.name = difMD.name
-            WHERE srcMD.value != difMD.value OR srcMD.value ISNULL OR difMD.value ISNULL
+            WHERE srcMD.value != difMD.value OR srcMD.value ISNULL OR difMD.value ISNULL OR srcMD.name = '{AGG_TILES_HASH}'
         ) joinedMD
         WHERE name != '{AGG_TILES_HASH_IN_DIFF}'"
                 );
