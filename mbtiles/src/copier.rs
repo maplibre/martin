@@ -249,6 +249,7 @@ impl MbtileCopierInt {
         ) joinedMD
         WHERE name != '{AGG_TILES_HASH_IN_DIFF}'"
                 );
+                debug!("Copying metadata, taking into account diff file with {sql}");
             } else {
                 sql = format!(
                     "
@@ -264,10 +265,6 @@ impl MbtileCopierInt {
         ) joinedMD
         WHERE name != '{AGG_TILES_HASH}'"
                 );
-            }
-            if self.options.diff_with_file.is_some() {
-                debug!("Copying metadata, taking into account diff file with {sql}");
-            } else {
                 debug!("Copying metadata, and applying the diff file with {sql}");
             }
         } else {
