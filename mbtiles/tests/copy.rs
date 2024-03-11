@@ -173,6 +173,7 @@ macro_rules! assert_dump {
 }
 
 #[derive(Default)]
+#[allow(clippy::type_complexity)]
 struct Databases(
     HashMap<
         (&'static str, MbtTypeCli),
