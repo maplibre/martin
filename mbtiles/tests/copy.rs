@@ -289,6 +289,44 @@ fn databases() -> Databases {
                 assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
             }
             result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
+
+            // ----------------- v1_clone -----------------
+            let (v1_clone_mbt, v1_clone_cn) = open!(databases, "{typ}__v1-clone");
+            let dmp = copy_dump!(result.path("v1", mbt_typ), path(&v1_clone_mbt));
+            let hash = v1_clone_mbt.validate(Off, Verify).await.unwrap();
+            allow_duplicates! {
+                assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
+            }
+            result.add(
+                "v1_clone",
+                mbt_typ,
+                dmp,
+                v1_clone_mbt,
+                Some(hash),
+                v1_clone_cn,
+            );
+
+            // ----------------- dif_empty (v1 -> v1_clone) -----------------
+            let (dif_empty_mbt, mut dif_empty_cn) = open!(databases, "{typ}__dif_empty");
+            copy! {
+                result.path("v1", mbt_typ),
+                path(&dif_empty_mbt),
+                diff_with_file => Some(result.path("v1_clone", mbt_typ)),
+            };
+            let dmp = dump(&mut dif_empty_cn).await.unwrap();
+            assert_dump!(&dmp, "{typ}__dif_empty");
+            let hash = dif_empty_mbt.validate(Off, Verify).await.unwrap();
+            allow_duplicates! {
+                assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
+            }
+            result.add(
+                "dif_empty",
+                mbt_typ,
+                dmp,
+                dif_empty_mbt,
+                Some(hash),
+                dif_empty_cn,
+            );
         }
         result
     })
@@ -404,7 +442,10 @@ async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
     #[values(&[Flat, FlatWithHash, Normalized])] destination_types: &[MbtTypeCli],
-    #[values(("v1", "v2", "dif"))] tilesets: (&'static str, &'static str, &'static str),
+    #[values(
+        ("v1", "v2", "dif"),
+        ("v1", "v1_clone", "dif_empty"))]
+    tilesets: (&'static str, &'static str, &'static str),
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db) = tilesets;
