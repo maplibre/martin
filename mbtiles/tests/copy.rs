@@ -174,7 +174,10 @@ macro_rules! assert_dump {
 
 #[derive(Default)]
 struct Databases(
-    HashMap<(&'static str, MbtTypeCli), (Vec<SqliteEntry>, Mbtiles, SqliteConnection)>,
+    HashMap<
+        (&'static str, MbtTypeCli),
+        (Vec<SqliteEntry>, Mbtiles, Option<String>, SqliteConnection),
+    >,
 );
 
 impl Databases {
@@ -184,9 +187,10 @@ impl Databases {
         typ: MbtTypeCli,
         dump: Vec<SqliteEntry>,
         mbtiles: Mbtiles,
+        hash: Option<String>,
         conn: SqliteConnection,
     ) {
-        self.0.insert((name, typ), (dump, mbtiles, conn));
+        self.0.insert((name, typ), (dump, mbtiles, hash, conn));
     }
     fn dump(&self, name: &'static str, typ: MbtTypeCli) -> &Vec<SqliteEntry> {
         &self.0.get(&(name, typ)).unwrap().0
@@ -196,6 +200,9 @@ impl Databases {
     }
     fn path(&self, name: &'static str, typ: MbtTypeCli) -> PathBuf {
         path(self.mbtiles(name, typ))
+    }
+    fn hash(&self, name: &'static str, typ: MbtTypeCli) -> &str {
+        self.0.get(&(name, typ)).unwrap().2.as_deref().unwrap()
     }
 }
 
@@ -214,7 +221,14 @@ fn databases() -> Databases {
                 new_file_no_hash!(databases, mbt_typ, "", "", "{typ}__empty-no-hash");
             let dmp = dump(&mut raw_empty_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__empty-no-hash");
-            result.add("empty_no_hash", mbt_typ, dmp, raw_empty_mbt, raw_empty_cn);
+            result.add(
+                "empty_no_hash",
+                mbt_typ,
+                dmp,
+                raw_empty_mbt,
+                None,
+                raw_empty_cn,
+            );
 
             // ----------------- empty -----------------
             let (empty_mbt, mut empty_cn) = open!(databases, "{typ}__empty");
@@ -225,7 +239,7 @@ fn databases() -> Databases {
             allow_duplicates! {
                 assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
             }
-            result.add("empty", mbt_typ, dmp, empty_mbt, empty_cn);
+            result.add("empty", mbt_typ, dmp, empty_mbt, Some(hash), empty_cn);
 
             // ----------------- v1_no_hash -----------------
             let (raw_mbt, mut raw_cn) = new_file_no_hash!(
@@ -237,7 +251,7 @@ fn databases() -> Databases {
             );
             let dmp = dump(&mut raw_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__v1-no-hash");
-            result.add("v1_no_hash", mbt_typ, dmp, raw_mbt, raw_cn);
+            result.add("v1_no_hash", mbt_typ, dmp, raw_mbt, None, raw_cn);
 
             // ----------------- v1 -----------------
             let (v1_mbt, mut v1_cn) = open!(databases, "{typ}__v1");
@@ -248,7 +262,7 @@ fn databases() -> Databases {
             allow_duplicates! {
                 assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
             }
-            result.add("v1", mbt_typ, dmp, v1_mbt, v1_cn);
+            result.add("v1", mbt_typ, dmp, v1_mbt, Some(hash), v1_cn);
 
             // ----------------- v2 -----------------
             let (v2_mbt, mut v2_cn) =
@@ -259,7 +273,7 @@ fn databases() -> Databases {
             allow_duplicates! {
                 assert_snapshot!(hash, @"3BCDEE3F52407FF1315629298CB99133");
             }
-            result.add("v2", mbt_typ, dmp, v2_mbt, v2_cn);
+            result.add("v2", mbt_typ, dmp, v2_mbt, Some(hash), v2_cn);
 
             // ----------------- dif (v1 -> v2) -----------------
             let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif");
@@ -274,7 +288,7 @@ fn databases() -> Databases {
             allow_duplicates! {
                 assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
             }
-            result.add("dif", mbt_typ, dmp, dif_mbt, dif_cn);
+            result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
         }
         result
     })
@@ -389,13 +403,17 @@ async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
-    #[values(&[Flat, FlatWithHash, Normalized])] target_types: &[MbtTypeCli],
-    #[values(("v1", "v2", "dif"))] compare_with: (&'static str, &'static str, &'static str),
+    #[values(&[Flat, FlatWithHash, Normalized])] destination_types: &[MbtTypeCli],
+    #[values(("v1", "v2", "dif"))] tilesets: (&'static str, &'static str, &'static str),
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
-    let (a_db, b_db, dif_db) = compare_with;
+    let (a_db, b_db, dif_db) = tilesets;
     let dif = dif_type.map_or("dflt", shorten);
-    let prefix = format!("{}-{}={dif}", shorten(b_type), shorten(a_type));
+    let prefix = format!(
+        "{a_db}_{}--{b_db}_{}={dif}",
+        shorten(b_type),
+        shorten(a_type)
+    );
 
     eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
     let (dif_mbt, mut dif_cn) = open!(diff_and_patch, "{prefix}__{dif_db}");
@@ -410,35 +428,26 @@ async fn diff_and_patch(
         databases.dump(dif_db, dif_type.unwrap_or(a_type))
     );
 
-    for target_type in target_types {
-        let prefix = format!("{prefix}__to__{}", shorten(*target_type));
-        let expected_b = databases.dump(b_db, *target_type);
+    for dst_type in destination_types {
+        let prefix = format!("{prefix}__to__{}", shorten(*dst_type));
+        let expected_b = databases.dump(b_db, *dst_type);
 
         eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}");
-        let (tar1_mbt, mut tar1_cn) = new_file!(
-            diff_and_patch,
-            *target_type,
-            METADATA_V1,
-            TILES_V1,
-            "{prefix}__{a_db}"
-        );
-        apply_patch(path(&tar1_mbt), path(&dif_mbt)).await?;
-        let hash_a = tar1_mbt.validate(Off, Verify).await?;
-        allow_duplicates! {
-            assert_snapshot!(hash_a, @"3BCDEE3F52407FF1315629298CB99133");
-        }
-        let dmp = dump(&mut tar1_cn).await?;
+        let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__1");
+        copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
+        apply_patch(path(&clone_mbt), path(&dif_mbt)).await?;
+        let hash = clone_mbt.validate(Off, Verify).await?;
+        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
 
         eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it");
-        let (tar2_mbt, mut tar2_cn) =
-            new_file! {diff_and_patch, *target_type, METADATA_V2, TILES_V2, "{prefix}__{b_db}"};
-        apply_patch(path(&tar2_mbt), path(&dif_mbt)).await?;
-        let hash_b = tar2_mbt.validate(Off, Verify).await?;
-        allow_duplicates! {
-            assert_snapshot!(hash_b, @"3BCDEE3F52407FF1315629298CB99133");
-        }
-        let dmp = dump(&mut tar2_cn).await?;
+        let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__2");
+        copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
+        apply_patch(path(&clone_mbt), path(&dif_mbt)).await?;
+        let hash = clone_mbt.validate(Off, Verify).await?;
+        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
     }
 
