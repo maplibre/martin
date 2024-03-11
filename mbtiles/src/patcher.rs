@@ -5,7 +5,7 @@ use sqlx::query;
 
 use crate::queries::detach_db;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::{MbtResult, MbtType, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_IN_DIFF};
+use crate::{MbtResult, MbtType, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY};
 
 pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf) -> MbtResult<()> {
     let base_mbt = Mbtiles::new(base_file)?;
@@ -53,7 +53,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf) -> MbtResult<(
     query(&format!(
         "
     INSERT OR REPLACE INTO metadata (name, value)
-    SELECT IIF(name = '{AGG_TILES_HASH_IN_DIFF}', '{AGG_TILES_HASH}', name) as name,
+    SELECT IIF(name = '{AGG_TILES_HASH_AFTER_APPLY}', '{AGG_TILES_HASH}', name) as name,
            value
     FROM patchDb.metadata
     WHERE name NOTNULL AND name != '{AGG_TILES_HASH}';"

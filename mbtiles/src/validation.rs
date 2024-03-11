@@ -26,7 +26,7 @@ pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
 
 /// Metadata key for a diff file,
 /// describing the eventual [`AGG_TILES_HASH`] value once the diff is applied
-pub const AGG_TILES_HASH_IN_DIFF: &str = "agg_tiles_hash_after_apply";
+pub const AGG_TILES_HASH_AFTER_APPLY: &str = "agg_tiles_hash_after_apply";
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
