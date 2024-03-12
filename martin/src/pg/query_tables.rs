@@ -98,6 +98,7 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 /// Generate a query to fetch tiles from a table.
 /// The function is async because it may need to query the database for the table bounds (could be very slow).
 pub async fn table_to_query(
@@ -117,8 +118,15 @@ pub async fn table_to_query(
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
                 debug!("Computing {} table bounds for {id}", info.format_id());
-                info.bounds =
-                    calc_bounds(&pool, &schema, &table, &geometry_column, srid, false).await?;
+                info.bounds = calc_bounds(
+                    &pool,
+                    &info.schema,
+                    &info.table,
+                    &info.geometry_column,
+                    srid,
+                    false,
+                )
+                .await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
@@ -126,7 +134,14 @@ pub async fn table_to_query(
                     info.format_id(),
                     DEFAULT_BOUNDS_TIMEOUT.as_secs()
                 );
-                let bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid, true);
+                let bounds = calc_bounds(
+                    &pool,
+                    &info.schema,
+                    &info.table,
+                    &info.geometry_column,
+                    srid,
+                    true,
+                );
                 pin_mut!(bounds);
                 if let Ok(bounds) = timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await {
                     info.bounds = bounds?;
@@ -221,8 +236,14 @@ async fn calc_bounds(
     is_quick: bool,
 ) -> PgResult<Option<Bounds>> {
     let sql = if is_quick {
-        format!("SELECT ST_EstimatedExtent('{schema}', '{table}', '{geometry_column}') as bounds")
+        let schema = escape_literal(schema);
+        let table = escape_literal(table);
+        let geometry_column = escape_literal(geometry_column);
+        format!("SELECT ST_EstimatedExtent({schema}, {table}, {geometry_column}) as bounds")
     } else {
+        let schema = escape_identifier(schema);
+        let table = escape_identifier(table);
+        let geometry_column = escape_identifier(geometry_column);
         format!(
             r#"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
