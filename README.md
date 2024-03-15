@@ -43,34 +43,6 @@ brew tap maplibre/martin
 brew install martin
 ```
 
-## Running Martin Service
-
-_See [running instructions](https://maplibre.org/martin/run.html) in the Martin book._
-
-Martin supports any number of PostgreSQL/PostGIS database connections with [geospatial-enabled](https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns) tables and tile-producing SQL functions, as well as [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) and [MBTile](https://github.com/mapbox/mbtiles-spec) files as tile sources.
-
-Martin can auto-discover tables and functions using a [connection string](https://maplibre.org/martin/pg-connections.html). A PG connection string can also be passed via the `DATABASE_URL` environment variable.
-
-Each tile source will have a [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint.
-
-#### Examples
-
-```shell
-# publish all tables and functions from a single database
-export DATABASE_URL="postgresql://user:password@host:port/database"
-martin
-
-# same as above, but passing connection string via CLI, together with a directory of .mbtiles/.pmtiles files
-martin postgresql://user:password@host:port/database path/to/dir
-
-# publish all discovered tables/funcs from two DBs
-# and generate config file with all detected sources
-martin postgres://... postgres://...  --save-config config.yaml
-
-# use configuration file instead of auto-discovery
-martin --config config.yaml
-```
-
 #### Docker Example
 
 _See [Docker instructions](https://maplibre.org/martin/run-with-docker.html) in the Martin book._
