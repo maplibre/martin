@@ -1,27 +1,14 @@
 DROP SCHEMA IF EXISTS """Quotes' and Space.Dot." CASCADE;
-CREATE SCHEMA """Quotes' and Space.Dot.";
+CREATE SCHEMA """Quotes' \ \' \"" and Space.Dot.";
 
-CREATE TABLE """Quotes' and Space.Dot.".". Points"" 'quote"
+CREATE TABLE """Quotes' \ \' \"" and Space.Dot.".". Points"" \ \' \"" 'quote"
 (
-    "' id '"     SERIAL PRIMARY KEY,
-    ".namE "     TEXT,
-    ". ""Geom""" GEOMETRY(POINT, 4326)
+    "' id '"                SERIAL PRIMARY KEY,
+    ".namE "                TEXT,
+    ". ' \ \' \"" ""Geom""" GEOMETRY(POINT, 4326)
 );
 
--- INSERT INTO """Quotes' and Space.Dot.".". Points"" 'quote"
--- SELECT generate_series(1, 3),
---        md5(random()::text),
---        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(18, 235085, 122323), 4326), 3))).Geom;
--- INSERT INTO """Quotes' and Space.Dot.".". Points"" 'quote"
--- SELECT generate_series(4, 30),
---        md5(random()::text),
---        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).Geom;
---
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
---   just restart
---   just pg_dump --data-only --inserts --rows-per-insert=100 --table="""Quotes' and Space.Dot.".". Points"" 'quote"
-
-INSERT INTO """Quotes' and Space.Dot.".". Points"" 'quote"
+INSERT INTO """Quotes' \ \' \"" and Space.Dot.".". Points"" \ \' \"" 'quote"
 values (1, '02daedc70702ec68753fde38351f5d9d', '0101000020E610000050C4D38CE9DA61401EFC0EC7C3DA2740'),
        (2, '7418427ba8a960c3661235f47cc13d46', '0101000020E6100000CC2F4170E9DA6140DEDB02B581DA2740'),
        (3, 'd5a11dee7203a09442168eec74c7bea8', '0101000020E6100000008E66E9E6DA614059944356B4DA2740'),
@@ -53,10 +40,10 @@ values (1, '02daedc70702ec68753fde38351f5d9d', '0101000020E610000050C4D38CE9DA61
        (29, 'fd0775c59700ac8c1982aa3efe6cb0c7', '0101000020E6100000D6CF48A3E1A9464077D6BBFDD00C55C0'),
        (30, '404175d17b08782edc9d316c378adc86', '0101000020E6100000F9B5A5ADB7265BC0EE07F81F2F284840');
 
-CREATE INDEX ON """Quotes' and Space.Dot.".". Points"" 'quote" USING GIST (". ""Geom""");
+CREATE INDEX ON """Quotes' \ \' \"" and Space.Dot.".". Points"" \ \' \"" 'quote" USING GIST (". ' \ \' \"" ""Geom""");
 
 DO $do$ BEGIN
-    EXECUTE 'COMMENT ON TABLE """Quotes'' and Space.Dot.".". Points"" ''quote" IS $tj$' || $$
+    EXECUTE 'COMMENT ON TABLE """Quotes'' \ \'' \"" and Space.Dot.".". Points"" \ \'' \"" ''quote" IS $tj$' || $$
     {
       "description": "Escaping test table"
     }
