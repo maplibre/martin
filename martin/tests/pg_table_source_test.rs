@@ -21,7 +21,7 @@ async fn table_source() {
     "-function.withweired---_-characters":
       content_type: application/x-protobuf
       description: a function source with special characters
-    ".-Points---quote":
+    ".-Points-----------quote":
       content_type: application/x-protobuf
       description: Escaping test table
     MixPoints:
