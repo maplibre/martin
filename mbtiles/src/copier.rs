@@ -63,11 +63,8 @@ pub struct MbtilesCopier {
     /// Bounding box to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be used multiple times.
     pub bbox: Vec<Bounds>,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
-    /// Use `mbtiles diff` as a more convenient way to generate this file.
-    /// It should be later possible to run `mbtiles apply-diff` to merge it in.
     pub diff_with_file: Option<PathBuf>,
-    /// Compare source file with this file, and only copy non-identical tiles to destination.
-    /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
+    /// Apply a patch file while copying src to dst.
     pub apply_patch: Option<PathBuf>,
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     pub skip_agg_tiles_hash: bool,
@@ -128,7 +125,7 @@ impl MbtileCopierInt {
             (Some(dif_file), None) | (None, Some(dif_file)) => {
                 let dif_mbt = Mbtiles::new(dif_file)?;
                 let dif_type = dif_mbt.open_and_detect_type().await?;
-                Some((dif_mbt, dif_type, dif_type))
+                Some((dif_mbt, dif_type))
             }
             (Some(_), Some(_)) => unreachable!(), // validated in the Self::new
             _ => None,
@@ -157,7 +154,7 @@ impl MbtileCopierInt {
             CopyType::Metadata => "metadata ",
         };
         let dst_type: MbtType;
-        if let Some((dif_mbt, dif_type, _)) = &dif {
+        if let Some((dif_mbt, dif_type)) = &dif {
             if !is_empty_db {
                 return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
             }
@@ -183,9 +180,9 @@ impl MbtileCopierInt {
             self.init_new_schema(&mut conn, src_type, dst_type).await?;
         }
 
+        // SAFETY: This must be scoped to make sure the handle is dropped before we continue using conn
+        // Make sure not to execute any other queries while the handle is locked
         {
-            // SAFETY: This must be scoped to make sure the handle is dropped before we continue using conn
-            // Make sure not to execute any other queries while the handle is locked
             let mut handle_lock = conn.lock_handle().await?;
             let handle = handle_lock.as_raw_handle().as_ptr();
 
@@ -205,7 +202,7 @@ impl MbtileCopierInt {
             }
 
             if self.options.copy.copy_metadata() {
-                self.copy_metadata(&rusqlite_conn, dif.as_ref(), on_duplicate)?;
+                self.copy_metadata(&rusqlite_conn, dif.is_some(), on_duplicate)?;
             } else {
                 debug!("Skipping copying metadata");
             }
@@ -215,9 +212,11 @@ impl MbtileCopierInt {
             dst_mbt.update_agg_tiles_hash(&mut conn).await?;
         }
 
+        if dif.is_some() {
+            detach_db(&mut conn, "diffDb").await?;
+        }
+
         detach_db(&mut conn, "sourceDb").await?;
-        // Ignore error because we might not have attached diffDb
-        let _ = detach_db(&mut conn, "diffDb").await;
 
         Ok(conn)
     }
@@ -225,12 +224,12 @@ impl MbtileCopierInt {
     fn copy_metadata(
         &self,
         rusqlite_conn: &Connection,
-        dif: Option<&(Mbtiles, MbtType, MbtType)>,
+        is_diff: bool,
         on_duplicate: CopyDuplicateMode,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
         let sql;
-        if dif.is_some() {
+        if is_diff {
             // Insert all rows from diffDb.metadata if they do not exist or are different in sourceDb.metadata.
             // Also insert all names from sourceDb.metadata that do not exist in diffDb.metadata, with their value set to NULL.
             // Rename agg_tiles_hash to agg_tiles_hash_after_apply because agg_tiles_hash will be auto-added later
@@ -282,14 +281,14 @@ impl MbtileCopierInt {
     fn copy_tiles(
         &self,
         rusqlite_conn: &Connection,
-        dif: Option<&(Mbtiles, MbtType, MbtType)>,
+        dif: Option<&(Mbtiles, MbtType)>,
         src_type: MbtType,
         dst_type: MbtType,
         on_duplicate: CopyDuplicateMode,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
 
-        let select_from = if let Some((_, dif_type, _)) = &dif {
+        let select_from = if let Some((_, dif_type)) = &dif {
             if self.options.diff_with_file.is_some() {
                 Self::get_select_from_with_diff(*dif_type, dst_type)
             } else {
