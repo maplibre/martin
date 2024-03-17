@@ -111,6 +111,14 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
+    points_empty:
+      schema: public
+      table: points_empty
+      srid: 900913
+      geometry_column: geom
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
     points_empty_srid:
       schema: public
       table: points_empty_srid

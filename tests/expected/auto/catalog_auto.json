@@ -116,6 +116,10 @@
       "content_type": "application/x-protobuf",
       "description": "public.points3857.geom"
     },
+    "points_empty": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points_empty.geom"
+    },
     "points_empty_srid": {
       "content_type": "application/x-protobuf",
       "description": "public.points_empty_srid.geom"
