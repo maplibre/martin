@@ -19,7 +19,7 @@ docker run -p 3000:3000 \
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
-| Platform | AMD-64                                                                                           | ARM-64                              |
+| Platform | x64                                                                                              | ARM-64                              |
 |----------|--------------------------------------------------------------------------------------------------|-------------------------------------|
 | Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-musl] (musl) |
 | macOS    | [.tar.gz][rl-macos-x64]                                                                          | [.tar.gz][rl-macos-a64]             |
