@@ -102,11 +102,12 @@ pub struct CopyArgs {
     pub options: SharedCopyOpts,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// Use `mbtiles diff` as a more convenient way to generate this file.
-    /// It should be later possible to run `mbtiles apply-diff` to merge it in.
+    /// Use `mbtiles apply-patch` or `mbtiles copy --apply-patch` to apply the diff file.
     #[arg(long, conflicts_with("apply_patch"))]
     diff_with_file: Option<PathBuf>,
-    /// Compare source file with this file, and only copy non-identical tiles to destination.
-    /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
+    /// Apply a patch file while copying src to dst.
+    /// Use `mbtiles diff` or `mbtiles copy --diff-with-file` to generate the patch file.
+    /// Use `mbtiles apply-patch` to apply the patch file in-place, without making a copy of the original.
     #[arg(long, conflicts_with("diff_with_file"))]
     apply_patch: Option<PathBuf>,
 }

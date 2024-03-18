@@ -9,7 +9,7 @@ insertions, and deletions as `NULL` values), for both the tile and metadata tabl
 
 There is one exception: `agg_tiles_hash` metadata value will be renamed to `agg_tiles_hash_after_apply`, and a
 new `agg_tiles_hash` will be generated for the diff file itself. This is done to avoid confusion when applying the diff
-file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied. The `apply-diff`
+file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied. The `apply-patch`
 command will automatically rename the `agg_tiles_hash_after_apply` value back to `agg_tiles_hash` when applying the
 diff.
 
@@ -18,7 +18,7 @@ diff.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
 
 # If diff.mbtiles is applied to file1.mbtiles, it will produce file2.mbtiles 
-mbtiles apply-diff file1.mbtiles diff.mbtiles file2a.mbtiles
+mbtiles apply-patch file1.mbtiles diff.mbtiles file2a.mbtiles
 
 # file2.mbtiles and file2a.mbtiles should now be the same
 # Validate both files and see that their hash values are identical

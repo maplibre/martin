@@ -5,7 +5,6 @@ use std::str::from_utf8;
 use ctor::ctor;
 use insta::{allow_duplicates, assert_snapshot};
 use itertools::Itertools as _;
-use log::info;
 use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
@@ -105,14 +104,14 @@ async fn open(file: &str) -> MbtResult<(Mbtiles, SqliteConnection)> {
 
 /// Run [`MbtilesCopier`], the first two params are source and destination [`Mbtiles`] refs, the rest are optional (key => val)* params.
 macro_rules! copy {
-    ($src_path:expr, $dst_path:expr $( , $key:tt => $val:expr )* $(,)?) => {{
+    ($src_path:expr, $dst_path:expr $( , $key:tt => $val:expr )* $(,)?) => {
         MbtilesCopier {
             src_file: $src_path,
             dst_file: $dst_path
             $(, $key : $val)*,
             ..Default::default()
         }.run().await.unwrap()
-    }};
+    };
 }
 
 /// Same as the copy! macro, but with the result dumped.
@@ -509,7 +508,6 @@ async fn patch_on_copy(
     let v2 = v2_type.map_or("dflt", shorten);
     let prefix = format!("{v1}+{dif}={v2}");
 
-    info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
     let (v2_mbt, mut v2_cn) = open!(patch_on_copy, "{prefix}__v2");
     copy! {
         databases.path("v1", v1_type),
