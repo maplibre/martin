@@ -1422,14 +1422,14 @@ modified dataset. The delta file will contain all tiles that are different betwe
 insertions, and deletions as <code>NULL</code> values), for both the tile and metadata tables.</p>
 <p>There is one exception: <code>agg_tiles_hash</code> metadata value will be renamed to <code>agg_tiles_hash_after_apply</code>, and a
 new <code>agg_tiles_hash</code> will be generated for the diff file itself. This is done to avoid confusion when applying the diff
-file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied. The <code>apply-diff</code>
+file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied. The <code>apply-patch</code>
 command will automatically rename the <code>agg_tiles_hash_after_apply</code> value back to <code>agg_tiles_hash</code> when applying the
 diff.</p>
 <pre><code class="language-shell"># This command will compare `file1.mbtiles` and `file2.mbtiles`, and generate a new diff file `diff.mbtiles`.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
 
 # If diff.mbtiles is applied to file1.mbtiles, it will produce file2.mbtiles 
-mbtiles apply-diff file1.mbtiles diff.mbtiles file2a.mbtiles
+mbtiles apply-patch file1.mbtiles diff.mbtiles file2a.mbtiles
 
 # file2.mbtiles and file2a.mbtiles should now be the same
 # Validate both files and see that their hash values are identical
