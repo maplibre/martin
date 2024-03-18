@@ -108,9 +108,6 @@ pub async fn table_to_query(
     bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
 ) -> PgResult<(String, PgSqlInfo, TableInfo)> {
-    let schema = escape_identifier(&info.schema);
-    let table = escape_identifier(&info.table);
-    let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
 
     if info.bounds.is_none() {
@@ -200,6 +197,9 @@ pub async fn table_to_query(
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
+    let geometry_column = escape_identifier(&info.geometry_column);
     let query = format!(
         r#"
 SELECT
@@ -233,19 +233,28 @@ async fn calc_bounds(
     table: &str,
     geometry_column: &str,
     srid: i32,
-    is_quick: bool,
+    mut is_quick: bool,
 ) -> PgResult<Option<Bounds>> {
-    let sql = if is_quick {
-        let schema = escape_literal(schema);
-        let table = escape_literal(table);
-        let geometry_column = escape_literal(geometry_column);
-        format!("SELECT ST_EstimatedExtent({schema}, {table}, {geometry_column}) as bounds")
-    } else {
-        let schema = escape_identifier(schema);
-        let table = escape_identifier(table);
-        let geometry_column = escape_identifier(geometry_column);
-        format!(
-            r#"
+    let schema = escape_identifier(schema);
+    let table = escape_identifier(table);
+
+    let cn = pool.get().await?;
+    loop {
+        let query = if is_quick {
+            // This method is faster but less accurate, and can fail in a number of cases (returns NULL)
+            cn.query_one(
+                "SELECT ST_Transform(ST_SetSRID(ST_EstimatedExtent($1, $2, $3)::geometry, $4), 4326) as bounds",
+                &[
+                    &&schema[1..schema.len() - 1],
+                    &&table[1..table.len() - 1],
+                    &geometry_column,
+                    &srid,
+                ],
+            ).await
+        } else {
+            let geometry_column = escape_identifier(geometry_column);
+            cn.query_one(
+                &format!(r#"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
@@ -256,16 +265,24 @@ SELECT ST_Transform(
             4326
         ) AS bounds
 FROM {schema}.{table};
-                "#
-        )
-    };
+                "#),
+                &[]
+            ).await
+        };
 
-    Ok(pool
-        .get()
-        .await?
-        .query_one(&sql, &[])
-        .await
-        .map_err(|e| PostgresError(e, "querying table bounds"))?
-        .get::<_, Option<ewkb::Polygon>>("bounds")
-        .and_then(|p| polygon_to_bbox(&p)))
+        if let Some(bounds) = query
+            .map_err(|e| PostgresError(e, "querying table bounds"))?
+            .get::<_, Option<ewkb::Polygon>>("bounds")
+        {
+            return Ok(polygon_to_bbox(&bounds));
+        }
+        if is_quick {
+            // ST_EstimatedExtent failed probably because there is no index or statistics or if it's a view
+            // This can only happen once if we are in quick mode
+            is_quick = false;
+            warn!("ST_EstimatedExtent on {schema}.{table}.{geometry_column} failed, trying slower method to compute bounds");
+        } else {
+            return Ok(None);
+        }
+    }
 }
