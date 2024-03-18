@@ -22,13 +22,12 @@ pub struct SrvArgs {
     pub preferred_encoding: Option<PreferredEncoding>,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum PreferredEncoding {
     #[serde(alias = "br")]
     #[clap(alias("br"))]
     Brotli,
-    #[default]
     Gzip,
 }
 
