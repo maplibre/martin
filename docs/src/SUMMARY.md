@@ -1,6 +1,7 @@
 [Introduction](introduction.md)
 
 - [Installation](installation.md)
+- [Quick Start](quick-start.md)
 - [Running](run.md)
   - [Command Line Interface](run-with-cli.md)
     - [Environment Variables](env-vars.md)

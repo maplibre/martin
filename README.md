@@ -14,14 +14,10 @@ Additionally, there are [several tools](https://maplibre.org/martin/tools.html) 
 
 See [Martin book](https://maplibre.org/martin/) for complete documentation.
 
-## Documentation
-
-See [Martin book](https://maplibre.org/martin/) for complete documentation.
-
-## Helpful docs
 * [Installation](https://maplibre.org/martin/installation.html)
 * Running with [CLI](https://maplibre.org/martin/run-with-cli.html) or [configuration file](https://maplibre.org/martin/config-file.html)
 * [Usage and API](https://maplibre.org/martin/using.html)
+* [Quick Start](https://maplibre.org/martin/quick-Start.html)
 
 ## License
 
