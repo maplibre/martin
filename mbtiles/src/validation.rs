@@ -7,10 +7,11 @@ use martin_tile_utils::{Format, TileInfo, MAX_ZOOM};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{query, Row, SqliteExecutor};
+use sqlx::{query, Row, SqliteConnection, SqliteExecutor};
 use tilejson::TileJSON;
 
 use crate::errors::{MbtError, MbtResult};
+use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
@@ -26,6 +27,9 @@ pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
 
 /// Metadata key for a diff file, describing the eventual [`AGG_TILES_HASH`] value of the resulting tileset once the diff is applied
 pub const AGG_TILES_HASH_AFTER_APPLY: &str = "agg_tiles_hash_after_apply";
+
+/// Metadata key for a diff file, describing the expected [`AGG_TILES_HASH`] value of the tileset to which the diff will be applied.
+pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
@@ -451,6 +455,67 @@ LIMIT 1;"
             })?;
 
         info!("All tile hashes are valid for {self}");
+        Ok(())
+    }
+
+    pub async fn get_diff_info(&self, conn: &mut SqliteConnection) -> MbtResult<PatchFileInfo> {
+        Ok(PatchFileInfo {
+            mbt_type: self.detect_type(&mut *conn).await?,
+            agg_tiles_hash: self.get_agg_tiles_hash(&mut *conn).await?,
+            agg_tiles_hash_before_apply: self
+                .get_metadata_value(&mut *conn, AGG_TILES_HASH_BEFORE_APPLY)
+                .await?,
+            agg_tiles_hash_after_apply: self
+                .get_metadata_value(&mut *conn, AGG_TILES_HASH_AFTER_APPLY)
+                .await?,
+        })
+    }
+
+    pub fn validate_file_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
+        if info.agg_tiles_hash.is_none() {
+            if !force {
+                return Err(MbtError::CannotDiffFileWithoutHash(
+                    self.filepath().to_string(),
+                ));
+            }
+            warn!("File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}");
+        } else if info.agg_tiles_hash_before_apply.is_some()
+            || info.agg_tiles_hash_after_apply.is_some()
+        {
+            if !force {
+                return Err(MbtError::DiffingDiffFile(self.filepath().to_string()));
+            }
+            warn!("File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file.");
+        }
+        Ok(())
+    }
+
+    pub fn validate_diff_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
+        match (
+            &info.agg_tiles_hash_before_apply,
+            &info.agg_tiles_hash_after_apply,
+        ) {
+            (Some(before), Some(after)) => {
+                info!(
+                    "The patch file {self} expects to be applied to a tileset with {AGG_TILES_HASH}={before}, and should result in hash {after} after applying",
+                );
+            }
+            (None, Some(_)) => {
+                if !force {
+                    return Err(MbtError::PatchFileHasNoBeforeHash(
+                        self.filepath().to_string(),
+                    ));
+                }
+                warn!(
+                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool.");
+            }
+            _ => {
+                if !force {
+                    return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_string()));
+                }
+                warn!("The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool.");
+            }
+        }
         Ok(())
     }
 }

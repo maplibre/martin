@@ -483,7 +483,7 @@ async fn diff_and_patch(
         eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}");
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__1");
         copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
-        apply_patch(path(&clone_mbt), path(&dif_mbt)).await?;
+        apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
         let hash = clone_mbt.validate(Off, Verify).await?;
         assert_eq!(hash, databases.hash(b_db, *dst_type));
         let dmp = dump(&mut clone_cn).await?;
@@ -492,7 +492,7 @@ async fn diff_and_patch(
         eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it");
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__2");
         copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
-        apply_patch(path(&clone_mbt), path(&dif_mbt)).await?;
+        apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
         let hash = clone_mbt.validate(Off, Verify).await?;
         assert_eq!(hash, databases.hash(b_db, *dst_type));
         let dmp = dump(&mut clone_cn).await?;
@@ -522,10 +522,9 @@ async fn patch_on_copy(
         apply_patch => Some(databases.path("dif", dif_type)),
         dst_type_cli => v2_type,
     };
-    pretty_assert_eq!(
-        &dump(&mut v2_cn).await?,
-        databases.dump("v2", v2_type.unwrap_or(v1_type))
-    );
+    let actual = dump(&mut v2_cn).await?;
+    let expected = databases.dump("v2", v2_type.unwrap_or(v1_type));
+    pretty_assert_eq!(&actual, expected);
 
     Ok(())
 }
@@ -539,7 +538,7 @@ async fn test_one() {
     // let db = Databases::default();
 
     // Test convert
-    convert(Flat, Flat, &db).await.unwrap();
+    // convert(Flat, Flat, &db).await.unwrap();
 
     // Test diff patch copy
     let src_type = FlatWithHash;
