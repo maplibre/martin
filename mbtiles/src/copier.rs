@@ -14,6 +14,8 @@ use crate::errors::MbtResult;
 use crate::queries::{
     create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
 };
+use crate::AggHashType::Verify;
+use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::{
     invert_y_value, reset_db_settings, CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles,
@@ -70,6 +72,8 @@ pub struct MbtilesCopier {
     pub skip_agg_tiles_hash: bool,
     /// Ignore some warnings and continue with the copying operation
     pub force: bool,
+    /// Perform `agg_hash` validation on the original and destination files.
+    pub validate: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -193,6 +197,9 @@ impl MbtileCopierInt {
         let mut dif_conn = dif_mbt.open_readonly().await?;
         let dif_info = dif_mbt.get_diff_info(&mut dif_conn).await?;
         let dif_type = dif_info.mbt_type;
+        if self.options.validate {
+            dif_mbt.validate(&mut dif_conn, Quick, Verify).await?;
+        }
         if is_creating_diff {
             dif_mbt.validate_file_info(&dif_info, self.options.force)?;
         } else {
@@ -203,11 +210,15 @@ impl MbtileCopierInt {
         let src_mbt = &self.src_mbtiles;
         let mut src_conn = src_mbt.open_readonly().await?;
         let src_info = src_mbt.get_diff_info(&mut src_conn).await?;
+        if self.options.validate {
+            src_mbt.validate(&mut src_conn, Quick, Verify).await?;
+        }
         let src_type = src_info.mbt_type;
         src_mbt.validate_file_info(&src_info, self.options.force)?;
         drop(src_conn);
 
-        let mut conn = self.dst_mbtiles.open_or_new().await?;
+        let dst_mbt = &self.dst_mbtiles;
+        let mut conn = dst_mbt.open_or_new().await?;
         if !is_empty_database(&mut conn).await? {
             return Err(MbtError::NonEmptyTargetFile(self.options.dst_file));
         }
@@ -216,7 +227,7 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let what = self.copy_text();
-        let dst_path = self.dst_mbtiles.filepath();
+        let dst_path = dst_mbt.filepath();
         let dif_path = dif_mbt.filepath();
         let dst_type = self.options.dst_type().unwrap_or(src_type);
         if is_creating_diff {
@@ -243,12 +254,12 @@ impl MbtileCopierInt {
 
         if is_creating_diff {
             if let Some(hash) = src_info.agg_tiles_hash {
-                self.dst_mbtiles
+                dst_mbt
                     .set_metadata_value(&mut conn, AGG_TILES_HASH_BEFORE_APPLY, &hash)
                     .await?;
             }
             if let Some(hash) = dif_info.agg_tiles_hash {
-                self.dst_mbtiles
+                dst_mbt
                     .set_metadata_value(&mut conn, AGG_TILES_HASH_AFTER_APPLY, &hash)
                     .await?;
             }
@@ -256,10 +267,10 @@ impl MbtileCopierInt {
 
         // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
         if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
-            self.dst_mbtiles.update_agg_tiles_hash(&mut conn).await?;
+            dst_mbt.update_agg_tiles_hash(&mut conn).await?;
 
             if !is_creating_diff {
-                let new_hash = self.dst_mbtiles.get_agg_tiles_hash(&mut conn).await?;
+                let new_hash = dst_mbt.get_agg_tiles_hash(&mut conn).await?;
                 match (dif_info.agg_tiles_hash_after_apply, new_hash) {
                     (Some(expected), Some(actual)) if expected != actual => {
                         let err = MbtError::AggHashMismatchAfterApply(
@@ -280,6 +291,10 @@ impl MbtileCopierInt {
 
         detach_db(&mut conn, "diffDb").await?;
         detach_db(&mut conn, "sourceDb").await?;
+
+        if self.options.validate {
+            dst_mbt.validate(&mut conn, Quick, Verify).await?;
+        }
 
         Ok(conn)
     }

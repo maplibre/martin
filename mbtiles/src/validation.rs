@@ -75,7 +75,7 @@ pub enum AggHashType {
 }
 
 impl Mbtiles {
-    pub async fn validate(
+    pub async fn open_and_validate(
         &self,
         check_type: IntegrityCheckType,
         agg_hash: AggHashType,
@@ -85,12 +85,24 @@ impl Mbtiles {
         } else {
             self.open_readonly().await?
         };
-        self.check_integrity(&mut conn, check_type).await?;
-        self.check_tiles_type_validity(&mut conn).await?;
-        self.check_each_tile_hash(&mut conn).await?;
+        self.validate(&mut conn, check_type, agg_hash).await
+    }
+
+    pub async fn validate<T>(
+        &self,
+        conn: &mut T,
+        check_type: IntegrityCheckType,
+        agg_hash: AggHashType,
+    ) -> MbtResult<String>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        self.check_integrity(&mut *conn, check_type).await?;
+        self.check_tiles_type_validity(&mut *conn).await?;
+        self.check_each_tile_hash(&mut *conn).await?;
         match agg_hash {
-            AggHashType::Verify => self.check_agg_tiles_hashes(&mut conn).await,
-            AggHashType::Update => self.update_agg_tiles_hash(&mut conn).await,
+            AggHashType::Verify => self.check_agg_tiles_hashes(conn).await,
+            AggHashType::Update => self.update_agg_tiles_hash(conn).await,
             AggHashType::Off => Ok(String::new()),
         }
     }

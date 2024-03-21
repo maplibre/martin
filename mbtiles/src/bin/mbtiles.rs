@@ -162,6 +162,9 @@ pub struct SharedCopyOpts {
     /// Force copy operation, ignoring some warnings that otherwise would prevent the operation. Use with caution.
     #[arg(short, long)]
     force: bool,
+    /// Perform agg_hash validation on the original and destination files.
+    #[arg(long)]
+    validate: bool,
 }
 
 impl SharedCopyOpts {
@@ -188,6 +191,7 @@ impl SharedCopyOpts {
             bbox: self.bbox,
             skip_agg_tiles_hash: self.skip_agg_tiles_hash,
             force: self.force,
+            validate: self.validate,
             // Constants
             dst_type: None, // Taken from dst_type_cli
         }
@@ -266,7 +270,7 @@ async fn main_int() -> anyhow::Result<()> {
                 }
             });
             let mbt = Mbtiles::new(file.as_path())?;
-            mbt.validate(integrity_check, agg_hash).await?;
+            mbt.open_and_validate(integrity_check, agg_hash).await?;
         }
         Commands::Summary { file } => {
             let mbt = Mbtiles::new(file.as_path())?;

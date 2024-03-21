@@ -242,7 +242,7 @@ fn databases() -> Databases {
             copy!(result.path("empty_no_hash", mbt_typ), path(&empty_mbt));
             let dmp = dump(&mut empty_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__empty");
-            let hash = empty_mbt.validate(Off, Verify).await.unwrap();
+            let hash = empty_mbt.open_and_validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
             }
@@ -265,7 +265,7 @@ fn databases() -> Databases {
             copy!(result.path("v1_no_hash", mbt_typ), path(&v1_mbt));
             let dmp = dump(&mut v1_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__v1");
-            let hash = v1_mbt.validate(Off, Verify).await.unwrap();
+            let hash = v1_mbt.open_and_validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
             }
@@ -276,7 +276,7 @@ fn databases() -> Databases {
                 new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
             let dmp = dump(&mut v2_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__v2");
-            let hash = v2_mbt.validate(Off, Verify).await.unwrap();
+            let hash = v2_mbt.open_and_validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_snapshot!(hash, @"3BCDEE3F52407FF1315629298CB99133");
             }
@@ -291,7 +291,7 @@ fn databases() -> Databases {
             };
             let dmp = dump(&mut dif_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__dif");
-            let hash = dif_mbt.validate(Off, Verify).await.unwrap();
+            let hash = dif_mbt.open_and_validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
             }
@@ -300,7 +300,7 @@ fn databases() -> Databases {
             // ----------------- v1_clone -----------------
             let (v1_clone_mbt, v1_clone_cn) = open!(databases, "{typ}__v1-clone");
             let dmp = copy_dump!(result.path("v1", mbt_typ), path(&v1_clone_mbt));
-            let hash = v1_clone_mbt.validate(Off, Verify).await.unwrap();
+            let hash = v1_clone_mbt.open_and_validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
             }
@@ -322,7 +322,7 @@ fn databases() -> Databases {
             };
             let dmp = dump(&mut dif_empty_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__dif_empty");
-            let hash = dif_empty_mbt.validate(Off, Verify).await.unwrap();
+            let hash = dif_empty_mbt.open_and_validate(Off, Verify).await.unwrap();
             allow_duplicates! {
                 assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
             }
@@ -484,7 +484,7 @@ async fn diff_and_patch(
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__1");
         copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
-        let hash = clone_mbt.validate(Off, Verify).await?;
+        let hash = clone_mbt.open_and_validate(Off, Verify).await?;
         assert_eq!(hash, databases.hash(b_db, *dst_type));
         let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
@@ -493,7 +493,7 @@ async fn diff_and_patch(
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__2");
         copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
-        let hash = clone_mbt.validate(Off, Verify).await?;
+        let hash = clone_mbt.open_and_validate(Off, Verify).await?;
         assert_eq!(hash, databases.hash(b_db, *dst_type));
         let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
