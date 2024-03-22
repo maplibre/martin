@@ -5,7 +5,7 @@ use std::path::Path;
 use enum_display::EnumDisplay;
 use log::debug;
 use serde::{Deserialize, Serialize};
-use sqlite_hashes::register_md5_function;
+use sqlite_hashes::register_md5_functions;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement};
 
@@ -225,7 +225,7 @@ pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
     // The registered functions will be dropped when SQLX drops DB connection.
     let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
-    register_md5_function(&rc)?;
+    register_md5_functions(&rc)?;
     Ok(())
 }
 
