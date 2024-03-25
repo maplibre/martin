@@ -1,6 +1,7 @@
 [Introduction](introduction.md)
 
 - [Installation](installation.md)
+- [Quick Start](quick-start.md)
 - [Running](run.md)
   - [Command Line Interface](run-with-cli.md)
     - [Environment Variables](env-vars.md)
@@ -32,3 +33,4 @@
   - [Diffing/Patching MBTiles](mbtiles-diff.md)
   - [Validating MBTiles](mbtiles-validation.md)
 - [Development](development.md)
+  - [Martin as a library](Re-use-Martin-as-a-library.md)
