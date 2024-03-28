@@ -12,6 +12,7 @@ CREATE TABLE metadata (
 values = [
     '(  "agg_tiles_hash", "B86122579EDCDD4C51F3910894FCC1A1"  )',
     '(  "agg_tiles_hash_after_apply", "3BCDEE3F52407FF1315629298CB99133"  )',
+    '(  "agg_tiles_hash_before_apply", "9ED9178D7025276336C783C2B54D6258"  )',
     '(  "md-edit", "value - v2"  )',
     '(  "md-new", "value - new"  )',
     '(  "md-remove", NULL  )',

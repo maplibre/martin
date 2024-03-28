@@ -33,6 +33,7 @@ CREATE TABLE metadata (
 values = [
     '(  "agg_tiles_hash", "D41D8CD98F00B204E9800998ECF8427E"  )',
     '(  "agg_tiles_hash_after_apply", "9ED9178D7025276336C783C2B54D6258"  )',
+    '(  "agg_tiles_hash_before_apply", "9ED9178D7025276336C783C2B54D6258"  )',
 ]
 
 [[]]
