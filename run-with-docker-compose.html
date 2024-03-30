@@ -181,11 +181,9 @@
                     <main>
                         <h2 id="running-with-docker-compose"><a class="header" href="#running-with-docker-compose">Running with Docker Compose</a></h2>
 <p>You can use example <a href="https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml"><code>docker-compose.yml</code></a> file as a reference</p>
-<pre><code class="language-yml">version: '3'
-
-services:
+<pre><code class="language-yml">services:
   martin:
-    image: ghcr.io/maplibre/martin:v0.11.2
+    image: ghcr.io/maplibre/martin:v0.13.0
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -195,7 +193,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:14-3.3-alpine
+    image: postgis/postgis:16-3.4-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
@@ -206,10 +204,10 @@ services:
       - ./pg_data:/var/lib/postgresql/data
 </code></pre>
 <p>First, you need to start <code>db</code> service</p>
-<pre><code class="language-shell">docker-compose up -d db
+<pre><code class="language-shell">docker compose up -d db
 </code></pre>
 <p>Then, after <code>db</code> service is ready to accept connections, you can start <code>martin</code></p>
-<pre><code class="language-shell">docker-compose up -d martin
+<pre><code class="language-shell">docker compose up -d martin
 </code></pre>
 <p>By default, Martin will be available at <a href="http://localhost:3000/">localhost:3000</a></p>
 
