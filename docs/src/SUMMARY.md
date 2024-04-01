@@ -2,6 +2,9 @@
 
 - [Installation](installation.md)
 - [Quick Start](quick-start.md)
+  - [With Windows](quick-start-windows.md)
+  - [With MacOs](quick-start-macos.md)
+  - [With Linux](quick-start-linux.md)
 - [Running](run.md)
   - [Command Line Interface](run-with-cli.md)
     - [Environment Variables](env-vars.md)
