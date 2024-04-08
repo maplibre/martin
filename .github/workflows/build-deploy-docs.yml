@@ -30,7 +30,7 @@ jobs:
           config-file: '.github/files/markdown.links.config.json'
 
       - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v1
+        uses: peaceiris/actions-mdbook@v2
         with:
           mdbook-version: 'latest'
 
