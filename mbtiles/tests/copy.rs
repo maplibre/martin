@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::from_utf8;
+use std::sync::Mutex;
 
 use ctor::ctor;
 use insta::{allow_duplicates, assert_snapshot};
@@ -176,7 +177,12 @@ macro_rules! assert_dump {
 struct Databases(
     HashMap<
         (&'static str, MbtTypeCli),
-        (Vec<SqliteEntry>, Mbtiles, Option<String>, SqliteConnection),
+        (
+            Vec<SqliteEntry>,
+            Mbtiles,
+            Option<String>,
+            Mutex<SqliteConnection>,
+        ),
     >,
 );
 
@@ -190,7 +196,8 @@ impl Databases {
         hash: Option<String>,
         conn: SqliteConnection,
     ) {
-        self.0.insert((name, typ), (dump, mbtiles, hash, conn));
+        self.0
+            .insert((name, typ), (dump, mbtiles, hash, Mutex::new(conn)));
     }
     fn dump(&self, name: &'static str, typ: MbtTypeCli) -> &Vec<SqliteEntry> {
         &self.0.get(&(name, typ)).unwrap().0

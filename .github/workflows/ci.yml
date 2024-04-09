@@ -264,6 +264,9 @@ jobs:
         run: rustc --version && cargo --version
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - name: Install NASM for rustls/aws-lc-rs on Windows
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
       - name: Build (.deb)
         if: matrix.target == 'debian-x86_64'
         run: |

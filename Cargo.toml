@@ -33,7 +33,7 @@ anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.5.3"
-brotli = "3"
+brotli = { version = "4", default-features = false, features = ["std"] }
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
@@ -62,8 +62,10 @@ postgres-protocol = "0.6"
 pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.18"
-rustls = "0.22"
+rstest = "0.19"
+rustls = "0.23.4"
+# ring feature does not require NASM windows executable, but works slower
+#rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.7"
 rustls-pemfile = "2"
 semver = "1"
@@ -80,7 +82,7 @@ thiserror = "1"
 tile-grid = "0.5"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
-tokio-postgres-rustls = "0.11"
+tokio-postgres-rustls = "0.12"
 url = "2.5"
 
 [profile.dev.package]
