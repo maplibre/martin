@@ -62,8 +62,8 @@ postgres-protocol = "0.6"
 pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.18"
-rustls = "0.22"
+rstest = "0.19"
+rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.7"
 rustls-pemfile = "2"
 semver = "1"
@@ -80,7 +80,7 @@ thiserror = "1"
 tile-grid = "0.5"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
-tokio-postgres-rustls = "0.11"
+tokio-postgres-rustls = "0.12"
 url = "2.5"
 
 [profile.dev.package]
