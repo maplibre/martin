@@ -264,7 +264,7 @@ macro_rules! impl_pmtiles_source {
                 if let Some(t) = self
                     .pmtiles
                     .get_tile(xyz.z, u64::from(xyz.x), u64::from(xyz.y))
-                    .await
+                    .await?
                 {
                     Ok(t.to_vec())
                 } else {
