@@ -39,7 +39,6 @@ impl PmtCache {
     }
 }
 
-#[async_trait]
 impl DirectoryCache for PmtCache {
     async fn get_dir_entry(&self, offset: usize, tile_id: u64) -> DirCacheResult {
         if let Some(dir) = get_cached_value!(&self.cache, CacheValue::PmtDirectory, {
@@ -129,7 +128,7 @@ impl ConfigExtras for PmtConfig {
         &self.unrecognized
     }
 }
-#[async_trait]
+
 impl SourceConfigExtras for PmtConfig {
     fn parse_urls() -> bool {
         true
