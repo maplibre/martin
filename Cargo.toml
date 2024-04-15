@@ -33,7 +33,7 @@ anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.5.3"
-brotli = { version = "4", default-features = false, features = ["std"] }
+brotli = "5.0.0"
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
