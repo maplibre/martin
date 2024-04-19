@@ -2357,7 +2357,7 @@ dependencies = [
  "postgres-protocol",
  "pprof",
  "regex",
- "rustls 0.23.4",
+ "rustls 0.23.5",
  "rustls-native-certs",
  "rustls-pemfile",
  "semver",
@@ -3533,9 +3533,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.4"
+version = "0.23.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c4d6d8ad9f2492485e13453acbb291dd08f64441b6609c491f1c2cd2c6b4fe1"
+checksum = "afabcee0551bd1aa3e18e5adbf2c0544722014b899adb31bd186ec638d3da97e"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -4502,7 +4502,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04fb792ccd6bbcd4bba408eb8a292f70fc4a3589e5d793626f45190e6454b6ab"
 dependencies = [
  "ring",
- "rustls 0.23.4",
+ "rustls 0.23.5",
  "tokio",
  "tokio-postgres",
  "tokio-rustls 0.26.0",
@@ -4526,7 +4526,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls 0.23.4",
+ "rustls 0.23.5",
  "rustls-pki-types",
  "tokio",
 ]
