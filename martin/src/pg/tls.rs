@@ -50,9 +50,13 @@ pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
     } else {
         Config::from_str(conn_str)
     };
-    let pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
+    let mut pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
     if let SslModeOverride::Unmodified(_) = mode {
         mode = SslModeOverride::Unmodified(pg_cfg.get_ssl_mode());
+    }
+    let crate_ver = env!("CARGO_PKG_VERSION");
+    if pg_cfg.get_application_name().is_none() {
+        pg_cfg.application_name(&format!("Martin v{crate_ver} - pid={}", std::process::id()));
     }
     Ok((pg_cfg, mode))
 }
