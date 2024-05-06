@@ -22,12 +22,4 @@ martin world_citie.mbtiles
 
 ### View The Map
 
-1. Open QGIS and add a new `Vector Tiles` with the following URL:`http://127.0.0.1:3000/world_cities`.
-![alt text](Images/quick_macos/add_vectory_layer1.png)
-![alt text](Images/quick_macos/add_vector_layer2.png)
-
-2. In the browser of QGIS, right click on the new added martin layer and click on `Add Layer to Project`, the map would be shown on the QGIS.
-
-![alt text](Images/quick_macos/add_layer_to_view.png)
-
-![alt text](Images/quick_macos/show_map.png)
+See [View The Map](quick-start-view-map.md) for instructions on how to view the map with QGIS.

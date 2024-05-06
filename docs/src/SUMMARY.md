@@ -5,6 +5,7 @@
   - [With Windows](quick-start-with-windows.md)
   - [With MacOs](quick-start-with-macos.md)
   - [With Linux](quick-start-with-linux.md)
+  - [View Map](quick-start-view-map.md)
 - [Running](run.md)
   - [Command Line Interface](run-with-cli.md)
     - [Environment Variables](env-vars.md)
