@@ -55,7 +55,7 @@ jobs:
           override: true
 
       - name: Cleanup GCDA files
-        run:  rm -rf martin/target/debug/deps/*.gcda
+        run: rm -rf martin/target/debug/deps/*.gcda
 
       - name: Run tests
         run: cargo test
@@ -70,7 +70,7 @@ jobs:
         uses: actions-rs/grcov@v0.1
 
       - name: Codecov upload
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           file: ${{ steps.coverage.outputs.report }}
         env:

@@ -10,8 +10,10 @@ use log::trace;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::Deserialize;
 
+use crate::args::PreferredEncoding;
 use crate::source::{Source, TileSources, UrlQuery};
 use crate::srv::server::map_internal_error;
+use crate::srv::SrvConfig;
 use crate::utils::cache::get_or_insert_cached_value;
 use crate::utils::{
     decode_brotli, decode_gzip, encode_brotli, encode_gzip, CacheKey, CacheValue, MainCache,
@@ -19,9 +21,15 @@ use crate::utils::{
 };
 use crate::{Tile, TileCoord, TileData};
 
-static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
+static PREFER_BROTLI_ENC: &[HeaderEnc] = &[
     HeaderEnc::brotli(),
     HeaderEnc::gzip(),
+    HeaderEnc::identity(),
+];
+
+static PREFER_GZIP_ENC: &[HeaderEnc] = &[
+    HeaderEnc::gzip(),
+    HeaderEnc::brotli(),
     HeaderEnc::identity(),
 ];
 
@@ -36,6 +44,7 @@ pub struct TileRequest {
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 async fn get_tile(
     req: HttpRequest,
+    srv_config: Data<SrvConfig>,
     path: Path<TileRequest>,
     sources: Data<TileSources>,
     cache: Data<OptMainCache>,
@@ -46,6 +55,7 @@ async fn get_tile(
         Some(path.z),
         req.query_string(),
         req.get_header::<AcceptEncoding>(),
+        srv_config.preferred_encoding,
         cache.as_ref().as_ref(),
     )?;
 
@@ -62,7 +72,8 @@ pub struct DynTileSource<'a> {
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,
-    pub encodings: Option<AcceptEncoding>,
+    pub accept_enc: Option<AcceptEncoding>,
+    pub preferred_enc: Option<PreferredEncoding>,
     pub cache: Option<&'a MainCache>,
 }
 
@@ -72,7 +83,8 @@ impl<'a> DynTileSource<'a> {
         source_ids: &str,
         zoom: Option<u8>,
         query: &'a str,
-        encodings: Option<AcceptEncoding>,
+        accept_enc: Option<AcceptEncoding>,
+        preferred_enc: Option<PreferredEncoding>,
         cache: Option<&'a MainCache>,
     ) -> ActixResult<Self> {
         let (sources, use_url_query, info) = sources.get_sources(source_ids, zoom)?;
@@ -93,7 +105,8 @@ impl<'a> DynTileSource<'a> {
             info,
             query_str,
             query_obj,
-            encodings,
+            accept_enc,
+            preferred_enc,
             cache,
         })
     }
@@ -169,7 +182,7 @@ impl<'a> DynTileSource<'a> {
 
     fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
         let mut tile = Tile::new(tile, self.info);
-        if let Some(accept_enc) = &self.encodings {
+        if let Some(accept_enc) = &self.accept_enc {
             if self.info.encoding.is_encoded() {
                 // already compressed, see if we can send it as is, or need to re-compress
                 if !accept_enc.iter().any(|e| {
@@ -183,10 +196,15 @@ impl<'a> DynTileSource<'a> {
                     tile = decode(tile)?;
                 }
             }
+
             if tile.info.encoding == Encoding::Uncompressed {
+                let ordered_encodings = match self.preferred_enc {
+                    Some(PreferredEncoding::Gzip) => PREFER_GZIP_ENC,
+                    Some(PreferredEncoding::Brotli) | None => PREFER_BROTLI_ENC,
+                };
+
                 // only apply compression if the content supports it
-                if let Some(HeaderEnc::Known(enc)) =
-                    accept_enc.negotiate(SUPPORTED_ENCODINGS.iter())
+                if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(ordered_encodings.iter())
                 {
                     // (re-)compress the tile into the preferred encoding
                     tile = encode(tile, enc)?;
@@ -252,6 +270,53 @@ mod tests {
     use crate::srv::server::tests::TestSource;
 
     #[actix_rt::test]
+    async fn test_encoding_preference() {
+        let source = TestSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+        };
+        let sources = TileSources::new(vec![vec![Box::new(source)]]);
+
+        for (accept_encodings, prefered_encoding, result_encoding) in [
+            (
+                Some(AcceptEncoding(vec![
+                    "gzip;q=1".parse().unwrap(),
+                    "br;q=1".parse().unwrap(),
+                ])),
+                Some(PreferredEncoding::Brotli),
+                Encoding::Brotli,
+            ),
+            (
+                Some(AcceptEncoding(vec![
+                    "gzip;q=1".parse().unwrap(),
+                    "br;q=0.5".parse().unwrap(),
+                ])),
+                Some(PreferredEncoding::Brotli),
+                Encoding::Gzip,
+            ),
+        ] {
+            let src = DynTileSource::new(
+                &sources,
+                "test_source",
+                None,
+                "",
+                accept_encodings,
+                prefered_encoding,
+                None,
+            )
+            .unwrap();
+            let xyz = TileCoord { z: 0, x: 0, y: 0 };
+            let data = &src.get_tile_content(xyz).await.unwrap().data;
+            let decoded = match result_encoding {
+                Encoding::Gzip => decode_gzip(data),
+                Encoding::Brotli => decode_brotli(data),
+                _ => panic!("Unexpected encoding"),
+            };
+            assert_eq!(vec![1_u8, 2, 3], decoded.unwrap());
+        }
+    }
+    #[actix_rt::test]
     async fn test_tile_content() {
         let non_empty_source = TestSource {
             id: "non-empty",
@@ -278,7 +343,7 @@ mod tests {
             ("empty,non-empty", vec![1_u8, 2, 3]),
             ("empty,non-empty,empty", vec![1_u8, 2, 3]),
         ] {
-            let src = DynTileSource::new(&sources, source_id, None, "", None, None).unwrap();
+            let src = DynTileSource::new(&sources, source_id, None, "", None, None, None).unwrap();
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }

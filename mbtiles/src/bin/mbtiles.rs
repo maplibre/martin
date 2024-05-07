@@ -52,6 +52,9 @@ enum Commands {
         /// Value to set, or nothing if the key should be deleted.
         value: Option<String>,
     },
+    /// Compare two files A and B, and generate a new diff file. If the diff file is applied to A, it will produce B.
+    #[command(name = "diff")]
+    Diff(DiffArgs),
     /// Copy tiles from one mbtiles file to another.
     #[command(name = "copy", alias = "cp")]
     Copy(CopyArgs),
@@ -59,9 +62,9 @@ enum Commands {
     #[command(name = "apply-patch", alias = "apply-diff")]
     ApplyPatch {
         /// MBTiles file to apply diff to
-        src_file: PathBuf,
+        base_file: PathBuf,
         /// Diff file
-        diff_file: PathBuf,
+        patch_file: PathBuf,
     },
     /// Update metadata to match the content of the file
     #[command(name = "meta-update", alias = "update-meta")]
@@ -95,6 +98,35 @@ pub struct CopyArgs {
     src_file: PathBuf,
     /// MBTiles file to write to
     dst_file: PathBuf,
+    #[command(flatten)]
+    pub options: SharedCopyOpts,
+    /// Compare source file with this file, and only copy non-identical tiles to destination.
+    /// Use `mbtiles diff` as a more convenient way to generate this file.
+    /// Use `mbtiles apply-patch` or `mbtiles copy --apply-patch` to apply the diff file.
+    #[arg(long, conflicts_with("apply_patch"))]
+    diff_with_file: Option<PathBuf>,
+    /// Apply a patch file while copying src to dst.
+    /// Use `mbtiles diff` or `mbtiles copy --diff-with-file` to generate the patch file.
+    /// Use `mbtiles apply-patch` to apply the patch file in-place, without making a copy of the original.
+    #[arg(long, conflicts_with("diff_with_file"))]
+    apply_patch: Option<PathBuf>,
+}
+
+#[derive(Clone, Default, PartialEq, Debug, clap::Args)]
+pub struct DiffArgs {
+    /// First MBTiles file to compare
+    file1: PathBuf,
+    /// Second MBTiles file to compare
+    file2: PathBuf,
+    /// Output file to write the resulting difference to
+    diff: PathBuf,
+
+    #[command(flatten)]
+    pub options: SharedCopyOpts,
+}
+
+#[derive(Clone, Default, PartialEq, Debug, clap::Args)]
+pub struct SharedCopyOpts {
     /// Limit what gets copied.
     /// When copying tiles only, the agg_tiles_hash will still be updated unless --skip-agg-tiles-hash is set.
     #[arg(long, value_name = "TYPE", default_value_t=CopyType::default())]
@@ -117,17 +149,38 @@ pub struct CopyArgs {
     /// Bounding box to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be used multiple times.
     #[arg(long)]
     bbox: Vec<Bounds>,
-    /// Compare source file with this file, and only copy non-identical tiles to destination.
-    /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
-    #[arg(long, conflicts_with("apply_patch"))]
-    diff_with_file: Option<PathBuf>,
-    /// Compare source file with this file, and only copy non-identical tiles to destination.
-    /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
-    #[arg(long, conflicts_with("diff_with_file"))]
-    apply_patch: Option<PathBuf>,
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     #[arg(long)]
     skip_agg_tiles_hash: bool,
+}
+
+impl SharedCopyOpts {
+    #[must_use]
+    pub fn into_copier(
+        self,
+        src_file: PathBuf,
+        dst_file: PathBuf,
+        diff_with_file: Option<PathBuf>,
+        apply_patch: Option<PathBuf>,
+    ) -> MbtilesCopier {
+        MbtilesCopier {
+            src_file,
+            dst_file,
+            diff_with_file,
+            apply_patch,
+            // Shared
+            copy: self.copy,
+            dst_type_cli: self.mbtiles_type,
+            on_duplicate: self.on_duplicate,
+            min_zoom: self.min_zoom,
+            max_zoom: self.max_zoom,
+            zoom_levels: self.zoom_levels,
+            bbox: self.bbox,
+            skip_agg_tiles_hash: self.skip_agg_tiles_hash,
+            // Constants
+            dst_type: None, // Taken from dst_type_cli
+        }
+    }
 }
 
 #[tokio::main]
@@ -158,29 +211,26 @@ async fn main_int() -> anyhow::Result<()> {
         Commands::MetaSetValue { file, key, value } => {
             meta_set_value(file.as_path(), &key, value.as_deref()).await?;
         }
-        Commands::Copy(opts) => {
-            let opts = MbtilesCopier {
-                src_file: opts.src_file,
-                dst_file: opts.dst_file,
-                copy: opts.copy,
-                dst_type_cli: opts.mbtiles_type,
-                dst_type: None,
-                on_duplicate: opts.on_duplicate,
-                min_zoom: opts.min_zoom,
-                max_zoom: opts.max_zoom,
-                zoom_levels: opts.zoom_levels,
-                bbox: opts.bbox,
-                diff_with_file: opts.diff_with_file,
-                apply_patch: opts.apply_patch,
-                skip_agg_tiles_hash: opts.skip_agg_tiles_hash,
-            };
-            opts.run().await?;
+        Commands::Copy(args) => {
+            let copier = args.options.into_copier(
+                args.src_file,
+                args.dst_file,
+                args.diff_with_file,
+                args.apply_patch,
+            );
+            copier.run().await?;
+        }
+        Commands::Diff(args) => {
+            let copier = args
+                .options
+                .into_copier(args.file1, args.diff, Some(args.file2), None);
+            copier.run().await?;
         }
         Commands::ApplyPatch {
-            src_file,
-            diff_file,
+            base_file,
+            patch_file,
         } => {
-            apply_patch(src_file, diff_file).await?;
+            apply_patch(base_file, patch_file).await?;
         }
         Commands::UpdateMetadata { file, update_zoom } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -253,7 +303,7 @@ mod tests {
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
-    use crate::Commands::{ApplyPatch, Copy, MetaGetValue, MetaSetValue, Validate};
+    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Validate};
     use crate::{Args, IntegrityCheckType};
 
     #[test]
@@ -300,8 +350,11 @@ mod tests {
                 command: Copy(CopyArgs {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
-                    min_zoom: Some(1),
-                    max_zoom: Some(100),
+                    options: SharedCopyOpts {
+                        min_zoom: Some(1),
+                        max_zoom: Some(100),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
             }
@@ -362,7 +415,10 @@ mod tests {
                 command: Copy(CopyArgs {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
-                    zoom_levels: vec![3, 7, 1],
+                    options: SharedCopyOpts {
+                        zoom_levels: vec![3, 7, 1],
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
             }
@@ -408,7 +464,10 @@ mod tests {
                 command: Copy(CopyArgs {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
-                    on_duplicate: Some(CopyDuplicateMode::Override),
+                    options: SharedCopyOpts {
+                        on_duplicate: Some(CopyDuplicateMode::Override),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
             }
@@ -424,8 +483,38 @@ mod tests {
                 command: Copy(CopyArgs {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
-                    copy: CopyType::Metadata,
+                    options: SharedCopyOpts {
+                        copy: CopyType::Metadata,
+                        ..Default::default()
+                    },
                     ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_diff() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "diff",
+                "file1.mbtiles",
+                "file2.mbtiles",
+                "../delta.mbtiles",
+                "--on-duplicate",
+                "override"
+            ]),
+            Args {
+                verbose: false,
+                command: Diff(DiffArgs {
+                    file1: PathBuf::from("file1.mbtiles"),
+                    file2: PathBuf::from("file2.mbtiles"),
+                    diff: PathBuf::from("../delta.mbtiles"),
+                    options: SharedCopyOpts {
+                        on_duplicate: Some(CopyDuplicateMode::Override),
+                        ..Default::default()
+                    },
                 })
             }
         );
@@ -502,8 +591,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: ApplyPatch {
-                    src_file: PathBuf::from("src_file"),
-                    diff_file: PathBuf::from("diff_file"),
+                    base_file: PathBuf::from("src_file"),
+                    patch_file: PathBuf::from("diff_file"),
                 }
             }
         );

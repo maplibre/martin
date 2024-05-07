@@ -1,0 +1,35 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "D41D8CD98F00B204E9800998ECF8427E"  )',
+    '(  "agg_tiles_hash_after_apply", "9ED9178D7025276336C783C2B54D6258"  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles'
+sql = '''
+CREATE TABLE tiles (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = []
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles'

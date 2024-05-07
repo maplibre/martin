@@ -33,7 +33,7 @@ anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.5.3"
-brotli = "3"
+brotli = "5.0.0"
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
@@ -47,22 +47,25 @@ indoc = "2"
 insta = "1"
 itertools = "0.12"
 json-patch = "1.2"
+lambda-web = { version = "0.2.1", features = ["actix4"] }
+libsqlite3-sys = { version = ">=0.27", features = ["bundled"] }
 log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.4.0" }
 mbtiles = { path = "./mbtiles", version = "0.9.0" }
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
-pbf_font_tools = { version = "2.5.0", features = ["freetype"] }
-pmtiles = { version = "0.5", features = ["http-async", "mmap-async-tokio", "tilejson"] }
+pbf_font_tools = { version = "2.5.1", features = ["freetype"] }
+pmtiles = { version = "0.9", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
 pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"] }
-rstest = "0.18"
-rustls = "0.22"
+rstest = "0.19"
+rustls = "0.23.5"
+# ring feature does not require NASM windows executable, but works slower
+#rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.7"
 rustls-pemfile = "2"
 semver = "1"
@@ -72,14 +75,14 @@ serde_with = "3"
 serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
-sqlite-hashes = { version = "0.6", default-features = false, features = ["md5", "window", "hex"] }  # window forces libsqlite3-sys to bundle sqlite3. We require v3.44.0 or newer.
+sqlite-hashes = { version = "0.7.1", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"
 tile-grid = "0.5"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
-tokio-postgres-rustls = "0.11"
+tokio-postgres-rustls = "0.12"
 url = "2.5"
 
 [profile.dev.package]

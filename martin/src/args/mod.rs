@@ -13,4 +13,4 @@ mod root;
 pub use root::{Args, ExtraArgs, MetaArgs};
 
 mod srv;
-pub use srv::SrvArgs;
+pub use srv::{PreferredEncoding, SrvArgs};

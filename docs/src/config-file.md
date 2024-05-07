@@ -21,11 +21,18 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
+
+# Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`
+base_path: /tiles
+
 # Number of web server workers
 worker_processes: 8
 
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
+
+# If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli.
+preferred_encoding: gzip
 
 # Database configuration. This can also be a list of PG configs.
 postgres:

@@ -80,7 +80,7 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     let mut count = 0;
 
     for cp in 0..=MAX_UNICODE_CP {
-        if face.get_char_index(cp) != 0 {
+        if face.get_char_index(cp).is_ok() {
             codepoints.insert(cp);
             count += 1;
             if first.is_none() {

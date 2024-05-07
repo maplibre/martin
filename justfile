@@ -15,6 +15,8 @@ export CARGO_TERM_COLOR := "always"
 #export RUST_LOG := "sqlx::query=info,trace"
 #export RUST_BACKTRACE := "1"
 
+dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
+
 @_default:
     {{ just_executable() }} --list --unsorted
 
@@ -71,12 +73,12 @@ start-legacy: (docker-up "db-legacy") docker-is-ready
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name: start-pmtiles-server
-    docker-compose up -d {{ name }}
+    {{ dockercompose }} up -d {{ name }}
 
 # Wait for the test database to be ready
 [private]
 docker-is-ready:
-    docker-compose run -T --rm db-is-ready
+    {{ dockercompose }} run -T --rm db-is-ready
 
 alias _down := stop
 alias _stop-db := stop
@@ -89,11 +91,11 @@ restart:
 
 # Stop the test database
 stop:
-    docker-compose down --remove-orphans
+    {{ dockercompose }} down --remove-orphans
 
 # Start test server for testing HTTP pmtiles
 start-pmtiles-server:
-    docker-compose up -d fileserver
+    {{ dockercompose }} up -d fileserver
 
 # Run benchmark tests
 bench:
@@ -175,7 +177,11 @@ test-int: clean-test install-sqlx
         fi
     fi
 
-# Run integration tests and save its output as the new expected output
+# Run AWS Lambda smoke test against SAM local
+test-lambda:
+    tests/test-aws-lambda.sh
+
+# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
 
 # Bless integration tests
@@ -307,7 +313,7 @@ check-doc:
 
 # Run cargo clippy
 clippy:
-    cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
+    cargo clippy --workspace --all-targets --bins --tests --lib --benches --examples -- -D warnings
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -338,7 +344,14 @@ install-sqlx: (cargo-install "cargo-sqlx" "sqlx-cli" "--no-default-features" "--
 # Check if a certain Cargo command is installed, and install it if needed
 [private]
 cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
-    @if ! command -v $COMMAND &> /dev/null; then \
-        echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}" ;\
-        cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }} ;\
+    #!/usr/bin/env sh
+    set -eu
+    if ! command -v $COMMAND > /dev/null; then
+        if ! command -v cargo-binstall > /dev/null; then
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
+        else
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
+        fi
     fi

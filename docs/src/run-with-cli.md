@@ -27,10 +27,17 @@ Options:
 
   -l, --listen-addresses <LISTEN_ADDRESSES>
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
-
+      --base-path <BASE_PATH>
+          Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`. Examples: `/`, `/tiles`
+          
   -W, --workers <WORKERS>
           Number of web server workers
 
+      --preferred-encoding <PREFERRED_ENCODING>
+          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli
+          
+          [possible values: brotli, gzip]
+          
   -b, --auto-bounds <AUTO_BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 

@@ -16,7 +16,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: 'Validate .md files (use "just fmt-md" to fix)'
-        uses: DavidAnson/markdownlint-cli2-action@v15
+        uses: DavidAnson/markdownlint-cli2-action@v16
         with:
           config: '.github/files/config.markdownlint-cli2.jsonc'
 
@@ -30,14 +30,14 @@ jobs:
           config-file: '.github/files/markdown.links.config.json'
 
       - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v1
+        uses: peaceiris/actions-mdbook@v2
         with:
           mdbook-version: 'latest'
 
       - run: mdbook build docs
 
       - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         if: github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

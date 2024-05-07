@@ -253,9 +253,9 @@ impl Display for Progress {
 
         let left = self.total - done;
         if left == 0 {
-            write!(f, " | done")
+            f.write_str(" | done")
         } else if done == 0 {
-            write!(f, " | ??? left")
+            f.write_str(" | ??? left")
         } else {
             let left = Duration::from_secs_f32(elapsed_s * left as f32 / done as f32);
             write!(f, " | {left:.0?} left")
@@ -282,6 +282,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
+        None,
         None,
     )?;
     // parallel async below uses move, so we must only use copyable types
@@ -430,19 +431,15 @@ async fn main() {
     let env = env_logger::Env::default().default_filter_or("martin_cp=info");
     env_logger::Builder::from_env(env).init();
 
-    start(CopierArgs::parse())
-        .await
-        .unwrap_or_else(|e| on_error(e));
-}
-
-fn on_error<E: Display>(e: E) -> ! {
-    // Ensure the message is printed, even if the logging is disabled
-    if log_enabled!(log::Level::Error) {
-        error!("{e}");
-    } else {
-        eprintln!("{e}");
+    if let Err(e) = start(CopierArgs::parse()).await {
+        // Ensure the message is printed, even if the logging is disabled
+        if log_enabled!(log::Level::Error) {
+            error!("{e}");
+        } else {
+            eprintln!("{e}");
+        }
+        std::process::exit(1);
     }
-    std::process::exit(1);
 }
 
 #[cfg(test)]

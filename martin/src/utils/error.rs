@@ -3,15 +3,6 @@ use std::fmt::Write as _;
 use std::io;
 use std::path::PathBuf;
 
-#[cfg(feature = "mbtiles")]
-use mbtiles::MbtError;
-
-use crate::file_config::FileError;
-#[cfg(feature = "fonts")]
-use crate::fonts::FontError;
-#[cfg(feature = "sprites")]
-use crate::sprites::SpriteError;
-
 /// A convenience [`Result`] for Martin crate.
 pub type MartinResult<T> = Result<T, MartinError>;
 
@@ -43,6 +34,9 @@ pub enum MartinError {
     #[error("Unable to bind to {1}: {0}")]
     BindingError(io::Error, String),
 
+    #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
+    BasePathError(String),
+
     #[error("Unable to load config file {}: {0}", .1.display())]
     ConfigLoadError(io::Error, PathBuf),
 
@@ -62,24 +56,31 @@ pub enum MartinError {
     #[error(transparent)]
     PostgresError(#[from] crate::pg::PgError),
 
+    #[cfg(feature = "pmtiles")]
+    #[error(transparent)]
+    PmtilesError(#[from] pmtiles::PmtError),
+
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] MbtError),
+    MbtilesError(#[from] mbtiles::MbtError),
 
     #[error(transparent)]
-    FileError(#[from] FileError),
+    FileError(#[from] crate::file_config::FileError),
 
     #[cfg(feature = "sprites")]
     #[error(transparent)]
-    SpriteError(#[from] SpriteError),
+    SpriteError(#[from] crate::sprites::SpriteError),
 
     #[cfg(feature = "fonts")]
     #[error(transparent)]
-    FontError(#[from] FontError),
+    FontError(#[from] crate::fonts::FontError),
 
     #[error(transparent)]
     WebError(#[from] actix_web::Error),
 
+    #[error(transparent)]
+    IoError(#[from] io::Error),
+
     #[error("Internal error: {0}")]
-    InternalError(Box<dyn Error>),
+    InternalError(#[from] Box<dyn Error + Send + Sync>),
 }
