@@ -1,4 +1,4 @@
-# Re-use Martin as a library
+# Martin as a library
 
 Martin can be used as a standalone server, or as a library in your own Rust application. When used as a library, you can use the following features:
 
