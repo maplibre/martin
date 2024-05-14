@@ -84,11 +84,13 @@ async fn get_health() -> impl Responder {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_catalog(catalog: Data<Arc<RwLock<Catalog>>>) -> impl Responder {
+async fn get_catalog(catalog: Data<RwLock<Catalog>>) -> impl Responder {
     let catalog = catalog
-        .read()
-        .expect("Failed to acquire read lock on catalog");
-    HttpResponse::Ok().json(&*catalog)
+        .read();
+    match catalog{
+        Ok(c) => HttpResponse::Ok().json(&*c),
+        Err(_) => HttpResponse::InternalServerError().body("Couldn't get read lock of catalog")
+    }
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
@@ -110,9 +112,7 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
-    let catalog = Arc::new(RwLock::new(Catalog::new(&state)?));
-
-
+    let catalog = Catalog::new(&state)?;
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
@@ -126,17 +126,17 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .allowed_methods(vec!["GET"]);
 
         let app = App::new()
-            .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.cache.clone()));
+            .app_data(Data::new(RwLock::new(state.tiles.clone())))
+            .app_data(Data::new(RwLock::new(state.cache.clone())));
 
         #[cfg(feature = "sprites")]
-        let app = app.app_data(Data::new(state.sprites.clone()));
+        let app = app.app_data(Data::new(RwLock::new(state.sprites.clone())));
 
         #[cfg(feature = "fonts")]
-        let app = app.app_data(Data::new(state.fonts.clone()));
+        let app = app.app_data(Data::new(RwLock::new(state.fonts.clone())));
 
-        app.app_data(Data::new(catalog.clone()))
-            .app_data(Data::new(config.clone()))
+        app.app_data(Data::new(RwLock::new(catalog.clone())))
+            .app_data(Data::new(RwLock::new(config.clone())))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
