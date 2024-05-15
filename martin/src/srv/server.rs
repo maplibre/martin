@@ -14,7 +14,7 @@ use futures::TryFutureExt;
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 use crate::config::ServerState;
 use crate::source::TileCatalog;
@@ -85,11 +85,10 @@ async fn get_health() -> impl Responder {
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<RwLock<Catalog>>) -> impl Responder {
-    let catalog = catalog
-        .read();
-    match catalog{
+    let catalog = catalog.read();
+    match catalog {
         Ok(c) => HttpResponse::Ok().json(&*c),
-        Err(_) => HttpResponse::InternalServerError().body("Couldn't get read lock of catalog")
+        Err(_) => HttpResponse::InternalServerError().body("Couldn't get read lock of catalog"),
     }
 }
 

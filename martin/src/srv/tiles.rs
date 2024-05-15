@@ -51,13 +51,11 @@ async fn get_tile(
     sources: Data<RwLock<TileSources>>,
     cache: Data<RwLock<OptMainCache>>,
 ) -> ActixResult<HttpResponse> {
-
     let sources_rw = sources.read();
     let srv_config_rw = srv_config.read();
     let cache_rw = cache.read();
 
-    if let (
-            Ok(sources),Ok(srv_config),Ok(cache)) = (sources_rw, srv_config_rw, cache_rw) {
+    if let (Ok(sources), Ok(srv_config), Ok(cache)) = (sources_rw, srv_config_rw, cache_rw) {
         let src = DynTileSource::new(
             &sources,
             &path.source_ids,
@@ -75,8 +73,9 @@ async fn get_tile(
         })
         .await
     } else {
-        return Ok(HttpResponse::InternalServerError().body("Couldn't get read lock of sources or srv_config or cache"));
-    } 
+        return Ok(HttpResponse::InternalServerError()
+            .body("Couldn't get read lock of sources or srv_config or cache"));
+    }
 }
 
 pub struct DynTileSource<'a> {

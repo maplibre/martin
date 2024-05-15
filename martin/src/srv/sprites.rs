@@ -16,7 +16,7 @@ async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
-    let sprites = sprites.read().map_err(map_internal_error)?; 
+    let sprites = sprites.read().map_err(map_internal_error)?;
     let sheet = get_sprite(&path, &sprites).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
