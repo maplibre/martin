@@ -55,15 +55,15 @@ async fn get_tile(
     let srv_config_rw = srv_config.read();
     let cache_rw = cache.read();
 
-    if let (Ok(sources), Ok(srv_config), Ok(cache)) = (sources_rw, srv_config_rw, cache_rw) {
+    if let (Ok(sources_guard), Ok(srv_config_guard), Ok(cache_guard)) = (sources_rw, srv_config_rw, cache_rw) {
         let src = DynTileSource::new(
-            &sources,
+            &sources_guard,
             &path.source_ids,
             Some(path.z),
             req.query_string(),
             req.get_header::<AcceptEncoding>(),
-            srv_config.preferred_encoding,
-            cache.as_ref(),
+            srv_config_guard.preferred_encoding,
+            cache_guard.as_ref(),
         )?;
 
         src.get_http_response(TileCoord {
@@ -73,8 +73,8 @@ async fn get_tile(
         })
         .await
     } else {
-        return Ok(HttpResponse::InternalServerError()
-            .body("Couldn't get read lock of sources or srv_config or cache"));
+        Ok(HttpResponse::InternalServerError()
+            .body("Couldn't get read lock of sources or srv_config or cache"))
     }
 }
 
