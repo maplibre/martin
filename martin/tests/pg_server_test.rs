@@ -9,7 +9,7 @@ use insta::assert_yaml_snapshot;
 use martin::srv::SrvConfig;
 use martin::OptOneMany;
 use tilejson::TileJSON;
-
+use std::sync::RwLock;
 pub mod utils;
 pub use utils::*;
 
@@ -24,12 +24,14 @@ macro_rules! create_app {
         let state = mock_sources(cfg).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
-                .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
-                ))
-                .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
-                .app_data(actix_web::web::Data::new(state.tiles))
-                .app_data(actix_web::web::Data::new(SrvConfig::default()))
+            .app_data(actix_web::web::Data::new(
+              RwLock::new(
+              ::martin::srv::Catalog::new(&state).unwrap(),
+              )
+          ))
+          .app_data(actix_web::web::Data::new(RwLock::new(::martin::NO_MAIN_CACHE)))
+          .app_data(actix_web::web::Data::new(RwLock::new(state.tiles)))
+          .app_data(actix_web::web::Data::new(RwLock::new(SrvConfig::default())))
                 .configure(::martin::srv::router),
         )
         .await
@@ -1093,11 +1095,11 @@ tables:
     let app = ::actix_web::test::init_service(
         ::actix_web::App::new()
             .app_data(actix_web::web::Data::new(
-                ::martin::srv::Catalog::new(&state).unwrap(),
+                RwLock::new(::martin::srv::Catalog::new(&state).unwrap())
             ))
-            .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
-            .app_data(actix_web::web::Data::new(state.tiles))
-            .app_data(actix_web::web::Data::new(SrvConfig::default()))
+            .app_data(actix_web::web::Data::new(RwLock::new(::martin::NO_MAIN_CACHE)))
+            .app_data(actix_web::web::Data::new(RwLock::new(state.tiles)))
+            .app_data(actix_web::web::Data::new(RwLock::new(SrvConfig::default())))
             .configure(::martin::srv::router),
     )
     .await;
