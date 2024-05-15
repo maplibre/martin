@@ -6,7 +6,6 @@ use insta::assert_yaml_snapshot;
 use martin::decode_gzip;
 use martin::srv::SrvConfig;
 use tilejson::TileJSON;
-use tokio::sync::RwLock;
 pub mod utils;
 pub use utils::*;
 

@@ -7,7 +7,6 @@ use martin::decode_gzip;
 use martin::srv::SrvConfig;
 use tilejson::TileJSON;
 
-use tokio::sync::RwLock;
 pub mod utils;
 pub use utils::*;
 
