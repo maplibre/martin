@@ -55,7 +55,9 @@ async fn get_tile(
     let srv_config_rw = srv_config.read();
     let cache_rw = cache.read();
 
-    if let (Ok(sources_guard), Ok(srv_config_guard), Ok(cache_guard)) = (sources_rw, srv_config_rw, cache_rw) {
+    if let (Ok(sources_guard), Ok(srv_config_guard), Ok(cache_guard)) =
+        (sources_rw, srv_config_rw, cache_rw)
+    {
         let src = DynTileSource::new(
             &sources_guard,
             &path.source_ids,

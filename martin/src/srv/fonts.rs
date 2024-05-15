@@ -26,7 +26,7 @@ async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<RwLock<FontSources>>,
 ) -> ActixResult<HttpResponse> {
-    let fonts = fonts.read().map_err( map_internal_error)?;
+    let fonts = fonts.read().map_err(map_internal_error)?;
     let data = fonts
         .get_font_range(&path.fontstack, path.start, path.end)
         .map_err(map_font_error)?;
