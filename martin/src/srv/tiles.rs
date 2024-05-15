@@ -1,5 +1,3 @@
-use std::sync::RwLock;
-
 use actix_http::ContentEncoding;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::http::header::{
@@ -11,6 +9,7 @@ use futures::future::try_join_all;
 use log::trace;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
 use crate::args::PreferredEncoding;
 use crate::source::{Source, TileSources, UrlQuery};
@@ -51,33 +50,26 @@ async fn get_tile(
     sources: Data<RwLock<TileSources>>,
     cache: Data<RwLock<OptMainCache>>,
 ) -> ActixResult<HttpResponse> {
-    let sources_rw = sources.read();
-    let srv_config_rw = srv_config.read();
-    let cache_rw = cache.read();
+    let sources_guard = sources.read().await;
+    let srv_config_guard = srv_config.read().await;
+    let cache_guard = cache.read().await;
 
-    if let (Ok(sources_guard), Ok(srv_config_guard), Ok(cache_guard)) =
-        (sources_rw, srv_config_rw, cache_rw)
-    {
-        let src = DynTileSource::new(
-            &sources_guard,
-            &path.source_ids,
-            Some(path.z),
-            req.query_string(),
-            req.get_header::<AcceptEncoding>(),
-            srv_config_guard.preferred_encoding,
-            cache_guard.as_ref(),
-        )?;
+    let src = DynTileSource::new(
+        &sources_guard,
+        &path.source_ids,
+        Some(path.z),
+        req.query_string(),
+        req.get_header::<AcceptEncoding>(),
+        srv_config_guard.preferred_encoding,
+        cache_guard.as_ref(),
+    )?;
 
-        src.get_http_response(TileCoord {
-            z: path.z,
-            x: path.x,
-            y: path.y,
-        })
-        .await
-    } else {
-        Ok(HttpResponse::InternalServerError()
-            .body("Couldn't get read lock of sources or srv_config or cache"))
-    }
+    src.get_http_response(TileCoord {
+        z: path.z,
+        x: path.x,
+        y: path.y,
+    })
+    .await
 }
 
 pub struct DynTileSource<'a> {

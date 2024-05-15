@@ -3,6 +3,13 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
+use crate::config::ServerState;
+use crate::source::TileCatalog;
+use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::srv::tiles::get_tile;
+use crate::srv::tiles_info::get_source_info;
+use crate::MartinError::BindingError;
+use crate::MartinResult;
 use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
@@ -14,15 +21,7 @@ use futures::TryFutureExt;
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
-use std::sync::RwLock;
-
-use crate::config::ServerState;
-use crate::source::TileCatalog;
-use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
-use crate::srv::tiles::get_tile;
-use crate::srv::tiles_info::get_source_info;
-use crate::MartinError::BindingError;
-use crate::MartinResult;
+use tokio::sync::RwLock;
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -85,11 +84,8 @@ async fn get_health() -> impl Responder {
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<RwLock<Catalog>>) -> impl Responder {
-    let catalog = catalog.read();
-    match catalog {
-        Ok(c) => HttpResponse::Ok().json(&*c),
-        Err(_) => HttpResponse::InternalServerError().body("Couldn't get read lock of catalog"),
-    }
+    let catalog_guard = catalog.read().await;
+    HttpResponse::Ok().json(&*catalog_guard)
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {

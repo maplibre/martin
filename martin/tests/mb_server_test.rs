@@ -5,8 +5,8 @@ use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::decode_gzip;
 use martin::srv::SrvConfig;
-use std::sync::RwLock;
 use tilejson::TileJSON;
+use tokio::sync::RwLock;
 pub mod utils;
 pub use utils::*;
 
@@ -20,14 +20,18 @@ macro_rules! create_app {
         let state = mock_sources(mock_cfg($sources)).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
-                .app_data(actix_web::web::Data::new(RwLock::new(
+                .app_data(actix_web::web::Data::new(::tokio::sync::RwLock::new(
                     ::martin::srv::Catalog::new(&state).unwrap(),
                 )))
-                .app_data(actix_web::web::Data::new(RwLock::new(
+                .app_data(actix_web::web::Data::new(::tokio::sync::RwLock::new(
                     ::martin::NO_MAIN_CACHE,
                 )))
-                .app_data(actix_web::web::Data::new(RwLock::new(state.tiles)))
-                .app_data(actix_web::web::Data::new(RwLock::new(SrvConfig::default())))
+                .app_data(actix_web::web::Data::new(::tokio::sync::RwLock::new(
+                    state.tiles,
+                )))
+                .app_data(actix_web::web::Data::new(::tokio::sync::RwLock::new(
+                    SrvConfig::default(),
+                )))
                 .configure(::martin::srv::router),
         )
         .await

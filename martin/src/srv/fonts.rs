@@ -1,5 +1,5 @@
 use std::string::ToString;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
@@ -26,8 +26,8 @@ async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<RwLock<FontSources>>,
 ) -> ActixResult<HttpResponse> {
-    let fonts = fonts.read().map_err(map_internal_error)?;
-    let data = fonts
+    let fonts_guard = fonts.read().await;
+    let data = fonts_guard
         .get_font_range(&path.fontstack, path.start, path.end)
         .map_err(map_font_error)?;
     Ok(HttpResponse::Ok()

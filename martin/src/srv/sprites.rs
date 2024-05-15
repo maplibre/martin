@@ -1,11 +1,11 @@
 use std::string::ToString;
-use std::sync::RwLock;
 
 use actix_web::error::ErrorNotFound;
 use actix_web::http::header::ContentType;
 use actix_web::web::{Data, Path};
 use actix_web::{middleware, route, HttpResponse, Result as ActixResult};
 use spreet::Spritesheet;
+use tokio::sync::RwLock;
 
 use crate::sprites::{SpriteError, SpriteSources};
 use crate::srv::server::map_internal_error;
@@ -16,8 +16,8 @@ async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
-    let sprites = sprites.read().map_err(map_internal_error)?;
-    let sheet = get_sprite(&path, &sprites).await?;
+    let sprites_guard = sprites.read().await;
+    let sheet = get_sprite(&path, &sprites_guard).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
         .body(sheet.encode_png().map_err(map_internal_error)?))
@@ -33,8 +33,8 @@ async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
-    let sprites = sprites.read().map_err(map_internal_error)?;
-    let sheet = get_sprite(&path, &sprites).await?;
+    let sprites_guard = sprites.read().await;
+    let sheet = get_sprite(&path, &sprites_guard).await?;
     Ok(HttpResponse::Ok().json(sheet.get_index()))
 }
 
