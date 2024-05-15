@@ -1,4 +1,5 @@
 use std::string::ToString;
+use std::sync::RwLock;
 
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
@@ -21,7 +22,9 @@ struct FontRequest {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {
+async fn get_font(path: Path<FontRequest>, fonts: Data<RwLock<FontSources>>) -> ActixResult<HttpResponse> {
+    let fonts = fonts.read()
+    .map_err(|e|map_internal_error(e))?;
     let data = fonts
         .get_font_range(&path.fontstack, path.start, path.end)
         .map_err(map_font_error)?;

@@ -1,4 +1,5 @@
 use std::string::ToString;
+use std::sync::RwLock;
 
 use actix_web::error::ErrorNotFound;
 use actix_web::http::header::ContentType;
@@ -13,8 +14,9 @@ use crate::srv::SourceIDsRequest;
 #[route("/sprite/{source_ids}.png", method = "GET", method = "HEAD")]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
-    sprites: Data<SpriteSources>,
+    sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
+    let sprites = sprites.read().map_err(map_internal_error)?; 
     let sheet = get_sprite(&path, &sprites).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -29,8 +31,9 @@ async fn get_sprite_png(
 )]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
-    sprites: Data<SpriteSources>,
+    sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
+    let sprites = sprites.read().map_err(map_internal_error)?;
     let sheet = get_sprite(&path, &sprites).await?;
     Ok(HttpResponse::Ok().json(sheet.get_index()))
 }

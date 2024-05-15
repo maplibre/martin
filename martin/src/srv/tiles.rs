@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use actix_http::ContentEncoding;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::http::header::{
@@ -44,27 +46,37 @@ pub struct TileRequest {
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 async fn get_tile(
     req: HttpRequest,
-    srv_config: Data<SrvConfig>,
+    srv_config: Data<RwLock<SrvConfig>>,
     path: Path<TileRequest>,
-    sources: Data<TileSources>,
-    cache: Data<OptMainCache>,
+    sources: Data<RwLock<TileSources>>,
+    cache: Data<RwLock<OptMainCache>>,
 ) -> ActixResult<HttpResponse> {
-    let src = DynTileSource::new(
-        sources.as_ref(),
-        &path.source_ids,
-        Some(path.z),
-        req.query_string(),
-        req.get_header::<AcceptEncoding>(),
-        srv_config.preferred_encoding,
-        cache.as_ref().as_ref(),
-    )?;
 
-    src.get_http_response(TileCoord {
-        z: path.z,
-        x: path.x,
-        y: path.y,
-    })
-    .await
+    let sources_rw = sources.read();
+    let srv_config_rw = srv_config.read();
+    let cache_rw = cache.read();
+
+    if let (
+            Ok(sources),Ok(srv_config),Ok(cache)) = (sources_rw, srv_config_rw, cache_rw) {
+        let src = DynTileSource::new(
+            &sources,
+            &path.source_ids,
+            Some(path.z),
+            req.query_string(),
+            req.get_header::<AcceptEncoding>(),
+            srv_config.preferred_encoding,
+            cache.as_ref(),
+        )?;
+
+        src.get_http_response(TileCoord {
+            z: path.z,
+            x: path.x,
+            y: path.y,
+        })
+        .await
+    } else {
+        return Ok(HttpResponse::InternalServerError().body("Couldn't get read lock of sources or srv_config or cache"));
+    } 
 }
 
 pub struct DynTileSource<'a> {

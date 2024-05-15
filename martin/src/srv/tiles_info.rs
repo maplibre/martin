@@ -1,4 +1,5 @@
 use std::string::ToString;
+use std::sync::RwLock;
 
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::Uri;
@@ -10,6 +11,8 @@ use tilejson::{tilejson, TileJSON};
 
 use crate::source::{Source, TileSources};
 use crate::srv::SrvConfig;
+
+use super::server::map_internal_error;
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -26,11 +29,13 @@ pub struct SourceIDsRequest {
 async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
-    sources: Data<TileSources>,
-    srv_config: Data<SrvConfig>,
+    sources: Data<RwLock<TileSources>>,
+    srv_config: Data<RwLock<SrvConfig>>,
 ) -> ActixResult<HttpResponse> {
-    let sources = sources.get_sources(&path.source_ids, None)?.0;
+    let sources = sources.read().map_err(map_internal_error)?;
+    let srv_config = srv_config.read().map_err(map_internal_error)?;
 
+    let sources = sources.get_sources(&path.source_ids, None)?.0;
     let tiles_path = if let Some(base_path) = &srv_config.base_path {
         format!("{base_path}/{}", path.source_ids)
     } else {
