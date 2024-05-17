@@ -42,9 +42,9 @@ impl CopyDuplicateMode {
 
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct MbtilesCopier {
-    /// MBTiles file to read from
+    /// `MBTiles` file to read from
     pub src_file: PathBuf,
-    /// MBTiles file to write to
+    /// `MBTiles` file to write to
     pub dst_file: PathBuf,
     /// Limit what gets copied
     pub copy: CopyType,
