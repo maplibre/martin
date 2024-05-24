@@ -415,7 +415,7 @@ jobs:
           Get-Content -Path "C:\tools\nginx-1.25.4\logs\error.log"
           dir D:\a\martin\martin\
       - name: Start postgres
-        uses: nyurik/action-setup-postgis@v1.1
+        uses: nyurik/action-setup-postgis@v2
         id: pg
         with:
           username: test
