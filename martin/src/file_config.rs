@@ -3,7 +3,6 @@ use std::fmt::Debug;
 use std::mem;
 use std::path::{Path, PathBuf};
 
-use async_trait::async_trait;
 use futures::TryFutureExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -61,15 +60,23 @@ pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
     fn get_unrecognized(&self) -> &UnrecognizedValues;
 }
 
-#[async_trait]
 pub trait SourceConfigExtras: ConfigExtras {
     #[must_use]
     fn parse_urls() -> bool {
         false
     }
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>>;
 
-    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<Box<dyn Source>>;
+    fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
+
+    fn new_sources_url(
+        &self,
+        id: String,
+        url: Url,
+    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::from_utf8;
+use std::sync::Mutex;
 
 use ctor::ctor;
 use insta::{allow_duplicates, assert_snapshot};
 use itertools::Itertools as _;
-use log::info;
 use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
@@ -105,14 +105,14 @@ async fn open(file: &str) -> MbtResult<(Mbtiles, SqliteConnection)> {
 
 /// Run [`MbtilesCopier`], the first two params are source and destination [`Mbtiles`] refs, the rest are optional (key => val)* params.
 macro_rules! copy {
-    ($src_path:expr, $dst_path:expr $( , $key:tt => $val:expr )* $(,)?) => {{
+    ($src_path:expr, $dst_path:expr $( , $key:tt => $val:expr )* $(,)?) => {
         MbtilesCopier {
             src_file: $src_path,
             dst_file: $dst_path
             $(, $key : $val)*,
             ..Default::default()
         }.run().await.unwrap()
-    }};
+    };
 }
 
 /// Same as the copy! macro, but with the result dumped.
@@ -177,7 +177,12 @@ macro_rules! assert_dump {
 struct Databases(
     HashMap<
         (&'static str, MbtTypeCli),
-        (Vec<SqliteEntry>, Mbtiles, Option<String>, SqliteConnection),
+        (
+            Vec<SqliteEntry>,
+            Mbtiles,
+            Option<String>,
+            Mutex<SqliteConnection>,
+        ),
     >,
 );
 
@@ -191,7 +196,8 @@ impl Databases {
         hash: Option<String>,
         conn: SqliteConnection,
     ) {
-        self.0.insert((name, typ), (dump, mbtiles, hash, conn));
+        self.0
+            .insert((name, typ), (dump, mbtiles, hash, Mutex::new(conn)));
     }
     fn dump(&self, name: &'static str, typ: MbtTypeCli) -> &Vec<SqliteEntry> {
         &self.0.get(&(name, typ)).unwrap().0
@@ -509,7 +515,6 @@ async fn patch_on_copy(
     let v2 = v2_type.map_or("dflt", shorten);
     let prefix = format!("{v1}+{dif}={v2}");
 
-    info!("TEST: Compare v1 with v2, and copy anything that's different (i.e. mathematically: v2-v1=diff)");
     let (v2_mbt, mut v2_cn) = open!(patch_on_copy, "{prefix}__v2");
     copy! {
         databases.path("v1", v1_type),

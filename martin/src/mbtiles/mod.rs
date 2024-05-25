@@ -29,12 +29,14 @@ impl ConfigExtras for MbtConfig {
     }
 }
 
-#[async_trait]
 impl SourceConfigExtras for MbtConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }
 
+    // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
+    //       See https://github.com/rust-lang/rust-clippy/pull/12323
+    #[allow(clippy::no_effect_underscore_binding)]
     async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
         unreachable!()
     }
