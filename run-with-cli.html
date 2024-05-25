@@ -180,7 +180,8 @@
                 <div id="content" class="content">
                     <main>
                         <h2 id="command-line-interface"><a class="header" href="#command-line-interface">Command-line Interface</a></h2>
-<p>You can configure Martin using command-line interface. See <code>martin --help</code> or <code>cargo run -- --help</code> for more information.</p>
+<p>You can configure Martin using command-line interface. See <code>martin --help</code> or <code>cargo run -- --help</code> for more
+information.</p>
 <pre><code class="language-shell">Usage: martin [OPTIONS] [CONNECTION]...
 
 Arguments:
@@ -212,7 +213,7 @@ Options:
           Number of web server workers
 
       --preferred-encoding &lt;PREFERRED_ENCODING&gt;
-          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli
+          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version
           
           [possible values: brotli, gzip]
           
