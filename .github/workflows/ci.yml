@@ -249,7 +249,7 @@ jobs:
           - target: debian-x86_64
             os: ubuntu-latest
           - target: x86_64-apple-darwin
-            os: macos-12  # x64 CPU
+            os: macos-13  # x64 CPU
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
@@ -317,7 +317,7 @@ jobs:
       matrix:
         include:
           - target: x86_64-apple-darwin
-            os: macOS-latest
+            os: macos-13
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
@@ -335,10 +335,7 @@ jobs:
       - name: Install and run Postgis
         uses: nyurik/action-setup-postgis@v2
         id: pg
-        with:
-          username: test
-          password: test
-          database: test
+        with: { username: 'test', password: 'test', database: 'test' }
       - name: Init database
         run: |
           echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
