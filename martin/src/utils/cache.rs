@@ -8,11 +8,11 @@ pub const NO_MAIN_CACHE: OptMainCache = None;
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum CacheKey {
-    /// (pmtiles_id, offset)
+    /// (`pmtiles_id`, `offset`)
     PmtDirectory(usize, usize),
-    /// (source_id, xyz)
+    /// (`source_id`, `xyz`)
     Tile(String, TileCoord),
-    /// (source_id, xyz, url_query)
+    /// (`source_id`, `xyz`, `url_query`)
     TileWithQuery(String, TileCoord, String),
 }
 

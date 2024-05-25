@@ -58,6 +58,8 @@ impl IdResolver {
                     e.insert(unique_name);
                     return id;
                 }
+                // Rust v1.78 - possibly due to bug fixed in https://github.com/rust-lang/rust-clippy/pull/12756
+                #[allow(unknown_lints, clippy::assigning_clones)]
                 Entry::Occupied(e) => {
                     name = e.key().clone();
                     if e.get() == &unique_name {

@@ -3,7 +3,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use async_trait::async_trait;
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -65,7 +64,6 @@ pub struct SpriteConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-#[async_trait]
 impl ConfigExtras for SpriteConfig {
     fn get_unrecognized(&self) -> &UnrecognizedValues {
         &self.unrecognized

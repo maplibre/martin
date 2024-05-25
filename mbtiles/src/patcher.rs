@@ -14,60 +14,53 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf) -> MbtResult<(
 
     let mut conn = base_mbt.open().await?;
     let base_type = base_mbt.detect_type(&mut conn).await?;
-    patch_mbt.attach_to(&mut conn, "patchDb").await?;
 
     info!("Applying patch file {patch_mbt} ({patch_type}) to {base_mbt} ({base_type})");
+
+    patch_mbt.attach_to(&mut conn, "patchDb").await?;
     let select_from = get_select_from(base_type, patch_type);
     let (main_table, insert1, insert2) = get_insert_sql(base_type, select_from);
 
-    query(&format!("{insert1} WHERE tile_data NOTNULL"))
-        .execute(&mut conn)
-        .await?;
+    let sql = format!("{insert1} WHERE tile_data NOTNULL");
+    query(&sql).execute(&mut conn).await?;
 
     if let Some(insert2) = insert2 {
-        query(&format!("{insert2} WHERE tile_data NOTNULL"))
-            .execute(&mut conn)
-            .await?;
+        let sql = format!("{insert2} WHERE tile_data NOTNULL");
+        query(&sql).execute(&mut conn).await?;
     }
 
-    query(&format!(
+    let sql = format!(
         "
     DELETE FROM {main_table}
     WHERE (zoom_level, tile_column, tile_row) IN (
         SELECT zoom_level, tile_column, tile_row FROM ({select_from} WHERE tile_data ISNULL)
     )"
-    ))
-    .execute(&mut conn)
-    .await?;
+    );
+    query(&sql).execute(&mut conn).await?;
 
     if base_type.is_normalized() {
         debug!("Removing unused tiles from the images table (normalized schema)");
-        query("DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)")
-            .execute(&mut conn)
-            .await?;
+        let sql = "DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)";
+        query(sql).execute(&mut conn).await?;
     }
 
     // Copy metadata from patchDb to the destination file, replacing existing values
     // Convert 'agg_tiles_hash_in_patch' into 'agg_tiles_hash'
     // Delete metadata entries if the value is NULL in patchDb
-    query(&format!(
+    let sql = format!(
         "
     INSERT OR REPLACE INTO metadata (name, value)
     SELECT IIF(name = '{AGG_TILES_HASH_AFTER_APPLY}', '{AGG_TILES_HASH}', name) as name,
            value
     FROM patchDb.metadata
     WHERE name NOTNULL AND name != '{AGG_TILES_HASH}';"
-    ))
-    .execute(&mut conn)
-    .await?;
+    );
+    query(&sql).execute(&mut conn).await?;
 
-    query(
-        "
+    let sql = "
     DELETE FROM metadata
-    WHERE name IN (SELECT name FROM patchDb.metadata WHERE value ISNULL);",
-    )
-    .execute(&mut conn)
-    .await?;
+    WHERE name IN (SELECT name FROM patchDb.metadata WHERE value ISNULL);";
+    query(sql).execute(&mut conn).await?;
 
     detach_db(&mut conn, "patchDb").await
 }

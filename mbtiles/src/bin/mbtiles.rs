@@ -23,6 +23,7 @@ pub struct Args {
     command: Commands,
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
     /// Show MBTiles file summary statistics
@@ -92,6 +93,7 @@ enum Commands {
     },
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
     /// MBTiles file to read from
@@ -102,15 +104,17 @@ pub struct CopyArgs {
     pub options: SharedCopyOpts,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
     /// Use `mbtiles diff` as a more convenient way to generate this file.
-    /// It should be later possible to run `mbtiles apply-diff` to merge it in.
+    /// Use `mbtiles apply-patch` or `mbtiles copy --apply-patch` to apply the diff file.
     #[arg(long, conflicts_with("apply_patch"))]
     diff_with_file: Option<PathBuf>,
-    /// Compare source file with this file, and only copy non-identical tiles to destination.
-    /// It should be later possible to run `mbtiles apply-diff SRC_FILE DST_FILE` to get the same DIFF file.
+    /// Apply a patch file while copying src to dst.
+    /// Use `mbtiles diff` or `mbtiles copy --diff-with-file` to generate the patch file.
+    /// Use `mbtiles apply-patch` to apply the patch file in-place, without making a copy of the original.
     #[arg(long, conflicts_with("diff_with_file"))]
     apply_patch: Option<PathBuf>,
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct DiffArgs {
     /// First MBTiles file to compare
@@ -124,6 +128,7 @@ pub struct DiffArgs {
     pub options: SharedCopyOpts,
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct SharedCopyOpts {
     /// Limit what gets copied.
