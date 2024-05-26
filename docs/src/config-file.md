@@ -6,14 +6,14 @@ contain environment variables, which will be expanded before parsing. For exampl
 config file: `connection_string: ${MY_DATABASE_URL}`, or with a
 default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
 
-```shell
+```bash
 martin --config config.yaml
 ```
 
 You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with
 all of your configuration, which you can edit to remove any sources you don't want to expose.
 
-```shell
+```bash
 martin  ... ... ...  --save-config config.yaml
 ```
 

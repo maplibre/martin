@@ -13,7 +13,7 @@ file to the original file, as the `agg_tiles_hash` value will be different after
 command will automatically rename the `agg_tiles_hash_after_apply` value back to `agg_tiles_hash` when applying the
 diff.
 
-```shell
+```bash
 # This command will compare `file1.mbtiles` and `file2.mbtiles`, and generate a new diff file `diff.mbtiles`.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
 
@@ -41,7 +41,7 @@ Note that the `agg_tiles_hash_after_apply` metadata value will be renamed to `ag
 This is done to avoid confusion when applying the diff file to the original file, as the `agg_tiles_hash` value will be
 different after the diff is applied.
 
-```shell
+```bash
 mbtiles apply-patch src_file.mbtiles diff_file.mbtiles
 ```
 
@@ -53,7 +53,7 @@ from `diff_file.mbtiles` into `src_file.mbtiles`, where both files are of `flat`
 passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements. Note that this does
 not update the `agg_tiles_hash` metadata value, so it will be incorrect after the diff is applied.
 
-```shell
+```bash
 sqlite3 src_file.mbtiles \
   -bail \
   -cmd ".parameter set @diffDbFilename diff_file.mbtiles" \

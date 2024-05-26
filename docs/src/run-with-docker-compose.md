@@ -1,6 +1,7 @@
 ## Running with Docker Compose
 
-You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml) file as a reference
+You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml)
+file as a reference
 
 ```yml
 services:
@@ -28,13 +29,13 @@ services:
 
 First, you need to start `db` service
 
-```shell
+```bash
 docker compose up -d db
 ```
 
 Then, after `db` service is ready to accept connections, you can start `martin`
 
-```shell
+```bash
 docker compose up -d martin
 ```
 
