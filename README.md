@@ -8,21 +8,21 @@
 [![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)](https://github.com/maplibre/martin/security)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 
-Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly
-from large [PostGIS](https://github.com/postgis/postgis)
-databases, [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) (local or remote),
-and [MBTile](https://github.com/mapbox/mbtiles-spec) files, allowing multiple tile sources to be dynamically combined
-into one. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
+Martin is a tile server and a set of tools able to generate vector tiles on the fly
+from large PostgreSQL databases, and serve tiles from PMTiles and MBTiles files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
-### Features
+## Features
 
-* Serve vector tiles from PostGIS, PMTile, and MBTile sources
-* [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources
+* Serve [vector tiles](https://github.com/mapbox/vector-tile-spec) from
+    * [PostGIS](https://github.com/postgis/postgis) databases, automatically discovering compatible tables and functions
+    * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
+    * [MBTile](https://github.com/mapbox/mbtiles-spec) files
+* [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources into one
 * Generate [sprites](https://maplibre.org/martin/sources-sprites.html) and [font glyphs](https://maplibre.org/martin/sources-fonts.html)
-* Generate tiles in bulk from any Martin-supported sources into an `.mbtiles` file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
-* Examine, copy, validate, compare, and apply diffs between `.mbtiles` files with [mbtiles](https://maplibre.org/martin/tools.html#mbtiles) tool
+* Generate tiles in bulk from any Martin-supported sources into an MBTiles file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
+* Examine, copy, validate, compare, and apply diffs between MBTiles files with [mbtiles](https://maplibre.org/martin/tools.html#mbtiles) tool
 
-### Documentation
+## Documentation
 
 * [Quick Start](https://maplibre.org/martin/quick-start.html)
 * [Installation](https://maplibre.org/martin/installation.html)
