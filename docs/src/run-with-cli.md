@@ -3,7 +3,7 @@
 You can configure Martin using command-line interface. See `martin --help` or `cargo run -- --help` for more
 information.
 
-```shell
+```text
 Usage: martin [OPTIONS] [CONNECTION]...
 
 Arguments:
