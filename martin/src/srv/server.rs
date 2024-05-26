@@ -3,13 +3,15 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
+use crate::args::{Args, OsEnv};
 use crate::config::ServerState;
+use crate::read_config;
 use crate::source::TileCatalog;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
 use crate::MartinError::BindingError;
-use crate::MartinResult;
+use crate::{Config, MartinResult};
 use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
@@ -19,7 +21,7 @@ use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
-use log::error;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -74,6 +76,42 @@ async fn get_health() -> impl Responder {
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
         .message_body("OK")
+}
+
+#[route("/refresh", method = "POST")]
+#[allow(clippy::unused_async)]
+async fn refresh_catalog(
+    args: Data<Args>,
+    env: Data<OsEnv>,
+    srvConfig_guard: Data<RwLock<SrvConfig>>,
+    state_guard: Data<RwLock<ServerState>>,
+) -> actix_web::error::Result<HttpResponse> {
+    let mut config = if let Some(ref cfg_filename) = args.meta.config {
+        info!("Using {} to refresh catalog", cfg_filename.display());
+        read_config(cfg_filename, env.get_ref()).map_err(|e| map_internal_error(e))?
+    } else {
+        info!("Config file is not specified, an default config will be used to refresh catalog");
+        Config::default()
+    };
+
+    args.merge_into_config(&mut config, env.get_ref())
+        .map_err(map_internal_error)?;
+
+    config.finalize().map_err(map_internal_error)?;
+
+    let sources = config.resolve().await.map_err(map_internal_error)?;
+
+    // update these two guards
+    let new_srvConfig = config.srv;
+    let new_state = sources;
+
+    let mut srvConfig = srvConfig_guard.write().await;
+    let mut state = state_guard.write().await;
+
+    *srvConfig = new_srvConfig;
+    *state = new_state;
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[route(
