@@ -17,15 +17,14 @@ pub struct SrvArgs {
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
-    /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli.
+    /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip.
     #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum PreferredEncoding {
-    #[default]
     #[serde(alias = "br")]
     #[clap(alias("br"))]
     Brotli,
