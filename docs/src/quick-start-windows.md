@@ -3,7 +3,7 @@
 1. Download some [demo tiles](https://github.com/maplibre/martin/blob/main/tests/fixtures/mbtiles/world_cities.mbtiles).
 
 2. Download the latest Windows version of Martin from
-   the [release page](https://github.com/maplibre/martin/releases):  []([martin-x86_64-pc-windows-msvc.zip](https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip)
+   the [release page](https://github.com/maplibre/martin/releases):  [martin-x86_64-pc-windows-msvc.zip](https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip)
 
 3. Extract content of both files and place them in a same directory.
 
