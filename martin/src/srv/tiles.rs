@@ -133,9 +133,9 @@ impl<'a> DynTileSource<'a> {
                 CacheValue::Tile,
                 s.get_tile(xyz, self.query_obj.as_ref()),
                 {
-                    let id = s.get_id().to_owned();
+                    let id = s.get_id().to_string();
                     if let Some(query_str) = self.query_str {
-                        CacheKey::TileWithQuery(id, xyz, query_str.to_owned())
+                        CacheKey::TileWithQuery(id, xyz, query_str.to_string())
                     } else {
                         CacheKey::Tile(id, xyz)
                     }
