@@ -24,7 +24,6 @@ into one. Martin optimizes for speed and heavy traffic, and is written in [Rust]
 
 ### Documentation
 
-* [Quick Start](https://maplibre.org/martin/quick-start.html)
 * [Installation](https://maplibre.org/martin/installation.html)
 * Running with [CLI](https://maplibre.org/martin/run-with-cli.html)
   or [configuration file](https://maplibre.org/martin/config-file.html)
