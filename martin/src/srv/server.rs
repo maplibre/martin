@@ -93,8 +93,9 @@ async fn refresh_catalog(
         info!("Config file is not specified, an default config will be used to refresh catalog");
         Config::default()
     };
-
-    args.merge_into_config(&mut config, env.get_ref())
+    let cloned_args = (**args).clone();
+    cloned_args
+        .merge_into_config(&mut config, env.get_ref())
         .map_err(map_internal_error)?;
 
     config.finalize().map_err(map_internal_error)?;

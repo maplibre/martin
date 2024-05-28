@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 
-#[derive(clap::Args, Debug, PartialEq, Default)]
+#[derive(clap::Args, Debug, PartialEq, Default, Clone)]
 #[command(about, version)]
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {KEEP_ALIVE_DEFAULT}]"), short, long)]
