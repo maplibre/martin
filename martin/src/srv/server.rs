@@ -145,7 +145,12 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
-pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+pub fn new_server(
+    env: OsEnv,
+    args: Args,
+    config: SrvConfig,
+    state: ServerState,
+) -> MartinResult<(Server, String)> {
     let catalog = Catalog::new(&state)?;
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
@@ -169,7 +174,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "fonts")]
         let app = app.app_data(Data::new(RwLock::new(state.fonts.clone())));
 
-        app.app_data(Data::new(RwLock::new(catalog.clone())))
+        app.app_data(Data::new(env.clone()))
+            .app_data(Data::new(args.clone()))
+            .app_data(Data::new(RwLock::new(catalog.clone())))
             .app_data(Data::new(RwLock::new(config.clone())))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
