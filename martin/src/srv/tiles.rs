@@ -138,9 +138,9 @@ impl<'a> DynTileSource<'a> {
                 CacheValue::Tile,
                 s.get_tile(xyz, self.query_obj.as_ref()),
                 {
-                    let id = s.get_id().to_owned();
+                    let id = s.get_id().to_string();
                     if let Some(query_str) = self.query_str {
-                        CacheKey::TileWithQuery(id, xyz, query_str.to_owned())
+                        CacheKey::TileWithQuery(id, xyz, query_str.to_string())
                     } else {
                         CacheKey::Tile(id, xyz)
                     }
@@ -204,8 +204,8 @@ impl<'a> DynTileSource<'a> {
 
             if tile.info.encoding == Encoding::Uncompressed {
                 let ordered_encodings = match self.preferred_enc {
-                    Some(PreferredEncoding::Gzip) => PREFER_GZIP_ENC,
-                    Some(PreferredEncoding::Brotli) | None => PREFER_BROTLI_ENC,
+                    Some(PreferredEncoding::Gzip) | None => PREFER_GZIP_ENC,
+                    Some(PreferredEncoding::Brotli) => PREFER_BROTLI_ENC,
                 };
 
                 // only apply compression if the content supports it
@@ -269,58 +269,52 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use tilejson::tilejson;
 
     use super::*;
     use crate::srv::server::tests::TestSource;
 
+    #[rstest]
+    #[trace]
+    #[case(&["gzip", "deflate", "br", "zstd"], None, Encoding::Gzip)]
+    #[case(&["gzip", "deflate", "br", "zstd"], Some(PreferredEncoding::Brotli), Encoding::Brotli)]
+    #[case(&["gzip", "deflate", "br", "zstd"], Some(PreferredEncoding::Gzip), Encoding::Gzip)]
+    #[case(&["br;q=1", "gzip;q=1"], Some(PreferredEncoding::Gzip), Encoding::Gzip)]
+    #[case(&["gzip;q=1", "br;q=1"], Some(PreferredEncoding::Brotli), Encoding::Brotli)]
+    #[case(&["gzip;q=1", "br;q=0.5"], Some(PreferredEncoding::Brotli), Encoding::Gzip)]
     #[actix_rt::test]
-    async fn test_encoding_preference() {
-        let source = TestSource {
+    async fn test_enc_preference(
+        #[case] accept_enc: &[&'static str],
+        #[case] preferred_enc: Option<PreferredEncoding>,
+        #[case] expected_enc: Encoding,
+    ) {
+        let sources = TileSources::new(vec![vec![Box::new(TestSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
-        };
-        let sources = TileSources::new(vec![vec![Box::new(source)]]);
+        })]]);
 
-        for (accept_encodings, prefered_encoding, result_encoding) in [
-            (
-                Some(AcceptEncoding(vec![
-                    "gzip;q=1".parse().unwrap(),
-                    "br;q=1".parse().unwrap(),
-                ])),
-                Some(PreferredEncoding::Brotli),
-                Encoding::Brotli,
-            ),
-            (
-                Some(AcceptEncoding(vec![
-                    "gzip;q=1".parse().unwrap(),
-                    "br;q=0.5".parse().unwrap(),
-                ])),
-                Some(PreferredEncoding::Brotli),
-                Encoding::Gzip,
-            ),
-        ] {
-            let src = DynTileSource::new(
-                &sources,
-                "test_source",
-                None,
-                "",
-                accept_encodings,
-                prefered_encoding,
-                None,
-            )
-            .unwrap();
-            let xyz = TileCoord { z: 0, x: 0, y: 0 };
-            let data = &src.get_tile_content(xyz).await.unwrap().data;
-            let decoded = match result_encoding {
-                Encoding::Gzip => decode_gzip(data),
-                Encoding::Brotli => decode_brotli(data),
-                _ => panic!("Unexpected encoding"),
-            };
-            assert_eq!(vec![1_u8, 2, 3], decoded.unwrap());
-        }
+        let accept_enc = Some(AcceptEncoding(
+            accept_enc.iter().map(|s| s.parse().unwrap()).collect(),
+        ));
+
+        let src = DynTileSource::new(
+            &sources,
+            "test_source",
+            None,
+            "",
+            accept_enc,
+            preferred_enc,
+            None,
+        )
+        .unwrap();
+
+        let xyz = TileCoord { z: 0, x: 0, y: 0 };
+        let tile = src.get_tile_content(xyz).await.unwrap();
+        assert_eq!(tile.info.encoding, expected_enc);
     }
+
     #[actix_rt::test]
     async fn test_tile_content() {
         let non_empty_source = TestSource {

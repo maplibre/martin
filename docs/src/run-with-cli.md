@@ -1,8 +1,9 @@
 ## Command-line Interface
 
-You can configure Martin using command-line interface. See `martin --help` or `cargo run -- --help` for more information.
+You can configure Martin using command-line interface. See `martin --help` or `cargo run -- --help` for more
+information.
 
-```shell
+```text
 Usage: martin [OPTIONS] [CONNECTION]...
 
 Arguments:
@@ -34,7 +35,7 @@ Options:
           Number of web server workers
 
       --preferred-encoding <PREFERRED_ENCODING>
-          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli
+          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version
           
           [possible values: brotli, gzip]
           

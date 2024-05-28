@@ -152,7 +152,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     let listen_addresses = config
         .listen_addresses
         .clone()
-        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
+        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
     let factory = move || {
         let cors_middleware = Cors::default()

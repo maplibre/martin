@@ -120,3 +120,4 @@ ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
+rstest.workspace = true

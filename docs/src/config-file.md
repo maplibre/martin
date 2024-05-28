@@ -1,14 +1,19 @@
 # Configuration File
 
-If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your config file: `connection_string: ${MY_DATABASE_URL}`, or with a default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To
+start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may
+contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your
+config file: `connection_string: ${MY_DATABASE_URL}`, or with a
+default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
 
-```shell
+```bash
 martin --config config.yaml
 ```
 
-You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
+You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with
+all of your configuration, which you can edit to remove any sources you don't want to expose.
 
-```shell
+```bash
 martin  ... ... ...  --save-config config.yaml
 ```
 
@@ -31,7 +36,7 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
 
-# If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli.
+# If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version.
 preferred_encoding: gzip
 
 # Database configuration. This can also be a list of PG configs.
@@ -92,76 +97,76 @@ postgres:
     functions:
       # Optionally set how source ID should be generated based on the function's name and schema
       source_id_format: '{schema}.{function}'
-      
+
   # Associative arrays of table sources
   tables:
     table_source_id:
       # ID of the MVT layer (optional, defaults to table name)
       layer_id: table_source
-      
+
       # Table schema (required)
       schema: public
-      
+
       # Table name (required)
       table: table_source
-      
+
       # Geometry SRID (required)
       srid: 4326
-      
+
       # Geometry column name (required)
       geometry_column: geom
-      
+
       # Feature id column name
       id_column: ~
-      
+
       # An integer specifying the minimum zoom level
       minzoom: 0
-      
+
       # An integer specifying the maximum zoom level. MUST be >= minzoom
       maxzoom: 30
-      
+
       # The maximum extent of available map tiles. Bounds MUST define an area
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      
+      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+
       # Tile extent in tile coordinate space
       extent: 4096
-      
+
       # Buffer distance in tile coordinate space to optionally clip geometries
       buffer: 64
-      
+
       # Boolean to control if geometries should be clipped or encoded as is
       clip_geom: true
-      
+
       # Geometry type
       geometry_type: GEOMETRY
-      
+
       # List of columns, that should be encoded as tile properties (required)
       properties:
         gid: int4
-  
+
   # Associative arrays of function sources
   functions:
     function_source_id:
       # Schema name (required)
       schema: public
-      
+
       # Function name (required)
       function: function_zxy_query
-      
+
       # An integer specifying the minimum zoom level
       minzoom: 0
-      
+
       # An integer specifying the maximum zoom level. MUST be >= minzoom
       maxzoom: 30
-      
+
       # The maximum extent of available map tiles. Bounds MUST define an area
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [-180.0, -90.0, 180.0, 90.0]
+      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
@@ -177,7 +182,7 @@ pmtiles:
     pm-src1: /path/to/pmt.pmtiles
     # A named source to a web server with a PMTiles file that supports range requests
     pm-web2: https://example.org/path/tiles.pmtiles
-    
+
 # Publish MBTiles files
 mbtiles:
   paths:

@@ -41,7 +41,7 @@ async fn get_source_info(
             .get("x-rewrite-url")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
-            .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned())
+            .map_or_else(|| req.path().to_string(), |v| v.path().to_string())
     };
 
     let query_string = req.query_string();

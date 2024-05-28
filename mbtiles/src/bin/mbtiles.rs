@@ -23,6 +23,7 @@ pub struct Args {
     command: Commands,
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
     /// Show `MBTiles` file summary statistics
@@ -92,6 +93,7 @@ enum Commands {
     },
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
     /// `MBTiles` file to read from
@@ -112,6 +114,7 @@ pub struct CopyArgs {
     apply_patch: Option<PathBuf>,
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct DiffArgs {
     /// First `MBTiles` file to compare
@@ -125,6 +128,7 @@ pub struct DiffArgs {
     pub options: SharedCopyOpts,
 }
 
+#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct SharedCopyOpts {
     /// Limit what gets copied.

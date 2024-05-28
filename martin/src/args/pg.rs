@@ -119,7 +119,7 @@ impl PgArgs {
             info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
                 value.display());
             pg_config.iter_mut().for_each(|c| {
-                c.ssl_certificates.ssl_root_cert = ca_root_file.clone();
+                c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
             });
         }
 
