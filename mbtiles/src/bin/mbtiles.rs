@@ -25,16 +25,16 @@ pub struct Args {
 
 #[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
-    /// Show MBTiles file summary statistics
+    /// Show `MBTiles` file summary statistics
     #[command(name = "summary", alias = "info")]
     Summary { file: PathBuf },
     /// Prints all values in the metadata table in a free-style, unstable YAML format
     #[command(name = "meta-all")]
     MetaAll {
-        /// MBTiles file to read from
+        /// `MBTiles` file to read from
         file: PathBuf,
     },
-    /// Gets a single value from the MBTiles metadata table.
+    /// Gets a single value from the `MBTiles` metadata table.
     #[command(name = "meta-get", alias = "get-meta")]
     MetaGetValue {
         /// MBTiles file to read a value from
@@ -94,9 +94,9 @@ enum Commands {
 
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
-    /// MBTiles file to read from
+    /// `MBTiles` file to read from
     src_file: PathBuf,
-    /// MBTiles file to write to
+    /// `MBTiles` file to write to
     dst_file: PathBuf,
     #[command(flatten)]
     pub options: SharedCopyOpts,
@@ -114,9 +114,9 @@ pub struct CopyArgs {
 
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct DiffArgs {
-    /// First MBTiles file to compare
+    /// First `MBTiles` file to compare
     file1: PathBuf,
-    /// Second MBTiles file to compare
+    /// Second `MBTiles` file to compare
     file2: PathBuf,
     /// Output file to write the resulting difference to
     diff: PathBuf,

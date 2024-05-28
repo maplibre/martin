@@ -83,12 +83,12 @@ async fn get_health() -> impl Responder {
 async fn refresh_catalog(
     args: Data<Args>,
     env: Data<OsEnv>,
-    srvConfig_guard: Data<RwLock<SrvConfig>>,
+    srv_config_guard: Data<RwLock<SrvConfig>>,
     state_guard: Data<RwLock<ServerState>>,
 ) -> actix_web::error::Result<HttpResponse> {
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {} to refresh catalog", cfg_filename.display());
-        read_config(cfg_filename, env.get_ref()).map_err(|e| map_internal_error(e))?
+        read_config(cfg_filename, env.get_ref()).map_err(map_internal_error)?
     } else {
         info!("Config file is not specified, an default config will be used to refresh catalog");
         Config::default()
@@ -103,13 +103,13 @@ async fn refresh_catalog(
     let sources = config.resolve().await.map_err(map_internal_error)?;
 
     // update these two guards
-    let new_srvConfig = config.srv;
+    let new_srv_config = config.srv;
     let new_state = sources;
 
-    let mut srvConfig = srvConfig_guard.write().await;
+    let mut srv_config = srv_config_guard.write().await;
     let mut state = state_guard.write().await;
 
-    *srvConfig = new_srvConfig;
+    *srv_config = new_srv_config;
     *state = new_state;
 
     Ok(HttpResponse::Ok().finish())
