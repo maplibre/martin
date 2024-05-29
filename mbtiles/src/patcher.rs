@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use log::{debug, info, warn};
-use sqlx::query;
+use sqlx::{query, Connection as _};
 
 use crate::queries::detach_db;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
@@ -18,7 +18,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let patch_info = patch_mbt.get_diff_info(&mut conn).await?;
     patch_mbt.validate_diff_info(&patch_info, force)?;
     let patch_type = patch_info.mbt_type;
-    drop(conn);
+    conn.close().await?;
 
     let mut conn = base_mbt.open().await?;
     let base_info = base_mbt.get_diff_info(&mut conn).await?;

@@ -7,7 +7,7 @@ use log::{debug, info, trace, warn};
 use martin_tile_utils::{bbox_to_xyz, MAX_ZOOM};
 use serde::{Deserialize, Serialize};
 use sqlite_hashes::rusqlite::Connection;
-use sqlx::{query, Executor as _, Row, SqliteConnection};
+use sqlx::{query, Connection as _, Executor as _, Row, SqliteConnection};
 use tilejson::Bounds;
 
 use crate::errors::MbtResult;
@@ -137,7 +137,9 @@ impl MbtileCopierInt {
     pub async fn run_simple(self) -> MbtResult<SqliteConnection> {
         let mut conn = self.src_mbtiles.open_readonly().await?;
         let src_type = self.src_mbtiles.detect_type(&mut conn).await?;
-        let mut conn = self.dst_mbtiles.open_or_new().await?;
+        conn.close().await?;
+
+        conn = self.dst_mbtiles.open_or_new().await?;
         let is_empty_db = is_empty_database(&mut conn).await?;
 
         let on_duplicate = if let Some(on_duplicate) = self.options.on_duplicate {
@@ -205,7 +207,7 @@ impl MbtileCopierInt {
         } else {
             dif_mbt.validate_diff_info(&dif_info, self.options.force)?;
         }
-        drop(dif_conn);
+        dif_conn.close().await?;
 
         let src_mbt = &self.src_mbtiles;
         let mut src_conn = src_mbt.open_readonly().await?;
@@ -215,7 +217,7 @@ impl MbtileCopierInt {
         }
         let src_type = src_info.mbt_type;
         src_mbt.validate_file_info(&src_info, self.options.force)?;
-        drop(src_conn);
+        src_conn.close().await?;
 
         let dst_mbt = &self.dst_mbtiles;
         let mut conn = dst_mbt.open_or_new().await?;
