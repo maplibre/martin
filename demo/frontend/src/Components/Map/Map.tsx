@@ -44,9 +44,11 @@ class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> 
   }
 
   componentDidUpdate() {
-    const newStyle = this.map.getStyle();
-    newStyle.sources['trips_source'].url = `/tiles/get_trips?${this.getQueryParams()}`;
-    this.map.setStyle(newStyle);
+    if (this.isQueryParamsComplete()) {
+      const newStyle = this.map.getStyle();
+      newStyle.sources['trips_source'].url = `/tiles/get_trips?${this.getQueryParams()}`;
+      this.map.setStyle(newStyle);
+    }
   }
 
   mapOnLoad = () => {
@@ -66,6 +68,11 @@ class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> 
       ...state,
       [filter]: value
     }));
+  };
+
+  isQueryParamsComplete = () => {
+    const { range: { from, to } } = this.state;
+    return !!from && !!to;
   };
 
   getQueryParams = () => {

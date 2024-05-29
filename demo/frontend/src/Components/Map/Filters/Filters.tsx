@@ -28,8 +28,11 @@ class Filters extends PureComponent<{visibleLayer, toggleLayer, range, hour, cha
 
   handleDayClick = (day) => {
     const range = addToRange(day, this.props.range);
-
-    this.props.changeFilter('range', range);
+    if (range) {
+      this.props.changeFilter('range', range);
+    } else {
+      this.props.changeFilter('range', { from: null, to: null });
+    }
   };
 
   changeTime = (e) => {
