@@ -1,5 +1,6 @@
+use actix_http::header::Quality;
 use actix_http::ContentEncoding;
-use actix_web::error::{ErrorBadRequest, ErrorNotFound};
+use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
     AcceptEncoding, Encoding as HeaderEnc, Preference, CONTENT_ENCODING,
 };
@@ -22,13 +23,7 @@ use crate::utils::{
 };
 use crate::{Tile, TileCoord, TileData};
 
-static PREFER_BROTLI_ENC: &[HeaderEnc] = &[
-    HeaderEnc::brotli(),
-    HeaderEnc::gzip(),
-    HeaderEnc::identity(),
-];
-
-static PREFER_GZIP_ENC: &[HeaderEnc] = &[
+static SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
     HeaderEnc::identity(),
@@ -185,6 +180,49 @@ impl<'a> DynTileSource<'a> {
         self.recompress(data)
     }
 
+    /// Decide which encoding to use for the uncompressed tile data, based on the client's Accept-Encoding header
+    fn decide_encoding(&self, accept_enc: &AcceptEncoding) -> ActixResult<Option<ContentEncoding>> {
+        let mut q_gzip = None;
+        let mut q_brotli = None;
+        for enc in accept_enc.iter() {
+            if let Preference::Specific(HeaderEnc::Known(e)) = enc.item {
+                match e {
+                    ContentEncoding::Gzip => q_gzip = Some(enc.quality),
+                    ContentEncoding::Brotli => q_brotli = Some(enc.quality),
+                    _ => {}
+                }
+            } else if let Preference::Any = enc.item {
+                q_gzip.get_or_insert(enc.quality);
+                q_brotli.get_or_insert(enc.quality);
+            }
+        }
+        Ok(match (q_gzip, q_brotli) {
+            (Some(q_gzip), Some(q_brotli)) if q_gzip == q_brotli => {
+                if q_gzip > Quality::ZERO {
+                    Some(self.get_preferred_enc())
+                } else {
+                    None
+                }
+            }
+            (Some(q_gzip), Some(q_brotli)) if q_brotli > q_gzip => Some(ContentEncoding::Brotli),
+            (Some(_), Some(_)) => Some(ContentEncoding::Gzip),
+            _ => {
+                if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENC.iter()) {
+                    Some(enc)
+                } else {
+                    return Err(ErrorNotAcceptable("No supported encoding found"));
+                }
+            }
+        })
+    }
+
+    fn get_preferred_enc(&self) -> ContentEncoding {
+        match self.preferred_enc {
+            None | Some(PreferredEncoding::Gzip) => ContentEncoding::Gzip,
+            Some(PreferredEncoding::Brotli) => ContentEncoding::Brotli,
+        }
+    }
+
     fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
         let mut tile = Tile::new(tile, self.info);
         if let Some(accept_enc) = &self.accept_enc {
@@ -203,18 +241,12 @@ impl<'a> DynTileSource<'a> {
             }
 
             if tile.info.encoding == Encoding::Uncompressed {
-                let ordered_encodings = match self.preferred_enc {
-                    Some(PreferredEncoding::Gzip) | None => PREFER_GZIP_ENC,
-                    Some(PreferredEncoding::Brotli) => PREFER_BROTLI_ENC,
-                };
-
-                // only apply compression if the content supports it
-                if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(ordered_encodings.iter())
-                {
+                if let Some(enc) = self.decide_encoding(accept_enc)? {
                     // (re-)compress the tile into the preferred encoding
                     tile = encode(tile, enc)?;
                 }
             }
+
             Ok(tile)
         } else {
             // no accepted-encoding header, decode the tile if compressed
@@ -274,6 +306,11 @@ mod tests {
 
     use super::*;
     use crate::srv::server::tests::TestSource;
+
+    #[actix_rt::test]
+    async fn test_deleteme() {
+        test_enc_preference(&["gzip", "deflate", "br", "zstd"], None, Encoding::Gzip).await;
+    }
 
     #[rstest]
     #[trace]
