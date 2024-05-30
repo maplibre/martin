@@ -42,6 +42,13 @@ impl CopyType {
     }
 }
 
+pub struct PatchFileInfo {
+    pub mbt_type: MbtType,
+    pub agg_tiles_hash: Option<String>,
+    pub agg_tiles_hash_before_apply: Option<String>,
+    pub agg_tiles_hash_after_apply: Option<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Mbtiles {
     filepath: String,
@@ -211,11 +218,6 @@ impl Mbtiles {
                 )),
             ),
         }
-    }
-
-    pub async fn open_and_detect_type(&self) -> MbtResult<MbtType> {
-        let mut conn = self.open_readonly().await?;
-        self.detect_type(&mut conn).await
     }
 }
 

@@ -66,6 +66,9 @@ enum Commands {
         base_file: PathBuf,
         /// Diff file
         patch_file: PathBuf,
+        /// Force patching operation, ignoring some warnings that otherwise would prevent the operation. Use with caution.
+        #[arg(short, long)]
+        force: bool,
     },
     /// Update metadata to match the content of the file
     #[command(name = "meta-update", alias = "update-meta")]
@@ -156,6 +159,12 @@ pub struct SharedCopyOpts {
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     #[arg(long)]
     skip_agg_tiles_hash: bool,
+    /// Force copy operation, ignoring some warnings that otherwise would prevent the operation. Use with caution.
+    #[arg(short, long)]
+    force: bool,
+    /// Perform agg_hash validation on the original and destination files.
+    #[arg(long)]
+    validate: bool,
 }
 
 impl SharedCopyOpts {
@@ -181,6 +190,8 @@ impl SharedCopyOpts {
             zoom_levels: self.zoom_levels,
             bbox: self.bbox,
             skip_agg_tiles_hash: self.skip_agg_tiles_hash,
+            force: self.force,
+            validate: self.validate,
             // Constants
             dst_type: None, // Taken from dst_type_cli
         }
@@ -233,8 +244,9 @@ async fn main_int() -> anyhow::Result<()> {
         Commands::ApplyPatch {
             base_file,
             patch_file,
+            force,
         } => {
-            apply_patch(base_file, patch_file).await?;
+            apply_patch(base_file, patch_file, force).await?;
         }
         Commands::UpdateMetadata { file, update_zoom } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -258,7 +270,7 @@ async fn main_int() -> anyhow::Result<()> {
                 }
             });
             let mbt = Mbtiles::new(file.as_path())?;
-            mbt.validate(integrity_check, agg_hash).await?;
+            mbt.open_and_validate(integrity_check, agg_hash).await?;
         }
         Commands::Summary { file } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -597,6 +609,7 @@ mod tests {
                 command: ApplyPatch {
                     base_file: PathBuf::from("src_file"),
                     patch_file: PathBuf::from("diff_file"),
+                    force: false,
                 }
             }
         );
