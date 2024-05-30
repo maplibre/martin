@@ -538,7 +538,7 @@ async fn test_one() {
     // let db = Databases::default();
 
     // Test convert
-    // convert(Flat, Flat, &db).await.unwrap();
+    convert(Flat, Flat, &db).await.unwrap();
 
     // Test diff patch copy
     let src_type = FlatWithHash;

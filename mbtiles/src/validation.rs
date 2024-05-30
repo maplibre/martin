@@ -594,7 +594,8 @@ pub(crate) mod tests {
     #[actix_rt::test]
     async fn validate_valid_file() -> MbtResult<()> {
         let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
-        mbt.check_integrity(&mut conn, Quick).await?;
+        mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
+            .await?;
         Ok(())
     }
 
