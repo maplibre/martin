@@ -139,7 +139,7 @@ impl MbtileCopierInt {
         }
     }
 
-    pub async fn run_simple(self) -> MbtResult<SqliteConnection> {
+    async fn run_simple(self) -> MbtResult<SqliteConnection> {
         let mut conn = self.src_mbt.open_readonly().await?;
         let src_type = self.src_mbt.detect_type(&mut conn).await?;
         conn.close().await?;
@@ -192,7 +192,8 @@ impl MbtileCopierInt {
         Ok(conn)
     }
 
-    pub async fn run_with_diff(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
+    /// Compare two files, and write their difference to the diff file
+    async fn run_with_diff(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
         let mut dif_conn = dif_mbt.open_readonly().await?;
         let dif_info = dif_mbt.examine_diff(&mut dif_conn, false).await?;
         dif_mbt.validate_file_info(&dif_info, self.options.force)?;
@@ -255,7 +256,8 @@ impl MbtileCopierInt {
         Ok(conn)
     }
 
-    pub async fn run_with_patch(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
+    /// Apply a patch file to the source file and write the result to the destination file
+    async fn run_with_patch(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
         let mut dif_conn = dif_mbt.open_readonly().await?;
         let dif_info = dif_mbt
             .examine_diff(&mut dif_conn, self.options.validate)
