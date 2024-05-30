@@ -194,15 +194,11 @@ impl MbtileCopierInt {
 
     pub async fn run_with_diff(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
         let mut dif_conn = dif_mbt.open_readonly().await?;
-        let dif_info = dif_mbt.get_diff_info(&mut dif_conn).await?;
-        let dif_type = dif_info.mbt_type;
-        if self.options.validate {
-            dif_mbt.validate(&mut dif_conn, Quick, Verify).await?;
-        }
+        let dif_info = dif_mbt.examine_diff(&mut dif_conn, false).await?;
         dif_mbt.validate_file_info(&dif_info, self.options.force)?;
         dif_conn.close().await?;
 
-        let (src_info, src_type) = self.validate_src_file().await?;
+        let src_info = self.validate_src_file().await?;
 
         let mut conn = self.dst_mbt.open_or_new().await?;
         if !is_empty_database(&mut conn).await? {
@@ -212,21 +208,24 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
-        let dst_type = self.options.dst_type().unwrap_or(src_type);
+        let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
         info!(
             "Comparing {src_mbt} ({src_type}) and {dif_path} ({dif_type}) {what}into a new file {dst_path} ({dst_type})",
             src_mbt = self.src_mbt,
+            src_type = src_info.mbt_type,
             dif_path = dif_mbt.filepath(),
+            dif_type = dif_info.mbt_type,
             what = self.copy_text(),
             dst_path = self.dst_mbt.filepath()
         );
 
-        self.init_new_schema(&mut conn, src_type, dst_type).await?;
+        self.init_new_schema(&mut conn, src_info.mbt_type, dst_type)
+            .await?;
         self.copy_with_rusqlite(
             &mut conn,
             CopyDuplicateMode::Override,
             dst_type,
-            &get_select_from_with_diff(dif_type, dst_type),
+            &get_select_from_with_diff(dif_info.mbt_type, dst_type),
         )
         .await?;
 
@@ -258,14 +257,13 @@ impl MbtileCopierInt {
 
     pub async fn run_with_patch(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
         let mut dif_conn = dif_mbt.open_readonly().await?;
-        let dif_info = dif_mbt.get_diff_info(&mut dif_conn).await?;
-        if self.options.validate {
-            dif_mbt.validate(&mut dif_conn, Quick, Verify).await?;
-        }
+        let dif_info = dif_mbt
+            .examine_diff(&mut dif_conn, self.options.validate)
+            .await?;
         dif_mbt.validate_diff_info(&dif_info, self.options.force)?;
         dif_conn.close().await?;
 
-        let (_, src_type) = self.validate_src_file().await?;
+        let src_type = self.validate_src_file().await?.mbt_type;
 
         let mut conn = self.dst_mbt.open_or_new().await?;
         if !is_empty_database(&mut conn).await? {
@@ -324,18 +322,17 @@ impl MbtileCopierInt {
         Ok(conn)
     }
 
-    async fn validate_src_file(&self) -> MbtResult<(PatchFileInfo, MbtType)> {
+    async fn validate_src_file(&self) -> MbtResult<PatchFileInfo> {
         let mut src_conn = self.src_mbt.open_readonly().await?;
-        let src_info = self.src_mbt.get_diff_info(&mut src_conn).await?;
-        if self.options.validate {
-            self.src_mbt.validate(&mut src_conn, Quick, Verify).await?;
-        }
-        let src_type = src_info.mbt_type;
+        let src_info = self
+            .src_mbt
+            .examine_diff(&mut src_conn, self.options.validate)
+            .await?;
         self.src_mbt
             .validate_file_info(&src_info, self.options.force)?;
         src_conn.close().await?;
 
-        Ok((src_info, src_type))
+        Ok(src_info)
     }
 
     fn copy_text(&self) -> &str {

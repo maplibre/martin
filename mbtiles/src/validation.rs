@@ -16,6 +16,7 @@ use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
+use crate::IntegrityCheckType::Quick;
 use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
     InvalidTileIndex,
@@ -470,8 +471,12 @@ LIMIT 1;"
         Ok(())
     }
 
-    pub async fn get_diff_info(&self, conn: &mut SqliteConnection) -> MbtResult<PatchFileInfo> {
-        Ok(PatchFileInfo {
+    pub async fn examine_diff(
+        &self,
+        conn: &mut SqliteConnection,
+        validate: bool,
+    ) -> MbtResult<PatchFileInfo> {
+        let info = PatchFileInfo {
             mbt_type: self.detect_type(&mut *conn).await?,
             agg_tiles_hash: self.get_agg_tiles_hash(&mut *conn).await?,
             agg_tiles_hash_before_apply: self
@@ -480,7 +485,13 @@ LIMIT 1;"
             agg_tiles_hash_after_apply: self
                 .get_metadata_value(&mut *conn, AGG_TILES_HASH_AFTER_APPLY)
                 .await?,
-        })
+        };
+
+        if validate {
+            self.validate(conn, Quick, AggHashType::Verify).await?;
+        }
+
+        Ok(info)
     }
 
     pub fn validate_file_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
@@ -592,8 +603,7 @@ pub(crate) mod tests {
     #[actix_rt::test]
     async fn validate_valid_file() -> MbtResult<()> {
         let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
-        mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
-            .await?;
+        mbt.check_integrity(&mut conn, Quick).await?;
         Ok(())
     }
 

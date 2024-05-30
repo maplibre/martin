@@ -15,14 +15,13 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let patch_mbt = Mbtiles::new(patch_file)?;
 
     let mut conn = patch_mbt.open_readonly().await?;
-    let patch_info = patch_mbt.get_diff_info(&mut conn).await?;
+    let patch_info = patch_mbt.examine_diff(&mut conn, false).await?;
     patch_mbt.validate_diff_info(&patch_info, force)?;
     let patch_type = patch_info.mbt_type;
     conn.close().await?;
 
     let mut conn = base_mbt.open().await?;
-    let base_info = base_mbt.get_diff_info(&mut conn).await?;
-    let base_type = base_info.mbt_type;
+    let base_info = base_mbt.examine_diff(&mut conn, false).await?;
     let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
     base_mbt.validate_file_info(&base_info, force)?;
 
@@ -41,11 +40,14 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
         _ => {}
     }
 
-    info!("Applying patch file {patch_mbt} ({patch_type}) to {base_mbt} ({base_type})");
+    info!(
+        "Applying patch file {patch_mbt} ({patch_type}) to {base_mbt} ({base_type})",
+        base_type = base_info.mbt_type
+    );
 
     patch_mbt.attach_to(&mut conn, "patchDb").await?;
-    let select_from = get_select_from(base_type, patch_type);
-    let (main_table, insert1, insert2) = get_insert_sql(base_type, select_from);
+    let select_from = get_select_from(base_info.mbt_type, patch_type);
+    let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, select_from);
 
     let sql = format!("{insert1} WHERE tile_data NOTNULL");
     query(&sql).execute(&mut conn).await?;
@@ -64,7 +66,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     );
     query(&sql).execute(&mut conn).await?;
 
-    if base_type.is_normalized() {
+    if base_info.mbt_type.is_normalized() {
         debug!("Removing unused tiles from the images table (normalized schema)");
         let sql = "DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)";
         query(sql).execute(&mut conn).await?;
