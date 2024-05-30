@@ -16,7 +16,6 @@ use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
-use crate::IntegrityCheckType::Quick;
 use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
     InvalidTileIndex,
@@ -471,11 +470,7 @@ LIMIT 1;"
         Ok(())
     }
 
-    pub async fn examine_diff(
-        &self,
-        conn: &mut SqliteConnection,
-        validate: bool,
-    ) -> MbtResult<PatchFileInfo> {
+    pub async fn examine_diff(&self, conn: &mut SqliteConnection) -> MbtResult<PatchFileInfo> {
         let info = PatchFileInfo {
             mbt_type: self.detect_type(&mut *conn).await?,
             agg_tiles_hash: self.get_agg_tiles_hash(&mut *conn).await?,
@@ -487,14 +482,10 @@ LIMIT 1;"
                 .await?,
         };
 
-        if validate {
-            self.validate(conn, Quick, AggHashType::Verify).await?;
-        }
-
         Ok(info)
     }
 
-    pub fn validate_file_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
+    pub fn assert_hashes(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
         if info.agg_tiles_hash.is_none() {
             if !force {
                 return Err(MbtError::CannotDiffFileWithoutHash(

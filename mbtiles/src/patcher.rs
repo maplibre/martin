@@ -15,15 +15,15 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let patch_mbt = Mbtiles::new(patch_file)?;
 
     let mut conn = patch_mbt.open_readonly().await?;
-    let patch_info = patch_mbt.examine_diff(&mut conn, false).await?;
+    let patch_info = patch_mbt.examine_diff(&mut conn).await?;
     patch_mbt.validate_diff_info(&patch_info, force)?;
     let patch_type = patch_info.mbt_type;
     conn.close().await?;
 
     let mut conn = base_mbt.open().await?;
-    let base_info = base_mbt.examine_diff(&mut conn, false).await?;
+    let base_info = base_mbt.examine_diff(&mut conn).await?;
     let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
-    base_mbt.validate_file_info(&base_info, force)?;
+    base_mbt.assert_hashes(&base_info, force)?;
 
     match (force, base_hash, patch_info.agg_tiles_hash_before_apply) {
         (false, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
