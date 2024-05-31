@@ -181,6 +181,11 @@ test-int: clean-test install-sqlx
 test-lambda:
     tests/test-aws-lambda.sh
 
+# Test /refresh to against the source changes
+
+test-refresh: clean start
+    tests/test-refresh.sh
+
 # Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
 
