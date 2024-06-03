@@ -83,37 +83,11 @@ fi
 
 echo "Starting martin"
 
-config_content='
-listen_addresses: '0.0.0.0:3000'
-cache_size_mb: 8
-postgres:
-  connection_string: '${DATABASE_URL:postgresql://postgres@localhost:5432/db}'
-  default_srid: 4326
-  pool_size: 20
-
-pmtiles:
-  paths:
-    - http://localhost:5412/webp2.pmtiles
-  sources:
-    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
-    pmt2: http://localhost:5412/webp2.pmtiles
-
-sprites:
-  paths: tests/fixtures/sprites/src1
-  sources:
-    mysrc: tests/fixtures/sprites/src2
-
-fonts:
-  - tests/fixtures/fonts/overpass-mono-regular.ttf
-  - tests/fixtures/fonts
-'
-
-rm -f tests/config-for-refresh.yaml
-echo "$config_content" > tests/config-for-refresh.yaml
-
-
-ARG=(--config tests/config-for-refresh.yaml --max-feature-count 1000 -W 1)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
+
+cp -f tests/config.yaml /tmp/config.yaml
+
+ARG=(--config /tmp/config.yaml --max-feature-count 1000 -W 1)
 
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=`jobs -p | tail -n 1`
@@ -127,8 +101,10 @@ echo "Fetch catalog"
 test_jsn catalog_before_refresh catalog
 
 # Update config and database
-
+cp -f tests/config-for-refresh.yaml /tmp/config.yaml
+# todo use psql to alter database
+curl -X POST "$MARTIN_URL/refresh"
 
 # Fetch and verify the catalog json after refresh calling
 
-
+test_jsn catalog_after_refresh catalog
