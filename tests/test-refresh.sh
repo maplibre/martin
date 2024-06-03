@@ -103,7 +103,7 @@ test_jsn catalog_before_refresh catalog
 # Update config and database
 cp -f tests/config-for-refresh.yaml /tmp/config.yaml
 # todo use psql to alter database
-curl -X POST "$MARTIN_URL/refresh"
+$CURL  -X  POST "$MARTIN_URL/refresh"
 
 # Fetch and verify the catalog json after refresh calling
 

@@ -5,7 +5,10 @@ use std::time::Duration;
 
 use crate::args::{Args, OsEnv};
 use crate::config::ServerState;
-use crate::read_config;
+use crate::fonts::FontSources;
+use crate::sprites::SpriteSources;
+use crate::utils::OptMainCache;
+use crate::{read_config, TileSources};
 use crate::source::TileCatalog;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
@@ -84,7 +87,18 @@ async fn refresh_catalog(
     args: Data<Args>,
     env: Data<OsEnv>,
     srv_config_guard: Data<RwLock<SrvConfig>>,
+    catalog_guard: Data<RwLock<Catalog>>,
     state_guard: Data<RwLock<ServerState>>,
+    tiles_guard: Data<RwLock<TileSources>>,
+    cache_guard: Data<RwLock<OptMainCache>>,
+
+    #[cfg(feature = "sprites")]
+    sprites_guard: Data<RwLock<SpriteSources>>,
+
+    #[cfg(feature = "fonts")]
+    fonts_guard: Data<RwLock<FontSources>>,
+
+
 ) -> actix_web::error::Result<HttpResponse> {
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {} to refresh catalog", cfg_filename.display());
@@ -109,6 +123,10 @@ async fn refresh_catalog(
     let mut srv_config = srv_config_guard.write().await;
     let mut state = state_guard.write().await;
 
+
+
+
+
     *srv_config = new_srv_config;
     *state = new_state;
 
@@ -131,6 +149,7 @@ pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_health)
         .service(get_index)
         .service(get_catalog)
+        .service(refresh_catalog)
         .service(get_source_info)
         .service(get_tile);
 
@@ -166,7 +185,8 @@ pub fn new_server(
 
         let app = App::new()
             .app_data(Data::new(RwLock::new(state.tiles.clone())))
-            .app_data(Data::new(RwLock::new(state.cache.clone())));
+            .app_data(Data::new(RwLock::new(state.cache.clone())))
+            .app_data(Data::new(RwLock::new(state.clone())));
 
         #[cfg(feature = "sprites")]
         let app = app.app_data(Data::new(RwLock::new(state.sprites.clone())));

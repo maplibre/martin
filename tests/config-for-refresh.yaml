@@ -31,4 +31,4 @@ mbtiles:
  paths: tests/fixtures/mbtiles/webp.mbtiles
  sources:
    mbt1: tests/fixtures/mbtiles/world_cities.mbtiles
-   mbt2: json.mbtiles
+   mbt2: tests/fixtures/mbtiles/json.mbtiles
