@@ -4001,9 +4001,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-hashes"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4faff0b1f487d94938f61fe78989b8e1e9524cf16a0b63174129c6a427057e2"
+checksum = "16e525595f5f7d0b78daecb5d4fbf347d876a1d17d4486e3aba587891bb26333"
 dependencies = [
  "digest",
  "hex",
