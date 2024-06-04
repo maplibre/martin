@@ -6,14 +6,14 @@ use std::time::Duration;
 use crate::args::{Args, OsEnv};
 use crate::config::ServerState;
 use crate::fonts::FontSources;
-use crate::sprites::SpriteSources;
-use crate::utils::OptMainCache;
-use crate::{read_config, TileSources};
 use crate::source::TileCatalog;
+use crate::sprites::SpriteSources;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use crate::utils::OptMainCache;
 use crate::MartinError::BindingError;
+use crate::{read_config, TileSources};
 use crate::{Config, MartinResult};
 use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
@@ -92,13 +92,9 @@ async fn refresh_catalog(
     tiles_guard: Data<RwLock<TileSources>>,
     cache_guard: Data<RwLock<OptMainCache>>,
 
-    #[cfg(feature = "sprites")]
-    sprites_guard: Data<RwLock<SpriteSources>>,
+    #[cfg(feature = "sprites")] sprites_guard: Data<RwLock<SpriteSources>>,
 
-    #[cfg(feature = "fonts")]
-    fonts_guard: Data<RwLock<FontSources>>,
-
-
+    #[cfg(feature = "fonts")] fonts_guard: Data<RwLock<FontSources>>,
 ) -> actix_web::error::Result<HttpResponse> {
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {} to refresh catalog", cfg_filename.display());
@@ -119,16 +115,32 @@ async fn refresh_catalog(
     // update these two guards
     let new_srv_config = config.srv;
     let new_state = sources;
+    let new_catalog = Catalog::new(&new_state).map_err(map_internal_error)?;
+    let new_tiles = new_state.tiles.clone();
+    let new_cache = new_state.cache.clone();
 
     let mut srv_config = srv_config_guard.write().await;
     let mut state = state_guard.write().await;
+    let mut catalog = catalog_guard.write().await;
+    let mut tiles = tiles_guard.write().await;
+    let mut cache = cache_guard.write().await;
 
-
-
-
+    #[cfg(feature = "sprites")]
+    {
+        let mut sprites = sprites_guard.write().await;
+        *sprites = new_state.sprites.clone();
+    }
+    #[cfg(feature = "fonts")]
+    {
+        let mut fonts = fonts_guard.write().await;
+        *fonts = new_state.fonts.clone();
+    }
 
     *srv_config = new_srv_config;
     *state = new_state;
+    *catalog = new_catalog;
+    *tiles = new_tiles;
+    *cache = new_cache;
 
     Ok(HttpResponse::Ok().finish())
 }
