@@ -81,6 +81,7 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
+#[allow(clippy::too_many_arguments)]
 #[route("/refresh", method = "POST")]
 #[allow(clippy::unused_async)]
 async fn refresh_catalog(
