@@ -123,7 +123,7 @@ bench-http: (cargo-install "oha")
     oha -z 60s  http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Run all tests using a test database
-test: start (test-cargo "--all-targets") test-doc test-int
+test: start (test-cargo "--all-targets") test-doc test-int test-refresh
 
 # Run all tests using an SSL connection to a test database. Expected output won't match.
 test-ssl: start-ssl (test-cargo "--all-targets") test-doc clean-test
@@ -184,7 +184,22 @@ test-lambda:
 # Test /refresh to against the source changes
 
 test-refresh: clean start
+    #!/usr/bin/env bash
+    set -euo pipefail
     tests/test-refresh.sh
+    if [ "{{ os() }}" != "linux" ]; then
+        echo "** Integration tests are only supported on Linux"
+        echo "** Skipping diffing with the expected output"
+    else
+        echo "** Comparing actual output with expected output..."
+        if ! diff --brief --recursive --new-file tests/output tests/expected; then
+            echo "** Expected output does not match actual output"
+            echo "** If this is expected, run 'just bless' to update expected output"
+            exit 1
+        else
+            echo "** Expected output matches actual output"
+        fi
+    fi
 
 # Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
@@ -193,6 +208,7 @@ bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests ble
 bless-int:
     rm -rf tests/temp
     tests/test.sh
+    tests/test-refresh.sh
     rm -rf tests/expected
     mv tests/output tests/expected
 
