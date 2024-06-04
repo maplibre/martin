@@ -13,7 +13,6 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 
 mkdir -p "$TEST_OUT_DIR"
 
-
 MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
@@ -85,6 +84,7 @@ echo "Starting martin"
 
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
+mkdir -p tests/tmp
 cp -f tests/config.yaml tests/tmp/config.yaml
 
 ARG=(--config tests/tmp/config.yaml --max-feature-count 1000 -W 1)
