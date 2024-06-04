@@ -5,9 +5,7 @@ use std::time::Duration;
 
 use crate::args::{Args, OsEnv};
 use crate::config::ServerState;
-use crate::fonts::FontSources;
 use crate::source::TileCatalog;
-use crate::sprites::SpriteSources;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
@@ -93,9 +91,9 @@ async fn refresh_catalog(
     tiles_guard: Data<RwLock<TileSources>>,
     cache_guard: Data<RwLock<OptMainCache>>,
 
-    #[cfg(feature = "sprites")] sprites_guard: Data<RwLock<SpriteSources>>,
+    #[cfg(feature = "sprites")] sprites_guard: Data<RwLock<crate::sprites::SpriteSources>>,
 
-    #[cfg(feature = "fonts")] fonts_guard: Data<RwLock<FontSources>>,
+    #[cfg(feature = "fonts")] fonts_guard: Data<RwLock<crate::fonts::FontSources>>,
 ) -> actix_web::error::Result<HttpResponse> {
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {} to refresh catalog", cfg_filename.display());
