@@ -85,9 +85,9 @@ echo "Starting martin"
 
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
-cp -f tests/config.yaml /tmp/config.yaml
+cp -f tests/config.yaml tests/tmp/config.yaml
 
-ARG=(--config /tmp/config.yaml --max-feature-count 1000 -W 1)
+ARG=(--config tests/tmp/config.yaml --max-feature-count 1000 -W 1)
 
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=`jobs -p | tail -n 1`
@@ -101,7 +101,7 @@ echo "Fetch catalog"
 test_jsn catalog_before_refresh catalog
 
 # Update config and database
-cp -f tests/config-for-refresh.yaml /tmp/config.yaml
+cp -f tests/config-for-refresh.yaml tests/tmp/config.yaml
 # todo use psql to alter database
 $CURL  -X  POST "$MARTIN_URL/refresh"
 
