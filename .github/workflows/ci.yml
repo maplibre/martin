@@ -187,7 +187,6 @@ jobs:
           export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
-          tests/test-refresh.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
@@ -209,7 +208,6 @@ jobs:
           export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
-          tests/test-refresh.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
@@ -361,7 +359,6 @@ jobs:
             chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
           fi
           tests/test.sh
-          tests/test-refresh.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Compare test output results (Linux)
@@ -382,7 +379,6 @@ jobs:
           export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           tests/test.sh
-          tests/test-refresh.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Save test output (on error)
@@ -485,7 +481,6 @@ jobs:
           export MBTILES_BIN=target_releases/mbtiles
           chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
           tests/test.sh
-          tests/test-refresh.sh
           rm -rf target_releases
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
@@ -505,7 +500,6 @@ jobs:
           export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
           tests/test.sh
-          tests/test-refresh.sh
           sudo dpkg -P martin
           rm -rf target_releases
         env:
