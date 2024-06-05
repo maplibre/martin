@@ -62,8 +62,8 @@ postgres-protocol = "0.6"
 pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.19"
-rustls = "0.23.8"
+rstest = "0.20"
+rustls = "0.23.9"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.7"
@@ -75,7 +75,7 @@ serde_with = "3"
 serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
-sqlite-hashes = { version = "0.7.1", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlite-hashes = { version = "0.7.2", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 subst = { version = "0.3", features = ["yaml"] }
 thiserror = "1"

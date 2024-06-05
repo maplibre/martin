@@ -32,7 +32,7 @@ pub use update::UpdateZoomType;
 mod validation;
 pub use validation::{
     calc_agg_tiles_hash, AggHashType, IntegrityCheckType, MbtType, AGG_TILES_HASH,
-    AGG_TILES_HASH_AFTER_APPLY,
+    AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY,
 };
 
 /// `MBTiles` uses a TMS (Tile Map Service) scheme for its tile coordinates (inverted along the Y axis).
