@@ -327,6 +327,54 @@ kill_process $MARTIN_PROC_ID Martin
 validate_log "$LOG_FILE"
 
 
+
+echo "------------------------------------------------------------------------------------------------------------------------"
+echo "Test /refresh of Martin"
+
+
+TEST_NAME="refresh"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+mkdir -p tests/tmp
+cp -f tests/config.yaml tests/tmp/config.yaml
+
+ARG=(--config tests/tmp/config.yaml --max-feature-count 1000 -W 1)
+export DATABASE_URL="$MARTIN_DATABASE_URL"
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=`jobs -p | tail -n 1`
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
+unset DATABASE_URL
+
+# Fetch catalog before calling /refresh
+
+>&2 echo "Fetch catalog before calling /refresh"
+test_jsn catalog_before_refresh catalog
+
+# Update the config file
+
+>&2 echo "Update the config file"
+cp -f tests/config-for-refresh.yaml tests/tmp/config.yaml
+
+# Call /refresh to update the configuration and sources
+
+>&2 echo "Call /refresh to update the configuration and sources"
+$CURL -X POST "$MARTIN_URL/refresh"
+
+# Fetch the catalog after calling /refresh
+
+>&2 echo "Fetch catalog after calling /refresh"
+test_jsn catalog_after_refresh catalog
+
+
+kill_process $MARTIN_PROC_ID Martin
+validate_log "$LOG_FILE"
+
+
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test pre-configured Martin"
 
