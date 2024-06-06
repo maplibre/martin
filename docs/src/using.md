@@ -14,7 +14,7 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/font/{font}/{start}-{end}`            | [Font source](sources-fonts.md)                |
 | `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](sources-fonts.md)      |
 | `/health`                               | Martin server health check: returns 200 `OK`   |
-| `/refresh`                              | Made Martin to refresh sources                 |
+| `/refresh`                              | Refresh sources. Call this to made Martin be aware of changes of MBTiles/PMTiles/PostGIS Tables/Views/Functions |
 
 ### Duplicate Source ID
 
