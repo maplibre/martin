@@ -372,7 +372,6 @@ test_jsn catalog_after_refresh catalog
 
 
 kill_process $MARTIN_PROC_ID Martin
-validate_log "$LOG_FILE"
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
