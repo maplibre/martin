@@ -14,9 +14,9 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
 ## Features
 
 * Serve [vector tiles](https://github.com/mapbox/vector-tile-spec) from
-    * [PostGIS](https://github.com/postgis/postgis) databases, automatically discovering compatible tables and functions
-    * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
-    * [MBTile](https://github.com/mapbox/mbtiles-spec) files
+  * [PostGIS](https://github.com/postgis/postgis) databases, automatically discovering compatible tables and functions
+  * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
+  * [MBTile](https://github.com/mapbox/mbtiles-spec) files
 * [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources into one
 * Generate [sprites](https://maplibre.org/martin/sources-sprites.html) and [font glyphs](https://maplibre.org/martin/sources-fonts.html)
 * Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
