@@ -1,6 +1,7 @@
 use log::debug;
 use martin_tile_utils::MAX_ZOOM;
-use sqlx::{query, Executor as _, SqliteExecutor};
+use sqlite_compressions::rusqlite::Connection;
+use sqlx::{query, Executor as _, SqliteConnection, SqliteExecutor};
 
 use crate::errors::MbtResult;
 use crate::MbtError::InvalidZoomValue;
@@ -209,6 +210,54 @@ where
     Ok(())
 }
 
+pub async fn create_bsdiffraw_tables<T>(conn: &mut T) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    debug!("Creating if needed bsdiffraw table: bsdiffraw(z,x,y,data,hash)");
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS bsdiffraw (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             patch_data blob NOT NULL,
+             uncompressed_tile_hash text,
+             PRIMARY KEY(zoom_level, tile_column, tile_row));",
+    )
+    .await?;
+
+    Ok(())
+}
+
+/// Check if `MBTiles` has a table or a view named `bsdiffraw` with needed fields
+pub async fn has_bsdiffraw<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let sql = query!(
+        "SELECT (
+           -- 'bsdiffraw' table or view columns and their types are as expected:
+           -- 5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
+           -- The order is not important
+           SELECT COUNT(*) = 5
+           FROM pragma_table_info('bsdiffraw')
+           WHERE ((name = 'zoom_level' AND type = 'INTEGER')
+               OR (name = 'tile_column' AND type = 'INTEGER')
+               OR (name = 'tile_row' AND type = 'INTEGER')
+               OR (name = 'patch_data' AND type = 'BLOB')
+               OR (name = 'uncompressed_tile_hash' AND type = 'TEXT'))
+           --
+       ) as is_valid;"
+    );
+
+    Ok(sql
+        .fetch_one(&mut *conn)
+        .await?
+        .is_valid
+        .unwrap_or_default()
+        == 1)
+}
+
 pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -300,6 +349,7 @@ where
     }
 }
 
+/// Execute `DETACH DATABASE` command
 pub async fn detach_db<T>(conn: &mut T, name: &str) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -324,6 +374,7 @@ fn validate_zoom(zoom: Option<i32>, zoom_name: &'static str) -> MbtResult<Option
     }
 }
 
+/// Compute min and max zoom levels from the `tiles` table
 pub async fn compute_min_max_zoom<T>(conn: &mut T) -> MbtResult<Option<(u8, u8)>>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -344,4 +395,19 @@ FROM tiles;"
         (Some(min_zoom), Some(max_zoom)) => Ok(Some((min_zoom, max_zoom))),
         _ => Ok(None),
     }
+}
+
+pub async fn action_with_rusqlite(
+    conn: &mut SqliteConnection,
+    action: impl FnOnce(&Connection) -> MbtResult<()>,
+) -> MbtResult<()> {
+    // SAFETY: This must be scoped to make sure the handle is dropped before we continue using conn
+    // Make sure not to execute any other queries while the handle is locked
+    let mut handle_lock = conn.lock_handle().await?;
+    let handle = handle_lock.as_raw_handle().as_ptr();
+
+    // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
+    let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
+
+    action(&rusqlite_conn)
 }

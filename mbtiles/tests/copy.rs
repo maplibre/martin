@@ -10,6 +10,7 @@ use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
+use mbtiles::PatchType::Whole;
 use mbtiles::{
     apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, UpdateZoomType,
@@ -287,7 +288,7 @@ fn databases() -> Databases {
             copy! {
                 result.path("v1", mbt_typ),
                 path(&dif_mbt),
-                diff_with_file => Some(result.path("v2", mbt_typ)),
+                diff_with_file => Some((result.path("v2", mbt_typ), Whole)),
             };
             let dmp = dump(&mut dif_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__dif");
@@ -318,7 +319,7 @@ fn databases() -> Databases {
             copy! {
                 result.path("v1", mbt_typ),
                 path(&dif_empty_mbt),
-                diff_with_file => Some(result.path("v1_clone", mbt_typ)),
+                diff_with_file => Some((result.path("v1_clone", mbt_typ), Whole)),
             };
             let dmp = dump(&mut dif_empty_cn).await.unwrap();
             assert_dump!(&dmp, "{typ}__dif_empty");
@@ -468,7 +469,7 @@ async fn diff_and_patch(
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
-        diff_with_file => Some(databases.path(b_db, b_type)),
+        diff_with_file => Some((databases.path(b_db, b_type), Whole)),
         dst_type_cli => dif_type,
     };
     pretty_assert_eq!(

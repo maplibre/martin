@@ -4,7 +4,7 @@
 pub use sqlx;
 
 mod copier;
-pub use copier::{CopyDuplicateMode, MbtilesCopier};
+pub use copier::{CopyDuplicateMode, MbtilesCopier, PatchType};
 
 mod errors;
 pub use errors::{MbtError, MbtResult};
@@ -28,6 +28,8 @@ mod summary;
 
 mod update;
 pub use update::UpdateZoomType;
+
+mod bindiff;
 
 mod validation;
 pub use validation::{
