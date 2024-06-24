@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::Mutex;
@@ -10,10 +11,10 @@ use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use mbtiles::PatchType::Whole;
+use mbtiles::PatchType::{BinDiffRaw, Whole};
 use mbtiles::{
     apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
-    MbtilesCopier, UpdateZoomType,
+    MbtilesCopier, PatchType, UpdateZoomType,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
@@ -449,6 +450,7 @@ async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
+    #[values(/*Whole, */BinDiffRaw)] patch_type: PatchType,
     #[values(&[Flat, FlatWithHash, Normalized])] destination_types: &[MbtTypeCli],
     #[values(
         ("v1", "v2", "dif"),
@@ -458,18 +460,21 @@ async fn diff_and_patch(
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db) = tilesets;
     let dif = dif_type.map_or("dflt", shorten);
-    let prefix = format!(
+    let mut prefix = format!(
         "{a_db}_{}--{b_db}_{}={dif}",
         shorten(b_type),
-        shorten(a_type)
+        shorten(a_type),
     );
+    if patch_type != Whole {
+        prefix = format!("{prefix}{patch_type}");
+    }
 
     eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
     let (dif_mbt, mut dif_cn) = open!(diff_and_patch, "{prefix}__{dif_db}");
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
-        diff_with_file => Some((databases.path(b_db, b_type), Whole)),
+        diff_with_file => Some((databases.path(b_db, b_type), patch_type)),
         dst_type_cli => dif_type,
     };
     pretty_assert_eq!(
@@ -532,14 +537,14 @@ async fn patch_on_copy(
 
 /// A simple tester to run specific values
 #[actix_rt::test]
-#[ignore]
+// #[ignore]
 async fn test_one() {
     // This will cause an error if ran together with other tests
     let db = databases();
     // let db = Databases::default();
 
     // Test convert
-    convert(Flat, Flat, &db).await.unwrap();
+    // convert(Flat, Flat, &db).await.unwrap();
 
     // Test diff patch copy
     let src_type = FlatWithHash;
@@ -551,6 +556,7 @@ async fn test_one() {
         src_type,
         dif_type,
         dst_type,
+        BinDiffRaw,
         &[Flat],
         ("v1", "v2", "dif"),
         &db,
@@ -637,9 +643,20 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                             "TEXT" => row
                                 .get::<Option<String>, _>(idx)
                                 .map(|v| format!(r#""{v}""#)),
-                            "BLOB" => row
-                                .get::<Option<Vec<u8>>, _>(idx)
-                                .map(|v| format!("blob({})", from_utf8(&v).unwrap())),
+                            "BLOB" => row.get::<Option<Vec<u8>>, _>(idx).map(|v| {
+                                format!(
+                                    "blob({})",
+                                    from_utf8(&v).map_or_else(
+                                        |_| {
+                                            v.iter().fold(String::new(), |mut out, b| {
+                                                let _ = write!(out, "{b:02X}");
+                                                out
+                                            })
+                                        },
+                                        ToString::to_string,
+                                    )
+                                )
+                            }),
                             _ => panic!("Unknown column type: {typ}"),
                         })
                         .unwrap_or("NULL".to_string())

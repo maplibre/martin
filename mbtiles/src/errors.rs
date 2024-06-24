@@ -96,7 +96,7 @@ pub enum MbtError {
     #[error("The {AGG_TILES_HASH_AFTER_APPLY}='{1}' in patch file {0} does not match {AGG_TILES_HASH}='{3}' in the file {2} after the patch was applied")]
     AggHashMismatchAfterApply(String, String, String, String),
 
-    #[error("Unable to create a file of type {0} when using bin-diff.  The bin-diff format only works with flat-with-hash MBTiles files.")]
+    #[error("MBTile of type {0} is not supported when using bin-diff.  The bin-diff format only works with flat and flat-with-hash MBTiles files.")]
     BinDiffRequiresFlatWithHash(MbtType),
 
     #[error("Applying bindiff to tile {0} resulted in mismatching hash: expecting `{1}` != computed uncompressed value `{2}`")]

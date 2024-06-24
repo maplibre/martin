@@ -10,9 +10,11 @@ use log::{debug, error, info};
 use martin_tile_utils::TileCoord;
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _, Encoder as _, GzipEncoder};
 use sqlx::{query, Executor, Row, SqliteConnection};
+use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::{create_bsdiffraw_tables, MbtError, MbtResult, MbtType, Mbtiles};
+use crate::PatchType::Whole;
+use crate::{create_bsdiffraw_tables, MbtError, MbtResult, MbtType, Mbtiles, PatchType};
 
 pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync + 'static {
     fn query(
@@ -123,21 +125,29 @@ pub struct DifferBefore {
 pub struct DifferAfter {
     coord: TileCoord,
     data: Vec<u8>,
-    new_tile_hash: String,
+    new_tile_hash: u64,
 }
 
 pub struct BinDiffDiffer {
     src_mbt: Mbtiles,
     dif_mbt: Mbtiles,
     dif_type: MbtType,
+    patch_type: PatchType,
 }
 
 impl BinDiffDiffer {
-    pub fn new(src_mbt: Mbtiles, dif_mbt: Mbtiles, dif_type: MbtType) -> Self {
+    pub fn new(
+        src_mbt: Mbtiles,
+        dif_mbt: Mbtiles,
+        dif_type: MbtType,
+        patch_type: PatchType,
+    ) -> Self {
+        assert_ne!(patch_type, Whole, "Invalid for BinDiffDiffer");
         Self {
             src_mbt,
             dif_mbt,
             dif_type,
+            patch_type,
         }
     }
 }
@@ -192,26 +202,33 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     }
 
     fn process(&self, value: DifferBefore) -> MbtResult<DifferAfter> {
-        let old_tile = GzipEncoder::decode(&value.old_tile_data)
-            .inspect_err(|e| error!("Unable to unzip source tile at {:?}: {e}", value.coord))?;
-        let new_tile = GzipEncoder::decode(&value.new_tile_data)
-            .inspect_err(|e| error!("Unable to unzip diff tile at {:?}: {e}", value.coord))?;
-        let diff = BsdiffRawDiffer::diff(&old_tile, &new_tile).expect("BinDiff failure");
+        let mut old_tile = value.old_tile_data;
+        let mut new_tile = value.new_tile_data;
+        if self.patch_type == PatchType::BinDiff {
+            old_tile = GzipEncoder::decode(&old_tile)
+                .inspect_err(|e| error!("Unable to unzip source tile at {:?}: {e}", value.coord))?;
+            new_tile = GzipEncoder::decode(&new_tile)
+                .inspect_err(|e| error!("Unable to unzip diff tile at {:?}: {e}", value.coord))?;
+        }
+        let new_tile_hash = xxh3_64(&new_tile);
+        let data = BsdiffRawDiffer::diff(&old_tile, &new_tile).expect("BinDiff failure");
+        let data = GzipEncoder::encode(&data, Some(9))?;
 
         Ok(DifferAfter {
             coord: value.coord,
-            data: diff,
-            new_tile_hash: format!("{:X}", md5::compute(&new_tile)),
+            data,
+            new_tile_hash,
         })
     }
 
     async fn insert(&self, value: DifferAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
-        query("INSERT INTO bsdiffraw (zoom_level, tile_column, tile_row, patch_data, uncompressed_tile_hash) VALUES (?, ?, ?, ?, ?)")
+        #[allow(clippy::cast_possible_wrap)]
+        query("INSERT INTO bsdiffraw (zoom_level, tile_column, tile_row, patch_data, uncompressed_tile_xxh3_64) VALUES (?, ?, ?, ?, ?)")
             .bind(value.coord.z)
             .bind(value.coord.x)
             .bind(value.coord.y)
             .bind(value.data)
-            .bind(value.new_tile_hash)
+            .bind(value.new_tile_hash as i64)
             .execute(&mut *conn).await?;
         Ok(())
     }
@@ -221,7 +238,7 @@ pub struct ApplierBefore {
     coord: TileCoord,
     tile_data: Vec<u8>,
     patch_data: Vec<u8>,
-    uncompressed_tile_hash: String,
+    uncompressed_tile_hash: u64,
 }
 
 pub struct ApplierAfter {
@@ -233,36 +250,21 @@ pub struct ApplierAfter {
 pub struct BinDiffPatcher {
     src_mbt: Mbtiles,
     dif_mbt: Mbtiles,
-    /// Whether the bindiff table has the `uncompressed_tile_hash` column for validation
-    diff_has_hash: bool,
-    /// Whether we insert into the `tiles_with_hash` table or the `tiles` table
-    target_has_hash: bool,
+    dst_type: MbtType,
 }
 
 impl BinDiffPatcher {
-    pub fn new(
-        src_mbt: Mbtiles,
-        dif_mbt: Mbtiles,
-        diff_has_hash: bool,
-        target_has_hash: bool,
-    ) -> Self {
+    pub fn new(src_mbt: Mbtiles, dif_mbt: Mbtiles, dst_type: MbtType) -> Self {
         Self {
             src_mbt,
             dif_mbt,
-            diff_has_hash,
-            target_has_hash,
+            dst_type,
         }
     }
 }
 
 impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     async fn query(&self, sql_where: String, tx_wrk: Sender<ApplierBefore>) -> MbtResult<()> {
-        let get_uncompressed_tile_hash = if self.diff_has_hash {
-            ", uncompressed_tile_hash"
-        } else {
-            ""
-        };
-
         let sql = format!(
             "
         SELECT srcTiles.zoom_level
@@ -270,7 +272,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
              , srcTiles.tile_row
              , srcTiles.tile_data
              , patch_data
-             {get_uncompressed_tile_hash}
+             , uncompressed_tile_xxh3_64
         FROM tiles AS srcTiles JOIN diffDb.bsdiffraw AS difTiles
              ON srcTiles.zoom_level = difTiles.zoom_level
                AND srcTiles.tile_column = difTiles.tile_column
@@ -292,7 +294,8 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
                 },
                 tile_data: row.get(3),
                 patch_data: row.get(4),
-                uncompressed_tile_hash: self.diff_has_hash.then(|| row.get(5)).unwrap_or_default(),
+                #[allow(clippy::cast_sign_loss)]
+                uncompressed_tile_hash: row.get::<i64, _>(5) as u64,
             };
             if tx_wrk.send_async(work).await.is_err() {
                 break; // the receiver has been dropped
@@ -306,42 +309,41 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         let tile_data = GzipEncoder::decode(&value.tile_data)
             .inspect_err(|e| error!("Unable to unzip source tile at {:?}: {e}", value.coord))?;
         let new_tile = BsdiffRawDiffer::patch(&tile_data, &value.patch_data)?;
-
-        if self.diff_has_hash {
-            let new_tile_hash = format!("{:X}", md5::compute(&new_tile));
-            if new_tile_hash != value.uncompressed_tile_hash {
-                return Err(MbtError::BinDiffIncorrectTileHash(
-                    value.coord.to_string(),
-                    value.uncompressed_tile_hash,
-                    new_tile_hash,
-                ));
-            }
+        let new_tile_hash = xxh3_64(&new_tile);
+        if new_tile_hash != value.uncompressed_tile_hash {
+            return Err(MbtError::BinDiffIncorrectTileHash(
+                value.coord.to_string(),
+                value.uncompressed_tile_hash.to_string(),
+                new_tile_hash.to_string(),
+            ));
         }
 
         let data = GzipEncoder::encode(&new_tile, Some(9))?;
 
         Ok(ApplierAfter {
             coord: value.coord,
-            new_tile_hash: self
-                .target_has_hash
-                .then(|| format!("{:X}", md5::compute(&data)))
-                .unwrap_or_default(),
+            new_tile_hash: if self.dst_type == FlatWithHash {
+                format!("{:X}", md5::compute(&data))
+            } else {
+                String::default() // This is a fast noop, no memory alloc is performed
+            },
             data,
         })
     }
 
     async fn insert(&self, value: ApplierAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
         let mut q = query(
-            if self.target_has_hash {
-                "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)"
-            } else {
-                "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)"
+            match self.dst_type {
+                Flat =>"INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)",
+                FlatWithHash => "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)",
+                v => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
             })
         .bind(value.coord.z)
         .bind(value.coord.x)
         .bind(value.coord.y)
         .bind(value.data);
-        if self.target_has_hash {
+
+        if self.dst_type == FlatWithHash {
             q = q.bind(value.new_tile_hash);
         }
 

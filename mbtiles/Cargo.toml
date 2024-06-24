@@ -35,6 +35,7 @@ sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+xxhash-rust.workspace = true
 
 # Bin dependencies
 anyhow = { workspace = true, optional = true }

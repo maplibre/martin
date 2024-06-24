@@ -41,8 +41,10 @@ pub enum PatchType {
     /// Patch file will contain the entire tile if it is different from the source
     #[default]
     Whole,
-    /// Patch file will use bin-diff algorithm to store only the bytes changed between two versions of each tile.
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
     BinDiff,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
+    BinDiffRaw,
 }
 
 impl CopyDuplicateMode {
@@ -228,7 +230,7 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
-        if patch_type == PatchType::BinDiff && dst_type != FlatWithHash {
+        if patch_type != PatchType::Whole && dst_type != FlatWithHash {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
 
@@ -240,11 +242,7 @@ impl MbtileCopierInt {
             dif_type = dif_info.mbt_type,
             what = self.copy_text(),
             dst_path = self.dst_mbt.filepath(),
-            patch = if patch_type == PatchType::BinDiff {
-                " with bin-diff"
-            } else {
-                ""
-            }
+            patch = if patch_type == PatchType::Whole { "" } else { " with bin-diff" }
         );
 
         self.init_schema(&mut conn, src_info.mbt_type, dst_type)
@@ -262,8 +260,8 @@ impl MbtileCopierInt {
         detach_db(&mut conn, "diffDb").await?;
         detach_db(&mut conn, "sourceDb").await?;
 
-        if patch_type == PatchType::BinDiff {
-            BinDiffDiffer::new(self.src_mbt.clone(), dif_mbt, dif_info.mbt_type)
+        if patch_type != PatchType::Whole {
+            BinDiffDiffer::new(self.src_mbt.clone(), dif_mbt, dif_info.mbt_type, patch_type)
                 .run(&mut conn, self.get_where_clause("srcTiles."))
                 .await?;
         }
@@ -359,7 +357,7 @@ impl MbtileCopierInt {
         detach_db(&mut conn, "sourceDb").await?;
 
         if use_bindiff {
-            BinDiffPatcher::new(self.src_mbt.clone(), dif_mbt, true, true)
+            BinDiffPatcher::new(self.src_mbt.clone(), dif_mbt, dst_type)
                 .run(&mut conn, self.get_where_clause("srcTiles."))
                 .await?;
         }
@@ -746,9 +744,10 @@ fn get_select_from_with_diff(
         };
     }
 
-    let sql_cond = match patch_type {
-        PatchType::Whole => "OR srcTiles.tile_data != difTiles.tile_data",
-        PatchType::BinDiff => "",
+    let sql_cond = if patch_type == PatchType::Whole {
+        "OR srcTiles.tile_data != difTiles.tile_data"
+    } else {
+        ""
     };
     format!(
         "
