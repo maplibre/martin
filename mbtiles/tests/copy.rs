@@ -20,6 +20,7 @@ use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
 use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
+use tokio::runtime::Handle;
 
 const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
@@ -219,146 +220,151 @@ impl Databases {
 /// These dbs will be used by other tests to check against in various conditions.
 #[fixture]
 #[once]
+#[allow(clippy::too_many_lines)]
 fn databases() -> Databases {
-    futures::executor::block_on(async {
-        let mut result = Databases::default();
-        for &mbt_typ in &[Flat, FlatWithHash, Normalized] {
-            let typ = shorten(mbt_typ);
+    tokio::task::block_in_place(|| {
+        Handle::current().block_on(async {
+            let mut result = Databases::default();
+            for &mbt_typ in &[Flat, FlatWithHash, Normalized] {
+                let typ = shorten(mbt_typ);
 
-            // ----------------- empty_no_hash -----------------
-            let (raw_empty_mbt, mut raw_empty_cn) =
-                new_file_no_hash!(databases, mbt_typ, "", "", "{typ}__empty-no-hash");
-            let dmp = dump(&mut raw_empty_cn).await.unwrap();
-            assert_dump!(&dmp, "{typ}__empty-no-hash");
-            result.add(
-                "empty_no_hash",
-                mbt_typ,
-                dmp,
-                raw_empty_mbt,
-                None,
-                raw_empty_cn,
-            );
+                // ----------------- empty_no_hash -----------------
+                let (raw_empty_mbt, mut raw_empty_cn) =
+                    new_file_no_hash!(databases, mbt_typ, "", "", "{typ}__empty-no-hash");
+                let dmp = dump(&mut raw_empty_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__empty-no-hash");
+                result.add(
+                    "empty_no_hash",
+                    mbt_typ,
+                    dmp,
+                    raw_empty_mbt,
+                    None,
+                    raw_empty_cn,
+                );
 
-            // ----------------- empty -----------------
-            let (empty_mbt, mut empty_cn) = open!(databases, "{typ}__empty");
-            copy!(result.path("empty_no_hash", mbt_typ), path(&empty_mbt));
-            let dmp = dump(&mut empty_cn).await.unwrap();
-            assert_dump!(&dmp, "{typ}__empty");
-            let hash = empty_mbt.open_and_validate(Off, Verify).await.unwrap();
-            allow_duplicates! {
-                assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
+                // ----------------- empty -----------------
+                let (empty_mbt, mut empty_cn) = open!(databases, "{typ}__empty");
+                copy!(result.path("empty_no_hash", mbt_typ), path(&empty_mbt));
+                let dmp = dump(&mut empty_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__empty");
+                let hash = empty_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
+                }
+                result.add("empty", mbt_typ, dmp, empty_mbt, Some(hash), empty_cn);
+
+                // ----------------- v1_no_hash -----------------
+                let (raw_mbt, mut raw_cn) = new_file_no_hash!(
+                    databases,
+                    mbt_typ,
+                    METADATA_V1,
+                    TILES_V1,
+                    "{typ}__v1-no-hash"
+                );
+                let dmp = dump(&mut raw_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__v1-no-hash");
+                result.add("v1_no_hash", mbt_typ, dmp, raw_mbt, None, raw_cn);
+
+                // ----------------- v1 -----------------
+                let (v1_mbt, mut v1_cn) = open!(databases, "{typ}__v1");
+                copy!(result.path("v1_no_hash", mbt_typ), path(&v1_mbt));
+                let dmp = dump(&mut v1_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__v1");
+                let hash = v1_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
+                }
+                result.add("v1", mbt_typ, dmp, v1_mbt, Some(hash), v1_cn);
+
+                // ----------------- v2 -----------------
+                let (v2_mbt, mut v2_cn) =
+                    new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
+                let dmp = dump(&mut v2_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__v2");
+                let hash = v2_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"3BCDEE3F52407FF1315629298CB99133");
+                }
+                result.add("v2", mbt_typ, dmp, v2_mbt, Some(hash), v2_cn);
+
+                // ----------------- dif (v1 -> v2) -----------------
+                let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif");
+                copy! {
+                    result.path("v1", mbt_typ),
+                    path(&dif_mbt),
+                    diff_with_file => Some((result.path("v2", mbt_typ), Whole)),
+                };
+                let dmp = dump(&mut dif_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__dif");
+                let hash = dif_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
+                }
+                result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
+
+                // ----------------- bin-diff-raw bdr (v1 -> v2) -----------------
+                if mbt_typ == FlatWithHash {
+                    let (bdr_mbt, mut bdr_cn) = open!(databases, "{typ}__bdr");
+                    eprintln!("TEST: bin-diff-raw (v1 -> v2) for {typ}...");
+                    eprintln!("INFO: bdr_mbt={bdr_mbt}");
+                    copy! {
+                        result.path("v1", mbt_typ),
+                        path(&bdr_mbt),
+                        diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw)),
+                    };
+                    let dmp = dump(&mut bdr_cn).await.unwrap();
+                    assert_dump!(&dmp, "{typ}__bdr");
+                    let hash = bdr_mbt.open_and_validate(Off, Verify).await.unwrap();
+                    allow_duplicates! {
+                        assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3");
+                    }
+                    result.add("bdr", mbt_typ, dmp, bdr_mbt, Some(hash), bdr_cn);
+                }
+
+                // ----------------- v1_clone -----------------
+                let (v1_clone_mbt, v1_clone_cn) = open!(databases, "{typ}__v1-clone");
+                let dmp = copy_dump!(result.path("v1", mbt_typ), path(&v1_clone_mbt));
+                let hash = v1_clone_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
+                }
+                result.add(
+                    "v1_clone",
+                    mbt_typ,
+                    dmp,
+                    v1_clone_mbt,
+                    Some(hash),
+                    v1_clone_cn,
+                );
+
+                // ----------------- dif_empty (v1 -> v1_clone) -----------------
+                let (dif_empty_mbt, mut dif_empty_cn) = open!(databases, "{typ}__dif_empty");
+                copy! {
+                    result.path("v1", mbt_typ),
+                    path(&dif_empty_mbt),
+                    diff_with_file => Some((result.path("v1_clone", mbt_typ), Whole)),
+                };
+                let dmp = dump(&mut dif_empty_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__dif_empty");
+                let hash = dif_empty_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
+                }
+                result.add(
+                    "dif_empty",
+                    mbt_typ,
+                    dmp,
+                    dif_empty_mbt,
+                    Some(hash),
+                    dif_empty_cn,
+                );
             }
-            result.add("empty", mbt_typ, dmp, empty_mbt, Some(hash), empty_cn);
-
-            // ----------------- v1_no_hash -----------------
-            let (raw_mbt, mut raw_cn) = new_file_no_hash!(
-                databases,
-                mbt_typ,
-                METADATA_V1,
-                TILES_V1,
-                "{typ}__v1-no-hash"
-            );
-            let dmp = dump(&mut raw_cn).await.unwrap();
-            assert_dump!(&dmp, "{typ}__v1-no-hash");
-            result.add("v1_no_hash", mbt_typ, dmp, raw_mbt, None, raw_cn);
-
-            // ----------------- v1 -----------------
-            let (v1_mbt, mut v1_cn) = open!(databases, "{typ}__v1");
-            copy!(result.path("v1_no_hash", mbt_typ), path(&v1_mbt));
-            let dmp = dump(&mut v1_cn).await.unwrap();
-            assert_dump!(&dmp, "{typ}__v1");
-            let hash = v1_mbt.open_and_validate(Off, Verify).await.unwrap();
-            allow_duplicates! {
-                assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
-            }
-            result.add("v1", mbt_typ, dmp, v1_mbt, Some(hash), v1_cn);
-
-            // ----------------- v2 -----------------
-            let (v2_mbt, mut v2_cn) =
-                new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
-            let dmp = dump(&mut v2_cn).await.unwrap();
-            assert_dump!(&dmp, "{typ}__v2");
-            let hash = v2_mbt.open_and_validate(Off, Verify).await.unwrap();
-            allow_duplicates! {
-                assert_snapshot!(hash, @"3BCDEE3F52407FF1315629298CB99133");
-            }
-            result.add("v2", mbt_typ, dmp, v2_mbt, Some(hash), v2_cn);
-
-            // ----------------- dif (v1 -> v2) -----------------
-            let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif");
-            copy! {
-                result.path("v1", mbt_typ),
-                path(&dif_mbt),
-                diff_with_file => Some((result.path("v2", mbt_typ), Whole)),
-            };
-            let dmp = dump(&mut dif_cn).await.unwrap();
-            assert_dump!(&dmp, "{typ}__dif");
-            let hash = dif_mbt.open_and_validate(Off, Verify).await.unwrap();
-            allow_duplicates! {
-                assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
-            }
-            result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
-
-            // ----------------- dif_bdr (v1 -> v2) -----------------
-            // if mbt_typ == FlatWithHash {
-            //     let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif_bdr");
-            //     copy! {
-            //         result.path("v1", mbt_typ),
-            //         path(&dif_mbt),
-            //         diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw)),
-            //     };
-            //     let dmp = dump(&mut dif_cn).await.unwrap();
-            //     assert_dump!(&dmp, "{typ}__dif_bdr");
-            //     let hash = dif_mbt.open_and_validate(Off, Verify).await.unwrap();
-            //     allow_duplicates! {
-            //         assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
-            //     }
-            //     result.add("dif_bdr", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
-            // }
-
-            // ----------------- v1_clone -----------------
-            let (v1_clone_mbt, v1_clone_cn) = open!(databases, "{typ}__v1-clone");
-            let dmp = copy_dump!(result.path("v1", mbt_typ), path(&v1_clone_mbt));
-            let hash = v1_clone_mbt.open_and_validate(Off, Verify).await.unwrap();
-            allow_duplicates! {
-                assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
-            }
-            result.add(
-                "v1_clone",
-                mbt_typ,
-                dmp,
-                v1_clone_mbt,
-                Some(hash),
-                v1_clone_cn,
-            );
-
-            // ----------------- dif_empty (v1 -> v1_clone) -----------------
-            let (dif_empty_mbt, mut dif_empty_cn) = open!(databases, "{typ}__dif_empty");
-            copy! {
-                result.path("v1", mbt_typ),
-                path(&dif_empty_mbt),
-                diff_with_file => Some((result.path("v1_clone", mbt_typ), Whole)),
-            };
-            let dmp = dump(&mut dif_empty_cn).await.unwrap();
-            assert_dump!(&dmp, "{typ}__dif_empty");
-            let hash = dif_empty_mbt.open_and_validate(Off, Verify).await.unwrap();
-            allow_duplicates! {
-                assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
-            }
-            result.add(
-                "dif_empty",
-                mbt_typ,
-                dmp,
-                dif_empty_mbt,
-                Some(hash),
-                dif_empty_cn,
-            );
-        }
-        result
+            result
+        })
     })
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn update() -> MbtResult<()> {
     let (mbt, mut cn) = new_file_no_hash!(databases, Flat, METADATA_V1, TILES_V1, "update");
     mbt.update_metadata(&mut cn, UpdateZoomType::Reset).await?;
@@ -370,7 +376,7 @@ async fn update() -> MbtResult<()> {
 
 #[rstest]
 #[trace]
-#[actix_rt::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn convert(
     #[values(Flat, FlatWithHash, Normalized)] frm_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] dst_type: MbtTypeCli,
@@ -462,7 +468,7 @@ async fn convert(
 
 #[rstest]
 #[trace]
-#[actix_rt::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
@@ -523,7 +529,7 @@ async fn diff_and_patch(
 
 #[rstest]
 #[trace]
-#[actix_rt::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn diff_and_patch_bsdiff(
     #[values(FlatWithHash)] a_type: MbtTypeCli,
@@ -586,7 +592,7 @@ async fn diff_and_patch_bsdiff(
 
 #[rstest]
 #[trace]
-#[actix_rt::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn patch_on_copy(
     #[values(Flat, FlatWithHash, Normalized)] v1_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] dif_type: MbtTypeCli,
@@ -612,7 +618,7 @@ async fn patch_on_copy(
 }
 
 /// A simple tester to run specific values
-#[actix_rt::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_one() {
     // This will cause an error if ran together with other tests
