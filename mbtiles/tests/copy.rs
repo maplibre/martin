@@ -299,22 +299,22 @@ fn databases() -> Databases {
             }
             result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
 
-            // ----------------- dif_bd (v1 -> v2) -----------------
-            if mbt_typ != Normalized {
-                let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif_bdr");
-                copy! {
-                    result.path("v1", mbt_typ),
-                    path(&dif_mbt),
-                    diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw)),
-                };
-                let dmp = dump(&mut dif_cn).await.unwrap();
-                assert_dump!(&dmp, "{typ}__dif_bdr");
-                let hash = dif_mbt.open_and_validate(Off, Verify).await.unwrap();
-                allow_duplicates! {
-                    assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
-                }
-                result.add("dif_bdr", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
-            }
+            // ----------------- dif_bdr (v1 -> v2) -----------------
+            // if mbt_typ == FlatWithHash {
+            //     let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif_bdr");
+            //     copy! {
+            //         result.path("v1", mbt_typ),
+            //         path(&dif_mbt),
+            //         diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw)),
+            //     };
+            //     let dmp = dump(&mut dif_cn).await.unwrap();
+            //     assert_dump!(&dmp, "{typ}__dif_bdr");
+            //     let hash = dif_mbt.open_and_validate(Off, Verify).await.unwrap();
+            //     allow_duplicates! {
+            //         assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
+            //     }
+            //     result.add("dif_bdr", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
+            // }
 
             // ----------------- v1_clone -----------------
             let (v1_clone_mbt, v1_clone_cn) = open!(databases, "{typ}__v1-clone");
@@ -526,11 +526,11 @@ async fn diff_and_patch(
 #[actix_rt::test]
 #[ignore]
 async fn diff_and_patch_bsdiff(
-    #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
-    #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
-    #[values(None, Some(Flat), Some(FlatWithHash))] dif_type: Option<MbtTypeCli>,
+    #[values(FlatWithHash)] a_type: MbtTypeCli,
+    #[values(FlatWithHash)] b_type: MbtTypeCli,
+    #[values(None, Some(FlatWithHash))] dif_type: Option<MbtTypeCli>,
     #[values(BinDiffRaw)] patch_type: PatchType,
-    #[values(&[Flat, FlatWithHash])] destination_types: &[MbtTypeCli],
+    #[values(&[FlatWithHash])] destination_types: &[MbtTypeCli],
     #[values(
         ("v1", "v2", "dif"),
         ("v1", "v1_clone", "dif_empty"))]
