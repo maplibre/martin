@@ -299,6 +299,23 @@ fn databases() -> Databases {
             }
             result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
 
+            // ----------------- dif_bd (v1 -> v2) -----------------
+            if mbt_typ != Normalized {
+                let (dif_mbt, mut dif_cn) = open!(databases, "{typ}__dif_bdr");
+                copy! {
+                    result.path("v1", mbt_typ),
+                    path(&dif_mbt),
+                    diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw)),
+                };
+                let dmp = dump(&mut dif_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__dif_bdr");
+                let hash = dif_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"B86122579EDCDD4C51F3910894FCC1A1");
+                }
+                result.add("dif_bdr", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
+            }
+
             // ----------------- v1_clone -----------------
             let (v1_clone_mbt, v1_clone_cn) = open!(databases, "{typ}__v1-clone");
             let dmp = copy_dump!(result.path("v1", mbt_typ), path(&v1_clone_mbt));
@@ -450,7 +467,6 @@ async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
-    #[values(/*Whole, */BinDiffRaw)] patch_type: PatchType,
     #[values(&[Flat, FlatWithHash, Normalized])] destination_types: &[MbtTypeCli],
     #[values(
         ("v1", "v2", "dif"),
@@ -460,21 +476,18 @@ async fn diff_and_patch(
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db) = tilesets;
     let dif = dif_type.map_or("dflt", shorten);
-    let mut prefix = format!(
+    let prefix = format!(
         "{a_db}_{}--{b_db}_{}={dif}",
         shorten(b_type),
         shorten(a_type),
     );
-    if patch_type != Whole {
-        prefix = format!("{prefix}{patch_type}");
-    }
 
     eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
     let (dif_mbt, mut dif_cn) = open!(diff_and_patch, "{prefix}__{dif_db}");
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
-        diff_with_file => Some((databases.path(b_db, b_type), patch_type)),
+        diff_with_file => Some((databases.path(b_db, b_type), Whole)),
         dst_type_cli => dif_type,
     };
     pretty_assert_eq!(
@@ -497,6 +510,69 @@ async fn diff_and_patch(
 
         eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it");
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__2");
+        copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
+        apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
+        let hash = clone_mbt.open_and_validate(Off, Verify).await?;
+        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        let dmp = dump(&mut clone_cn).await?;
+        pretty_assert_eq!(&dmp, expected_b);
+    }
+
+    Ok(())
+}
+
+#[rstest]
+#[trace]
+#[actix_rt::test]
+#[ignore]
+async fn diff_and_patch_bsdiff(
+    #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
+    #[values(None, Some(Flat), Some(FlatWithHash))] dif_type: Option<MbtTypeCli>,
+    #[values(BinDiffRaw)] patch_type: PatchType,
+    #[values(&[Flat, FlatWithHash])] destination_types: &[MbtTypeCli],
+    #[values(
+        ("v1", "v2", "dif"),
+        ("v1", "v1_clone", "dif_empty"))]
+    tilesets: (&'static str, &'static str, &'static str),
+    #[notrace] databases: &Databases,
+) -> MbtResult<()> {
+    let (a_db, b_db, dif_db) = tilesets;
+    let dif = dif_type.map_or("dflt", shorten);
+    let prefix = format!(
+        "{a_db}_{}--{b_db}_{}={dif}_{patch_type}",
+        shorten(b_type),
+        shorten(a_type),
+    );
+
+    eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
+    let (dif_mbt, mut dif_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{dif_db}");
+    copy! {
+        databases.path(a_db, a_type),
+        path(&dif_mbt),
+        diff_with_file => Some((databases.path(b_db, b_type), patch_type)),
+        dst_type_cli => dif_type,
+    };
+    pretty_assert_eq!(
+        &dump(&mut dif_cn).await?,
+        databases.dump(dif_db, dif_type.unwrap_or(a_type))
+    );
+
+    for dst_type in destination_types {
+        let prefix = format!("{prefix}__to__{}", shorten(*dst_type));
+        let expected_b = databases.dump(b_db, *dst_type);
+
+        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}");
+        let (clone_mbt, mut clone_cn) = open!(diff_and_patch_bsdiff, "{prefix}__1");
+        copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
+        apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
+        let hash = clone_mbt.open_and_validate(Off, Verify).await?;
+        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        let dmp = dump(&mut clone_cn).await?;
+        pretty_assert_eq!(&dmp, expected_b);
+
+        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it");
+        let (clone_mbt, mut clone_cn) = open!(diff_and_patch_bsdiff, "{prefix}__2");
         copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
@@ -537,7 +613,7 @@ async fn patch_on_copy(
 
 /// A simple tester to run specific values
 #[actix_rt::test]
-// #[ignore]
+#[ignore]
 async fn test_one() {
     // This will cause an error if ran together with other tests
     let db = databases();
@@ -552,7 +628,18 @@ async fn test_one() {
     // let dst_type = Some(FlatWithHash);
     let dst_type = None;
 
-    diff_and_patch(
+    // diff_and_patch(
+    //     src_type,
+    //     dif_type,
+    //     dst_type,
+    //     &[Flat],
+    //     ("v1", "v2", "dif"),
+    //     &db,
+    // )
+    // .await
+    // .unwrap();
+
+    diff_and_patch_bsdiff(
         src_type,
         dif_type,
         dst_type,
