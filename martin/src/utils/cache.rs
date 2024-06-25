@@ -1,6 +1,6 @@
 use moka::future::Cache;
 
-use crate::{TileCoord, TileData};
+use crate::TileData;
 
 pub type MainCache = Cache<CacheKey, CacheValue>;
 pub type OptMainCache = Option<MainCache>;
@@ -90,4 +90,5 @@ macro_rules! get_or_insert_cached_value {
 
 #[cfg(feature = "pmtiles")]
 pub(crate) use get_cached_value;
+use martin_tile_utils::TileCoord;
 pub(crate) use {from_cache_value, get_or_insert_cached_value, trace_cache};

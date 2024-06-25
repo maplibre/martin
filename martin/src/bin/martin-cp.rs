@@ -14,10 +14,10 @@ use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::srv::{merge_tilejson, DynTileSource};
 use martin::{
-    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileCoord,
-    TileData, TileRect,
+    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileData,
+    TileRect,
 };
-use martin_tile_utils::{bbox_to_xyz, TileInfo};
+use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::{

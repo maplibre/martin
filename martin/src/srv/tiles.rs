@@ -9,7 +9,7 @@ use actix_web::{route, HttpMessage, HttpRequest, HttpResponse, Result as ActixRe
 use futures::future::try_join_all;
 use log::trace;
 use martin_tile_utils::{
-    decode_brotli, decode_gzip, encode_brotli, encode_gzip, Encoding, Format, TileInfo,
+    decode_brotli, decode_gzip, encode_brotli, encode_gzip, Encoding, Format, TileCoord, TileInfo,
 };
 use serde::Deserialize;
 
@@ -19,7 +19,7 @@ use crate::srv::server::map_internal_error;
 use crate::srv::SrvConfig;
 use crate::utils::cache::get_or_insert_cached_value;
 use crate::utils::{CacheKey, CacheValue, MainCache, OptMainCache};
-use crate::{Tile, TileCoord, TileData};
+use crate::{Tile, TileData};
 
 static SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),

@@ -30,7 +30,7 @@ cp *ARGS:
 
 # Run mbtiles command
 mbtiles *ARGS:
-    cargo run --release -p mbtiles -- {{ ARGS }}
+    cargo run -p mbtiles -- {{ ARGS }}
 
 # Start release-compiled Martin server and a test database
 run-release *ARGS: start

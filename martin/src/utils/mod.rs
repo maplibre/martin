@@ -14,5 +14,4 @@ mod rectangle;
 pub use rectangle::{append_rect, TileRect};
 
 mod utilities;
-pub use martin_tile_utils::TileCoord;
 pub use utilities::*;
