@@ -14,7 +14,9 @@ use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::Whole;
-use crate::{create_bsdiffraw_tables, MbtError, MbtResult, MbtType, Mbtiles, PatchType};
+use crate::{
+    create_bsdiffraw_tables, get_bsdiff_tbl_name, MbtError, MbtResult, MbtType, Mbtiles, PatchType,
+};
 
 pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync + 'static {
     fn query(
@@ -24,6 +26,11 @@ pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync +
     ) -> impl Future<Output = MbtResult<()>> + Send;
 
     fn process(&self, value: S) -> MbtResult<T>;
+
+    fn before_insert(
+        &self,
+        conn: &mut SqliteConnection,
+    ) -> impl Future<Output = MbtResult<()>> + Send;
 
     fn insert(
         &self,
@@ -64,7 +71,7 @@ async fn recv_and_insert<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T
     conn: &mut SqliteConnection,
     rx_ins: Receiver<T>,
 ) -> MbtResult<()> {
-    create_bsdiffraw_tables(&mut *conn).await?;
+    patcher.before_insert(conn).await?;
     conn.execute("BEGIN").await?;
     let mut inserted = 0;
     let mut last_report_ts = Instant::now();
@@ -133,6 +140,7 @@ pub struct BinDiffDiffer {
     dif_mbt: Mbtiles,
     dif_type: MbtType,
     patch_type: PatchType,
+    insert_sql: String,
 }
 
 impl BinDiffDiffer {
@@ -143,11 +151,15 @@ impl BinDiffDiffer {
         patch_type: PatchType,
     ) -> Self {
         assert_ne!(patch_type, Whole, "Invalid for BinDiffDiffer");
+        let insert_sql = format!(
+            "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, uncompressed_tile_xxh3_64) VALUES (?, ?, ?, ?, ?)",
+            get_bsdiff_tbl_name(patch_type));
         Self {
             src_mbt,
             dif_mbt,
             dif_type,
             patch_type,
+            insert_sql,
         }
     }
 }
@@ -180,7 +192,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
 
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
-        debug!("Querying bsdiffraw data with {sql}");
+        debug!("Querying source data with {sql}");
         let mut rows = query(&sql).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
@@ -221,15 +233,20 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         })
     }
 
+    async fn before_insert(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
+        create_bsdiffraw_tables(conn, self.patch_type).await
+    }
+
     async fn insert(&self, value: DifferAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
         #[allow(clippy::cast_possible_wrap)]
-        query("INSERT INTO bsdiffraw (zoom_level, tile_column, tile_row, patch_data, uncompressed_tile_xxh3_64) VALUES (?, ?, ?, ?, ?)")
+        query(self.insert_sql.as_str())
             .bind(value.coord.z)
             .bind(value.coord.x)
             .bind(value.coord.y)
             .bind(value.data)
             .bind(value.new_tile_hash as i64)
-            .execute(&mut *conn).await?;
+            .execute(&mut *conn)
+            .await?;
         Ok(())
     }
 }
@@ -251,20 +268,28 @@ pub struct BinDiffPatcher {
     src_mbt: Mbtiles,
     dif_mbt: Mbtiles,
     dst_type: MbtType,
+    patch_type: PatchType,
 }
 
 impl BinDiffPatcher {
-    pub fn new(src_mbt: Mbtiles, dif_mbt: Mbtiles, dst_type: MbtType) -> Self {
+    pub fn new(
+        src_mbt: Mbtiles,
+        dif_mbt: Mbtiles,
+        dst_type: MbtType,
+        patch_type: PatchType,
+    ) -> Self {
         Self {
             src_mbt,
             dif_mbt,
             dst_type,
+            patch_type,
         }
     }
 }
 
 impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     async fn query(&self, sql_where: String, tx_wrk: Sender<ApplierBefore>) -> MbtResult<()> {
+        let tbl = get_bsdiff_tbl_name(self.patch_type);
         let sql = format!(
             "
         SELECT srcTiles.zoom_level
@@ -273,7 +298,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
              , srcTiles.tile_data
              , patch_data
              , uncompressed_tile_xxh3_64
-        FROM tiles AS srcTiles JOIN diffDb.bsdiffraw AS difTiles
+        FROM tiles AS srcTiles JOIN diffDb.{tbl} AS difTiles
              ON srcTiles.zoom_level = difTiles.zoom_level
                AND srcTiles.tile_column = difTiles.tile_column
                AND srcTiles.tile_row = difTiles.tile_row
@@ -282,7 +307,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
 
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
-        debug!("Querying bsdiffraw data with {sql}");
+        debug!("Querying {tbl} table with {sql}");
         let mut rows = query(&sql).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
@@ -329,6 +354,10 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             },
             data,
         })
+    }
+
+    async fn before_insert(&self, _conn: &mut SqliteConnection) -> MbtResult<()> {
+        Ok(())
     }
 
     async fn insert(&self, value: ApplierAfter, conn: &mut SqliteConnection) -> MbtResult<()> {

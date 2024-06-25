@@ -16,13 +16,14 @@ use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
 };
-use crate::AggHashType::{Update, Verify};
+use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw, Whole};
 use crate::{
-    action_with_rusqlite, invert_y_value, reset_db_settings, CopyType, MbtError, MbtType,
-    MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY,
+    action_with_rusqlite, invert_y_value, reset_db_settings, AggHashType, CopyType, MbtError,
+    MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
+    AGG_TILES_HASH_BEFORE_APPLY,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -230,7 +231,7 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
-        if patch_type != Whole && dst_type != FlatWithHash {
+        if patch_type != Whole && matches!(dst_type, Normalized { .. }) {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
 
@@ -301,7 +302,7 @@ impl MbtileCopierInt {
 
         let src_type = self.validate_src_file().await?.mbt_type;
         let dst_type = self.options.dst_type().unwrap_or(src_type);
-        if dif_info.patch_type != Whole && dst_type != FlatWithHash {
+        if dif_info.patch_type != Whole && matches!(dst_type, Normalized { .. }) {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
 
@@ -335,47 +336,53 @@ impl MbtileCopierInt {
         )
         .await?;
 
-        // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
-        if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
-            self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
-
-            let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
-            match (dif_info.agg_tiles_hash_after_apply, new_hash) {
-                (Some(expected), Some(actual)) if expected != actual => {
-                    let err = MbtError::AggHashMismatchAfterApply(
-                        dif_mbt.filepath().to_string(),
-                        expected,
-                        self.dst_mbt.filepath().to_string(),
-                        actual,
-                    );
-                    if !self.options.force {
-                        return Err(err);
-                    }
-                    warn!("{err}");
-                }
-                _ => {}
-            }
-        }
-
         detach_db(&mut conn, "diffDb").await?;
         detach_db(&mut conn, "sourceDb").await?;
 
         if dif_info.patch_type != Whole {
-            BinDiffPatcher::new(self.src_mbt.clone(), dif_mbt, dst_type)
-                .run(&mut conn, self.get_where_clause("srcTiles."))
-                .await?;
+            BinDiffPatcher::new(
+                self.src_mbt.clone(),
+                dif_mbt.clone(),
+                dst_type,
+                dif_info.patch_type,
+            )
+            .run(&mut conn, self.get_where_clause("srcTiles."))
+            .await?;
         }
 
-        let hash_type = if dif_info.patch_type == BinDiffGz {
-            Update
+        // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
+        if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
+            self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
+            if dif_info.patch_type == BinDiffGz {
+                info!("Skipping {AGG_TILES_HASH_AFTER_APPLY} validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value");
+            } else {
+                let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
+                match (dif_info.agg_tiles_hash_after_apply, new_hash) {
+                    (Some(expected), Some(actual)) if expected != actual => {
+                        let err = MbtError::AggHashMismatchAfterApply(
+                            dif_mbt.filepath().to_string(),
+                            expected,
+                            self.dst_mbt.filepath().to_string(),
+                            actual,
+                        );
+                        if !self.options.force {
+                            return Err(err);
+                        }
+                        warn!("{err}");
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let hash_type = if dif_info.patch_type == BinDiffGz || self.options.skip_agg_tiles_hash {
+            AggHashType::Off
         } else {
             Verify
         };
 
         if self.options.validate {
             self.dst_mbt.validate(&mut conn, Quick, hash_type).await?;
-        } else if hash_type == Update {
-            self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
         }
 
         Ok(conn)
@@ -569,7 +576,7 @@ impl MbtileCopierInt {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
             let sql_objects = conn
                 .fetch_all(
-                    "SELECT sql
+                    "SELECT sql, tbl_name, type
                      FROM sourceDb.sqlite_schema
                      WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
                        AND type     IN ('table', 'view', 'trigger', 'index')
@@ -583,6 +590,11 @@ impl MbtileCopierInt {
                 .await?;
 
             for row in sql_objects {
+                debug!(
+                    "Creating {typ} {tbl_name}...",
+                    typ = row.get::<&str, _>(2),
+                    tbl_name = row.get::<&str, _>(1),
+                );
                 query(row.get(0)).execute(&mut *conn).await?;
             }
             if dst.is_normalized() {

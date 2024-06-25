@@ -303,7 +303,7 @@ fn databases() -> Databases {
                 result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
 
                 // ----------------- bdr (v1 -> v2) -- bin-diff-raw -----------------
-                if mbt_typ == FlatWithHash {
+                if mbt_typ == Flat || mbt_typ == FlatWithHash {
                     let (bdr_mbt, mut bdr_cn) = open!(databases, "{typ}__bdr");
                     copy! {
                         result.path("v1", mbt_typ),
@@ -530,11 +530,11 @@ async fn diff_and_patch(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn diff_and_patch_bsdiff(
-    #[values(FlatWithHash)] a_type: MbtTypeCli,
-    #[values(FlatWithHash)] b_type: MbtTypeCli,
-    #[values(FlatWithHash)] dif_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
     #[values(BinDiffRaw)] patch_type: PatchType,
-    #[values(FlatWithHash)] dst_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
     #[values(("v1", "v2", "bdr"))] tilesets: (&'static str, &'static str, &'static str),
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {

@@ -210,22 +210,32 @@ where
     Ok(())
 }
 
-pub async fn create_bsdiffraw_tables<T>(conn: &mut T) -> MbtResult<()>
+#[must_use]
+pub fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
+    match patch_type {
+        PatchType::BinDiffRaw => "bsdiffraw",
+        PatchType::BinDiffGz => "bsdiffrawgz",
+        PatchType::Whole => panic!("Unexpected PatchType::Whole"),
+    }
+}
+
+pub async fn create_bsdiffraw_tables<T>(conn: &mut T, patch_type: PatchType) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!("Creating if needed bsdiffraw table: bsdiffraw(z,x,y,data,hash)");
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS bsdiffraw (
+    let tbl = get_bsdiff_tbl_name(patch_type);
+    debug!("Creating if needed bin-diff table: {tbl}(z,x,y,data,hash)");
+    let sql = format!(
+        "CREATE TABLE IF NOT EXISTS {tbl} (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              patch_data blob NOT NULL,
              uncompressed_tile_xxh3_64 integer NOT NULL,
-             PRIMARY KEY(zoom_level, tile_column, tile_row));",
-    )
-    .await?;
+             PRIMARY KEY(zoom_level, tile_column, tile_row));"
+    );
 
+    conn.execute(sql.as_str()).await?;
     Ok(())
 }
 

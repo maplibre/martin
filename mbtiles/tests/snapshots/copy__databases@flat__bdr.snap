@@ -1,0 +1,67 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+[[]]
+type = 'table'
+tbl_name = 'bsdiffraw'
+sql = '''
+CREATE TABLE bsdiffraw (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             patch_data blob NOT NULL,
+             uncompressed_tile_xxh3_64 integer NOT NULL,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  5, 1, 1, blob(1F8B08000000000002FF636380004628CD0AA11A20941100535E417C1F000000), 479130493  )',
+    '(  5, 1, 2, blob(1F8B08000000000002FF636080004E065490975FA29B9A5B505209001CF9666321000000), -1097843426  )',
+    '(  5, 1, 3, blob(1F8B08000000000002FF03000000000000000000), 953390274  )',
+    '(  6, 1, 4, blob(1F8B08000000000002FF636380002628CD0AA11A20945122007B56B74220000000), 386481748  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "585A88FEEC740448FF1EB4F96088FFE3"  )',
+    '(  "agg_tiles_hash_after_apply", "3BCDEE3F52407FF1315629298CB99133"  )',
+    '(  "agg_tiles_hash_before_apply", "9ED9178D7025276336C783C2B54D6258"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-remove", NULL  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles'
+sql = '''
+CREATE TABLE tiles (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  5, 2, 2, NULL  )',
+    '(  5, 2, 3, NULL  )',
+    '(  5, 3, 7, blob(new)  )',
+    '(  5, 3, 8, blob(new)  )',
+    '(  6, 2, 6, NULL  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'bsdiffraw'
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles'
