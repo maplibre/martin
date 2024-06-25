@@ -6,7 +6,7 @@
    > ![alt text](images/qgis_add_vector_tile.png)
 
 3. In the `Vector Tile Connection` dialog, give it some name and the URL of the Martin server,
-   e.g.  `http://localhost:3000/martin/{z}/{x}/{y}.pbf` and click `OK`.
+   e.g.  `http://localhost:3000/world_cities/{z}/{x}/{y}` and click `OK`.
    > ![alt text](images/qgis_add_vector_tile_options.png)
 
 4. In the QGIS browser panel (left), double-click the newly added connection, or right-click it and click
