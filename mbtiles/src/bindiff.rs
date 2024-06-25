@@ -204,7 +204,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     fn process(&self, value: DifferBefore) -> MbtResult<DifferAfter> {
         let mut old_tile = value.old_tile_data;
         let mut new_tile = value.new_tile_data;
-        if self.patch_type == PatchType::BinDiff {
+        if self.patch_type == PatchType::BinDiffGz {
             old_tile = GzipEncoder::decode(&old_tile)
                 .inspect_err(|e| error!("Unable to unzip source tile at {:?}: {e}", value.coord))?;
             new_tile = GzipEncoder::decode(&new_tile)
@@ -336,7 +336,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             match self.dst_type {
                 Flat =>"INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)",
                 FlatWithHash => "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)",
-                v => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
+                v @ Normalized { .. } => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
             })
         .bind(value.coord.z)
         .bind(value.coord.x)

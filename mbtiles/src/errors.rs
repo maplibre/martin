@@ -104,6 +104,9 @@ pub enum MbtError {
 
     #[error("Internal error creating bin-diff table")]
     BindiffError,
+
+    #[error("BinDiff patch files can be only applied with `mbtiles copy --apply-patch` command")]
+    UnsupportedPatchType,
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

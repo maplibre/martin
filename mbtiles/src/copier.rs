@@ -16,13 +16,13 @@ use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
 };
-use crate::AggHashType::Verify;
+use crate::AggHashType::{Update, Verify};
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::PatchType::{BinDiffGz, BinDiffRaw, Whole};
 use crate::{
-    action_with_rusqlite, has_bsdiffraw, invert_y_value, reset_db_settings, CopyType, MbtError,
-    MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
-    AGG_TILES_HASH_BEFORE_APPLY,
+    action_with_rusqlite, invert_y_value, reset_db_settings, CopyType, MbtError, MbtType,
+    MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -42,7 +42,7 @@ pub enum PatchType {
     #[default]
     Whole,
     /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
-    BinDiff,
+    BinDiffGz,
     /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
     BinDiffRaw,
 }
@@ -230,7 +230,7 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
-        if patch_type != PatchType::Whole && dst_type != FlatWithHash {
+        if patch_type != Whole && dst_type != FlatWithHash {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
 
@@ -242,7 +242,11 @@ impl MbtileCopierInt {
             dif_type = dif_info.mbt_type,
             what = self.copy_text(),
             dst_path = self.dst_mbt.filepath(),
-            patch = if patch_type == PatchType::Whole { "" } else { " with bin-diff" }
+            patch = match patch_type {
+                Whole => {""}
+                BinDiffGz => {" with bin-diff"}
+                BinDiffRaw => {" with bin-diff-raw"}
+            }
         );
 
         self.init_schema(&mut conn, src_info.mbt_type, dst_type)
@@ -260,7 +264,7 @@ impl MbtileCopierInt {
         detach_db(&mut conn, "diffDb").await?;
         detach_db(&mut conn, "sourceDb").await?;
 
-        if patch_type != PatchType::Whole {
+        if patch_type != Whole {
             BinDiffDiffer::new(self.src_mbt.clone(), dif_mbt, dif_info.mbt_type, patch_type)
                 .run(&mut conn, self.get_where_clause("srcTiles."))
                 .await?;
@@ -291,14 +295,13 @@ impl MbtileCopierInt {
     async fn run_with_patch(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
         let mut dif_conn = dif_mbt.open_readonly().await?;
         let dif_info = dif_mbt.examine_diff(&mut dif_conn).await?;
-        let use_bindiff = has_bsdiffraw(&mut dif_conn).await?;
         self.validate(&dif_mbt, &mut dif_conn).await?;
         dif_mbt.validate_diff_info(&dif_info, self.options.force)?;
         dif_conn.close().await?;
 
         let src_type = self.validate_src_file().await?.mbt_type;
         let dst_type = self.options.dst_type().unwrap_or(src_type);
-        if use_bindiff && dst_type != FlatWithHash {
+        if dif_info.patch_type != Whole && dst_type != FlatWithHash {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
 
@@ -316,11 +319,12 @@ impl MbtileCopierInt {
             src_mbt = self.src_mbt,
             what = self.copy_text(),
             dst_path = self.dst_mbt.filepath(),
-            patch = if use_bindiff {
-                " with bin-diff"
-            } else {
-                ""
-            });
+            patch = match dif_info.patch_type {
+                Whole => {""}
+                BinDiffGz => {" with bin-diff"}
+                BinDiffRaw => {" with bin-diff-raw"}
+            }
+        );
 
         self.init_schema(&mut conn, src_type, dst_type).await?;
         self.copy_with_rusqlite(
@@ -356,13 +360,23 @@ impl MbtileCopierInt {
         detach_db(&mut conn, "diffDb").await?;
         detach_db(&mut conn, "sourceDb").await?;
 
-        if use_bindiff {
+        if dif_info.patch_type != Whole {
             BinDiffPatcher::new(self.src_mbt.clone(), dif_mbt, dst_type)
                 .run(&mut conn, self.get_where_clause("srcTiles."))
                 .await?;
         }
 
-        self.validate(&self.dst_mbt, &mut conn).await?;
+        let hash_type = if dif_info.patch_type == BinDiffGz {
+            Update
+        } else {
+            Verify
+        };
+
+        if self.options.validate {
+            self.dst_mbt.validate(&mut conn, Quick, hash_type).await?;
+        } else if hash_type == Update {
+            self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
+        }
 
         Ok(conn)
     }
@@ -744,7 +758,7 @@ fn get_select_from_with_diff(
         };
     }
 
-    let sql_cond = if patch_type == PatchType::Whole {
+    let sql_cond = if patch_type == Whole {
         "OR srcTiles.tile_data != difTiles.tile_data"
     } else {
         ""
@@ -799,7 +813,6 @@ mod tests {
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
     use super::*;
-    use crate::PatchType::Whole;
 
     // TODO: Most of these tests are duplicating the tests from tests/mbtiles.rs, and should be cleaned up/removed.
 

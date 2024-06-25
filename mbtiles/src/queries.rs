@@ -1,11 +1,11 @@
 use log::debug;
 use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
-use sqlx::{query, Executor as _, SqliteConnection, SqliteExecutor};
+use sqlx::{query, Executor as _, Row, SqliteConnection, SqliteExecutor};
 
 use crate::errors::MbtResult;
 use crate::MbtError::InvalidZoomValue;
-use crate::MbtType;
+use crate::{MbtType, PatchType};
 
 /// Returns true if the database is empty (no tables/indexes/...)
 pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>
@@ -229,18 +229,23 @@ where
     Ok(())
 }
 
-/// Check if `MBTiles` has a table or a view named `bsdiffraw` with needed fields
-pub async fn has_bsdiffraw<T>(conn: &mut T) -> MbtResult<bool>
+/// Check if `MBTiles` has a table or a view named `bsdiffraw` or `bsdiffrawgz` with needed fields,
+/// and return the corresponding patch type. If missing, return `PatchType::Whole`
+pub async fn get_patch_type<T>(conn: &mut T) -> MbtResult<PatchType>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    let sql = query!(
-        "SELECT (
-           -- 'bsdiffraw' table or view columns and their types are as expected:
-           -- 5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
-           -- The order is not important
+    for (tbl, pt) in [
+        ("bsdiffraw", PatchType::BinDiffRaw),
+        ("bsdiffrawgz", PatchType::BinDiffGz),
+    ] {
+        //  'bsdiffraw' or 'bsdiffrawgz' table or view columns and their types are as expected:
+        //  5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
+        //  The order is not important
+        let sql = format!(
+            "SELECT (
            SELECT COUNT(*) = 5
-           FROM pragma_table_info('bsdiffraw')
+           FROM pragma_table_info('{tbl}')
            WHERE ((name = 'zoom_level' AND type = 'INTEGER')
                OR (name = 'tile_column' AND type = 'INTEGER')
                OR (name = 'tile_row' AND type = 'INTEGER')
@@ -248,14 +253,20 @@ where
                OR (name = 'uncompressed_tile_xxh3_64' AND type = 'INTEGER'))
            --
        ) as is_valid;"
-    );
+        );
 
-    Ok(sql
-        .fetch_one(&mut *conn)
-        .await?
-        .is_valid
-        .unwrap_or_default()
-        == 1)
+        if query(&sql)
+            .fetch_one(&mut *conn)
+            .await?
+            .get::<Option<i32>, _>(0)
+            .unwrap_or_default()
+            == 1
+        {
+            return Ok(pt);
+        }
+    }
+
+    Ok(PatchType::Whole)
 }
 
 pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>

@@ -31,6 +31,9 @@ pub enum PgError {
     #[error(transparent)]
     RustlsError(#[from] rustls::Error),
 
+    #[error("Unable to install default Rustls provider: {0}")]
+    RustlsInstallDefaultFailed(String),
+
     #[error("Unknown SSL mode: {0:?}")]
     UnknownSslMode(deadpool_postgres::tokio_postgres::config::SslMode),
 

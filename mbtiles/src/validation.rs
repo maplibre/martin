@@ -20,7 +20,7 @@ use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
     InvalidTileIndex,
 };
-use crate::{invert_y_value, Mbtiles};
+use crate::{get_patch_type, invert_y_value, Mbtiles};
 
 /// Metadata key for the aggregate tiles hash value
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
@@ -480,6 +480,7 @@ LIMIT 1;"
             agg_tiles_hash_after_apply: self
                 .get_metadata_value(&mut *conn, AGG_TILES_HASH_AFTER_APPLY)
                 .await?,
+            patch_type: get_patch_type(conn).await?,
         };
 
         Ok(info)

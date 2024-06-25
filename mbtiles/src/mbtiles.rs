@@ -11,7 +11,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement};
 
 use crate::errors::{MbtError, MbtResult};
-use crate::{invert_y_value, CopyDuplicateMode, MbtType};
+use crate::{invert_y_value, CopyDuplicateMode, MbtType, PatchType};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -48,6 +48,7 @@ pub struct PatchFileInfo {
     pub agg_tiles_hash: Option<String>,
     pub agg_tiles_hash_before_apply: Option<String>,
     pub agg_tiles_hash_after_apply: Option<String>,
+    pub patch_type: PatchType,
 }
 
 #[derive(Clone, Debug)]

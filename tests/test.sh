@@ -463,6 +463,27 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
        ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
        "$TEST_TEMP_DIR/world_cities_diff2.mbtiles" \
        2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"
+
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    --diff-with-file ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
+    "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
+    --patch-type bin-diff-gz \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
+  # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
+    --diff-with-file "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff3.txt"
+  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff4.txt"
+
   if command -v sqlite3 > /dev/null; then
     # Apply this diff to the original version of the file
     cp ./tests/fixtures/mbtiles/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"
