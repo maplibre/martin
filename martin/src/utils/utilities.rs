@@ -1,11 +1,26 @@
 use std::io::{Read as _, Write as _};
+use std::sync::OnceLock;
 
 use actix_web::http::Uri;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 
 use crate::MartinError::BasePathError;
-use crate::MartinResult;
+use crate::{MartinError, MartinResult};
+
+pub fn init_aws_lc_tls() -> MartinResult<()> {
+    // https://github.com/rustls/rustls/issues/1877
+    static INIT_TLS: OnceLock<Result<(), String>> = OnceLock::new();
+    // TODO: replace with LazyCell after 1.80
+    INIT_TLS
+        .get_or_init(|| {
+            rustls::crypto::aws_lc_rs::default_provider()
+                .install_default()
+                .map_err(|e| format!("Unable to init rustls: {e:?}"))
+        })
+        .clone()
+        .map_err(|e| MartinError::InternalError(e.into()))
+}
 
 pub fn decode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut decoder = GzDecoder::new(data);
