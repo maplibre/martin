@@ -2337,7 +2337,7 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "martin"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -2391,7 +2391,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "approx",
  "brotli 6.0.0",
@@ -2401,7 +2401,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "actix-rt",
  "anyhow",

@@ -155,7 +155,7 @@ impl BinDiffDiffer {
     ) -> Self {
         assert_ne!(patch_type, Whole, "Invalid for BinDiffDiffer");
         let insert_sql = format!(
-            "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, uncompressed_tile_xxh3_64) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash) VALUES (?, ?, ?, ?, ?)",
             get_bsdiff_tbl_name(patch_type));
         Self {
             src_mbt,
@@ -302,7 +302,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
              , srcTiles.tile_row
              , srcTiles.tile_data
              , patch_data
-             , uncompressed_tile_xxh3_64
+             , tile_xxh3_64_hash
         FROM tiles AS srcTiles JOIN diffDb.{tbl} AS difTiles
              ON srcTiles.zoom_level = difTiles.zoom_level
                AND srcTiles.tile_column = difTiles.tile_column

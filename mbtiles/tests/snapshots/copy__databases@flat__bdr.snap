@@ -11,7 +11,7 @@ CREATE TABLE bsdiffraw (
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              patch_data blob NOT NULL,
-             uncompressed_tile_xxh3_64 integer NOT NULL,
+             tile_xxh3_64_hash integer NOT NULL,
              PRIMARY KEY(zoom_level, tile_column, tile_row))'''
 values = [
     '(  5, 1, 1, blob(1B1E00F80799700B0AE100F45284A210A00708A0C03B), 479130493  )',

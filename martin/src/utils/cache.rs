@@ -1,3 +1,4 @@
+use martin_tile_utils::TileCoord;
 use moka::future::Cache;
 
 use crate::TileData;
@@ -90,5 +91,4 @@ macro_rules! get_or_insert_cached_value {
 
 #[cfg(feature = "pmtiles")]
 pub(crate) use get_cached_value;
-use martin_tile_utils::TileCoord;
 pub(crate) use {from_cache_value, get_or_insert_cached_value, trace_cache};

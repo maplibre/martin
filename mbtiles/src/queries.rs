@@ -231,7 +231,7 @@ where
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              patch_data blob NOT NULL,
-             uncompressed_tile_xxh3_64 integer NOT NULL,
+             tile_xxh3_64_hash integer NOT NULL,
              PRIMARY KEY(zoom_level, tile_column, tile_row));"
     );
 
@@ -260,7 +260,7 @@ where
                OR (name = 'tile_column' AND type = 'INTEGER')
                OR (name = 'tile_row' AND type = 'INTEGER')
                OR (name = 'patch_data' AND type = 'BLOB')
-               OR (name = 'uncompressed_tile_xxh3_64' AND type = 'INTEGER'))
+               OR (name = 'tile_xxh3_64_hash' AND type = 'INTEGER'))
            --
        ) as is_valid;"
         );
