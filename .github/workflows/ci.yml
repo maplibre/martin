@@ -60,6 +60,8 @@ jobs:
       - run: just clippy
       - run: just check
       - run: just check-doc
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
