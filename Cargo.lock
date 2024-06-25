@@ -2353,7 +2353,6 @@ dependencies = [
  "deadpool-postgres",
  "enum-display",
  "env_logger",
- "flate2",
  "futures",
  "indoc",
  "insta",
@@ -2395,6 +2394,8 @@ name = "martin-tile-utils"
 version = "0.4.1"
 dependencies = [
  "approx",
+ "brotli 6.0.0",
+ "flate2",
  "insta",
 ]
 

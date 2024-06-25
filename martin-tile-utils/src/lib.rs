@@ -11,6 +11,9 @@ pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
 
+mod decoders;
+pub use decoders::*;
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct TileCoord {
     pub z: u8,

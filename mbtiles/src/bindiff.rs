@@ -7,8 +7,8 @@ use std::time::Instant;
 use flume::{bounded, Receiver, Sender};
 use futures::TryStreamExt;
 use log::{debug, error, info};
-use martin_tile_utils::TileCoord;
-use sqlite_compressions::{BsdiffRawDiffer, Differ as _, Encoder as _, GzipEncoder};
+use martin_tile_utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip, TileCoord};
+use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
 use sqlx::{query, Executor, Row, SqliteConnection};
 use xxhash_rust::xxh3::xxh3_64;
 
@@ -220,14 +220,16 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         let mut old_tile = value.old_tile_data;
         let mut new_tile = value.new_tile_data;
         if self.patch_type == PatchType::BinDiffGz {
-            old_tile = GzipEncoder::decode(&old_tile)
-                .inspect_err(|e| error!("Unable to unzip source tile {:?}: {e}", value.coord))?;
-            new_tile = GzipEncoder::decode(&new_tile)
-                .inspect_err(|e| error!("Unable to unzip diff tile {:?}: {e}", value.coord))?;
+            old_tile = decode_gzip(&old_tile).inspect_err(|e| {
+                error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
+            })?;
+            new_tile = decode_gzip(&new_tile).inspect_err(|e| {
+                error!("Unable to gzip-decode diff tile {:?}: {e}", value.coord);
+            })?;
         }
         let new_tile_hash = xxh3_64(&new_tile);
         let data = BsdiffRawDiffer::diff(&old_tile, &new_tile).expect("BinDiff failure");
-        let data = GzipEncoder::encode(&data, Some(9))?;
+        let data = encode_brotli(&data)?;
 
         Ok(DifferAfter {
             coord: value.coord,
@@ -334,10 +336,10 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     }
 
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
-        let tile_data = GzipEncoder::decode(&value.tile_data)
-            .inspect_err(|e| error!("Unable to unzip source tile {:?}: {e}", value.coord))?;
-        let patch_data = GzipEncoder::decode(&value.patch_data)
-            .inspect_err(|e| error!("Unable to unzip patch data {:?}: {e}", value.coord))?;
+        let tile_data = decode_gzip(&value.tile_data)
+            .inspect_err(|e| error!("Unable to gzip-decode source tile {:?}: {e}", value.coord))?;
+        let patch_data = decode_brotli(&value.patch_data)
+            .inspect_err(|e| error!("Unable to brotli-decode patch data {:?}: {e}", value.coord))?;
         let new_tile = BsdiffRawDiffer::patch(&tile_data, &patch_data)
             .inspect_err(|e| error!("Unable to patch tile {:?}: {e}", value.coord))?;
         let new_tile_hash = xxh3_64(&new_tile);
@@ -349,7 +351,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             ));
         }
 
-        let data = GzipEncoder::encode(&new_tile, Some(9))?;
+        let data = encode_gzip(&new_tile)?;
 
         Ok(ApplierAfter {
             coord: value.coord,

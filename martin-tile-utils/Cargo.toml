@@ -17,6 +17,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+brotli.workspace = true
+flate2.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

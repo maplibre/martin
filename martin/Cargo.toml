@@ -81,7 +81,6 @@ clap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger.workspace = true
-flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }

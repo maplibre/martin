@@ -107,6 +107,9 @@ pub enum MbtError {
 
     #[error("BinDiff patch files can be only applied with `mbtiles copy --apply-patch` command")]
     UnsupportedPatchType,
+
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;
