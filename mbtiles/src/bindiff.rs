@@ -110,7 +110,10 @@ fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S,
             while let Ok(wrk) = rx_wrk.recv_async().await {
                 if match patcher.process(wrk) {
                     Ok(res) => tx_ins.send_async(res).await.is_err(),
-                    Err(..) => true,
+                    Err(e) => {
+                        error!("Failed to process bindiff data: {e}");
+                        true
+                    }
                 } {
                     has_errors.store(true, Relaxed);
                 }
@@ -218,9 +221,9 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         let mut new_tile = value.new_tile_data;
         if self.patch_type == PatchType::BinDiffGz {
             old_tile = GzipEncoder::decode(&old_tile)
-                .inspect_err(|e| error!("Unable to unzip source tile at {:?}: {e}", value.coord))?;
+                .inspect_err(|e| error!("Unable to unzip source tile {:?}: {e}", value.coord))?;
             new_tile = GzipEncoder::decode(&new_tile)
-                .inspect_err(|e| error!("Unable to unzip diff tile at {:?}: {e}", value.coord))?;
+                .inspect_err(|e| error!("Unable to unzip diff tile {:?}: {e}", value.coord))?;
         }
         let new_tile_hash = xxh3_64(&new_tile);
         let data = BsdiffRawDiffer::diff(&old_tile, &new_tile).expect("BinDiff failure");
@@ -332,8 +335,11 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
 
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
         let tile_data = GzipEncoder::decode(&value.tile_data)
-            .inspect_err(|e| error!("Unable to unzip source tile at {:?}: {e}", value.coord))?;
-        let new_tile = BsdiffRawDiffer::patch(&tile_data, &value.patch_data)?;
+            .inspect_err(|e| error!("Unable to unzip source tile {:?}: {e}", value.coord))?;
+        let patch_data = GzipEncoder::decode(&value.patch_data)
+            .inspect_err(|e| error!("Unable to unzip patch data {:?}: {e}", value.coord))?;
+        let new_tile = BsdiffRawDiffer::patch(&tile_data, &patch_data)
+            .inspect_err(|e| error!("Unable to patch tile {:?}: {e}", value.coord))?;
         let new_tile_hash = xxh3_64(&new_tile);
         if new_tile_hash != value.uncompressed_tile_hash {
             return Err(MbtError::BinDiffIncorrectTileHash(

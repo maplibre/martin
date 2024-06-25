@@ -21,8 +21,8 @@ use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw, Whole};
 use crate::{
-    action_with_rusqlite, invert_y_value, reset_db_settings, AggHashType, CopyType, MbtError,
-    MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
+    action_with_rusqlite, get_bsdiff_tbl_name, invert_y_value, reset_db_settings, AggHashType,
+    CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
     AGG_TILES_HASH_BEFORE_APPLY,
 };
 
@@ -332,7 +332,7 @@ impl MbtileCopierInt {
             &mut conn,
             CopyDuplicateMode::Override,
             dst_type,
-            &get_select_from_apply_patch(src_type, dif_info.mbt_type, dst_type),
+            &get_select_from_apply_patch(src_type, &dif_info, dst_type),
         )
         .await?;
 
@@ -681,7 +681,11 @@ impl MbtileCopierInt {
     }
 }
 
-fn get_select_from_apply_patch(src_type: MbtType, dif_type: MbtType, dst_type: MbtType) -> String {
+fn get_select_from_apply_patch(
+    src_type: MbtType,
+    dif_info: &PatchFileInfo,
+    dst_type: MbtType,
+) -> String {
     fn query_for_dst(frm_db: &'static str, frm_type: MbtType, to_type: MbtType) -> String {
         match to_type {
             Flat => format!("{frm_db}.tiles"),
@@ -719,13 +723,30 @@ fn get_select_from_apply_patch(src_type: MbtType, dif_type: MbtType, dst_type: M
 
         format!(
             ", COALESCE({}, {}) as tile_hash",
-            get_tile_hash_expr("difTiles", dif_type),
+            get_tile_hash_expr("difTiles", dif_info.mbt_type),
             get_tile_hash_expr("srcTiles", src_type)
         )
     };
 
     let src_tiles = query_for_dst("sourceDb", src_type, dst_type);
-    let diff_tiles = query_for_dst("diffDb", dif_type, dst_type);
+    let diff_tiles = query_for_dst("diffDb", dif_info.mbt_type, dst_type);
+
+    let (bindiff_from, bindiff_cond) = if dif_info.patch_type == Whole {
+        (String::new(), "")
+    } else {
+        // do not copy any tiles that are in the patch table
+        let tbl = get_bsdiff_tbl_name(dif_info.patch_type);
+        (
+            format!(
+                "
+             LEFT JOIN diffDb.{tbl} AS bdTbl
+               ON bdTbl.zoom_level = srcTiles.zoom_level
+                 AND bdTbl.tile_column = srcTiles.tile_column
+                 AND bdTbl.tile_row = srcTiles.tile_row"
+            ),
+            "AND bdTbl.patch_data ISNULL",
+        )
+    };
 
     // Take dif tile_data if it is set, otherwise take the one from src
     // Skip tiles if src and dif both have a matching index, but the dif tile_data is NULL
@@ -740,7 +761,8 @@ fn get_select_from_apply_patch(src_type: MbtType, dif_type: MbtType, dst_type: M
              ON srcTiles.zoom_level = difTiles.zoom_level
                AND srcTiles.tile_column = difTiles.tile_column
                AND srcTiles.tile_row = difTiles.tile_row
-        WHERE (difTiles.zoom_level ISNULL OR difTiles.tile_data NOTNULL)"
+             {bindiff_from}
+        WHERE (difTiles.zoom_level ISNULL OR difTiles.tile_data NOTNULL) {bindiff_cond}"
     )
 }
 

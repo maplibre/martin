@@ -1,0 +1,3 @@
+[INFO ] Comparing ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) and ./tests/fixtures/mbtiles/world_cities_modified.mbtiles (flat) into a new file tests/mbtiles_temp_files/world_cities_bindiff.mbtiles (flat) with bin-diff
+[INFO ] Finished processing 1 bindiff tiles
+[INFO ] Adding a new metadata value agg_tiles_hash = 8D0CA32D7634E1278476D3D22A0F7B01 in tests/mbtiles_temp_files/world_cities_bindiff.mbtiles
