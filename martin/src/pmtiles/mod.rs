@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::{trace, warn};
-use martin_tile_utils::{Encoding, Format, TileInfo};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
@@ -23,7 +23,7 @@ use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras
 use crate::source::UrlQuery;
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
-use crate::{MartinResult, Source, TileCoord, TileData};
+use crate::{MartinResult, Source, TileData};
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {

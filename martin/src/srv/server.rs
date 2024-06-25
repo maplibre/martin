@@ -159,12 +159,12 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 #[cfg(test)]
 pub mod tests {
     use async_trait::async_trait;
-    use martin_tile_utils::{Encoding, Format, TileInfo};
+    use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
     use tilejson::TileJSON;
 
     use super::*;
     use crate::source::{Source, TileData};
-    use crate::{TileCoord, UrlQuery};
+    use crate::UrlQuery;
 
     #[derive(Debug, Clone)]
     pub struct TestSource {

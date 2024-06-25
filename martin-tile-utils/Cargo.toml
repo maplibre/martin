@@ -2,7 +2,7 @@ lints.workspace = true
 
 [package]
 name = "martin-tile-utils"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Utilities to help with map tile processing, such as type and compression detection. Used by the MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -17,6 +17,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+brotli.workspace = true
+flate2.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

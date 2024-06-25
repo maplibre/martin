@@ -620,6 +620,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bsdiff"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7f2e6c4f2a017f63b5a1fd7cc437f061b53a3e890bcca840ef756d72f6b72f2"
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1406,6 +1412,7 @@ checksum = "55ac459de2512911e4b674ce33cf20befaba382d05b62b008afc1c8b57cbf181"
 dependencies = [
  "futures-core",
  "futures-sink",
+ "nanorand",
  "spin",
 ]
 
@@ -1642,8 +1649,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2328,7 +2337,7 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "martin"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -2344,7 +2353,6 @@ dependencies = [
  "deadpool-postgres",
  "enum-display",
  "env_logger",
- "flate2",
  "futures",
  "indoc",
  "insta",
@@ -2383,15 +2391,17 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "approx",
+ "brotli 6.0.0",
+ "flate2",
  "insta",
 ]
 
 [[package]]
 name = "mbtiles"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "actix-rt",
  "anyhow",
@@ -2399,11 +2409,14 @@ dependencies = [
  "ctor",
  "enum-display",
  "env_logger",
+ "flume",
  "futures",
  "insta",
  "itertools 0.13.0",
  "log",
  "martin-tile-utils",
+ "md5",
+ "num_cpus",
  "pretty_assertions",
  "rstest",
  "serde",
@@ -2411,11 +2424,13 @@ dependencies = [
  "serde_with",
  "serde_yaml",
  "size_format",
+ "sqlite-compressions",
  "sqlite-hashes",
  "sqlx",
  "thiserror",
  "tilejson",
  "tokio",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -2427,6 +2442,12 @@ dependencies = [
  "cfg-if",
  "digest",
 ]
+
+[[package]]
+name = "md5"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
 name = "memchr"
@@ -2532,6 +2553,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1a5d38b9b352dbd913288736af36af41c48d61b1a8cd34bcecd727561b7d511"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "nanorand"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
+dependencies = [
+ "getrandom",
 ]
 
 [[package]]
@@ -4018,6 +4048,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sqlite-compressions"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d005d84196a3cc75a3113058d333de388cef7eb665dbcee09e31bb8166a1382"
+dependencies = [
+ "bsdiff",
+ "flate2",
+ "rusqlite",
+]
+
+[[package]]
 name = "sqlite-hashes"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5280,6 +5321,12 @@ name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "927da81e25be1e1a2901d59b81b37dd2efd1fc9c9345a55007f09bf5a2d3ee03"
 
 [[package]]
 name = "yansi"

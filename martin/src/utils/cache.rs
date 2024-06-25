@@ -1,6 +1,7 @@
+use martin_tile_utils::TileCoord;
 use moka::future::Cache;
 
-use crate::{TileCoord, TileData};
+use crate::TileData;
 
 pub type MainCache = Cache<CacheKey, CacheValue>;
 pub type OptMainCache = Option<MainCache>;

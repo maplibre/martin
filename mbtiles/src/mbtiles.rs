@@ -5,12 +5,13 @@ use std::path::Path;
 use enum_display::EnumDisplay;
 use log::debug;
 use serde::{Deserialize, Serialize};
+use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};
 use sqlite_hashes::register_md5_functions;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement};
 
 use crate::errors::{MbtError, MbtResult};
-use crate::{invert_y_value, CopyDuplicateMode, MbtType};
+use crate::{invert_y_value, CopyDuplicateMode, MbtType, PatchType};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -47,6 +48,7 @@ pub struct PatchFileInfo {
     pub agg_tiles_hash: Option<String>,
     pub agg_tiles_hash_before_apply: Option<String>,
     pub agg_tiles_hash_after_apply: Option<String>,
+    pub patch_type: PatchType,
 }
 
 #[derive(Clone, Debug)]
@@ -101,7 +103,7 @@ impl Mbtiles {
 
     async fn open_int(opt: &SqliteConnectOptions) -> Result<SqliteConnection, MbtError> {
         let mut conn = SqliteConnection::connect_with(opt).await?;
-        attach_hash_fn(&mut conn).await?;
+        attach_sqlite_fn(&mut conn).await?;
         Ok(conn)
     }
 
@@ -221,13 +223,15 @@ impl Mbtiles {
     }
 }
 
-pub async fn attach_hash_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
+pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     let mut handle_lock = conn.lock_handle().await?;
     let handle = handle_lock.as_raw_handle().as_ptr();
     // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
     // The registered functions will be dropped when SQLX drops DB connection.
     let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
     register_md5_functions(&rc)?;
+    register_bsdiffraw_functions(&rc)?;
+    register_gzip_functions(&rc)?;
     Ok(())
 }
 

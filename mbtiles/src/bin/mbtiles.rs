@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
     apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
-    MbtTypeCli, Mbtiles, MbtilesCopier, UpdateZoomType,
+    MbtTypeCli, Mbtiles, MbtilesCopier, PatchType, UpdateZoomType,
 };
 use tilejson::Bounds;
 
@@ -115,6 +115,9 @@ pub struct CopyArgs {
     /// Use `mbtiles apply-patch` to apply the patch file in-place, without making a copy of the original.
     #[arg(long, conflicts_with("diff_with_file"))]
     apply_patch: Option<PathBuf>,
+    /// Specify the type of patch file to generate.
+    #[arg(long, requires("diff_with_file"), default_value_t=PatchType::default())]
+    patch_type: PatchType,
 }
 
 #[allow(clippy::doc_markdown)]
@@ -126,6 +129,9 @@ pub struct DiffArgs {
     file2: PathBuf,
     /// Output file to write the resulting difference to
     diff: PathBuf,
+    /// Specify the type of patch file to generate.
+    #[arg(long, default_value_t=PatchType::default())]
+    patch_type: PatchType,
 
     #[command(flatten)]
     pub options: SharedCopyOpts,
@@ -175,11 +181,12 @@ impl SharedCopyOpts {
         dst_file: PathBuf,
         diff_with_file: Option<PathBuf>,
         apply_patch: Option<PathBuf>,
+        patch_type: PatchType,
     ) -> MbtilesCopier {
         MbtilesCopier {
             src_file,
             dst_file,
-            diff_with_file,
+            diff_with_file: diff_with_file.map(|p| (p, patch_type)),
             apply_patch,
             // Shared
             copy: self.copy,
@@ -232,13 +239,18 @@ async fn main_int() -> anyhow::Result<()> {
                 args.dst_file,
                 args.diff_with_file,
                 args.apply_patch,
+                args.patch_type,
             );
             copier.run().await?;
         }
         Commands::Diff(args) => {
-            let copier = args
-                .options
-                .into_copier(args.file1, args.diff, Some(args.file2), None);
+            let copier = args.options.into_copier(
+                args.file1,
+                args.diff,
+                Some(args.file2),
+                None,
+                args.patch_type,
+            );
             copier.run().await?;
         }
         Commands::ApplyPatch {
@@ -317,6 +329,7 @@ mod tests {
     use clap::error::ErrorKind;
     use clap::Parser;
     use mbtiles::CopyDuplicateMode;
+    use mbtiles::PatchType::Whole;
 
     use super::*;
     use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Validate};
@@ -527,6 +540,7 @@ mod tests {
                     file1: PathBuf::from("file1.mbtiles"),
                     file2: PathBuf::from("file2.mbtiles"),
                     diff: PathBuf::from("../delta.mbtiles"),
+                    patch_type: Whole,
                     options: SharedCopyOpts {
                         on_duplicate: Some(CopyDuplicateMode::Override),
                         ..Default::default()

@@ -2,7 +2,7 @@ lints.workspace = true
 
 [package]
 name = "mbtiles"
-version = "0.9.1"
+version = "0.10.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -14,29 +14,34 @@ rust-version.workspace = true
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml", "dep:tokio"]
+cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml"]
 
 [dependencies]
 enum-display.workspace = true
+flume.workspace = true
 futures.workspace = true
 itertools.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
+md5.workspace = true
+num_cpus.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 size_format.workspace = true
+sqlite-compressions.workspace = true
 sqlite-hashes.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+xxhash-rust.workspace = true
 
 # Bin dependencies
 anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 env_logger = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself

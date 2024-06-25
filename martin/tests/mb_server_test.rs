@@ -4,7 +4,7 @@ use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::srv::SrvConfig;
-use martin::{decode_brotli, decode_gzip};
+use martin_tile_utils::{decode_brotli, decode_gzip};
 use tilejson::TileJSON;
 
 pub mod utils;

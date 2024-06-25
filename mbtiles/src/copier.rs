@@ -10,6 +10,7 @@ use sqlite_hashes::rusqlite::Connection;
 use sqlx::{query, Connection as _, Executor as _, Row, SqliteConnection};
 use tilejson::Bounds;
 
+use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
@@ -18,9 +19,11 @@ use crate::queries::{
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::PatchType::{BinDiffGz, BinDiffRaw, Whole};
 use crate::{
-    invert_y_value, reset_db_settings, CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles,
-    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY,
+    action_with_rusqlite, get_bsdiff_tbl_name, invert_y_value, reset_db_settings, AggHashType,
+    CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
+    AGG_TILES_HASH_BEFORE_APPLY,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -30,6 +33,19 @@ pub enum CopyDuplicateMode {
     Override,
     Ignore,
     Abort,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
+pub enum PatchType {
+    /// Patch file will contain the entire tile if it is different from the source
+    #[default]
+    Whole,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
+    BinDiffGz,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
+    BinDiffRaw,
 }
 
 impl CopyDuplicateMode {
@@ -65,8 +81,8 @@ pub struct MbtilesCopier {
     pub zoom_levels: Vec<u8>,
     /// Bounding box to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be used multiple times.
     pub bbox: Vec<Bounds>,
-    /// Compare source file with this file, and only copy non-identical tiles to destination.
-    pub diff_with_file: Option<PathBuf>,
+    /// Compare source file with this file, and only copy non-identical tiles to destination. Also specifies the type of patch to generate.
+    pub diff_with_file: Option<(PathBuf, PatchType)>,
     /// Apply a patch file while copying src to dst.
     pub apply_patch: Option<PathBuf>,
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
@@ -109,7 +125,7 @@ impl MbtileCopierInt {
         if options.src_file == options.dst_file {
             return Err(MbtError::SameSourceAndDestination(options.src_file));
         }
-        if let Some(diff_file) = &options.diff_with_file {
+        if let Some((diff_file, _)) = &options.diff_with_file {
             if options.src_file == *diff_file || options.dst_file == *diff_file {
                 return Err(MbtError::SameDiffAndSourceOrDestination(options.src_file));
             }
@@ -128,9 +144,10 @@ impl MbtileCopierInt {
     }
 
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        if let Some(diff_file) = &self.options.diff_with_file {
+        if let Some((diff_file, patch_type)) = &self.options.diff_with_file {
             let mbt = Mbtiles::new(diff_file)?;
-            self.run_with_diff(mbt).await
+            let patch_type = *patch_type;
+            self.run_with_diff(mbt, patch_type).await
         } else if let Some(patch_file) = &self.options.apply_patch {
             let mbt = Mbtiles::new(patch_file)?;
             self.run_with_patch(mbt).await
@@ -193,7 +210,11 @@ impl MbtileCopierInt {
     }
 
     /// Compare two files, and write their difference to the diff file
-    async fn run_with_diff(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
+    async fn run_with_diff(
+        self,
+        dif_mbt: Mbtiles,
+        patch_type: PatchType,
+    ) -> MbtResult<SqliteConnection> {
         let mut dif_conn = dif_mbt.open_readonly().await?;
         let dif_info = dif_mbt.examine_diff(&mut dif_conn).await?;
         dif_mbt.assert_hashes(&dif_info, self.options.force)?;
@@ -210,14 +231,23 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
+        if patch_type != Whole && matches!(dst_type, Normalized { .. }) {
+            return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
+        }
+
         info!(
-            "Comparing {src_mbt} ({src_type}) and {dif_path} ({dif_type}) {what}into a new file {dst_path} ({dst_type})",
+            "Comparing {src_mbt} ({src_type}) and {dif_path} ({dif_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
             src_mbt = self.src_mbt,
             src_type = src_info.mbt_type,
             dif_path = dif_mbt.filepath(),
             dif_type = dif_info.mbt_type,
             what = self.copy_text(),
-            dst_path = self.dst_mbt.filepath()
+            dst_path = self.dst_mbt.filepath(),
+            patch = match patch_type {
+                Whole => {""}
+                BinDiffGz => {" with bin-diff"}
+                BinDiffRaw => {" with bin-diff-raw"}
+            }
         );
 
         self.init_schema(&mut conn, src_info.mbt_type, dst_type)
@@ -226,9 +256,20 @@ impl MbtileCopierInt {
             &mut conn,
             CopyDuplicateMode::Override,
             dst_type,
-            &get_select_from_with_diff(dif_info.mbt_type, dst_type),
+            &get_select_from_with_diff(dif_info.mbt_type, dst_type, patch_type),
         )
         .await?;
+
+        // Bindiff copying uses separate threads to read and write data, so we need
+        // to open a separate connection to source+diff files to avoid locking issues
+        detach_db(&mut conn, "diffDb").await?;
+        detach_db(&mut conn, "sourceDb").await?;
+
+        if patch_type != Whole {
+            BinDiffDiffer::new(self.src_mbt.clone(), dif_mbt, dif_info.mbt_type, patch_type)
+                .run(&mut conn, self.get_where_clause("srcTiles."))
+                .await?;
+        }
 
         if let Some(hash) = src_info.agg_tiles_hash {
             self.dst_mbt
@@ -246,8 +287,6 @@ impl MbtileCopierInt {
             self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
         }
 
-        detach_db(&mut conn, "diffDb").await?;
-        detach_db(&mut conn, "sourceDb").await?;
         self.validate(&self.dst_mbt, &mut conn).await?;
 
         Ok(conn)
@@ -262,6 +301,10 @@ impl MbtileCopierInt {
         dif_conn.close().await?;
 
         let src_type = self.validate_src_file().await?.mbt_type;
+        let dst_type = self.options.dst_type().unwrap_or(src_type);
+        if dif_info.patch_type != Whole && matches!(dst_type, Normalized { .. }) {
+            return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
+        }
 
         let mut conn = self.dst_mbt.open_or_new().await?;
         if !is_empty_database(&mut conn).await? {
@@ -271,49 +314,76 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
-        let dst_type = self.options.dst_type().unwrap_or(src_type);
-        info!("Applying patch from {dif_path} ({dif_type}) to {src_mbt} ({src_type}) {what}into a new file {dst_path} ({dst_type})",
+        info!("Applying patch from {dif_path} ({dif_type}) to {src_mbt} ({src_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
             dif_path = dif_mbt.filepath(),
             dif_type = dif_info.mbt_type,
             src_mbt = self.src_mbt,
             what = self.copy_text(),
-            dst_path = self.dst_mbt.filepath());
+            dst_path = self.dst_mbt.filepath(),
+            patch = match dif_info.patch_type {
+                Whole => {""}
+                BinDiffGz => {" with bin-diff"}
+                BinDiffRaw => {" with bin-diff-raw"}
+            }
+        );
 
         self.init_schema(&mut conn, src_type, dst_type).await?;
         self.copy_with_rusqlite(
             &mut conn,
             CopyDuplicateMode::Override,
             dst_type,
-            &get_select_from_apply_patch(src_type, dif_info.mbt_type, dst_type),
+            &get_select_from_apply_patch(src_type, &dif_info, dst_type),
         )
         .await?;
-
-        // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
-        if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
-            self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
-
-            let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
-            match (dif_info.agg_tiles_hash_after_apply, new_hash) {
-                (Some(expected), Some(actual)) if expected != actual => {
-                    let err = MbtError::AggHashMismatchAfterApply(
-                        dif_mbt.filepath().to_string(),
-                        expected,
-                        self.dst_mbt.filepath().to_string(),
-                        actual,
-                    );
-                    if !self.options.force {
-                        return Err(err);
-                    }
-                    warn!("{err}");
-                }
-                _ => {}
-            }
-        }
 
         detach_db(&mut conn, "diffDb").await?;
         detach_db(&mut conn, "sourceDb").await?;
 
-        self.validate(&self.dst_mbt, &mut conn).await?;
+        if dif_info.patch_type != Whole {
+            BinDiffPatcher::new(
+                self.src_mbt.clone(),
+                dif_mbt.clone(),
+                dst_type,
+                dif_info.patch_type,
+            )
+            .run(&mut conn, self.get_where_clause("srcTiles."))
+            .await?;
+        }
+
+        // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
+        if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
+            self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
+            if dif_info.patch_type == BinDiffGz {
+                info!("Skipping {AGG_TILES_HASH_AFTER_APPLY} validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value");
+            } else {
+                let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
+                match (dif_info.agg_tiles_hash_after_apply, new_hash) {
+                    (Some(expected), Some(actual)) if expected != actual => {
+                        let err = MbtError::AggHashMismatchAfterApply(
+                            dif_mbt.filepath().to_string(),
+                            expected,
+                            self.dst_mbt.filepath().to_string(),
+                            actual,
+                        );
+                        if !self.options.force {
+                            return Err(err);
+                        }
+                        warn!("{err}");
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let hash_type = if dif_info.patch_type == BinDiffGz || self.options.skip_agg_tiles_hash {
+            AggHashType::Off
+        } else {
+            Verify
+        };
+
+        if self.options.validate {
+            self.dst_mbt.validate(&mut conn, Quick, hash_type).await?;
+        }
 
         Ok(conn)
     }
@@ -350,22 +420,17 @@ impl MbtileCopierInt {
         dst_type: MbtType,
         select_from: &str,
     ) -> Result<(), MbtError> {
-        // SAFETY: This must be scoped to make sure the handle is dropped before we continue using conn
-        // Make sure not to execute any other queries while the handle is locked
-        let mut handle_lock = conn.lock_handle().await?;
-        let handle = handle_lock.as_raw_handle().as_ptr();
-
-        // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
-        let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
-
         if self.options.copy.copy_tiles() {
-            self.copy_tiles(&rusqlite_conn, dst_type, on_duplicate, select_from)?;
+            action_with_rusqlite(conn, |c| {
+                self.copy_tiles(c, dst_type, on_duplicate, select_from)
+            })
+            .await?;
         } else {
             debug!("Skipping copying tiles");
         }
 
         if self.options.copy.copy_metadata() {
-            self.copy_metadata(&rusqlite_conn, on_duplicate)
+            action_with_rusqlite(conn, |c| self.copy_metadata(c, on_duplicate)).await
         } else {
             debug!("Skipping copying metadata");
             Ok(())
@@ -433,7 +498,7 @@ impl MbtileCopierInt {
         select_from: &str,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
-        let where_clause = self.get_where_clause();
+        let where_clause = self.get_where_clause("");
         let sql_cond = Self::get_on_duplicate_sql_cond(on_duplicate, dst_type);
 
         let sql = match dst_type {
@@ -511,7 +576,7 @@ impl MbtileCopierInt {
             // DB objects must be created in a specific order: tables, views, triggers, indexes.
             let sql_objects = conn
                 .fetch_all(
-                    "SELECT sql
+                    "SELECT sql, tbl_name, type
                      FROM sourceDb.sqlite_schema
                      WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
                        AND type     IN ('table', 'view', 'trigger', 'index')
@@ -525,6 +590,11 @@ impl MbtileCopierInt {
                 .await?;
 
             for row in sql_objects {
+                debug!(
+                    "Creating {typ} {tbl_name}...",
+                    typ = row.get::<&str, _>(2),
+                    tbl_name = row.get::<&str, _>(1),
+                );
                 query(row.get(0)).execute(&mut *conn).await?;
             }
             if dst.is_normalized() {
@@ -566,18 +636,18 @@ impl MbtileCopierInt {
 
     /// Format SQL WHERE clause and return it along with the query arguments.
     /// Note that there is no risk of SQL injection here, as the arguments are integers.
-    fn get_where_clause(&self) -> String {
+    fn get_where_clause(&self, prefix: &str) -> String {
         let mut sql = if !&self.options.zoom_levels.is_empty() {
             let zooms = self.options.zoom_levels.iter().join(",");
-            format!(" AND zoom_level IN ({zooms})")
+            format!(" AND {prefix}zoom_level IN ({zooms})")
         } else if let Some(min_zoom) = self.options.min_zoom {
             if let Some(max_zoom) = self.options.max_zoom {
-                format!(" AND zoom_level BETWEEN {min_zoom} AND {max_zoom}")
+                format!(" AND {prefix}zoom_level BETWEEN {min_zoom} AND {max_zoom}")
             } else {
-                format!(" AND zoom_level >= {min_zoom}")
+                format!(" AND {prefix}zoom_level >= {min_zoom}")
             }
         } else if let Some(max_zoom) = self.options.max_zoom {
-            format!(" AND zoom_level <= {max_zoom}")
+            format!(" AND {prefix}zoom_level <= {max_zoom}")
         } else {
             String::new()
         };
@@ -600,7 +670,8 @@ impl MbtileCopierInt {
                 }
                 writeln!(
                     sql,
-                    "((tile_column * (1 << ({MAX_ZOOM} - zoom_level))) BETWEEN {min_x} AND {max_x} AND (tile_row * (1 << ({MAX_ZOOM} - zoom_level))) BETWEEN {min_y} AND {max_y})",
+                    "(({prefix}tile_column * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_x} AND {max_x} \
+                     AND ({prefix}tile_row * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_y} AND {max_y})",
                 ).unwrap();
             }
             sql.push(')');
@@ -610,7 +681,11 @@ impl MbtileCopierInt {
     }
 }
 
-fn get_select_from_apply_patch(src_type: MbtType, dif_type: MbtType, dst_type: MbtType) -> String {
+fn get_select_from_apply_patch(
+    src_type: MbtType,
+    dif_info: &PatchFileInfo,
+    dst_type: MbtType,
+) -> String {
     fn query_for_dst(frm_db: &'static str, frm_type: MbtType, to_type: MbtType) -> String {
         match to_type {
             Flat => format!("{frm_db}.tiles"),
@@ -648,13 +723,30 @@ fn get_select_from_apply_patch(src_type: MbtType, dif_type: MbtType, dst_type: M
 
         format!(
             ", COALESCE({}, {}) as tile_hash",
-            get_tile_hash_expr("difTiles", dif_type),
+            get_tile_hash_expr("difTiles", dif_info.mbt_type),
             get_tile_hash_expr("srcTiles", src_type)
         )
     };
 
     let src_tiles = query_for_dst("sourceDb", src_type, dst_type);
-    let diff_tiles = query_for_dst("diffDb", dif_type, dst_type);
+    let diff_tiles = query_for_dst("diffDb", dif_info.mbt_type, dst_type);
+
+    let (bindiff_from, bindiff_cond) = if dif_info.patch_type == Whole {
+        (String::new(), "")
+    } else {
+        // do not copy any tiles that are in the patch table
+        let tbl = get_bsdiff_tbl_name(dif_info.patch_type);
+        (
+            format!(
+                "
+             LEFT JOIN diffDb.{tbl} AS bdTbl
+               ON bdTbl.zoom_level = srcTiles.zoom_level
+                 AND bdTbl.tile_column = srcTiles.tile_column
+                 AND bdTbl.tile_row = srcTiles.tile_row"
+            ),
+            "AND bdTbl.patch_data ISNULL",
+        )
+    };
 
     // Take dif tile_data if it is set, otherwise take the one from src
     // Skip tiles if src and dif both have a matching index, but the dif tile_data is NULL
@@ -669,11 +761,16 @@ fn get_select_from_apply_patch(src_type: MbtType, dif_type: MbtType, dst_type: M
              ON srcTiles.zoom_level = difTiles.zoom_level
                AND srcTiles.tile_column = difTiles.tile_column
                AND srcTiles.tile_row = difTiles.tile_row
-        WHERE (difTiles.zoom_level ISNULL OR difTiles.tile_data NOTNULL)"
+             {bindiff_from}
+        WHERE (difTiles.zoom_level ISNULL OR difTiles.tile_data NOTNULL) {bindiff_cond}"
     )
 }
 
-fn get_select_from_with_diff(dif_type: MbtType, dst_type: MbtType) -> String {
+fn get_select_from_with_diff(
+    dif_type: MbtType,
+    dst_type: MbtType,
+    patch_type: PatchType,
+) -> String {
     let tile_hash_expr;
     let diff_tiles;
     if dst_type == Flat {
@@ -695,6 +792,11 @@ fn get_select_from_with_diff(dif_type: MbtType, dst_type: MbtType) -> String {
         };
     }
 
+    let sql_cond = if patch_type == Whole {
+        "OR srcTiles.tile_data != difTiles.tile_data"
+    } else {
+        ""
+    };
     format!(
         "
         SELECT COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
@@ -706,9 +808,9 @@ fn get_select_from_with_diff(dif_type: MbtType, dst_type: MbtType) -> String {
              ON srcTiles.zoom_level = difTiles.zoom_level
                AND srcTiles.tile_column = difTiles.tile_column
                AND srcTiles.tile_row = difTiles.tile_row
-        WHERE (srcTiles.tile_data != difTiles.tile_data
-               OR srcTiles.tile_data ISNULL
-               OR difTiles.tile_data ISNULL)"
+        WHERE (srcTiles.tile_data ISNULL
+               OR difTiles.tile_data ISNULL
+               {sql_cond})"
     )
 }
 
@@ -920,7 +1022,7 @@ mod tests {
         let opt = MbtilesCopier {
             src_file: src.clone(),
             dst_file: dst.clone(),
-            diff_with_file: Some(diff_file.clone()),
+            diff_with_file: Some((diff_file.clone(), Whole)),
             force: true,
             ..Default::default()
         };
