@@ -1,10 +1,11 @@
 #![doc = include_str!("../README.md")]
 
 // Re-export sqlx
+pub use bindiff::{PatchType, PatchTypeCli};
 pub use sqlx;
 
 mod copier;
-pub use copier::{CopyDuplicateMode, MbtilesCopier, PatchType, PatchTypeCli};
+pub use copier::{CopyDuplicateMode, MbtilesCopier};
 
 mod errors;
 pub use errors::{MbtError, MbtResult};

@@ -10,8 +10,9 @@ use sqlite_hashes::register_md5_functions;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement};
 
+use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{invert_y_value, CopyDuplicateMode, MbtType, PatchType};
+use crate::{invert_y_value, CopyDuplicateMode, MbtType};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]

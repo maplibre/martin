@@ -10,7 +10,8 @@ use sqlite_hashes::rusqlite::Connection;
 use sqlx::{query, Connection as _, Executor as _, Row, SqliteConnection};
 use tilejson::Bounds;
 
-use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _};
+use crate::bindiff::PatchType::BinDiffGz;
+use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
@@ -19,7 +20,7 @@ use crate::queries::{
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::PatchType::{BinDiffGz, BinDiffRaw};
+use crate::PatchType::BinDiffRaw;
 use crate::{
     action_with_rusqlite, get_bsdiff_tbl_name, invert_y_value, reset_db_settings, AggHashType,
     CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
@@ -33,38 +34,6 @@ pub enum CopyDuplicateMode {
     Override,
     Ignore,
     Abort,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
-#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
-pub enum PatchTypeCli {
-    /// Patch file will contain the entire tile if it is different from the source
-    #[default]
-    Whole,
-    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
-    BinDiffGz,
-    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
-    BinDiffRaw,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
-pub enum PatchType {
-    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
-    BinDiffGz,
-    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
-    BinDiffRaw,
-}
-
-impl From<PatchTypeCli> for Option<PatchType> {
-    fn from(cli: PatchTypeCli) -> Self {
-        match cli {
-            PatchTypeCli::Whole => None,
-            PatchTypeCli::BinDiffGz => Some(BinDiffGz),
-            PatchTypeCli::BinDiffRaw => Some(BinDiffRaw),
-        }
-    }
 }
 
 impl CopyDuplicateMode {
@@ -262,10 +231,7 @@ impl MbtileCopierInt {
             dif_type = dif_info.mbt_type,
             what = self.copy_text(),
             dst_path = self.dst_mbt.filepath(),
-            patch = patch_type.map_or("", |v| match v {
-                BinDiffGz => {" with bin-diff on gzip-ed tiles"}
-                BinDiffRaw => {" with bin-diff-raw"}
-            })
+            patch = patch_type_str(patch_type),
         );
 
         self.init_schema(&mut conn, src_info.mbt_type, dst_type)
@@ -338,10 +304,7 @@ impl MbtileCopierInt {
             src_mbt = self.src_mbt,
             what = self.copy_text(),
             dst_path = self.dst_mbt.filepath(),
-            patch = dif_info.patch_type.map_or("", |v| match v {
-                BinDiffGz => {" with bin-diff on gzip-ed tiles"}
-                BinDiffRaw => {" with bin-diff-raw"}
-            })
+            patch = patch_type_str(dif_info.patch_type),
         );
 
         self.init_schema(&mut conn, src_type, dst_type).await?;
@@ -1187,5 +1150,16 @@ mod tests {
         .is_none());
 
         Ok(())
+    }
+}
+
+fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
+    if let Some(v) = patch_type {
+        match v {
+            BinDiffGz => " with bin-diff on gzip-ed tiles",
+            BinDiffRaw => " with bin-diff-raw",
+        }
+    } else {
+        ""
     }
 }

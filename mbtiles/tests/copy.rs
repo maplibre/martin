@@ -11,7 +11,7 @@ use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use mbtiles::PatchTypeCli::BinDiffRaw;
+use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
     apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, PatchTypeCli, UpdateZoomType,
@@ -304,19 +304,30 @@ fn databases() -> Databases {
 
                 // ----------------- bdr (v1 -> v2) -- bin-diff-raw -----------------
                 if mbt_typ == Flat || mbt_typ == FlatWithHash {
-                    let (bdr_mbt, mut bdr_cn) = open!(databases, "{typ}__bdr");
-                    copy! {
-                        result.path("v1", mbt_typ),
-                        path(&bdr_mbt),
-                        diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw.into())),
-                    };
-                    let dmp = dump(&mut bdr_cn).await.unwrap();
-                    assert_dump!(&dmp, "{typ}__bdr");
-                    let hash = bdr_mbt.open_and_validate(Off, Verify).await.unwrap();
-                    allow_duplicates! {
-                        assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3");
+                    for (patch_type, pt) in [
+                        (BinDiffRaw, "bdr"),
+                        // , (BinDiffGz, "bdg")
+                    ] {
+                        let (bd_mbt, mut bd_cn) = open!(databases, "{typ}__{pt}");
+                        copy! {
+                            result.path("v1", mbt_typ),
+                            path(&bd_mbt),
+                            diff_with_file => Some((result.path("v2", mbt_typ), patch_type.into())),
+                        };
+                        let dmp = dump(&mut bd_cn).await.unwrap();
+                        assert_dump!(&dmp, "{typ}__{pt}");
+                        let hash = bd_mbt.open_and_validate(Off, Verify).await.unwrap();
+                        if patch_type == BinDiffRaw {
+                            allow_duplicates! {
+                                assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3");
+                            }
+                        } else {
+                            allow_duplicates! {
+                                assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3");
+                            }
+                        }
+                        result.add(pt, mbt_typ, dmp, bd_mbt, Some(hash), bd_cn);
                     }
-                    result.add("bdr", mbt_typ, dmp, bdr_mbt, Some(hash), bdr_cn);
                 }
 
                 // ----------------- v1_clone -----------------
@@ -533,12 +544,15 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
-    #[values(BinDiffRaw)] patch_type: PatchTypeCli,
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
-    #[values(("v1", "v2", "bdr"))] tilesets: (&'static str, &'static str, &'static str),
+    #[values(
+        ("v1", "v2", "bdr", BinDiffRaw),
+        // ("v1", "v2", "bdg", BinDiffGz),
+    )]
+    tilesets: (&'static str, &'static str, &'static str, PatchTypeCli),
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
-    let (a_db, b_db, dif_db) = tilesets;
+    let (a_db, b_db, dif_db, patch_type) = tilesets;
     let dif = shorten(dif_type);
     let prefix = format!(
         "{a_db}_{}--{b_db}_{}={dif}_{patch_type}",
@@ -624,9 +638,8 @@ async fn test_one() {
         FlatWithHash,
         FlatWithHash,
         FlatWithHash,
-        BinDiffRaw,
         FlatWithHash,
-        ("v1", "v2", "bdr"),
+        ("v1", "v2", "bdr", BinDiffRaw),
         &db,
     )
     .await

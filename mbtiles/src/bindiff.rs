@@ -4,18 +4,51 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 use std::time::Instant;
 
+use enum_display::EnumDisplay;
 use flume::{bounded, Receiver, Sender};
 use futures::TryStreamExt;
 use log::{debug, error, info};
 use martin_tile_utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip, TileCoord};
+use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
 use sqlx::{query, Executor, Row, SqliteConnection};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::{
-    create_bsdiffraw_tables, get_bsdiff_tbl_name, MbtError, MbtResult, MbtType, Mbtiles, PatchType,
-};
+use crate::PatchType::{BinDiffGz, BinDiffRaw};
+use crate::{create_bsdiffraw_tables, get_bsdiff_tbl_name, MbtError, MbtResult, MbtType, Mbtiles};
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
+pub enum PatchTypeCli {
+    /// Patch file will contain the entire tile if it is different from the source
+    #[default]
+    Whole,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
+    BinDiffGz,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
+    BinDiffRaw,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+pub enum PatchType {
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
+    BinDiffGz,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
+    BinDiffRaw,
+}
+
+impl From<PatchTypeCli> for Option<PatchType> {
+    fn from(cli: PatchTypeCli) -> Self {
+        match cli {
+            PatchTypeCli::Whole => None,
+            PatchTypeCli::BinDiffGz => Some(BinDiffGz),
+            PatchTypeCli::BinDiffRaw => Some(BinDiffRaw),
+        }
+    }
+}
 
 pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync + 'static {
     fn query(
@@ -217,7 +250,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     fn process(&self, value: DifferBefore) -> MbtResult<DifferAfter> {
         let mut old_tile = value.old_tile_data;
         let mut new_tile = value.new_tile_data;
-        if self.patch_type == PatchType::BinDiffGz {
+        if self.patch_type == BinDiffGz {
             old_tile = decode_gzip(&old_tile).inspect_err(|e| {
                 error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
             })?;
@@ -334,7 +367,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     }
 
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
-        let old_tile = if self.patch_type == PatchType::BinDiffGz {
+        let old_tile = if self.patch_type == BinDiffGz {
             decode_gzip(&value.old_tile).inspect_err(|e| {
                 error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
             })?
@@ -358,7 +391,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             ));
         }
 
-        if self.patch_type == PatchType::BinDiffGz {
+        if self.patch_type == BinDiffGz {
             new_tile = encode_gzip(&new_tile)?;
         };
 
