@@ -818,6 +818,17 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType) -> &'static str {
     }
 }
 
+fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
+    if let Some(v) = patch_type {
+        match v {
+            BinDiffGz => " with bin-diff on gzip-ed tiles",
+            BinDiffRaw => " with bin-diff-raw",
+        }
+    } else {
+        ""
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
@@ -1150,16 +1161,5 @@ mod tests {
         .is_none());
 
         Ok(())
-    }
-}
-
-fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
-    if let Some(v) = patch_type {
-        match v {
-            BinDiffGz => " with bin-diff on gzip-ed tiles",
-            BinDiffRaw => " with bin-diff-raw",
-        }
-    } else {
-        ""
     }
 }
