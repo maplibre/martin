@@ -304,10 +304,7 @@ fn databases() -> Databases {
 
                 // ----------------- bdr (v1 -> v2) -- bin-diff-raw -----------------
                 if mbt_typ == Flat || mbt_typ == FlatWithHash {
-                    for (patch_type, pt) in [
-                        (BinDiffRaw, "bdr"),
-                        // , (BinDiffGz, "bdg")
-                    ] {
+                    for (patch_type, pt) in [(BinDiffRaw, "bdr"), (BinDiffGz, "bdz")] {
                         let (bd_mbt, mut bd_cn) = open!(databases, "{typ}__{pt}");
                         copy! {
                             result.path("v1", mbt_typ),
@@ -547,7 +544,7 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
     #[values(
         ("v1", "v2", "bdr", BinDiffRaw),
-        // ("v1", "v2", "bdg", BinDiffGz),
+        // ("v1", "v2", "bdz", BinDiffGz),
     )]
     tilesets: (&'static str, &'static str, &'static str, PatchTypeCli),
     #[notrace] databases: &Databases,
