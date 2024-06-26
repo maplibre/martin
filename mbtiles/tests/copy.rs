@@ -352,7 +352,7 @@ fn databases() -> Databases {
                             match patch_type {
                                 PatchTypeCli::Whole => { unreachable!() }
                                 BinDiffGz => { assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"); }
-                                BinDiffRaw => { assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"); }
+                                BinDiffRaw => { assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6"); }
                             }
                         }
                         result.add(pt, mbt_typ, dmp, bd_mbt, Some(hash), bd_cn);
