@@ -4,19 +4,51 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 use std::time::Instant;
 
+use enum_display::EnumDisplay;
 use flume::{bounded, Receiver, Sender};
 use futures::TryStreamExt;
 use log::{debug, error, info};
 use martin_tile_utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip, TileCoord};
+use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
 use sqlx::{query, Executor, Row, SqliteConnection};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::PatchType::Whole;
-use crate::{
-    create_bsdiffraw_tables, get_bsdiff_tbl_name, MbtError, MbtResult, MbtType, Mbtiles, PatchType,
-};
+use crate::PatchType::{BinDiffGz, BinDiffRaw};
+use crate::{create_bsdiffraw_tables, get_bsdiff_tbl_name, MbtError, MbtResult, MbtType, Mbtiles};
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
+pub enum PatchTypeCli {
+    /// Patch file will contain the entire tile if it is different from the source
+    #[default]
+    Whole,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
+    BinDiffGz,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
+    BinDiffRaw,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+pub enum PatchType {
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
+    BinDiffGz,
+    /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
+    BinDiffRaw,
+}
+
+impl From<PatchTypeCli> for Option<PatchType> {
+    fn from(cli: PatchTypeCli) -> Self {
+        match cli {
+            PatchTypeCli::Whole => None,
+            PatchTypeCli::BinDiffGz => Some(BinDiffGz),
+            PatchTypeCli::BinDiffRaw => Some(BinDiffRaw),
+        }
+    }
+}
 
 pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync + 'static {
     fn query(
@@ -153,7 +185,6 @@ impl BinDiffDiffer {
         dif_type: MbtType,
         patch_type: PatchType,
     ) -> Self {
-        assert_ne!(patch_type, Whole, "Invalid for BinDiffDiffer");
         let insert_sql = format!(
             "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash) VALUES (?, ?, ?, ?, ?)",
             get_bsdiff_tbl_name(patch_type));
@@ -219,7 +250,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     fn process(&self, value: DifferBefore) -> MbtResult<DifferAfter> {
         let mut old_tile = value.old_tile_data;
         let mut new_tile = value.new_tile_data;
-        if self.patch_type == PatchType::BinDiffGz {
+        if self.patch_type == BinDiffGz {
             old_tile = decode_gzip(&old_tile).inspect_err(|e| {
                 error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
             })?;
@@ -258,14 +289,14 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
 
 pub struct ApplierBefore {
     coord: TileCoord,
-    tile_data: Vec<u8>,
+    old_tile: Vec<u8>,
     patch_data: Vec<u8>,
     uncompressed_tile_hash: u64,
 }
 
 pub struct ApplierAfter {
     coord: TileCoord,
-    data: Vec<u8>,
+    new_tile: Vec<u8>,
     new_tile_hash: String,
 }
 
@@ -322,7 +353,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
                     x: row.get(1),
                     y: row.get(2),
                 },
-                tile_data: row.get(3),
+                old_tile: row.get(3),
                 patch_data: row.get(4),
                 #[allow(clippy::cast_sign_loss)]
                 uncompressed_tile_hash: row.get::<i64, _>(5) as u64,
@@ -336,12 +367,21 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     }
 
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
-        let tile_data = decode_gzip(&value.tile_data)
-            .inspect_err(|e| error!("Unable to gzip-decode source tile {:?}: {e}", value.coord))?;
+        let old_tile = if self.patch_type == BinDiffGz {
+            decode_gzip(&value.old_tile).inspect_err(|e| {
+                error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
+            })?
+        } else {
+            value.old_tile
+        };
+
         let patch_data = decode_brotli(&value.patch_data)
             .inspect_err(|e| error!("Unable to brotli-decode patch data {:?}: {e}", value.coord))?;
-        let new_tile = BsdiffRawDiffer::patch(&tile_data, &patch_data)
+
+        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data)
             .inspect_err(|e| error!("Unable to patch tile {:?}: {e}", value.coord))?;
+
+        // Verify the hash of the patched tile is what we expect
         let new_tile_hash = xxh3_64(&new_tile);
         if new_tile_hash != value.uncompressed_tile_hash {
             return Err(MbtError::BinDiffIncorrectTileHash(
@@ -351,16 +391,18 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             ));
         }
 
-        let data = encode_gzip(&new_tile)?;
+        if self.patch_type == BinDiffGz {
+            new_tile = encode_gzip(&new_tile)?;
+        };
 
         Ok(ApplierAfter {
             coord: value.coord,
             new_tile_hash: if self.dst_type == FlatWithHash {
-                format!("{:X}", md5::compute(&data))
+                format!("{:X}", md5::compute(&new_tile))
             } else {
                 String::default() // This is a fast noop, no memory alloc is performed
             },
-            data,
+            new_tile,
         })
     }
 
@@ -378,7 +420,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         .bind(value.coord.z)
         .bind(value.coord.x)
         .bind(value.coord.y)
-        .bind(value.data);
+        .bind(value.new_tile);
 
         if self.dst_type == FlatWithHash {
             q = q.bind(value.new_tile_hash);

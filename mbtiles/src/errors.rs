@@ -102,7 +102,7 @@ pub enum MbtError {
     #[error("Applying bindiff to tile {0} resulted in mismatching hash: expecting `{1}` != computed uncompressed value `{2}`")]
     BinDiffIncorrectTileHash(String, String, String),
 
-    #[error("Internal error creating bin-diff table")]
+    #[error("Unable to generate or apply bin-diff patch")]
     BindiffError,
 
     #[error("BinDiff patch files can be only applied with `mbtiles copy --apply-patch` command")]

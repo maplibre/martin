@@ -3,9 +3,10 @@ use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
 use sqlx::{query, Executor as _, Row, SqliteConnection, SqliteExecutor};
 
+use crate::bindiff::PatchType;
 use crate::errors::MbtResult;
 use crate::MbtError::InvalidZoomValue;
-use crate::{MbtType, PatchType};
+use crate::MbtType;
 
 /// Returns true if the database is empty (no tables/indexes/...)
 pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>
@@ -215,7 +216,6 @@ pub fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
     match patch_type {
         PatchType::BinDiffRaw => "bsdiffraw",
         PatchType::BinDiffGz => "bsdiffrawgz",
-        PatchType::Whole => panic!("Unexpected PatchType::Whole"),
     }
 }
 
@@ -241,7 +241,7 @@ where
 
 /// Check if `MBTiles` has a table or a view named `bsdiffraw` or `bsdiffrawgz` with needed fields,
 /// and return the corresponding patch type. If missing, return `PatchType::Whole`
-pub async fn get_patch_type<T>(conn: &mut T) -> MbtResult<PatchType>
+pub async fn get_patch_type<T>(conn: &mut T) -> MbtResult<Option<PatchType>>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
@@ -272,11 +272,11 @@ where
             .unwrap_or_default()
             == 1
         {
-            return Ok(pt);
+            return Ok(Some(pt));
         }
     }
 
-    Ok(PatchType::Whole)
+    Ok(None)
 }
 
 pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>
