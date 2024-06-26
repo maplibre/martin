@@ -1,5 +1,5 @@
 [INFO ] The patch file tests/mbtiles_temp_files/world_cities_bindiff.mbtiles expects to be applied to a tileset with agg_tiles_hash=84792BF4EE9AEDDC5B1A60E707011FEE, and should result in hash 578FB5BD64746C39E3D344662947FD0D after applying
-[INFO ] Applying patch from tests/mbtiles_temp_files/world_cities_bindiff.mbtiles (flat) to ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) into a new file tests/mbtiles_temp_files/world_cities_modified2.mbtiles (flat) with bin-diff
+[INFO ] Applying patch from tests/mbtiles_temp_files/world_cities_bindiff.mbtiles (flat) to ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) into a new file tests/mbtiles_temp_files/world_cities_modified2.mbtiles (flat) with bin-diff on gzip-ed tiles
 [INFO ] Finished processing 1 bindiff tiles
 [INFO ] Adding a new metadata value agg_tiles_hash = F863A28565B06142AED3E01EF8198CF5 in tests/mbtiles_temp_files/world_cities_modified2.mbtiles
 [INFO ] Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value

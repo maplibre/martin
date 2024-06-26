@@ -215,7 +215,6 @@ pub fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
     match patch_type {
         PatchType::BinDiffRaw => "bsdiffraw",
         PatchType::BinDiffGz => "bsdiffrawgz",
-        PatchType::Whole => panic!("Unexpected PatchType::Whole"),
     }
 }
 
@@ -241,7 +240,7 @@ where
 
 /// Check if `MBTiles` has a table or a view named `bsdiffraw` or `bsdiffrawgz` with needed fields,
 /// and return the corresponding patch type. If missing, return `PatchType::Whole`
-pub async fn get_patch_type<T>(conn: &mut T) -> MbtResult<PatchType>
+pub async fn get_patch_type<T>(conn: &mut T) -> MbtResult<Option<PatchType>>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
@@ -272,11 +271,11 @@ where
             .unwrap_or_default()
             == 1
         {
-            return Ok(pt);
+            return Ok(Some(pt));
         }
     }
 
-    Ok(PatchType::Whole)
+    Ok(None)
 }
 
 pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>

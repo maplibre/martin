@@ -5,7 +5,6 @@ use sqlx::{query, Connection as _};
 
 use crate::queries::detach_db;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::PatchType::Whole;
 use crate::{
     MbtError, MbtResult, MbtType, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
     AGG_TILES_HASH_BEFORE_APPLY,
@@ -17,7 +16,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     let mut conn = patch_mbt.open_readonly().await?;
     let patch_info = patch_mbt.examine_diff(&mut conn).await?;
-    if patch_info.patch_type != Whole {
+    if patch_info.patch_type.is_some() {
         return Err(MbtError::UnsupportedPatchType);
     }
     patch_mbt.validate_diff_info(&patch_info, force)?;

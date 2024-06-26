@@ -11,10 +11,10 @@ use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
-use mbtiles::PatchType::{BinDiffRaw, Whole};
+use mbtiles::PatchTypeCli::BinDiffRaw;
 use mbtiles::{
     apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
-    MbtilesCopier, PatchType, UpdateZoomType,
+    MbtilesCopier, PatchTypeCli, UpdateZoomType,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
@@ -292,7 +292,7 @@ fn databases() -> Databases {
                 copy! {
                     result.path("v1", mbt_typ),
                     path(&dif_mbt),
-                    diff_with_file => Some((result.path("v2", mbt_typ), Whole)),
+                    diff_with_file => Some((result.path("v2", mbt_typ), None)),
                 };
                 let dmp = dump(&mut dif_cn).await.unwrap();
                 assert_dump!(&dmp, "{typ}__dif");
@@ -308,7 +308,7 @@ fn databases() -> Databases {
                     copy! {
                         result.path("v1", mbt_typ),
                         path(&bdr_mbt),
-                        diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw)),
+                        diff_with_file => Some((result.path("v2", mbt_typ), BinDiffRaw.into())),
                     };
                     let dmp = dump(&mut bdr_cn).await.unwrap();
                     assert_dump!(&dmp, "{typ}__bdr");
@@ -340,7 +340,7 @@ fn databases() -> Databases {
                 copy! {
                     result.path("v1", mbt_typ),
                     path(&dif_empty_mbt),
-                    diff_with_file => Some((result.path("v1_clone", mbt_typ), Whole)),
+                    diff_with_file => Some((result.path("v1_clone", mbt_typ), None)),
                 };
                 let dmp = dump(&mut dif_empty_cn).await.unwrap();
                 assert_dump!(&dmp, "{typ}__dif_empty");
@@ -491,7 +491,7 @@ async fn diff_and_patch(
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
-        diff_with_file => Some((databases.path(b_db, b_type), Whole)),
+        diff_with_file => Some((databases.path(b_db, b_type), None)),
         dst_type_cli => dif_type,
     };
     pretty_assert_eq!(
@@ -533,7 +533,7 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
-    #[values(BinDiffRaw)] patch_type: PatchType,
+    #[values(BinDiffRaw)] patch_type: PatchTypeCli,
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
     #[values(("v1", "v2", "bdr"))] tilesets: (&'static str, &'static str, &'static str),
     #[notrace] databases: &Databases,
@@ -551,7 +551,7 @@ async fn diff_and_patch_bsdiff(
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
-        diff_with_file => Some((databases.path(b_db, b_type), patch_type)),
+        diff_with_file => Some((databases.path(b_db, b_type), patch_type.into())),
         dst_type_cli => Some(dif_type),
     };
     pretty_assert_eq!(&dump(&mut dif_cn).await?, databases.dump(dif_db, dif_type));

@@ -48,7 +48,7 @@ pub struct PatchFileInfo {
     pub agg_tiles_hash: Option<String>,
     pub agg_tiles_hash_before_apply: Option<String>,
     pub agg_tiles_hash_after_apply: Option<String>,
-    pub patch_type: PatchType,
+    pub patch_type: Option<PatchType>,
 }
 
 #[derive(Clone, Debug)]

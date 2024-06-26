@@ -4,7 +4,7 @@
 pub use sqlx;
 
 mod copier;
-pub use copier::{CopyDuplicateMode, MbtilesCopier, PatchType};
+pub use copier::{CopyDuplicateMode, MbtilesCopier, PatchType, PatchTypeCli};
 
 mod errors;
 pub use errors::{MbtError, MbtResult};

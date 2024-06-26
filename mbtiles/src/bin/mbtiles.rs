@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
     apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
-    MbtTypeCli, Mbtiles, MbtilesCopier, PatchType, UpdateZoomType,
+    MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
 };
 use tilejson::Bounds;
 
@@ -116,8 +116,8 @@ pub struct CopyArgs {
     #[arg(long, conflicts_with("diff_with_file"))]
     apply_patch: Option<PathBuf>,
     /// Specify the type of patch file to generate.
-    #[arg(long, requires("diff_with_file"), default_value_t=PatchType::default())]
-    patch_type: PatchType,
+    #[arg(long, requires("diff_with_file"), default_value_t=PatchTypeCli::default())]
+    patch_type: PatchTypeCli,
 }
 
 #[allow(clippy::doc_markdown)]
@@ -130,8 +130,8 @@ pub struct DiffArgs {
     /// Output file to write the resulting difference to
     diff: PathBuf,
     /// Specify the type of patch file to generate.
-    #[arg(long, default_value_t=PatchType::default())]
-    patch_type: PatchType,
+    #[arg(long, default_value_t=PatchTypeCli::default())]
+    patch_type: PatchTypeCli,
 
     #[command(flatten)]
     pub options: SharedCopyOpts,
@@ -181,12 +181,12 @@ impl SharedCopyOpts {
         dst_file: PathBuf,
         diff_with_file: Option<PathBuf>,
         apply_patch: Option<PathBuf>,
-        patch_type: PatchType,
+        patch_type: PatchTypeCli,
     ) -> MbtilesCopier {
         MbtilesCopier {
             src_file,
             dst_file,
-            diff_with_file: diff_with_file.map(|p| (p, patch_type)),
+            diff_with_file: diff_with_file.map(|p| (p, patch_type.into())),
             apply_patch,
             // Shared
             copy: self.copy,
@@ -329,7 +329,6 @@ mod tests {
     use clap::error::ErrorKind;
     use clap::Parser;
     use mbtiles::CopyDuplicateMode;
-    use mbtiles::PatchType::Whole;
 
     use super::*;
     use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Validate};
@@ -540,7 +539,7 @@ mod tests {
                     file1: PathBuf::from("file1.mbtiles"),
                     file2: PathBuf::from("file2.mbtiles"),
                     diff: PathBuf::from("../delta.mbtiles"),
-                    patch_type: Whole,
+                    patch_type: PatchTypeCli::Whole,
                     options: SharedCopyOpts {
                         on_duplicate: Some(CopyDuplicateMode::Override),
                         ..Default::default()
