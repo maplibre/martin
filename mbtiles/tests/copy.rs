@@ -348,11 +348,19 @@ fn databases() -> Databases {
                         let dmp = dump(&mut bd_cn).await.unwrap();
                         assert_dump!(&dmp, "{typ}__{pt}");
                         let hash = bd_mbt.open_and_validate(Off, Verify).await.unwrap();
-                        allow_duplicates! {
-                            match patch_type {
-                                PatchTypeCli::Whole => { unreachable!() }
-                                BinDiffGz => { assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"); }
-                                BinDiffRaw => { assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6"); }
+                        match patch_type {
+                            PatchTypeCli::Whole => {
+                                unreachable!()
+                            }
+                            BinDiffGz => {
+                                allow_duplicates!(
+                                    assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6")
+                                );
+                            }
+                            BinDiffRaw => {
+                                allow_duplicates!(
+                                    assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3")
+                                );
                             }
                         }
                         result.add(pt, mbt_typ, dmp, bd_mbt, Some(hash), bd_cn);
