@@ -1,2 +1,2 @@
 [INFO ] Comparing ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) and ./tests/fixtures/mbtiles/world_cities_modified.mbtiles (flat) into a new file tests/mbtiles_temp_files/world_cities_diff.mbtiles (flat)
-[INFO ] Adding a new metadata value agg_tiles_hash = 958D6E4F59AC4B5334076BADBC505CAB in tests/mbtiles_temp_files/world_cities_diff.mbtiles
+[INFO ] Adding a new metadata value agg_tiles_hash = C9B90B490DF381D93F8CD8102A469F47 in tests/mbtiles_temp_files/world_cities_diff.mbtiles

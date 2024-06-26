@@ -333,7 +333,7 @@ fn databases() -> Databases {
                 }
                 result.add("v2z", mbt_typ, dmp, v2z_mbt, Some(hash), v2z_cn);
 
-                // ----------------- bdr (v1 -> v2) -- bin-diff-raw -----------------
+                // ----------------- bin-diff (v1 -> v2) -----------------
                 if mbt_typ == Flat || mbt_typ == FlatWithHash {
                     for (a, b, patch_type, pt) in [
                         ("v1", "v2", BinDiffRaw, "bdr"),
@@ -576,7 +576,7 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
     #[values(
         ("v1", "v2", "bdr", BinDiffRaw),
-        ("v1", "v2", "bdz", BinDiffGz),
+        ("v1z", "v2z", "bdz", BinDiffGz),
     )]
     tilesets: (&'static str, &'static str, &'static str, PatchTypeCli),
     #[notrace] databases: &Databases,
