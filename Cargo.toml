@@ -25,7 +25,7 @@ missing_panics_doc = "allow"
 module_name_repetitions = "allow"
 
 [workspace.dependencies]
-actix-cors = "0.6"
+actix-cors = "0.7"
 actix-http = "3"
 actix-rt = "2"
 actix-web = "4"
@@ -38,7 +38,7 @@ cargo-husky = { version = "1", features = ["user-hooks"], default-features = fal
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.2"
-deadpool-postgres = "0.12"
+deadpool-postgres = "0.14"
 enum-display = "0.1"
 env_logger = "0.11"
 flate2 = "1"
