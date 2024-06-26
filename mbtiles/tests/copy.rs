@@ -22,6 +22,8 @@ use serde::Serialize;
 use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
 use tokio::runtime::Handle;
 
+const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";
+
 const TILES_V1: &str = "
     INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES
       --(z, x, y, data) -- rules: keep if x=0, edit if x=1, remove if x=2
@@ -138,21 +140,28 @@ macro_rules! open {
 /// Create a new `SQLite` file of given type without `agg_tiles_hash` metadata value
 macro_rules! new_file_no_hash {
     ($function:ident, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {{
-        new_file!(@true, $function, $dst_type_cli, $sql_meta, $sql_data, $($arg)*)
+        new_file!(@true, $function, $dst_type_cli, $sql_meta, $sql_data, "", $($arg)*)
     }};
 }
 
 /// Create a new `SQLite` file of type `$dst_type_cli` with the given metadata and tiles
 macro_rules! new_file {
     ($function:ident, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {
-        new_file!(@false, $function, $dst_type_cli, $sql_meta, $sql_data, $($arg)*)
+        new_file!(@false, $function, $dst_type_cli, $sql_meta, $sql_data, "", $($arg)*)
     };
 
-    (@$skip_agg:expr, $function:tt, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {{
+    (+ $sql:expr, $function:ident, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $($arg:tt)*) => {
+        new_file!(@false, $function, $dst_type_cli, $sql_meta, $sql_data, $sql, $($arg)*)
+    };
+
+    (@ $skip_agg:expr, $function:tt, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $sql:expr, $($arg:tt)*) => {{
         let (tmp_mbt, mut cn_tmp) = open!(@"temp", $function, $($arg)*);
         init_mbtiles_schema(&mut cn_tmp, mbtiles::MbtType::Flat).await.unwrap();
         cn_tmp.execute($sql_data).await.unwrap();
         cn_tmp.execute($sql_meta).await.unwrap();
+        if $sql != "" {
+            cn_tmp.execute($sql).await.unwrap();
+        }
 
         let (dst_mbt, cn_dst) = open!($function, $($arg)*);
         copy! {
@@ -302,25 +311,48 @@ fn databases() -> Databases {
                 }
                 result.add("dif", mbt_typ, dmp, dif_mbt, Some(hash), dif_cn);
 
+                // ----------------- v1z -----------------
+                let (v1z_mbt, mut v1z_cn) =
+                    new_file!(+GZIP_TILES, databases, mbt_typ, METADATA_V1, TILES_V1, "{typ}__v1z");
+                let dmp = dump(&mut v1z_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__v1z");
+                let hash = v1z_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"C0CA886B149CE416242AB2AFE8E641AD");
+                }
+                result.add("v1z", mbt_typ, dmp, v1z_mbt, Some(hash), v1z_cn);
+
+                // ----------------- v2z -----------------
+                let (v2z_mbt, mut v2z_cn) =
+                    new_file!(+GZIP_TILES, databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2z");
+                let dmp = dump(&mut v2z_cn).await.unwrap();
+                assert_dump!(&dmp, "{typ}__v2");
+                let hash = v2z_mbt.open_and_validate(Off, Verify).await.unwrap();
+                allow_duplicates! {
+                    assert_snapshot!(hash, @"A18D0C39730FB52E5A547F096F5C60E8");
+                }
+                result.add("v2z", mbt_typ, dmp, v2z_mbt, Some(hash), v2z_cn);
+
                 // ----------------- bdr (v1 -> v2) -- bin-diff-raw -----------------
                 if mbt_typ == Flat || mbt_typ == FlatWithHash {
-                    for (patch_type, pt) in [(BinDiffRaw, "bdr"), (BinDiffGz, "bdz")] {
+                    for (a, b, patch_type, pt) in [
+                        ("v1", "v2", BinDiffRaw, "bdr"),
+                        ("v1z", "v2z", BinDiffGz, "bdz"),
+                    ] {
                         let (bd_mbt, mut bd_cn) = open!(databases, "{typ}__{pt}");
                         copy! {
-                            result.path("v1", mbt_typ),
+                            result.path(a, mbt_typ),
                             path(&bd_mbt),
-                            diff_with_file => Some((result.path("v2", mbt_typ), patch_type.into())),
+                            diff_with_file => Some((result.path(b, mbt_typ), patch_type.into())),
                         };
                         let dmp = dump(&mut bd_cn).await.unwrap();
                         assert_dump!(&dmp, "{typ}__{pt}");
                         let hash = bd_mbt.open_and_validate(Off, Verify).await.unwrap();
-                        if patch_type == BinDiffRaw {
-                            allow_duplicates! {
-                                assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3");
-                            }
-                        } else {
-                            allow_duplicates! {
-                                assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3");
+                        allow_duplicates! {
+                            match patch_type {
+                                PatchTypeCli::Whole => { unreachable!() }
+                                BinDiffGz => { assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"); }
+                                BinDiffRaw => { assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"); }
                             }
                         }
                         result.add(pt, mbt_typ, dmp, bd_mbt, Some(hash), bd_cn);
@@ -544,7 +576,7 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
     #[values(
         ("v1", "v2", "bdr", BinDiffRaw),
-        // ("v1", "v2", "bdz", BinDiffGz),
+        ("v1", "v2", "bdz", BinDiffGz),
     )]
     tilesets: (&'static str, &'static str, &'static str, PatchTypeCli),
     #[notrace] databases: &Databases,
