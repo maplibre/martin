@@ -60,7 +60,7 @@ Every zip-based Lambda function runs a file called `bootstrap`.
 cat <<EOF >src/bootstrap
 #!/bin/sh
 set -eu
-exec martin --config ${_HANDLER}.yaml
+exec martin --config \${_HANDLER}.yaml
 EOF
 ```
 
