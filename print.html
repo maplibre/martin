@@ -643,7 +643,7 @@ tar -C src/bin/ -xzf martin-aarch64-unknown-linux-musl.tar.gz martin
 <pre><code class="language-bash">cat &lt;&lt;EOF &gt;src/bootstrap
 #!/bin/sh
 set -eu
-exec martin --config ${_HANDLER}.yaml
+exec martin --config \${_HANDLER}.yaml
 EOF
 </code></pre>
 <p>Write the SAM template.</p>
