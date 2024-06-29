@@ -48,14 +48,16 @@ async fn get_source_info(
     };
 
     // Construct a tiles URL from the request info, including the query string if present.
-    let info = req.connection_info();
-    let tiles_url = Uri::builder()
-        .scheme(info.scheme())
-        .authority(info.host())
-        .path_and_query(path_and_query)
-        .build()
-        .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
+    let tiles_url = {
+        let info = req.connection_info();
+        Uri::builder()
+            .scheme(info.scheme())
+            .authority(info.host())
+            .path_and_query(path_and_query)
+            .build()
+            .map(|tiles_url| tiles_url.to_string())
+            .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?
+    };
 
     let sources = sources.read().await;
     let sources = sources.get_sources(&path.source_ids, None)?.0;
