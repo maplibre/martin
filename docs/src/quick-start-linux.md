@@ -5,7 +5,7 @@ mkdir martin
 cd martin
 
 # Download some sample data
-curl -L -O https://raw.githubusercontent.com/maplibre/martin/main/tests/fixtures/mbtiles/world_cities.mbtiles
+curl -L -O https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles
 
 # Download the latest version of Martin binary, extract it, and make it executable
 curl -L -O https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz 
