@@ -1,10 +1,10 @@
 use std::string::ToString;
-use tokio::sync::RwLock;
 
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
 use actix_web::{middleware, route, HttpResponse, Result as ActixResult};
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
 use crate::fonts::{FontError, FontSources};
 use crate::srv::server::map_internal_error;

@@ -14,7 +14,7 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/font/{font}/{start}-{end}`            | [Font source](sources-fonts.md)                |
 | `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](sources-fonts.md)      |
 | `/health`                               | Martin server health check: returns 200 `OK`   |
-| `/refresh`                              | Refresh sources. Call this to made Martin be aware of changes of MBTiles/PMTiles/PostGIS Tables/Views/Functions |
+| `POST /refresh`                         | Refresh MBTiles/PMTiles/PostGIS sources        |
 
 ### Duplicate Source ID
 
@@ -41,16 +41,16 @@ curl localhost:3000/catalog | jq
 ```yaml
 {
   "tiles" {
-    "function_zxy_query": {
-      "name": "public.function_zxy_query",
-      "content_type": "application/x-protobuf"
-    },
-    "points1": {
-      "name": "public.points1.geom",
-      "content_type": "image/webp"
-    },
-    ...
+  "function_zxy_query": {
+    "name": "public.function_zxy_query",
+    "content_type": "application/x-protobuf"
   },
+  "points1": {
+    "name": "public.points1.geom",
+    "content_type": "image/webp"
+  },
+  ...
+},
   "sprites": {
     "cool_icons": {
       "images": [
@@ -58,7 +58,7 @@ curl localhost:3000/catalog | jq
         "bear",
       ]
     },
-    ...
+               ...
   },
   "fonts": {
     "Noto Mono Regular": {
@@ -68,7 +68,7 @@ curl localhost:3000/catalog | jq
       "start": 0,
       "end": 65533
     },
-    ...
+             ...
   }
 }
 ```

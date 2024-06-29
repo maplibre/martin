@@ -1,5 +1,4 @@
 use std::string::ToString;
-use tokio::sync::RwLock;
 
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::Uri;
@@ -8,6 +7,7 @@ use actix_web::{middleware, route, HttpRequest, HttpResponse, Result as ActixRes
 use itertools::Itertools as _;
 use serde::Deserialize;
 use tilejson::{tilejson, TileJSON};
+use tokio::sync::RwLock;
 
 use crate::source::{Source, TileSources};
 use crate::srv::SrvConfig;
