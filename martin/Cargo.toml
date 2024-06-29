@@ -2,8 +2,7 @@ lints.workspace = true
 
 [package]
 name = "martin"
-# Once the release is published with the hash, update https://github.com/maplibre/homebrew-martin
-version = "0.13.0"
+version = "0.14.2"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -81,7 +80,6 @@ clap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger.workspace = true
-flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }

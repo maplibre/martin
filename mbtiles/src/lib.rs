@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 // Re-export sqlx
+pub use bindiff::{PatchType, PatchTypeCli};
 pub use sqlx;
 
 mod copier;
@@ -29,7 +30,10 @@ mod summary;
 mod update;
 pub use update::UpdateZoomType;
 
+mod bindiff;
+
 mod validation;
+
 pub use validation::{
     calc_agg_tiles_hash, AggHashType, IntegrityCheckType, MbtType, AGG_TILES_HASH,
     AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY,

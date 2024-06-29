@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::trace;
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::MbtilesPool;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -15,7 +15,7 @@ use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::source::{TileData, UrlQuery};
-use crate::{MartinResult, Source, TileCoord};
+use crate::{MartinResult, Source};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {

@@ -16,6 +16,9 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     let mut conn = patch_mbt.open_readonly().await?;
     let patch_info = patch_mbt.examine_diff(&mut conn).await?;
+    if patch_info.patch_type.is_some() {
+        return Err(MbtError::UnsupportedPatchType);
+    }
     patch_mbt.validate_diff_info(&patch_info, force)?;
     let patch_type = patch_info.mbt_type;
     conn.close().await?;

@@ -60,6 +60,8 @@ jobs:
       - run: just clippy
       - run: just check
       - run: just check-doc
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -169,7 +171,7 @@ jobs:
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Build linux/arm64 Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
           context: .
@@ -191,7 +193,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
       - name: Build linux/amd64 Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
           context: .
@@ -228,7 +230,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
       - name: Push the Docker image
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: .github/files/multi-platform.Dockerfile

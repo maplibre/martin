@@ -15,6 +15,3 @@ pub use rectangle::{append_rect, TileRect};
 
 mod utilities;
 pub use utilities::*;
-
-mod xyz;
-pub use xyz::TileCoord;

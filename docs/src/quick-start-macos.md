@@ -1,6 +1,6 @@
 ## Quick start on macOS
 
-1. Download some [demo tiles](https://github.com/maplibre/martin/blob/main/tests/fixtures/mbtiles/world_cities.mbtiles).
+1. Download some [demo tiles](https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles).
 
 2. Download the latest version of Martin from
    the [release page](https://github.com/maplibre/martin/releases/latest).

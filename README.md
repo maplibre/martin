@@ -9,7 +9,7 @@
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 
 Martin is a tile server and a set of tools able to generate vector tiles on the fly
-from large PostgreSQL databases, and serve tiles from PMTiles and MBTiles files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
+from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
 ## Features
 
@@ -19,8 +19,8 @@ from large PostgreSQL databases, and serve tiles from PMTiles and MBTiles files.
   * [MBTile](https://github.com/mapbox/mbtiles-spec) files
 * [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources into one
 * Generate [sprites](https://maplibre.org/martin/sources-sprites.html) and [font glyphs](https://maplibre.org/martin/sources-fonts.html)
-* Generate tiles in bulk from any Martin-supported sources into an MBTiles file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
-* Examine, copy, validate, compare, and apply diffs between MBTiles files with [mbtiles](https://maplibre.org/martin/tools.html#mbtiles) tool
+* Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
+* Examine, copy, validate, compare, and apply diffs between `MBTiles` files with [mbtiles](https://maplibre.org/martin/tools.html#mbtiles) tool
 
 ## Documentation
 

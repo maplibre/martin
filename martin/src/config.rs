@@ -19,7 +19,7 @@ use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
 use crate::sprites::{SpriteConfig, SpriteSources};
 use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
-use crate::utils::{parse_base_path, CacheValue, MainCache, OptMainCache};
+use crate::utils::{init_aws_lc_tls, parse_base_path, CacheValue, MainCache, OptMainCache};
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 use crate::{IdResolver, MartinResult, OptOneMany};
 
@@ -118,6 +118,7 @@ impl Config {
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
+        init_aws_lc_tls()?;
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
         let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
         let cache = if cache_size > 0 {
