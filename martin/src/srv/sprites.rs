@@ -16,8 +16,8 @@ async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
-    let sprites_guard = sprites.read().await;
-    let sheet = get_sprite(&path, &sprites_guard).await?;
+    let sprites = sprites.read().await;
+    let sheet = get_sprite(&path, &sprites).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
         .body(sheet.encode_png().map_err(map_internal_error)?))
@@ -33,8 +33,8 @@ async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
-    let sprites_guard = sprites.read().await;
-    let sheet = get_sprite(&path, &sprites_guard).await?;
+    let sprites = sprites.read().await;
+    let sheet = get_sprite(&path, &sprites).await?;
     Ok(HttpResponse::Ok().json(sheet.get_index()))
 }
 

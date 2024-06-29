@@ -30,11 +30,7 @@ async fn get_source_info(
     sources: Data<RwLock<TileSources>>,
     srv_config: Data<RwLock<SrvConfig>>,
 ) -> ActixResult<HttpResponse> {
-    let sources_guard = sources.read().await;
-    let srv_config_guard = srv_config.read().await;
-
-    let sources = sources_guard.get_sources(&path.source_ids, None)?.0;
-    let tiles_path = if let Some(base_path) = &srv_config_guard.base_path {
+    let tiles_path = if let Some(base_path) = &srv_config.read().await.base_path {
         format!("{base_path}/{}", path.source_ids)
     } else {
         req.headers()
@@ -60,6 +56,9 @@ async fn get_source_info(
         .build()
         .map(|tiles_url| tiles_url.to_string())
         .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
+
+    let sources = sources.read().await;
+    let sources = sources.get_sources(&path.source_ids, None)?.0;
 
     Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
 }

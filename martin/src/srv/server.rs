@@ -85,15 +85,13 @@ async fn get_health() -> impl Responder {
 async fn refresh_catalog(
     args: Data<Args>,
     env: Data<OsEnv>,
-    srv_config_guard: Data<RwLock<SrvConfig>>,
-    catalog_guard: Data<RwLock<Catalog>>,
-    state_guard: Data<RwLock<ServerState>>,
-    tiles_guard: Data<RwLock<TileSources>>,
-    cache_guard: Data<RwLock<OptMainCache>>,
-
-    #[cfg(feature = "sprites")] sprites_guard: Data<RwLock<crate::sprites::SpriteSources>>,
-
-    #[cfg(feature = "fonts")] fonts_guard: Data<RwLock<crate::fonts::FontSources>>,
+    srv_config: Data<RwLock<SrvConfig>>,
+    catalog: Data<RwLock<Catalog>>,
+    state: Data<RwLock<ServerState>>,
+    tiles: Data<RwLock<TileSources>>,
+    cache: Data<RwLock<OptMainCache>>,
+    #[cfg(feature = "sprites")] sprites: Data<RwLock<crate::sprites::SpriteSources>>,
+    #[cfg(feature = "fonts")] fonts: Data<RwLock<crate::fonts::FontSources>>,
 ) -> actix_web::error::Result<HttpResponse> {
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {} to refresh catalog", cfg_filename.display());
@@ -118,20 +116,20 @@ async fn refresh_catalog(
     let new_tiles = new_state.tiles.clone();
     let new_cache = new_state.cache.clone();
 
-    let mut srv_config = srv_config_guard.write().await;
-    let mut state = state_guard.write().await;
-    let mut catalog = catalog_guard.write().await;
-    let mut tiles = tiles_guard.write().await;
-    let mut cache = cache_guard.write().await;
+    let mut srv_config = srv_config.write().await;
+    let mut state = state.write().await;
+    let mut catalog = catalog.write().await;
+    let mut tiles = tiles.write().await;
+    let mut cache = cache.write().await;
 
     #[cfg(feature = "sprites")]
     {
-        let mut sprites = sprites_guard.write().await;
+        let mut sprites = sprites.write().await;
         *sprites = new_state.sprites.clone();
     }
     #[cfg(feature = "fonts")]
     {
-        let mut fonts = fonts_guard.write().await;
+        let mut fonts = fonts.write().await;
         *fonts = new_state.fonts.clone();
     }
 
@@ -152,8 +150,8 @@ async fn refresh_catalog(
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<RwLock<Catalog>>) -> impl Responder {
-    let catalog_guard = catalog.read().await;
-    HttpResponse::Ok().json(&*catalog_guard)
+    let catalog = catalog.read().await;
+    HttpResponse::Ok().json(&*catalog)
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {

@@ -44,18 +44,18 @@ async fn get_tile(
     sources: Data<RwLock<TileSources>>,
     cache: Data<RwLock<OptMainCache>>,
 ) -> ActixResult<HttpResponse> {
-    let sources_guard = sources.read().await;
-    let srv_config_guard = srv_config.read().await;
-    let cache_guard = cache.read().await;
+    let srv_config = srv_config.read().await;
+    let cache = cache.read().await;
+    let sources = sources.read().await;
 
     let src = DynTileSource::new(
-        &sources_guard,
+        &sources,
         &path.source_ids,
         Some(path.z),
         req.query_string(),
         req.get_header::<AcceptEncoding>(),
-        srv_config_guard.preferred_encoding,
-        cache_guard.as_ref(),
+        srv_config.preferred_encoding,
+        cache.as_ref(),
     )?;
 
     src.get_http_response(TileCoord {
