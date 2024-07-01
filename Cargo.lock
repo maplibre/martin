@@ -4327,9 +4327,9 @@ dependencies = [
 
 [[package]]
 name = "subst"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b95bc3d9b5ec35dabec6f7ac966e073ef28d4881c6a2009567632ab721df6203"
+checksum = "266d3fe7ffc582b3a0c3fe36cdc88d5635a1c2d53e7c3f813c901d7bd1d34ba0"
 dependencies = [
  "memchr",
  "serde",
