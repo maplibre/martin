@@ -24,3 +24,6 @@ config.yml
 tests/output/
 tmp/
 .aws-sam/
+
+**/node_modules/
+**/dist/
