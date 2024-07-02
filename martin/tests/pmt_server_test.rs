@@ -3,7 +3,8 @@ use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::decode_gzip;
+use martin::srv::SrvConfig;
+use martin_tile_utils::decode_gzip;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -24,6 +25,7 @@ macro_rules! create_app {
                 ))
                 .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(::martin::srv::router),
         )
         .await

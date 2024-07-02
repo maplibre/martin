@@ -3,11 +3,11 @@ use std::path::PathBuf;
 
 use deadpool_postgres::tokio_postgres::Error as TokioPgError;
 use deadpool_postgres::{BuildError, PoolError};
+use martin_tile_utils::TileCoord;
 use semver::Version;
 
 use crate::pg::utils::query_to_json;
 use crate::source::UrlQuery;
-use crate::TileCoord;
 
 pub type PgResult<T> = Result<T, PgError>;
 

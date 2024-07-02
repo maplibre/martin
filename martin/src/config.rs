@@ -19,7 +19,7 @@ use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
 use crate::sprites::{SpriteConfig, SpriteSources};
 use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
-use crate::utils::{CacheValue, MainCache, OptMainCache};
+use crate::utils::{init_aws_lc_tls, parse_base_path, CacheValue, MainCache, OptMainCache};
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 use crate::{IdResolver, MartinResult, OptOneMany};
 
@@ -71,6 +71,10 @@ impl Config {
         let mut res = UnrecognizedValues::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
+        if let Some(path) = &self.srv.base_path {
+            self.srv.base_path = Some(parse_base_path(path)?);
+        }
+
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {
             res.extend(pg.finalize()?);
@@ -113,6 +117,7 @@ impl Config {
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
+        init_aws_lc_tls()?;
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
         let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
         let cache = if cache_size > 0 {

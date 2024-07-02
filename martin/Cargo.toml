@@ -2,8 +2,7 @@ lints.workspace = true
 
 [package]
 name = "martin"
-# Once the release is published with the hash, update https://github.com/maplibre/homebrew-martin
-version = "0.13.0"
+version = "0.14.2"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -65,7 +64,7 @@ webui = ["dep:actix-web-static-files", "dep:static-files"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:reqwest"]
+pmtiles = ["dep:pmtiles"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
@@ -81,11 +80,12 @@ bit-set = { workspace = true, optional = true }
 brotli.workspace = true
 clap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
+enum-display.workspace = true
 env_logger.workspace = true
-flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
+lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
@@ -97,7 +97,6 @@ postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 regex.workspace = true
-reqwest = { workspace = true, optional = true }
 rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
 rustls.workspace = true
@@ -114,7 +113,6 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
-lambda-web = { workspace = true, optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
@@ -126,3 +124,4 @@ ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
+rstest.workspace = true

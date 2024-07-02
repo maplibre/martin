@@ -4,12 +4,32 @@
 // project originally written by Kaveh Karimi and licensed under MIT/Apache-2.0
 
 use std::f64::consts::PI;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter, Result};
 
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
+
+mod decoders;
+pub use decoders::*;
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct TileCoord {
+    pub z: u8,
+    pub x: u32,
+    pub y: u32,
+}
+
+impl Display for TileCoord {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        if f.alternate() {
+            write!(f, "{}/{}/{}", self.z, self.x, self.y)
+        } else {
+            write!(f, "{},{},{}", self.z, self.x, self.y)
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -74,15 +94,15 @@ impl Format {
 }
 
 impl Display for Format {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::Gif => write!(f, "gif"),
-            Self::Jpeg => write!(f, "jpeg"),
-            Self::Json => write!(f, "json"),
-            Self::Mvt => write!(f, "mvt"),
-            Self::Png => write!(f, "png"),
-            Self::Webp => write!(f, "webp"),
-        }
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.write_str(match *self {
+            Self::Gif => "gif",
+            Self::Jpeg => "jpeg",
+            Self::Json => "json",
+            Self::Mvt => "mvt",
+            Self::Png => "png",
+            Self::Webp => "webp",
+        })
     }
 }
 
@@ -189,12 +209,12 @@ impl From<Format> for TileInfo {
 }
 
 impl Display for TileInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.format.content_type())?;
         if let Some(encoding) = self.encoding.content_encoding() {
             write!(f, "; encoding={encoding}")?;
         } else if self.encoding != Encoding::Uncompressed {
-            write!(f, "; uncompressed")?;
+            f.write_str("; uncompressed")?;
         }
         Ok(())
     }

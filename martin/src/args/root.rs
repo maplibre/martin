@@ -160,7 +160,9 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use crate::args::PreferredEncoding;
     use crate::test_utils::FauxEnv;
     use crate::MartinError::UnrecognizableConnections;
 
@@ -213,6 +215,28 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(args, (cfg, meta));
+    }
+
+    #[test]
+    fn cli_encoding_arguments() {
+        let config1 = parse(&["martin", "--preferred-encoding", "brotli"]);
+        let config2 = parse(&["martin", "--preferred-encoding", "br"]);
+        let config3 = parse(&["martin", "--preferred-encoding", "gzip"]);
+        let config4 = parse(&["martin"]);
+
+        assert_eq!(
+            config1.unwrap().0.srv.preferred_encoding,
+            Some(PreferredEncoding::Brotli)
+        );
+        assert_eq!(
+            config2.unwrap().0.srv.preferred_encoding,
+            Some(PreferredEncoding::Brotli)
+        );
+        assert_eq!(
+            config3.unwrap().0.srv.preferred_encoding,
+            Some(PreferredEncoding::Gzip)
+        );
+        assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
     #[test]

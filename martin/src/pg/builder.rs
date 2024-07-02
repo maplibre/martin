@@ -157,8 +157,7 @@ impl PgBuilder {
         if let Some(auto_tables) = &self.auto_tables {
             let schemas = auto_tables
                 .schemas
-                .as_ref()
-                .cloned()
+                .clone()
                 .unwrap_or_else(|| db_tables_info.keys().cloned().collect());
             info!(
                 "Auto-publishing tables in schemas [{}] as '{}' sources",
@@ -256,8 +255,7 @@ impl PgBuilder {
         if let Some(auto_funcs) = &self.auto_functions {
             let schemas = auto_funcs
                 .schemas
-                .as_ref()
-                .cloned()
+                .clone()
                 .unwrap_or_else(|| db_funcs_info.keys().cloned().collect());
             info!(
                 "Auto-publishing functions in schemas [{}] as '{}' sources",

@@ -51,11 +51,11 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2023-11-03
+          toolchain: nightly-2024-05-24
           override: true
 
       - name: Cleanup GCDA files
-        run:  rm -rf martin/target/debug/deps/*.gcda
+        run: rm -rf martin/target/debug/deps/*.gcda
 
       - name: Run tests
         run: cargo test

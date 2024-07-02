@@ -181,15 +181,14 @@ test-int: clean-test install-sqlx
 test-lambda:
     tests/test-aws-lambda.sh
 
-# Run integration tests and save its output as the new expected output
+# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
 
 # Bless integration tests
 bless-int:
     rm -rf tests/temp
     tests/test.sh
-    rm -rf tests/expected
-    mv tests/output tests/expected
+    rm -rf tests/expected && mv tests/output tests/expected
 
 # Run test with bless-tests feature
 bless-tests:
@@ -313,7 +312,7 @@ check-doc:
 
 # Run cargo clippy
 clippy:
-    cargo clippy --workspace --all-targets --bins --tests --lib --benches -- -D warnings
+    cargo clippy --workspace --all-targets --bins --tests --lib --benches --examples -- -D warnings
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -344,7 +343,14 @@ install-sqlx: (cargo-install "cargo-sqlx" "sqlx-cli" "--no-default-features" "--
 # Check if a certain Cargo command is installed, and install it if needed
 [private]
 cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
-    @if ! command -v $COMMAND &> /dev/null; then \
-        echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }}" ;\
-        cargo install ${INSTALL_CMD:-$COMMAND} {{ ARGS }} ;\
+    #!/usr/bin/env sh
+    set -eu
+    if ! command -v $COMMAND > /dev/null; then
+        if ! command -v cargo-binstall > /dev/null; then
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
+        else
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
+        fi
     fi

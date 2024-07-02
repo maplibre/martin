@@ -1,5 +1,13 @@
 {
   "tiles": {
+    "-function.withweired---_-characters": {
+      "content_type": "application/x-protobuf",
+      "description": "a function source with special characters"
+    },
+    ".-Points-----------quote": {
+      "content_type": "application/x-protobuf",
+      "description": "Escaping test table"
+    },
     "MixPoints": {
       "content_type": "application/x-protobuf",
       "description": "a description from comment on table"
@@ -108,6 +116,10 @@
       "content_type": "application/x-protobuf",
       "description": "public.points3857.geom"
     },
+    "points_empty": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points_empty.geom"
+    },
     "points_empty_srid": {
       "content_type": "application/x-protobuf",
       "description": "public.points_empty_srid.geom"
@@ -147,6 +159,7 @@
     },
     "world_cities_diff": {
       "content_type": "application/x-protobuf",
+      "content_encoding": "gzip",
       "name": "Major cities from Natural Earth data",
       "description": "Major cities from Natural Earth data"
     },

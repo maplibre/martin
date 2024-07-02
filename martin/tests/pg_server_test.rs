@@ -6,6 +6,7 @@ use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequ
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
+use martin::srv::SrvConfig;
 use martin::OptOneMany;
 use tilejson::TileJSON;
 
@@ -28,6 +29,7 @@ macro_rules! create_app {
                 ))
                 .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(::martin::srv::router),
         )
         .await
@@ -55,6 +57,12 @@ postgres:
     fonts: {}
     sprites: {}
     tiles:
+      "-function.withweired---_-characters":
+        content_type: application/x-protobuf
+        description: a function source with special characters
+      ".-Points-----------quote":
+        content_type: application/x-protobuf
+        description: Escaping test table
       MixPoints:
         content_type: application/x-protobuf
         description: a description from comment on table
@@ -1089,6 +1097,7 @@ tables:
             ))
             .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
             .app_data(actix_web::web::Data::new(state.tiles))
+            .app_data(actix_web::web::Data::new(SrvConfig::default()))
             .configure(::martin::srv::router),
     )
     .await;

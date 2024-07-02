@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::trace;
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::MbtilesPool;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -15,7 +15,7 @@ use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::source::{TileData, UrlQuery};
-use crate::{MartinResult, Source, TileCoord};
+use crate::{MartinResult, Source};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {
@@ -29,12 +29,14 @@ impl ConfigExtras for MbtConfig {
     }
 }
 
-#[async_trait]
 impl SourceConfigExtras for MbtConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }
 
+    // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
+    //       See https://github.com/rust-lang/rust-clippy/pull/12323
+    #[allow(clippy::no_effect_underscore_binding)]
     async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
         unreachable!()
     }

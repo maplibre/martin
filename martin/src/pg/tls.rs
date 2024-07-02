@@ -9,6 +9,8 @@ use deadpool_postgres::tokio_postgres::Config;
 use log::{info, warn};
 use regex::Regex;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+// use rustls::crypto::ring::default_provider;
+use rustls::crypto::aws_lc_rs::default_provider;
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, Error, SignatureScheme};
@@ -48,9 +50,13 @@ pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
     } else {
         Config::from_str(conn_str)
     };
-    let pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
+    let mut pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
     if let SslModeOverride::Unmodified(_) = mode {
         mode = SslModeOverride::Unmodified(pg_cfg.get_ssl_mode());
+    }
+    let crate_ver = env!("CARGO_PKG_VERSION");
+    if pg_cfg.get_application_name().is_none() {
+        pg_cfg.application_name(&format!("Martin v{crate_ver} - pid={}", std::process::id()));
     }
     Ok((pg_cfg, mode))
 }
@@ -80,7 +86,7 @@ impl ServerCertVerifier for NoCertificateVerification {
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &default_provider().signature_verification_algorithms,
         )
     }
 
@@ -94,12 +100,12 @@ impl ServerCertVerifier for NoCertificateVerification {
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &default_provider().signature_verification_algorithms,
         )
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        rustls::crypto::ring::default_provider()
+        default_provider()
             .signature_verification_algorithms
             .supported_schemes()
     }

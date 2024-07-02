@@ -14,10 +14,10 @@ use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::srv::{merge_tilejson, DynTileSource};
 use martin::{
-    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileCoord,
-    TileData, TileRect,
+    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileData,
+    TileRect,
 };
-use martin_tile_utils::{bbox_to_xyz, TileInfo};
+use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::{
@@ -253,9 +253,9 @@ impl Display for Progress {
 
         let left = self.total - done;
         if left == 0 {
-            write!(f, " | done")
+            f.write_str(" | done")
         } else if done == 0 {
-            write!(f, " | ??? left")
+            f.write_str(" | ??? left")
         } else {
             let left = Duration::from_secs_f32(elapsed_s * left as f32 / done as f32);
             write!(f, " | {left:.0?} left")
@@ -282,6 +282,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
+        None,
         None,
     )?;
     // parallel async below uses move, so we must only use copyable types
