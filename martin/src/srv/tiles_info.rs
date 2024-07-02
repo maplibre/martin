@@ -7,6 +7,7 @@ use actix_web::{middleware, route, HttpRequest, HttpResponse, Result as ActixRes
 use itertools::Itertools as _;
 use serde::Deserialize;
 use tilejson::{tilejson, TileJSON};
+use tokio::sync::RwLock;
 
 use crate::source::{Source, TileSources};
 use crate::srv::SrvConfig;
@@ -26,12 +27,10 @@ pub struct SourceIDsRequest {
 async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
-    sources: Data<TileSources>,
-    srv_config: Data<SrvConfig>,
+    sources: Data<RwLock<TileSources>>,
+    srv_config: Data<RwLock<SrvConfig>>,
 ) -> ActixResult<HttpResponse> {
-    let sources = sources.get_sources(&path.source_ids, None)?.0;
-
-    let tiles_path = if let Some(base_path) = &srv_config.base_path {
+    let tiles_path = if let Some(base_path) = &srv_config.read().await.base_path {
         format!("{base_path}/{}", path.source_ids)
     } else {
         req.headers()
@@ -49,14 +48,19 @@ async fn get_source_info(
     };
 
     // Construct a tiles URL from the request info, including the query string if present.
-    let info = req.connection_info();
-    let tiles_url = Uri::builder()
-        .scheme(info.scheme())
-        .authority(info.host())
-        .path_and_query(path_and_query)
-        .build()
-        .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
+    let tiles_url = {
+        let info = req.connection_info();
+        Uri::builder()
+            .scheme(info.scheme())
+            .authority(info.host())
+            .path_and_query(path_and_query)
+            .build()
+            .map(|tiles_url| tiles_url.to_string())
+            .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?
+    };
+
+    let sources = sources.read().await;
+    let sources = sources.get_sources(&path.source_ids, None)?.0;
 
     Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
 }

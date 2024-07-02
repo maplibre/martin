@@ -1,0 +1,34 @@
+---
+# Connection keep alive timeout [default: 75]
+keep_alive: 75
+
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: '0.0.0.0:3000'
+
+# Number of web server workers
+worker_processes: 8
+
+# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
+cache_size_mb: 8
+
+pmtiles:
+  paths:
+    - http://localhost:5412/webp2.pmtiles
+  sources:
+    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt2: http://localhost:5412/webp2.pmtiles
+    pmt3: http://localhost:5412/webp2.pmtiles
+
+sprites:
+  paths: tests/fixtures/sprites/src1
+  sources:
+    mysrc: tests/fixtures/sprites/src2
+
+fonts:
+  - tests/fixtures/fonts/overpass-mono-regular.ttf
+
+mbtiles:
+ paths: tests/fixtures/mbtiles/webp.mbtiles
+ sources:
+   mbt1: tests/fixtures/mbtiles/world_cities.mbtiles
+   mbt2: tests/fixtures/mbtiles/json.mbtiles

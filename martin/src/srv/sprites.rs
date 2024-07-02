@@ -5,6 +5,7 @@ use actix_web::http::header::ContentType;
 use actix_web::web::{Data, Path};
 use actix_web::{middleware, route, HttpResponse, Result as ActixResult};
 use spreet::Spritesheet;
+use tokio::sync::RwLock;
 
 use crate::sprites::{SpriteError, SpriteSources};
 use crate::srv::server::map_internal_error;
@@ -13,8 +14,9 @@ use crate::srv::SourceIDsRequest;
 #[route("/sprite/{source_ids}.png", method = "GET", method = "HEAD")]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
-    sprites: Data<SpriteSources>,
+    sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
+    let sprites = sprites.read().await;
     let sheet = get_sprite(&path, &sprites).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -29,8 +31,9 @@ async fn get_sprite_png(
 )]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
-    sprites: Data<SpriteSources>,
+    sprites: Data<RwLock<SpriteSources>>,
 ) -> ActixResult<HttpResponse> {
+    let sprites = sprites.read().await;
     let sheet = get_sprite(&path, &sprites).await?;
     Ok(HttpResponse::Ok().json(sheet.get_index()))
 }

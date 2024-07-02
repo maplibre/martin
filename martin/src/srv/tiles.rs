@@ -12,6 +12,7 @@ use martin_tile_utils::{
     decode_brotli, decode_gzip, encode_brotli, encode_gzip, Encoding, Format, TileCoord, TileInfo,
 };
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
 use crate::args::PreferredEncoding;
 use crate::source::{Source, TileSources, UrlQuery};
@@ -38,19 +39,23 @@ pub struct TileRequest {
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 async fn get_tile(
     req: HttpRequest,
-    srv_config: Data<SrvConfig>,
+    srv_config: Data<RwLock<SrvConfig>>,
     path: Path<TileRequest>,
-    sources: Data<TileSources>,
-    cache: Data<OptMainCache>,
+    sources: Data<RwLock<TileSources>>,
+    cache: Data<RwLock<OptMainCache>>,
 ) -> ActixResult<HttpResponse> {
+    let srv_config = srv_config.read().await;
+    let cache = cache.read().await;
+    let sources = sources.read().await;
+
     let src = DynTileSource::new(
-        sources.as_ref(),
+        &sources,
         &path.source_ids,
         Some(path.z),
         req.query_string(),
         req.get_header::<AcceptEncoding>(),
         srv_config.preferred_encoding,
-        cache.as_ref().as_ref(),
+        cache.as_ref(),
     )?;
 
     src.get_http_response(TileCoord {

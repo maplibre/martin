@@ -12,16 +12,19 @@ use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
-use log::error;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 
+use crate::args::{Args, OsEnv};
 use crate::config::ServerState;
 use crate::source::TileCatalog;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use crate::utils::OptMainCache;
 use crate::MartinError::BindingError;
-use crate::MartinResult;
+use crate::{read_config, Config, MartinResult, TileSources};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -76,6 +79,69 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
+#[allow(clippy::too_many_arguments)]
+#[route("/refresh", method = "POST")]
+#[allow(clippy::unused_async)]
+async fn refresh_catalog(
+    args: Data<Args>,
+    env: Data<OsEnv>,
+    srv_config: Data<RwLock<SrvConfig>>,
+    catalog: Data<RwLock<Catalog>>,
+    state: Data<RwLock<ServerState>>,
+    tiles: Data<RwLock<TileSources>>,
+    cache: Data<RwLock<OptMainCache>>,
+    #[cfg(feature = "sprites")] sprites: Data<RwLock<crate::sprites::SpriteSources>>,
+    #[cfg(feature = "fonts")] fonts: Data<RwLock<crate::fonts::FontSources>>,
+) -> actix_web::error::Result<HttpResponse> {
+    let mut config = if let Some(ref cfg_filename) = args.meta.config {
+        info!("Using {} to refresh catalog", cfg_filename.display());
+        read_config(cfg_filename, env.get_ref()).map_err(map_internal_error)?
+    } else {
+        info!("Config file is not specified, an default config will be used to refresh catalog");
+        Config::default()
+    };
+    let cloned_args = (**args).clone();
+    cloned_args
+        .merge_into_config(&mut config, env.get_ref())
+        .map_err(map_internal_error)?;
+
+    config.finalize().map_err(map_internal_error)?;
+
+    let sources = config.resolve().await.map_err(map_internal_error)?;
+
+    // update these two guards
+    let new_srv_config = config.srv;
+    let new_state = sources;
+    let new_catalog = Catalog::new(&new_state).map_err(map_internal_error)?;
+    let new_tiles = new_state.tiles.clone();
+    let new_cache = new_state.cache.clone();
+
+    let mut srv_config = srv_config.write().await;
+    let mut state = state.write().await;
+    let mut catalog = catalog.write().await;
+    let mut tiles = tiles.write().await;
+    let mut cache = cache.write().await;
+
+    #[cfg(feature = "sprites")]
+    {
+        let mut sprites = sprites.write().await;
+        *sprites = new_state.sprites.clone();
+    }
+    #[cfg(feature = "fonts")]
+    {
+        let mut fonts = fonts.write().await;
+        *fonts = new_state.fonts.clone();
+    }
+
+    *srv_config = new_srv_config;
+    *state = new_state;
+    *catalog = new_catalog;
+    *tiles = new_tiles;
+    *cache = new_cache;
+
+    Ok(HttpResponse::Ok().finish())
+}
+
 #[route(
     "/catalog",
     method = "GET",
@@ -83,14 +149,16 @@ async fn get_health() -> impl Responder {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
-    HttpResponse::Ok().json(catalog)
+async fn get_catalog(catalog: Data<RwLock<Catalog>>) -> impl Responder {
+    let catalog = catalog.read().await;
+    HttpResponse::Ok().json(&*catalog)
 }
 
 pub fn router(cfg: &mut web::ServiceConfig) {
     cfg.service(get_health)
         .service(get_index)
         .service(get_catalog)
+        .service(refresh_catalog)
         .service(get_source_info)
         .service(get_tile);
 
@@ -105,7 +173,12 @@ pub fn router(cfg: &mut web::ServiceConfig) {
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
-pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+pub fn new_server(
+    env: OsEnv,
+    args: Args,
+    config: SrvConfig,
+    state: ServerState,
+) -> MartinResult<(Server, String)> {
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
@@ -121,17 +194,20 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .allowed_methods(vec!["GET"]);
 
         let app = App::new()
-            .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.cache.clone()));
+            .app_data(Data::new(RwLock::new(state.tiles.clone())))
+            .app_data(Data::new(RwLock::new(state.cache.clone())))
+            .app_data(Data::new(RwLock::new(state.clone())));
 
         #[cfg(feature = "sprites")]
-        let app = app.app_data(Data::new(state.sprites.clone()));
+        let app = app.app_data(Data::new(RwLock::new(state.sprites.clone())));
 
         #[cfg(feature = "fonts")]
-        let app = app.app_data(Data::new(state.fonts.clone()));
+        let app = app.app_data(Data::new(RwLock::new(state.fonts.clone())));
 
-        app.app_data(Data::new(catalog.clone()))
-            .app_data(Data::new(config.clone()))
+        app.app_data(Data::new(env.clone()))
+            .app_data(Data::new(args.clone()))
+            .app_data(Data::new(RwLock::new(catalog.clone())))
+            .app_data(Data::new(RwLock::new(config.clone())))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
