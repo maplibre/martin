@@ -507,6 +507,7 @@ file as a reference</p>
 <pre><code class="language-bash">docker compose up -d martin
 </code></pre>
 <p>By default, Martin will be available at <a href="http://localhost:3000/">localhost:3000</a></p>
+<p>Official Docker image includes a <code>HEALTHCHECK</code> instruction which will be used by Docker Compose. Note that Compose won’t restart unhealthy containers. To monitor and restart unhealthy containers you can use <a href="https://github.com/willfarrell/docker-autoheal">Docker Autoheal</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="using-with-nginx"><a class="header" href="#using-with-nginx">Using with NGINX</a></h2>
 <p>You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database. Here is an example <code>docker-compose.yml</code> file that runs Martin with NGINX and PostgreSQL.</p>
 <pre><code class="language-yml">version: '3'

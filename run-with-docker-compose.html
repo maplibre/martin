@@ -211,6 +211,7 @@ file as a reference</p>
 <pre><code class="language-bash">docker compose up -d martin
 </code></pre>
 <p>By default, Martin will be available at <a href="http://localhost:3000/">localhost:3000</a></p>
+<p>Official Docker image includes a <code>HEALTHCHECK</code> instruction which will be used by Docker Compose. Note that Compose won’t restart unhealthy containers. To monitor and restart unhealthy containers you can use <a href="https://github.com/willfarrell/docker-autoheal">Docker Autoheal</a>.</p>
 
                     </main>
 
