@@ -40,3 +40,5 @@ docker compose up -d martin
 ```
 
 By default, Martin will be available at [localhost:3000](http://localhost:3000/)
+
+Official Docker image includes a `HEALTHCHECK` instruction which will be used by Docker Compose. Note that Compose won't restart unhealthy containers. To monitor and restart unhealthy containers you can use [Docker Autoheal](https://github.com/willfarrell/docker-autoheal).
