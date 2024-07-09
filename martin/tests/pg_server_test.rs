@@ -852,18 +852,25 @@ postgres:
         result.tiles,
         &["http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"]
     );
+}
+
+#[actix_rt::test]
+async fn pg_get_function_source_ok_rewrite_all() {
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+"};
 
     let req = TestRequest::get()
         .uri("/function_zxy_query_jsonb?token=martin")
-        .insert_header((
-            "x-rewrite-url",
-            "/tiles/function_zxy_query_jsonb?token=martin",
-        ))
+        .insert_header(("X-Forwarded-Proto", "https"))
+        .insert_header(("X-Forwarded-Host", "example.org:7654"))
+        .insert_header(("X-Rewrite-URL", "/proxy/function_zxy_query_jsonb"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
         result.tiles,
-        &["http://localhost:8080/tiles/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
+        &["https://example.org:7654/proxy/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
     );
 }
 
