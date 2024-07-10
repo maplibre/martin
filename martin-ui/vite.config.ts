@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     // assets can also be the name of a tile source
-    // so we use /_/assets to avoid conflicts
+    // so we use /_/* to avoid conflicts
     outDir: '_',
     rollupOptions: {
       output: {
