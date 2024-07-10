@@ -6,12 +6,15 @@ export default defineConfig({
   plugins: [react()],
   build: {
     // assets can also be the name of a tile source
-    // so we use _assets to avoid conflicts
+    // so we use /_/assets to avoid conflicts
+    outDir: '_',
     rollupOptions: {
       output: {
-        assetFileNames: '_assets/[name].[hash][extname]',
+        entryFileNames: '[name].[hash].js',
+        chunkFileNames: '[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash][extname]',
       },
     },
   },
-  publicDir: '_assets',
+  publicDir: '_/assets',
 });

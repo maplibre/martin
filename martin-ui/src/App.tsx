@@ -1,4 +1,4 @@
-import martinCover from './_assets/logo.png';
+import martinCover from './assets/logo.png';
 import './App.css';
 import styled from 'styled-components';
 
