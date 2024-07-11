@@ -470,11 +470,15 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     --patch-type bin-diff-gz \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches using .* threads...'
+
   $MBTILES_BIN copy \
     ./tests/fixtures/mbtiles/world_cities.mbtiles \
     --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches using .* threads...'
+
   # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
   $MBTILES_BIN copy \
     ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
