@@ -133,7 +133,9 @@ fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S,
     tx_ins: Sender<T>,
     has_errors: Arc<AtomicBool>,
 ) {
-    (0..num_cpus::get()).for_each(|_| {
+    let cpus = num_cpus::get();
+    info!("Processing bindiff patches using {cpus} threads...");
+    (0..cpus).for_each(|_| {
         let rx_wrk = rx_wrk.clone();
         let tx_ins = tx_ins.clone();
         let has_errors = has_errors.clone();

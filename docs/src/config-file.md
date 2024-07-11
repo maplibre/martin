@@ -26,7 +26,6 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
-
 # Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`
 base_path: /tiles
 
