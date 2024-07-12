@@ -144,8 +144,9 @@ jobs:
             echo "Building $target"
 
             export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-            cross build --release --target $target --package mbtiles
             cross build --release --target $target --package martin
+            cross build --release --target $target --package martin-cp
+            cross build --release --target $target --package mbtiles
 
             mkdir -p target_releases/$target
             mv target/$target/release/martin target_releases/$target
