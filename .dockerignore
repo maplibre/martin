@@ -10,7 +10,10 @@ justfile
 **/tests
 demo/
 
+####
 #### This must match .gitignore ####
+####
+
 .DS_Store
 target/
 **/*.rs.bk
@@ -22,5 +25,13 @@ test_log*
 pg_data/
 config.yml
 tests/output/
+tests/mbtiles_temp_files/
 tmp/
 .aws-sam/
+
+**/node_modules/
+**/dist/
+
+####
+#### Above content must match .gitignore ####
+####

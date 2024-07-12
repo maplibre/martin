@@ -1,4 +1,7 @@
+####
 #### This must match .dockerignore ####
+####
+
 .DS_Store
 target/
 **/*.rs.bk
@@ -13,3 +16,10 @@ tests/output/
 tests/mbtiles_temp_files/
 tmp/
 .aws-sam/
+
+**/node_modules/
+**/dist/
+
+####
+#### Above content must match .dockerignore ####
+####
