@@ -22,6 +22,7 @@ test_log*
 pg_data/
 config.yml
 tests/output/
+tests/mbtiles_temp_files/
 tmp/
 .aws-sam/
 
