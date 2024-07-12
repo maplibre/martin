@@ -1,0 +1,15 @@
+[target.aarch64-unknown-linux-musl]
+pre-build = [
+    "curl -fsSL https://deb.nodesource.com/setup_16.x -o nodesource_setup.sh",
+    "bash nodesource_setup.sh",
+    "apt-get install -y nodejs",
+    "node -v",
+]
+
+[target.x86_64-unknown-linux-musl]
+pre-build = [
+    "curl -fsSL https://deb.nodesource.com/setup_16.x -o nodesource_setup.sh",
+    "bash nodesource_setup.sh",
+    "apt-get install -y nodejs",
+    "node -v",
+]
