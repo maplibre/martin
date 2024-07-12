@@ -2,8 +2,7 @@
 pre-build = [
     # install nodejs and npm to compile static web resources
     # note that architecture could be the same as the container, not $CROSS_DEB_ARCH
-    "curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh",
-    "bash nodesource_setup.sh",
-    "apt-get install -y nodejs",
+    "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash",
+    "nvm install 20",
     "node -v",
 ]

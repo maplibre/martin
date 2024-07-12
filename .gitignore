@@ -1,4 +1,7 @@
+####
 #### This must match .dockerignore ####
+####
+
 .DS_Store
 target/
 **/*.rs.bk
@@ -16,3 +19,7 @@ tmp/
 
 **/node_modules/
 **/dist/
+
+####
+#### Above content must match .dockerignore ####
+####

@@ -10,7 +10,10 @@ justfile
 **/tests
 demo/
 
+####
 #### This must match .gitignore ####
+####
+
 .DS_Store
 target/
 **/*.rs.bk
@@ -28,3 +31,7 @@ tmp/
 
 **/node_modules/
 **/dist/
+
+####
+#### Above content must match .gitignore ####
+####
