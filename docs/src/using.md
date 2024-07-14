@@ -4,7 +4,7 @@ Martin data is available via the HTTP `GET` endpoints:
 
 | URL                                     | Description                                    |
 |-----------------------------------------|------------------------------------------------|
-| `/`                                     | Status text, that will eventually show web UI  |
+| `/`                                     | Web UI                                         |
 | `/catalog`                              | [List of all sources](#catalog)                |
 | `/{sourceID}`                           | [Source TileJSON](#source-tilejson)            |
 | `/{sourceID}/{z}/{x}/{y}`               | Map Tiles                                      |

@@ -13,6 +13,8 @@ pub struct SrvConfig {
     pub base_path: Option<String>,
     pub worker_processes: Option<usize>,
     pub preferred_encoding: Option<PreferredEncoding>,
+    #[cfg(feature = "webui")]
+    pub web_ui: Option<crate::args::WebUiMode>,
 }
 
 #[cfg(test)]
@@ -35,8 +37,7 @@ mod tests {
                 keep_alive: Some(75),
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
-                preferred_encoding: None,
-                base_path: None,
+                ..Default::default()
             }
         );
         assert_eq!(
@@ -52,7 +53,7 @@ mod tests {
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
-                base_path: None
+                ..Default::default()
             }
         );
         assert_eq!(
@@ -68,7 +69,7 @@ mod tests {
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
-                base_path: None,
+                ..Default::default()
             }
         );
     }

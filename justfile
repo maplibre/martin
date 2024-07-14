@@ -21,7 +21,7 @@ dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-co
     {{ just_executable() }} --list --unsorted
 
 # Start Martin server
-run *ARGS:
+run *ARGS="--webui enable-for-all":
     cargo run -p martin -- {{ ARGS }}
 
 # Start Martin server
@@ -50,8 +50,12 @@ pg_dump *ARGS:
     pg_dump {{ ARGS }} {{ quote(DATABASE_URL) }}
 
 # Perform  cargo clean  to delete all build files
-clean: clean-test stop
+clean: clean-test stop && clean-martin-ui
     cargo clean
+
+clean-martin-ui:
+    rm -rf martin-ui/dist martin-ui/node_modules
+    cargo clean -p static-files
 
 # Delete test output files
 [private]

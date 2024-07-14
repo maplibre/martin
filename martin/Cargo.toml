@@ -2,7 +2,7 @@ lints.workspace = true
 
 [package]
 name = "martin"
-version = "0.14.2"
+version = "0.15.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -59,7 +59,8 @@ name = "bench"
 harness = false
 
 [features]
-default = ["fonts", "lambda", "mbtiles", "pmtiles", "postgres", "sprites"]
+default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "postgres", "sprites"]
+webui = ["dep:actix-web-static-files", "dep:static-files"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
@@ -72,6 +73,7 @@ bless-tests = []
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-rt.workspace = true
+actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
 bit-set = { workspace = true, optional = true }
@@ -104,12 +106,16 @@ serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
 spreet = { workspace = true, optional = true }
+static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+
+[build-dependencies]
+static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
 cargo-husky.workspace = true

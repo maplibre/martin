@@ -38,6 +38,9 @@ cache_size_mb: 1024
 # If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version.
 preferred_encoding: gzip
 
+# Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
+web_ui: disable
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string. You can use env vars too, for example:
