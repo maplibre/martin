@@ -7,4 +7,7 @@ pre-build = [
     "bash nodesource_setup.sh",
     "apt-get install -y nodejs",
     "node -v",
+    # Using old NPM, so must ensure correct access
+    "mkdir /.npm",
+    "chown -R 1001:127 /.npm",
 ]
