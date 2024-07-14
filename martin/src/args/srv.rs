@@ -11,7 +11,10 @@ pub struct SrvArgs {
     pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {LISTEN_ADDRESSES_DEFAULT}]"), short, long)]
     pub listen_addresses: Option<String>,
-    /// Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`. Examples: `/`, `/tiles`
+    /// Set TileJSON URL path prefix. This overides the default of respecting the X-Rewrite-URL header.
+    /// Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
+    /// Must begin with a `/`.
+    /// Examples: `/`, `/tiles`
     #[arg(long)]
     pub base_path: Option<String>,
     /// Number of web server workers
