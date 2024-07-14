@@ -20,6 +20,25 @@ pub struct SrvArgs {
     /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip.
     #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
+    /// Control Martin web UI.  By default, will be enabled only for the localhost connections.
+    #[arg(short = 'u', long = "webui")]
+    #[cfg(feature = "webui")]
+    pub web_ui: Option<WebUiMode>,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum WebUiMode {
+    /// Disable Web UI interface. This is the default for now, until we have a better way to secure the UI to localhost-only by default.
+    #[default]
+    #[serde(alias = "false")]
+    Disable,
+    // /// Enable Web UI interface on connections from the localhost
+    // #[default]
+    // #[serde(alias = "true")]
+    // Enable,
+    /// Enable Web UI interface on all connections
+    EnableForAll,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
@@ -40,14 +59,18 @@ impl SrvArgs {
         if self.listen_addresses.is_some() {
             srv_config.listen_addresses = self.listen_addresses;
         }
+        if self.base_path.is_some() {
+            srv_config.base_path = self.base_path;
+        }
         if self.workers.is_some() {
             srv_config.worker_processes = self.workers;
         }
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
         }
-        if self.base_path.is_some() {
-            srv_config.base_path = self.base_path;
+        #[cfg(feature = "webui")]
+        if self.web_ui.is_some() {
+            srv_config.web_ui = self.web_ui;
         }
     }
 }

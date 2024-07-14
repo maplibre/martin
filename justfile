@@ -21,7 +21,7 @@ dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-co
     {{ just_executable() }} --list --unsorted
 
 # Start Martin server
-run *ARGS:
+run *ARGS="--webui enable-for-all":
     cargo run -p martin -- {{ ARGS }}
 
 # Start Martin server
