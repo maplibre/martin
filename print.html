@@ -378,6 +378,9 @@ Options:
       --save-config &lt;SAVE_CONFIG&gt;
           Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
 
+  -C, --cache-size &lt;CACHE_SIZE&gt;
+          Main cache size (in MB)
+
   -s, --sprite &lt;SPRITE&gt;
           Export a directory with SVG files as a sprite source. Can be specified multiple times
 
@@ -389,6 +392,7 @@ Options:
 
   -l, --listen-addresses &lt;LISTEN_ADDRESSES&gt;
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
+
       --base-path &lt;BASE_PATH&gt;
           Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`. Examples: `/`, `/tiles`
           
@@ -396,10 +400,17 @@ Options:
           Number of web server workers
 
       --preferred-encoding &lt;PREFERRED_ENCODING&gt;
-          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version
+          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip
           
           [possible values: brotli, gzip]
           
+  -u, --webui &lt;WEB_UI&gt;
+          Control Martin web UI.  Disabled by default
+
+          Possible values:
+          - disable:        Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost
+          - enable-for-all: Enable Web UI interface on all connections
+
   -b, --auto-bounds &lt;AUTO_BOUNDS&gt;
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
@@ -805,6 +816,9 @@ cache_size_mb: 1024
 
 # If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version.
 preferred_encoding: gzip
+
+# Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
+web_ui: disable
 
 # Database configuration. This can also be a list of PG configs.
 postgres:
@@ -1293,7 +1307,7 @@ fonts:
 <div style="break-before: page; page-break-before: always;"></div><h2 id="martin-endpoints"><a class="header" href="#martin-endpoints">Martin Endpoints</a></h2>
 <p>Martin data is available via the HTTP <code>GET</code> endpoints:</p>
 <div class="table-wrapper"><table><thead><tr><th>URL</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>/</code></td><td>Status text, that will eventually show web UI</td></tr>
+<tr><td><code>/</code></td><td>Web UI</td></tr>
 <tr><td><code>/catalog</code></td><td><a href="using.html#catalog">List of all sources</a></td></tr>
 <tr><td><code>/{sourceID}</code></td><td><a href="using.html#source-tilejson">Source TileJSON</a></td></tr>
 <tr><td><code>/{sourceID}/{z}/{x}/{y}</code></td><td>Map Tiles</td></tr>
