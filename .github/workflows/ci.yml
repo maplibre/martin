@@ -142,6 +142,9 @@ jobs:
           for target in "aarch64-unknown-linux-musl" "x86_64-unknown-linux-musl"; do
             echo -e "\n----------------------------------------------"
             echo "Building $target"
+            # See https://github.com/cross-rs/cross/issues/1526
+            # TODO: Remove this once a version after cross 0.2.5 is released
+            export CROSS_BUILD_OPTS="--output=type=docker"
             export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
             cross build --release --target $target --workspace
             mkdir -p target_releases/$target
