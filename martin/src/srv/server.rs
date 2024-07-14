@@ -3,7 +3,6 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
-use crate::args::WebUiMode;
 use crate::config::ServerState;
 use crate::source::TileCatalog;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
@@ -23,7 +22,9 @@ use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
 
-// Include Web UI resources
+#[cfg(feature = "webui")]
+use crate::args::WebUiMode;
+
 #[cfg(feature = "webui")]
 mod webui {
     #![allow(clippy::unreadable_literal)]
@@ -106,7 +107,7 @@ async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
     HttpResponse::Ok().json(catalog)
 }
 
-pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
+pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
     cfg.service(get_health)
         .service(get_catalog)
         .service(get_source_info)

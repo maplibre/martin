@@ -20,7 +20,7 @@ pub struct SrvArgs {
     /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip.
     #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
-    /// Control Martin web UI.  By default, will be enabled only for the localhost connections.
+    /// Control Martin web UI.  Disabled by default.
     #[arg(short = 'u', long = "webui")]
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
@@ -29,7 +29,7 @@ pub struct SrvArgs {
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
-    /// Disable Web UI interface. This is the default for now, until we have a better way to secure the UI to localhost-only by default.
+    /// Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost.
     #[default]
     #[serde(alias = "false")]
     Disable,

@@ -1,6 +1,6 @@
 use clap::Parser;
 use log::{error, info, log_enabled};
-use martin::args::{Args, OsEnv, WebUiMode};
+use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};
 
@@ -37,7 +37,7 @@ async fn start(args: Args) -> MartinResult<()> {
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
 
     #[cfg(feature = "webui")]
-    if web_ui_mode == WebUiMode::EnableForAll {
+    if web_ui_mode == martin::args::WebUiMode::EnableForAll {
         log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
     } else {
         info!(
