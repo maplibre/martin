@@ -35,7 +35,7 @@ pub trait Env<'a>: VariableMap<'a> {
 
 /// A map that gives strings from the environment,
 /// but also keeps track of which variables were requested via the `VariableMap` trait.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct OsEnv(RefCell<HashSet<String>>);
 
 impl<'a> Env<'a> for OsEnv {

@@ -25,6 +25,7 @@ use crate::{IdResolver, MartinResult, OptOneMany};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
+#[derive(Clone)]
 pub struct ServerState {
     pub cache: OptMainCache,
     pub tiles: TileSources,

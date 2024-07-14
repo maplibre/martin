@@ -4,6 +4,7 @@ use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
 use actix_web::{middleware, route, HttpResponse, Result as ActixResult};
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
 use crate::fonts::{FontError, FontSources};
 use crate::srv::server::map_internal_error;
@@ -21,8 +22,13 @@ struct FontRequest {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {
+async fn get_font(
+    path: Path<FontRequest>,
+    fonts: Data<RwLock<FontSources>>,
+) -> ActixResult<HttpResponse> {
     let data = fonts
+        .read()
+        .await
         .get_font_range(&path.fontstack, path.start, path.end)
         .map_err(map_font_error)?;
     Ok(HttpResponse::Ok()

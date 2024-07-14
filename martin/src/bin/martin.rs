@@ -18,7 +18,7 @@ async fn start(args: Args) -> MartinResult<()> {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
     };
-
+    let args_cloned = args.clone();
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
     let sources = config.resolve().await?;
@@ -29,7 +29,7 @@ async fn start(args: Args) -> MartinResult<()> {
         info!("Use --save-config to save or print Martin configuration.");
     }
 
-    let (server, listen_addresses) = new_server(config.srv, sources)?;
+    let (server, listen_addresses) = new_server(env, args_cloned, config.srv, sources)?;
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
     server.await

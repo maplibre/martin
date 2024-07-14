@@ -29,7 +29,7 @@ pub enum BoundsCalcType {
     Skip,
 }
 
-#[derive(clap::Args, Debug, PartialEq, Default)]
+#[derive(clap::Args, Debug, PartialEq, Default, Clone)]
 #[command(about, version)]
 pub struct PgArgs {
     /// Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
