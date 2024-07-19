@@ -326,18 +326,16 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Start NGINX
-        uses: nyurik/action-setup-nginx@v1.1
-        id: nginx
-        with: { port: '5412', output-unix-paths: 'yes' }
-      - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Install and run Postgis
         uses: nyurik/action-setup-postgis@v2
         id: pg
         with: { username: 'test', password: 'test', database: 'test' }
+      - name: Start NGINX
+        uses: nyurik/action-setup-nginx@v1.1
+        id: nginx
+        with: { port: '5412', output-unix-paths: 'yes' }
+      - name: Checkout sources
+        uses: actions/checkout@v4
       - name: Init database
         run: |
           echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
@@ -346,6 +344,8 @@ jobs:
           tests/fixtures/initdb.sh
         env:
           PGSERVICE: ${{ steps.pg.outputs.service-name }}
+      - name: Copy static files
+        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
         uses: actions/download-artifact@v4
         with:
