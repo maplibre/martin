@@ -33,7 +33,7 @@ actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
-bit-set = "0.6.0"
+bit-set = "0.8"
 brotli = ">=5, <7"
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }
