@@ -125,3 +125,5 @@ indoc.workspace = true
 insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
 rstest.workspace = true
+anyhow.workspace = true
+testcontainers-modules.workspace = true
