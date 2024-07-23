@@ -62,6 +62,11 @@ clean-martin-ui:
 clean-test:
     rm -rf tests/output
 
+# Update dependencies, including breaking changes
+update:
+    cargo +nightly -Z unstable-options update --breaking
+    cargo update
+
 # Start a test database
 start: (docker-up "db") docker-is-ready
 

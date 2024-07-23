@@ -61,12 +61,7 @@ where
          ) AS is_valid;"
     );
 
-    Ok(sql
-        .fetch_one(&mut *conn)
-        .await?
-        .is_valid
-        .unwrap_or_default()
-        == 1)
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
 /// Check if `MBTiles` has a table or a view named `tiles_with_hash` with needed fields
@@ -90,12 +85,7 @@ where
        ) as is_valid;"
     );
 
-    Ok(sql
-        .fetch_one(&mut *conn)
-        .await?
-        .is_valid
-        .unwrap_or_default()
-        == 1)
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
 pub async fn is_flat_with_hash_tables_type<T>(conn: &mut T) -> MbtResult<bool>
@@ -115,7 +105,7 @@ where
 
     let is_valid = sql.fetch_one(&mut *conn).await?.is_valid;
 
-    Ok(is_valid.unwrap_or_default() == 1 && has_tiles_with_hash(&mut *conn).await?)
+    Ok(is_valid == 1 && has_tiles_with_hash(&mut *conn).await?)
 }
 
 pub async fn is_flat_tables_type<T>(conn: &mut T) -> MbtResult<bool>
@@ -144,12 +134,7 @@ where
          ) as is_valid;"
     );
 
-    Ok(sql
-        .fetch_one(&mut *conn)
-        .await?
-        .is_valid
-        .unwrap_or_default()
-        == 1)
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
 pub async fn create_metadata_table<T>(conn: &mut T) -> MbtResult<()>
@@ -409,8 +394,10 @@ FROM tiles;"
     .fetch_one(conn)
     .await?;
 
-    let min_zoom = validate_zoom(info.min_zoom, "zoom_level")?;
-    let max_zoom = validate_zoom(info.max_zoom, "zoom_level")?;
+    #[allow(clippy::cast_possible_truncation)]
+    let min_zoom = validate_zoom(info.min_zoom.map(|v| v as i32), "zoom_level")?;
+    #[allow(clippy::cast_possible_truncation)]
+    let max_zoom = validate_zoom(info.max_zoom.map(|v| v as i32), "zoom_level")?;
 
     match (min_zoom, max_zoom) {
         (Some(min_zoom), Some(max_zoom)) => Ok(Some((min_zoom, max_zoom))),
