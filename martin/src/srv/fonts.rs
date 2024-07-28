@@ -25,7 +25,7 @@ impl FontRequest {
     }
 
     fn parse_leading_digits(input: &str) -> Result<u32, &'static str> {
-        let digits: String = input.chars().take_while(|c| c.is_digit(10)).collect();
+        let digits: String = input.chars().take_while(|c| c.is_ascii_digit()).collect();
         if digits.is_empty() {
             Err("No leading digits found")
         } else {
