@@ -1,5 +1,5 @@
-use std::string::ToString;
 use std::str::FromStr;
+use std::string::ToString;
 
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
@@ -41,9 +41,7 @@ impl FontRequest {
 )]
 #[allow(clippy::unused_async)]
 async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {
-    let (start, end) = path.parse().map_err(|e| {
-        ErrorBadRequest(e.to_string())
-    })?;
+    let (start, end) = path.parse().map_err(|e| ErrorBadRequest(e.to_string()))?;
 
     let data = fonts
         .get_font_range(&path.fontstack, start, end)
