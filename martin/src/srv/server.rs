@@ -3,13 +3,6 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
-use crate::config::ServerState;
-use crate::source::TileCatalog;
-use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
-use crate::srv::tiles::get_tile;
-use crate::srv::tiles_info::get_source_info;
-use crate::MartinError::BindingError;
-use crate::MartinResult;
 use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
@@ -24,6 +17,13 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
+use crate::config::ServerState;
+use crate::source::TileCatalog;
+use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::srv::tiles::get_tile;
+use crate::srv::tiles_info::get_source_info;
+use crate::MartinError::BindingError;
+use crate::MartinResult;
 
 #[cfg(feature = "webui")]
 mod webui {
