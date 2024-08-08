@@ -6,7 +6,7 @@
       {
         "name": "page_count",
         "ordinal": 0,
-        "type_info": "Int"
+        "type_info": "Integer"
       }
     ],
     "parameters": {
