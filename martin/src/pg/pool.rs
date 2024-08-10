@@ -182,7 +182,7 @@ mod tests {
             .start()
             .await?;
         let pg_config = Config::new()
-            .host(&node.get_host().await?.to_string())
+            .host(node.get_host().await?.to_string())
             .port(node.get_host_port_ipv4(5432).await?)
             .dbname("postgres")
             .user("postgres")
