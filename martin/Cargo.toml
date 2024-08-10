@@ -118,6 +118,7 @@ url.workspace = true
 static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
+anyhow.workspace = true
 cargo-husky.workspace = true
 criterion.workspace = true
 ctor.workspace = true
@@ -125,5 +126,4 @@ indoc.workspace = true
 insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
 rstest.workspace = true
-anyhow.workspace = true
 testcontainers-modules.workspace = true
