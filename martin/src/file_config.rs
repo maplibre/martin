@@ -363,7 +363,7 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         return Ok(None);
     }
     path.to_str()
-        .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
+        .filter(|v| v.starts_with("http://") || v.starts_with("https://") || v.starts_with("s3://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }
