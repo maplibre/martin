@@ -1,6 +1,6 @@
 use std::convert::identity;
 use std::fmt::{Debug, Formatter};
-use std::io;
+use std::{env, io};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
@@ -12,7 +12,9 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
-use pmtiles::{Compression, Directory, HttpBackend, MmapBackend, TileType};
+use pmtiles::s3::creds::Credentials;
+use pmtiles::s3::Bucket;
+use pmtiles::{Compression, Directory, HttpBackend, MmapBackend, S3Backend, TileType};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
@@ -141,15 +143,28 @@ impl SourceConfigExtras for PmtConfig {
     }
 
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<Box<dyn Source>> {
-        Ok(Box::new(
-            PmtHttpSource::new(
-                self.client.clone().unwrap(),
-                self.new_cached_source(),
-                id,
-                url,
-            )
-            .await?,
-        ))
+        match url.scheme() {
+            "s3" =>
+            Ok(Box::new(
+                PmtS3Source::new(
+                    self.new_cached_source(),
+                    id,
+                    url,
+                )
+                .await?,
+            )),
+            _ =>
+            Ok(Box::new(
+                PmtHttpSource::new(
+                    self.client.clone().unwrap(),
+                    self.new_cached_source(),
+                    id,
+                    url,
+                )
+                .await?,
+            ))
+        }
+
     }
 }
 
@@ -292,6 +307,28 @@ impl_pmtiles_source!(
 impl PmtHttpSource {
     pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
         let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
+        let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+
+        Self::new_int(id, url, reader).await
+    }
+}
+
+impl_pmtiles_source!(
+    PmtS3Source,
+    S3Backend,
+    Url,
+    identity,
+    InvalidUrlMetadata
+);
+
+impl PmtS3Source {
+    pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+        let bucket_name = url.host_str().expect("Failed to parse bucket name.");
+        let credentials = Credentials::default().expect("Failed to parse AWS credentials.");
+        let region: String = env::var("AWS_REGION").expect("Failed to get AWS_REGION environment variable.");
+        let bucket = Bucket::new(bucket_name, region.parse().unwrap(), credentials).expect("Failed to instantiate bucket.");
+
+        let reader = AsyncPmTilesReader::new_with_cached_bucket_path(cache,bucket, url.path().to_owned()).await;
         let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
