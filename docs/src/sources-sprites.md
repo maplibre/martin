@@ -1,16 +1,19 @@
 ## Sprite Sources
 
-Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and high
-resolution displays. The SVG filenames without extension will be used as the sprite image IDs. The images are searched
-recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs,
-e.g. `icons/bicycle.svg` will be available as `icons/bicycle` sprite image. The sprite generation is not yet cached, and
-may require external reverse proxy or CDN for faster operation.
+Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays. The SVG filenames without extension will be used as the sprites' image IDs (remember that one sprite and thus `sprite_id` contains multiple images).
+The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs.
+For example `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
+
+The sprite generation is not yet cached, and may require external reverse proxy or CDN for faster operation.
+If you would like to improve this, please drop us a pull request.
 
 ### API
 
 Martin uses [MapLibre sprites API](https://maplibre.org/maplibre-style-spec/sprite/) specification to serve sprites via
 several endpoints. The sprite image and index are generated on the fly, so if the sprite directory is updated, the
 changes will be reflected immediately.
+
+You can use the `/catalog` api to see all the `<sprite_id>`s with their contained sprites.
 
 ##### Sprite PNG
 
@@ -39,14 +42,14 @@ the PNG, there is a high DPI version available at `/sprite/<sprite_id>@2x.json`.
 
 #### Combining Multiple Sprites
 
-Multiple sprite_id values can be combined into one sprite with the same pattern as for tile
+Multiple `sprite_id` values can be combined into one sprite with the same pattern as for tile
 joining:  `/sprite/<sprite_id1>,<sprite_id2>,...,<sprite_idN>`. No ID renaming is done, so identical sprite names will
 override one another.
 
 ### Configuring from CLI
 
 A sprite directory can be configured from the CLI with the `--sprite` flag. The flag can be used multiple times to
-configure multiple sprite directories. The name of the sprite will be the name of the directory -- in the example below,
+configure multiple sprite directories. The `sprite_id` of the sprite will be the name of the directory -- in the example below,
 the sprites will be available at `/sprite/sprite_a` and `/sprite/sprite_b`. Use `--save-config` to save the
 configuration to the config file.
 
@@ -63,9 +66,11 @@ how [MBTiles and PMTiles](config-file.md) are configured.
 # Sprite configuration
 sprites:
   paths:
-    # all SVG files in this dir will be published as a "my_images" sprite source
+    # all SVG files in this directory will be published under the sprite_id "my_images"
     - /path/to/my_images
   sources:
-    # SVG images in this directory will be published as a "my_sprites" sprite source
+    # SVG images in this directory will be published under the sprite_id "my_sprites"
     my_sprites: /path/to/some_dir
 ```
+
+The sprites are now avaliable at `/sprite/my_images,some_dir.png`/ ...
