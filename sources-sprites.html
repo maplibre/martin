@@ -180,15 +180,16 @@
                 <div id="content" class="content">
                     <main>
                         <h2 id="sprite-sources"><a class="header" href="#sprite-sources">Sprite Sources</a></h2>
-<p>Given a directory with SVG images, Martin will generate a sprite – a JSON index and a PNG image, for both low and high
-resolution displays. The SVG filenames without extension will be used as the sprite image IDs. The images are searched
-recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs,
-e.g. <code>icons/bicycle.svg</code> will be available as <code>icons/bicycle</code> sprite image. The sprite generation is not yet cached, and
-may require external reverse proxy or CDN for faster operation.</p>
+<p>Given a directory with SVG images, Martin will generate a sprite – a JSON index and a PNG image, for both low and highresolution displays. The SVG filenames without extension will be used as the sprites’ image IDs (remember that one sprite and thus <code>sprite_id</code> contains multiple images).
+The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs.
+For example <code>icons/bicycle.svg</code> will be available as <code>icons/bicycle</code> sprite image.</p>
+<p>The sprite generation is not yet cached, and may require external reverse proxy or CDN for faster operation.
+If you would like to improve this, please drop us a pull request.</p>
 <h3 id="api"><a class="header" href="#api">API</a></h3>
 <p>Martin uses <a href="https://maplibre.org/maplibre-style-spec/sprite/">MapLibre sprites API</a> specification to serve sprites via
 several endpoints. The sprite image and index are generated on the fly, so if the sprite directory is updated, the
 changes will be reflected immediately.</p>
+<p>You can use the <code>/catalog</code> api to see all the <code>&lt;sprite_id&gt;</code>s with their contained sprites.</p>
 <h5 id="sprite-png"><a class="header" href="#sprite-png">Sprite PNG</a></h5>
 <p><img src="sources-sprites.png" alt="sprite" /></p>
 <p><code>GET /sprite/&lt;sprite_id&gt;.png</code> endpoint contains a single PNG sprite image that combines all sources images.
@@ -208,12 +209,12 @@ the PNG, there is a high DPI version available at <code>/sprite/&lt;sprite_id&gt
 }
 </code></pre>
 <h4 id="combining-multiple-sprites"><a class="header" href="#combining-multiple-sprites">Combining Multiple Sprites</a></h4>
-<p>Multiple sprite_id values can be combined into one sprite with the same pattern as for tile
+<p>Multiple <code>sprite_id</code> values can be combined into one sprite with the same pattern as for tile
 joining:  <code>/sprite/&lt;sprite_id1&gt;,&lt;sprite_id2&gt;,...,&lt;sprite_idN&gt;</code>. No ID renaming is done, so identical sprite names will
 override one another.</p>
 <h3 id="configuring-from-cli"><a class="header" href="#configuring-from-cli">Configuring from CLI</a></h3>
 <p>A sprite directory can be configured from the CLI with the <code>--sprite</code> flag. The flag can be used multiple times to
-configure multiple sprite directories. The name of the sprite will be the name of the directory – in the example below,
+configure multiple sprite directories. The <code>sprite_id</code> of the sprite will be the name of the directory – in the example below,
 the sprites will be available at <code>/sprite/sprite_a</code> and <code>/sprite/sprite_b</code>. Use <code>--save-config</code> to save the
 configuration to the config file.</p>
 <pre><code class="language-bash">martin --sprite /path/to/sprite_a --sprite /path/to/other/sprite_b
@@ -224,12 +225,13 @@ how <a href="config-file.html">MBTiles and PMTiles</a> are configured.</p>
 <pre><code class="language-yaml"># Sprite configuration
 sprites:
   paths:
-    # all SVG files in this dir will be published as a "my_images" sprite source
+    # all SVG files in this directory will be published under the sprite_id "my_images"
     - /path/to/my_images
   sources:
-    # SVG images in this directory will be published as a "my_sprites" sprite source
+    # SVG images in this directory will be published under the sprite_id "my_sprites"
     my_sprites: /path/to/some_dir
 </code></pre>
+<p>The sprites are now avaliable at <code>/sprite/my_images,some_dir.png</code>/ …</p>
 
                     </main>
 
