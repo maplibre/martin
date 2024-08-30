@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -9,6 +10,7 @@ use crate::args::srv::SrvArgs;
 use crate::config::Config;
 #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
 use crate::file_config::FileConfigEnum;
+use crate::sprites::SpriteConfig;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::{MartinResult, OptOneMany};
 
@@ -59,6 +61,12 @@ pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
     pub sprite: Vec<PathBuf>,
+    /// tells Martin to handle images in directories as Signed Distance Fields (SDFs)
+    /// Images handled as a SDF allow their color to be set at runtime in the map redering enines.
+    ///
+    /// Defaults to `false`.
+    #[arg(long)]
+    pub make_sdf: bool,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
     pub font: Vec<PathBuf>,
@@ -109,7 +117,14 @@ impl Args {
 
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
-            config.sprites = FileConfigEnum::new(self.extras.sprite);
+            config.sprites = FileConfigEnum::new_extended(
+                self.extras.sprite,
+                BTreeMap::new(),
+                SpriteConfig {
+                    make_sdf: self.extras.make_sdf,
+                    ..Default::default()
+                },
+            );
         }
 
         if !self.extras.font.is_empty() {

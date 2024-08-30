@@ -60,6 +60,11 @@ pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SpriteConfig {
+    /// This tells Martin to handle images in directories as Signed Distance Fields (SDFs)
+    /// Images are handled as a signed-distance field (SDF) allow their color to be set at runtime in the map redering enines.
+    ///
+    /// Defaults to `false`.
+    pub make_sdf: bool,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -71,7 +76,14 @@ impl ConfigExtras for SpriteConfig {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct SpriteSources(HashMap<String, SpriteSource>);
+pub struct SpriteSources {
+    sources: HashMap<String, SpriteSource>,
+    /// This tells Martin to handle images in directories as Signed Distance Fields (SDFs)
+    /// Images are handled as a signed-distance field (SDF) allow their color to be set at runtime in the map redering enines.
+    ///
+    /// Defaults to `false`.
+    make_sdf: bool,
+}
 
 impl SpriteSources {
     pub fn resolve(config: &mut FileConfigEnum<SpriteConfig>) -> FileResult<Self> {
@@ -79,7 +91,10 @@ impl SpriteSources {
             return Ok(Self::default());
         };
 
-        let mut results = Self::default();
+        let mut results = Self {
+            make_sdf: cfg.custom.make_sdf,
+            ..Default::default()
+        };
         let mut directories = Vec::new();
         let mut configs = BTreeMap::new();
 
@@ -110,7 +125,7 @@ impl SpriteSources {
     pub fn get_catalog(&self) -> SpriteResult<SpriteCatalog> {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
-        for (id, source) in &self.0 {
+        for (id, source) in &self.sources {
             let paths = get_svg_input_paths(&source.path, true)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
             let mut images = Vec::with_capacity(paths.len());
@@ -131,7 +146,7 @@ impl SpriteSources {
         if path.is_file() {
             warn!("Ignoring non-directory sprite source {id} from {disp_path}");
         } else {
-            match self.0.entry(id) {
+            match self.sources.entry(id) {
                 Entry::Occupied(v) => {
                     warn!("Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
                     v.key(), v.get().path.display());
@@ -156,13 +171,13 @@ impl SpriteSources {
         let sprite_ids = ids
             .split(',')
             .map(|id| {
-                self.0
+                self.sources
                     .get(id)
                     .ok_or_else(|| SpriteError::SpriteNotFound(id.to_string()))
             })
             .collect::<SpriteResult<Vec<_>>>()?;
 
-        get_spritesheet(sprite_ids.into_iter(), dpi).await
+        get_spritesheet(sprite_ids.into_iter(), dpi, self.make_sdf).await
     }
 }
 
@@ -194,6 +209,7 @@ async fn parse_sprite(
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
+    make_sdf: bool,
 ) -> SpriteResult<Spritesheet> {
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
@@ -208,6 +224,9 @@ pub async fn get_spritesheet(
     }
     let sprites = try_join_all(futures).await?;
     let mut builder = SpritesheetBuilder::new();
+    if make_sdf {
+        builder.make_sdf();
+    }
     builder.sprites(sprites.into_iter().collect());
 
     // TODO: decide if this is needed and/or configurable
@@ -231,27 +250,35 @@ mod tests {
             PathBuf::from("../tests/fixtures/sprites/src2"),
         ]);
 
-        let sprites = SpriteSources::resolve(&mut cfg).unwrap().0;
+        let sprites = SpriteSources::resolve(&mut cfg).unwrap().sources;
         assert_eq!(sprites.len(), 2);
 
-        test_src(sprites.values(), 1, "all_1").await;
-        test_src(sprites.values(), 2, "all_2").await;
+        //.sdf => generate sdf from png, add sdf == true
+        //- => does not generate sdf, omits sdf == true
+        for extension in [".sdf", ""] {
+            test_src(sprites.values(), 1, "all_1", extension).await;
+            test_src(sprites.values(), 2, "all_2", extension).await;
 
-        test_src(sprites.get("src1").into_iter(), 1, "src1_1").await;
-        test_src(sprites.get("src1").into_iter(), 2, "src1_2").await;
+            test_src(sprites.get("src1").into_iter(), 1, "src1_1", extension).await;
+            test_src(sprites.get("src1").into_iter(), 2, "src1_2", extension).await;
 
-        test_src(sprites.get("src2").into_iter(), 1, "src2_1").await;
-        test_src(sprites.get("src2").into_iter(), 2, "src2_2").await;
+            test_src(sprites.get("src2").into_iter(), 1, "src2_1", extension).await;
+            test_src(sprites.get("src2").into_iter(), 2, "src2_2", extension).await;
+        }
     }
 
     async fn test_src(
         sources: impl Iterator<Item = &SpriteSource>,
         pixel_ratio: u8,
         filename: &str,
+        extension: &str,
     ) {
-        let path = PathBuf::from(format!("../tests/fixtures/sprites/expected/{filename}"));
-
-        let sprites = get_spritesheet(sources, pixel_ratio).await.unwrap();
+        let path = PathBuf::from(format!(
+            "../tests/fixtures/sprites/expected/{filename}{extension}"
+        ));
+        let sprites = get_spritesheet(sources, pixel_ratio, extension == ".sdf")
+            .await
+            .unwrap();
         let mut json = serde_json::to_string_pretty(sprites.get_index()).unwrap();
         json.push('\n');
         let png = sprites.encode_png().unwrap();
@@ -269,7 +296,7 @@ mod tests {
         #[cfg(not(feature = "bless-tests"))]
         {
             let expected = std::fs::read_to_string(path.with_extension("json"))
-                .expect("Unable to open expected JSON file, make sure to bless tests with\n  cargo test --features bless-tests\n");
+                .expect("Unable to open expected JSON file, make sure to bless tests with\n  cargo test --features bless-tests,sprites\n");
 
             assert_eq!(
                 serde_json::from_str::<serde_json::Value>(&json).unwrap(),
