@@ -83,7 +83,7 @@ impl PgInfo for TableInfo {
         format!("{}.{}.{}", self.schema, self.table, self.geometry_column)
     }
 
-    /// the `source_id` may not be taken if `self.layer_id` is set. And the `TileJson` by SQL comment if provided will be merged into.
+    /// the `source_id` may not be taken if `self.layer_id` is set. And the result `TileJson` will be patched by the `TileJson` from SQL comment if provided.
     fn to_tilejson(&self, source_id: String) -> TileJSON {
         let mut tilejson = tilejson::tilejson! {
             tiles: vec![],  // tile source is required, but not yet known
