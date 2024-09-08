@@ -49,8 +49,14 @@ pub enum PgError {
     #[error("Unable to parse PostGIS version {1}: {0}")]
     BadPostgisVersion(#[source] semver::Error, String),
 
+    #[error("Unable to parse PostgreSQL version {1}: {0}")]
+    BadPostgresVersion(#[source] semver::Error, String),
+
     #[error("PostGIS version {0} is too old, minimum required is {1}")]
     PostgisTooOld(Version, Version),
+
+    #[error("PostgreSQL version {0} is too old, minimum required is {1}")]
+    PostgresqlTooOld(Version, Version),
 
     #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
     InvalidTableExtent(String, String),
