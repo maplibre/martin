@@ -52,7 +52,7 @@ postgres:
     let response = assert_response(response).await;
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
+    assert_yaml_snapshot!(body, @r#"
     ---
     fonts: {}
     sprites: {}
@@ -111,8 +111,9 @@ postgres:
         content_type: application/x-protobuf
         description: public.points1.geom
       points1_vw:
+        attribution: some attribution from SQL comment
         content_type: application/x-protobuf
-        description: public.points1_vw.geom
+        description: description from SQL comment
       points2:
         content_type: application/x-protobuf
         description: public.points2.geom
@@ -127,7 +128,7 @@ postgres:
       table_source_multiple_geom.1:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom2
-    "###);
+    "#);
 }
 
 #[actix_rt::test]
