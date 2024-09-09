@@ -17,10 +17,14 @@ Martin supports authenticated S3 sources using environment variables.
 
 Environment variables that need to be set:
 
+- AWS_REGION
+
+By default, the credentials try for default profile or environment variables. Environment variables that can to be set:
+
 - AWS_ACCESS_KEY_ID
 - AWS_SECRET_ACCESS_KEY
 - AWS_SESSION_TOKEN
-- AWS_REGION
+- AWS_PROFILE (to specify profile instead of access key variables)
 
 Example configuration:
 
