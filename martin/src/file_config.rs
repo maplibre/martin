@@ -39,6 +39,9 @@ pub enum FileError {
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
+    #[error(r#"Error occurred in processing S3 source uri: {0}"#)]
+    S3SourceError(String),
+
     #[error(r#"Unable to acquire connection to file: {0}"#)]
     AcquireConnError(String),
 
