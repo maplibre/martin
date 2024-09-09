@@ -10,3 +10,22 @@ martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/
 
 You may also want to generate a [config file](config-file.md) using the `--save-config my-config.yaml`, and later edit
 it and use it with `--config my-config.yaml` option.
+
+## S3 Uris
+
+Martin supports authenticated S3 sources using environment variables.
+
+Environment variables that need to be set:
+
+- AWS_ACCESS_KEY_ID
+- AWS_SECRET_ACCESS_KEY
+- AWS_SESSION_TOKEN
+- AWS_REGION
+
+Example configuration:
+
+```
+pmtiles:
+  sources:
+    tiles: s3://bucket/path/to/tiles.pmtiles
+```
