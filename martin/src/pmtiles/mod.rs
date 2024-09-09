@@ -310,9 +310,21 @@ impl_pmtiles_source!(PmtS3Source, S3Backend, Url, identity, InvalidUrlMetadata);
 impl PmtS3Source {
     pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
         let bucket_name = url.host_str().ok_or_else(|| FileError::S3SourceError(format!("failed to parse bucket name from {url}")))?;
-        let credentials = Credentials::default().map_err(|_| FileError::S3SourceError(format!("failed to read AWS credentials for {url}")))?;
+
+        // Try to get profile from AWS_PROFILE environment variable first,
+        // then proceed to try Credentials::default() that attempts default profile or environment variables.
+        let credentials = {
+            let profile = env::var("AWS_PROFILE").ok();
+
+            let mut credentials = Credentials::new(None,None,None,None, profile.as_deref());
+            if credentials.is_err() {
+                credentials = Credentials::default();
+            }
+            credentials
+        }.map_err(|_| FileError::S3SourceError(format!("failed to read AWS credentials")))?;
+
         let region: String =
-            env::var("AWS_REGION").map_err(|_| FileError::S3SourceError(format!("failed to get AWS_REGION environment variable for {url}")))?;
+            env::var("AWS_REGION").map_err(|_| FileError::S3SourceError(format!("failed to read AWS_REGION environment variable")))?;
         let bucket = Bucket::new(bucket_name, region.parse().map_err(|_| FileError::S3SourceError(format!("failed to parse region")))? , credentials)
             .map_err(|_| FileError::S3SourceError(format!("failed to instantiate bucket for {url}")))?;
 
