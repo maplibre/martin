@@ -106,7 +106,8 @@
     },
     "points1_vw": {
       "content_type": "application/x-protobuf",
-      "description": "public.points1_vw.geom"
+      "description": "description from SQL comment",
+      "attribution": "some attribution from SQL comment"
     },
     "points2": {
       "content_type": "application/x-protobuf",
