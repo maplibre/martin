@@ -55,7 +55,8 @@ pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
     }
     let crate_ver = env!("CARGO_PKG_VERSION");
     if pg_cfg.get_application_name().is_none() {
-        pg_cfg.application_name(&format!("Martin v{crate_ver} - pid={}", std::process::id()));
+        let pid = std::process::id();
+        pg_cfg.application_name(format!("Martin v{crate_ver} - pid={pid}"));
     }
     Ok((pg_cfg, mode))
 }
