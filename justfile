@@ -18,36 +18,36 @@ export CARGO_TERM_COLOR := "always"
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
 @_default:
-    {{ just_executable() }} --list --unsorted
+    {{just_executable()}} --list --unsorted
 
 # Start Martin server
 run *ARGS="--webui enable-for-all":
-    cargo run -p martin -- {{ ARGS }}
+    cargo run -p martin -- {{ARGS}}
 
 # Start Martin server
 cp *ARGS:
-    cargo run --bin martin-cp -- {{ ARGS }}
+    cargo run --bin martin-cp -- {{ARGS}}
 
 # Run mbtiles command
 mbtiles *ARGS:
-    cargo run -p mbtiles -- {{ ARGS }}
+    cargo run -p mbtiles -- {{ARGS}}
 
 # Start release-compiled Martin server and a test database
 run-release *ARGS: start
-    cargo run -- {{ ARGS }}
+    cargo run -- {{ARGS}}
 
 # Start Martin server and open a test page
 debug-page *ARGS: start
     open tests/debug.html  # run will not exit, so open debug page first
-    {{ just_executable() }} run {{ ARGS }}
+    {{just_executable()}} run {{ARGS}}
 
 # Run PSQL utility against the test database
 psql *ARGS:
-    psql {{ ARGS }} {{ quote(DATABASE_URL) }}
+    psql {{ARGS}} {{quote(DATABASE_URL)}}
 
 # Run pg_dump utility against the test database
 pg_dump *ARGS:
-    pg_dump {{ ARGS }} {{ quote(DATABASE_URL) }}
+    pg_dump {{ARGS}} {{quote(DATABASE_URL)}}
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop && clean-martin-ui
@@ -77,12 +77,12 @@ start-legacy: (docker-up "db-legacy") docker-is-ready
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name: start-pmtiles-server
-    {{ dockercompose }} up -d {{ name }}
+    {{dockercompose}} up -d {{name}}
 
 # Wait for the test database to be ready
 [private]
 docker-is-ready:
-    {{ dockercompose }} run -T --rm db-is-ready
+    {{dockercompose}} run -T --rm db-is-ready
 
 alias _down := stop
 alias _stop-db := stop
@@ -90,16 +90,16 @@ alias _stop-db := stop
 # Restart the test database
 restart:
     # sometimes Just optimizes targets, so here we force stop & start by using external just executable
-    {{ just_executable() }} stop
-    {{ just_executable() }} start
+    {{just_executable()}} stop
+    {{just_executable()}} start
 
 # Stop the test database
 stop:
-    {{ dockercompose }} down --remove-orphans
+    {{dockercompose}} down --remove-orphans
 
 # Start test server for testing HTTP pmtiles
 start-pmtiles-server:
-    {{ dockercompose }} up -d fileserver
+    {{dockercompose}} up -d fileserver
 
 # Run benchmark tests
 bench:
@@ -146,9 +146,9 @@ test-ssl-cert: start-ssl-cert
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{ just_executable() }} test-cargo --all-targets
-    {{ just_executable() }} clean-test
-    {{ just_executable() }} test-doc
+    {{just_executable()}} test-cargo --all-targets
+    {{just_executable()}} clean-test
+    {{just_executable()}} test-doc
     tests/test.sh
 
 # Run all tests using the oldest supported version of the database
@@ -156,18 +156,18 @@ test-legacy: start-legacy (test-cargo "--all-targets") test-doc test-int
 
 # Run Rust unit tests (cargo test)
 test-cargo *ARGS:
-    cargo test {{ ARGS }}
+    cargo test {{ARGS}}
 
 # Run Rust doc tests
 test-doc *ARGS:
-    cargo test --doc {{ ARGS }}
+    cargo test --doc {{ARGS}}
 
 # Run integration tests
 test-int: clean-test install-sqlx
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
-    if [ "{{ os() }}" != "linux" ]; then
+    if [ "{{os()}}" != "linux" ]; then
         echo "** Integration tests are only supported on Linux"
         echo "** Skipping diffing with the expected output"
     else
@@ -201,15 +201,15 @@ bless-tests:
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
     #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --unreferenced=auto -p mbtiles {{ ARGS }}
+    cargo insta test --accept --unreferenced=auto -p mbtiles {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --unreferenced=auto -p martin {{ ARGS }}
+    cargo insta test --accept --unreferenced=auto -p martin {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --bin martin-cp {{ ARGS }}
+    cargo insta test --accept --bin martin-cp {{ARGS}}
 
 # Build and open mdbook documentation
 book: (cargo-install "mdbook")
@@ -232,14 +232,14 @@ coverage FORMAT='html': (cargo-install "grcov")
         rustup component add llvm-tools-preview ;\
     fi
 
-    {{ just_executable() }} clean
-    {{ just_executable() }} start
+    {{just_executable()}} clean
+    {{just_executable()}} start
 
     PROF_DIR=target/prof
     mkdir -p "$PROF_DIR"
     PROF_DIR=$(realpath "$PROF_DIR")
 
-    OUTPUT_RESULTS_DIR=target/coverage/{{ FORMAT }}
+    OUTPUT_RESULTS_DIR=target/coverage/{{FORMAT}}
     mkdir -p "$OUTPUT_RESULTS_DIR"
 
     export CARGO_INCREMENTAL=0
@@ -254,33 +254,33 @@ coverage FORMAT='html': (cargo-install "grcov")
     set -x
     grcov --binary-path ./target/debug    \
           -s .                            \
-          -t {{ FORMAT }}                 \
+          -t {{FORMAT}}                 \
           --branch                        \
           --ignore 'benches/*'            \
           --ignore 'tests/*'              \
           --ignore-not-existing           \
-          -o target/coverage/{{ FORMAT }} \
+          -o target/coverage/{{FORMAT}} \
           --llvm                          \
           "$PROF_DIR"
     { set +x; } 2>/dev/null
 
     # if this is html, open it in the browser
-    if [ "{{ FORMAT }}" = "html" ]; then
+    if [ "{{FORMAT}}" = "html" ]; then
         open "$OUTPUT_RESULTS_DIR/index.html"
     fi
 
 # Build and run martin docker image
 docker-run *ARGS:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ ARGS }}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ARGS}}
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
 git *ARGS: start
-    git {{ ARGS }}
+    git {{ARGS}}
 
 # Print the connection string for the test database
 print-conn-str:
-    @echo {{ quote(DATABASE_URL) }}
+    @echo {{quote(DATABASE_URL)}}
 
 # Run cargo fmt and cargo clippy
 lint: fmt clippy
@@ -333,8 +333,8 @@ git-pre-push: env-info restart fmt clippy check-doc test check
 # Get environment info
 [private]
 env-info:
-    @echo "OS is {{ os() }}, arch is {{ arch() }}"
-    {{ just_executable() }} --version
+    @echo "OS is {{os()}}, arch is {{arch()}}"
+    {{just_executable()}} --version
     rustc --version
     cargo --version
     rustup --version
@@ -355,10 +355,10 @@ cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
     set -eu
     if ! command -v $COMMAND > /dev/null; then
         if ! command -v cargo-binstall > /dev/null; then
-            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
-            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ ARGS }}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
         fi
     fi

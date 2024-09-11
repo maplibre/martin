@@ -19,7 +19,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-
-      - run: |
-          cd demo/frontend
-          docker-compose build
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - run: cd demo && just build
