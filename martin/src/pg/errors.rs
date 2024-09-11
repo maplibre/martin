@@ -13,8 +13,8 @@ pub type PgResult<T> = Result<T, PgError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum PgError {
-    #[error("Cannot load platform root certificates: {0}")]
-    CannotLoadRoots(#[source] io::Error),
+    #[error("Cannot load platform root certificates: {0:?}")]
+    CannotLoadRoots(Vec<rustls_native_certs::Error>),
 
     #[error("Cannot open certificate file {}: {0}", .1.display())]
     CannotOpenCert(#[source] io::Error, PathBuf),
