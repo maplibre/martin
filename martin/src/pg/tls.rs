@@ -9,7 +9,6 @@ use deadpool_postgres::tokio_postgres::Config;
 use log::{info, warn};
 use regex::Regex;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-// use rustls::crypto::ring::default_provider;
 use rustls::crypto::aws_lc_rs::default_provider;
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
@@ -156,8 +155,11 @@ pub fn make_connector(
     }
 
     if verify_ca || pg_certs.ssl_root_cert.is_some() || pg_certs.ssl_cert.is_some() {
-        let certs = load_native_certs().map_err(CannotLoadRoots)?;
-        for cert in certs {
+        let certs = load_native_certs();
+        if !certs.errors.is_empty() {
+            return Err(CannotLoadRoots(certs.errors));
+        }
+        for cert in certs.certs {
             roots.add(cert)?;
         }
     }

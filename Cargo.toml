@@ -65,11 +65,11 @@ postgres-protocol = "0.6"
 pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.21"
+rstest = "0.22"
 rustls = "0.23.12"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
-rustls-native-certs = "0.7"
+rustls-native-certs = "0.8"
 rustls-pemfile = "2"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
