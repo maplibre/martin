@@ -59,8 +59,8 @@ pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
     pub sprite: Vec<PathBuf>,
-    /// tells Martin to handle images in directories as Signed Distance Fields (SDFs)
-    /// Images handled as a SDF allow their color to be set at runtime in the map redering enines.
+    /// Tells Martin to handle sprites as Signed Distance Fields (SDFs)
+    /// SDF Images allow their color to be set at runtime in the map rendering engine.
     ///
     /// Defaults to `false`.
     #[arg(long)]

@@ -60,8 +60,8 @@ pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SpriteConfig {
-    /// This tells Martin to handle images in directories as Signed Distance Fields (SDFs)
-    /// Images are handled as a signed-distance field (SDF) allow their color to be set at runtime in the map redering enines.
+    /// Tells Martin to handle sprites as Signed Distance Fields (SDFs)
+    /// SDF Images allow their color to be set at runtime in the map rendering engine.
     ///
     /// Defaults to `false`.
     pub make_sdf: bool,
@@ -78,8 +78,8 @@ impl ConfigExtras for SpriteConfig {
 #[derive(Debug, Clone, Default)]
 pub struct SpriteSources {
     sources: HashMap<String, SpriteSource>,
-    /// This tells Martin to handle images in directories as Signed Distance Fields (SDFs)
-    /// Images are handled as a signed-distance field (SDF) allow their color to be set at runtime in the map redering enines.
+    /// Tells Martin to handle sprites as Signed Distance Fields (SDFs)
+    /// SDF Images allow their color to be set at runtime in the map rendering engine.
     ///
     /// Defaults to `false`.
     make_sdf: bool,
