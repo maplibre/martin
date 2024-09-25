@@ -255,7 +255,7 @@ mod tests {
 
         //.sdf => generate sdf from png, add sdf == true
         //- => does not generate sdf, omits sdf == true
-        for extension in [".sdf", ""] {
+        for extension in ["_sdf", ""] {
             test_src(sprites.values(), 1, "all_1", extension).await;
             test_src(sprites.values(), 2, "all_2", extension).await;
 
@@ -276,7 +276,7 @@ mod tests {
         let path = PathBuf::from(format!(
             "../tests/fixtures/sprites/expected/{filename}{extension}"
         ));
-        let sprites = get_spritesheet(sources, pixel_ratio, extension == ".sdf")
+        let sprites = get_spritesheet(sources, pixel_ratio, extension == "_sdf")
             .await
             .unwrap();
         let mut json = serde_json::to_string_pretty(sprites.get_index()).unwrap();
