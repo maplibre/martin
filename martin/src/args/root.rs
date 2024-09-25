@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -10,7 +9,6 @@ use crate::args::srv::SrvArgs;
 use crate::config::Config;
 #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
 use crate::file_config::FileConfigEnum;
-use crate::sprites::SpriteConfig;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::{MartinResult, OptOneMany};
 
@@ -119,8 +117,8 @@ impl Args {
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfigEnum::new_extended(
                 self.extras.sprite,
-                BTreeMap::new(),
-                SpriteConfig {
+                std::collections::BTreeMap::new(),
+                crate::sprites::SpriteConfig {
                     make_sdf: self.extras.make_sdf,
                     ..Default::default()
                 },
