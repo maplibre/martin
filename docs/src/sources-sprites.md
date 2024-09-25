@@ -58,7 +58,7 @@ martin --sprite /path/to/sprite_a --sprite /path/to/other/sprite_b
 ```
 
 To use generate Signed Distance Fields (SDFs) images instead, the `--make_sdf` Option can be added.
-This makes images be handled as a SDFs allowing their color to be set at runtime in the map redering engines.
+SDF-Images allow their color to be set at runtime in the map redering engine.
 
 ```bash
 martin --sprite /path/to/sprite_a --sprite  /path/to/other/sprite_b --make_sdf
@@ -79,7 +79,7 @@ sprites:
     # SVG images in this directory will be published under the sprite_id "my_sprites"
     my_sprites: /path/to/some_dir
   # This tells Martin to handle images in directories as Signed Distance Fields (SDFs)
-  # Images are handled as a signed-distance field (SDF) allow their color to be set at runtime in the map redering enines.
+  # SDF-Images allow their color to be set at runtime in the map redering engine.
   # Defaults to `false`.
   make_sdf: false
 ```
