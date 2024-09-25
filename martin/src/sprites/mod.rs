@@ -296,7 +296,7 @@ mod tests {
         #[cfg(not(feature = "bless-tests"))]
         {
             let expected = std::fs::read_to_string(path.with_extension("json"))
-                .expect("Unable to open expected JSON file, make sure to bless tests with\n  cargo test --features bless-tests,sprites\n");
+                .expect("Unable to open expected JSON file, make sure to bless tests with\n  cargo test --features bless-tests\n");
 
             assert_eq!(
                 serde_json::from_str::<serde_json::Value>(&json).unwrap(),
