@@ -51,7 +51,7 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2024-05-24
+          toolchain: nightly-2024-10-01
           override: true
 
       - name: Cleanup GCDA files

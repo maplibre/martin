@@ -227,7 +227,7 @@ docs:
 coverage FORMAT='html': (cargo-install "grcov")
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! rustup component list | grep llvm-tools-preview &> /dev/null; then \
+    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
         echo "llvm-tools-preview could not be found. Installing..." ;\
         rustup component add llvm-tools-preview ;\
     fi
