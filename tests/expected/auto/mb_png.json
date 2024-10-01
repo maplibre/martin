@@ -4,14 +4,14 @@
     "http://localhost:3111/geography-class-png/{z}/{x}/{y}"
   ],
   "bounds": [
-    -180,
+    -180.0,
     -85.0511,
-    180,
+    180.0,
     85.0511
   ],
   "center": [
-    0,
-    20,
+    0.0,
+    20.0,
     0
   ],
   "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",

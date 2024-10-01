@@ -58,14 +58,14 @@ md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.1", features = ["freetype"] }
-pmtiles = { version = "0.10", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots"] }
+pmtiles = { version = "0.11", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
 pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.22"
+rstest = "0.23"
 rustls = "0.23.12"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
