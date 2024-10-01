@@ -79,7 +79,7 @@ serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
 sqlite-compressions = { version = "0.2.14", default-features = false, features = ["bsdiffraw", "gzip"] }
-sqlite-hashes = { version = "0.7.5", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlite-hashes = { version = "0.7.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
