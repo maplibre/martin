@@ -40,6 +40,7 @@ cache_size_mb: 512
 #     - /path/to/sprites_dir
 #   sources:
 #     sprite1: /path/to/sprites_dir2
+#   make_sdf: false
 
 # fonts:
 #   - /path/to/font/file.ttf
