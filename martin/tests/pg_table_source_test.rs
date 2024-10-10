@@ -15,7 +15,7 @@ fn init() {
 #[actix_rt::test]
 async fn table_source() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    assert_yaml_snapshot!(mock.0.tiles.get_catalog(), @r###"
+    assert_yaml_snapshot!(mock.0.tiles.get_catalog(), @r#"
     ---
     "-function.withweired---_-characters":
       content_type: application/x-protobuf
@@ -72,7 +72,8 @@ async fn table_source() {
       description: public.points1.geom
     points1_vw:
       content_type: application/x-protobuf
-      description: public.points1_vw.geom
+      description: description from SQL comment
+      attribution: some attribution from SQL comment
     points2:
       content_type: application/x-protobuf
       description: public.points2.geom
@@ -87,7 +88,7 @@ async fn table_source() {
     table_source_multiple_geom.1:
       content_type: application/x-protobuf
       description: public.table_source_multiple_geom.geom2
-    "###);
+    "#);
 
     let source = table(&mock, "table_source");
     assert_yaml_snapshot!(source, @r###"
