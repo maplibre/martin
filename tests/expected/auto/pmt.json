@@ -4,14 +4,14 @@
     "http://localhost:3111/stamen_toner__raster_CC-BY-ODbL_z3/{z}/{x}/{y}"
   ],
   "bounds": [
-    -180.0,
-    -85.0,
-    180.0,
-    85.0
+    -180,
+    -85,
+    180,
+    85
   ],
   "center": [
-    0.0,
-    0.0,
+    0,
+    0,
     0
   ],
   "maxzoom": 3,
