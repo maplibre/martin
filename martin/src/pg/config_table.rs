@@ -83,6 +83,8 @@ impl PgInfo for TableInfo {
         format!("{}.{}.{}", self.schema, self.table, self.geometry_column)
     }
 
+    /// Result `TileJson` will be patched by the `TileJson` from SQL comment if provided.
+    /// The `source_id` will be replaced by `self.layer_id` in the vector layer info if set.
     fn to_tilejson(&self, source_id: String) -> TileJSON {
         let mut tilejson = tilejson::tilejson! {
             tiles: vec![],  // tile source is required, but not yet known
@@ -92,8 +94,15 @@ impl PgInfo for TableInfo {
         tilejson.minzoom = self.minzoom;
         tilejson.maxzoom = self.maxzoom;
         tilejson.bounds = self.bounds;
+
+        let id = if let Some(id) = &self.layer_id {
+            id.clone()
+        } else {
+            source_id
+        };
+
         let layer = VectorLayer {
-            id: source_id,
+            id,
             fields: self.properties.clone().unwrap_or_default(),
             description: None,
             maxzoom: None,

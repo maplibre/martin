@@ -1,0 +1,36 @@
+{
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/table_source,points1,points2/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "id": "table_source",
+      "fields": {
+        "gid": "int4"
+      }
+    },
+    {
+      "id": "abc",
+      "fields": {
+        "gid": "int4"
+      }
+    },
+    {
+      "id": "points2",
+      "fields": {
+        "gid": "int4"
+      }
+    }
+  ],
+  "bounds": [
+    -180,
+    -90,
+    180,
+    90
+  ],
+  "description": "public.points1.geom\npublic.points2.geom",
+  "maxzoom": 30,
+  "minzoom": 0,
+  "name": "table_source,points1,points2"
+}
