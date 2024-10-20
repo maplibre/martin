@@ -177,6 +177,7 @@ async fn parse_sprite(
     name: String,
     path: PathBuf,
     pixel_ratio: u8,
+    as_sdf: bool,
 ) -> SpriteResult<(String, Sprite)> {
     let on_err = |e| SpriteError::IoError(e, path.clone());
 
@@ -188,7 +189,11 @@ async fn parse_sprite(
     let tree = Tree::from_data(&buffer, &Options::default())
         .map_err(|e| SpriteParsingError(e, path.clone()))?;
 
-    let sprite = Sprite::new(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?;
+    let sprite = if as_sdf {
+        Sprite::new_sdf(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?
+    } else {
+        Sprite::new(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?
+    };
 
     Ok((name, sprite))
 }
@@ -206,7 +211,7 @@ pub async fn get_spritesheet(
         for path in paths {
             let name = sprite_name(&path, &source.path)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
-            futures.push(parse_sprite(name, path, pixel_ratio));
+            futures.push(parse_sprite(name, path, pixel_ratio, as_sdf));
         }
     }
     let sprites = try_join_all(futures).await?;

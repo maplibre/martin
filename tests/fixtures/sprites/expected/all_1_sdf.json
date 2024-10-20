@@ -1,32 +1,32 @@
 {
   "another_bicycle": {
-    "height": 15,
+    "height": 21,
     "pixelRatio": 1,
-    "width": 15,
-    "x": 20,
-    "y": 16,
+    "width": 21,
+    "x": 26,
+    "y": 22,
     "sdf": true
   },
   "bear": {
-    "height": 16,
+    "height": 22,
     "pixelRatio": 1,
-    "width": 16,
-    "x": 20,
+    "width": 22,
+    "x": 26,
     "y": 0,
     "sdf": true
   },
   "bicycle": {
-    "height": 15,
+    "height": 21,
     "pixelRatio": 1,
-    "width": 15,
-    "x": 35,
-    "y": 16,
+    "width": 21,
+    "x": 0,
+    "y": 26,
     "sdf": true
   },
   "sub/circle": {
-    "height": 20,
+    "height": 26,
     "pixelRatio": 1,
-    "width": 20,
+    "width": 26,
     "x": 0,
     "y": 0,
     "sdf": true

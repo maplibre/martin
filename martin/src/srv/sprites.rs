@@ -60,7 +60,11 @@ async fn get_sprite_sdf_json(
     Ok(HttpResponse::Ok().json(sheet.get_index()))
 }
 
-async fn get_sprite(path: &SourceIDsRequest, sprites: &SpriteSources, as_sdf:bool) -> ActixResult<Spritesheet> {
+async fn get_sprite(
+    path: &SourceIDsRequest,
+    sprites: &SpriteSources,
+    as_sdf: bool,
+) -> ActixResult<Spritesheet> {
     sprites
         .get_sprites(&path.source_ids, as_sdf)
         .await

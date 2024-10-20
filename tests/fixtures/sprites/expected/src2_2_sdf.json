@@ -1,8 +1,8 @@
 {
   "bicycle": {
-    "height": 30,
+    "height": 36,
     "pixelRatio": 2,
-    "width": 30,
+    "width": 36,
     "x": 0,
     "y": 0,
     "sdf": true
