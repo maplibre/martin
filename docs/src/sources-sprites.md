@@ -41,14 +41,15 @@ the PNG, there is a high DPI version available at `/sprite/<sprite_id>@2x.json`.
 }
 ```
 
-##### Coloring at runtime via Sprite Signed Distance Fields (SDFs)
+##### Coloring at runtime via Signed Distance Fields (SDFs)
 
-If you want to set the color of a sprite at runtime, you will need use the [Signed Distance Fields (SDFs)](https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf)-endpoints instead.
-For example, maplibre does support the image being modified via the [`icon-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-color) and [`icon-halo-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-halo-color) properties.
-SDFs have the significant downside of only allowing one color and are thus not the default.
-If you want multiple colors, you will need to layer icons.
+If you want to set the color of a sprite at runtime, you will need use the [Signed Distance Fields (SDFs)](https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf)-endpoints.
+For example, maplibre does support the image being modified via the [`icon-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-color) and [`icon-halo-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-halo-color) properties if using SDFs.
 
-The following to  APIs are available:
+SDFs have the significant **downside of only allowing one color**.
+If you want multiple colors, you will need to layer icons on top of each other.
+
+The following APIs are available:
 - `/sprite/sdf/<sprite_id>.json` for getting a sprite index as SDF and
 - `/sprite/sdf/<sprite_id>.png` for getting sprite PNGs as SDF
 
