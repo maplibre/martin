@@ -1,6 +1,7 @@
 ## Sprite Sources
 
-Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays. The SVG filenames without extension will be used as the sprites' image IDs (remember that one sprite and thus `sprite_id` contains multiple images).
+Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays.
+The SVG filenames without extension will be used as the sprites' image IDs (remember that one sprite and thus `sprite_id` contains multiple images).
 The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs.
 For example `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
 
@@ -40,6 +41,17 @@ the PNG, there is a high DPI version available at `/sprite/<sprite_id>@2x.json`.
 }
 ```
 
+##### Coloring at runtime via Sprite Signed Distance Fields (SDFs)
+
+If you want to set the color of a sprite at runtime, you will need use the [Signed Distance Fields (SDFs)](https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf)-endpoints instead.
+For example, maplibre does support the image being modified via the [`icon-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-color) and [`icon-halo-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-halo-color) properties.
+SDFs have the significant downside of only allowing one color and are thus not the default.
+If you want multiple colors, you will need to layer icons.
+
+The following to  APIs are available:
+- `/sprite/sdf/<sprite_id>.json` for getting a sprite index as SDF and
+- `/sprite/sdf/<sprite_id>.png` for getting sprite PNGs as SDF
+
 #### Combining Multiple Sprites
 
 Multiple `sprite_id` values can be combined into one sprite with the same pattern as for tile
@@ -57,13 +69,6 @@ configuration to the config file.
 martin --sprite /path/to/sprite_a --sprite /path/to/other/sprite_b
 ```
 
-To use generate Signed Distance Fields (SDFs) images instead, the `--make_sdf` Option can be added.
-SDF Images allow their color to be set at runtime in the map rendering engine.
-
-```bash
-martin --sprite /path/to/sprite_a --sprite  /path/to/other/sprite_b --make_sdf
-```
-
 ### Configuring with Config File
 
 A sprite directory can be configured from the config file with the `sprite` key, similar to
@@ -78,10 +83,6 @@ sprites:
   sources:
     # SVG images in this directory will be published under the sprite_id "my_sprites"
     my_sprites: /path/to/some_dir
-  # Tells Martin to handle sprites as Signed Distance Fields (SDFs)
-  # SDF Images allow their color to be set at runtime in the map rendering engine.
-  # Defaults to `false`.
-  make_sdf: false
 ```
 
 The sprites are now avaliable at `/sprite/my_images,some_dir.png`/ ...

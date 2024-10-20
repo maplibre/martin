@@ -207,7 +207,6 @@ sprites:
   sources:
     # SVG images in this directory will be published as a "my_sprites" sprite source
     my_sprites: /path/to/some_dir
-  make_sdf: false
 
 # Font configuration
 fonts:
