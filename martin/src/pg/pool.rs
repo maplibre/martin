@@ -40,23 +40,26 @@ impl PgPool {
             .build()
             .map_err(|e| PostgresPoolBuildError(e, id.clone()))?;
 
-        let postgres_version = get_postgres_version(&pool, &id).await?;
-        if postgres_version < MINIMUM_POSTGRES_VER {
-            return Err(PostgresqlTooOld(postgres_version, MINIMUM_POSTGRES_VER));
+        let conn = get_conn(&pool, &id).await?;
+        let pg_ver = get_postgres_version(&conn).await?;
+        if pg_ver < MINIMUM_POSTGRES_VER {
+            return Err(PostgresqlTooOld(pg_ver, MINIMUM_POSTGRES_VER));
         }
-        if postgres_version < RECOMMENDED_POSTGRES_VER {
-            warn!("PostgreSQL {postgres_version} is before the recommended minimum of {RECOMMENDED_POSTGRES_VER}.");
-        }
-
-        let postgis_version = get_postgis_version(&pool, &id).await?;
-        if postgis_version < MINIMUM_POSTGIS_VER {
-            return Err(PostgisTooOld(postgis_version, MINIMUM_POSTGIS_VER));
-        }
-        if postgis_version < RECOMMENDED_POSTGIS_VER {
-            warn!("PostGIS {postgis_version} is before the recommended minimum of {RECOMMENDED_POSTGIS_VER}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
+        if pg_ver < RECOMMENDED_POSTGRES_VER {
+            warn!("PostgreSQL {pg_ver} is older than the recommended {RECOMMENDED_POSTGRES_VER}.");
         }
 
-        let margin = postgis_version >= RECOMMENDED_POSTGIS_VER;
+        let postgis_ver = get_postgis_version(&conn).await?;
+        if postgis_ver < MINIMUM_POSTGIS_VER {
+            return Err(PostgisTooOld(postgis_ver, MINIMUM_POSTGIS_VER));
+        }
+        let margin = postgis_ver >= RECOMMENDED_POSTGIS_VER;
+        if !margin {
+            warn!("PostGIS {postgis_ver} is older than the recommended {RECOMMENDED_POSTGIS_VER}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
+        }
+
+        info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
+
         Ok(Self { id, pool, margin })
     }
 
@@ -111,42 +114,23 @@ impl PgPool {
     }
 }
 
-/// parses the [postgis version](https://postgis.net/docs/PostGIS_Lib_Version.html)
-async fn get_postgis_version(pool: &Pool, id: &str) -> PgResult<Version> {
-    let version: String = get_conn(pool, id)
-        .await?
-        .query_one(
-            r"
-    SELECT
-    (regexp_matches(
-           PostGIS_Lib_Version(),
-           '^(\d+\.\d+\.\d+)',
-           'g'
-    ))[1] as version;
-                ",
-            &[],
-        )
+async fn get_conn(pool: &Pool, id: &str) -> PgResult<Object> {
+    pool.get()
         .await
-        .map(|row| row.get("version"))
-        .map_err(|e| PostgresError(e, "querying postgis version"))?;
-    let version: Version = version.parse().map_err(|e| BadPostgisVersion(e, version))?;
-    Ok(version)
+        .map_err(|e| PostgresPoolConnError(e, id.to_string()))
 }
 
-/// parses the [postgres version](https://www.postgresql.org/support/versioning/)
-/// Postgres does have Major.Minor versioning natively, so we "halucinate" a .Patch
-async fn get_postgres_version(pool: &Pool, id: &str) -> PgResult<Version> {
-    let version: String = get_conn(pool, id)
-        .await?
+/// Get [PostgreSQL version](https://www.postgresql.org/support/versioning/).
+/// `PostgreSQL` only has a Major.Minor versioning, so we use 0 the patch version
+async fn get_postgres_version(conn: &Object) -> PgResult<Version> {
+    let version: String = conn
         .query_one(
             r"
-SELECT
-    (regexp_matches(
+SELECT (regexp_matches(
            current_setting('server_version'),
            '^(\d+\.\d+)',
            'g'
-    ))[1] || '.0' as version;
-                ",
+       ))[1] || '.0' as version;",
             &[],
         )
         .await
@@ -156,13 +140,29 @@ SELECT
     let version: Version = version
         .parse()
         .map_err(|e| BadPostgresVersion(e, version))?;
+
     Ok(version)
 }
 
-async fn get_conn(pool: &Pool, id: &str) -> PgResult<Object> {
-    pool.get()
+/// Get [PostGIS version](https://postgis.net/docs/PostGIS_Lib_Version.html)
+async fn get_postgis_version(conn: &Object) -> PgResult<Version> {
+    let version: String = conn
+        .query_one(
+            r"
+SELECT (regexp_matches(
+           PostGIS_Lib_Version(),
+           '^(\d+\.\d+\.\d+)',
+           'g'
+       ))[1] as version;",
+            &[],
+        )
         .await
-        .map_err(|e| PostgresPoolConnError(e, id.to_string()))
+        .map(|row| row.get("version"))
+        .map_err(|e| PostgresError(e, "querying postgis version"))?;
+
+    let version: Version = version.parse().map_err(|e| BadPostgisVersion(e, version))?;
+
+    Ok(version)
 }
 
 #[cfg(test)]
@@ -171,8 +171,8 @@ mod tests {
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
-    use testcontainers_modules::testcontainers::runners::AsyncRunner;
-    use testcontainers_modules::testcontainers::ImageExt;
+    use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+    use testcontainers_modules::testcontainers::ImageExt as _;
 
     #[tokio::test]
     async fn parse_version() -> anyhow::Result<()> {
@@ -181,6 +181,7 @@ mod tests {
             .with_tag("11-3.0") // purposely very old and stable
             .start()
             .await?;
+
         let pg_config = Config::new()
             .host(node.get_host().await?.to_string())
             .port(node.get_host_port_ipv4(5432).await?)
@@ -188,19 +189,25 @@ mod tests {
             .user("postgres")
             .password("postgres")
             .to_owned();
+
         let mgr_config = ManagerConfig {
             recycling_method: RecyclingMethod::Fast,
         };
+
         let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
-        let pool = Pool::builder(mgr).max_size(2).build().unwrap();
-        let pg_version = get_postgres_version(&pool, "test").await?;
+        let pool = Pool::builder(mgr).max_size(2).build()?;
+        let conn = pool.get().await?;
+
+        let pg_version = get_postgres_version(&conn).await?;
         assert_eq!(pg_version.major, 11);
         assert!(pg_version.minor >= 10); // we don't want to break this testcase just because postgis updates that image
         assert_eq!(pg_version.patch, 0);
-        let postgis_version = get_postgis_version(&pool, "test").await?;
+
+        let postgis_version = get_postgis_version(&conn).await?;
         assert_eq!(postgis_version.major, 3);
         assert_eq!(postgis_version.minor, 0);
         assert!(postgis_version.patch >= 3); // we don't want to break this testcase just because postgis updates that image
+
         Ok(())
     }
 }
