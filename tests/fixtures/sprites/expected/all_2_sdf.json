@@ -1,0 +1,34 @@
+{
+  "another_bicycle": {
+    "height": 36,
+    "pixelRatio": 2,
+    "width": 36,
+    "x": 84,
+    "y": 0,
+    "sdf": true
+  },
+  "bear": {
+    "height": 38,
+    "pixelRatio": 2,
+    "width": 38,
+    "x": 46,
+    "y": 0,
+    "sdf": true
+  },
+  "bicycle": {
+    "height": 36,
+    "pixelRatio": 2,
+    "width": 36,
+    "x": 84,
+    "y": 36,
+    "sdf": true
+  },
+  "sub/circle": {
+    "height": 46,
+    "pixelRatio": 2,
+    "width": 46,
+    "x": 0,
+    "y": 0,
+    "sdf": true
+  }
+}
