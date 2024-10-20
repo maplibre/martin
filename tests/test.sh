@@ -172,6 +172,7 @@ validate_log() {
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
   remove_line "$LOG_FILE" 'Source IDs must be unique'
+  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended 12.0.0'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then

@@ -24,8 +24,9 @@ static DEFAULT_CLIP_GEOM: bool = true;
 
 /// Examine a database to get a list of all tables that have geometry columns.
 pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
-    let conn = pool.get().await?;
-    let rows = conn
+    let rows = pool
+        .get()
+        .await?
         .query(include_str!("scripts/query_available_tables.sql"), &[])
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;

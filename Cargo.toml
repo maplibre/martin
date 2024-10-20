@@ -34,7 +34,7 @@ anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.8"
-brotli = ">=5, <7"
+brotli = ">=5, <8"
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
@@ -83,6 +83,7 @@ sqlite-hashes = { version = "0.7.6", default-features = false, features = ["md5"
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
+testcontainers-modules = { version = "0.11.3", features = ["postgres"] }
 thiserror = "1"
 tile-grid = "0.6"
 tilejson = "0.4"
