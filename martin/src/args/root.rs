@@ -59,12 +59,6 @@ pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
     pub sprite: Vec<PathBuf>,
-    /// Tells Martin to handle sprites as Signed Distance Fields (SDFs)
-    /// SDF Images allow their color to be set at runtime in the map rendering engine.
-    ///
-    /// Defaults to `false`.
-    #[arg(long)]
-    pub make_sdf: bool,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
     pub font: Vec<PathBuf>,
@@ -115,14 +109,7 @@ impl Args {
 
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
-            config.sprites = FileConfigEnum::new_extended(
-                self.extras.sprite,
-                std::collections::BTreeMap::new(),
-                crate::sprites::SpriteConfig {
-                    make_sdf: self.extras.make_sdf,
-                    ..Default::default()
-                },
-            );
+            config.sprites = FileConfigEnum::new(self.extras.sprite);
         }
 
         if !self.extras.font.is_empty() {

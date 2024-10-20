@@ -60,11 +60,6 @@ pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SpriteConfig {
-    /// Tells Martin to handle sprites as Signed Distance Fields (SDFs)
-    /// SDF Images allow their color to be set at runtime in the map rendering engine.
-    ///
-    /// Defaults to `false`.
-    pub make_sdf: bool,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -78,11 +73,6 @@ impl ConfigExtras for SpriteConfig {
 #[derive(Debug, Clone, Default)]
 pub struct SpriteSources {
     sources: HashMap<String, SpriteSource>,
-    /// Tells Martin to handle sprites as Signed Distance Fields (SDFs)
-    /// SDF Images allow their color to be set at runtime in the map rendering engine.
-    ///
-    /// Defaults to `false`.
-    make_sdf: bool,
 }
 
 impl SpriteSources {
@@ -91,10 +81,7 @@ impl SpriteSources {
             return Ok(Self::default());
         };
 
-        let mut results = Self {
-            make_sdf: cfg.custom.make_sdf,
-            ..Default::default()
-        };
+        let mut results = Self::default();
         let mut directories = Vec::new();
         let mut configs = BTreeMap::new();
 
@@ -161,7 +148,7 @@ impl SpriteSources {
 
     /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
     /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
-    pub async fn get_sprites(&self, ids: &str) -> SpriteResult<Spritesheet> {
+    pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> SpriteResult<Spritesheet> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
         } else {
@@ -177,7 +164,7 @@ impl SpriteSources {
             })
             .collect::<SpriteResult<Vec<_>>>()?;
 
-        get_spritesheet(sprite_ids.into_iter(), dpi, self.make_sdf).await
+        get_spritesheet(sprite_ids.into_iter(), dpi, as_sdf).await
     }
 }
 
@@ -209,7 +196,7 @@ async fn parse_sprite(
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
-    make_sdf: bool,
+    as_sdf: bool,
 ) -> SpriteResult<Spritesheet> {
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
@@ -224,7 +211,7 @@ pub async fn get_spritesheet(
     }
     let sprites = try_join_all(futures).await?;
     let mut builder = SpritesheetBuilder::new();
-    if make_sdf {
+    if as_sdf {
         builder.make_sdf();
     }
     builder.sprites(sprites.into_iter().collect());
