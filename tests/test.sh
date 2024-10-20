@@ -339,7 +339,8 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
 >&2 echo "Test catalog"
-test_jsn catalog_cfg catalog
+test_jsn catalog_cfg  catalog
+test_jsn cmp          table_source,points1,points2
 
 # Test tile sources
 test_pbf tbl_0_0_0    table_source/0/0/0
