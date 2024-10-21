@@ -114,7 +114,9 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         .service(get_tile);
 
     #[cfg(feature = "sprites")]
-    cfg.service(crate::srv::sprites::get_sprite_json)
+    cfg.service(crate::srv::sprites::get_sprite_sdf_json)
+        .service(crate::srv::sprites::get_sprite_json)
+        .service(crate::srv::sprites::get_sprite_sdf_png)
         .service(crate::srv::sprites::get_sprite_png);
 
     #[cfg(feature = "fonts")]
