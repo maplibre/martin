@@ -51,8 +51,8 @@ If you want multiple colors, you will need to layer icons on top of each other.
 
 The following APIs are available:
 
-- `/sprite/sdf/<sprite_id>.json` for getting a sprite index as SDF and
-- `/sprite/sdf/<sprite_id>.png` for getting sprite PNGs as SDF
+- `/sdf_sprite/<sprite_id>.json` for getting a sprite index as SDF and
+- `/sdf_sprite/<sprite_id>.png` for getting sprite PNGs as SDF
 
 #### Combining Multiple Sprites
 

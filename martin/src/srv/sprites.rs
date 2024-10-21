@@ -21,7 +21,7 @@ async fn get_sprite_png(
         .body(sheet.encode_png().map_err(map_internal_error)?))
 }
 
-#[route("/sprite/sdf/{source_ids}.png", method = "GET", method = "HEAD")]
+#[route("/sdf_sprite/{source_ids}.png", method = "GET", method = "HEAD")]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -47,7 +47,7 @@ async fn get_sprite_json(
 }
 
 #[route(
-    "/sprite/sdf/{source_ids}.json",
+    "/sdf_sprite/{source_ids}.json",
     method = "GET",
     method = "HEAD",
     wrap = "middleware::Compress::default()"
