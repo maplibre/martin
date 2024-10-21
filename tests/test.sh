@@ -205,7 +205,7 @@ LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -280,6 +280,37 @@ test_jsn mb_png       geography-class-png
 test_png mb_png_0_0_0 geography-class-png/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
+
+>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
+test_jsn rgb_u8       rgb_u8
+test_png rgb_u8_0_0_0 rgb_u8/0/0/0
+test_png rgb_u8_3_0_0 rgb_u8/3/0/0
+test_png rgb_u8_3_1_1 rgb_u8/3/1/1
+
+test_jsn rgb_u16       rgb_u16
+test_png rgb_u16_0_0_0 rgb_u16/0/0/0
+test_png rgb_u16_2_0_0 rgb_u16/2/0/0
+test_png rgb_u16_2_1_1 rgb_u16/2/1/1
+
+test_png gray_u8_0_0_0 gray_u8/0/0/0
+test_png gray_u8_2_0_0 gray_u8/2/0/0
+test_png gray_u8_2_1_1 gray_u8/2/1/1
+
+test_png gray_u16_0_0_0 gray_u16/0/0/0
+test_png gray_u16_2_0_0 gray_u16/2/0/0
+test_png gray_u16_2_1_1 gray_u16/2/1/1
+
+test_png gray_u32_0_0_0 gray_u32/0/0/0
+test_png gray_u32_2_0_0 gray_u32/2/0/0
+test_png gray_u32_2_1_1 gray_u32/2/1/1
+
+test_png gray_f32_0_0_0 gray_f32/0/0/0
+test_png gray_f32_2_0_0 gray_f32/2/0/0
+test_png gray_f32_2_1_1 gray_f32/2/1/1
+
+test_png gray_f64_0_0_0 gray_f64/0/0/0
+test_png gray_f64_2_0_0 gray_f64/2/0/0
+test_png gray_f64_2_1_1 gray_f64/2/1/1
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0

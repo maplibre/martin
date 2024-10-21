@@ -1,0 +1,1 @@
+tests/output/auto/gray_u16_2_0_0.png: PNG image data, 256 x 256, 16-bit gray+alpha, non-interlaced

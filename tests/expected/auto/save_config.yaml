@@ -216,6 +216,7 @@ pmtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
+  - tests/fixtures/cog
   sources:
     png: tests/fixtures/pmtiles/png.pmtiles
     stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
@@ -224,6 +225,7 @@ mbtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
+  - tests/fixtures/cog
   sources:
     geography-class-jpg: tests/fixtures/mbtiles/geography-class-jpg.mbtiles
     geography-class-jpg-diff: tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles
@@ -237,6 +239,19 @@ mbtiles:
     world_cities_diff: tests/fixtures/mbtiles/world_cities_diff.mbtiles
     world_cities_modified: tests/fixtures/mbtiles/world_cities_modified.mbtiles
     zoomed_world_cities: tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
+cog:
+  paths:
+  - tests/fixtures/mbtiles
+  - tests/fixtures/pmtiles
+  - tests/fixtures/cog
+  sources:
+    gray_f32: tests/fixtures/cog/gray_f32.tif
+    gray_f64: tests/fixtures/cog/gray_f64.tif
+    gray_u16: tests/fixtures/cog/gray_u16.tif
+    gray_u32: tests/fixtures/cog/gray_u32.tif
+    gray_u8: tests/fixtures/cog/gray_u8.tif
+    rgb_u16: tests/fixtures/cog/rgb_u16.tif
+    rgb_u8: tests/fixtures/cog/rgb_u8.tif
 sprites: tests/fixtures/sprites/src1
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
