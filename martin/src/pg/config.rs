@@ -94,6 +94,20 @@ pub struct PgCfgPublishFuncs {
 
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
+    pub fn validate(&self) -> PgResult<()> {
+        if let Some(pool_size) = self.pool_size() {
+            if pool_size < 1{
+                return Err("pool_size must be greater than or equal to 1.".into());
+            }
+        }
+        if self.connection_string.is_none() {
+                return Err("A connection string must be provided.".into());
+        }
+
+        Ok(())
+    }
+        
+    
     pub fn finalize(&mut self) -> PgResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         if let Some(ref ts) = self.tables {
@@ -110,10 +124,12 @@ impl PgConfig {
             self.auto_publish = OptBoolObj::Bool(true);
         }
 
+        self.validate()?;
         Ok(res)
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<TileInfoSources> {
+        self.validate()?;
         let pg = PgBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
