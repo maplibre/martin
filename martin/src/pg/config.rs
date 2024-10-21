@@ -13,10 +13,10 @@ use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::utils::on_slow;
 use crate::pg::PgResult;
+use crate::pg::PgError;
 use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
 use crate::MartinResult;
-use crate::pg::PgError;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
