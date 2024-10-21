@@ -95,19 +95,22 @@ pub struct PgCfgPublishFuncs {
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn validate(&self) -> PgResult<()> {
-        if let Some(pool_size) = self.pool_size() {
-            if pool_size < 1{
-                return Err("pool_size must be greater than or equal to 1.".into());
+        if let Some(pool_size) = self.pool_size {
+            if pool_size < 1 {
+                return Err(PgError::ValidationError(
+                    "pool_size must be greater than or equal to 1.".to_string(),
+                ));
             }
         }
         if self.connection_string.is_none() {
-                return Err("A connection string must be provided.".into());
+            return Err(PgError::ValidationError(
+                "A connection string must be provided.".to_string(),
+            ));
         }
 
         Ok(())
     }
-        
-    
+
     pub fn finalize(&mut self) -> PgResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         if let Some(ref ts) = self.tables {
