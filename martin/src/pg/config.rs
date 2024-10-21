@@ -16,6 +16,7 @@ use crate::pg::PgResult;
 use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
 use crate::MartinResult;
+use crate::pg::PgError;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
