@@ -188,10 +188,11 @@ async fn parse_sprite(
         .map_err(|e| SpriteParsingError(e, path.clone()))?;
 
     let sprite = if as_sdf {
-        Sprite::new_sdf(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?
+        Sprite::new_sdf(tree, pixel_ratio)
     } else {
-        Sprite::new(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?
+        Sprite::new(tree, pixel_ratio)
     };
+    let sprite = sprite.ok_or_else(|| SpriteInstError(path.clone()))?;
 
     Ok((name, sprite))
 }
