@@ -33,6 +33,8 @@ pub struct PgPool {
 
 impl PgPool {
     pub async fn new(config: &PgConfig) -> PgResult<Self> {
+        config.validate()?;
+
         let (id, mgr) = Self::parse_config(config)?;
 
         let pool = Pool::builder(mgr)
