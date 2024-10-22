@@ -357,18 +357,30 @@ test_png pmt_0_0_0    pmt/0/0/0
 test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
 # Test sprites
-test_jsn spr_src1     sprite/src1.json
-test_png spr_src1     sprite/src1.png
-test_jsn spr_src1_2x  sprite/src1@2x.json
-test_png spr_src1_2x  sprite/src1@2x.png
-test_jsn spr_mysrc    sprite/mysrc.json
-test_png spr_mysrc    sprite/mysrc.png
-test_jsn spr_mysrc_2x sprite/mysrc@2x.json
-test_png spr_mysrc_2x sprite/mysrc@2x.png
-test_jsn spr_cmp      sprite/src1,mysrc.json
-test_png spr_cmp      sprite/src1,mysrc.png
-test_jsn spr_cmp_2x   sprite/src1,mysrc@2x.json
-test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
+test_jsn spr_src1      sprite/src1.json
+test_jsn sdf_spr_src1  sdf_sprite/src1.json
+test_png spr_src1      sprite/src1.png
+test_png sdf_spr_src1  sdf_sprite/src1.png
+test_jsn spr_src1_2x   sprite/src1@2x.json
+test_jsn sdf_spr_src1_ sdf_sprite/src1@2x.json
+test_png spr_src1_2x   sprite/src1@2x.png
+test_png sdf_spr_src1_ sdf_sprite/src1@2x.png
+test_jsn spr_mysrc     sprite/mysrc.json
+test_jsn sdf_spr_mysrc sdf_sprite/mysrc.json
+test_png spr_mysrc     sprite/mysrc.png
+test_png sdf_spr_mysrc sdf_sprite/mysrc.png
+test_jsn spr_mysrc_2x  sprite/mysrc@2x.json
+test_jsn sdf_spr_mysrc sdf_sprite/mysrc@2x.json
+test_png spr_mysrc_2x  sprite/mysrc@2x.png
+test_png sdf_spr_mysrc sdf_sprite/mysrc@2x.png
+test_jsn spr_cmp       sprite/src1,mysrc.json
+test_jsn sdf_spr_cmp   sdf_sprite/src1,mysrc.json
+test_png spr_cmp       sprite/src1,mysrc.png
+test_png sdf_spr_cmp   sdf_sprite/src1,mysrc.png
+test_jsn spr_cmp_2x    sprite/src1,mysrc@2x.json
+test_jsn sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.json
+test_png spr_cmp_2x    sprite/src1,mysrc@2x.png
+test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
 
 # Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255
