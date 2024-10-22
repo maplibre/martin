@@ -4289,9 +4289,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-compressions"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "556f9a7149983ee0d6708f1d65a5bf30e81f560d3713b3a1e64b2e512cdd7364"
+checksum = "e5a4d4aaf917cb6dc0758159f2ade412b62587dd85da48671d48702c607f0d5b"
 dependencies = [
  "bsdiff",
  "flate2",
