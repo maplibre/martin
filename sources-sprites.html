@@ -180,7 +180,8 @@
                 <div id="content" class="content">
                     <main>
                         <h2 id="sprite-sources"><a class="header" href="#sprite-sources">Sprite Sources</a></h2>
-<p>Given a directory with SVG images, Martin will generate a sprite – a JSON index and a PNG image, for both low and highresolution displays. The SVG filenames without extension will be used as the sprites’ image IDs (remember that one sprite and thus <code>sprite_id</code> contains multiple images).
+<p>Given a directory with SVG images, Martin will generate a sprite – a JSON index and a PNG image, for both low and highresolution displays.
+The SVG filenames without extension will be used as the sprites’ image IDs (remember that one sprite and thus <code>sprite_id</code> contains multiple images).
 The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs.
 For example <code>icons/bicycle.svg</code> will be available as <code>icons/bicycle</code> sprite image.</p>
 <p>The sprite generation is not yet cached, and may require external reverse proxy or CDN for faster operation.
@@ -208,6 +209,16 @@ the PNG, there is a high DPI version available at <code>/sprite/&lt;sprite_id&gt
   ...
 }
 </code></pre>
+<h5 id="coloring-at-runtime-via-signed-distance-fields-sdfs"><a class="header" href="#coloring-at-runtime-via-signed-distance-fields-sdfs">Coloring at runtime via Signed Distance Fields (SDFs)</a></h5>
+<p>If you want to set the color of a sprite at runtime, you will need use the <a href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf">Signed Distance Fields (SDFs)</a>-endpoints.
+For example, maplibre does support the image being modified via the <a href="https://maplibre.org/maplibre-style-spec/layers/#icon-color"><code>icon-color</code></a> and <a href="https://maplibre.org/maplibre-style-spec/layers/#icon-halo-color"><code>icon-halo-color</code></a> properties if using SDFs.</p>
+<p>SDFs have the significant <strong>downside of only allowing one color</strong>.
+If you want multiple colors, you will need to layer icons on top of each other.</p>
+<p>The following APIs are available:</p>
+<ul>
+<li><code>/sdf_sprite/&lt;sprite_id&gt;.json</code> for getting a sprite index as SDF and</li>
+<li><code>/sdf_sprite/&lt;sprite_id&gt;.png</code> for getting sprite PNGs as SDF</li>
+</ul>
 <h4 id="combining-multiple-sprites"><a class="header" href="#combining-multiple-sprites">Combining Multiple Sprites</a></h4>
 <p>Multiple <code>sprite_id</code> values can be combined into one sprite with the same pattern as for tile
 joining:  <code>/sprite/&lt;sprite_id1&gt;,&lt;sprite_id2&gt;,...,&lt;sprite_idN&gt;</code>. No ID renaming is done, so identical sprite names will
