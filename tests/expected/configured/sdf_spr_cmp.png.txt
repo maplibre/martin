@@ -1,0 +1,1 @@
+tests/output/configured/sdf_spr_cmp.png: PNG image data, 48 x 47, 8-bit gray+alpha, non-interlaced

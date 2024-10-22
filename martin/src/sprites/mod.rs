@@ -146,7 +146,7 @@ impl SpriteSources {
 
     /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
     /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
-    pub async fn get_sprites(&self, ids: &str) -> SpriteResult<Spritesheet> {
+    pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> SpriteResult<Spritesheet> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
         } else {
@@ -162,7 +162,7 @@ impl SpriteSources {
             })
             .collect::<SpriteResult<Vec<_>>>()?;
 
-        get_spritesheet(sprite_ids.into_iter(), dpi).await
+        get_spritesheet(sprite_ids.into_iter(), dpi, as_sdf).await
     }
 }
 
@@ -175,6 +175,7 @@ async fn parse_sprite(
     name: String,
     path: PathBuf,
     pixel_ratio: u8,
+    as_sdf: bool,
 ) -> SpriteResult<(String, Sprite)> {
     let on_err = |e| SpriteError::IoError(e, path.clone());
 
@@ -186,7 +187,12 @@ async fn parse_sprite(
     let tree = Tree::from_data(&buffer, &Options::default())
         .map_err(|e| SpriteParsingError(e, path.clone()))?;
 
-    let sprite = Sprite::new(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?;
+    let sprite = if as_sdf {
+        Sprite::new_sdf(tree, pixel_ratio)
+    } else {
+        Sprite::new(tree, pixel_ratio)
+    };
+    let sprite = sprite.ok_or_else(|| SpriteInstError(path.clone()))?;
 
     Ok((name, sprite))
 }
@@ -194,6 +200,7 @@ async fn parse_sprite(
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
+    as_sdf: bool,
 ) -> SpriteResult<Spritesheet> {
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
@@ -203,11 +210,14 @@ pub async fn get_spritesheet(
         for path in paths {
             let name = sprite_name(&path, &source.path)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
-            futures.push(parse_sprite(name, path, pixel_ratio));
+            futures.push(parse_sprite(name, path, pixel_ratio, as_sdf));
         }
     }
     let sprites = try_join_all(futures).await?;
     let mut builder = SpritesheetBuilder::new();
+    if as_sdf {
+        builder.make_sdf();
+    }
     builder.sprites(sprites.into_iter().collect());
 
     // TODO: decide if this is needed and/or configurable
@@ -234,24 +244,32 @@ mod tests {
         let sprites = SpriteSources::resolve(&mut cfg).unwrap().0;
         assert_eq!(sprites.len(), 2);
 
-        test_src(sprites.values(), 1, "all_1").await;
-        test_src(sprites.values(), 2, "all_2").await;
+        //.sdf => generate sdf from png, add sdf == true
+        //- => does not generate sdf, omits sdf == true
+        for extension in ["_sdf", ""] {
+            test_src(sprites.values(), 1, "all_1", extension).await;
+            test_src(sprites.values(), 2, "all_2", extension).await;
 
-        test_src(sprites.get("src1").into_iter(), 1, "src1_1").await;
-        test_src(sprites.get("src1").into_iter(), 2, "src1_2").await;
+            test_src(sprites.get("src1").into_iter(), 1, "src1_1", extension).await;
+            test_src(sprites.get("src1").into_iter(), 2, "src1_2", extension).await;
 
-        test_src(sprites.get("src2").into_iter(), 1, "src2_1").await;
-        test_src(sprites.get("src2").into_iter(), 2, "src2_2").await;
+            test_src(sprites.get("src2").into_iter(), 1, "src2_1", extension).await;
+            test_src(sprites.get("src2").into_iter(), 2, "src2_2", extension).await;
+        }
     }
 
     async fn test_src(
         sources: impl Iterator<Item = &SpriteSource>,
         pixel_ratio: u8,
         filename: &str,
+        extension: &str,
     ) {
-        let path = PathBuf::from(format!("../tests/fixtures/sprites/expected/{filename}"));
-
-        let sprites = get_spritesheet(sources, pixel_ratio).await.unwrap();
+        let path = PathBuf::from(format!(
+            "../tests/fixtures/sprites/expected/{filename}{extension}"
+        ));
+        let sprites = get_spritesheet(sources, pixel_ratio, extension == "_sdf")
+            .await
+            .unwrap();
         let mut json = serde_json::to_string_pretty(sprites.get_index()).unwrap();
         json.push('\n');
         let png = sprites.encode_png().unwrap();
