@@ -98,15 +98,11 @@ impl PgConfig {
     pub fn validate(&self) -> PgResult<()> {
         if let Some(pool_size) = self.pool_size {
             if pool_size < 1 {
-                return Err(PgError::ValidationError(
-                    "pool_size must be greater than or equal to 1.".to_string(),
-                ));
+                return Err(PgError::ConfigError("pool_size must be greater than or equal to 1."));
             }
         }
         if self.connection_string.is_none() {
-            return Err(PgError::ValidationError(
-                "A connection string must be provided.".to_string(),
-            ));
+            return Err(PgError::ConfigError("A connection string must be provided."));
         }
 
         Ok(())
@@ -133,7 +129,6 @@ impl PgConfig {
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<TileInfoSources> {
-        self.validate()?;
         let pg = PgBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
