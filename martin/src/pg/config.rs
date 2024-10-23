@@ -100,13 +100,13 @@ impl PgConfig {
             if pool_size < 1 {
                 return Err(PgError::ConfigError(
                         "pool_size must be greater than or equal to 1.",
-                        ));
+                ));
             }
         }
         if self.connection_string.is_none() {
             return Err(PgError::ConfigError(
                     "A connection string must be provided.",
-                    ));
+            ));
         }
 
         Ok(())
