@@ -216,7 +216,7 @@ impl Mbtiles {
                 ),
                 Some(format!(
                     "
-    INSERT {on_duplicate} INTO images (tile_id, tile_data)
+    INSERT OR IGNORE INTO images (tile_id, tile_data)
     VALUES (md5_hex(?1), ?1);"
                 )),
             ),
