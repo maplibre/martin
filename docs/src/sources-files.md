@@ -17,18 +17,18 @@ Martin supports authenticated S3 sources using environment variables.
 
 Environment variables that need to be set:
 
-- AWS_REGION
+- `AWS_REGION`
 
 By default, the credentials try for default profile or environment variables. Environment variables that can to be set:
 
-- AWS_ACCESS_KEY_ID
-- AWS_SECRET_ACCESS_KEY
-- AWS_SESSION_TOKEN
-- AWS_PROFILE (to specify profile instead of access key variables)
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SESSION_TOKEN`
+- `AWS_PROFILE` (to specify profile instead of access key variables)
 
 Example configuration:
 
-```
+```yaml
 pmtiles:
   sources:
     tiles: s3://bucket/path/to/tiles.pmtiles
