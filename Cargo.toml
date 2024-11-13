@@ -33,7 +33,6 @@ actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
-aws-sdk-s3 = "1.46.0"
 aws-config = { version = "1.5.10", features = ["behavior-version-latest"] }
 bit-set = "0.8"
 brotli = ">=5, <8"
