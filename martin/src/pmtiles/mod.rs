@@ -308,7 +308,14 @@ impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadat
 
 impl PmtS3Source {
     pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
-        let client = S3Client::new(&aws_config::load_from_env().await);
+        // Construct AWS SDK client
+        // If one wishes to use anonymous requests, set the AWS_NO_CREDENTIALS=1 env variable.
+        let client = if std::env::var("AWS_NO_CREDENTIALS").unwrap_or_default() == "1" {
+            S3Client::new(&aws_config::from_env().no_credentials().load().await)
+        } else {
+            S3Client::new(&aws_config::load_from_env().await)
+        };
+
         let bucket = url
             .host_str()
             .ok_or_else(|| {
