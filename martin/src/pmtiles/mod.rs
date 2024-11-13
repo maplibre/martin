@@ -1,21 +1,21 @@
 use std::convert::identity;
 use std::fmt::{Debug, Formatter};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
-use std::io;
 
 use async_trait::async_trait;
-use log::{info, trace, warn};
+use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
+use pmtiles::aws_sdk_s3::Client as S3Client;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
-use pmtiles::{Compression, Directory, HttpBackend, MmapBackend, AwsS3Backend, TileType};
+use pmtiles::{AwsS3Backend, Compression, Directory, HttpBackend, MmapBackend, TileType};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
-use pmtiles::aws_sdk_s3::Client as S3Client;
 use url::Url;
 
 use crate::config::UnrecognizedValues;
@@ -309,14 +309,20 @@ impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadat
 impl PmtS3Source {
     pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
         let client = S3Client::new(&aws_config::load_from_env().await);
-        let bucket = url.host_str().ok_or_else(|| FileError::S3SourceError(format!("failed to parse bucket name from {url}")))?.to_string();
+        let bucket = url
+            .host_str()
+            .ok_or_else(|| {
+                FileError::S3SourceError(format!("failed to parse bucket name from {url}"))
+            })?
+            .to_string();
 
         // Strip leading '/' from key
         let key = url.path()[1..].to_string();
 
         let reader =
             AsyncPmTilesReader::new_with_cached_client_bucket_and_path(cache, client, bucket, key)
-                .await.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+                .await
+                .map_err(|e| FileError::PmtError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
