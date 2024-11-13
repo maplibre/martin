@@ -76,6 +76,8 @@ jobs:
           cargo test --doc
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+          AWS_NO_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
 
   docker-build-test:
     name: Build and test docker images
@@ -517,6 +519,8 @@ jobs:
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+          AWS_NO_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
