@@ -4,19 +4,18 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
-use std::{env, io};
+use std::io;
 
 use async_trait::async_trait;
-use log::{trace, warn};
+use log::{info, trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
-use pmtiles::s3::creds::Credentials;
-use pmtiles::s3::Bucket;
-use pmtiles::{Compression, Directory, HttpBackend, MmapBackend, S3Backend, TileType};
+use pmtiles::{Compression, Directory, HttpBackend, MmapBackend, AwsS3Backend, TileType};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
+use pmtiles::aws_sdk_s3::Client as S3Client;
 use url::Url;
 
 use crate::config::UnrecognizedValues;
@@ -305,33 +304,19 @@ impl PmtHttpSource {
     }
 }
 
-impl_pmtiles_source!(PmtS3Source, S3Backend, Url, identity, InvalidUrlMetadata);
+impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadata);
 
 impl PmtS3Source {
     pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
-        let bucket_name = url.host_str().ok_or_else(|| FileError::S3SourceError(format!("failed to parse bucket name from {url}")))?;
+        let client = S3Client::new(&aws_config::load_from_env().await);
+        let bucket = url.host_str().ok_or_else(|| FileError::S3SourceError(format!("failed to parse bucket name from {url}")))?.to_string();
 
-        // Try to get profile from AWS_PROFILE environment variable first,
-        // then proceed to try Credentials::default() that attempts default profile or environment variables.
-        let credentials = {
-            let profile = env::var("AWS_PROFILE").ok();
-
-            let mut credentials = Credentials::new(None,None,None,None, profile.as_deref());
-            if credentials.is_err() {
-                credentials = Credentials::default();
-            }
-            credentials
-        }.map_err(|_| FileError::S3SourceError(format!("failed to read AWS credentials")))?;
-
-        let region: String =
-            env::var("AWS_REGION").map_err(|_| FileError::S3SourceError(format!("failed to read AWS_REGION environment variable")))?;
-        let bucket = Bucket::new(bucket_name, region.parse().map_err(|_| FileError::S3SourceError(format!("failed to parse region")))? , credentials)
-            .map_err(|_| FileError::S3SourceError(format!("failed to instantiate bucket for {url}")))?;
+        // Strip leading '/' from key
+        let key = url.path()[1..].to_string();
 
         let reader =
-            AsyncPmTilesReader::new_with_cached_bucket_path(cache, bucket, url.path().to_owned())
-                .await;
-        let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+            AsyncPmTilesReader::new_with_cached_client_bucket_and_path(cache, client, bucket, key)
+                .await.map_err(|e| FileError::PmtError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }

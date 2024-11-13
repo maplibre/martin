@@ -33,6 +33,8 @@ actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
+aws-sdk-s3 = "1.46.0"
+aws-config = { version = "1.5.10", features = ["behavior-version-latest"] }
 bit-set = "0.8"
 brotli = ">=5, <8"
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
@@ -58,7 +60,7 @@ md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.1", features = ["freetype"] }
-pmtiles = { version = "0.11", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "s3-async-rustls"] }
+pmtiles = { version = "0.11", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
