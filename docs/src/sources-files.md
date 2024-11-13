@@ -22,7 +22,7 @@ By default, the credentials try for default profile or environment variables. En
 - `AWS_SESSION_TOKEN`
 - `AWS_PROFILE` (to specify profile instead of access key variables)
 
-For more information on AWS credentials, see (documentation)[https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html].
+For more information on AWS credentials, see [documentation](https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html).
 
 Example configuration:
 
