@@ -69,7 +69,7 @@ jobs:
         uses: actions-rs/grcov@v0.1
 
       - name: Codecov upload
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ${{ steps.coverage.outputs.report }}
         env:
