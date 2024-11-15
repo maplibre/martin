@@ -16,7 +16,6 @@ fn init() {
 async fn table_source() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     assert_yaml_snapshot!(mock.0.tiles.get_catalog(), @r#"
-    ---
     "-function.withweired---_-characters":
       content_type: application/x-protobuf
       description: a function source with special characters
@@ -91,8 +90,7 @@ async fn table_source() {
     "#);
 
     let source = table(&mock, "table_source");
-    assert_yaml_snapshot!(source, @r###"
-    ---
+    assert_yaml_snapshot!(source, @r"
     schema: public
     table: table_source
     srid: 4326
@@ -105,15 +103,14 @@ async fn table_source() {
     geometry_type: GEOMETRY
     properties:
       gid: int4
-    "###);
+    ");
 }
 
 #[actix_rt::test]
 async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tj = source(&mock, "table_source").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
-    ---
+    assert_yaml_snapshot!(tj, @r"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -128,7 +125,7 @@ async fn tables_tilejson() {
     name: table_source
     foo:
       bar: foo
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -184,10 +181,9 @@ async fn table_source_schemas() {
           functions: false
     "});
     let sources = mock_sources(cfg).await.0;
-    assert_yaml_snapshot!(sources.tiles.get_catalog(), @r###"
-    ---
+    assert_yaml_snapshot!(sources.tiles.get_catalog(), @r"
     MixPoints:
       content_type: application/x-protobuf
       description: a description from comment on table
-    "###);
+    ");
 }

@@ -53,7 +53,6 @@ postgres:
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
-    ---
     fonts: {}
     sprites: {}
     tiles:
@@ -188,8 +187,7 @@ postgres:
         .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
-    assert_yaml_snapshot!(result, @r###"
-    ---
+    assert_yaml_snapshot!(result, @r#"
     tilejson: 3.0.0
     tiles:
       - "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin"
@@ -205,7 +203,7 @@ postgres:
     name: table_source
     foo:
       bar: foo
-    "###);
+    "#);
 }
 
 #[actix_rt::test]
@@ -1025,8 +1023,7 @@ tables:
     assert_eq!(src.id_column, None);
     assert!(matches!(&src.properties, Some(v) if v.len() == 1));
     let tj = source(&mock, "no_id").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
-    ---
+    assert_yaml_snapshot!(tj, @r"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -1041,10 +1038,9 @@ tables:
       - 90
     description: a description from comment on table
     name: no_id
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "id_only"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "id_only"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1058,10 +1054,9 @@ tables:
     geometry_type: POINT
     properties:
       TABLE: text
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1076,10 +1071,9 @@ tables:
     properties:
       TABLE: text
       giD: int4
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "prop_only"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "prop_only"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1093,7 +1087,7 @@ tables:
     properties:
       TABLE: text
       giD: int4
-    "###);
+    ");
 
     // --------------------------------------------
 

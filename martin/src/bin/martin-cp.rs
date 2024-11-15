@@ -458,46 +458,31 @@ mod tests {
         let bbox_mi = Bounds::from_str("-86.6271,41.6811,-82.3095,45.8058").unwrap();
         let bbox_usa = Bounds::from_str("-124.8489,24.3963,-66.8854,49.3843").unwrap();
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[0])), @r###"
-        ---
-        - "0: (0,0) - (0,0)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[0])), @r#"- "0: (0,0) - (0,0)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[3,7])), @r###"
-        ---
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[3,7])), @r#"
         - "3: (0,0) - (7,7)"
         - "7: (0,0) - (127,127)"
-        "###);
+        "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&arg_minmax(&[world], 2, 4)), @r###"
-        ---
+        assert_yaml_snapshot!(compute_tile_ranges(&arg_minmax(&[world], 2, 4)), @r#"
         - "2: (0,0) - (3,3)"
         - "3: (0,0) - (7,7)"
         - "4: (0,0) - (15,15)"
-        "###);
+        "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[14])), @r###"
-        ---
-        - "14: (0,0) - (16383,16383)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[14])), @r#"- "14: (0,0) - (16383,16383)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa], &[14])), @r###"
-        ---
-        - "14: (2509,5599) - (5147,7046)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa, bbox_mi, bbox_ca], &[14])), @r###"
-        ---
-        - "14: (2509,5599) - (5147,7046)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa, bbox_mi, bbox_ca], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_ca_south, bbox_mi, bbox_ca], &[14])), @r###"
-        ---
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_ca_south, bbox_mi, bbox_ca], &[14])), @r#"
         - "14: (2791,6499) - (2997,6624)"
         - "14: (4249,5841) - (4446,6101)"
         - "14: (2526,6081) - (2790,6624)"
         - "14: (2791,6081) - (2997,6498)"
-        "###);
+        "#);
     }
 
     fn args(bbox: &[Bounds], zooms: &[u8]) -> CopyArgs {
