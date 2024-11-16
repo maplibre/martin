@@ -300,58 +300,55 @@ fn parse_font(
             .replace_all(name.as_str(), " ")
             .to_string();
 
-        match fonts.get(&name) {
-            Some(v) => {
+        if let Some(v) = fonts.get(&name) {
+            warn!(
+                "Ignoring duplicate font {} from {} because it was already configured from {}",
+                v.key(),
+                path.display(),
+                v.path.display()
+            );
+        } else {
+            let Some((codepoints, glyphs, ranges, start, end)) =
+                get_available_codepoints(&mut face)
+            else {
                 warn!(
-                    "Ignoring duplicate font {} from {} because it was already configured from {}",
-                    v.key(),
-                    path.display(),
-                    v.path.display()
-                );
-            }
-            None => {
-                let Some((codepoints, glyphs, ranges, start, end)) =
-                    get_available_codepoints(&mut face)
-                else {
-                    warn!(
-                        "Ignoring font {name} from {} because it has no available glyphs",
-                        path.display()
-                    );
-                    continue;
-                };
-
-                info!(
-                    "Configured font {name} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
+                    "Ignoring font {name} from {} because it has no available glyphs",
                     path.display()
                 );
-                debug!(
-                    "Available font ranges: {}",
-                    ranges
-                        .iter()
-                        .map(|(s, e)| if s == e {
-                            format!("{s:02X}")
-                        } else {
-                            format!("{s:02X}-{e:02X}")
-                        })
-                        .join(", "),
-                );
+                continue;
+            };
 
-                fonts.insert(
-                    name,
-                    FontSource {
-                        path: path.clone(),
-                        face_index,
-                        codepoints,
-                        catalog_entry: CatalogFontEntry {
-                            family,
-                            style,
-                            glyphs,
-                            start,
-                            end,
-                        },
+            info!(
+                "Configured font {name} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
+                path.display()
+            );
+            debug!(
+                "Available font ranges: {}",
+                ranges
+                    .iter()
+                    .map(|(s, e)| if s == e {
+                        format!("{s:02X}")
+                    } else {
+                        format!("{s:02X}-{e:02X}")
+                    })
+                    .join(", "),
+            );
+
+            fonts.insert(
+                name,
+                FontSource {
+                    path: path.clone(),
+                    face_index,
+                    codepoints,
+                    catalog_entry: CatalogFontEntry {
+                        family,
+                        style,
+                        glyphs,
+                        start,
+                        end,
                     },
-                );
-            }
+                },
+            );
         }
     }
 
