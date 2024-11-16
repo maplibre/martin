@@ -39,6 +39,7 @@ cargo-husky = { version = "1", features = ["user-hooks"], default-features = fal
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.2"
+dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 enum-display = "0.1"
 env_logger = "0.11"
