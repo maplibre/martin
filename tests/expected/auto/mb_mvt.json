@@ -1,19 +1,4 @@
 {
-  "tilejson": "3.0.0",
-  "tiles": [
-    "http://localhost:3111/world_cities/{z}/{x}/{y}"
-  ],
-  "vector_layers": [
-    {
-      "id": "cities",
-      "fields": {
-        "name": "String"
-      },
-      "description": "",
-      "maxzoom": 6,
-      "minzoom": 0
-    }
-  ],
   "bounds": [
     -123.12359,
     -37.818085,
@@ -26,9 +11,24 @@
     6
   ],
   "description": "Major cities from Natural Earth data",
+  "format": "pbf",
   "maxzoom": 6,
   "minzoom": 0,
   "name": "Major cities from Natural Earth data",
-  "version": "2",
-  "format": "pbf"
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/world_cities/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "description": "",
+      "fields": {
+        "name": "String"
+      },
+      "id": "cities",
+      "maxzoom": 6,
+      "minzoom": 0
+    }
+  ],
+  "version": "2"
 }

@@ -1,24 +1,24 @@
 {
-  "tilejson": "3.0.0",
-  "tiles": [
-    "http://localhost:3111/table_source/{z}/{x}/{y}"
-  ],
-  "vector_layers": [
-    {
-      "id": "table_source",
-      "fields": {
-        "gid": "int4"
-      }
-    }
-  ],
   "bounds": [
     -2,
     -1,
     142.84131509869133,
     45
   ],
-  "name": "table_source",
   "foo": {
     "bar": "foo"
-  }
+  },
+  "name": "table_source",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/table_source/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "gid": "int4"
+      },
+      "id": "table_source"
+    }
+  ]
 }

@@ -1,10 +1,10 @@
 {
+  "foo": {
+    "bar": "foo"
+  },
+  "name": "function_zxy_query",
   "tilejson": "3.0.0",
   "tiles": [
     "http://localhost:3111/function_zxy_query/{z}/{x}/{y}"
-  ],
-  "name": "function_zxy_query",
-  "foo": {
-    "bar": "foo"
-  }
+  ]
 }

@@ -1,8 +1,4 @@
 {
-  "tilejson": "3.0.0",
-  "tiles": [
-    "http://localhost:3111/stamen_toner__raster_CC-BY-ODbL_z3/{z}/{x}/{y}"
-  ],
   "bounds": [
     -180,
     -85,
@@ -15,5 +11,9 @@
     0
   ],
   "maxzoom": 3,
-  "minzoom": 0
+  "minzoom": 0,
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/stamen_toner__raster_CC-BY-ODbL_z3/{z}/{x}/{y}"
+  ]
 }
