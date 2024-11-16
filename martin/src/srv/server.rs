@@ -40,7 +40,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "reload", "sprite", "status",
 ];
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]

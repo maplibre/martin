@@ -1024,8 +1024,8 @@ tables:
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
     assert!(matches!(&src.properties, Some(v) if v.len() == 1));
-    let tj = source(&mock, "no_id").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
+    let source = source(&mock, "no_id");
+    assert_yaml_snapshot!(source.get_tilejson(), @r###"
     ---
     tilejson: 3.0.0
     tiles: []

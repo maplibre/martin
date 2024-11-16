@@ -91,6 +91,7 @@ tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
 url = "2.5"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
+dashmap = { version =  "6.1.0", features = ["inline", "serde"] }
 
 [profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
