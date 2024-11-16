@@ -226,7 +226,7 @@ pub mod tests {
         }
 
         fn clone_source(&self) -> Box<dyn Source> {
-            unimplemented!()
+            Box::new(self.clone())
         }
 
         async fn get_tile(
