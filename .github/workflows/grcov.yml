@@ -81,4 +81,4 @@ jobs:
         run: |
           cargo check -Z unstable-options -Z check-cfg --workspace
         env:
-          rUSTFLAGS: '-D warnings'
+          RUSTFLAGS: '-D warnings'
