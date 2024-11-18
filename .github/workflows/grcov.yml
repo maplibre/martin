@@ -63,6 +63,8 @@ jobs:
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+          AWS_NO_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
 
       - name: Gather coverage data
         id: coverage
@@ -79,4 +81,4 @@ jobs:
         run: |
           cargo check -Z unstable-options -Z check-cfg --workspace
         env:
-          RUSTFLAGS: '-D warnings'
+          rUSTFLAGS: '-D warnings'
