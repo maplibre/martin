@@ -299,7 +299,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     } else {
         CopyDuplicateMode::Override
     };
-    let mbt_type = init_schema(&mbt, &mut conn, src.sources.as_slice(), src.info, &args).await?;
+    let mbt_type = init_schema(&mbt, &mut conn, &src.sources, src.info, &args).await?;
 
     let progress = Progress::new(&tiles);
     info!(
@@ -392,7 +392,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[&dyn Source],
+    sources: &[Box<dyn Source>],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {

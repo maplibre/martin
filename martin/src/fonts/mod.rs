@@ -1,11 +1,10 @@
-use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use bit_set::BitSet;
+use dashmap::DashMap;
 use itertools::Itertools as _;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
@@ -103,11 +102,11 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 
 #[derive(Debug, Clone, Default)]
 pub struct FontSources {
-    fonts: HashMap<String, FontSource>,
+    fonts: DashMap<String, FontSource>,
     masks: Vec<BitSet>,
 }
 
-pub type FontCatalog = BTreeMap<String, CatalogFontEntry>;
+pub type FontCatalog = DashMap<String, CatalogFontEntry>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -125,7 +124,7 @@ impl FontSources {
             return Ok(Self::default());
         }
 
-        let mut fonts = HashMap::new();
+        let mut fonts = DashMap::new();
         let lib = Library::init()?;
 
         for path in config.iter() {
@@ -150,7 +149,7 @@ impl FontSources {
     pub fn get_catalog(&self) -> FontCatalog {
         self.fonts
             .iter()
-            .map(|(k, v)| (k.clone(), v.catalog_entry.clone()))
+            .map(|v| (v.key().clone(), v.catalog_entry.clone()))
             .sorted_by(|(a, _), (b, _)| a.cmp(b))
             .collect()
     }
@@ -242,7 +241,7 @@ pub struct FontSource {
 fn recurse_dirs(
     lib: &Library,
     path: PathBuf,
-    fonts: &mut HashMap<String, FontSource>,
+    fonts: &mut DashMap<String, FontSource>,
     is_top_level: bool,
 ) -> FontResult<()> {
     let start_count = fonts.len();
@@ -275,7 +274,7 @@ fn recurse_dirs(
 
 fn parse_font(
     lib: &Library,
-    fonts: &mut HashMap<String, FontSource>,
+    fonts: &mut DashMap<String, FontSource>,
     path: PathBuf,
 ) -> FontResult<()> {
     static RE_SPACES: OnceLock<Regex> = OnceLock::new();
@@ -301,44 +300,43 @@ fn parse_font(
             .replace_all(name.as_str(), " ")
             .to_string();
 
-        match fonts.entry(name) {
-            Entry::Occupied(v) => {
+        if let Some(v) = fonts.get(&name) {
+            warn!(
+                "Ignoring duplicate font {} from {} because it was already configured from {}",
+                v.key(),
+                path.display(),
+                v.path.display()
+            );
+        } else {
+            let Some((codepoints, glyphs, ranges, start, end)) =
+                get_available_codepoints(&mut face)
+            else {
                 warn!(
-                    "Ignoring duplicate font {} from {} because it was already configured from {}",
-                    v.key(),
-                    path.display(),
-                    v.get().path.display()
-                );
-            }
-            Entry::Vacant(v) => {
-                let key = v.key();
-                let Some((codepoints, glyphs, ranges, start, end)) =
-                    get_available_codepoints(&mut face)
-                else {
-                    warn!(
-                        "Ignoring font {key} from {} because it has no available glyphs",
-                        path.display()
-                    );
-                    continue;
-                };
-
-                info!(
-                    "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
+                    "Ignoring font {name} from {} because it has no available glyphs",
                     path.display()
                 );
-                debug!(
-                    "Available font ranges: {}",
-                    ranges
-                        .iter()
-                        .map(|(s, e)| if s == e {
-                            format!("{s:02X}")
-                        } else {
-                            format!("{s:02X}-{e:02X}")
-                        })
-                        .join(", "),
-                );
+                continue;
+            };
 
-                v.insert(FontSource {
+            info!(
+                "Configured font {name} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
+                path.display()
+            );
+            debug!(
+                "Available font ranges: {}",
+                ranges
+                    .iter()
+                    .map(|(s, e)| if s == e {
+                        format!("{s:02X}")
+                    } else {
+                        format!("{s:02X}-{e:02X}")
+                    })
+                    .join(", "),
+            );
+
+            fonts.insert(
+                name,
+                FontSource {
                     path: path.clone(),
                     face_index,
                     codepoints,
@@ -349,8 +347,8 @@ fn parse_font(
                         start,
                         end,
                     },
-                });
-            }
+                },
+            );
         }
     }
 

@@ -62,7 +62,7 @@ async fn get_tile(
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<&'a dyn Source>,
+    pub sources: Vec<Box<dyn Source>>,
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,

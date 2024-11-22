@@ -83,7 +83,7 @@ test_jsn() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  $CURL "$URL" | jq -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  $CURL "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
 }
 
 test_pbf() {

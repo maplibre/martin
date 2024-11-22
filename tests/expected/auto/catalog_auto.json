@@ -1,4 +1,29 @@
 {
+  "fonts": {
+    "Overpass Mono Light": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Light"
+    },
+    "Overpass Mono Regular": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Regular"
+    }
+  },
+  "sprites": {
+    "src1": {
+      "images": [
+        "another_bicycle",
+        "bear",
+        "sub/circle"
+      ]
+    }
+  },
   "tiles": {
     "-function.withweired---_-characters": {
       "content_type": "application/x-protobuf",
@@ -69,28 +94,28 @@
     },
     "geography-class-jpg": {
       "content_type": "image/jpeg",
-      "name": "Geography Class",
-      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
     },
     "geography-class-jpg-diff": {
       "content_type": "image/jpeg",
-      "name": "Geography Class",
-      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
     },
     "geography-class-jpg-modified": {
       "content_type": "image/jpeg",
-      "name": "Geography Class",
-      "description": "A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips."
+      "description": "A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.",
+      "name": "Geography Class"
     },
     "geography-class-png": {
       "content_type": "image/png",
-      "name": "Geography Class",
-      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
     },
     "geography-class-png-no-bounds": {
       "content_type": "image/png",
-      "name": "Geography Class",
-      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
     },
     "json": {
       "content_type": "application/json",
@@ -105,9 +130,9 @@
       "description": "public.points1.geom"
     },
     "points1_vw": {
+      "attribution": "some attribution from SQL comment",
       "content_type": "application/x-protobuf",
-      "description": "description from SQL comment",
-      "attribution": "some attribution from SQL comment"
+      "description": "description from SQL comment"
     },
     "points2": {
       "content_type": "application/x-protobuf",
@@ -141,8 +166,8 @@
     },
     "uncompressed_mvt": {
       "content_type": "application/x-protobuf",
-      "name": "Major cities from Natural Earth data",
-      "description": "Major cities from Natural Earth data"
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
     },
     "webp": {
       "content_type": "image/webp",
@@ -153,53 +178,28 @@
       "name": "ne2sr"
     },
     "world_cities": {
-      "content_type": "application/x-protobuf",
       "content_encoding": "gzip",
-      "name": "Major cities from Natural Earth data",
-      "description": "Major cities from Natural Earth data"
+      "content_type": "application/x-protobuf",
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
     },
     "world_cities_diff": {
-      "content_type": "application/x-protobuf",
       "content_encoding": "gzip",
-      "name": "Major cities from Natural Earth data",
-      "description": "Major cities from Natural Earth data"
+      "content_type": "application/x-protobuf",
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
     },
     "world_cities_modified": {
-      "content_type": "application/x-protobuf",
       "content_encoding": "gzip",
-      "name": "Major cities from Natural Earth data",
-      "description": "A modified version of major cities from Natural Earth data"
+      "content_type": "application/x-protobuf",
+      "description": "A modified version of major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
     },
     "zoomed_world_cities": {
-      "content_type": "application/x-protobuf",
       "content_encoding": "gzip",
-      "name": "Major cities from Natural Earth data",
-      "description": "Major cities from Natural Earth data"
-    }
-  },
-  "sprites": {
-    "src1": {
-      "images": [
-        "another_bicycle",
-        "bear",
-        "sub/circle"
-      ]
-    }
-  },
-  "fonts": {
-    "Overpass Mono Light": {
-      "family": "Overpass Mono",
-      "style": "Light",
-      "glyphs": 931,
-      "start": 0,
-      "end": 64258
-    },
-    "Overpass Mono Regular": {
-      "family": "Overpass Mono",
-      "style": "Regular",
-      "glyphs": 931,
-      "start": 0,
-      "end": 64258
+      "content_type": "application/x-protobuf",
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
     }
   }
 }
