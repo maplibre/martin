@@ -68,7 +68,6 @@ pmtiles = ["dep:pmtiles"]
 cog = ["dep:tiff", "dep:png"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
-bless-tests = []
 
 [dependencies]
 actix-cors.workspace = true
@@ -126,7 +125,7 @@ cargo-husky.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["yaml"] }
+insta = { workspace = true, features = ["json","yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
