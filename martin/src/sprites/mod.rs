@@ -244,68 +244,32 @@ mod tests {
         let sprites = SpriteSources::resolve(&mut cfg).unwrap().0;
         assert_eq!(sprites.len(), 2);
 
-        //.sdf => generate sdf from png, add sdf == true
-        //- => does not generate sdf, omits sdf == true
-        for extension in ["_sdf", ""] {
-            test_src(sprites.values(), 1, "all_1", extension).await;
-            test_src(sprites.values(), 2, "all_2", extension).await;
+        test_src(sprites.values(), 1, "all_1").await;
+        test_src(sprites.values(), 1, "all_1_sdf").await;
+        test_src(sprites.values(), 2, "all_2").await;
+        test_src(sprites.values(), 2, "all_2_sdf").await;
 
-            test_src(sprites.get("src1").into_iter(), 1, "src1_1", extension).await;
-            test_src(sprites.get("src1").into_iter(), 2, "src1_2", extension).await;
+        test_src(sprites.get("src1").into_iter(), 1, "src1_1").await;
+        test_src(sprites.get("src1").into_iter(), 1, "src1_1_sdf").await;
+        test_src(sprites.get("src1").into_iter(), 2, "src1_2").await;
+        test_src(sprites.get("src1").into_iter(), 2, "src1_2_sdf").await;
 
-            test_src(sprites.get("src2").into_iter(), 1, "src2_1", extension).await;
-            test_src(sprites.get("src2").into_iter(), 2, "src2_2", extension).await;
-        }
+        test_src(sprites.get("src2").into_iter(), 1, "src2_1").await;
+        test_src(sprites.get("src2").into_iter(), 1, "src2_1_sdf").await;
+        test_src(sprites.get("src2").into_iter(), 2, "src2_2").await;
+        test_src(sprites.get("src2").into_iter(), 2, "src2_2_sdf").await;
     }
 
     async fn test_src(
         sources: impl Iterator<Item = &SpriteSource>,
         pixel_ratio: u8,
         filename: &str,
-        extension: &str,
     ) {
-        let path = PathBuf::from(format!(
-            "../tests/fixtures/sprites/expected/{filename}{extension}"
-        ));
-        let sprites = get_spritesheet(sources, pixel_ratio, extension == "_sdf")
+        let sprites = get_spritesheet(sources, pixel_ratio, filename.ends_with("_sdf"))
             .await
             .unwrap();
-        let mut json = serde_json::to_string_pretty(sprites.get_index()).unwrap();
-        json.push('\n');
+        insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
         let png = sprites.encode_png().unwrap();
-
-        #[cfg(feature = "bless-tests")]
-        {
-            use std::io::Write as _;
-            let mut file = std::fs::File::create(path.with_extension("json")).unwrap();
-            file.write_all(json.as_bytes()).unwrap();
-
-            let mut file = std::fs::File::create(path.with_extension("png")).unwrap();
-            file.write_all(&png).unwrap();
-        }
-
-        #[cfg(not(feature = "bless-tests"))]
-        {
-            let expected = std::fs::read_to_string(path.with_extension("json"))
-                .expect("Unable to open expected JSON file, make sure to bless tests with\n  cargo test --features bless-tests\n");
-
-            assert_eq!(
-                serde_json::from_str::<serde_json::Value>(&json).unwrap(),
-                serde_json::from_str::<serde_json::Value>(&expected).unwrap(),
-                "Make sure to run bless if needed:\n  cargo test --features bless-tests\n\n{json}",
-            );
-
-            let expected = std::fs::read(path.with_extension("png"))
-                .expect("Unable to open expected PNG file, make sure to bless tests with\n  cargo test --features bless-tests\n");
-
-            // The PNG output is too flaky to be reliably used in a test
-            if png != expected {
-                warn!("Generated PNG does not match expected PNG, make sure to bless tests with\n  cargo test --features bless-tests\n");
-            }
-            // assert_eq!(
-            //     png, expected,
-            //     "Make sure to run bless if needed:\n  cargo test --features bless-tests\n\n{json}",
-            // );
-        }
+        insta::assert_binary_snapshot!(&format!("{filename}.png"), png);
     }
 }
