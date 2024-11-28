@@ -52,13 +52,13 @@ pub enum FontError {
     #[error(transparent)]
     FreeType(#[from] pbf_font_tools::freetype::Error),
 
-    #[error("IO error accessing {}: {0}", .1.display())]
+    #[error("IO error accessing {1}: {0}")]
     IoError(std::io::Error, PathBuf),
 
-    #[error("Invalid font file {}", .0.display())]
+    #[error("Invalid font file {0}")]
     InvalidFontFilePath(PathBuf),
 
-    #[error("No font files found in {}", .0.display())]
+    #[error("No font files found in {0}")]
     NoFontFilesFound(PathBuf),
 
     #[error("Font {0} is missing a family name")]

@@ -21,19 +21,19 @@ pub type FileResult<T> = Result<T, FileError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
-    #[error("IO error {0}: {}", .1.display())]
+    #[error("IO error {0}: {1}")]
     IoError(std::io::Error, PathBuf),
 
-    #[error("Source path is not a file: {}", .0.display())]
+    #[error("Source path is not a file: {0}")]
     InvalidFilePath(PathBuf),
 
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(url::ParseError, String),
 
-    #[error("Source {0} uses bad file {}", .1.display())]
+    #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
-    #[error(r"Unable to parse metadata in file {}: {0}", .1.display())]
+    #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
