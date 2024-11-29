@@ -29,7 +29,7 @@ impl<'a> VariableMap<'a> for FauxEnv {
     }
 }
 
-impl<'a> Env<'a> for FauxEnv {
+impl Env<'_> for FauxEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         self.0.get(key).map(Into::into)
     }
