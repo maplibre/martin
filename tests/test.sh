@@ -286,6 +286,8 @@ test_jsn rgb_u8       rgb_u8
 test_png rgb_u8_0_0_0 rgb_u8/0/0/0
 test_png rgb_u8_3_0_0 rgb_u8/3/0/0
 test_png rgb_u8_3_1_1 rgb_u8/3/1/1
+test_png rgba_u8_0_0_0 rgba_u8/0/0/0
+test_png rgba_u8_3_1_1 rgba_u8/3/1/1
 
 test_jsn rgb_u16       rgb_u16
 test_png rgb_u16_0_0_0 rgb_u16/0/0/0
