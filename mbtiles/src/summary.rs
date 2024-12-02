@@ -202,8 +202,7 @@ mod tests {
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
         let res = mbt.summary(&mut conn).await?;
-        assert_yaml_snapshot!(res, @r###"
-        ---
+        assert_yaml_snapshot!(res, @r"
         file_size: ~
         mbt_type: Flat
         page_size: 512
@@ -216,7 +215,7 @@ mod tests {
         min_zoom: ~
         max_zoom: ~
         zoom_info: []
-        "###);
+        ");
 
         Ok(())
     }
@@ -228,8 +227,7 @@ mod tests {
 
         let res = mbt.summary(&mut conn).await?;
 
-        assert_yaml_snapshot!(res, @r###"
-        ---
+        assert_yaml_snapshot!(res, @r"
         file_size: 49152
         mbt_type: Flat
         page_size: 4096
@@ -316,7 +314,7 @@ mod tests {
               - -40.97989806962015
               - 180.00000000000003
               - 61.60639637138628
-        "###);
+        ");
 
         Ok(())
     }
