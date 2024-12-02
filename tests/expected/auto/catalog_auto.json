@@ -146,6 +146,9 @@
     "rgb_u8": {
       "content_type": "image/png"
     },
+    "rgba_u8": {
+      "content_type": "image/png"
+    },
     "stamen_toner__raster_CC-BY-ODbL_z3": {
       "content_type": "image/png"
     },
