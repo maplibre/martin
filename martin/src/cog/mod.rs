@@ -120,20 +120,39 @@ impl Source for CogSource {
 
         //do more research on the not u8 case, is this the right way to do it?
         let png_file_bytes = match (decode_result, color_type) {
-            (DecodingResult::U8(vec), tiff::ColorType::Gray(_)) => to_png(
+            (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => to_png(
                 vec,
-                ColorType::GrayscaleAlpha,
+                ColorType::Rgba,
                 BitDepth::Eight,
                 tile_width,
                 tile_height,
                 data_width,
                 data_height,
-                1,
+                3,
                 (true, u8::MAX),
                 &self.path,
             ),
-            (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => to_png(
+            (DecodingResult::U16(vec), tiff::ColorType::RGB(_)) => to_png(
                 vec,
+                ColorType::Rgba,
+                BitDepth::Sixteen,
+                tile_width,
+                tile_height,
+                data_width,
+                data_height,
+                3,
+                (true, u16::MAX),
+                &self.path,
+            ),
+            (DecodingResult::U32(vec), tiff::ColorType::RGB(_)) => to_png(
+                scale_to_u8(
+                    &vec,
+                    3,
+                    u32::MIN,
+                    u32::MAX,
+                    &self.meta.min_of_samples,
+                    &self.meta.max_of_samples,
+                ),
                 ColorType::Rgba,
                 BitDepth::Eight,
                 tile_width,
@@ -156,30 +175,6 @@ impl Source for CogSource {
                 (false, u8::MAX),
                 &self.path,
             ),
-            (DecodingResult::U16(vec), tiff::ColorType::Gray(_)) => to_png(
-                vec,
-                ColorType::GrayscaleAlpha,
-                BitDepth::Sixteen,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u16::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U16(vec), tiff::ColorType::RGB(_)) => to_png(
-                vec,
-                ColorType::Rgba,
-                BitDepth::Sixteen,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                3,
-                (true, u16::MAX),
-                &self.path,
-            ),
             (DecodingResult::U16(vec), tiff::ColorType::RGBA(_)) => to_png(
                 vec,
                 ColorType::Rgba,
@@ -190,6 +185,49 @@ impl Source for CogSource {
                 data_height,
                 4,
                 (false, u16::MAX),
+                &self.path,
+            ),
+            (DecodingResult::U32(vec), tiff::ColorType::RGBA(_)) => to_png(
+                scale_to_u8(
+                    &vec,
+                    4,
+                    u32::MIN,
+                    u32::MAX,
+                    &self.meta.min_of_samples,
+                    &self.meta.max_of_samples,
+                ),
+                ColorType::Rgba,
+                BitDepth::Eight,
+                tile_width,
+                tile_height,
+                data_width,
+                data_height,
+                4,
+                (false, u8::MAX),
+                &self.path,
+            ),
+            (DecodingResult::U8(vec), tiff::ColorType::Gray(_)) => to_png(
+                vec,
+                ColorType::GrayscaleAlpha,
+                BitDepth::Eight,
+                tile_width,
+                tile_height,
+                data_width,
+                data_height,
+                1,
+                (true, u8::MAX),
+                &self.path,
+            ),
+            (DecodingResult::U16(vec), tiff::ColorType::Gray(_)) => to_png(
+                vec,
+                ColorType::GrayscaleAlpha,
+                BitDepth::Sixteen,
+                tile_width,
+                tile_height,
+                data_width,
+                data_height,
+                1,
+                (true, u16::MAX),
                 &self.path,
             ),
             (DecodingResult::U32(vec), tiff::ColorType::Gray(_)) => to_png(
@@ -625,7 +663,7 @@ fn get_images_ifd(decoder: &mut Decoder<File>) -> Vec<usize> {
 
 //     #[actix_rt::test]
 //     async fn can_get_tile() -> () {
-//         let path = PathBuf::from("../tests/fixtures/cog//rgb_u8.tif");
+//         let path = PathBuf::from("../tests/fixtures/cog/gray_u32.tif");
 //         let meta = get_meta(&path).unwrap();
 //         let source = super::CogSource {
 //             id: "test".to_string(),

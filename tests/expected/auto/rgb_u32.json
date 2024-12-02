@@ -1,0 +1,6 @@
+{
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/rgb_u32/{z}/{x}/{y}"
+  ]
+}

@@ -251,7 +251,10 @@ cog:
     gray_u32: tests/fixtures/cog/gray_u32.tif
     gray_u8: tests/fixtures/cog/gray_u8.tif
     rgb_u16: tests/fixtures/cog/rgb_u16.tif
+    rgb_u32: tests/fixtures/cog/rgb_u32.tif
     rgb_u8: tests/fixtures/cog/rgb_u8.tif
+    rgba_u16: tests/fixtures/cog/rgba_u16.tif
+    rgba_u32: tests/fixtures/cog/rgba_u32.tif
     rgba_u8: tests/fixtures/cog/rgba_u8.tif
 sprites: tests/fixtures/sprites/src1
 fonts:

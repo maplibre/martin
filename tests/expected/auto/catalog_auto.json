@@ -143,7 +143,16 @@
     "rgb_u16": {
       "content_type": "image/png"
     },
+    "rgb_u32": {
+      "content_type": "image/png"
+    },
     "rgb_u8": {
+      "content_type": "image/png"
+    },
+    "rgba_u16": {
+      "content_type": "image/png"
+    },
+    "rgba_u32": {
       "content_type": "image/png"
     },
     "rgba_u8": {
