@@ -398,9 +398,13 @@ fn to_png<T: Copy + NoUninit + From<u8>>(
     path: &Path,
 ) -> Result<Vec<u8>, CogError> {
     let is_padded = data_width != tile_width;
-    let mut buffer = Vec::new();
+    let mut result_file_buffer = Vec::new();
     {
-        let mut encoder = png::Encoder::new(BufWriter::new(&mut buffer), tile_width, tile_height);
+        let mut encoder = png::Encoder::new(
+            BufWriter::new(&mut result_file_buffer),
+            tile_width,
+            tile_height,
+        );
         encoder.set_color(color_type);
         encoder.set_depth(bit_depth);
 
@@ -408,7 +412,7 @@ fn to_png<T: Copy + NoUninit + From<u8>>(
             .write_header()
             .map_err(|e| CogError::WritePngHeaderFailed(path.to_path_buf(), e))?;
 
-        let no_data = T::from(0);
+        let default_value = T::from(0);
 
         let data: Vec<T> = if let (false, false) = (is_padded, extra_alpha_info.0) {
             vec
@@ -418,23 +422,27 @@ fn to_png<T: Copy + NoUninit + From<u8>>(
             } else {
                 components_count
             };
-            let mut result =
-                vec![no_data; (tile_width * tile_height * (components_count_for_result)) as usize];
+            let mut result_vec = vec![
+                default_value;
+                (tile_width * tile_height * (components_count_for_result))
+                    as usize
+            ];
             for row in 0..data_height {
                 for col in 0..data_width {
                     let idx_of_chunk = row * data_width * components_count + col * components_count;
                     let idx_of_result = row * tile_width * components_count_for_result
                         + col * components_count_for_result;
                     for component_idx in 0..components_count {
-                        result[(idx_of_result + component_idx) as usize] =
+                        result_vec[(idx_of_result + component_idx) as usize] =
                             vec[(idx_of_chunk + component_idx) as usize];
                     }
                     if extra_alpha_info.0 {
-                        result[(idx_of_result + components_count) as usize] = extra_alpha_info.1;
+                        result_vec[(idx_of_result + components_count) as usize] =
+                            extra_alpha_info.1;
                     }
                 }
             }
-            result
+            result_vec
         };
 
         let u8_vec: &[u8] = bytemuck::cast_slice(&data);
@@ -442,7 +450,7 @@ fn to_png<T: Copy + NoUninit + From<u8>>(
             .write_image_data(u8_vec)
             .map_err(|e| CogError::WriteToPngFailed(path.to_path_buf(), e))?;
     }
-    Ok(buffer)
+    Ok(result_file_buffer)
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -574,8 +582,6 @@ fn get_minmax_of_samples(
                 })?;
                 min_values.push(value);
             }
-        } else {
-            //todo log
         }
 
         if let Ok(re_max) =
@@ -590,8 +596,6 @@ fn get_minmax_of_samples(
                 })?;
                 max_values.push(value);
             }
-        } else {
-            //todo log
         }
     }
 
@@ -633,10 +637,10 @@ fn get_images_ifd(decoder: &mut Decoder<File>) -> Vec<usize> {
     let mut ifd_idx = 0;
     loop {
         let is_image = decoder
-            .get_tag_u32(Tag::NewSubfileType) //based on the tiff6.0 spec, it's 32-bit(4-byte)unsigned integer
+            .get_tag_u32(Tag::NewSubfileType)
             .map_or_else(|_| true, |v| v & 4 != 4);
         if is_image {
-            //todo We should not ignore mask in the future
+            //todo We should not ignore mask in the next PRs
             res.push(ifd_idx);
         }
 
@@ -649,40 +653,3 @@ fn get_images_ifd(decoder: &mut Decoder<File>) -> Vec<usize> {
     }
     res
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use std::{fs::File, io::Write, path::PathBuf};
-
-//     use martin_tile_utils::{TileCoord, TileInfo};
-//     use tilejson::tilejson;
-
-//     use crate::Source;
-
-//     use super::get_meta;
-
-//     #[actix_rt::test]
-//     async fn can_get_tile() -> () {
-//         let path = PathBuf::from("../tests/fixtures/cog/gray_u32.tif");
-//         let meta = get_meta(&path).unwrap();
-//         let source = super::CogSource {
-//             id: "test".to_string(),
-//             path,
-//             meta,
-//             tilejson: tilejson! {tiles: vec![] },
-//             tileinfo: TileInfo {
-//                 format: martin_tile_utils::Format::Png,
-//                 encoding: martin_tile_utils::Encoding::Uncompressed,
-//             },
-//         };
-//         let query = None;
-//         let _tile = source.get_tile(TileCoord { z: 0, x: 0, y: 0 }, query).await;
-//         let _bytes = _tile.unwrap();
-//         //write this bytes to a "result.png" file
-
-//         let mut file = File::create("result.png").unwrap();
-//         file.write_all(&_bytes).unwrap();
-
-//         todo!()
-//     }
-// }
