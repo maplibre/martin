@@ -247,7 +247,7 @@ jobs:
       matrix:
         include:
           - target: aarch64-apple-darwin
-            os: macos-14  # M1 CPU
+            os: macos-latest  # M-series CPU
           - target: debian-x86_64
             os: ubuntu-latest
           - target: x86_64-apple-darwin
