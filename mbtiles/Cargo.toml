@@ -14,7 +14,7 @@ rust-version.workspace = true
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml"]
+cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml", "dep:regex"]
 
 [dependencies]
 enum-display.workspace = true
@@ -25,6 +25,7 @@ log.workspace = true
 martin-tile-utils.workspace = true
 md5.workspace = true
 num_cpus.workspace = true
+object_store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
@@ -32,9 +33,11 @@ size_format.workspace = true
 sqlite-compressions.workspace = true
 sqlite-hashes.workspace = true
 sqlx.workspace = true
+strfmt.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+url.workspace = true
 xxhash-rust.workspace = true
 
 # Bin dependencies
@@ -42,6 +45,7 @@ anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 env_logger = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
+regex = { workspace = true, optional = true, features = [] }
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself

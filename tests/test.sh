@@ -525,6 +525,26 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff4.txt"
 
+  # Ensure the extracted world_cities_modified contains the expected tiles and with the expected sizes
+  $MBTILES_BIN extract \
+    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
+    "file://$(realpath $TEST_TEMP_DIR)/world_cities_extracted/{z}/{x}/{y}.pbf" \
+    2>&1 | tee "$TEST_OUT_DIR/extract_out.txt"
+  find "$TEST_TEMP_DIR/world_cities_extracted/" \
+    -printf '%p : %s\n' | sort 2>&1 | tee "$TEST_OUT_DIR/extract_files.txt"
+  find "$TEST_TEMP_DIR/world_cities_extracted/" \
+    -type f -name '*.pbf' -exec file -i {} \; | sort 2>&1 | tee "$TEST_OUT_DIR/extract_filetypes.txt"
+
+  $MBTILES_BIN extract \
+    --decode \
+    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
+    "file://$(realpath $TEST_TEMP_DIR)/world_cities_decoded_extracted/{z}/{x}/{y}.pbf" \
+    2>&1 | tee "$TEST_OUT_DIR/extract_decoded_out.txt"
+  find "$TEST_TEMP_DIR/world_cities_decoded_extracted/" \
+    -printf '%p : %s\n' | sort 2>&1 | tee "$TEST_OUT_DIR/extract_decoded_files.txt"
+  find "$TEST_TEMP_DIR/world_cities_decoded_extracted/" \
+    -type f -name '*.pbf' -exec file -i {} \; | sort 2>&1 | tee "$TEST_OUT_DIR/extract_decoded_filetypes.txt"
+
   if command -v sqlite3 > /dev/null; then
     # Apply this diff to the original version of the file
     cp ./tests/fixtures/mbtiles/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"

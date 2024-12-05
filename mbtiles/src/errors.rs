@@ -110,6 +110,27 @@ pub enum MbtError {
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+
+    #[error(transparent)]
+    ObjectStoreError(#[from] object_store::Error),
+
+    #[error(transparent)]
+    ObjectStorePathError(#[from] object_store::path::Error),
+
+    #[error("Unable to parse object store URL")]
+    ObjectStoreParseError,
+
+    #[error(transparent)]
+    UrlParseError(#[from] url::ParseError),
+
+    #[error("Unsupported object store scheme")]
+    UnsupportedObjectStoreScheme,
+
+    #[error("Object store key format error")]
+    ObjectStoreKeyFormatError,
+
+    #[error("Unsupported encoding for decompression")]
+    UnsupportedEncodingForDecompression,
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;
