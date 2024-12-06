@@ -1,0 +1,1 @@
+tests/output/auto/rgb_u16_2_1_1.png: PNG image data, 256 x 256, 16-bit/color RGBA, non-interlaced
