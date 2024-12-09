@@ -1,9 +1,6 @@
 mod errors;
 
-use bytemuck::NoUninit;
 pub use errors::CogError;
-use png::{BitDepth, ColorType};
-use regex::Regex;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -13,7 +10,7 @@ use std::{fmt::Debug, path::PathBuf};
 
 use std::io::BufWriter;
 use tiff::decoder::{Decoder, DecodingResult};
-use tiff::tags::Tag;
+use tiff::tags::Tag::{self, GdalNodata};
 
 use async_trait::async_trait;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
@@ -45,9 +42,8 @@ struct Meta {
     min_zoom: u8,
     max_zoom: u8,
     zoom_and_ifd: HashMap<u8, usize>,
-    min_of_samples: Vec<f64>,
-    max_of_samples: Vec<f64>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
+    nodata: Option<f64>,
 }
 
 #[async_trait]
@@ -68,6 +64,8 @@ impl Source for CogSource {
         Box::new(self.clone())
     }
 
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::too_many_lines)]
     async fn get_tile(
         &self,
@@ -120,284 +118,338 @@ impl Source for CogSource {
 
         //do more research on the not u8 case, is this the right way to do it?
         let png_file_bytes = match (decode_result, color_type) {
-            (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => to_png(
+            (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => rgb_to_png(
                 vec,
-                ColorType::Rgba,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
+                (tile_width, tile_height),
+                (data_width, data_height),
                 3,
-                (true, u8::MAX),
+                self.meta.nodata.map(|v| v as u8),
                 &self.path,
             ),
-            (DecodingResult::U16(vec), tiff::ColorType::RGB(_)) => to_png(
+            (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => rgb_to_png(
                 vec,
-                ColorType::Rgba,
-                BitDepth::Sixteen,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                3,
-                (true, u16::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U32(vec), tiff::ColorType::RGB(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    3,
-                    u32::MIN,
-                    u32::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::Rgba,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                3,
-                (true, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => to_png(
-                vec,
-                ColorType::Rgba,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
+                (tile_width, tile_height),
+                (data_width, data_height),
                 4,
-                (false, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U16(vec), tiff::ColorType::RGBA(_)) => to_png(
-                vec,
-                ColorType::Rgba,
-                BitDepth::Sixteen,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                4,
-                (false, u16::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U32(vec), tiff::ColorType::RGBA(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    4,
-                    u32::MIN,
-                    u32::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::Rgba,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                4,
-                (false, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U8(vec), tiff::ColorType::Gray(_)) => to_png(
-                vec,
-                ColorType::GrayscaleAlpha,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U16(vec), tiff::ColorType::Gray(_)) => to_png(
-                vec,
-                ColorType::GrayscaleAlpha,
-                BitDepth::Sixteen,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u16::MAX),
-                &self.path,
-            ),
-            (DecodingResult::U32(vec), tiff::ColorType::Gray(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    1,
-                    u32::MIN,
-                    u32::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::GrayscaleAlpha,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::F32(vec), tiff::ColorType::Gray(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    1,
-                    f32::MIN,
-                    f32::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::GrayscaleAlpha,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::F64(vec), tiff::ColorType::Gray(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    1,
-                    f64::MIN,
-                    f64::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::GrayscaleAlpha,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::I8(vec), tiff::ColorType::Gray(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    1,
-                    i8::MIN,
-                    i8::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::GrayscaleAlpha,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::I16(vec), tiff::ColorType::Gray(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    1,
-                    i16::MIN,
-                    i16::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::GrayscaleAlpha,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u8::MAX),
-                &self.path,
-            ),
-            (DecodingResult::I32(vec), tiff::ColorType::Gray(_)) => to_png(
-                scale_to_u8(
-                    &vec,
-                    1,
-                    i32::MIN,
-                    i32::MAX,
-                    &self.meta.min_of_samples,
-                    &self.meta.max_of_samples,
-                ),
-                ColorType::GrayscaleAlpha,
-                BitDepth::Eight,
-                tile_width,
-                tile_height,
-                data_width,
-                data_height,
-                1,
-                (true, u8::MAX),
+                self.meta.nodata.map(|v| v as u8),
                 &self.path,
             ),
             (_, _) => Err(CogError::NotSupportedColorTypeAndBitDepth(
                 color_type,
                 self.path.clone(),
             )),
+            // do these in next PRs, a lot of disscussion would be needed here
+
+            // (DecodingResult::U16(vec), tiff::ColorType::RGB(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         3,
+            //         u16::MIN,
+            //         u16::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::Rgba,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     3,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::U32(vec), tiff::ColorType::RGB(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         3,
+            //         u32::MIN,
+            //         u32::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::Rgba,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     3,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+
+            // (DecodingResult::U16(vec), tiff::ColorType::RGBA(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         4,
+            //         u16::MIN,
+            //         u16::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::Rgba,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     4,
+            //     (false, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::U32(vec), tiff::ColorType::RGBA(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         4,
+            //         u32::MIN,
+            //         u32::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::Rgba,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     4,
+            //     (false, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::U8(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     vec,
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::U16(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     vec,
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Sixteen,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u16::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::U32(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         1,
+            //         u32::MIN,
+            //         u32::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::F32(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         1,
+            //         f32::MIN,
+            //         f32::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::F64(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         1,
+            //         f64::MIN,
+            //         f64::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::I8(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         1,
+            //         i8::MIN,
+            //         i8::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::I16(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         1,
+            //         i16::MIN,
+            //         i16::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
+            // (DecodingResult::I32(vec), tiff::ColorType::Gray(_)) => to_png(
+            //     scale_to_u8(
+            //         &vec,
+            //         1,
+            //         i32::MIN,
+            //         i32::MAX,
+            //         &self.meta.min_of_samples,
+            //         &self.meta.max_of_samples,
+            //     ),
+            //     ColorType::GrayscaleAlpha,
+            //     BitDepth::Eight,
+            //     tile_width,
+            //     tile_height,
+            //     data_width,
+            //     data_height,
+            //     1,
+            //     (true, u8::MAX),
+            //     &self.path,
+            // ),
         }?;
         Ok(png_file_bytes)
     }
 }
 
-#[allow(clippy::cast_sign_loss)]
-#[allow(clippy::cast_possible_truncation)]
-fn scale_to_u8<T>(
-    vec: &[T],
-    samples_count: u8,
-    min_default: T,
-    max_default: T,
-    min_values: &[f64],
-    max_values: &[f64],
-) -> Vec<u8>
-where
-    T: Copy + NoUninit + PartialOrd + Into<f64>,
-{
-    vec.iter()
-        .enumerate()
-        .map(|(i, &value)| {
-            let sample_index = i % samples_count as usize;
-            let min = min_values
-                .get(sample_index)
-                .copied()
-                .unwrap_or_else(|| min_default.into());
-            let max = max_values
-                .get(sample_index)
-                .copied()
-                .unwrap_or_else(|| max_default.into());
-            let scaled_value: f64 = (value.into() - min) / (max - min) * 255.0;
-            scaled_value.round() as u8
-        })
-        .collect()
-}
+// #[allow(clippy::cast_sign_loss)]
+// #[allow(clippy::cast_possible_truncation)]
+// fn scale_to_u8<T>(
+//     vec: &[T],
+//     samples_count: u8,
+//     min_default: T,
+//     max_default: T,
+//     min_values: &[f64],
+//     max_values: &[f64],
+//     tile_width: u32,
+//     tile_height: u32,
+//     data_width: u32,
+//     data_height: u32,
+//     components_count: u32,
+//     has_alpha: bool,
+//     nodata: Option<T>,
+// ) -> Vec<u8>
+// where
+//     T: Copy + NoUninit + PartialOrd + Into<f64>,
+// {
+//     let need_extra_alpha = nodata.is_some() && !has_alpha;
+//     let result_len = if need_extra_alpha {
+//         vec.len() + 1
+//     } else {
+//         vec.len()
+//     };
+
+//     vec.iter()
+//         .enumerate()
+//         .map(|(i, &value)| {
+//             let sample_index = i % samples_count as usize;
+//             let min = min_values
+//                 .get(sample_index)
+//                 .copied()
+//                 .unwrap_or_else(|| min_default.into());
+//             let max = max_values
+//                 .get(sample_index)
+//                 .copied()
+//                 .unwrap_or_else(|| max_default.into());
+//             let scaled_value: f64 = (value.into() - min) / (max - min) * 255.0;
+//             if scaled_value.is_nan() {
+//                 u8::from(255)
+//             } else {
+//                 scaled_value.round() as u8
+//             }
+//         })
+//         .collect()
+// }
 
 #[allow(clippy::too_many_arguments)]
-fn to_png<T: Copy + NoUninit + From<u8>>(
-    vec: Vec<T>,
-    color_type: ColorType,
-    bit_depth: BitDepth,
-    tile_width: u32,
-    tile_height: u32,
-    data_width: u32,
-    data_height: u32,
-    components_count: u32,
-    extra_alpha_info: (bool, T),
+fn rgb_to_png(
+    vec: Vec<u8>,
+    result_dims: (u32, u32),
+    chunk_dims: (u32, u32),
+    chunk_components_count: u32,
+    nodata: Option<u8>,
     path: &Path,
 ) -> Result<Vec<u8>, CogError> {
+    let (data_width, data_height) = chunk_dims;
+    let (tile_width, tile_height) = result_dims;
     let is_padded = data_width != tile_width;
+    let need_add_alpha = chunk_components_count != 4;
+    let default_value = 0;
+
+    let pixels = if nodata.is_some() || need_add_alpha || is_padded {
+        let mut result_vec = vec![default_value; (tile_width * tile_height * 4) as usize];
+        for row in 0..data_height {
+            for col in 0..data_width {
+                let idx_chunk =
+                    row * data_width * chunk_components_count + col * chunk_components_count;
+                let idx_result = row * tile_width * 4 + col * 4;
+                let mut is_nodata = false;
+                for component_idx in 0..chunk_components_count {
+                    if nodata.eq(&Some(vec[(idx_chunk + component_idx) as usize])) {
+                        is_nodata = true;
+                    }
+                    result_vec[(idx_result + component_idx) as usize] =
+                        vec[(idx_chunk + component_idx) as usize];
+                }
+                if is_nodata || need_add_alpha {
+                    let alpha_idx = (idx_result + 3) as usize;
+                    let value = if is_nodata { 0 } else { 255 };
+                    result_vec[alpha_idx] = value;
+                }
+            }
+        }
+        result_vec
+    } else {
+        vec
+    };
     let mut result_file_buffer = Vec::new();
     {
         let mut encoder = png::Encoder::new(
@@ -405,49 +457,13 @@ fn to_png<T: Copy + NoUninit + From<u8>>(
             tile_width,
             tile_height,
         );
-        encoder.set_color(color_type);
-        encoder.set_depth(bit_depth);
-
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder
             .write_header()
             .map_err(|e| CogError::WritePngHeaderFailed(path.to_path_buf(), e))?;
-
-        let default_value = T::from(0);
-
-        let data: Vec<T> = if let (false, false) = (is_padded, extra_alpha_info.0) {
-            vec
-        } else {
-            let components_count_for_result = if extra_alpha_info.0 {
-                components_count + 1
-            } else {
-                components_count
-            };
-            let mut result_vec = vec![
-                default_value;
-                (tile_width * tile_height * (components_count_for_result))
-                    as usize
-            ];
-            for row in 0..data_height {
-                for col in 0..data_width {
-                    let idx_of_chunk = row * data_width * components_count + col * components_count;
-                    let idx_of_result = row * tile_width * components_count_for_result
-                        + col * components_count_for_result;
-                    for component_idx in 0..components_count {
-                        result_vec[(idx_of_result + component_idx) as usize] =
-                            vec[(idx_of_chunk + component_idx) as usize];
-                    }
-                    if extra_alpha_info.0 {
-                        result_vec[(idx_of_result + components_count) as usize] =
-                            extra_alpha_info.1;
-                    }
-                }
-            }
-            result_vec
-        };
-
-        let u8_vec: &[u8] = bytemuck::cast_slice(&data);
         writer
-            .write_image_data(u8_vec)
+            .write_image_data(&pixels)
             .map_err(|e| CogError::WriteToPngFailed(path.to_path_buf(), e))?;
     }
     Ok(result_file_buffer)
@@ -500,8 +516,13 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTifFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
-    let (min_samples, max_samples) = get_minmax_of_samples(&mut decoder, path)?;
-
+    // let (min_samples, max_samples) = get_minmax_of_samples(&mut decoder, path)?;
+    let tag = decoder.get_tag_ascii_string(GdalNodata);
+    let nodata: Option<f64> = if let Ok(nodata_tag) = tag {
+        nodata_tag.parse().ok()
+    } else {
+        None
+    };
     let images_ifd = get_images_ifd(&mut decoder);
 
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
@@ -553,54 +574,53 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         min_zoom: *min_zoom,
         max_zoom: *max_zoom,
         zoom_and_ifd,
-        min_of_samples: min_samples,
-        max_of_samples: max_samples,
         zoom_and_tile_across_down,
+        nodata,
     })
 }
 
-fn get_minmax_of_samples(
-    decoder: &mut Decoder<File>,
-    path: &Path,
-) -> Result<(Vec<f64>, Vec<f64>), CogError> {
-    let gdal_metadata_tag = Tag::Unknown(42112);
-    let metadata = decoder.get_tag_ascii_string(gdal_metadata_tag);
+// fn get_minmax_of_samples(
+//     decoder: &mut Decoder<File>,
+//     path: &Path,
+// ) -> Result<(Vec<f64>, Vec<f64>), CogError> {
+//     let gdal_metadata_tag = Tag::Unknown(42112);
+//     let metadata = decoder.get_tag_ascii_string(gdal_metadata_tag);
 
-    let mut min_values = Vec::new();
-    let mut max_values = Vec::new();
+//     let mut min_values = Vec::new();
+//     let mut max_values = Vec::new();
 
-    if let Ok(metadata_text) = metadata {
-        if let Ok(re_min) =
-            Regex::new(r#"<Item name="STATISTICS_MINIMUM" sample="(\d+)">([\d.]+)</Item>"#)
-        {
-            for cap in re_min.captures_iter(&metadata_text) {
-                let value: f64 = cap[2].parse::<f64>().map_err(|_| {
-                    CogError::ParseSTATISTICSValueFailed(
-                        "STATISTICS_MINIMUM".to_string(),
-                        path.to_path_buf(),
-                    )
-                })?;
-                min_values.push(value);
-            }
-        }
+//     if let Ok(metadata_text) = metadata {
+//         if let Ok(re_min) =
+//             Regex::new(r#"<Item name="STATISTICS_MINIMUM" sample="(\d+)">([\d.]+)</Item>"#)
+//         {
+//             for cap in re_min.captures_iter(&metadata_text) {
+//                 let value: f64 = cap[2].parse::<f64>().map_err(|_| {
+//                     CogError::ParseSTATISTICSValueFailed(
+//                         "STATISTICS_MINIMUM".to_string(),
+//                         path.to_path_buf(),
+//                     )
+//                 })?;
+//                 min_values.push(value);
+//             }
+//         }
 
-        if let Ok(re_max) =
-            Regex::new(r#"<Item name="STATISTICS_MAXIMUM" sample="(\d+)">([\d.]+)</Item>"#)
-        {
-            for cap in re_max.captures_iter(&metadata_text) {
-                let value: f64 = cap[2].parse().map_err(|_| {
-                    CogError::ParseSTATISTICSValueFailed(
-                        "sample of STATISTICS_MINIMUM".to_string(),
-                        path.to_path_buf(),
-                    )
-                })?;
-                max_values.push(value);
-            }
-        }
-    }
+//         if let Ok(re_max) =
+//             Regex::new(r#"<Item name="STATISTICS_MAXIMUM" sample="(\d+)">([\d.]+)</Item>"#)
+//         {
+//             for cap in re_max.captures_iter(&metadata_text) {
+//                 let value: f64 = cap[2].parse().map_err(|_| {
+//                     CogError::ParseSTATISTICSValueFailed(
+//                         "sample of STATISTICS_MINIMUM".to_string(),
+//                         path.to_path_buf(),
+//                     )
+//                 })?;
+//                 max_values.push(value);
+//             }
+//         }
+//     }
 
-    Ok((min_values, max_values))
-}
+//     Ok((min_values, max_values))
+// }
 
 fn get_across_down(
     decoder: &mut Decoder<File>,

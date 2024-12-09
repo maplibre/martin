@@ -1,1 +1,0 @@
-tests/output/auto/rgb_u32_0_0_0.png: PNG image data, 128 x 128, 8-bit/color RGBA, non-interlaced

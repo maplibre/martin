@@ -287,50 +287,14 @@ test_png rgb_u8_0_0_0 rgb_u8/0/0/0
 test_png rgb_u8_3_0_0 rgb_u8/3/0/0
 test_png rgb_u8_3_1_1 rgb_u8/3/1/1
 
-test_jsn rgb_u16       rgb_u16
-test_png rgb_u16_0_0_0 rgb_u16/0/0/0
-test_png rgb_u16_2_0_0 rgb_u16/2/0/0
-test_png rgb_u16_2_1_1 rgb_u16/2/1/1
-
-test_jsn rgb_u32       rgb_u32
-test_png rgb_u32_0_0_0 rgb_u32/0/0/0
-test_png rgb_u32_2_0_0 rgb_u32/2/0/0
-test_png rgb_u32_2_1_1 rgb_u32/2/1/1
-
 test_jsn rgba_u8       rgba_u8
 test_png rgba_u8_0_0_0 rgba_u8/0/0/0
 test_png rgba_u8_3_0_0 rgba_u8/3/0/0
 test_png rgba_u8_3_1_1 rgba_u8/3/1/1
 
-test_jsn rgba_u16       rgba_u16
-test_png rgba_u16_0_0_0 rgba_u16/0/0/0
-test_png rgba_u16_2_0_0 rgba_u16/2/0/0
-test_png rgba_u16_2_1_1 rgba_u16/2/1/1
-
-test_jsn rgba_u32       rgba_u32
-test_png rgba_u32_0_0_0 rgba_u32/0/0/0
-test_png rgba_u32_2_0_0 rgba_u32/2/0/0
-test_png rgba_u32_2_1_1 rgba_u32/2/1/1
-
-test_png gray_u8_0_0_0 gray_u8/0/0/0
-test_png gray_u8_2_0_0 gray_u8/2/0/0
-test_png gray_u8_2_1_1 gray_u8/2/1/1
-
-test_png gray_u16_0_0_0 gray_u16/0/0/0
-test_png gray_u16_2_0_0 gray_u16/2/0/0
-test_png gray_u16_2_1_1 gray_u16/2/1/1
-
-test_png gray_u32_0_0_0 gray_u32/0/0/0
-test_png gray_u32_2_0_0 gray_u32/2/0/0
-test_png gray_u32_2_1_1 gray_u32/2/1/1
-
-test_png gray_f32_0_0_0 gray_f32/0/0/0
-test_png gray_f32_2_0_0 gray_f32/2/0/0
-test_png gray_f32_2_1_1 gray_f32/2/1/1
-
-test_png gray_f64_0_0_0 gray_f64/0/0/0
-test_png gray_f64_2_0_0 gray_f64/2/0/0
-test_png gray_f64_2_1_1 gray_f64/2/1/1
+test_jsn rgba_u8_nodata       rgba_u8_nodata
+test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
+test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0

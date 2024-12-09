@@ -92,21 +92,6 @@
       "name": "Geography Class",
       "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
     },
-    "gray_f32": {
-      "content_type": "image/png"
-    },
-    "gray_f64": {
-      "content_type": "image/png"
-    },
-    "gray_u16": {
-      "content_type": "image/png"
-    },
-    "gray_u32": {
-      "content_type": "image/png"
-    },
-    "gray_u8": {
-      "content_type": "image/png"
-    },
     "json": {
       "content_type": "application/json",
       "name": "Dummy json data"
@@ -140,22 +125,13 @@
       "content_type": "application/x-protobuf",
       "description": "public.points_empty_srid.geom"
     },
-    "rgb_u16": {
-      "content_type": "image/png"
-    },
-    "rgb_u32": {
-      "content_type": "image/png"
-    },
     "rgb_u8": {
       "content_type": "image/png"
     },
-    "rgba_u16": {
-      "content_type": "image/png"
-    },
-    "rgba_u32": {
-      "content_type": "image/png"
-    },
     "rgba_u8": {
+      "content_type": "image/png"
+    },
+    "rgba_u8_nodata": {
       "content_type": "image/png"
     },
     "stamen_toner__raster_CC-BY-ODbL_z3": {
