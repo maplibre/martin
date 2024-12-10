@@ -331,8 +331,8 @@ fn get_grid_dims(
 ) -> Result<(u32, u32), FileError> {
     let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
     let (image_width, image_length) = get_image_dims(decoder, path, image_ifd)?;
-    let tiles_across = (image_width + tile_width - 1) / tile_width;
-    let tiles_down = (image_length + tile_height - 1) / tile_height;
+    let tiles_across = image_width.div_ceil(tile_width);
+    let tiles_down = image_length.div_ceil(tile_height);
 
     Ok((tiles_across, tiles_down))
 }
