@@ -34,7 +34,6 @@ anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.8"
-bytemuck = "1.19.0"
 brotli = ">=5, <8"
 cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }

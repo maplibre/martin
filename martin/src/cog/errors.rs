@@ -35,9 +35,7 @@ pub enum CogError {
     #[error("Failed to write pixel bytes to png file at {0}: {1}")]
     WriteToPngFailed(PathBuf, EncodingError),
 
-    #[error(
-        "The color type {0:?} and its bit depth of the tiff file {1} is not supported by png crate"
-    )]
+    #[error("The color type {0:?} and its bit depth of the tiff file {1} is not supported yet")]
     NotSupportedColorTypeAndBitDepth(tiff::ColorType, PathBuf),
 
     #[error("Couldn't parse the {0} value in gdal metadata(tiff tag 42112) from {1}")]

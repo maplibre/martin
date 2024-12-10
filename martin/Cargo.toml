@@ -65,7 +65,7 @@ fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles"]
-cog = ["dep:tiff", "dep:png", "dep:bytemuck"]
+cog = ["dep:tiff", "dep:png"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
@@ -78,7 +78,6 @@ actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
 bit-set = { workspace = true, optional = true }
-bytemuck = { workspace = true, optional = true }
 brotli.workspace = true
 clap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }

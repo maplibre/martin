@@ -2834,7 +2834,6 @@ dependencies = [
  "async-trait",
  "bit-set",
  "brotli 7.0.0",
- "bytemuck",
  "cargo-husky",
  "clap",
  "criterion",
