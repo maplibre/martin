@@ -107,6 +107,11 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles", false);
         }
 
+        #[cfg(feature = "cog")]
+        if !cli_strings.is_empty() {
+            config.cog = parse_file_args(&mut cli_strings, "tif", false);
+        }
+
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfigEnum::new(self.extras.sprite);

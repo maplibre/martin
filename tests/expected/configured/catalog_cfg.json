@@ -12,6 +12,12 @@
       "content_type": "application/x-protobuf",
       "description": "autodetect.bigint_table.geom"
     },
+    "cog-src1": {
+      "content_type": "image/png"
+    },
+    "cog-src2": {
+      "content_type": "image/png"
+    },
     "fnc_Mixed_Name": {
       "content_type": "application/x-protobuf",
       "description": "a function source with MixedCase name"
@@ -41,6 +47,9 @@
     "points3857": {
       "content_type": "application/x-protobuf",
       "description": "public.points3857.geom"
+    },
+    "rgba_u8_nodata": {
+      "content_type": "image/png"
     },
     "table_source": {
       "content_type": "application/x-protobuf"
