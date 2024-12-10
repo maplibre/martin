@@ -427,22 +427,23 @@ fn rgb_to_png(
     let pixels = if nodata.is_some() || need_add_alpha || is_padded {
         let mut result_vec = vec![default_value; (tile_width * tile_height * 4) as usize];
         for row in 0..data_height {
-            for col in 0..data_width {
+            'outer: for col in 0..data_width {
                 let idx_chunk =
                     row * data_width * chunk_components_count + col * chunk_components_count;
                 let idx_result = row * tile_width * 4 + col * 4;
-                let mut is_nodata = false;
                 for component_idx in 0..chunk_components_count {
                     if nodata.eq(&Some(vec[(idx_chunk + component_idx) as usize])) {
-                        is_nodata = true;
+                        //This pixel is nodata, just make it transparent and skip it then
+                        let alpha_idx = (idx_result + 3) as usize;
+                        result_vec[alpha_idx] = 0;
+                        continue 'outer;
                     }
                     result_vec[(idx_result + component_idx) as usize] =
                         vec[(idx_chunk + component_idx) as usize];
                 }
-                if is_nodata || need_add_alpha {
+                if need_add_alpha {
                     let alpha_idx = (idx_result + 3) as usize;
-                    let value = if is_nodata { 0 } else { 255 };
-                    result_vec[alpha_idx] = value;
+                    result_vec[alpha_idx] = 255;
                 }
             }
         }
