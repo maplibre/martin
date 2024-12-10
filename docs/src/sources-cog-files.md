@@ -7,16 +7,17 @@ Martin can serve local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 |colory type|bits per sample|supported|status|
 |----|----|----|----|
 |rgb/rgba|8|✅||
-|rgb/rgba|16/32|🛠️|working on|
-|gray|8/16/32|🛠️|working on|
+|rgb/rgba|16/32...|🛠️|working on|
+|gray|8/16/32...|🛠️|working on|
 
+## Run Martin with CLI to serve cog fiels
 
-**Run Martin with CLI to serve cog fiels**
 ```bash
 martin /path/to/dir_contains_cog /path/to/cog.tif
 ```
 
-**Run Martin with configuration file**
+## Run Martin with configuration file
+
 ```yml
 keep_alive: 75
 
