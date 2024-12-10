@@ -9,7 +9,7 @@ use std::vec;
 use std::{fmt::Debug, path::PathBuf};
 
 use std::io::BufWriter;
-use tiff::decoder::{Decoder, DecodingResult};
+use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
 
 use async_trait::async_trait;
@@ -249,6 +249,12 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let mut decoder = Decoder::new(tif_file)
         .map_err(|e| CogError::InvalidTifFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
+
+    let chunk_type = decoder.get_chunk_type();
+
+    if chunk_type != ChunkType::Tile {
+        Err(CogError::NotSupportedChunkType(path.clone()))?;
+    }
 
     let color_type = decoder
         .colortype()

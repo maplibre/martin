@@ -43,4 +43,7 @@ pub enum CogError {
 
     #[error("The gdal metadata(tiff tag 42112) from {1} is not valid: {0}")]
     InvalidGdalMetaData(String, PathBuf),
+
+    #[error("Striped tiff file is not supported, the tiff file is {0}")]
+    NotSupportedChunkType(PathBuf),
 }
