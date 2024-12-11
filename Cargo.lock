@@ -2562,7 +2562,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -2701,7 +2701,7 @@ dependencies = [
  "static-files",
  "subst",
  "testcontainers-modules",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "tilejson",
  "tokio",
  "tokio-postgres-rustls",
@@ -2746,7 +2746,7 @@ dependencies = [
  "sqlite-compressions",
  "sqlite-hashes",
  "sqlx",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "tilejson",
  "tokio",
  "xxhash-rust",
@@ -4966,6 +4966,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.89",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
 ]
 
 [[package]]
