@@ -1,0 +1,23 @@
+
+# Parser settings.
+cff-version: 1.2.0
+message: Please cite this crate using these information.
+
+# Version information.
+date-released: 2024-11-29
+version: 4.5.21
+
+# Project information.
+abstract: Vector Tiles from Large Databases on the Fly
+authors:
+  - alias: nyurik
+    family-names: Astrakhan
+    given-names: Yuri
+  - name: The maplibre Community
+license:
+  - MIT
+  - Apache-2.0
+repository-artifact: https://martin.maplibre.org
+repository-code: https://github.com/maplibre/martin
+title: Martin
+url: https://martin.maplibre.org
