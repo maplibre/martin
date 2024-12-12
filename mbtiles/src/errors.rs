@@ -7,10 +7,10 @@ use crate::{MbtType, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_
 
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
-    #[error("The source and destination MBTiles files are the same: {}", .0.display())]
+    #[error("The source and destination MBTiles files are the same: {0}")]
     SameSourceAndDestination(PathBuf),
 
-    #[error("The diff file and source or destination MBTiles files are the same: {}", .0.display())]
+    #[error("The diff file and source or destination MBTiles files are the same: {0}")]
     SameDiffAndSourceOrDestination(PathBuf),
 
     #[error(transparent)]
@@ -22,7 +22,7 @@ pub enum MbtError {
     #[error(transparent)]
     JsonSerdeError(#[from] serde_json::Error),
 
-    #[error("MBTile filepath contains unsupported characters: {}", .0.display())]
+    #[error("MBTile filepath contains unsupported characters: {0}")]
     UnsupportedCharsInFilepath(PathBuf),
 
     #[error("Inconsistent tile formats detected: {0} vs {1}")]
@@ -72,7 +72,7 @@ pub enum MbtError {
     #[error("The MBTiles file {0} has data of type {1}, but the desired type was set to {2}")]
     MismatchedTargetType(PathBuf, MbtType, MbtType),
 
-    #[error("Unless  --on-duplicate (override|ignore|abort)  is set, writing tiles to an existing non-empty MBTiles file is disabled. Either set --on-duplicate flag, or delete {}", .0.display())]
+    #[error("Unless  --on-duplicate (override|ignore|abort)  is set, writing tiles to an existing non-empty MBTiles file is disabled. Either set --on-duplicate flag, or delete {0}")]
     DestinationFileExists(PathBuf),
 
     #[error("Invalid zoom value {0}={1}, expecting an integer between 0..{MAX_ZOOM}")]
