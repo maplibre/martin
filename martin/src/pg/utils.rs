@@ -12,6 +12,7 @@ use tokio::time::timeout;
 
 use crate::source::UrlQuery;
 
+#[allow(clippy::ref_option)]
 #[cfg(test)]
 pub fn sorted_opt_set<S: serde::Serializer>(
     value: &Option<std::collections::HashSet<String>>,

@@ -180,6 +180,13 @@ sprites:
   sources:
     mysrc: tests/fixtures/sprites/src2
 
+cog:
+  paths:
+    - tests/fixtures/cog/rgba_u8_nodata.tif
+  sources:
+    cog-src1: tests/fixtures/cog/rgba_u8.tif
+    cog-src2: tests/fixtures/cog/rgb_u8.tif
+
 fonts:
   - tests/fixtures/fonts/overpass-mono-regular.ttf
   - tests/fixtures/fonts
