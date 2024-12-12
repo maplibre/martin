@@ -1,16 +1,23 @@
 # Cloud Optimized GeoTIFF File Sources
 
-Martin can serve local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files. For cog on remote like S3, you could track it on [issue 875](https://github.com/maplibre/martin/issues/875), we are working on and welcome any assistance.
+Martin can serve local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files. For cog on remote like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875), we are working on and welcome any assistance.
 
-> A Cloud Optimized GeoTIFF (COG) is a regular GeoTIFF file, aimed at being hosted on a HTTP file server, with an internal organization that enables more efficient workflows on the cloud. It does this by leveraging the ability of clients issuing ​HTTP GET range requests to ask for just the parts of a file they need.
+## Supported colortype and bits per sample
 
-|colory type|bits per sample|supported|status|
-|----|----|----|----|
-|rgb/rgba|8|✅||
-|rgb/rgba|16/32...|🛠️|working on|
-|gray|8/16/32...|🛠️|working on|
+| colory type | bits per sample | supported | status     |
+| ----------- | --------------- | --------- | ---------- |
+| rgb/rgba    | 8               | ✅         |            |
+| rgb/rgba    | 16/32...        | 🛠️         | working on |
+| gray        | 8/16/32...      | 🛠️         | working on |
 
-## Run Martin with CLI to serve cog fiels
+## Supported compression
+
+* None
+* LZW
+* Deflate
+* PackBits
+
+## Run Martin with CLI to serve cog files
 
 ```bash
 martin /path/to/dir_contains_cog /path/to/cog.tif
@@ -43,3 +50,33 @@ cog:
      cog-src1: /path/to/cog1.tif
      cog-src2: /path/to/cog2.tif
 ```
+
+## About COG
+
+[COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file. You could generate cog with `gdal_translate` or `gdalwarp`. See more details in [gdal doc](https://gdal.org/en/latest/drivers/raster/cog.html).
+
+```bash
+# gdal-bin installation
+# sudo apt update
+# sudo apt install gdal-bin
+
+# gdalwarp
+gdalwarp src1.tif src2.tif out.tif -of COG
+
+# or gdal_translate
+gdal_translate input.tif output_cog.tif -of COG
+```
+
+### The mapping from ZXY to tiff chunk
+
+* A single tif file could contains many subfile about same spatial area, each has different resollution
+* A sub file is organized with many tiles
+
+So basically there's a mapping from zxy to tile of subfile of tif.
+
+| zxy        | mapping to                |
+| ---------- | ------------------------- |
+| Zoom level | which subfile in tif file |
+| X and Y    | which tile in subfile     |
+
+Clients could read only the header part of cog to figure out the mapping from zxy to the chunk number and the subfile number. And Martin get tile to frontend by this mapping.
