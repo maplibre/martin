@@ -18,8 +18,6 @@ use serde::{Deserialize, Serialize};
 use tilejson::{tilejson, TileJSON};
 use url::Url;
 
-extern crate tilejson;
-
 use crate::file_config::FileError;
 use crate::{
     config::UnrecognizedValues,
