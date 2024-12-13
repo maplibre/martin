@@ -59,6 +59,18 @@ curl http://127.0.0.1:3000/catalog
 }
 ```
 
+we also provide similar information via the `/font/%7Bfontstack%7D/%7Brange%7D` endpoint, because some editors like
+[maputnik](https://maputnik.github.io/) require this to render a list of fonts.
+
+```bash
+curl http://127.0.0.1:3000/font/%7Bfontstack%7D/%7Brange%7D
+[
+    "Overpass Mono Bold",
+    "Overpass Mono Light",
+    "Overpass Mono SemiBold",
+]
+```
+
 ## Using from CLI
 
 A font file or directory can be configured from the [CLI](run-with-cli.md) with one or more `--font` parameters.

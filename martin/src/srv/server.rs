@@ -120,7 +120,10 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         .service(crate::srv::sprites::get_sprite_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(crate::srv::fonts::get_font);
+    cfg.service(crate::srv::fonts::get_font).service(
+        web::resource("/font/{fontstack}/{route}") // matches only /font/%7Bfontstack%7D/%7Brange%7D
+            .route(web::get().to(crate::srv::fonts::get_fontstacks)),
+    );
 
     #[cfg(feature = "webui")]
     {
