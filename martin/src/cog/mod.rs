@@ -215,9 +215,9 @@ impl ConfigExtras for CogConfig {
 
 impl SourceConfigExtras for CogConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
-        let tilejson = get_tilejson();
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let meta = get_meta(&path)?;
+        let tilejson = get_tilejson(meta.min_zoom, meta.max_zoom);
         Ok(Box::new(CogSource {
             id,
             path,
@@ -238,8 +238,12 @@ impl SourceConfigExtras for CogConfig {
 }
 
 //todo add more to tileJson
-fn get_tilejson() -> TileJSON {
-    tilejson! {tiles: vec![] }
+fn get_tilejson(min_zoom: u8, max_zoom: u8) -> TileJSON {
+    tilejson! {
+        tiles: vec![],
+        minzoom: min_zoom,
+        maxzoom: max_zoom
+    }
 }
 
 fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
