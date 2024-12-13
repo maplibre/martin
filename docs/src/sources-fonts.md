@@ -67,7 +67,7 @@ curl http://127.0.0.1:3000/font/%7Bfontstack%7D/%7Brange%7D
 [
     "Overpass Mono Bold",
     "Overpass Mono Light",
-    "Overpass Mono SemiBold",
+    "Overpass Mono SemiBold"
 ]
 ```
 

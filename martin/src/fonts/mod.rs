@@ -155,6 +155,7 @@ impl FontSources {
             .collect()
     }
 
+    /// Returns an alphabetically sorted list of font stacks (i.e. the name of the font)
     #[must_use]
     pub fn get_fontstacks(&self) -> Vec<String> {
         self.fonts.keys().cloned().sorted().collect()
