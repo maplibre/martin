@@ -1,7 +1,6 @@
 ---
 source: mbtiles/tests/copy.rs
 expression: actual_value
-snapshot_kind: text
 ---
 [[]]
 type = 'table'
