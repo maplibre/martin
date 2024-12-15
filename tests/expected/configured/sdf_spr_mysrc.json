@@ -2,9 +2,9 @@
   "bicycle": {
     "height": 36,
     "pixelRatio": 2,
+    "sdf": true,
     "width": 36,
     "x": 0,
-    "y": 0,
-    "sdf": true
+    "y": 0
   }
 }
