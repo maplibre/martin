@@ -318,8 +318,8 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - target: x86_64-apple-darwin
-            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-latest
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
