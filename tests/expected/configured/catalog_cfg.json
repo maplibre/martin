@@ -1,4 +1,34 @@
 {
+  "fonts": {
+    "Overpass Mono Light": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Light"
+    },
+    "Overpass Mono Regular": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Regular"
+    }
+  },
+  "sprites": {
+    "mysrc": {
+      "images": [
+        "bicycle"
+      ]
+    },
+    "src1": {
+      "images": [
+        "another_bicycle",
+        "bear",
+        "sub/circle"
+      ]
+    }
+  },
   "tiles": {
     "MixPoints": {
       "content_type": "application/x-protobuf",
@@ -48,36 +78,6 @@
     "webp2": {
       "content_type": "image/webp",
       "name": "ne2sr"
-    }
-  },
-  "sprites": {
-    "mysrc": {
-      "images": [
-        "bicycle"
-      ]
-    },
-    "src1": {
-      "images": [
-        "another_bicycle",
-        "bear",
-        "sub/circle"
-      ]
-    }
-  },
-  "fonts": {
-    "Overpass Mono Light": {
-      "family": "Overpass Mono",
-      "style": "Light",
-      "glyphs": 931,
-      "start": 0,
-      "end": 64258
-    },
-    "Overpass Mono Regular": {
-      "family": "Overpass Mono",
-      "style": "Regular",
-      "glyphs": 931,
-      "start": 0,
-      "end": 64258
     }
   }
 }
