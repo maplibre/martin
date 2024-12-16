@@ -6,7 +6,12 @@ updates:
     schedule:
       interval: "daily"
     groups:
-      all-actions:
+      all-actions-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      all-actions-security-updates:
+        applies-to: security-updates
         patterns:
           - "*"
   - package-ecosystem: cargo
