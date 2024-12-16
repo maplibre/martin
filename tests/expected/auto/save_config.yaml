@@ -217,6 +217,7 @@ pmtiles:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
   sources:
+    cb_2018_us_zcta510_500k: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     png: tests/fixtures/pmtiles/png.pmtiles
     stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
     webp2: http://localhost:5412/webp2.pmtiles

@@ -272,7 +272,7 @@ test_pbf points3857_srid_0_0_0    points3857/0/0/0
 test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
-test_pbf s3_1_0_0 s3/1/0/0  # HTTP pmtiles via s3
+test_pbf s3_1_0_0 cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
 
 >&2 echo "***** Test server response for MbTiles source *****"
 test_jsn mb_jpg       geography-class-jpg

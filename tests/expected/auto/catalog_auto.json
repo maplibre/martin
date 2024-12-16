@@ -45,6 +45,12 @@
       "content_type": "application/x-protobuf",
       "description": "autodetect.bigint_table.geom"
     },
+    "cb_2018_us_zcta510_500k": {
+      "content_encoding": "gzip",
+      "content_type": "application/x-protobuf",
+      "description": "cb_2018_us_zcta510_500k.mbtiles",
+      "name": "cb_2018_us_zcta510_500k.mbtiles"
+    },
     "function_Mixed_Name": {
       "content_type": "application/x-protobuf",
       "description": "a function source with MixedCase name"
