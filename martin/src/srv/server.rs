@@ -201,7 +201,7 @@ pub mod tests {
     use tilejson::TileJSON;
 
     use super::*;
-    use crate::source::{Source, TileData};
+    use crate::source::{Source, TileData, TileInfoSource};
     use crate::UrlQuery;
 
     #[derive(Debug, Clone)]
@@ -225,7 +225,7 @@ pub mod tests {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
 
-        fn clone_source(&self) -> Box<dyn Source> {
+        fn clone_source(&self) -> TileInfoSource {
             unimplemented!()
         }
 

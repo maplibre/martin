@@ -12,7 +12,7 @@ use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::{Source, TileInfoSources};
+use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
 use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
@@ -74,13 +74,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
+    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
+    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

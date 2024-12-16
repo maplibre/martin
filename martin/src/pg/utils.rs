@@ -14,6 +14,7 @@ use crate::source::UrlQuery;
 
 #[allow(clippy::ref_option)]
 #[cfg(test)]
+#[expect(clippy::ref_option)]
 pub fn sorted_opt_set<S: serde::Serializer>(
     value: &Option<std::collections::HashSet<String>>,
     serializer: S,

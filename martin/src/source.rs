@@ -18,7 +18,7 @@ pub type TileInfoSource = Box<dyn Source>;
 pub type TileInfoSources = Vec<TileInfoSource>;
 
 #[derive(Default, Clone)]
-pub struct TileSources(HashMap<String, Box<dyn Source>>);
+pub struct TileSources(HashMap<String, TileInfoSource>);
 pub type TileCatalog = BTreeMap<String, CatalogSourceEntry>;
 
 impl TileSources {
@@ -107,7 +107,7 @@ pub trait Source: Send + Debug {
 
     fn get_tile_info(&self) -> TileInfo;
 
-    fn clone_source(&self) -> Box<dyn Source>;
+    fn clone_source(&self) -> TileInfoSource;
 
     fn support_url_query(&self) -> bool {
         false
@@ -139,7 +139,7 @@ pub trait Source: Send + Debug {
     }
 }
 
-impl Clone for Box<dyn Source> {
+impl Clone for TileInfoSource {
     fn clone(&self) -> Self {
         self.clone_source()
     }
