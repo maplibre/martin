@@ -241,15 +241,6 @@ impl SourceConfigExtras for CogConfig {
     }
 }
 
-//todo add more to tileJson
-fn get_tilejson(min_zoom: u8, max_zoom: u8) -> TileJSON {
-    tilejson! {
-        tiles: vec![],
-        minzoom: min_zoom,
-        maxzoom: max_zoom
-    }
-}
-
 fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let tif_file = File::open(path).map_err(|e| FileError::IoError(e, path.clone()))?;
     let mut decoder = Decoder::new(tif_file)
