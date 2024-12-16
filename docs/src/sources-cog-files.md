@@ -65,9 +65,9 @@ TIFF is an image file format. TIFF tags are something like key-value pairs to de
 
 GeoTIFF is a valid TIFF file with a set of TIFF tags to describe "Cartographic" information associated with.
 
-And COG is valid GeoTIFF file and with some requirements (like the order of sub-files, and it must be tiled) for efficient reading.
+And COG is a valid GeoTIFF file with some requirements for efficient reading. That is, all COG files are valid GeoTIFF files, but not all GeoTIFF files are valid COG files. For quick access to tiles in TIFF files, Martin relies on these requirements/recommendations(like the order of sub-files, and it must be tiled) so we use the term `COG` over `GeoTIFF` in our documentation and configuration files.
 
-You may want to read the specs:
+You may want to visit these specs:
 
 * [TIFF 6.0](https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf)
 * [GeoTIFF](https://docs.ogc.org/is/19-008r4/19-008r4.html)
