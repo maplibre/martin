@@ -12,7 +12,7 @@ use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::{Source, TileInfoSources};
+use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
 use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
@@ -21,19 +21,19 @@ pub type FileResult<T> = Result<T, FileError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
-    #[error("IO error {0}: {}", .1.display())]
+    #[error("IO error {0}: {1}")]
     IoError(std::io::Error, PathBuf),
 
-    #[error("Source path is not a file: {}", .0.display())]
+    #[error("Source path is not a file: {0}")]
     InvalidFilePath(PathBuf),
 
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(url::ParseError, String),
 
-    #[error("Source {0} uses bad file {}", .1.display())]
+    #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
-    #[error(r"Unable to parse metadata in file {}: {0}", .1.display())]
+    #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
@@ -73,13 +73,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
+    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
+    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

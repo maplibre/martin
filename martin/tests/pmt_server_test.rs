@@ -52,14 +52,13 @@ async fn pmt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
       stamen_toner__raster_CC-BY-ODbL_z3:
         content_type: image/png
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -71,8 +70,7 @@ async fn pmt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
@@ -83,7 +81,7 @@ async fn pmt_get_catalog_gzip() {
         content_type: application/x-protobuf
         description: cb_2018_us_zcta510_500k.mbtiles
         name: cb_2018_us_zcta510_500k.mbtiles
-    "###);
+    ");
 }
 
 #[actix_rt::test]

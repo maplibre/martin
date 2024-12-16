@@ -16,16 +16,16 @@ pub enum PgError {
     #[error("Cannot load platform root certificates: {0:?}")]
     CannotLoadRoots(Vec<rustls_native_certs::Error>),
 
-    #[error("Cannot open certificate file {}: {0}", .1.display())]
+    #[error("Cannot open certificate file {1}: {0}")]
     CannotOpenCert(#[source] io::Error, PathBuf),
 
-    #[error("Cannot parse certificate file {}: {0}", .1.display())]
+    #[error("Cannot parse certificate file {1}: {0}")]
     CannotParseCert(#[source] io::Error, PathBuf),
 
-    #[error("Unable to parse PEM RSA key file {}", .0.display())]
+    #[error("Unable to parse PEM RSA key file {0}")]
     InvalidPrivateKey(PathBuf),
 
-    #[error("Unable to use client certificate pair {} / {}: {0}", .1.display(), .2.display())]
+    #[error("Unable to use client certificate pair {1} / {2}: {0}")]
     CannotUseClientKey(#[source] rustls::Error, PathBuf, PathBuf),
 
     #[error(transparent)]
@@ -67,7 +67,7 @@ pub enum PgError {
     #[error(r#"Unable to get tile {2:#} from {1}: {0}"#)]
     GetTileError(#[source] TokioPgError, String, TileCoord),
 
-    #[error(r#"Unable to get tile {2:#} with {:?} params from {1}: {0}"#, query_to_json(.3.as_ref()))]
+    #[error(r#"Unable to get tile {2:#} with {json_query:?} params from {1}: {0}"#, json_query=query_to_json(.3.as_ref()))]
     GetTileWithQueryError(#[source] TokioPgError, String, TileCoord, Option<UrlQuery>),
 
     #[error("Configuration error: {0}")]
