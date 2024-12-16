@@ -5,9 +5,17 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
   - package-ecosystem: cargo
     directory: "/"
     schedule:
       interval: daily
       time: "02:00"
     open-pull-requests-limit: 10
+    groups:
+      all-cargo:
+        patterns:
+          - "*"
