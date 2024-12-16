@@ -1,6 +1,6 @@
 # Cloud Optimized GeoTIFF File Sources
 
-Martin can serve local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files. For cog on remote like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875), we are working on and welcome any assistance.
+Martin can also serve raster source like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files. For cog on remote like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875), we are working on and welcome any assistance.
 
 ## Supported colortype and bits per sample
 
@@ -20,7 +20,12 @@ Martin can serve local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 ## Run Martin with CLI to serve cog files
 
 ```bash
-martin /path/to/dir_contains_cog /path/to/cog.tif
+# Configured with a directory containing TIFF files.
+martin /with/tiff/dir1 /with/tiff/dir2
+# Configured with dedicated TIFF file.
+martin /path/to/target1.tif /path/to/target1.tif
+# Configured with a combination of directories and dedicated TIFF files.
+martin /with/tiff/files /path/to/target.tif
 ```
 
 ## Run Martin with configuration file
@@ -44,7 +49,8 @@ cog:
     # scan this whole dir, matching all *.tif files
     - /dir-path
     # specific tif file will be published as a cog source
-    - /path/to/pmt.pmtiles
+    - /path/to/target1.tif
+    - /path/to/target2.tif
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
