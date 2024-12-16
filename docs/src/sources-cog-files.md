@@ -59,7 +59,23 @@ cog:
 
 ## About COG
 
-[COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file. You could generate cog with `gdal_translate` or `gdalwarp`. See more details in [gdal doc](https://gdal.org/en/latest/drivers/raster/cog.html).
+[COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file. 
+
+TIFF is an image file format. TIFF tags are something like key-value pairs to describe the metadata about TIFF file, like `ImageWidth`, `ImageLength`.. etc.
+
+GeoTIFF is a valid TIFF file with a set of TIFF tags to describe "Cartographic" information associated with.
+
+And COG is valid GeoTIFF file and with some requirements (like the order of sub-files, and it must be tiled) for efficient reading.
+
+You may want to read the specs:
+
+* [TIFF 6.0](https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf)
+* [GeoTIFF](https://docs.ogc.org/is/19-008r4/19-008r4.html)
+* [Cloud Optimized GeoTIFF](https://docs.ogc.org/is/21-026/21-026.html)
+
+### COG generation with GDAL
+
+You could generate cog with `gdal_translate` or `gdalwarp`. See more details in [gdal doc](https://gdal.org/en/latest/drivers/raster/cog.html).
 
 ```bash
 # gdal-bin installation
@@ -80,9 +96,9 @@ gdal_translate input.tif output_cog.tif -of COG
 
 So basically there's a mapping from zxy to tile of sub-file of TIFF.
 
-| zxy        | mapping to                |
-| ---------- | ------------------------- |
+| zxy        | mapping to                  |
+| ---------- | --------------------------- |
 | Zoom level | which sub-file in TIFF file |
-| X and Y    | which tile in subfile     |
+| X and Y    | which tile in subfile       |
 
 Clients could read only the header part of cog to figure out the mapping from zxy to the chunk number and the subfile number. And Martin get tile to frontend by this mapping.
