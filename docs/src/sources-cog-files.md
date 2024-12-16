@@ -59,7 +59,7 @@ cog:
 
 ## About COG
 
-[COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file. 
+[COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file.
 
 TIFF is an image file format. TIFF tags are something like key-value pairs to describe the metadata about TIFF file, like `ImageWidth`, `ImageLength`.. etc.
 
