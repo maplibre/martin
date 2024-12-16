@@ -78,7 +78,7 @@ gdal_translate input.tif output_cog.tif -of COG
 * A single tif file could contains many subfile about same spatial area, each has different resollution
 * A sub file is organized with many tiles
 
-So basically there's a mapping from zxy to tile of subfile of tif.
+So basically there's a mapping from zxy to tile of sub-file of TIFF.
 
 | zxy        | mapping to                |
 | ---------- | ------------------------- |
