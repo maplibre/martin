@@ -204,8 +204,8 @@ cog:
   paths:
     # scan this whole dir, matching all *.tif files
     - /dir-path
-    # specific tif file will be published as a cog source
-    - /path/to/pmt.pmtiles
+    # specific TIFF file will be published as a cog source
+    - /path/to/cogfile.tif
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
