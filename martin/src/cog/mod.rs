@@ -281,7 +281,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
             if config == 1 {
                 Ok(())
             } else {
-                Err(CogError::PlanaConfigurationNotSupported(
+                Err(CogError::PlanarConfigurationNotSupported(
                     path.clone(),
                     0,
                     config,
