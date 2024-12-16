@@ -82,7 +82,7 @@ So basically there's a mapping from zxy to tile of subfile of tif.
 
 | zxy        | mapping to                |
 | ---------- | ------------------------- |
-| Zoom level | which subfile in tif file |
+| Zoom level | which sub-file in TIFF file |
 | X and Y    | which tile in subfile     |
 
 Clients could read only the header part of cog to figure out the mapping from zxy to the chunk number and the subfile number. And Martin get tile to frontend by this mapping.
