@@ -48,7 +48,7 @@ cog:
   paths:
     # scan this whole dir, matching all *.tif files
     - /dir-path
-    # specific tif file will be published as a cog source
+    # specific TIFF file will be published as a cog source
     - /path/to/target1.tif
     - /path/to/target2.tif
   sources:
