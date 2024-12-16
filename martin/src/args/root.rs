@@ -122,7 +122,7 @@ impl Args {
 
 #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
 fn is_url(s: &str, extension: &str) -> bool {
-    if s.starts_with("http") {
+    if s.starts_with("http") || s.starts_with("s3") {
         if let Ok(url) = url::Url::parse(s) {
             if ["http", "https", "s3"].contains(&url.scheme()) {
                 if let Some(ext) = url.path().rsplit('.').next() {
