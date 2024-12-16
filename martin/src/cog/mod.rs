@@ -72,7 +72,7 @@ impl Source for CogSource {
         let tif_file =
             File::open(&self.path).map_err(|e| FileError::IoError(e, self.path.clone()))?;
         let mut decoder =
-            Decoder::new(tif_file).map_err(|e| CogError::InvalidTifFile(e, self.path.clone()))?;
+            Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
         decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
 
         let ifd = self.meta.zoom_and_ifd.get(&(xyz.z)).ok_or_else(|| {
@@ -107,7 +107,7 @@ impl Source for CogSource {
             .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, *ifd, self.path.clone()))?;
         let color_type = decoder
             .colortype()
-            .map_err(|e| CogError::InvalidTifFile(e, self.path.clone()))?;
+            .map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
 
         let tile_width = decoder.chunk_dimensions().0;
         let tile_height = decoder.chunk_dimensions().1;
@@ -143,20 +143,17 @@ impl Source for CogSource {
 
 fn rgb_to_png(
     vec: Vec<u8>,
-    result_dims: (u32, u32),
-    chunk_dims: (u32, u32),
+    (tile_width, tile_height): (u32, u32),
+    (data_width, data_height): (u32, u32),
     chunk_components_count: u32,
     nodata: Option<u8>,
     path: &Path,
 ) -> Result<Vec<u8>, CogError> {
-    let (data_width, data_height) = chunk_dims;
-    let (tile_width, tile_height) = result_dims;
     let is_padded = data_width != tile_width;
     let need_add_alpha = chunk_components_count != 4;
-    let default_value = 0;
 
     let pixels = if nodata.is_some() || need_add_alpha || is_padded {
-        let mut result_vec = vec![default_value; (tile_width * tile_height * 4) as usize];
+        let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
         for row in 0..data_height {
             'outer: for col in 0..data_width {
                 let idx_chunk =
@@ -244,7 +241,7 @@ impl SourceConfigExtras for CogConfig {
 fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let tif_file = File::open(path).map_err(|e| FileError::IoError(e, path.clone()))?;
     let mut decoder = Decoder::new(tif_file)
-        .map_err(|e| CogError::InvalidTifFile(e, path.clone()))?
+        .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
     let chunk_type = decoder.get_chunk_type();
@@ -255,7 +252,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
     let color_type = decoder
         .colortype()
-        .map_err(|e| CogError::InvalidTifFile(e, path.clone()))?;
+        .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?;
 
     if !matches!(
         color_type,
