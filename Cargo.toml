@@ -59,6 +59,7 @@ moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.1", features = ["freetype"] }
 pmtiles = { version = "0.11", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots"] }
+png = "0.17.14"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
@@ -85,6 +86,7 @@ static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 testcontainers-modules = { version = "0.11.4", features = ["postgres"] }
 thiserror = "2"
+tiff = "0.9.1"
 tile-grid = "0.6"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
