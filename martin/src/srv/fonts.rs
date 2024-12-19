@@ -30,6 +30,18 @@ async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixRes
         .body(data))
 }
 
+/// Returns the available font stacks
+///
+/// Separate from the [`/catalog`](crate::srv::server::get_catalog) route to allow editors like
+/// [maputnik](https://maputnik.github.io/) to list fonts.
+/// To match the route `/font/%7Bfontstack%7D/%7Brange%7D`, macros are not possible due the route
+/// clashing with the path-parameter mechanism.
+#[allow(clippy::unused_async)]
+pub(crate) async fn get_fontstacks(fonts: Data<FontSources>) -> HttpResponse {
+    let fontstacks = fonts.get_fontstacks();
+    HttpResponse::Ok().json(fontstacks)
+}
+
 pub fn map_font_error(e: FontError) -> actix_web::Error {
     #[allow(clippy::enum_glob_use)]
     use FontError::*;

@@ -380,6 +380,7 @@ test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
+test_jsn fontstacks   "font/{fontstack}/{range}"
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
