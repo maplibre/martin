@@ -121,6 +121,8 @@ postgres:
         description: public.points3857.geom
       table_source:
         content_type: application/x-protobuf
+      table_source_geog:
+        content_type: application/x-protobuf
       table_source_multiple_geom:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom1

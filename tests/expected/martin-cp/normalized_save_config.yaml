@@ -145,6 +145,19 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    table_source_geog:
+      schema: public
+      table: table_source_geog
+      srid: 4326
+      geometry_column: geog
+      bounds:
+      - -2.0
+      - 0.0
+      - 142.84131509869133
+      - 45.0
+      geometry_type: Geometry
+      properties:
+        gid: int4
     table_source_multiple_geom:
       schema: public
       table: table_source_multiple_geom
