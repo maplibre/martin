@@ -94,7 +94,7 @@ moka.workspace = true
 num_cpus.workspace = true
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
-png= { workspace = true, optional=true }
+png= { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
@@ -111,7 +111,7 @@ spreet = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
-tiff= { workspace = true, optional=true }
+tiff= { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
