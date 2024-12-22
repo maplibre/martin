@@ -320,8 +320,9 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - target: x86_64-apple-darwin
-            os: macos-13
+          # temporary disabled due to an issue with homebrew which is difficult to debug
+          # - target: x86_64-apple-darwin
+          #   os: macos-13
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
