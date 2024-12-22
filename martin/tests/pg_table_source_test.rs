@@ -82,6 +82,8 @@ async fn table_source() {
       description: public.points3857.geom
     table_source:
       content_type: application/x-protobuf
+    table_source_geog:
+      content_type: application/x-protobuf
     table_source_multiple_geom:
       content_type: application/x-protobuf
       description: public.table_source_multiple_geom.geom1
@@ -103,6 +105,22 @@ async fn table_source() {
       - 142.84131509869133
       - 45
     geometry_type: GEOMETRY
+    properties:
+      gid: int4
+    ");
+
+    let source2 = table(&mock, "table_source_geog");
+    assert_yaml_snapshot!(source2, @r"
+    schema: public
+    table: table_source_geog
+    srid: 4326
+    geometry_column: geog
+    bounds:
+      - -2
+      - 0
+      - 142.84131509869133
+      - 45
+    geometry_type: Geometry
     properties:
       gid: int4
     ");
