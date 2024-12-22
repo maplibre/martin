@@ -12,7 +12,6 @@ use tokio::time::timeout;
 
 use crate::source::UrlQuery;
 
-#[allow(clippy::ref_option)]
 #[cfg(test)]
 #[expect(clippy::ref_option)]
 pub fn sorted_opt_set<S: serde::Serializer>(
