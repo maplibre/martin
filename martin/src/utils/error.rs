@@ -64,6 +64,10 @@ pub enum MartinError {
     #[error(transparent)]
     MbtilesError(#[from] mbtiles::MbtError),
 
+    #[cfg(feature = "cog")]
+    #[error(transparent)]
+    CogError(#[from] crate::cog::CogError),
+
     #[error(transparent)]
     FileError(#[from] crate::file_config::FileError),
 
