@@ -1,0 +1,8 @@
+---
+source: martin/src/sprites/mod.rs
+assertion_line: 273
+expression: png
+extension: png
+snapshot_kind: binary
+---
+
