@@ -392,7 +392,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[&dyn Source],
+    sources: &[TileInfoSource],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
