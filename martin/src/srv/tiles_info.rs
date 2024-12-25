@@ -8,7 +8,7 @@ use itertools::Itertools as _;
 use serde::Deserialize;
 use tilejson::{tilejson, TileJSON};
 
-use crate::source::{Source, TileInfoSource, TileSources};
+use crate::source::{TileInfoSource, TileSources};
 use crate::srv::SrvConfig;
 
 #[derive(Deserialize)]

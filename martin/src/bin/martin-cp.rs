@@ -14,7 +14,7 @@ use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::srv::{merge_tilejson, DynTileSource};
 use martin::{
-    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileData,
+    append_rect, read_config, Config, MartinError, MartinResult, ServerState, TileInfoSource, TileData,
     TileRect,
 };
 use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
