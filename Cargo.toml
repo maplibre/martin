@@ -63,7 +63,7 @@ png = "0.17.14"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
-pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
+pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.23"
