@@ -202,7 +202,7 @@ mbtiles:
 # Cloud Optimized GeoTIFF File Sources
 cog:
   paths:
-    # scan this whole dir, matching all *.tif files
+    # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
     - /path/to/cogfile.tif
