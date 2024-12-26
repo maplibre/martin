@@ -178,21 +178,21 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
             let cfg = &mut self.pmtiles;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), "pmtiles");
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["pmtiles"]);
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), "mbtiles");
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["mbtiles"]);
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), "tif");
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);
             sources.push(Box::pin(val));
         }
 
