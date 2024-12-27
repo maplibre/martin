@@ -171,7 +171,7 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 #[cfg(test)]
 mod tests {
 
-    use insta::{assert_snapshot, assert_yaml_snapshot};
+    use insta::assert_yaml_snapshot;
 
     use super::*;
     use crate::args::PreferredEncoding;
