@@ -171,6 +171,8 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 #[cfg(test)]
 mod tests {
 
+    use insta::{assert_snapshot, assert_yaml_snapshot};
+
     use super::*;
     use crate::args::PreferredEncoding;
     use crate::test_utils::FauxEnv;
@@ -283,12 +285,22 @@ mod tests {
 
     #[test]
     fn cli_multiple_extensions() {
-        let args = Args::parse_from(["martin", "../tests/fixtures/cog"]);
+        let args = Args::parse_from([
+            "martin",
+            "../tests/fixtures/cog/rgb_u8.tif",
+            "../tests/fixtures/cog/rgba_u8_nodata.tiff",
+            "../tests/fixtures/cog/rgba_u8.tif",
+        ]);
 
         let env = FauxEnv::default();
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
-        println!("{:?}", err);
-        println!("{:?}", config);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        cog:
+          - "../tests/fixtures/cog/rgb_u8.tif"
+          - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
+          - "../tests/fixtures/cog/rgba_u8.tif"
+        "#);
     }
 }
