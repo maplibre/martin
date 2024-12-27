@@ -20,9 +20,9 @@ Martin can also serve raster sources like local [COG(Cloud Optimized GeoTIFF)](h
 ## Run Martin with CLI to serve cog files
 
 ```bash
-# Configured with a directory containing TIFF files.
+# Configured with a directory containing `*.tif` or `*.tiff` TIFF files.
 martin /with/tiff/dir1 /with/tiff/dir2
-# Configured with dedicated TIFF file, `.tiff` works either
+# Configured with dedicated TIFF file
 martin /path/to/target1.tif /path/to/target2.tiff
 # Configured with a combination of directories and dedicated TIFF files.
 martin /with/tiff/files /path/to/target1.tif /path/to/target2.tiff
