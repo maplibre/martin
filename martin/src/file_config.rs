@@ -349,7 +349,11 @@ fn dir_to_paths(path: &Path, extension: &[&str]) -> Result<Vec<PathBuf>, FileErr
         .filter(|f| {
             f.path()
                 .extension()
-                .filter(|e| extension.iter().any(|x| x == e))
+                .filter(|actual_ext| {
+                    extension
+                        .iter()
+                        .any(|expected_ext| expected_ext == actual_ext)
+                })
                 .is_some()
                 && f.path().is_file()
         })
