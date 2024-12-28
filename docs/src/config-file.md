@@ -205,7 +205,8 @@ cog:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
-    - /path/to/cogfile.tif
+    - /path/to/cogfile1.tif
+    - /path/to/cogfile2.tiff
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
