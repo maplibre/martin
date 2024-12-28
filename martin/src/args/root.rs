@@ -287,7 +287,7 @@ mod tests {
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
             "martin",
-            "../tests/fixtures/cog/rgb_u8.tif",
+            "../tests/fixtures/cog",
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
         ]);
