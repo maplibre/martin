@@ -99,17 +99,17 @@ impl Args {
 
         #[cfg(feature = "pmtiles")]
         if !cli_strings.is_empty() {
-            config.pmtiles = parse_file_args(&mut cli_strings, "pmtiles", true);
+            config.pmtiles = parse_file_args(&mut cli_strings, &["pmtiles"], true);
         }
 
         #[cfg(feature = "mbtiles")]
         if !cli_strings.is_empty() {
-            config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles", false);
+            config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
         #[cfg(feature = "cog")]
         if !cli_strings.is_empty() {
-            config.cog = parse_file_args(&mut cli_strings, "tif", false);
+            config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
         }
 
         #[cfg(feature = "sprites")]
@@ -125,13 +125,13 @@ impl Args {
     }
 }
 
-#[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
-fn is_url(s: &str, extension: &str) -> bool {
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+fn is_url(s: &str, extension: &[&str]) -> bool {
     if s.starts_with("http") {
         if let Ok(url) = url::Url::parse(s) {
             if url.scheme() == "http" || url.scheme() == "https" {
                 if let Some(ext) = url.path().rsplit('.').next() {
-                    return ext == extension;
+                    return extension.contains(&ext);
                 }
             }
         }
@@ -139,21 +139,26 @@ fn is_url(s: &str, extension: &str) -> bool {
     false
 }
 
-#[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
 pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
-    extension: &str,
+    extensions: &[&str],
     allow_url: bool,
 ) -> FileConfigEnum<T> {
     use crate::args::State::{Ignore, Share, Take};
 
     let paths = cli_strings.process(|s| {
         let path = PathBuf::from(s);
-        if allow_url && is_url(s, extension) {
+        if allow_url && is_url(s, extensions) {
             Take(path)
         } else if path.is_dir() {
             Share(path)
-        } else if path.is_file() && path.extension().map_or(false, |e| e == extension) {
+        } else if path.is_file()
+            && extensions.iter().any(|&expected_ext| {
+                path.extension()
+                    .is_some_and(|actual_ext| actual_ext == expected_ext)
+            })
+        {
             Take(path)
         } else {
             Ignore
@@ -165,6 +170,8 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
+
+    use insta::assert_yaml_snapshot;
 
     use super::*;
     use crate::args::PreferredEncoding;
@@ -274,5 +281,26 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env).unwrap_err();
         let bad = vec!["foobar".to_string()];
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
+    }
+
+    #[test]
+    fn cli_multiple_extensions() {
+        let args = Args::parse_from([
+            "martin",
+            "../tests/fixtures/cog",
+            "../tests/fixtures/cog/rgba_u8_nodata.tiff",
+            "../tests/fixtures/cog/rgba_u8.tif",
+        ]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        cog:
+          - "../tests/fixtures/cog/rgb_u8.tif"
+          - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
+          - "../tests/fixtures/cog/rgba_u8.tif"
+        "#);
     }
 }
