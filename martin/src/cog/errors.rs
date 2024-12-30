@@ -48,4 +48,7 @@ pub enum CogError {
 
     #[error("Striped tiff file is not supported, the tiff file is {0}")]
     NotSupportedChunkType(PathBuf),
+
+    #[error("Failed to parse GDAL metadata: {0}")]
+    GdalMetadataError(String),
 }
