@@ -296,6 +296,9 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     } else {
         None
     };
+
+    let (tiling_schema_name, zoom_level) = get_tilling_schema(&mut decoder).unwrap_or((None, None));
+
     let images_ifd = get_images_ifd(&mut decoder);
 
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
@@ -325,19 +328,14 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .max()
         .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
 
-    let (tiling_schema_name, zoom_level) = get_tilling_schema(&mut decoder).unwrap_or((None, None));
-
     let google_compatible_max_zoom =
         if tiling_schema_name == Some("GoogleMapsCompatible".to_string()) {
             zoom_level
         } else {
             None
         };
-    let google_compatible_min_zoom = if let Some(google_max_zoom) = google_compatible_max_zoom {
-        Some(google_max_zoom - max_zoom + min_zoom)
-    } else {
-        None
-    };
+    let google_compatible_min_zoom =
+        google_compatible_max_zoom.map(|google_max_zoom| google_max_zoom - max_zoom + min_zoom);
 
     Ok(Meta {
         min_zoom: *min_zoom,
