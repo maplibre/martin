@@ -296,6 +296,10 @@ test_jsn rgba_u8_nodata       rgba_u8_nodata
 test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
 test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 
+test_jsn google_compatible       google_compatible
+# test_png google_compatible_13_0_0 google_compatible/13/0/0
+# test_png google_compatible_14_0_0 google_compatible/14/0/0
+
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 

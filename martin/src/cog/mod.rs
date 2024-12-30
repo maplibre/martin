@@ -25,6 +25,8 @@ use crate::{
     MartinResult, Source, TileData, UrlQuery,
 };
 
+use regex::Regex;
+
 #[derive(Clone, Debug)]
 pub struct CogSource {
     id: String,
@@ -41,6 +43,8 @@ struct Meta {
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
+    google_compatible_max_zoom: Option<u8>,
+    google_compatible_min_zoom: Option<u8>,
 }
 
 #[async_trait]
@@ -75,9 +79,14 @@ impl Source for CogSource {
             Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
         decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
 
-        let ifd = self.meta.zoom_and_ifd.get(&(xyz.z)).ok_or_else(|| {
+        let actual_zoom = if let Some(google_zoom) = self.meta.google_compatible_max_zoom {
+            self.meta.max_zoom - google_zoom + xyz.z
+        } else {
+            xyz.z
+        };
+        let ifd = self.meta.zoom_and_ifd.get(&(actual_zoom)).ok_or_else(|| {
             CogError::ZoomOutOfRange(
-                xyz.z,
+                actual_zoom,
                 self.path.clone(),
                 self.meta.min_zoom,
                 self.meta.max_zoom,
@@ -216,8 +225,8 @@ impl SourceConfigExtras for CogConfig {
         let meta = get_meta(&path)?;
         let tilejson = tilejson! {
             tiles: vec![],
-            minzoom: meta.min_zoom,
-            maxzoom: meta.max_zoom
+            minzoom: meta.google_compatible_min_zoom.unwrap_or(meta.min_zoom),
+            maxzoom: meta.google_compatible_max_zoom.unwrap_or(meta.max_zoom),
         };
         Ok(Box::new(CogSource {
             id,
@@ -315,9 +324,26 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .keys()
         .max()
         .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+
+    let (tiling_schema_name, zoom_level) = get_tilling_schema(&mut decoder).unwrap_or((None, None));
+
+    let google_compatible_max_zoom =
+        if tiling_schema_name == Some("GoogleMapsCompatible".to_string()) {
+            zoom_level
+        } else {
+            None
+        };
+    let google_compatible_min_zoom = if let Some(google_max_zoom) = google_compatible_max_zoom {
+        Some(google_max_zoom - max_zoom + min_zoom)
+    } else {
+        None
+    };
+
     Ok(Meta {
         min_zoom: *min_zoom,
         max_zoom: *max_zoom,
+        google_compatible_max_zoom,
+        google_compatible_min_zoom,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
@@ -374,4 +400,65 @@ fn get_images_ifd(decoder: &mut Decoder<File>) -> Vec<usize> {
         }
     }
     res
+}
+
+fn get_tilling_schema(
+    decoder: &mut Decoder<File>,
+) -> Result<(Option<String>, Option<u8>), CogError> {
+    let gdal_metadata = decoder
+        .get_tag_ascii_string(Tag::Unknown(42112))
+        .map_err(|e| CogError::TagsNotFound(e, vec![42112], 0, PathBuf::new()))?;
+
+    let mut tiling_schema_name = None;
+    let mut zoom_level = None;
+
+    let re_name = Regex::new(r#"<Item name="NAME" domain="TILING_SCHEME">([^<]+)</Item>"#).unwrap();
+    let re_zoom =
+        Regex::new(r#"<Item name="ZOOM_LEVEL" domain="TILING_SCHEME">([^<]+)</Item>"#).unwrap();
+
+    if let Some(caps) = re_name.captures(&gdal_metadata) {
+        tiling_schema_name = Some(caps[1].to_string());
+    }
+
+    if let Some(caps) = re_zoom.captures(&gdal_metadata) {
+        zoom_level = caps[1].parse().ok();
+    }
+
+    Ok((tiling_schema_name, zoom_level))
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("../tests/fixtures/cog/google_compatible.tif", Some("GoogleMapsCompatible".to_string()), Some(14))]
+    #[case("../tests/fixtures/cog/rgba_u8_nodata.tiff", None, None)]
+    fn test_get_gdal_metadata(
+        #[case] path: &str,
+        #[case] expected_tiling_schema_name: Option<String>,
+        #[case] expected_zoom_level: Option<u8>,
+    ) {
+        use std::{fs::File, path::PathBuf};
+
+        use tiff::decoder::Decoder;
+
+        use crate::cog::get_tilling_schema;
+
+        let path = PathBuf::from(path);
+        let tif_file = File::open(&path).expect("Failed to open test fixture file");
+        let mut decoder = Decoder::new(tif_file).expect("Failed to create decoder");
+
+        let (tiling_schema_name, zoom_level) =
+            get_tilling_schema(&mut decoder).expect("Failed to get GDAL metadata");
+
+        assert_eq!(
+            tiling_schema_name, expected_tiling_schema_name,
+            "TILING_SCHEME_NAME value should match the expected value"
+        );
+        assert_eq!(
+            zoom_level, expected_zoom_level,
+            "ZOOM_LEVEL value should match the expected value"
+        );
+    }
 }
