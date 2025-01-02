@@ -244,7 +244,7 @@ impl SourceConfigExtras for CogConfig {
         false
     }
 }
-fn verify(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
+fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
 
     if chunk_type != ChunkType::Tile {
@@ -296,7 +296,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
-    verify(&mut decoder, path)?;
+    verify_requirments(&mut decoder, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
 
