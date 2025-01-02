@@ -246,11 +246,13 @@ impl SourceConfigExtras for CogConfig {
 }
 fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
-
+    // see https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
         Err(CogError::NotSupportedChunkType(path.to_path_buf()))?;
     }
 
+    // see https://docs.ogc.org/is/21-026/21-026.html#_planar_configuration_considerations and https://www.verypdf.com/document/tiff6/pg_0038.htm
+    // we might support planar configuration 2 in the future
     decoder
         .get_tag_unsigned(Tag::PlanarConfiguration)
         .map_err(|e| {
