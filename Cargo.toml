@@ -47,7 +47,7 @@ flume = "0.11"
 futures = "0.3"
 indoc = "2"
 insta = "1"
-itertools = "0.13"
+itertools = "0.14"
 json-patch = "3.0"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 libsqlite3-sys = { version = ">=0.27", features = ["bundled"] }
@@ -66,7 +66,7 @@ postgres-protocol = "0.6"
 pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.23"
+rstest = "0.24"
 rustls = "0.23.20"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
@@ -100,14 +100,6 @@ sqlx-macros.opt-level = 3
 # See https://docs.rs/insta/latest/insta/#optional-faster-runs
 insta.opt-level = 3
 similar.opt-level = 3
-
-#[patch.crates-io]
-#enum-display = { path = "../enum-display" }
-#pmtiles = { path = "../pmtiles-rs" }
-#sqlite-hashes = { path = "../sqlite-hashes" }
-#tilejson = { path = "../tilejson" }
-#pmtiles = { git = "https://github.com/nyurik/pmtiles-rs", branch = "override" }
-#tilejson = { git = "https://github.com/nyurik/tilejson", branch = "btreemap" }
 
 [profile.release]
 # Make release binaries a bit smaller
