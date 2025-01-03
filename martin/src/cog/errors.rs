@@ -11,6 +11,9 @@ pub enum CogError {
     #[error("Requested zoom level {0} from file {1} is out of range. Possible zoom levels are {2} to {3}")]
     ZoomOutOfRange(u8, PathBuf, u8, u8),
 
+    #[error("Couldn't find any image in the tiff file: {0}")]
+    NoImagesFound(PathBuf),
+
     #[error("Couldn't seek to ifd number {1} (0 based indexing) in tiff file {2}: {0}")]
     IfdSeekFailed(TiffError, usize, PathBuf),
 

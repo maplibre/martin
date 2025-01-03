@@ -324,6 +324,10 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         zoom_and_tile_across_down.insert(zoom, (tiles_across, tiles_down));
     }
 
+    if images_ifd.is_empty() {
+        Err(CogError::NoImagesFound(path.clone()))?;
+    }
+
     Ok(Meta {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
