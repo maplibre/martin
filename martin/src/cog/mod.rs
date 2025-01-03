@@ -246,7 +246,7 @@ impl SourceConfigExtras for CogConfig {
 }
 fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
-    // see https://docs.ogc.org/is/21-026/21-026.html#_tiles
+    // see the requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
         Err(CogError::NotSupportedChunkType(path.to_path_buf()))?;
     }
