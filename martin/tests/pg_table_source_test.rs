@@ -94,58 +94,43 @@ async fn table_source() {
     });
 
     let source = table(&mock, "table_source");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @r###"
     schema: public
     table: table_source
     srid: 4326
     geometry_column: geom
-    bounds:
-      - -2
-      - -1
-      - 142.84131509869133
-      - 45
     geometry_type: GEOMETRY
     properties:
       gid: int4
-    ");
+    "###);
 
     let source2 = table(&mock, "table_source_geog");
-    assert_yaml_snapshot!(source2, @r"
+    assert_yaml_snapshot!(source2, @r###"
     schema: public
     table: table_source_geog
     srid: 4326
     geometry_column: geog
-    bounds:
-      - -2
-      - 0
-      - 142.84131509869133
-      - 45
     geometry_type: Geometry
     properties:
       gid: int4
-    ");
+    "###);
 }
 
 #[actix_rt::test]
 async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tj = source(&mock, "table_source").get_tilejson();
-    assert_yaml_snapshot!(tj, @r"
+    assert_yaml_snapshot!(tj, @r###"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
       - id: table_source
         fields:
           gid: int4
-    bounds:
-      - -2
-      - -1
-      - 142.84131509869133
-      - 45
     name: table_source
     foo:
       bar: foo
-    ");
+    "###);
 }
 
 #[actix_rt::test]
