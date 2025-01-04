@@ -296,13 +296,13 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r###"
+        assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/cog"
         mbtiles: "../tests/fixtures/cog"
         cog:
           - "../tests/fixtures/cog"
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
-        "###);
+        "#);
     }
 }
