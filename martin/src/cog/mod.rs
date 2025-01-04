@@ -1,6 +1,7 @@
 mod errors;
 
 pub use errors::CogError;
+use log::warn;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -32,6 +33,25 @@ pub struct CogSource {
     meta: Meta,
     tilejson: TileJSON,
     tileinfo: TileInfo,
+}
+
+impl CogSource {
+    pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
+        let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
+        let meta = get_meta(&path)?;
+        let tilejson = tilejson! {
+            tiles: vec![],
+            minzoom: meta.min_zoom,
+            maxzoom: meta.max_zoom
+        };
+        Ok(CogSource {
+            id,
+            path,
+            meta,
+            tilejson,
+            tileinfo,
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -109,8 +129,7 @@ impl Source for CogSource {
             .colortype()
             .map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
 
-        let tile_width = decoder.chunk_dimensions().0;
-        let tile_height = decoder.chunk_dimensions().1;
+        let (tile_width, tile_height) = decoder.chunk_dimensions();
         let (data_width, data_height) = decoder.chunk_data_dimensions(tile_idx);
 
         //do more research on the not u8 case, is this the right way to do it?
@@ -212,20 +231,8 @@ impl ConfigExtras for CogConfig {
 
 impl SourceConfigExtras for CogConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
-        let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
-        let meta = get_meta(&path)?;
-        let tilejson = tilejson! {
-            tiles: vec![],
-            minzoom: meta.min_zoom,
-            maxzoom: meta.max_zoom
-        };
-        Ok(Box::new(CogSource {
-            id,
-            path,
-            meta,
-            tilejson,
-            tileinfo,
-        }))
+        let cog = CogSource::new(id, path)?;
+        Ok(Box::new(cog))
     }
 
     #[allow(clippy::no_effect_underscore_binding)]
@@ -237,22 +244,40 @@ impl SourceConfigExtras for CogConfig {
         false
     }
 }
-
-fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
-    let tif_file = File::open(path).map_err(|e| FileError::IoError(e, path.clone()))?;
-    let mut decoder = Decoder::new(tif_file)
-        .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
-        .with_limits(tiff::decoder::Limits::unlimited());
-
+fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
-
+    // see the requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
-        Err(CogError::NotSupportedChunkType(path.clone()))?;
+        Err(CogError::NotSupportedChunkType(path.to_path_buf()))?;
     }
+
+    // see https://docs.ogc.org/is/21-026/21-026.html#_planar_configuration_considerations and https://www.verypdf.com/document/tiff6/pg_0038.htm
+    // we might support planar configuration 2 in the future
+    decoder
+        .get_tag_unsigned(Tag::PlanarConfiguration)
+        .map_err(|e| {
+            CogError::TagsNotFound(
+                e,
+                vec![Tag::PlanarConfiguration.to_u16()],
+                0,
+                path.to_path_buf(),
+            )
+        })
+        .and_then(|config| {
+            if config == 1 {
+                Ok(())
+            } else {
+                Err(CogError::PlanarConfigurationNotSupported(
+                    path.to_path_buf(),
+                    0,
+                    config,
+                ))
+            }
+        })?;
 
     let color_type = decoder
         .colortype()
-        .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?;
+        .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
 
     if !matches!(
         color_type,
@@ -260,44 +285,37 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     ) {
         Err(CogError::NotSupportedColorTypeAndBitDepth(
             color_type,
-            path.clone(),
+            path.to_path_buf(),
         ))?;
-    }
-
-    decoder
-        .get_tag_unsigned(Tag::PlanarConfiguration)
-        .map_err(|e| {
-            CogError::TagsNotFound(e, vec![Tag::PlanarConfiguration.to_u16()], 0, path.clone())
-        })
-        .and_then(|config| {
-            if config == 1 {
-                Ok(())
-            } else {
-                Err(CogError::PlanarConfigurationNotSupported(
-                    path.clone(),
-                    0,
-                    config,
-                ))
-            }
-        })?;
-
-    let tag = decoder.get_tag_ascii_string(GdalNodata);
-    let nodata: Option<f64> = if let Ok(nodata_tag) = tag {
-        nodata_tag.parse().ok()
-    } else {
-        None
     };
-    let images_ifd = get_images_ifd(&mut decoder);
+    Ok(())
+}
 
+#[allow(clippy::cast_possible_truncation)]
+fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
+    let tif_file = File::open(path).map_err(|e| FileError::IoError(e, path.clone()))?;
+    let mut decoder = Decoder::new(tif_file)
+        .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
+        .with_limits(tiff::decoder::Limits::unlimited());
+
+    verify_requirments(&mut decoder, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
 
-    for image_ifd in &images_ifd {
+    let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
+        no_data.parse().ok()
+    } else {
+        None
+    };
+
+    let images_ifd = get_images_ifd(&mut decoder, path);
+
+    for (idx, image_ifd) in images_ifd.iter().enumerate() {
         decoder
             .seek_to_image(*image_ifd)
             .map_err(|e| CogError::IfdSeekFailed(e, *image_ifd, path.clone()))?;
 
-        let zoom = u8::try_from(images_ifd.len() - (image_ifd + 1))
+        let zoom = u8::try_from(images_ifd.len() - (idx + 1))
             .map_err(|_| CogError::TooManyImages(path.clone()))?;
 
         let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, path, *image_ifd)?;
@@ -306,18 +324,13 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         zoom_and_tile_across_down.insert(zoom, (tiles_across, tiles_down));
     }
 
-    let min_zoom = zoom_and_ifd
-        .keys()
-        .min()
-        .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+    if images_ifd.is_empty() {
+        Err(CogError::NoImagesFound(path.clone()))?;
+    }
 
-    let max_zoom = zoom_and_ifd
-        .keys()
-        .max()
-        .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
     Ok(Meta {
-        min_zoom: *min_zoom,
-        max_zoom: *max_zoom,
+        min_zoom: 0,
+        max_zoom: images_ifd.len() as u8 - 1,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
@@ -354,16 +367,22 @@ fn get_image_dims(
     Ok((image_width, image_length))
 }
 
-fn get_images_ifd(decoder: &mut Decoder<File>) -> Vec<usize> {
+fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     let mut res = vec![];
     let mut ifd_idx = 0;
     loop {
         let is_image = decoder
             .get_tag_u32(Tag::NewSubfileType)
-            .map_or_else(|_| true, |v| v & 4 != 4);
+            .map_or_else(|_| true, |v| v & 4 != 4); // see https://www.verypdf.com/document/tiff6/pg_0036.htm
         if is_image {
             //todo We should not ignore mask in the next PRs
             res.push(ifd_idx);
+        } else {
+            warn!(
+                "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. The ifd number of this subfile is {}",
+                path.display(),
+                ifd_idx
+            );
         }
 
         ifd_idx += 1;
