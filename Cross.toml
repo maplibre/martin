@@ -3,7 +3,7 @@ pre-build = [
     # install nodejs and npm to compile static web resources
     # note that architecture could be the same as the container, not $CROSS_DEB_ARCH
     # Need to use a fairly old Node.js version to support the old underlying docker image
-    "curl -fsSL https://deb.nodesource.com/setup_16.x -o nodesource_setup.sh",
+    "curl -fsSL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh",
     "bash nodesource_setup.sh",
     "apt-get install -y nodejs",
     "node -v",
