@@ -94,7 +94,7 @@ async fn table_source() {
     });
 
     let source = table(&mock, "table_source");
-    assert_yaml_snapshot!(source, @r#"
+    assert_yaml_snapshot!(source, @r"
     schema: public
     table: table_source
     srid: 4326
@@ -107,7 +107,7 @@ async fn table_source() {
     geometry_type: GEOMETRY
     properties:
       gid: int4
-    "#);
+    ");
 
     let source2 = table(&mock, "table_source_geog");
     assert_yaml_snapshot!(source2, @r"
