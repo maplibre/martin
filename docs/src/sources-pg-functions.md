@@ -1,6 +1,11 @@
 ## PostgreSQL Function Sources
 
-Function Source is a database function which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is an etag key (i.e. md5 hash).
+Function Source is a database function which can be used to
+query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with
+a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an
+optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a
+record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is
+an etag key (i.e. md5 hash).
 
 | Argument                   | Type    | Description             |
 |----------------------------|---------|-------------------------|
@@ -11,7 +16,8 @@ Function Source is a database function which can be used to query [vector tiles]
 
 ### Simple Function
 
-For example, if you have a table `table_source` in WGS84 (`4326` SRID), then you can use this function as a Function Source:
+For example, if you have a table `table_source` in WGS84 (`4326` SRID), then you can use this function as a Function
+Source:
 
 ```sql, ignore
 CREATE OR REPLACE
@@ -63,15 +69,18 @@ END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 ```
 
-The `query_params` argument is a JSON representation of the tile request query params.  Query params could be passed as simple query values, e.g.
+The `query_params` argument is a JSON representation of the tile request query params. Query params could be passed as
+simple query values, e.g.
 
-```shell
+```bash
 curl localhost:3000/function_zxy_query/0/0/0?token=martin
 ```
 
-You can also use [urlencoded](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent) params to encode complex values:
+You can also
+use [urlencoded](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+params to encode complex values:
 
-```shell
+```bash
 curl \
   --data-urlencode 'arrayParam=[1, 2, 3]' \
   --data-urlencode 'numberParam=42' \
@@ -101,7 +110,11 @@ You can access this params using [json operators](https://www.postgresql.org/doc
 
 ### Modifying TileJSON
 
-Martin will automatically generate a basic [TileJSON](https://github.com/mapbox/tilejson-spec) manifest for each function source that will contain the name and description of the function, plus optionally `minzoom`, `maxzoom`, and `bounds` (if they were specified via one of the configuration methods).  For example, if there is a function `public.function_zxy_query_jsonb`, the default `TileJSON` might look like this (note that URL will be automatically adjusted to match the request host):
+Martin will automatically generate a basic [TileJSON](https://github.com/mapbox/tilejson-spec) manifest for each
+function source that will contain the name and description of the function, plus optionally `minzoom`, `maxzoom`,
+and `bounds` (if they were specified via one of the configuration methods). For example, if there is a
+function `public.function_zxy_query_jsonb`, the default `TileJSON` might look like this (note that URL will be
+automatically adjusted to match the request host):
 
 ```json
 {
@@ -116,9 +129,12 @@ Martin will automatically generate a basic [TileJSON](https://github.com/mapbox/
 
 #### TileJSON in SQL Comments
 
-To modify automatically generated `TileJSON`, you can add a valid JSON as an SQL comment on the function. Martin will merge function comment into the generated `TileJSON` using [JSON Merge patch](https://www.rfc-editor.org/rfc/rfc7386). The following example adds `attribution` and `version` fields to the `TileJSON`.
+To modify automatically generated `TileJSON`, you can add a valid JSON as an SQL comment on the function. Martin will
+merge function comment into the generated `TileJSON` using [JSON Merge patch](https://www.rfc-editor.org/rfc/rfc7386).
+The following example adds `attribution` and `version` fields to the `TileJSON`.
 
-**Note:** This example uses `EXECUTE` to ensure that the comment is a valid JSON (or else PostgreSQL will throw an error).  You can use other methods of creating SQL comments.
+**Note:** This example uses `EXECUTE` to ensure that the comment is a valid JSON (or else PostgreSQL will throw an
+error). You can use other methods of creating SQL comments.
 
 ```sql
 DO $do$ BEGIN

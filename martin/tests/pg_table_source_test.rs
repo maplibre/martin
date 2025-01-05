@@ -3,8 +3,7 @@
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::TileCoord;
-
+use martin_tile_utils::TileCoord;
 pub mod utils;
 pub use utils::*;
 
@@ -16,8 +15,8 @@ fn init() {
 #[actix_rt::test]
 async fn table_source() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    assert_yaml_snapshot!(mock.0.tiles.get_catalog(), @r###"
-    ---
+    insta::with_settings!({sort_maps => true}, {
+    assert_yaml_snapshot!(mock.0.tiles.get_catalog(), @r#"
     "-function.withweired---_-characters":
       content_type: application/x-protobuf
       description: a function source with special characters
@@ -73,7 +72,8 @@ async fn table_source() {
       description: public.points1.geom
     points1_vw:
       content_type: application/x-protobuf
-      description: public.points1_vw.geom
+      description: description from SQL comment
+      attribution: some attribution from SQL comment
     points2:
       content_type: application/x-protobuf
       description: public.points2.geom
@@ -82,17 +82,19 @@ async fn table_source() {
       description: public.points3857.geom
     table_source:
       content_type: application/x-protobuf
+    table_source_geog:
+      content_type: application/x-protobuf
     table_source_multiple_geom:
       content_type: application/x-protobuf
       description: public.table_source_multiple_geom.geom1
     table_source_multiple_geom.1:
       content_type: application/x-protobuf
       description: public.table_source_multiple_geom.geom2
-    "###);
+    "#);
+    });
 
     let source = table(&mock, "table_source");
-    assert_yaml_snapshot!(source, @r###"
-    ---
+    assert_yaml_snapshot!(source, @r"
     schema: public
     table: table_source
     srid: 4326
@@ -105,15 +107,30 @@ async fn table_source() {
     geometry_type: GEOMETRY
     properties:
       gid: int4
-    "###);
+    ");
+
+    let source2 = table(&mock, "table_source_geog");
+    assert_yaml_snapshot!(source2, @r"
+    schema: public
+    table: table_source_geog
+    srid: 4326
+    geometry_column: geog
+    bounds:
+      - -2
+      - 0
+      - 142.84131509869133
+      - 45
+    geometry_type: Geometry
+    properties:
+      gid: int4
+    ");
 }
 
 #[actix_rt::test]
 async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tj = source(&mock, "table_source").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
-    ---
+    assert_yaml_snapshot!(tj, @r"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -128,7 +145,7 @@ async fn tables_tilejson() {
     name: table_source
     foo:
       bar: foo
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -184,10 +201,9 @@ async fn table_source_schemas() {
           functions: false
     "});
     let sources = mock_sources(cfg).await.0;
-    assert_yaml_snapshot!(sources.tiles.get_catalog(), @r###"
-    ---
+    assert_yaml_snapshot!(sources.tiles.get_catalog(), @r"
     MixPoints:
       content_type: application/x-protobuf
       description: a description from comment on table
-    "###);
+    ");
 }

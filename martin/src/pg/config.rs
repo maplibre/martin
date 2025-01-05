@@ -12,6 +12,7 @@ use crate::pg::builder::PgBuilder;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::utils::on_slow;
+use crate::pg::PgError;
 use crate::pg::PgResult;
 use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
@@ -94,6 +95,23 @@ pub struct PgCfgPublishFuncs {
 
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
+    pub fn validate(&self) -> PgResult<()> {
+        if let Some(pool_size) = self.pool_size {
+            if pool_size < 1 {
+                return Err(PgError::ConfigError(
+                    "pool_size must be greater than or equal to 1.",
+                ));
+            }
+        }
+        if self.connection_string.is_none() {
+            return Err(PgError::ConfigError(
+                "A connection string must be provided.",
+            ));
+        }
+
+        Ok(())
+    }
+
     pub fn finalize(&mut self) -> PgResult<UnrecognizedValues> {
         let mut res = UnrecognizedValues::new();
         if let Some(ref ts) = self.tables {
@@ -110,6 +128,7 @@ impl PgConfig {
             self.auto_publish = OptBoolObj::Bool(true);
         }
 
+        self.validate()?;
         Ok(res)
     }
 

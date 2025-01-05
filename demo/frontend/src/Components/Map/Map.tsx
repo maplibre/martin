@@ -62,17 +62,22 @@ class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> 
   };
 
   changeFilter = (filter: string, value: any) => {
-    this.setState(state => ({
-      ...state,
-      [filter]: value
-    }));
+    if (filter !== undefined && value !== undefined) {
+      this.setState(state => ({
+        ...state,
+        [filter]: value
+      }));
+    }
   };
 
   getQueryParams = () => {
     const { range: { from, to }, hour } = this.state;
 
     const dateFrom = `${dateConverter(from)}.2017`;
-    const dateTo = `${dateConverter(to)}.2017`;
+    let dateTo = `${dateConverter(to)}.2017`;
+    if (to === undefined) {
+      dateTo = dateFrom;
+    }
 
     return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`);
   };

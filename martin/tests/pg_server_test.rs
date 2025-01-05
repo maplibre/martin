@@ -30,7 +30,7 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
-                .configure(::martin::srv::router),
+                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
         .await
     }};
@@ -52,8 +52,7 @@ postgres:
     let response = assert_response(response).await;
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r#"
     fonts: {}
     sprites: {}
     tiles:
@@ -111,8 +110,9 @@ postgres:
         content_type: application/x-protobuf
         description: public.points1.geom
       points1_vw:
+        attribution: some attribution from SQL comment
         content_type: application/x-protobuf
-        description: public.points1_vw.geom
+        description: description from SQL comment
       points2:
         content_type: application/x-protobuf
         description: public.points2.geom
@@ -121,13 +121,15 @@ postgres:
         description: public.points3857.geom
       table_source:
         content_type: application/x-protobuf
+      table_source_geog:
+        content_type: application/x-protobuf
       table_source_multiple_geom:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom1
       table_source_multiple_geom.1:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom2
-    "###);
+    "#);
 }
 
 #[actix_rt::test]
@@ -187,8 +189,7 @@ postgres:
         .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
-    assert_yaml_snapshot!(result, @r###"
-    ---
+    assert_yaml_snapshot!(result, @r#"
     tilejson: 3.0.0
     tiles:
       - "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin"
@@ -204,7 +205,7 @@ postgres:
     name: table_source
     foo:
       bar: foo
-    "###);
+    "#);
 }
 
 #[actix_rt::test]
@@ -852,18 +853,25 @@ postgres:
         result.tiles,
         &["http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"]
     );
+}
+
+#[actix_rt::test]
+async fn pg_get_function_source_ok_rewrite_all() {
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+"};
 
     let req = TestRequest::get()
         .uri("/function_zxy_query_jsonb?token=martin")
-        .insert_header((
-            "x-rewrite-url",
-            "/tiles/function_zxy_query_jsonb?token=martin",
-        ))
+        .insert_header(("X-Forwarded-Proto", "https"))
+        .insert_header(("X-Forwarded-Host", "example.org:7654"))
+        .insert_header(("X-Rewrite-URL", "/proxy/function_zxy_query_jsonb"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
         result.tiles,
-        &["http://localhost:8080/tiles/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
+        &["https://example.org:7654/proxy/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
     );
 }
 
@@ -1017,8 +1025,7 @@ tables:
     assert_eq!(src.id_column, None);
     assert!(matches!(&src.properties, Some(v) if v.len() == 1));
     let tj = source(&mock, "no_id").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
-    ---
+    assert_yaml_snapshot!(tj, @r"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -1033,10 +1040,9 @@ tables:
       - 90
     description: a description from comment on table
     name: no_id
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "id_only"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "id_only"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1050,10 +1056,9 @@ tables:
     geometry_type: POINT
     properties:
       TABLE: text
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1068,10 +1073,9 @@ tables:
     properties:
       TABLE: text
       giD: int4
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "prop_only"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "prop_only"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1085,7 +1089,7 @@ tables:
     properties:
       TABLE: text
       giD: int4
-    "###);
+    ");
 
     // --------------------------------------------
 
@@ -1098,7 +1102,7 @@ tables:
             .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
             .app_data(actix_web::web::Data::new(state.tiles))
             .app_data(actix_web::web::Data::new(SrvConfig::default()))
-            .configure(::martin::srv::router),
+            .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
     )
     .await;
 

@@ -9,7 +9,6 @@ use deadpool_postgres::tokio_postgres::Config;
 use log::{info, warn};
 use regex::Regex;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-// use rustls::crypto::ring::default_provider;
 use rustls::crypto::aws_lc_rs::default_provider;
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
@@ -50,9 +49,14 @@ pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
     } else {
         Config::from_str(conn_str)
     };
-    let pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
+    let mut pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
     if let SslModeOverride::Unmodified(_) = mode {
         mode = SslModeOverride::Unmodified(pg_cfg.get_ssl_mode());
+    }
+    let crate_ver = env!("CARGO_PKG_VERSION");
+    if pg_cfg.get_application_name().is_none() {
+        let pid = std::process::id();
+        pg_cfg.application_name(format!("Martin v{crate_ver} - pid={pid}"));
     }
     Ok((pg_cfg, mode))
 }
@@ -152,8 +156,11 @@ pub fn make_connector(
     }
 
     if verify_ca || pg_certs.ssl_root_cert.is_some() || pg_certs.ssl_cert.is_some() {
-        let certs = load_native_certs().map_err(CannotLoadRoots)?;
-        for cert in certs {
+        let certs = load_native_certs();
+        if !certs.errors.is_empty() {
+            return Err(CannotLoadRoots(certs.errors));
+        }
+        for cert in certs.certs {
             roots.add(cert)?;
         }
     }

@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
     apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
-    MbtTypeCli, Mbtiles, MbtilesCopier, UpdateZoomType,
+    MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
 };
 use tilejson::Bounds;
 
@@ -66,6 +66,9 @@ enum Commands {
         base_file: PathBuf,
         /// Diff file
         patch_file: PathBuf,
+        /// Force patching operation, ignoring some warnings that otherwise would prevent the operation. Use with caution.
+        #[arg(short, long)]
+        force: bool,
     },
     /// Update metadata to match the content of the file
     #[command(name = "meta-update", alias = "update-meta")]
@@ -112,6 +115,9 @@ pub struct CopyArgs {
     /// Use `mbtiles apply-patch` to apply the patch file in-place, without making a copy of the original.
     #[arg(long, conflicts_with("diff_with_file"))]
     apply_patch: Option<PathBuf>,
+    /// Specify the type of patch file to generate.
+    #[arg(long, requires("diff_with_file"), default_value_t=PatchTypeCli::default())]
+    patch_type: PatchTypeCli,
 }
 
 #[allow(clippy::doc_markdown)]
@@ -123,6 +129,9 @@ pub struct DiffArgs {
     file2: PathBuf,
     /// Output file to write the resulting difference to
     diff: PathBuf,
+    /// Specify the type of patch file to generate.
+    #[arg(long, default_value_t=PatchTypeCli::default())]
+    patch_type: PatchTypeCli,
 
     #[command(flatten)]
     pub options: SharedCopyOpts,
@@ -156,6 +165,12 @@ pub struct SharedCopyOpts {
     /// Skip generating a global hash for mbtiles validation. By default, `mbtiles` will compute `agg_tiles_hash` metadata value.
     #[arg(long)]
     skip_agg_tiles_hash: bool,
+    /// Force copy operation, ignoring some warnings that otherwise would prevent the operation. Use with caution.
+    #[arg(short, long)]
+    force: bool,
+    /// Perform agg_hash validation on the original and destination files.
+    #[arg(long)]
+    validate: bool,
 }
 
 impl SharedCopyOpts {
@@ -166,11 +181,12 @@ impl SharedCopyOpts {
         dst_file: PathBuf,
         diff_with_file: Option<PathBuf>,
         apply_patch: Option<PathBuf>,
+        patch_type: PatchTypeCli,
     ) -> MbtilesCopier {
         MbtilesCopier {
             src_file,
             dst_file,
-            diff_with_file,
+            diff_with_file: diff_with_file.map(|p| (p, patch_type.into())),
             apply_patch,
             // Shared
             copy: self.copy,
@@ -181,6 +197,8 @@ impl SharedCopyOpts {
             zoom_levels: self.zoom_levels,
             bbox: self.bbox,
             skip_agg_tiles_hash: self.skip_agg_tiles_hash,
+            force: self.force,
+            validate: self.validate,
             // Constants
             dst_type: None, // Taken from dst_type_cli
         }
@@ -221,20 +239,26 @@ async fn main_int() -> anyhow::Result<()> {
                 args.dst_file,
                 args.diff_with_file,
                 args.apply_patch,
+                args.patch_type,
             );
             copier.run().await?;
         }
         Commands::Diff(args) => {
-            let copier = args
-                .options
-                .into_copier(args.file1, args.diff, Some(args.file2), None);
+            let copier = args.options.into_copier(
+                args.file1,
+                args.diff,
+                Some(args.file2),
+                None,
+                args.patch_type,
+            );
             copier.run().await?;
         }
         Commands::ApplyPatch {
             base_file,
             patch_file,
+            force,
         } => {
-            apply_patch(base_file, patch_file).await?;
+            apply_patch(base_file, patch_file, force).await?;
         }
         Commands::UpdateMetadata { file, update_zoom } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -258,7 +282,7 @@ async fn main_int() -> anyhow::Result<()> {
                 }
             });
             let mbt = Mbtiles::new(file.as_path())?;
-            mbt.validate(integrity_check, agg_hash).await?;
+            mbt.open_and_validate(integrity_check, agg_hash).await?;
         }
         Commands::Summary { file } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -515,6 +539,7 @@ mod tests {
                     file1: PathBuf::from("file1.mbtiles"),
                     file2: PathBuf::from("file2.mbtiles"),
                     diff: PathBuf::from("../delta.mbtiles"),
+                    patch_type: PatchTypeCli::Whole,
                     options: SharedCopyOpts {
                         on_duplicate: Some(CopyDuplicateMode::Override),
                         ..Default::default()
@@ -597,6 +622,7 @@ mod tests {
                 command: ApplyPatch {
                     base_file: PathBuf::from("src_file"),
                     patch_file: PathBuf::from("diff_file"),
+                    force: false,
                 }
             }
         );

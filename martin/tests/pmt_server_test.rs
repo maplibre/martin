@@ -3,8 +3,8 @@ use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::decode_gzip;
 use martin::srv::SrvConfig;
+use martin_tile_utils::decode_gzip;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -26,7 +26,7 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
-                .configure(::martin::srv::router),
+                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
         .await
     }};
@@ -51,14 +51,13 @@ async fn pmt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
       stamen_toner__raster_CC-BY-ODbL_z3:
         content_type: image/png
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -70,14 +69,13 @@ async fn pmt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
       p_png:
         content_type: image/png
-    "###);
+    ");
 }
 
 #[actix_rt::test]

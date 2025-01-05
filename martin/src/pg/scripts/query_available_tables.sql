@@ -28,7 +28,8 @@ WITH
                  JOIN pg_opclass op ON
                     op.oid = ix.indclass[0] AND
                     op.opcname IN ('gist_geometry_ops_2d', 'spgist_geometry_ops_2d',
-                                   'brin_geometry_inclusion_ops_2d')
+                                   'brin_geometry_inclusion_ops_2d',
+                                   'gist_geography_ops')
         GROUP BY 1, 2, 3),
     --
     annotated_geometry_columns AS (
@@ -38,6 +39,7 @@ WITH
                f_geometry_column                    AS geom,
                srid,
                type,
+               -- 'geometry' AS column_type
                COALESCE(class.relkind = 'v', false) AS is_view,
                bool_or(sic.column_name is not null) as geom_idx
         FROM geometry_columns
@@ -50,14 +52,42 @@ WITH
                     geometry_columns.f_table_name = sic.table_name AND
                     geometry_columns.f_geometry_column = sic.column_name
         GROUP BY 1, 2, 3, 4, 5, 6),
+    --
+    annotated_geography_columns AS (
+        -- list of geography columns with additional metadata
+        SELECT f_table_schema                       AS schema,
+               f_table_name                         AS name,
+               f_geography_column                   AS geom,
+               srid,
+               type,
+               -- 'geography' AS column_type
+               COALESCE(class.relkind = 'v', false) AS is_view,
+               bool_or(sic.column_name is not null) as geom_idx
+        FROM geography_columns
+                 JOIN pg_catalog.pg_class AS class
+                      ON class.relname = geography_columns.f_table_name
+                 JOIN pg_catalog.pg_namespace AS ns
+                      ON ns.nspname = geography_columns.f_table_schema
+                 LEFT JOIN spatially_indexed_columns AS sic ON
+                    geography_columns.f_table_schema = sic.table_schema AND
+                    geography_columns.f_table_name = sic.table_name AND
+                    geography_columns.f_geography_column = sic.column_name
+        GROUP BY 1, 2, 3, 4, 5, 6),
+    --
+    annotated_geo_columns AS (
+        SELECT * FROM annotated_geometry_columns
+        UNION SELECT * FROM annotated_geography_columns
+    ),
+    --
     descriptions AS (
         -- comments on table/views
         SELECT
             pg_namespace.nspname AS schema_name,
             relname AS table_name,
-            CAST(obj_description(relfilenode, 'pg_class') AS VARCHAR) AS description
+            pg_description.description AS description
         FROM pg_class
             JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
+            LEFT JOIN pg_description ON pg_class.oid = pg_description.objoid
         WHERE relkind = 'r' OR relkind = 'v'
     )
 SELECT schema,
@@ -68,12 +98,16 @@ SELECT schema,
        is_view,
        geom_idx,
        COALESCE(
-                       jsonb_object_agg(columns.column_name, columns.type_name)
-                       FILTER (WHERE columns.column_name IS NOT NULL AND columns.type_name != 'geometry'),
-                       '{}'::jsonb
+           jsonb_object_agg(columns.column_name, columns.type_name)
+           FILTER (
+               WHERE columns.column_name IS NOT NULL
+                   AND columns.type_name != 'geometry'
+                   AND columns.type_name != 'geography'
+                   ),
+           '{}'::jsonb
            ) as properties,
       dc.description
-FROM annotated_geometry_columns AS gc
+FROM annotated_geo_columns AS gc
          LEFT JOIN columns ON
             gc.schema = columns.table_schema AND
             gc.name = columns.table_name AND

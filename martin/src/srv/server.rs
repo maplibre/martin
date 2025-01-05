@@ -15,6 +15,8 @@ use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "webui")]
+use crate::args::WebUiMode;
 use crate::config::ServerState;
 use crate::source::TileCatalog;
 use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
@@ -22,6 +24,13 @@ use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
 use crate::MartinError::BindingError;
 use crate::MartinResult;
+
+#[cfg(feature = "webui")]
+mod webui {
+    #![allow(clippy::unreadable_literal)]
+    #![allow(clippy::wildcard_imports)]
+    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+}
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -57,12 +66,23 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     ErrorInternalServerError(e.to_string())
 }
 
-/// Root path will eventually have a web front. For now, just a stub.
+/// Root path in case web front is disabled.
+#[cfg(not(feature = "webui"))]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
-async fn get_index() -> &'static str {
-    // todo: once this becomes more substantial, add wrap = "middleware::Compress::default()"
-    "Martin server is running. Eventually this will be a nice web front.\n\n\
+async fn get_index_no_ui() -> &'static str {
+    "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
+    A list of all available sources is at /catalog\n\n\
+    See documentation https://github.com/maplibre/martin"
+}
+
+/// Root path in case web front is disabled and the WebUI feature is enabled.
+#[cfg(feature = "webui")]
+#[route("/", method = "GET", method = "HEAD")]
+#[allow(clippy::unused_async)]
+async fn get_index_ui_disabled() -> &'static str {
+    "Martin server is running.\n\n
+    The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
     A list of all available sources is at /catalog\n\n\
     See documentation https://github.com/maplibre/martin"
 }
@@ -87,19 +107,37 @@ async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
     HttpResponse::Ok().json(catalog)
 }
 
-pub fn router(cfg: &mut web::ServiceConfig) {
+pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
     cfg.service(get_health)
-        .service(get_index)
         .service(get_catalog)
         .service(get_source_info)
         .service(get_tile);
 
     #[cfg(feature = "sprites")]
-    cfg.service(crate::srv::sprites::get_sprite_json)
+    cfg.service(crate::srv::sprites::get_sprite_sdf_json)
+        .service(crate::srv::sprites::get_sprite_json)
+        .service(crate::srv::sprites::get_sprite_sdf_png)
         .service(crate::srv::sprites::get_sprite_png);
 
     #[cfg(feature = "fonts")]
     cfg.service(crate::srv::fonts::get_font);
+
+    #[cfg(feature = "webui")]
+    {
+        // TODO: this can probably be simplified with a wrapping middleware,
+        //       which would share usr_cfg from Data<> with all routes.
+        if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
+            cfg.service(actix_web_static_files::ResourceFiles::new(
+                "/",
+                webui::generate(),
+            ));
+        } else {
+            cfg.service(get_index_ui_disabled);
+        }
+    }
+
+    #[cfg(not(feature = "webui"))]
+    cfg.service(get_index_no_ui);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
@@ -113,7 +151,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     let listen_addresses = config
         .listen_addresses
         .clone()
-        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_owned());
+        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
     let factory = move || {
         let cors_middleware = Cors::default()
@@ -135,7 +173,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
-            .configure(router)
+            .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
@@ -159,12 +197,12 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 #[cfg(test)]
 pub mod tests {
     use async_trait::async_trait;
-    use martin_tile_utils::{Encoding, Format, TileInfo};
+    use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
     use tilejson::TileJSON;
 
     use super::*;
-    use crate::source::{Source, TileData};
-    use crate::{TileCoord, UrlQuery};
+    use crate::source::{Source, TileData, TileInfoSource};
+    use crate::UrlQuery;
 
     #[derive(Debug, Clone)]
     pub struct TestSource {
@@ -187,7 +225,7 @@ pub mod tests {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
 
-        fn clone_source(&self) -> Box<dyn Source> {
+        fn clone_source(&self) -> TileInfoSource {
             unimplemented!()
         }
 

@@ -60,6 +60,8 @@ jobs:
       - run: just clippy
       - run: just check
       - run: just check-doc
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -140,11 +142,11 @@ jobs:
           for target in "aarch64-unknown-linux-musl" "x86_64-unknown-linux-musl"; do
             echo -e "\n----------------------------------------------"
             echo "Building $target"
-
+            # See https://github.com/cross-rs/cross/issues/1526
+            # TODO: Remove this once a version after cross 0.2.5 is released
+            export CROSS_BUILD_OPTS="--output=type=docker"
             export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-            cross build --release --target $target --package mbtiles
-            cross build --release --target $target --package martin
-
+            cross build --release --target $target --workspace
             mkdir -p target_releases/$target
             mv target/$target/release/martin target_releases/$target
             mv target/$target/release/martin-cp target_releases/$target
@@ -152,7 +154,7 @@ jobs:
           done
 
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cross-build
           path: target_releases/*
@@ -169,7 +171,7 @@ jobs:
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Build linux/arm64 Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
           context: .
@@ -191,7 +193,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
       - name: Build linux/amd64 Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
           context: .
@@ -228,7 +230,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
       - name: Push the Docker image
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: .github/files/multi-platform.Dockerfile
@@ -245,7 +247,7 @@ jobs:
       matrix:
         include:
           - target: aarch64-apple-darwin
-            os: macos-14  # M1 CPU
+            os: macos-latest  # M-series CPU
           - target: debian-x86_64
             os: ubuntu-latest
           - target: x86_64-apple-darwin
@@ -287,7 +289,7 @@ jobs:
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.target }}
           path: target_releases/*
@@ -300,7 +302,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Download build artifact cross-build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cross-build
       - run: tests/test-aws-lambda.sh
@@ -316,26 +318,25 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - target: x86_64-apple-darwin
-            os: macos-13
+          # temporary disabled due to an issue with homebrew which is difficult to debug
+          # - target: x86_64-apple-darwin
+          #   os: macos-13
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Start NGINX
-        uses: nyurik/action-setup-nginx@v1.1
-        id: nginx
-        with: { port: '5412', output-unix-paths: 'yes' }
-      - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Install and run Postgis
         uses: nyurik/action-setup-postgis@v2
         id: pg
         with: { username: 'test', password: 'test', database: 'test' }
+      - name: Start NGINX
+        uses: nyurik/action-setup-nginx@v1.1
+        id: nginx
+        with: { port: '5412', output-unix-paths: 'yes' }
+      - name: Checkout sources
+        uses: actions/checkout@v4
       - name: Init database
         run: |
           echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
@@ -344,8 +345,10 @@ jobs:
           tests/fixtures/initdb.sh
         env:
           PGSERVICE: ${{ steps.pg.outputs.service-name }}
+      - name: Copy static files
+        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-${{ matrix.target }}
           path: target/
@@ -366,7 +369,7 @@ jobs:
         run: diff --brief --recursive --new-file tests/output tests/expected
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-debian-x86_64
           path: target/
@@ -383,7 +386,7 @@ jobs:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: failed-test-output-${{ runner.os }}
           path: |
@@ -466,7 +469,7 @@ jobs:
           docker cp ${{ job.services.postgres.id }}:/etc/ssl/certs/ssl-cert-snakeoil.pem target/certs/server.crt
           docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
       - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target_releases/
@@ -485,7 +488,7 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Download Debian package
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-debian-x86_64
           path: target_releases/
@@ -517,7 +520,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-output
           path: |
@@ -533,34 +536,34 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Download build artifact build-aarch64-apple-darwin
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-aarch64-apple-darwin
           path: target/aarch64-apple-darwin
       - name: Download build artifact build-x86_64-apple-darwin
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-x86_64-apple-darwin
           path: target/x86_64-apple-darwin
       - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target/x86_64-unknown-linux-gnu
 
       - name: Download cross-build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cross-build
           path: target/cross
 
       - name: Download build artifact build-x86_64-pc-windows-msvc
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-x86_64-pc-windows-msvc
           path: target/x86_64-pc-windows-msvc
       - name: Download build artifact build-debian-x86_64
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-debian-x86_64
           path: target/debian-x86_64
@@ -631,7 +634,7 @@ jobs:
           EOF
 
       - name: Save Homebrew Config
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: homebrew-config
           path: target/homebrew_config.yaml
@@ -663,7 +666,7 @@ jobs:
 
       - name: Create a PR for maplibre/homebrew-martin
         if: startsWith(github.ref, 'refs/tags/')
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           # Create a personal access token
           #     Gen:  https://github.com/settings/personal-access-tokens/new

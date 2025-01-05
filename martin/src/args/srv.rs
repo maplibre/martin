@@ -11,21 +11,42 @@ pub struct SrvArgs {
     pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {LISTEN_ADDRESSES_DEFAULT}]"), short, long)]
     pub listen_addresses: Option<String>,
-    /// Set TileJSON URL path prefix, ignoring X-Rewrite-URL header. Must begin with a `/`. Examples: `/`, `/tiles`
+    /// Set TileJSON URL path prefix. This overides the default of respecting the X-Rewrite-URL header.
+    /// Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
+    /// Must begin with a `/`.
+    /// Examples: `/`, `/tiles`
     #[arg(long)]
     pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
-    /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to brotli.
+    /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip.
     #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
+    /// Control Martin web UI.  Disabled by default.
+    #[arg(short = 'u', long = "webui")]
+    #[cfg(feature = "webui")]
+    pub web_ui: Option<WebUiMode>,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum WebUiMode {
+    /// Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost.
+    #[default]
+    #[serde(alias = "false")]
+    Disable,
+    // /// Enable Web UI interface on connections from the localhost
+    // #[default]
+    // #[serde(alias = "true")]
+    // Enable,
+    /// Enable Web UI interface on all connections
+    EnableForAll,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum PreferredEncoding {
-    #[default]
     #[serde(alias = "br")]
     #[clap(alias("br"))]
     Brotli,
@@ -41,14 +62,18 @@ impl SrvArgs {
         if self.listen_addresses.is_some() {
             srv_config.listen_addresses = self.listen_addresses;
         }
+        if self.base_path.is_some() {
+            srv_config.base_path = self.base_path;
+        }
         if self.workers.is_some() {
             srv_config.worker_processes = self.workers;
         }
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
         }
-        if self.base_path.is_some() {
-            srv_config.base_path = self.base_path;
+        #[cfg(feature = "webui")]
+        if self.web_ui.is_some() {
+            srv_config.web_ui = self.web_ui;
         }
     }
 }

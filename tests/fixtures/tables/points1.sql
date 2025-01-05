@@ -53,3 +53,12 @@ values (1, '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740'),
 
 CREATE INDEX ON points1 USING GIST (geom);
 CLUSTER points1_geom_idx ON points1;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON VIEW points1_vw IS $tj$' || $$
+    {
+        "description": "description from SQL comment",
+        "attribution": "some attribution from SQL comment"
+    }
+    $$::json || '$tj$';
+END $do$;

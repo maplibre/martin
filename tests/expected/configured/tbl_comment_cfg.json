@@ -1,17 +1,4 @@
 {
-  "tilejson": "3.0.0",
-  "tiles": [
-    "http://localhost:3111/MixPoints/{z}/{x}/{y}"
-  ],
-  "vector_layers": [
-    {
-      "id": "MixPoints",
-      "fields": {
-        "Gid": "int4",
-        "TABLE": "text"
-      }
-    }
-  ],
   "bounds": [
     -170.94985961914062,
     -84.20025634765625,
@@ -19,5 +6,18 @@
     74.23573303222656
   ],
   "description": "a description from comment on table",
-  "name": "MixPoints"
+  "name": "MixPoints",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/MixPoints/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "Gid": "int4",
+        "TABLE": "text"
+      },
+      "id": "MixPoints"
+    }
+  ]
 }

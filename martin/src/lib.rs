@@ -9,11 +9,13 @@ pub use source::{CatalogSourceEntry, Source, Tile, TileData, TileSources, UrlQue
 
 mod utils;
 pub use utils::{
-    append_rect, decode_brotli, decode_gzip, IdResolver, MartinError, MartinResult, OptBoolObj,
-    OptOneMany, TileCoord, TileRect, NO_MAIN_CACHE,
+    append_rect, IdResolver, MartinError, MartinResult, OptBoolObj, OptOneMany, TileRect,
+    NO_MAIN_CACHE,
 };
 
 pub mod args;
+#[cfg(feature = "cog")]
+pub mod cog;
 pub mod file_config;
 #[cfg(feature = "fonts")]
 pub mod fonts;

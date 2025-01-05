@@ -1,0 +1,1 @@
+tests/output/configured/sdf_spr_mysrc.png: PNG image data, 36 x 36, 8-bit gray+alpha, non-interlaced

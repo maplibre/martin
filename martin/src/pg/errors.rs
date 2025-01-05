@@ -3,29 +3,29 @@ use std::path::PathBuf;
 
 use deadpool_postgres::tokio_postgres::Error as TokioPgError;
 use deadpool_postgres::{BuildError, PoolError};
+use martin_tile_utils::TileCoord;
 use semver::Version;
 
 use crate::pg::utils::query_to_json;
 use crate::source::UrlQuery;
-use crate::TileCoord;
 
 pub type PgResult<T> = Result<T, PgError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum PgError {
-    #[error("Cannot load platform root certificates: {0}")]
-    CannotLoadRoots(#[source] io::Error),
+    #[error("Cannot load platform root certificates: {0:?}")]
+    CannotLoadRoots(Vec<rustls_native_certs::Error>),
 
-    #[error("Cannot open certificate file {}: {0}", .1.display())]
+    #[error("Cannot open certificate file {1}: {0}")]
     CannotOpenCert(#[source] io::Error, PathBuf),
 
-    #[error("Cannot parse certificate file {}: {0}", .1.display())]
+    #[error("Cannot parse certificate file {1}: {0}")]
     CannotParseCert(#[source] io::Error, PathBuf),
 
-    #[error("Unable to parse PEM RSA key file {}", .0.display())]
+    #[error("Unable to parse PEM RSA key file {0}")]
     InvalidPrivateKey(PathBuf),
 
-    #[error("Unable to use client certificate pair {} / {}: {0}", .1.display(), .2.display())]
+    #[error("Unable to use client certificate pair {1} / {2}: {0}")]
     CannotUseClientKey(#[source] rustls::Error, PathBuf, PathBuf),
 
     #[error(transparent)]
@@ -49,8 +49,14 @@ pub enum PgError {
     #[error("Unable to parse PostGIS version {1}: {0}")]
     BadPostgisVersion(#[source] semver::Error, String),
 
+    #[error("Unable to parse PostgreSQL version {1}: {0}")]
+    BadPostgresVersion(#[source] semver::Error, String),
+
     #[error("PostGIS version {0} is too old, minimum required is {1}")]
     PostgisTooOld(Version, Version),
+
+    #[error("PostgreSQL version {0} is too old, minimum required is {1}")]
+    PostgresqlTooOld(Version, Version),
 
     #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
     InvalidTableExtent(String, String),
@@ -61,6 +67,9 @@ pub enum PgError {
     #[error(r#"Unable to get tile {2:#} from {1}: {0}"#)]
     GetTileError(#[source] TokioPgError, String, TileCoord),
 
-    #[error(r#"Unable to get tile {2:#} with {:?} params from {1}: {0}"#, query_to_json(.3.as_ref()))]
+    #[error(r#"Unable to get tile {2:#} with {json_query:?} params from {1}: {0}"#, json_query=query_to_json(.3.as_ref()))]
     GetTileWithQueryError(#[source] TokioPgError, String, TileCoord, Option<UrlQuery>),
+
+    #[error("Configuration error: {0}")]
+    ConfigError(&'static str),
 }

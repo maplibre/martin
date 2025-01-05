@@ -3,14 +3,14 @@ use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
 use log::debug;
 use martin_tile_utils::Encoding::Uncompressed;
 use martin_tile_utils::Format::Mvt;
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
 use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
-use crate::source::{Source, TileData, UrlQuery};
-use crate::{MartinResult, TileCoord};
+use crate::source::{Source, TileData, TileInfoSource, UrlQuery};
+use crate::MartinResult;
 
 #[derive(Clone, Debug)]
 pub struct PgSource {
@@ -46,7 +46,7 @@ impl Source for PgSource {
         TileInfo::new(Mvt, Uncompressed)
     }
 
-    fn clone_source(&self) -> Box<dyn Source> {
+    fn clone_source(&self) -> TileInfoSource {
         Box::new(self.clone())
     }
 

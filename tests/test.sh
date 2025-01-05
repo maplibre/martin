@@ -34,7 +34,7 @@ function wait_for {
     PROC_NAME=$2
     TEST_URL=$3
     echo "Waiting for $PROC_NAME ($PROCESS_ID) to start by checking $TEST_URL to be valid..."
-    for i in {1..60}; do
+    for _ in {1..60}; do
         if $CURL "$TEST_URL" 2>/dev/null >/dev/null; then
             echo "$PROC_NAME is up!"
             if [[ "$PROC_NAME" == "Martin" ]]; then
@@ -42,7 +42,7 @@ function wait_for {
             fi
             return
         fi
-        if ps -p $PROCESS_ID > /dev/null ; then
+        if ps -p "$PROCESS_ID" > /dev/null ; then
             echo "$PROC_NAME is not up yet, waiting for $TEST_URL ..."
             sleep 1
         else
@@ -62,9 +62,9 @@ function kill_process {
     PROCESS_ID=$1
     PROC_NAME=$2
     echo "Waiting for $PROC_NAME ($PROCESS_ID) to stop..."
-    kill $PROCESS_ID
-    for i in {1..50}; do
-        if ps -p $PROCESS_ID > /dev/null ; then
+    kill "$PROCESS_ID"
+    for _ in {1..50}; do
+        if ps -p "$PROCESS_ID" > /dev/null ; then
             sleep 0.1
         else
             echo "$PROC_NAME ($PROCESS_ID) has stopped"
@@ -72,22 +72,21 @@ function kill_process {
         fi
     done
     echo "$PROC_NAME did not stop in time, killing it"
-    kill -9 $PROCESS_ID
+    kill -9 "$PROCESS_ID"
     # wait for it to die using timeout and wait
-    timeout -k 1s 1s wait $PROCESS_ID || true;
+    timeout -k 1s 1s wait "$PROCESS_ID" || true;
 }
 
-test_jsn()
-{
+test_jsn() {
   FILENAME="$TEST_OUT_DIR/$1.json"
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" | jq -e > "$FILENAME"
+  # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
+  $CURL "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
 }
 
-test_pbf()
-{
+test_pbf() {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
 
@@ -100,8 +99,7 @@ test_pbf()
   fi
 }
 
-test_png()
-{
+test_png() {
   # 3rd argument is optional, .png by default
   FILENAME="$TEST_OUT_DIR/$1.${3:-png}"
   URL="$MARTIN_URL/$2"
@@ -114,15 +112,12 @@ test_png()
   fi
 }
 
-test_jpg()
-{
+test_jpg() {
   # test_png can test any image format, but this is a separate function to make it easier to find all the jpeg tests
-  test_png $1 $2 jpg
+  test_png "$1" "$2" jpg
 }
 
-
-test_font()
-{
+test_font() {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
 
@@ -131,8 +126,7 @@ test_font()
 }
 
 # Delete a line from a file $1 that matches parameter $2
-remove_line()
-{
+remove_line() {
   FILE="$1"
   LINE_TO_REMOVE="$2"
   >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
@@ -140,8 +134,7 @@ remove_line()
   mv "${FILE}.tmp" "${FILE}"
 }
 
-test_log_has_str()
-{
+test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
   echo "Checking $LOG_FILE for expected text: '$EXPECTED_TEXT'"
@@ -149,8 +142,7 @@ test_log_has_str()
   remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
-test_martin_cp()
-{
+test_martin_cp() {
   TEST_NAME="$1"
   ARG=("${@:2}")
 
@@ -171,17 +163,16 @@ test_martin_cp()
   # These tend to vary between runs. In theory, vacuuming might make it the same.
   remove_line "$SUMMARY_FILE" "File size: "
   remove_line "$SUMMARY_FILE" "Page count: "
-
 }
 
-validate_log()
-{
+validate_log() {
   LOG_FILE="$1"
   >&2 echo "Validating log file $LOG_FILE"
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
   remove_line "$LOG_FILE" 'Source IDs must be unique'
+  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended 12.0.0'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -190,7 +181,10 @@ validate_log()
   fi
 }
 
+echo "------------------------------------------------------------------------------------------------------------------------"
 curl --version
+jq --version
+grep --version
 
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
@@ -198,7 +192,6 @@ if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
   rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
 fi
-
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Check HTTP server is running"
@@ -212,15 +205,15 @@ LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=`jobs -p | tail -n 1`
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
 >&2 echo "Test catalog"
@@ -288,6 +281,21 @@ test_png mb_png_0_0_0 geography-class-png/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
+>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
+test_jsn rgb_u8       rgb_u8
+test_png rgb_u8_0_0_0 rgb_u8/0/0/0
+test_png rgb_u8_3_0_0 rgb_u8/3/0/0
+test_png rgb_u8_3_1_1 rgb_u8/3/1/1
+
+test_jsn rgba_u8       rgba_u8
+test_png rgba_u8_0_0_0 rgba_u8/0/0/0
+test_png rgba_u8_3_0_0 rgba_u8/3/0/0
+test_png rgba_u8_3_1_1 rgba_u8/3/1/1
+
+test_jsn rgba_u8_nodata       rgba_u8_nodata
+test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
+test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
+
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
@@ -295,9 +303,10 @@ test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
 
-kill_process $MARTIN_PROC_ID Martin
+kill_process "$MARTIN_PROC_ID" Martin
 
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
@@ -314,16 +323,16 @@ mkdir -p "$TEST_OUT_DIR"
 ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/pmtiles2)
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=`jobs -p | tail -n 1`
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 
 >&2 echo "Test catalog"
 test_jsn catalog_auto catalog
 
-kill_process $MARTIN_PROC_ID Martin
+kill_process "$MARTIN_PROC_ID" Martin
 validate_log "$LOG_FILE"
 
 
@@ -339,14 +348,15 @@ ARG=(--config tests/config.yaml --max-feature-count 1000 --save-config "${TEST_O
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=`jobs -p | tail -n 1`
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for $MARTIN_PROC_ID Martin "$MARTIN_URL/health"
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
 >&2 echo "Test catalog"
-test_jsn catalog_cfg catalog
+test_jsn catalog_cfg  catalog
+test_jsn cmp          table_source,points1,points2
 
 # Test tile sources
 test_pbf tbl_0_0_0    table_source/0/0/0
@@ -357,18 +367,30 @@ test_png pmt_0_0_0    pmt/0/0/0
 test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
 # Test sprites
-test_jsn spr_src1     sprite/src1.json
-test_png spr_src1     sprite/src1.png
-test_jsn spr_src1_2x  sprite/src1@2x.json
-test_png spr_src1_2x  sprite/src1@2x.png
-test_jsn spr_mysrc    sprite/mysrc.json
-test_png spr_mysrc    sprite/mysrc.png
-test_jsn spr_mysrc_2x sprite/mysrc@2x.json
-test_png spr_mysrc_2x sprite/mysrc@2x.png
-test_jsn spr_cmp      sprite/src1,mysrc.json
-test_png spr_cmp      sprite/src1,mysrc.png
-test_jsn spr_cmp_2x   sprite/src1,mysrc@2x.json
-test_png spr_cmp_2x   sprite/src1,mysrc@2x.png
+test_jsn spr_src1      sprite/src1.json
+test_jsn sdf_spr_src1  sdf_sprite/src1.json
+test_png spr_src1      sprite/src1.png
+test_png sdf_spr_src1  sdf_sprite/src1.png
+test_jsn spr_src1_2x   sprite/src1@2x.json
+test_jsn sdf_spr_src1_ sdf_sprite/src1@2x.json
+test_png spr_src1_2x   sprite/src1@2x.png
+test_png sdf_spr_src1_ sdf_sprite/src1@2x.png
+test_jsn spr_mysrc     sprite/mysrc.json
+test_jsn sdf_spr_mysrc sdf_sprite/mysrc.json
+test_png spr_mysrc     sprite/mysrc.png
+test_png sdf_spr_mysrc sdf_sprite/mysrc.png
+test_jsn spr_mysrc_2x  sprite/mysrc@2x.json
+test_jsn sdf_spr_mysrc sdf_sprite/mysrc@2x.json
+test_png spr_mysrc_2x  sprite/mysrc@2x.png
+test_png sdf_spr_mysrc sdf_sprite/mysrc@2x.png
+test_jsn spr_cmp       sprite/src1,mysrc.json
+test_jsn sdf_spr_cmp   sdf_sprite/src1,mysrc.json
+test_png spr_cmp       sprite/src1,mysrc.png
+test_png sdf_spr_cmp   sdf_sprite/src1,mysrc.png
+test_jsn spr_cmp_2x    sprite/src1,mysrc@2x.json
+test_jsn sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.json
+test_png spr_cmp_2x    sprite/src1,mysrc@2x.png
+test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
 
 # Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255
@@ -379,8 +401,9 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
-kill_process $MARTIN_PROC_ID Martin
+kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
@@ -435,18 +458,14 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
   $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
 
-  set +e
-  $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"
-  if [[ $? -eq 0 ]]; then
+  if $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"; then
     echo "ERROR: validate with invalid-tile-idx.mbtiles should have failed"
     exit 1
   fi
-  $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-hash.txt"
-  if [[ $? -eq 0 ]]; then
+  if $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-hash.txt"; then
     echo "ERROR: validate with bad_hash.mbtiles should have failed"
     exit 1
   fi
-  set -e
 
   cp ./tests/fixtures/files/bad_hash.mbtiles "$TEST_TEMP_DIR/fix_bad_hash.mbtiles"
   $MBTILES_BIN validate --agg-hash update "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
@@ -463,6 +482,31 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
        ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
        "$TEST_TEMP_DIR/world_cities_diff2.mbtiles" \
        2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"
+
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    --diff-with-file ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
+    "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
+    --patch-type bin-diff-gz \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches using .* threads...'
+
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches using .* threads...'
+
+  # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
+    --diff-with-file "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff3.txt"
+  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff4.txt"
+
   if command -v sqlite3 > /dev/null; then
     # Apply this diff to the original version of the file
     cp ./tests/fixtures/mbtiles/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"

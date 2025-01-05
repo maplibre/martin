@@ -12,7 +12,7 @@ use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::{Source, TileInfoSources};
+use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
 use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
@@ -21,19 +21,19 @@ pub type FileResult<T> = Result<T, FileError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileError {
-    #[error("IO error {0}: {}", .1.display())]
+    #[error("IO error {0}: {1}")]
     IoError(std::io::Error, PathBuf),
 
-    #[error("Source path is not a file: {}", .0.display())]
+    #[error("Source path is not a file: {0}")]
     InvalidFilePath(PathBuf),
 
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(url::ParseError, String),
 
-    #[error("Source {0} uses bad file {}", .1.display())]
+    #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
-    #[error(r"Unable to parse metadata in file {}: {0}", .1.display())]
+    #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
@@ -45,6 +45,10 @@ pub enum FileError {
     #[cfg(feature = "pmtiles")]
     #[error(r#"PMTiles error {0} processing {1}"#)]
     PmtError(pmtiles::PmtError, String),
+
+    #[cfg(feature = "cog")]
+    #[error(transparent)]
+    CogError(#[from] crate::cog::CogError),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
@@ -70,13 +74,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
+    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl std::future::Future<Output = FileResult<Box<dyn Source>>> + Send;
+    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -231,7 +235,7 @@ pub async fn resolve_files<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     cache: OptMainCache,
-    extension: &str,
+    extension: &[&str],
 ) -> MartinResult<TileInfoSources> {
     resolve_int(config, idr, cache, extension)
         .map_err(crate::MartinError::from)
@@ -242,7 +246,7 @@ async fn resolve_int<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     cache: OptMainCache,
-    extension: &str,
+    extension: &[&str],
 ) -> FileResult<TileInfoSources> {
     let Some(cfg) = config.extract_file_config(cache)? else {
         return Ok(TileInfoSources::default());
@@ -281,16 +285,20 @@ async fn resolve_int<T: SourceConfigExtras>(
 
     for path in cfg.paths {
         if let Some(url) = parse_url(T::parse_urls(), &path)? {
-            let id = url
-                .path_segments()
-                .and_then(Iterator::last)
-                .and_then(|s| {
-                    // Strip extension and trailing dot, or keep the original string
-                    s.strip_suffix(extension)
-                        .and_then(|s| s.strip_suffix('.'))
-                        .or(Some(s))
-                })
-                .unwrap_or("pmt_web_source");
+            let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
+            let id = if let Some(ext) = target_ext {
+                url.path_segments()
+                    .and_then(Iterator::last)
+                    .and_then(|s| {
+                        // Strip extension and trailing dot, or keep the original string
+                        s.strip_suffix(ext)
+                            .and_then(|s| s.strip_suffix('.'))
+                            .or(Some(s))
+                    })
+                    .unwrap_or("web_source")
+            } else {
+                "web_source"
+            };
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
@@ -333,13 +341,21 @@ async fn resolve_int<T: SourceConfigExtras>(
     Ok(results)
 }
 
-fn dir_to_paths(path: &Path, extension: &str) -> Result<Vec<PathBuf>, FileError> {
+fn dir_to_paths(path: &Path, extension: &[&str]) -> Result<Vec<PathBuf>, FileError> {
     Ok(path
         .read_dir()
         .map_err(|e| IoError(e, path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
-            f.path().extension().filter(|e| *e == extension).is_some() && f.path().is_file()
+            f.path()
+                .extension()
+                .filter(|actual_ext| {
+                    extension
+                        .iter()
+                        .any(|expected_ext| expected_ext == actual_ext)
+                })
+                .is_some()
+                && f.path().is_file()
         })
         .map(|f| f.path())
         .collect())

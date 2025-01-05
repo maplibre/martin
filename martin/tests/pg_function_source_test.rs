@@ -3,7 +3,7 @@
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::TileCoord;
+use martin_tile_utils::TileCoord;
 
 pub mod utils;
 pub use utils::*;
@@ -17,14 +17,13 @@ fn init() {
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tj = source(&mock, "function_zxy_query").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
-    ---
+    assert_yaml_snapshot!(tj, @r"
     tilejson: 3.0.0
     tiles: []
     name: function_zxy_query
     foo:
       bar: foo
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -55,10 +54,9 @@ async fn function_source_schemas() {
             from_schemas: MixedCase
     "});
     let sources = mock_sources(cfg).await.0.tiles;
-    assert_yaml_snapshot!(sources.get_catalog(), @r###"
-    ---
+    assert_yaml_snapshot!(sources.get_catalog(), @r"
     function_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
-    "###);
+    ");
 }

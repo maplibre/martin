@@ -24,8 +24,9 @@ static DEFAULT_CLIP_GEOM: bool = true;
 
 /// Examine a database to get a list of all tables that have geometry columns.
 pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
-    let conn = pool.get().await?;
-    let rows = conn
+    let rows = pool
+        .get()
+        .await?
         .query(include_str!("scripts/query_available_tables.sql"), &[])
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
@@ -207,7 +208,7 @@ SELECT
 FROM (
   SELECT
     ST_AsMVTGeom(
-        ST_Transform(ST_CurveToLine({geometry_column}), 3857),
+        ST_Transform(ST_CurveToLine({geometry_column}::geometry), 3857),
         ST_TileEnvelope($1::integer, $2::integer, $3::integer),
         {extent}, {buffer}, {clip_geom}
     ) AS geom
@@ -255,11 +256,11 @@ async fn calc_bounds(
             let geometry_column = escape_identifier(geometry_column);
             cn.query_one(
                 &format!(r#"
-WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
+WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
                 WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) = 'ST_Point'
-                THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}, 1)), {srid})
+                THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}::geometry, 1)), {srid})
                 ELSE (SELECT * FROM real_bounds)
             END,
             4326

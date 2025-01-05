@@ -29,6 +29,9 @@ services:
     restart: unless-stopped
     ports:
       - '${PGPORT:-5411}:5432'
+    command:
+      - '-c'
+      - 'max_connections=200'
     environment:
       # POSTGRES_* variables are used by the postgis/postgres image
       # PG_* variables are used by psql

@@ -3,8 +3,8 @@ use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::decode_gzip;
 use martin::srv::SrvConfig;
+use martin_tile_utils::{decode_brotli, decode_gzip};
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -26,7 +26,7 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
-                .configure(::martin::srv::router),
+                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
         .await
     }};
@@ -53,8 +53,7 @@ async fn mbt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
@@ -73,7 +72,7 @@ async fn mbt_get_catalog() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -85,8 +84,7 @@ async fn mbt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
@@ -105,7 +103,7 @@ async fn mbt_get_catalog_gzip() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -211,7 +209,7 @@ async fn mbt_get_mvt_brotli() {
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
     let body = read_body(response).await;
     assert_eq!(body.len(), 871); // this number could change if compression gets more optimized
-    let body = martin::decode_brotli(&body).unwrap();
+    let body = decode_brotli(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
 
@@ -267,10 +265,10 @@ async fn mbt_get_raw_mvt_gzip_br() {
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
     );
-    assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
+    assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 871); // this number could change if compression gets more optimized
-    let body = martin::decode_brotli(&body).unwrap();
+    assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
+    let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
 

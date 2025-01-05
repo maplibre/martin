@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::{trace, warn};
-use martin_tile_utils::{Encoding, Format, TileInfo};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
@@ -20,10 +20,10 @@ use url::Url;
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
 use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras};
-use crate::source::UrlQuery;
+use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
-use crate::{MartinResult, Source, TileCoord, TileData};
+use crate::{MartinResult, Source, TileData};
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {
@@ -134,13 +134,13 @@ impl SourceConfigExtras for PmtConfig {
         true
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
         Ok(Box::new(
             PmtFileSource::new(self.new_cached_source(), id, path).await?,
         ))
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<Box<dyn Source>> {
+    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
         Ok(Box::new(
             PmtHttpSource::new(
                 self.client.clone().unwrap(),
@@ -250,7 +250,7 @@ macro_rules! impl_pmtiles_source {
                 self.tile_info
             }
 
-            fn clone_source(&self) -> Box<dyn Source> {
+            fn clone_source(&self) -> TileInfoSource {
                 Box::new(self.clone())
             }
 

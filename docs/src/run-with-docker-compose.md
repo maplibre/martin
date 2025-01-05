@@ -1,6 +1,7 @@
 ## Running with Docker Compose
 
-You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml) file as a reference
+You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml)
+file as a reference
 
 ```yml
 services:
@@ -28,14 +29,16 @@ services:
 
 First, you need to start `db` service
 
-```shell
+```bash
 docker compose up -d db
 ```
 
 Then, after `db` service is ready to accept connections, you can start `martin`
 
-```shell
+```bash
 docker compose up -d martin
 ```
 
 By default, Martin will be available at [localhost:3000](http://localhost:3000/)
+
+Official Docker image includes a `HEALTHCHECK` instruction which will be used by Docker Compose. Note that Compose won't restart unhealthy containers. To monitor and restart unhealthy containers you can use [Docker Autoheal](https://github.com/willfarrell/docker-autoheal).

@@ -38,7 +38,7 @@ pub trait Env<'a>: VariableMap<'a> {
 #[derive(Default)]
 pub struct OsEnv(RefCell<HashSet<String>>);
 
-impl<'a> Env<'a> for OsEnv {
+impl Env<'_> for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         #[allow(unused_qualifications)]
         std::env::var_os(key)

@@ -4,11 +4,11 @@ use std::fmt::Debug;
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
 use log::debug;
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::{MartinResult, TileCoord};
+use crate::MartinResult;
 
 pub type TileData = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
@@ -18,7 +18,7 @@ pub type TileInfoSource = Box<dyn Source>;
 pub type TileInfoSources = Vec<TileInfoSource>;
 
 #[derive(Default, Clone)]
-pub struct TileSources(HashMap<String, Box<dyn Source>>);
+pub struct TileSources(HashMap<String, TileInfoSource>);
 pub type TileCatalog = BTreeMap<String, CatalogSourceEntry>;
 
 impl TileSources {
@@ -107,7 +107,7 @@ pub trait Source: Send + Debug {
 
     fn get_tile_info(&self) -> TileInfo;
 
-    fn clone_source(&self) -> Box<dyn Source>;
+    fn clone_source(&self) -> TileInfoSource;
 
     fn support_url_query(&self) -> bool {
         false
@@ -139,7 +139,7 @@ pub trait Source: Send + Debug {
     }
 }
 
-impl Clone for Box<dyn Source> {
+impl Clone for TileInfoSource {
     fn clone(&self) -> Self {
         self.clone_source()
     }
