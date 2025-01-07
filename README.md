@@ -30,6 +30,10 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
   or [configuration file](https://maplibre.org/martin/config-file.html)
 * [Usage and API](https://maplibre.org/martin/using.html)
 
+## Getting Involved
+
+Join the `#maplibre-martin` slack channel at OSMUS -- automatic invite is at https://slack.openstreetmap.us/
+
 ## License
 
 Licensed under either of
