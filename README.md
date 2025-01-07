@@ -32,7 +32,7 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
 
 ## Getting Involved
 
-Join the `#maplibre-martin` slack channel at OSMUS -- automatic invite is at https://slack.openstreetmap.us/
+Join the `#maplibre-martin` slack channel at OSMUS -- automatic invite is at <https://slack.openstreetmap.us/>
 
 ## License
 
