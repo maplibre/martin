@@ -22,7 +22,7 @@ impl NullSource {
 
 #[async_trait]
 impl Source for NullSource {
-    fn get_id(&self) -> &str {
+    fn get_id(&self) -> &'static str {
         "null"
     }
 

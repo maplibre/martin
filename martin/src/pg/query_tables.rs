@@ -186,7 +186,7 @@ pub async fn table_to_query(
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
     let query = format!(
-        r#"
+        r"
 SELECT
   ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
 FROM (
@@ -203,7 +203,7 @@ FROM (
     {geometry_column} && ST_Transform({bbox_search}, {srid})
   {limit_clause}
 ) AS tile;
-"#
+"
     )
     .trim()
     .to_string();
@@ -222,7 +222,7 @@ async fn calc_bounds(
     Ok(pool.get()
         .await?
         .query_one(&format!(
-            r#"
+            r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
@@ -233,7 +233,7 @@ SELECT ST_Transform(
             4326
         ) AS bounds
 FROM {schema}.{table};
-                "#), &[])
+                "), &[])
         .await
         .map_err(|e| PostgresError(e, "querying table bounds"))?
         .get::<_, Option<ewkb::Polygon>>("bounds")
