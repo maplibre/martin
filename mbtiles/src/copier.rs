@@ -38,7 +38,7 @@ pub enum CopyDuplicateMode {
 
 impl CopyDuplicateMode {
     #[must_use]
-    pub fn to_sql(&self) -> &'static str {
+    pub fn to_sql(self) -> &'static str {
         match self {
             CopyDuplicateMode::Override => "OR REPLACE",
             CopyDuplicateMode::Ignore => "OR IGNORE",

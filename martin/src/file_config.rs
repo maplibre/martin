@@ -159,12 +159,12 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         Ok(Some(res))
     }
 
-    pub fn finalize(&self, prefix: &str) -> MartinResult<UnrecognizedValues> {
+    pub fn finalize(&self, prefix: &str) -> UnrecognizedValues {
         let mut res = UnrecognizedValues::new();
         if let Self::Config(cfg) = self {
             copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
         }
-        Ok(res)
+        res
     }
 }
 
