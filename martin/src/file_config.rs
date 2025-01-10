@@ -39,11 +39,11 @@ pub enum FileError {
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
-    #[error(r#"Unable to acquire connection to file: {0}"#)]
+    #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
     #[cfg(feature = "pmtiles")]
-    #[error(r#"PMTiles error {0} processing {1}"#)]
+    #[error(r"PMTiles error {0} processing {1}")]
     PmtError(pmtiles::PmtError, String),
 
     #[cfg(feature = "cog")]
