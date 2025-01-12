@@ -314,6 +314,12 @@ jobs:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [ build ]
+    env:
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGPORT: 5432
     strategy:
       fail-fast: true
       matrix:
@@ -322,17 +328,30 @@ jobs:
           # - target: x86_64-apple-darwin
           #   os: macos-13
           - target: x86_64-pc-windows-msvc
-            os: windows-latest # postgres 14.12 and postgis 3.5 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md#postgresql
+            os: windows-latest 
+                    # postgres 14.12 and postgis 3.5 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md#postgresql
             ext: '.exe'
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-22.04 # postgres 14.15 and potgis 3.5.1 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#postgresql
-            # os: ubuntu-latest eg ubuntu-24.04 postgres 16.6 and postgis 3.5.1 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md#postgresql
-
+            os: ubuntu-latest 
+                    # eg ubuntu-24.04 postgres 16.6 and postgis 3.5.1 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md#postgresql  
+          # os: ubuntu-22.04
+                    # postgres 14.15 and potgis 3.5.1 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#postgresql
     steps:
-      - name: Install and run Postgis
-        uses: nyurik/action-setup-postgis@v2
-        id: pg
-        with: { username: 'test', password: 'test', database: 'test' }
+      - name: Run PostGIS:15-3.3 container
+        run: |
+          docker run -d -p 5432:5432 --name postgis \
+            -e POSTGRES_DB=test \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -e PGDATABASE=test \
+            -e PGUSER=postgres \
+            -e PGPASSWORD=postgres \
+            --health-cmd pg_isready \
+            --health-interval 10s \
+            --health-timeout 5s \
+            --health-retries 5 \
+            --entrypoint sh postgis/postgis:15-3.3 \
+            -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key" \
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
@@ -340,13 +359,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Init database
-        run: |
-          echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
-          echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
-          echo "${{ steps.pg.outputs.connection-uri }}" | base64
-          tests/fixtures/initdb.sh
-        env:
-          PGSERVICE: ${{ steps.pg.outputs.service-name }}
+        run: tests/fixtures/initdb.sh
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
@@ -365,7 +378,7 @@ jobs:
           fi
           tests/test.sh
         env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: diff --brief --recursive --new-file tests/output tests/expected
@@ -385,7 +398,7 @@ jobs:
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           tests/test.sh
         env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
