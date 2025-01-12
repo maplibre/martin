@@ -322,12 +322,11 @@ jobs:
           # - target: x86_64-apple-darwin
           #   os: macos-13
           - target: x86_64-pc-windows-msvc
-            os: windows-latest
+            os: windows-latest # postgres 14.12 and postgis 3.5 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md#postgresql
             ext: '.exe'
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-22.04 
-            # that would be postgres 14.15 and potgis ?.?.? (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#postgresql
-            # os: ubuntu-latest eg ubuntu-24.04 # that would be postgres 16.6 and postgis 3.5.1 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#postgresql
+            os: ubuntu-22.04 # postgres 14.15 and potgis 3.5.1 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#postgresql
+            # os: ubuntu-latest eg ubuntu-24.04 postgres 16.6 and postgis 3.5.1 (with nyurik/action-setup-postgis@v2) See https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md#postgresql
 
     steps:
       - name: Install and run Postgis
