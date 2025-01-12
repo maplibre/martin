@@ -28,7 +28,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:15-3.3
         ports:
           # will assign a random free host port
           - 5432/tcp
@@ -46,7 +46,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:16-3.4
+          postgis/postgis:15-3.3
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - uses: taiki-e/install-action@v2
