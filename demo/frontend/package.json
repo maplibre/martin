@@ -33,7 +33,7 @@
     "eslint-config-airbnb-base": "15.0.0",
     "eslint-config-react-app": "7.0.1",
     "typescript": "^5.2.2",
-    "vite": "^4.5.5",
+    "vite": "^4.5.6",
     "vite-plugin-mkcert": "^1.16.0",
     "vite-tsconfig-paths": "^4.2.1"
   },
