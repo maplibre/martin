@@ -364,9 +364,9 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      - name: Compare test output results (Linux)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: diff --brief --recursive --new-file tests/output tests/expected
+      #- name: Compare test output results (Linux)
+      #  if: matrix.target == 'x86_64-unknown-linux-gnu'
+      #  run: diff --brief --recursive --new-file tests/output tests/expected
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@v4

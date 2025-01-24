@@ -367,7 +367,7 @@ LIMIT 1;"
                 } else if let Ok(v) = row.try_get::<i32, _>(idx) {
                     res.push(format!("{v}"));
                 } else if let Ok(v) = row.try_get::<f64, _>(idx) {
-                    res.push(format!(r"{v} (REAL)"));
+                    res.push(format!("{v} (REAL)"));
                 } else {
                     res.push(format!("{:?}", raw.type_info()));
                 }
