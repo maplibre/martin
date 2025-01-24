@@ -13,6 +13,7 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/sprite/{spriteID}[@2x].{json,png}`     | [Sprite sources](sources-sprites.md)           |
 | `/sdf_sprite/{spriteID}[@2x].{json,png}` | [SDF Sprite sources](sources-sprites.md)       |
 | `/font/{font}/{start}-{end}`             | [Font source](sources-fonts.md)                |
+| `/font/%7Bfontstack%7D/%7Brange%7D`      | [List of all fontstacks](sources-fonts.md)     |
 | `/font/{font1},…,{fontN}/{start}-{end}`  | [Composite Font source](sources-fonts.md)      |
 | `/health`                                | Martin server health check: returns 200 `OK`   |
 
