@@ -279,6 +279,7 @@ fn parse_font(
     path: PathBuf,
 ) -> FontResult<()> {
     static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+    let re_spaces = RE_SPACES.get_or_init(|| Regex::new(r"(\s|/|,)+").unwrap());
 
     let mut face = lib.new_face(&path, 0)?;
     let num_faces = face.num_faces() as isize;
@@ -296,10 +297,7 @@ fn parse_font(
             name.push_str(style);
         }
         // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
-        name = RE_SPACES
-            .get_or_init(|| Regex::new(r"(\s|/|,)+").unwrap())
-            .replace_all(name.as_str(), " ")
-            .to_string();
+        name = re_spaces.replace_all(name.as_str(), " ").to_string();
 
         match fonts.entry(name) {
             Entry::Occupied(v) => {

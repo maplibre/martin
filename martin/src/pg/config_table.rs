@@ -142,7 +142,7 @@ impl TableInfo {
         match (&self.geometry_type, &cfg_inf.geometry_type) {
             (Some(src), Some(cfg)) if src != cfg => {
                 warn!(
-                    r#"Table {} has geometry type={src}, but source {new_id} has {cfg}"#,
+                    r"Table {} has geometry type={src}, but source {new_id} has {cfg}",
                     self.format_id()
                 );
             }
