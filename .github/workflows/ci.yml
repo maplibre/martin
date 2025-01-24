@@ -28,7 +28,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:15-3.3
         ports:
           # will assign a random free host port
           - 5432/tcp
@@ -46,7 +46,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:16-3.4
+          postgis/postgis:postgis:15-3.3
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - uses: taiki-e/install-action@v2
@@ -314,6 +314,35 @@ jobs:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [ build ]
+    env:
+      # PG_* variables are used by psql
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    services:
+      if: matrix.os == 'ubuntu-latest'
+      postgres:
+        image: postgis/postgis:15-3.3
+        ports:
+          # will assign a random free host port
+          - 5432/tcp
+        # Sadly there is currently no way to pass arguments to the service image other than this hack
+        # See also https://stackoverflow.com/a/62720566/177275
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --entrypoint sh
+          postgis/postgis:postgis:15-3.3
+          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     strategy:
       fail-fast: true
       matrix:
@@ -327,24 +356,29 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - name: Install and run Postgis
-        uses: nyurik/action-setup-postgis@v2
+      - name: Install and run Postgis (windows)
+        if: matrix.os == 'windows-latest'
+        uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'test', password: 'test', database: 'test' }
+        with: { username: 'test', password: 'test', database: 'test',postgres-version: 15, postgis_version: 3.3.3}
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Init database
+      - name: Set DATABASE_URL
+        id: set-db-url
         run: |
-          echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
-          echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
-          echo "${{ steps.pg.outputs.connection-uri }}" | base64
-          tests/fixtures/initdb.sh
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}" >> $GITHUB_ENV
+          else
+            echo "DATABASE_URL=postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require" >> $GITHUB_ENV
+          fi
+      - name: Init database
+        run: tests/fixtures/initdb.sh
         env:
-          PGSERVICE: ${{ steps.pg.outputs.service-name }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
@@ -363,7 +397,7 @@ jobs:
           fi
           tests/test.sh
         env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: diff --brief --recursive --new-file tests/output tests/expected
@@ -383,7 +417,7 @@ jobs:
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           tests/test.sh
         env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
