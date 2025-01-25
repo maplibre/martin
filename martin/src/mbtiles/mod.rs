@@ -151,7 +151,7 @@ mod tests {
                   path: https://example.org/file4.ext
         "})
         .unwrap();
-        let res = cfg.finalize("").unwrap();
+        let res = cfg.finalize("");
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();

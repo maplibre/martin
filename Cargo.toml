@@ -19,10 +19,12 @@ unused_qualifications = "warn"
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
+enum_variant_names = "allow"
 implicit_hasher = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 module_name_repetitions = "allow"
+struct_field_names = "allow"
 
 [workspace.dependencies]
 actix-cors = "0.7"

@@ -153,7 +153,7 @@ jobs:
             mv target/$target/release/mbtiles target_releases/$target
           done
 
-      - name: Save build artifacts to build-${{ matrix.target }}
+      - name: Save cross-build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cross-build
@@ -212,6 +212,16 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+
+      - name: Save test output (on error)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-test-output-docker
+          path: |
+            tests/output/*
+            target/test_logs/*
+          retention-days: 5
 
       - name: Login to GitHub Docker registry
         if: github.event_name != 'pull_request'
