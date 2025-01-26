@@ -54,8 +54,8 @@ json-patch = "3.0"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 libsqlite3-sys = { version = ">=0.27", features = ["bundled"] }
 log = "0.4"
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.5.1" }
-mbtiles = { path = "./mbtiles", version = "0.11.1" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
+mbtiles = { path = "./mbtiles", version = "0.12.0" }
 md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
