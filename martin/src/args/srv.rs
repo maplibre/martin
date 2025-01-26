@@ -29,6 +29,7 @@ pub struct SrvArgs {
     pub web_ui: Option<WebUiMode>,
 }
 
+#[cfg(feature = "webui")]
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
@@ -41,6 +42,8 @@ pub enum WebUiMode {
     // #[serde(alias = "true")]
     // Enable,
     /// Enable Web UI interface on all connections
+    #[serde(alias = "enable-for-all")]
+    #[clap(alias("enable-for-all"))]
     EnableForAll,
 }
 
