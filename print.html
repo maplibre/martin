@@ -394,7 +394,7 @@ Options:
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
 
       --base-path &lt;BASE_PATH&gt;
-          Set TileJSON URL path prefix. This overides the default of respecting the X-Rewrite-URL header.
+          Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
           Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
           Must begin with a `/`.
           Examples: `/`, `/tiles`
@@ -808,7 +808,7 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
-# Set TileJSON URL path prefix. This overides the default of respecting the X-Rewrite-URL header.
+# Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
 # Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
 # Must begin with a `/`.
 # Examples: `/`, `/tiles`
@@ -1357,7 +1357,7 @@ sprites:
     # SVG images in this directory will be published under the sprite_id "my_sprites"
     my_sprites: /path/to/some_dir
 </code></pre>
-<p>The sprites are now avaliable at <code>/sprite/my_images,some_dir.png</code>/ …</p>
+<p>The sprites are now available at <code>/sprite/my_images,some_dir.png</code>/ …</p>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="font-sources"><a class="header" href="#font-sources">Font Sources</a></h2>
 <p>Martin can serve glyph ranges from <code>otf</code>, <code>ttf</code>, and <code>ttc</code> fonts as needed by MapLibre text rendering. Martin will
 generate them dynamically on the fly.
