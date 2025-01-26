@@ -185,18 +185,14 @@ test-int: clean-test install-sqlx
 test-lambda:
     tests/test-aws-lambda.sh
 
-# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
+# Run integration tests and save its output as the new expected output (ordering is important)
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
 
 # Bless integration tests
 bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
-
-# Run test with bless-tests feature
-bless-tests:
-    cargo test -p martin --features bless-tests
 
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
