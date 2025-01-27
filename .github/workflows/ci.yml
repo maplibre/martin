@@ -330,7 +330,6 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      PGPORT: 34837
     strategy:
       fail-fast: true
       matrix:
@@ -353,7 +352,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           docker run -d \
-          -p ${{ env.PGPORT }}:5432 \
+          -p 34837:5432 \
           -e POSTGRES_DB=test \
           -e POSTGRES_USER=postgres \
           -e POSTGRES_PASSWORD=postgres \
@@ -381,7 +380,7 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}" >> $GITHUB_ENV
           else
-            echo "DATABASE_URL=postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require" >> $GITHUB_ENV
+            echo "DATABASE_URL=postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:34837/${{ env.PGDATABASE }}?sslmode=require" >> $GITHUB_ENV
           fi
       - name: Init database
         run: tests/fixtures/initdb.sh
