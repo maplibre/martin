@@ -330,6 +330,7 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
+      PGPORT: 34837
     strategy:
       fail-fast: true
       matrix:
@@ -347,7 +348,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'test', password: 'test', database: 'test',postgres-version: 14, postgis_version: 3.3.3}
+        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 14, port: 34837, postgis_version: 3.3.3}
       - name: Install and run Postgis (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
