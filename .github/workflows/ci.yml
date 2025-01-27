@@ -330,6 +330,7 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
+      PGPORT: 34837
     strategy:
       fail-fast: true
       matrix:
