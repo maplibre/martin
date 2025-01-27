@@ -379,9 +379,11 @@ jobs:
         env:
           PGPORT: ${{ env.PGPORT }}
         run: |
-          echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
-          echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
-          echo "${{ steps.pg.outputs.connection-uri }}" | base64
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+          else
+            export PGSERVICE="${{ steps.pg.outputs.service-name }}"
+          fi
           tests/fixtures/initdb.sh
 
       - name: Copy static files
@@ -400,9 +402,12 @@ jobs:
           if [[ "${{ runner.os }}" != "Windows" ]]; then
             chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
           fi
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+          else
+            export DATABASE_URL="${{ steps.pg.outputs.connection-uri }}"
+          fi
           tests/test.sh
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: diff --brief --recursive --new-file tests/output tests/expected
@@ -422,7 +427,7 @@ jobs:
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           tests/test.sh
         env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
