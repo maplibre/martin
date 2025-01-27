@@ -330,7 +330,6 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      PGPORT: 34837
     strategy:
       fail-fast: true
       matrix:
@@ -375,18 +374,15 @@ jobs:
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Set DATABASE_URL
-        id: set-db-url
-        run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}" >> $GITHUB_ENV
-          else
-            echo "DATABASE_URL=postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:34837/${{ env.PGDATABASE }}?sslmode=require" >> $GITHUB_ENV
-          fi
       - name: Init database
-        run: tests/fixtures/initdb.sh
         env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
+          PGPORT: ${{ env.PGPORT }}
+        run: |
+          echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
+          echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
+          echo "${{ steps.pg.outputs.connection-uri }}" | base64
+          tests/fixtures/initdb.sh
+
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
