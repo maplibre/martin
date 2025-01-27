@@ -85,16 +85,16 @@ impl Config {
         }
 
         #[cfg(feature = "pmtiles")]
-        res.extend(self.pmtiles.finalize("pmtiles.")?);
+        res.extend(self.pmtiles.finalize("pmtiles."));
 
         #[cfg(feature = "mbtiles")]
-        res.extend(self.mbtiles.finalize("mbtiles.")?);
+        res.extend(self.mbtiles.finalize("mbtiles."));
 
         #[cfg(feature = "cog")]
-        res.extend(self.cog.finalize("cog.")?);
+        res.extend(self.cog.finalize("cog."));
 
         #[cfg(feature = "sprites")]
-        res.extend(self.sprites.finalize("sprites.")?);
+        res.extend(self.sprites.finalize("sprites."));
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);

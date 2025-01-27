@@ -19,10 +19,12 @@ unused_qualifications = "warn"
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
+enum_variant_names = "allow"
 implicit_hasher = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 module_name_repetitions = "allow"
+struct_field_names = "allow"
 
 [workspace.dependencies]
 actix-cors = "0.7"
@@ -52,8 +54,8 @@ json-patch = "3.0"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 libsqlite3-sys = { version = ">=0.27", features = ["bundled"] }
 log = "0.4"
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.5.1" }
-mbtiles = { path = "./mbtiles", version = "0.11.1" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
+mbtiles = { path = "./mbtiles", version = "0.12.0" }
 md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"

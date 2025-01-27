@@ -153,7 +153,7 @@ jobs:
             mv target/$target/release/mbtiles target_releases/$target
           done
 
-      - name: Save build artifacts to build-${{ matrix.target }}
+      - name: Save cross-build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cross-build
@@ -212,6 +212,16 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+
+      - name: Save test output (on error)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-test-output-docker
+          path: |
+            tests/output/*
+            target/test_logs/*
+          retention-days: 5
 
       - name: Login to GitHub Docker registry
         if: github.event_name != 'pull_request'
@@ -677,18 +687,28 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
           files: 'target/files/*'
-          body_path: CHANGELOG.md
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+        # Create a personal access token
+        #     Gen:  https://github.com/settings/personal-access-tokens/new
+        #           Can also use "regenerate token" button in the expired token screen
+        #     Set:  https://github.com/maplibre/martin/settings/secrets/actions/GH_HOMEBREW_MARTIN_TOKEN
+        #     Docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token
+        #   Name: anything descriptive
+        #   One year long (sadly that's max)
+        #   Repository owner and repo: maplibre/homebrew-martin
+        #   Access Contents: Read and write
+        #   Access Metadata: Read-only
+        #   Access Pull requests: Read and write
       - name: Checkout maplibre/homebrew-martin
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/checkout@v4
         with:
           repository: maplibre/homebrew-martin
-          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}  # See instructions above
           path: target/homebrew
 
       - name: Create Homebrew formula
@@ -702,17 +722,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: peter-evans/create-pull-request@v7
         with:
-          # Create a personal access token
-          #     Gen:  https://github.com/settings/personal-access-tokens/new
-          #     Set:  https://github.com/maplibre/martin/settings/secrets/actions/GH_HOMEBREW_MARTIN_TOKEN
-          #     Docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token
-          #   Name: anything descriptive
-          #   One year long (sadly that's max)
-          #   Repository owner and repo: maplibre/homebrew-martin
-          #   Access Contents: Read and write
-          #   Access Metadata: Read-only
-          #   Access Pull requests: Read and write
-          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}  # See instructions above
           commit-message: 'Update to ${{ github.ref }}'
           title: 'Update to ${{ github.ref }}'
           body: 'Update to ${{ github.ref }}'
