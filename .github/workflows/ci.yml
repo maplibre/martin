@@ -320,29 +320,7 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-    services:
-      if: matrix.os == 'ubuntu-latest'
-      postgres:
-        image: postgis/postgis:15-3.3
-        ports:
-          # will assign a random free host port
-          - 5432/tcp
-        # Sadly there is currently no way to pass arguments to the service image other than this hack
-        # See also https://stackoverflow.com/a/62720566/177275
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --entrypoint sh
-          postgis/postgis:postgis:15-3.3
-          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
+      PGPORT: 34837
     strategy:
       fail-fast: true
       matrix:
@@ -356,11 +334,33 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - name: Install and run Postgis (windows)
+      - name: Install and run Postgis (Windows)
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@v2.2
         id: pg
         with: { username: 'test', password: 'test', database: 'test',postgres-version: 15, postgis_version: 3.3.3}
+      - name: Install and run Postgis (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          docker run -d \
+          -p ${{ env.PGPORT }}:5432 \
+          -e POSTGRES_DB=test \
+          -e POSTGRES_USER=postgres \
+          -e POSTGRES_PASSWORD=postgres \
+          -e PGDATABASE=test \
+          -e PGUSER=postgres \
+          -e PGPASSWORD=postgres \
+          --health-cmd="pg_isready" \
+          --health-interval=10s \
+          --health-timeout=5s \
+          --health-retries=5 \
+          --entrypoint sh \
+          -c "exec docker-entrypoint.sh postgres \
+          -c ssl=on \
+          -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem  \
+          -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key" \
+          postgis/postgis:15-3.3 \
+
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
@@ -373,7 +373,7 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}" >> $GITHUB_ENV
           else
-            echo "DATABASE_URL=postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require" >> $GITHUB_ENV
+            echo "DATABASE_URL=postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require" >> $GITHUB_ENV
           fi
       - name: Init database
         run: tests/fixtures/initdb.sh
