@@ -32,7 +32,7 @@ mkdir -p "$TEST_TEMP_DIR"
 if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
   if ! command -v ogrmerge.py > /dev/null; then
   echo "gdal-bin is required for testing"
-  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y."
+  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
   echo "see more at https://gdal.org/en/stable/download.html#binaries"
   exit 1
   fi
