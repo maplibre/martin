@@ -9,19 +9,7 @@
         "type": "Point"
       },
       "properties": {
-        "source_mvt_layer": "MixedCase.function_Mixed_Name"
-      },
-      "type": "Feature"
-    },
-    {
-      "geometry": {
-        "coordinates": [
-          1614,
-          556
-        ],
-        "type": "Point"
-      },
-      "properties": {
+        "Gid": 1,
         "source_mvt_layer": "MixedCase.function_Mixed_Name"
       },
       "type": "Feature"
@@ -35,6 +23,21 @@
         "type": "Point"
       },
       "properties": {
+        "Gid": 3,
+        "source_mvt_layer": "MixedCase.function_Mixed_Name"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1614,
+          556
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "Gid": 2,
         "source_mvt_layer": "MixedCase.function_Mixed_Name"
       },
       "type": "Feature"
