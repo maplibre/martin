@@ -454,11 +454,11 @@ jobs:
           - img_ver: 11-3.0-alpine
             args: postgres
             sslmode: disable
-          - img_ver: 14-3.3-alpine
+          - img_ver: 15-3.4-alpine
             args: postgres
             sslmode: disable
           # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 14-3.3
+          - img_ver: 15-3.4
             args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
             sslmode: require
           #
