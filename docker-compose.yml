@@ -47,7 +47,7 @@ services:
 
   db-ssl:
     # This should match the version of postgres used in the CI workflow
-    image: postgis/postgis:15-3.3
+    image: postgis/postgis:14-3.3
     command:
       - 'postgres'
       - '-c'
@@ -75,7 +75,7 @@ services:
 
   db-ssl-cert:
     # This should match the version of postgres used in the CI workflow
-    image: postgis/postgis:15-3.3
+    image: postgis/postgis:14-3.3
     command:
       - 'postgres'
       - '-c'

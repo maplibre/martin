@@ -28,7 +28,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:14-3.3
         ports:
           # will assign a random free host port
           - 5432/tcp
@@ -46,7 +46,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:16-3.4
+          postgis/postgis:14-3.3
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - uses: taiki-e/install-action@v2
@@ -89,7 +89,7 @@ jobs:
       # TODO:  aarch64-unknown-linux-gnu
     services:
       postgres:
-        image: postgis/postgis:15-3.3
+        image: postgis/postgis:14-3.3
         ports:
           - 5432/tcp
         options: >-
@@ -104,7 +104,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:15-3.3
+          postgis/postgis:14-3.3
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
@@ -324,6 +324,13 @@ jobs:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [ build ]
+    env:
+      # PG_* variables are used by psql
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGPORT: 34837
     strategy:
       fail-fast: true
       matrix:
@@ -337,10 +344,31 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - name: Install and run Postgis
-        uses: nyurik/action-setup-postgis@v2
+      - name: Install and run Postgis (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'test', password: 'test', database: 'test' }
+        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 14, port: 34837, postgis_version: 3.3.3}
+      - name: Install and run Postgis (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          docker run -d \
+          -p 34837:5432 \
+          -e POSTGRES_DB=test \
+          -e POSTGRES_USER=postgres \
+          -e POSTGRES_PASSWORD=postgres \
+          -e PGDATABASE=test \
+          -e PGUSER=postgres \
+          -e PGPASSWORD=postgres \
+          --health-cmd="pg_isready" \
+          --health-interval=10s \
+          --health-timeout=5s \
+          --health-retries=5 \
+          postgis/postgis:14-3.3 \
+          postgres \
+          -c ssl=on \
+          -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem  \
+          -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
@@ -348,13 +376,16 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Init database
-        run: |
-          echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
-          echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
-          echo "${{ steps.pg.outputs.connection-uri }}" | base64
-          tests/fixtures/initdb.sh
         env:
-          PGSERVICE: ${{ steps.pg.outputs.service-name }}
+          PGPORT: ${{ env.PGPORT }}
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+          else
+            export PGSERVICE="${{ steps.pg.outputs.service-name }}"
+          fi
+          tests/fixtures/initdb.sh
+
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
@@ -371,12 +402,15 @@ jobs:
           if [[ "${{ runner.os }}" != "Windows" ]]; then
             chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
           fi
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+          else
+            export DATABASE_URL="${{ steps.pg.outputs.connection-uri }}"
+          fi
           tests/test.sh
-        env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
-      #- name: Compare test output results (Linux)
-      #  if: matrix.target == 'x86_64-unknown-linux-gnu'
-      #  run: diff --brief --recursive --new-file tests/output tests/expected
+      - name: Compare test output results (Linux)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: diff --brief --recursive --new-file tests/output tests/expected
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@v4
@@ -393,7 +427,7 @@ jobs:
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           tests/test.sh
         env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
@@ -420,7 +454,7 @@ jobs:
             args: postgres
             sslmode: disable
           # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 15-3.3
+          - img_ver: 14-3.3
             args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
             sslmode: require
           #
