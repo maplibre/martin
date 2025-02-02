@@ -395,6 +395,7 @@ jobs:
           name: build-${{ matrix.target }}
           path: target/
       - name: Set up gdal-bin
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install -y gdal-bin
       - name: Integration Tests
         run: |
