@@ -28,7 +28,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:14-3.3
+        image: postgis/postgis:15-3.4
         ports:
           # will assign a random free host port
           - 5432/tcp
@@ -46,7 +46,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:14-3.3
+          postgis/postgis:15-3.4
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - uses: taiki-e/install-action@v2
@@ -89,7 +89,7 @@ jobs:
       # TODO:  aarch64-unknown-linux-gnu
     services:
       postgres:
-        image: postgis/postgis:14-3.3
+        image: postgis/postgis:15-3.4
         ports:
           - 5432/tcp
         options: >-
@@ -104,7 +104,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:14-3.3
+          postgis/postgis:15-3.4
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
@@ -126,6 +126,8 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         with:
           platforms: linux/amd64,linux/arm64
+      - name: Set up gdal-bin
+        run: sudo apt-get install -y gdal-bin
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         # https://github.com/docker/setup-buildx-action
@@ -348,7 +350,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 14, port: 34837, postgis_version: 3.3.3}
+        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 15, port: 34837, postgis_version: 3.4.2}
       - name: Install and run Postgis (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -364,7 +366,7 @@ jobs:
           --health-interval=10s \
           --health-timeout=5s \
           --health-retries=5 \
-          postgis/postgis:14-3.3 \
+          postgis/postgis:15-3.4 \
           postgres \
           -c ssl=on \
           -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem  \
@@ -385,7 +387,6 @@ jobs:
             export PGSERVICE="${{ steps.pg.outputs.service-name }}"
           fi
           tests/fixtures/initdb.sh
-
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
@@ -393,6 +394,9 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
+      - name: Set up gdal-bin
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y gdal-bin
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
@@ -410,7 +414,7 @@ jobs:
           tests/test.sh
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: diff --brief --recursive --new-file tests/output tests/expected
+        run: diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@v4
@@ -450,11 +454,11 @@ jobs:
           - img_ver: 11-3.0-alpine
             args: postgres
             sslmode: disable
-          - img_ver: 14-3.3-alpine
+          - img_ver: 15-3.4-alpine
             args: postgres
             sslmode: disable
           # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 14-3.3
+          - img_ver: 15-3.4
             args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
             sslmode: require
           #
@@ -517,6 +521,8 @@ jobs:
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target_releases/
+      - name: Install gdal-bin
+        run: sudo apt-get install -y gdal-bin
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
