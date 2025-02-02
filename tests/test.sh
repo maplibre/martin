@@ -29,11 +29,13 @@ mkdir -p "$TEST_TEMP_DIR"
 
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
-if ! command -v ogrmerge.py > /dev/null; then
+if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+  if ! command -v ogrmerge.py > /dev/null; then
   echo "gdal-bin is required for testing"
   echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y."
   echo "see more at https://gdal.org/en/stable/download.html#binaries"
   exit 1
+  fi
 fi
 
 function wait_for {
