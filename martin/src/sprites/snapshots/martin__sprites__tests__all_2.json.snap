@@ -1,3 +1,7 @@
+---
+source: martin/src/sprites/mod.rs
+expression: sprites.get_index()
+---
 {
   "another_bicycle": {
     "height": 30,
