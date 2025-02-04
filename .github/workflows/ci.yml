@@ -28,7 +28,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:15-3.4
+        image: postgis/postgis:16-3.5
         ports:
           # will assign a random free host port
           - 5432/tcp
@@ -46,7 +46,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:15-3.4
+          postgis/postgis:16-3.5
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - uses: taiki-e/install-action@v2
@@ -89,7 +89,7 @@ jobs:
       # TODO:  aarch64-unknown-linux-gnu
     services:
       postgres:
-        image: postgis/postgis:15-3.4
+        image: postgis/postgis:16-3.5
         ports:
           - 5432/tcp
         options: >-
@@ -104,7 +104,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:15-3.4
+          postgis/postgis:16-3.5
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
@@ -350,7 +350,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 15, port: 34837, postgis_version: 3.4.2}
+        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 16, port: 34837, postgis_version: 3.5.2}
       - name: Install and run Postgis (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -366,7 +366,7 @@ jobs:
           --health-interval=10s \
           --health-timeout=5s \
           --health-retries=5 \
-          postgis/postgis:15-3.4 \
+          postgis/postgis:16-3.5 \
           postgres \
           -c ssl=on \
           -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem  \
@@ -454,11 +454,11 @@ jobs:
           - img_ver: 11-3.0-alpine
             args: postgres
             sslmode: disable
-          - img_ver: 15-3.4-alpine
+          - img_ver: 16-3.5-alpine
             args: postgres
             sslmode: disable
           # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 15-3.4
+          - img_ver: 16-3.5
             args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
             sslmode: require
           #

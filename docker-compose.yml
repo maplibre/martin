@@ -9,7 +9,7 @@ services:
 
   db-is-ready:
     # This should match the version of postgres used in the CI workflow
-    image: postgis/postgis:15-3.4-alpine
+    image: postgis/postgis:16-3.5-alpine
     network_mode: host
     command:
       - 'sh'
@@ -25,7 +25,7 @@ services:
 
   db:
     # This should match the version of postgres used in the CI workflow
-    image: postgis/postgis:15-3.4-alpine
+    image: postgis/postgis:16-3.5-alpine
     restart: unless-stopped
     ports:
       - '${PGPORT:-5411}:5432'
@@ -47,7 +47,7 @@ services:
 
   db-ssl:
     # This should match the version of postgres used in the CI workflow
-    image: postgis/postgis:15-3.4
+    image: postgis/postgis:16-3.5
     command:
       - 'postgres'
       - '-c'
@@ -75,7 +75,7 @@ services:
 
   db-ssl-cert:
     # This should match the version of postgres used in the CI workflow
-    image: postgis/postgis:15-3.4
+    image: postgis/postgis:16-3.5
     command:
       - 'postgres'
       - '-c'
