@@ -117,6 +117,9 @@
       "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
       "name": "Geography Class"
     },
+    "google_compatible": {
+      "content_type": "image/png"
+    },
     "json": {
       "content_type": "application/json",
       "name": "Dummy json data"
