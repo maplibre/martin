@@ -70,7 +70,7 @@ impl PgPool {
             warn!("PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
         }
         if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
-            warn!("PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In prior versions, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788");
+            warn!("PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788");
         }
 
         info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
