@@ -70,7 +70,7 @@ impl PgPool {
         }
         let tiles_could_be_missing_geometry = postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION;
         if tiles_could_be_missing_geometry {
-            warn!("PostGIS {postgis_ver} is older than the recommended {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In prior versions, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788");
+            warn!("PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In prior versions, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788");
         }
 
         info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
