@@ -30,10 +30,11 @@ const RECOMMENDED_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
 pub struct PgPool {
     id: String,
     pool: Pool,
-    /// Indicates if the margin parameter in `ST_TileEnvelope` is supported.
+    /// Indicates if `ST_TileEnvelope` supports the margin parameter.
     ///
+    /// `True` if running postgis >= 3.1
     /// This being `False` indicates that tiles may be cut off at the edges.
-    st_envelope_margin_is_supported: bool,
+    supports_tile_margin: bool,
 }
 
 impl PgPool {
@@ -78,7 +79,7 @@ impl PgPool {
         Ok(Self {
             id,
             pool,
-            st_envelope_margin_is_supported: !margin_not_supported,
+            supports_tile_margin: !margin_not_supported,
         })
     }
 
@@ -127,13 +128,13 @@ impl PgPool {
         self.id.as_str()
     }
 
-    /// Indicates if the margin parameter in `ST_TileEnvelope` is supported.
+    /// Indicates if `ST_TileEnvelope` supports the margin parameter.
     ///
-    /// `True` if running postgis >= 3.1
+    /// `True` if running postgis >= `3.1`
     /// This being false indicates that tiles may be cut off at the edges.
     #[must_use]
     pub fn supports_tile_margin(&self) -> bool {
-        self.st_envelope_margin_is_supported
+        self.supports_tile_margin
     }
 }
 
