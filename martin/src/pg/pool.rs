@@ -65,8 +65,8 @@ impl PgPool {
                 "PostgreSQL {pg_ver} is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
             );
         }
-        let margin_not_supported = postgis_ver < ST_TILE_ENVELOPE_POSTGIS_VERSION;
-        if margin_not_supported {
+        let supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
+        if !supports_tile_margin {
             warn!("PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
         }
         if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
@@ -78,7 +78,7 @@ impl PgPool {
         Ok(Self {
             id,
             pool,
-            supports_tile_margin: !margin_not_supported,
+            supports_tile_margin,
         })
     }
 
