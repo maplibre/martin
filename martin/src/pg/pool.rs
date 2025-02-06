@@ -50,15 +50,19 @@ impl PgPool {
         if pg_ver < MINIMUM_POSTGRES_VERSION {
             return Err(PostgresqlTooOld(pg_ver, MINIMUM_POSTGRES_VERSION));
         }
-        if pg_ver < RECOMMENDED_POSTGRES_VERSION {
-            warn!(
-                "PostgreSQL {pg_ver} is older than the recommended {RECOMMENDED_POSTGRES_VERSION}."
-            );
-        }
 
         let postgis_ver = get_postgis_version(&conn).await?;
         if postgis_ver < MINIMUM_POSTGIS_VERSION {
             return Err(PostgisTooOld(postgis_ver, MINIMUM_POSTGIS_VERSION));
+        }
+
+        // In the warning cases below, we could technically run.
+        // This is not ideal for reasons explained in the warnings
+
+        if pg_ver < RECOMMENDED_POSTGRES_VERSION {
+            warn!(
+                "PostgreSQL {pg_ver} is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
+            );
         }
         let margin_not_supported = postgis_ver < ST_TILE_ENVELOPE_POSTGIS_VERSION;
         if margin_not_supported {
