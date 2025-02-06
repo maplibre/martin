@@ -30,8 +30,10 @@ const RECOMMENDED_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
 pub struct PgPool {
     id: String,
     pool: Pool,
-    // When true, we can use margin parameter in ST_TileEnvelope
-    margin: bool,
+    /// Indicates if the margin parameter in `ST_TileEnvelope` is supported.
+    ///
+    /// This being `False` indicates that tiles may be cut off at the edges.
+    st_envelope_margin_is_supported: bool,
 }
 
 impl PgPool {
@@ -49,7 +51,9 @@ impl PgPool {
             return Err(PostgresqlTooOld(pg_ver, MINIMUM_POSTGRES_VERSION));
         }
         if pg_ver < RECOMMENDED_POSTGRES_VERSION {
-            warn!("PostgreSQL {pg_ver} is older than the recommended {RECOMMENDED_POSTGRES_VERSION}.");
+            warn!(
+                "PostgreSQL {pg_ver} is older than the recommended {RECOMMENDED_POSTGRES_VERSION}."
+            );
         }
 
         let postgis_ver = get_postgis_version(&conn).await?;
@@ -65,10 +69,13 @@ impl PgPool {
             warn!("PostGIS {postgis_ver} is older than the recommended {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In prior versions, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788");
         }
 
-
         info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
 
-        Ok(Self { id, pool, margin })
+        Ok(Self {
+            id,
+            pool,
+            st_envelope_margin_is_supported: !margin_not_supported,
+        })
     }
 
     fn parse_config(config: &PgConfig) -> PgResult<(String, Manager)> {
@@ -116,9 +123,13 @@ impl PgPool {
         self.id.as_str()
     }
 
+    /// Indicates if the margin parameter in `ST_TileEnvelope` is supported.
+    ///
+    /// `True` if running postgis >= 3.1
+    /// This being false indicates that tiles may be cut off at the edges.
     #[must_use]
     pub fn supports_tile_margin(&self) -> bool {
-        self.margin
+        self.st_envelope_margin_is_supported
     }
 }
 
