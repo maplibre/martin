@@ -33,7 +33,7 @@ pub struct PgPool {
     /// Indicates if `ST_TileEnvelope` supports the margin parameter.
     ///
     /// `true` if running postgis >= 3.1
-    /// This being `False` indicates that tiles may be cut off at the edges.
+    /// This being `false` indicates that tiles may be cut off at the edges.
     supports_tile_margin: bool,
 }
 
