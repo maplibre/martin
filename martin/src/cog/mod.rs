@@ -541,6 +541,8 @@ pub fn tile_index(x: f64, y: f64, zoom: u8) -> (u32, u32) {
     let row = ((((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size) as u32).min((1 << zoom) - 1);
     (col, row)
 }
+
+// see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
 pub fn get_first_tile_center_coords(
     model_transformation: Option<&[f64]>,
     model_tiepoint: Option<&[f64]>,
