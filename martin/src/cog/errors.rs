@@ -46,32 +46,12 @@ pub enum CogError {
     #[error("No geospatial information found in {0}. Either ModelTransformationTag or both ModelTiepointTag and ModelPixelScaleTag are required")]
     MissingGeospatialInfo(PathBuf),
 
-    #[error("Invalid ModelTiepointTag: expected at least 6 values, got {0}")]
-    InvalidModelTiepoint(usize),
+    #[error("{0}")]
+    GoogleZoomMappingFailed(String, PathBuf),
 
-    #[error("Invalid ModelPixelScaleTag: expected at least 3 values, got {0}")]
-    InvalidModelPixelScale(usize),
+    #[error("IFD {0} not found in file {1} when zoom level is {2}")]
+    IfdNotFound(u8, PathBuf, u8),
 
-    #[error("Invalid ModelTransformationTag: expected at least 12 values for 3x4 matrix, got {0}")]
-    InvalidModelTransformation(usize),
-
-    #[error("Cannot determine origin for the file: {0}")]
-    CannotDetermineOrigin(PathBuf),
-
-    #[error("Cannot determine resolution for the file: {0}")]
-    CannotDetermineResolution(PathBuf),
-
-    #[error("Invalid reference image dimensions for the file: {0}")]
-    InvalidReferenceImageDimensions(PathBuf),
-    #[error("First tile not found at zoom level {0} in file {1}")]
-    FirstTileNotFound(u8, PathBuf),
-
-    #[error("Google zoom level {google_zoom} cannot be mapped to actual zoom level. Google zoom range {google_min_zoom}-{google_max_zoom} maps to actual zoom range {actual_min_zoom}-{actual_max_zoom}")]
-    GoogleZoomMappingFailed {
-        google_zoom: u8,
-        google_min_zoom: u8,
-        google_max_zoom: u8,
-        actual_min_zoom: u8,
-        actual_max_zoom: u8,
-    },
+    #[error("Calculated pixel position is bigger than u32, current zoom level: {0}, zoom differ: {1}, chunk size: {2}, file: {3}")]
+    SizeRelatedFailed(u8, u32, u32, PathBuf),
 }

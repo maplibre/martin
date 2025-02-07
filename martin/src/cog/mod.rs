@@ -28,6 +28,12 @@ use crate::{
     MartinResult, Source, TileData, UrlQuery,
 };
 
+type Mapping = (u8, usize, u32, u32);
+type GeoTransformations<'a> = (
+    Option<&'a Vec<f64>>,
+    Option<&'a Vec<f64>>,
+    Option<&'a Vec<f64>>,
+);
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 
 #[derive(Clone, Debug)]
@@ -70,36 +76,28 @@ struct Meta {
     max_zoom: u8,
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
-    google_compatiblity: Option<GoogleCompatiblity>,
+    google_compatiblity: Option<GoogleMapping>,
     nodata: Option<f64>,
 }
+
 #[derive(Clone, Debug)]
-struct GoogleCompatiblity {
-    actual_zoom: (u8, u8),
+struct GoogleMapping {
     google_zoom: (u8, u8),
-    idxs: HashMap<u8, (u32, u32)>,
+    // key: google_zoom
+    // Value: actual_zoom,ifd_number;
+    // And the google_x, google_y when actual_x = 0, actual_y = 0, eg, the google tile index of the top left corner tile
+    mapping: HashMap<u8, Mapping>,
 }
-impl GoogleCompatiblity {
-    fn to_actual_zoom(&self, google_zoom: u8) -> Option<u8> {
-        self.actual_zoom
-            .1
-            .checked_add(google_zoom)
-            .and_then(|sum| sum.checked_sub(self.google_zoom.1))
-    }
-    pub fn to_actual_zxy(&self, zxy: TileCoord) -> Option<TileCoord> {
+impl GoogleMapping {
+    pub fn to_actual(&self, input_google: TileCoord) -> Option<(u8, usize, u32, u32)> {
         let mut result = None;
-        if let Some(actual_zoom) = self.to_actual_zoom(zxy.z) {
-            let idx_of_first = self.idxs.get(&actual_zoom);
-            if let Some(idx) = idx_of_first {
-                let actual_x = zxy.x - idx.0;
-                let actual_y = zxy.y - idx.1;
-                result = Some(TileCoord {
-                    z: actual_zoom,
-                    x: actual_x,
-                    y: actual_y,
-                });
-            }
-        };
+        if let Some((actual_zoom, ifd_number, google_x, google_y)) =
+            self.mapping.get(&input_google.z)
+        {
+            let actual_x = input_google.x - google_x;
+            let actual_y = input_google.y - google_y;
+            result = Some((*actual_zoom, *ifd_number, actual_x, actual_y));
+        }
         result
     }
 }
@@ -134,8 +132,9 @@ impl Source for CogSource {
         let mut decoder =
             Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
         decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
-        let xyz = if let Some(google) = &self.meta.google_compatiblity {
-            google.to_actual_zxy(xyz).ok_or_else(|| {
+
+        let (zoom_level, ifd, x, y) = if let Some(google) = &self.meta.google_compatiblity {
+            google.to_actual(xyz).ok_or_else(|| {
                 CogError::ZoomOutOfRange(
                     xyz.z,
                     self.path.clone(),
@@ -144,38 +143,37 @@ impl Source for CogSource {
                 )
             })?
         } else {
-            xyz
-        };
-        let ifd = self.meta.zoom_and_ifd.get(&(xyz.z)).ok_or_else(|| {
-            CogError::ZoomOutOfRange(
-                xyz.z,
-                self.path.clone(),
-                self.meta.min_zoom,
-                self.meta.max_zoom,
-            )
-        })?;
-
-        decoder
-            .seek_to_image(*ifd)
-            .map_err(|e| CogError::IfdSeekFailed(e, *ifd, self.path.clone()))?;
-
-        let tiles_across = self
-            .meta
-            .zoom_and_tile_across_down
-            .get(&(xyz.z))
-            .ok_or_else(|| {
+            let ifd_number = *self.meta.zoom_and_ifd.get(&(xyz.z)).ok_or_else(|| {
                 CogError::ZoomOutOfRange(
                     xyz.z,
                     self.path.clone(),
                     self.meta.min_zoom,
                     self.meta.max_zoom,
                 )
+            })?;
+            (xyz.z, ifd_number, xyz.x, xyz.y)
+        };
+        decoder
+            .seek_to_image(ifd)
+            .map_err(|e| CogError::IfdSeekFailed(e, ifd, self.path.clone()))?;
+
+        let tiles_across = self
+            .meta
+            .zoom_and_tile_across_down
+            .get(&(zoom_level))
+            .ok_or_else(|| {
+                CogError::ZoomOutOfRange(
+                    zoom_level,
+                    self.path.clone(),
+                    self.meta.min_zoom,
+                    self.meta.max_zoom,
+                )
             })?
             .0;
-        let tile_idx = xyz.y * tiles_across + xyz.x;
+        let tile_idx = y * tiles_across + x;
         let decode_result = decoder
             .read_chunk(tile_idx)
-            .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, *ifd, self.path.clone()))?;
+            .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, ifd, self.path.clone()))?;
         let color_type = decoder
             .colortype()
             .map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
@@ -386,60 +384,70 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     }
     let min_zoom = 0;
     let max_zoom = images_ifd.len() as u8 - 1;
-    let mut google = None;
+    let mut google_mapping = None;
+
     let google_zooms = to_google_zoom_range(min_zoom, max_zoom, gdal_metadata);
     if let Some(google_zoom) = google_zooms {
-        let idxs = get_google_mapping(
+        let mappings = get_google_mapping(
+            &zoom_and_ifd,
             max_zoom,
             (google_zoom.0, google_zoom.1),
             chunk_size,
-            model_transformation.as_ref(),
-            model_tiepoint.as_ref(),
-            pixel_scale.as_ref(),
+            (
+                model_transformation.as_ref(),
+                model_tiepoint.as_ref(),
+                pixel_scale.as_ref(),
+            ),
             path,
         )?;
 
-        google = Some(GoogleCompatiblity {
-            actual_zoom: (min_zoom, max_zoom),
+        google_mapping = Some(GoogleMapping {
             google_zoom,
-            idxs,
+            mapping: mappings,
         });
     }
     Ok(Meta {
-        min_zoom: 0,
-        max_zoom: images_ifd.len() as u8 - 1,
+        min_zoom,
+        max_zoom,
         zoom_and_ifd,
         zoom_and_tile_across_down,
-        google_compatiblity: google,
+        google_compatiblity: google_mapping,
         nodata,
     })
 }
 
 fn get_google_mapping(
+    zoom_and_ifd: &HashMap<u8, usize>,
     actual_max_zoom: u8,
     (google_min_zoom, google_max_zoom): (u8, u8),
     chunk_size: u32,
-    model_transformation: Option<&Vec<f64>>,
-    model_tiepoint: Option<&Vec<f64>>,
-    pixel_scale: Option<&Vec<f64>>,
+    (model_transformation, model_tiepoint, pixel_scale): GeoTransformations,
     path: &Path,
-) -> Result<HashMap<u8, (u32, u32)>, CogError> {
-    let mut idxs = HashMap::new();
-    for google_z in google_min_zoom..=google_max_zoom {
-        let actual_z = actual_max_zoom
-            .checked_add(google_z)
-            .and_then(|sum| sum.checked_sub(google_max_zoom))
-            .ok_or_else(|| CogError::GoogleZoomMappingFailed {
-                google_zoom: google_z,
-                google_min_zoom,
-                google_max_zoom,
-                actual_min_zoom: 0,
-                actual_max_zoom,
-            })?;
+) -> Result<HashMap<u8, Mapping>, CogError> {
+    let mut mappings = HashMap::new();
+    for actual_zoom in zoom_and_ifd.keys() {
+        let ifd_number = zoom_and_ifd
+            .get(actual_zoom)
+            .ok_or_else(|| CogError::IfdNotFound(*actual_zoom, path.to_path_buf(), *actual_zoom))?;
+        let google_zoom = actual_zoom
+            .checked_add(google_max_zoom)
+            .and_then(|sum| sum.checked_sub(actual_max_zoom))
+            .ok_or_else(|| CogError::GoogleZoomMappingFailed(
+                format!("Google zoom mapping failed when trying to get the google zoom for actual zoom: {actual_zoom}, and the google zoom range is {google_min_zoom} - {google_max_zoom}, the actual zoom range is 0 - {actual_max_zoom}"), path.to_path_buf()
+            ))?;
 
-        let size_related = chunk_size * 2_u32.pow(actual_max_zoom as u32 - actual_z as u32);
-        let center_pixel = (size_related as f64 / 2.0, size_related as f64 / 2.0);
-        let center_xy = pixel_to_model(
+        let zoom_diff = u32::from(actual_max_zoom)
+            .checked_sub(u32::from(*actual_zoom))
+            .ok_or_else(|| CogError::GoogleZoomMappingFailed(
+                format!("Google zoom mapping failed when trying to get the zoom difference between the actual zoom and the max zoom, the actual zoom is {actual_zoom}, and the actual zoom range is 0 - {actual_max_zoom}"), path.to_path_buf()
+            ))?;
+        let size_related = chunk_size
+            .checked_mul(2_u32.pow(zoom_diff))
+            .ok_or_else(|| {
+                CogError::SizeRelatedFailed(*actual_zoom, zoom_diff, chunk_size, path.to_path_buf())
+            })?;
+        let center_pixel = (f64::from(size_related) / 2.0, f64::from(size_related) / 2.0);
+        let center_pixel = pixel_to_model(
             model_transformation,
             model_tiepoint,
             pixel_scale,
@@ -448,11 +456,13 @@ fn get_google_mapping(
             path.to_path_buf(),
         )?;
 
-        let tile_idx = tile_index(center_xy.0, center_xy.1, google_z);
-        idxs.insert(actual_z, tile_idx);
+        let tile_idx = tile_index(center_pixel.0, center_pixel.1, google_zoom);
+        mappings.insert(
+            google_zoom,
+            (*actual_zoom, *ifd_number, tile_idx.0, tile_idx.1),
+        );
     }
-
-    Ok(idxs)
+    Ok(mappings)
 }
 
 /*
@@ -497,6 +507,7 @@ fn pixel_to_model(
         (center_x, center_y)
     } else if let (Some(tiepoint), Some(scale)) = (model_tiepoint, pixel_scale) {
         // Using tiepoint and pixel scale
+        //todo add geotiff spec as comment
         let scale_x = scale[0];
         let scale_y = scale[1];
         let tx = tiepoint[3];
@@ -505,7 +516,6 @@ fn pixel_to_model(
         let center_y = ty - pixel_j * scale_y;
         (center_x, center_y)
     } else {
-        //todo help me generate error
         return Err(CogError::MissingGeospatialInfo(path));
     };
 
@@ -518,20 +528,23 @@ fn to_google_zoom_range(
 ) -> Option<(u8, u8)> {
     let mut result = None;
     if let Ok(gdal_metadata) = gdal_metadata {
-        let re_name =
-            Regex::new(r#"<Item name="NAME" domain="TILING_SCHEME">([^<]+)</Item>"#).unwrap();
+        let re_name = Regex::new(r#"<Item name="NAME" domain="TILING_SCHEME">([^<]+)</Item>"#);
         let re_zoom =
-            Regex::new(r#"<Item name="ZOOM_LEVEL" domain="TILING_SCHEME">([^<]+)</Item>"#).unwrap();
+            Regex::new(r#"<Item name="ZOOM_LEVEL" domain="TILING_SCHEME">([^<]+)</Item>"#);
 
         let mut tiling_schema = None;
-        if let Some(caps) = re_name.captures(&gdal_metadata) {
-            tiling_schema = Some(caps[1].to_string());
-        }
+        if let Ok(re_name) = re_name {
+            if let Some(caps) = re_name.captures(&gdal_metadata) {
+                tiling_schema = Some(caps[1].to_string());
+            }
+        };
 
         let mut zoom_level: Option<u8> = None;
-        if let Some(caps) = re_zoom.captures(&gdal_metadata) {
-            zoom_level = caps[1].parse().ok();
-        }
+        if let Ok(re_zoom) = re_zoom {
+            if let Some(caps) = re_zoom.captures(&gdal_metadata) {
+                zoom_level = caps[1].parse().ok();
+            }
+        };
 
         if let Some(zoom) = zoom_level {
             if tiling_schema == Some("GoogleMapsCompatible".to_string()) {
@@ -552,40 +565,6 @@ pub fn tile_index(x: f64, y: f64, zoom: u8) -> (u32, u32) {
     let col = (((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size) as u32).min((1 << zoom) - 1);
     let row = ((((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size) as u32).min((1 << zoom) - 1);
     (col, row)
-}
-
-// see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
-pub fn get_first_tile_center_coords(
-    model_transformation: Option<&[f64]>,
-    model_tiepoint: Option<&[f64]>,
-    pixel_scale: Option<&[f64]>,
-    tile_size: u32,
-    path: PathBuf,
-) -> Result<(f64, f64), CogError> {
-    let tile_size = tile_size as f64;
-    let i = tile_size / 2.0;
-    let j = tile_size / 2.0;
-
-    let (x, y) = if let Some(transform) = model_transformation {
-        // Using model transformation
-        let center_x = transform[3] + (transform[0] * i) + (transform[1] * j);
-        let center_y = transform[7] + (transform[4] * i) + (transform[5] * j);
-        (center_x, center_y)
-    } else if let (Some(tiepoint), Some(scale)) = (model_tiepoint, pixel_scale) {
-        // Using tiepoint and pixel scale
-        let scale_x = scale[0];
-        let scale_y = scale[1];
-        let tx = tiepoint[3];
-        let ty = tiepoint[4];
-        let center_x = tx + i * scale_x;
-        let center_y = ty - j * scale_y;
-        (center_x, center_y)
-    } else {
-        //todo help me generate error
-        return Err(CogError::MissingGeospatialInfo(path));
-    };
-
-    Ok((x, y))
 }
 
 fn get_grid_dims(
