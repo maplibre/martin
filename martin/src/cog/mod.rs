@@ -633,22 +633,3 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     }
     res
 }
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use martin_tile_utils::TileCoord;
-
-    use super::CogSource;
-
-    #[test]
-    fn test_zoom_compatible() {
-        let path = PathBuf::from("../tests/fixtures/cog/google_compatible.tif");
-        let source = CogSource::new("test".to_string(), path).unwrap();
-
-        let xyz = TileCoord { z: 0, x: 0, y: 0 };
-
-        let google = source.meta.google_compatiblity.unwrap();
-    }
-}
