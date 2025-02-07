@@ -1,0 +1,1 @@
+tests/output/auto/google_compatible_14_8855_6444.png: PNG image data, 256 x 256, 8-bit/color RGBA, non-interlaced
