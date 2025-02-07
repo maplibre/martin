@@ -65,4 +65,13 @@ pub enum CogError {
     InvalidReferenceImageDimensions(PathBuf),
     #[error("First tile not found at zoom level {0} in file {1}")]
     FirstTileNotFound(u8, PathBuf),
+
+    #[error("Google zoom level {google_zoom} cannot be mapped to actual zoom level. Google zoom range {google_min_zoom}-{google_max_zoom} maps to actual zoom range {actual_min_zoom}-{actual_max_zoom}")]
+    GoogleZoomMappingFailed {
+        google_zoom: u8,
+        google_min_zoom: u8,
+        google_max_zoom: u8,
+        actual_min_zoom: u8,
+        actual_max_zoom: u8,
+    },
 }

@@ -80,23 +80,27 @@ struct GoogleCompatiblity {
     idxs: HashMap<u8, (u32, u32)>,
 }
 impl GoogleCompatiblity {
-    fn to_actual_zoom(&self, google_zoom: u8) -> u8 {
-        (self.actual_zoom.1 as i32 - self.google_zoom.1 as i32 + google_zoom as i32) as u8
+    fn to_actual_zoom(&self, google_zoom: u8) -> Option<u8> {
+        self.actual_zoom
+            .1
+            .checked_add(google_zoom)
+            .and_then(|sum| sum.checked_sub(self.google_zoom.1))
     }
     pub fn to_actual_zxy(&self, zxy: TileCoord) -> Option<TileCoord> {
-        let actual_zoom = self.to_actual_zoom(zxy.z);
-        let idx_of_first = self.idxs.get(&actual_zoom);
-        if let Some(idx) = idx_of_first {
-            let actual_x = zxy.x - idx.0;
-            let actual_y = zxy.y - idx.1;
-            Some(TileCoord {
-                z: actual_zoom,
-                x: actual_x,
-                y: actual_y,
-            })
-        } else {
-            None
-        }
+        let mut result = None;
+        if let Some(actual_zoom) = self.to_actual_zoom(zxy.z) {
+            let idx_of_first = self.idxs.get(&actual_zoom);
+            if let Some(idx) = idx_of_first {
+                let actual_x = zxy.x - idx.0;
+                let actual_y = zxy.y - idx.1;
+                result = Some(TileCoord {
+                    z: actual_zoom,
+                    x: actual_x,
+                    y: actual_y,
+                });
+            }
+        };
+        result
     }
 }
 #[async_trait]
@@ -387,13 +391,12 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     if let Some(google_zoom) = google_zooms {
         let idxs = get_google_mapping(
             max_zoom,
-            google_zoom.0,
-            google_zoom.1,
+            (google_zoom.0, google_zoom.1),
             chunk_size,
-            model_transformation,
-            model_tiepoint,
-            pixel_scale,
-            path.clone(),
+            model_transformation.as_ref(),
+            model_tiepoint.as_ref(),
+            pixel_scale.as_ref(),
+            path,
         )?;
 
         google = Some(GoogleCompatiblity {
@@ -414,30 +417,39 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
 fn get_google_mapping(
     actual_max_zoom: u8,
-    google_min_zoom: u8,
-    google_max_zoom: u8,
+    (google_min_zoom, google_max_zoom): (u8, u8),
     chunk_size: u32,
-    model_transformation: Option<Vec<f64>>,
-    model_tiepoint: Option<Vec<f64>>,
-    pixel_scale: Option<Vec<f64>>,
-    path: PathBuf,
+    model_transformation: Option<&Vec<f64>>,
+    model_tiepoint: Option<&Vec<f64>>,
+    pixel_scale: Option<&Vec<f64>>,
+    path: &Path,
 ) -> Result<HashMap<u8, (u32, u32)>, CogError> {
     let mut idxs = HashMap::new();
-    for google_z in google_min_zoom..google_max_zoom + 1 {
-        let actual_z = actual_max_zoom as i32 - google_max_zoom as i32 + google_z as i32;
+    for google_z in google_min_zoom..=google_max_zoom {
+        let actual_z = actual_max_zoom
+            .checked_add(google_z)
+            .and_then(|sum| sum.checked_sub(google_max_zoom))
+            .ok_or_else(|| CogError::GoogleZoomMappingFailed {
+                google_zoom: google_z,
+                google_min_zoom,
+                google_max_zoom,
+                actual_min_zoom: 0,
+                actual_max_zoom,
+            })?;
+
         let size_related = chunk_size * 2_u32.pow(actual_max_zoom as u32 - actual_z as u32);
         let center_pixel = (size_related as f64 / 2.0, size_related as f64 / 2.0);
         let center_xy = pixel_to_model(
-            model_transformation.as_deref(),
-            model_tiepoint.as_deref(),
-            pixel_scale.as_deref(),
+            model_transformation,
+            model_tiepoint,
+            pixel_scale,
             center_pixel.0,
             center_pixel.1,
-            path.clone(),
+            path.to_path_buf(),
         )?;
 
         let tile_idx = tile_index(center_xy.0, center_xy.1, google_z);
-        idxs.insert(actual_z as u8, tile_idx);
+        idxs.insert(actual_z, tile_idx);
     }
 
     Ok(idxs)
@@ -471,9 +483,9 @@ And When the model space is 2-D, the matrix will have the more limited form:
 */
 // see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
 fn pixel_to_model(
-    model_transformation: Option<&[f64]>,
-    model_tiepoint: Option<&[f64]>,
-    pixel_scale: Option<&[f64]>,
+    model_transformation: Option<&Vec<f64>>,
+    model_tiepoint: Option<&Vec<f64>>,
+    pixel_scale: Option<&Vec<f64>>,
     pixcel_i: f64,
     pixel_j: f64,
     path: PathBuf,
