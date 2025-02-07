@@ -398,7 +398,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
         google = Some(GoogleCompatiblity {
             actual_zoom: (min_zoom, max_zoom),
-            google_zoom: google_zoom,
+            google_zoom,
             idxs,
         });
     }
@@ -442,24 +442,46 @@ fn get_google_mapping(
 
     Ok(idxs)
 }
-pub fn pixel_to_model(
+
+/*
+The transformation from pixel space (I,J,K) to model space (X,Y,Z) is given by the following equations:
+    model                  image
+    coords =     matrix  * coords
+    |- -|     |-       -|  |- -|
+    | X |     | a b c d |  | I |
+    | | |     |         |  |   |
+    | Y |     | e f g h |  | J |
+    |   |  =  |         |  |   |
+    | Z |     | i j k l |  | K |
+    | | |     |         |  |   |
+    | 1 |     | m n o p |  | 1 |
+    |- -|     |-       -|  |- -|
+By convention, and without loss of generality, the following parameters are currently hard-coded and will always be the same (but must be specified nonetheless):
+    m = n = o = 0, p = 1.
+And When the model space is 2-D, the matrix will have the more limited form:
+    |- -|   |-       -| |- -|
+    | X |   | a b 0 d | | I |
+    | | |   |         | |   |
+    | Y |   | e f 0 h | | J |
+    |   | = |         | |   |
+    | Z |   | 0 0 0 0 | | K |
+    | | |   |         | |   |
+    | 1 |   | 0 0 0 1 | | 1 |
+    |- -|   |-       -| |- -|
+*/
+// see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+fn pixel_to_model(
     model_transformation: Option<&[f64]>,
     model_tiepoint: Option<&[f64]>,
     pixel_scale: Option<&[f64]>,
-    i: f64,
-    j: f64,
+    pixcel_i: f64,
+    pixel_j: f64,
     path: PathBuf,
 ) -> Result<(f64, f64), CogError> {
     let (x, y) = if let Some(transform) = model_transformation {
-        let a = transform[0];
-        let b = transform[1];
-        let d = transform[3];
-        let e = transform[4];
-        let f = transform[5];
-        let h = transform[7];
         // Using model transformation
-        let center_x = d + (a * i) + (b * j);
-        let center_y = h + (e * i) + (f * j);
+        let center_x = transform[3] + (transform[0] * pixcel_i) + (transform[1] * pixel_j);
+        let center_y = transform[7] + (transform[4] * pixcel_i) + (transform[5] * pixel_j);
         (center_x, center_y)
     } else if let (Some(tiepoint), Some(scale)) = (model_tiepoint, pixel_scale) {
         // Using tiepoint and pixel scale
@@ -467,8 +489,8 @@ pub fn pixel_to_model(
         let scale_y = scale[1];
         let tx = tiepoint[3];
         let ty = tiepoint[4];
-        let center_x = tx + i * scale_x;
-        let center_y = ty - j * scale_y;
+        let center_x = tx + pixcel_i * scale_x;
+        let center_y = ty - pixel_j * scale_y;
         (center_x, center_y)
     } else {
         //todo help me generate error
@@ -531,15 +553,9 @@ pub fn get_first_tile_center_coords(
     let j = tile_size / 2.0;
 
     let (x, y) = if let Some(transform) = model_transformation {
-        let a = transform[0];
-        let b = transform[1];
-        let d = transform[3];
-        let e = transform[4];
-        let f = transform[5];
-        let h = transform[7];
         // Using model transformation
-        let center_x = d + (a * i) + (b * j);
-        let center_y = h + (e * i) + (f * j);
+        let center_x = transform[3] + (transform[0] * i) + (transform[1] * j);
+        let center_y = transform[7] + (transform[4] * i) + (transform[5] * j);
         (center_x, center_y)
     } else if let (Some(tiepoint), Some(scale)) = (model_tiepoint, pixel_scale) {
         // Using tiepoint and pixel scale
