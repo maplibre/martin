@@ -56,7 +56,7 @@ impl CogSource {
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::too_many_lines)]
-    fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
+    pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
         if xyz.z < self.meta.min_zoom || xyz.z > self.meta.max_zoom {
             return Ok(Vec::new());
         }
