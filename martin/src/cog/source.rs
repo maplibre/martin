@@ -384,3 +384,18 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     }
     res
 }
+
+#[cfg(test)]
+mod tests {
+    use martin_tile_utils::TileCoord;
+
+    use crate::cog::source::get_tile_idx;
+
+    #[test]
+    fn can_calc_tile_idx() {
+        assert_eq!(Some(0), get_tile_idx(TileCoord { z: 0, x: 0, y: 0 }, 3, 3));
+        assert_eq!(Some(8), get_tile_idx(TileCoord { z: 0, x: 2, y: 2 }, 3, 3));
+        assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 3, y: 0 }, 3, 3));
+        assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 1, y: 9 }, 3, 3));
+    }
+}
