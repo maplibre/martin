@@ -29,8 +29,6 @@ struct Meta {
 
 #[derive(Clone, Debug)]
 pub struct CogSource {
-    min_zoom: u8,
-    max_zoom: u8,
     id: String,
     path: PathBuf,
     meta: Meta,
@@ -48,8 +46,6 @@ impl CogSource {
             maxzoom: meta.max_zoom
         };
         Ok(CogSource {
-            min_zoom: meta.min_zoom,
-            max_zoom: meta.max_zoom,
             id,
             path,
             meta,
@@ -57,34 +53,13 @@ impl CogSource {
             tileinfo,
         })
     }
-}
-
-#[async_trait]
-impl Source for CogSource {
-    fn get_id(&self) -> &str {
-        &self.id
-    }
-
-    fn get_tilejson(&self) -> &TileJSON {
-        &self.tilejson
-    }
-
-    fn get_tile_info(&self) -> TileInfo {
-        self.tileinfo
-    }
-
-    fn clone_source(&self) -> Box<dyn Source> {
-        Box::new(self.clone())
-    }
-
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::too_many_lines)]
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData> {
+    fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
+        if xyz.z < self.meta.min_zoom || xyz.z > self.meta.max_zoom {
+            return Ok(Vec::new());
+        }
         let tif_file =
             File::open(&self.path).map_err(|e| FileError::IoError(e, self.path.clone()))?;
         let mut decoder =
@@ -104,7 +79,7 @@ impl Source for CogSource {
             .seek_to_image(*ifd)
             .map_err(|e| CogError::IfdSeekFailed(e, *ifd, self.path.clone()))?;
 
-        let tiles_across = self
+        let (across, down) = self
             .meta
             .zoom_and_tile_across_down
             .get(&(xyz.z))
@@ -115,9 +90,13 @@ impl Source for CogSource {
                     self.meta.min_zoom,
                     self.meta.max_zoom,
                 )
-            })?
-            .0;
-        let tile_idx = xyz.y * tiles_across + xyz.x;
+            })?;
+        let tile_idx;
+        if let Some(idx) = get_tile_idx(xyz, *across, *down) {
+            tile_idx = idx;
+        } else {
+            return Ok(Vec::new());
+        };
         let decode_result = decoder
             .read_chunk(tile_idx)
             .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, *ifd, self.path.clone()))?;
@@ -154,6 +133,48 @@ impl Source for CogSource {
         }?;
         Ok(png_file_bytes)
     }
+}
+
+#[async_trait]
+impl Source for CogSource {
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+
+    fn get_tilejson(&self) -> &TileJSON {
+        &self.tilejson
+    }
+
+    fn get_tile_info(&self) -> TileInfo {
+        self.tileinfo
+    }
+
+    fn clone_source(&self) -> Box<dyn Source> {
+        Box::new(self.clone())
+    }
+
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::too_many_lines)]
+    async fn get_tile(
+        &self,
+        xyz: TileCoord,
+        _url_query: Option<&UrlQuery>,
+    ) -> MartinResult<TileData> {
+        Ok(self.get_tile(xyz)?)
+    }
+}
+
+fn get_tile_idx(xyz: TileCoord, across: u32, down: u32) -> Option<u32> {
+    if xyz.y >= down || xyz.x >= across {
+        return None;
+    }
+
+    let tile_idx = xyz.y * across + xyz.x;
+    if tile_idx >= across * down {
+        return None;
+    }
+    return Some(xyz.y * across + xyz.x);
 }
 
 fn rgb_to_png(
