@@ -29,6 +29,8 @@ struct Meta {
 
 #[derive(Clone, Debug)]
 pub struct CogSource {
+    min_zoom: u8,
+    max_zoom: u8,
     id: String,
     path: PathBuf,
     meta: Meta,
@@ -46,6 +48,8 @@ impl CogSource {
             maxzoom: meta.max_zoom
         };
         Ok(CogSource {
+            min_zoom: meta.min_zoom,
+            max_zoom: meta.max_zoom,
             id,
             path,
             meta,
