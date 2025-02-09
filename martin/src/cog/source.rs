@@ -174,7 +174,7 @@ fn get_tile_idx(xyz: TileCoord, across: u32, down: u32) -> Option<u32> {
     if tile_idx >= across * down {
         return None;
     }
-    return Some(xyz.y * across + xyz.x);
+    Some(xyz.y * across + xyz.x)
 }
 
 fn rgb_to_png(
