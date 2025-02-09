@@ -19,6 +19,15 @@ use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
 use super::CogError;
 
 #[derive(Clone, Debug)]
+struct Meta {
+    min_zoom: u8,
+    max_zoom: u8,
+    zoom_and_ifd: HashMap<u8, usize>,
+    zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
+    nodata: Option<f64>,
+}
+
+#[derive(Clone, Debug)]
 pub struct CogSource {
     id: String,
     path: PathBuf,
@@ -44,15 +53,6 @@ impl CogSource {
             tileinfo,
         })
     }
-}
-
-#[derive(Clone, Debug)]
-struct Meta {
-    min_zoom: u8,
-    max_zoom: u8,
-    zoom_and_ifd: HashMap<u8, usize>,
-    zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
-    nodata: Option<f64>,
 }
 
 #[async_trait]
