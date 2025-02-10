@@ -39,4 +39,5 @@
   - [Diffing/Patching MBTiles](mbtiles-diff.md)
   - [Validating MBTiles](mbtiles-validation.md)
 - [Development](development.md)
+  - [Getting involved](getting-involved.md)
   - [Martin as a library](martin-as-a-library.md)
