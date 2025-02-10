@@ -404,6 +404,7 @@ mod tests {
         "../tests/fixtures/cog/expected/right_padded.png",
         3,
         0,
+        None,
         128,
         256,
         256,
@@ -414,6 +415,7 @@ mod tests {
         "../tests/fixtures/cog/expected/down_padded.png",
         3,
         0,
+        None,
         256,
         128,
         256,
@@ -424,6 +426,7 @@ mod tests {
         "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
         4,
         128,
+        None,
         256,
         128,
         256,
@@ -434,6 +437,7 @@ mod tests {
         "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
         4,
         128,
+        None,
         128,
         256,
         256,
@@ -441,11 +445,23 @@ mod tests {
     )]
     // should be all gray
     #[case(
-        "../tests/fixtures/cog/expected/not_padded_all.png",
+        "../tests/fixtures/cog/expected/not_padded.png",
         4,
         128,
+        None,
         256,
         256,
+        256,
+        256
+    )]
+    // not padded and with a no_data whose value is 128, and all the component is 128, so that should be all transprent
+    #[case(
+        "../tests/fixtures/cog/expected/all_transprent.png",
+        4,
+        128, //default value
+        Some(128), // no_data
+        128,
+        128,
         256,
         256
     )]
@@ -453,6 +469,7 @@ mod tests {
         #[case] expected_file_path: &str,
         #[case] componses_count: u32,
         #[case] default_value: u8,
+        #[case] no_value: Option<u8>,
         #[case] data_width: u32,
         #[case] data_height: u32,
         #[case] tile_width: u32,
@@ -464,7 +481,7 @@ mod tests {
             (tile_width, tile_height),
             (data_width, data_height),
             componses_count,
-            None,
+            no_value,
             &PathBuf::from("not_exist.tif"),
         )
         .unwrap();
