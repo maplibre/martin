@@ -402,85 +402,56 @@ mod tests {
     // the right half should be transprent
     #[case(
         "../tests/fixtures/cog/expected/right_padded.png",
-        3,
-        0,
-        None,
-        128,
-        256,
-        256,
-        256
+        (0,0,0,None),None,(128,256),(256,256)
     )]
     // the down half should be transprent
     #[case(
         "../tests/fixtures/cog/expected/down_padded.png",
-        3,
-        0,
-        None,
-        256,
-        128,
-        256,
-        256
+        (0,0,0,None),None,(256,128),(256,256)
     )]
-    // the up half should be gray and down half should be transprent
+    // the up half should be half transprent and down half should be transprent
     #[case(
         "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
-        4,
-        128,
-        None,
-        256,
-        128,
-        256,
-        256
+        (0,0,0,Some(128)),None,(256,128),(256,256)
     )]
-    // the left half should be gray and the right half should be transprent
+    // the left half should be half transprent and the right half should be transprent
     #[case(
         "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
-        4,
-        128,
-        None,
-        128,
-        256,
-        256,
-        256
+        (0,0,0,Some(128)),None,(128,256),(256,256)
     )]
-    // should be all gray
+    // should be all half transprent
     #[case(
         "../tests/fixtures/cog/expected/not_padded.png",
-        4,
-        128,
-        None,
-        256,
-        256,
-        256,
-        256
+        (0,0,0,Some(128)),None,(256,256),(256,256)
     )]
-    // not padded and with a no_data whose value is 128, and all the component is 128, so that should be all transprent
+    // all padded and with a no_data whose value is 128, and all the component is 128
+    // so that should be all transprent
     #[case(
         "../tests/fixtures/cog/expected/all_transprent.png",
-        4,
-        128, //default value
-        Some(128), // no_data
-        128,
-        128,
-        256,
-        256
+        (128,128,128,Some(128)),Some(128),(128,128),(256,256)
     )]
     fn test_padded_cases(
         #[case] expected_file_path: &str,
-        #[case] componses_count: u32,
-        #[case] default_value: u8,
+        #[case] components: (u8, u8, u8, Option<u8>),
         #[case] no_value: Option<u8>,
-        #[case] data_width: u32,
-        #[case] data_height: u32,
-        #[case] tile_width: u32,
-        #[case] tile_height: u32,
+        #[case] (data_width, data_height): (u32, u32),
+        #[case] (tile_width, tile_height): (u32, u32),
     ) {
-        let pixels = vec![default_value; (data_width * data_height * componses_count) as usize];
+        let mut pixels = Vec::new();
+        for _ in 0..(data_width * data_height) {
+            pixels.push(components.0);
+            pixels.push(components.1);
+            pixels.push(components.2);
+            if let Some(alpha) = components.3 {
+                pixels.push(alpha);
+            }
+        }
+        let componse_count = if components.3.is_some() { 4 } else { 3 };
         let png_bytes = super::rgb_to_png(
             pixels,
             (tile_width, tile_height),
             (data_width, data_height),
-            componses_count,
+            componse_count,
             no_value,
             &PathBuf::from("not_exist.tif"),
         )
