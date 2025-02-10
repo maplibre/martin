@@ -384,6 +384,9 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use insta::assert_snapshot;
     use martin_tile_utils::TileCoord;
 
     use crate::cog::source::get_tile_idx;
@@ -394,5 +397,27 @@ mod tests {
         assert_eq!(Some(8), get_tile_idx(TileCoord { z: 0, x: 2, y: 2 }, 3, 3));
         assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 3, y: 0 }, 3, 3));
         assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 1, y: 9 }, 3, 3));
+    }
+
+    #[test]
+    fn right_padded() {
+        // case 1 padded right; 128 * 256 to 256 * 256
+        //    it's padded at right, the right part should be transparent
+        let pixels = vec![0; 128 * 256 * 3];
+        let (tile_width, tile_height) = (256, 256);
+        let (data_width, data_height) = (128, 256);
+        let chunk_components_count = 3;
+
+        let result = super::rgb_to_png(
+            pixels,
+            (tile_width, tile_height),
+            (data_width, data_height),
+            chunk_components_count,
+            None,
+            &PathBuf::from("not_exist.tif"),
+        );
+        let result = result.unwrap();
+        let expected = std::fs::read("../tests/fixtures/cog/expected/right_padded.png").unwrap();
+        assert_eq!(result, expected);
     }
 }
