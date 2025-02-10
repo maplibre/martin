@@ -1,8 +1,8 @@
 # Getting involved
 
-It's time to getting involved once you have the [fork and all required softwares](development.md).
+It's time to get involved once you have the [fork and all required software](development.md).
 
-We souppose you are working on Ubuntu(Or WSL) with Visual Studio Code in this post.
+We assume you are working on Ubuntu (or WSL) with Visual Studio Code in this post.
 
 ## Editor Plugins
 
@@ -10,11 +10,11 @@ Install plugins below:
 * [CodeLLDB](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
 
-## Debugging into with `launch.json`
+## Debugging with `launch.json`
 
-Generally you need to debug martin with specific arguments or config file to fix issue or add feature.
+Generally, you need to debug martin with specific arguments or a config file to fix issues or add features.
 
-The most convenient way is to generate a lanunch.json and modify it.
+The most convenient way is to generate a launch.json and modify it.
 
 ## Generate
 
@@ -77,7 +77,7 @@ Just copy and paste after it, and modify your pasted like this:
 
 ### Add a breakpoint
 
-Go to any part you interested in of martin code and add a breakpoint.
+Go to any part you're interested in of martin code and add a breakpoint.
 
 We add a breakpoint here in the [start of martin](https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10).
 
@@ -96,9 +96,9 @@ async fn start(args: Args) -> MartinResult<()> {
 
 ### Debugging
 
-Click the `Run and Debug` on the left panel of `Visual Studio Code`. Choose `my first debug`. And Press `F5` on your keyboard.
+Click `Run and Debug` on the left panel of `Visual Studio Code`. Choose `my first debug` and press `F5` on your keyboard.
 
-Wait the breakpoint get hitted.
+Wait for the breakpoint to be hit.
 
 
 ## Working with Just
