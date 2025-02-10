@@ -399,30 +399,76 @@ mod tests {
     }
 
     #[rstest]
-    #[case("right_padded", 128, 256, 256, 256)] // the right part should be transparent
-    #[case("down_padded", 256, 128, 256, 256)] // the down part should be transparent
+    // the right half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/right_padded.png",
+        3,
+        0,
+        128,
+        256,
+        256,
+        256
+    )]
+    // the down half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/down_padded.png",
+        3,
+        0,
+        256,
+        128,
+        256,
+        256
+    )]
+    // the up half should be gray and down half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
+        4,
+        128,
+        256,
+        128,
+        256,
+        256
+    )]
+    // the left half should be gray and the right half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
+        4,
+        128,
+        128,
+        256,
+        256,
+        256
+    )]
+    // should be all gray
+    #[case(
+        "../tests/fixtures/cog/expected/not_padded_all.png",
+        4,
+        128,
+        256,
+        256,
+        256,
+        256
+    )]
     fn test_padded_cases(
-        #[case] test_name: &str,
+        #[case] expected_file_path: &str,
+        #[case] componses_count: u32,
+        #[case] default_value: u8,
         #[case] data_width: u32,
         #[case] data_height: u32,
         #[case] tile_width: u32,
         #[case] tile_height: u32,
     ) {
-        let pixels = vec![0; (data_width * data_height * 3) as usize];
-        let chunk_components_count = 3;
-
-        let result = super::rgb_to_png(
+        let pixels = vec![default_value; (data_width * data_height * componses_count) as usize];
+        let png_bytes = super::rgb_to_png(
             pixels,
             (tile_width, tile_height),
             (data_width, data_height),
-            chunk_components_count,
+            componses_count,
             None,
             &PathBuf::from("not_exist.tif"),
         )
         .unwrap();
-
-        let expected =
-            std::fs::read(format!("../tests/fixtures/cog/expected/{test_name}.png")).unwrap();
-        assert_eq!(result, expected);
+        let expected = std::fs::read(expected_file_path).unwrap();
+        assert_eq!(png_bytes, expected);
     }
 }
