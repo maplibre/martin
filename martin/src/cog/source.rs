@@ -384,7 +384,6 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use insta::{assert_binary_snapshot, assert_snapshot};
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
     use std::path::PathBuf;
@@ -423,7 +422,7 @@ mod tests {
         .unwrap();
 
         let expected =
-            std::fs::read(format!("../tests/fixtures/cog/expected/{}.png", test_name)).unwrap();
+            std::fs::read(format!("../tests/fixtures/cog/expected/{test_name}.png")).unwrap();
         assert_eq!(result, expected);
     }
 }
