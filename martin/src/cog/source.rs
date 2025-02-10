@@ -182,7 +182,7 @@ fn rgb_to_png(
     nodata: Option<u8>,
     path: &Path,
 ) -> Result<Vec<u8>, CogError> {
-    let is_padded = data_width != tile_width;
+    let is_padded = data_width != tile_width || data_height != tile_height;
     let need_add_alpha = chunk_components_count != 4;
 
     let pixels = if nodata.is_some() || need_add_alpha || is_padded {
