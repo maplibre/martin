@@ -153,9 +153,6 @@ impl Source for CogSource {
         Box::new(self.clone())
     }
 
-    #[allow(clippy::cast_sign_loss)]
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::too_many_lines)]
     async fn get_tile(
         &self,
         xyz: TileCoord,
