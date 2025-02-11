@@ -22,6 +22,7 @@ use super::CogError;
 struct Meta {
     min_zoom: u8,
     max_zoom: u8,
+    resolutions: HashMap<u8, [f64; 3]>,
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
@@ -364,6 +365,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     Ok(Meta {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
+        resolutions,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
