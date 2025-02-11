@@ -45,4 +45,7 @@ pub enum CogError {
 
     #[error("Get origin failed for {0}")]
     GetOriginFailed(PathBuf),
+
+    #[error("Coord transformation in {0} is invalid")]
+    InvalidGeoInformation(PathBuf, String),
 }

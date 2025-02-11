@@ -275,6 +275,21 @@ fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), Co
             path.to_path_buf(),
         ))?;
     };
+
+    let model = get_model_infos(decoder, &path.to_path_buf());
+
+    match model {
+        (Some(pixel_scale), Some(tie_points), _)
+            if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 =>
+        {
+            Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3, and the length of tie points should be a multiple of 6".to_string()))
+        }
+        (_, _, Some(matrix)) if matrix.len() != 16 => {
+            Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
+        }
+        _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The model information is not found, either transformation (tag number 34264) or pixel scale(tag number 33550) && tie points(33922) should be inside ".to_string())),
+    }?;
+
     Ok(())
 }
 
@@ -438,10 +453,12 @@ fn get_origin(
 
 #[cfg(test)]
 mod tests {
+
+    use insta::assert_yaml_snapshot;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
-    use std::path::PathBuf;
-    use tiff::tags;
+    use std::{fs::File, path::PathBuf};
+    use tiff::decoder::Decoder;
 
     use crate::cog::source::get_tile_idx;
 
@@ -528,5 +545,29 @@ mod tests {
         .unwrap();
         assert_eq!(origin, [1620750.2508, 4277012.7153, 0.0]);
         //todo add a test for matrix either in this PR.
+    }
+
+    #[test]
+    fn can_get_model_infos() {
+        let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
+        let tif_file = File::open(&path).unwrap();
+        let mut decoder = Decoder::new(tif_file).unwrap();
+
+        let (pixel_scale, tie_points, transformation) = super::get_model_infos(&mut decoder, &path);
+
+        assert_yaml_snapshot!(pixel_scale, @r###"
+        - 10
+        - 10
+        - 0
+        "###);
+        assert_yaml_snapshot!(tie_points, @r###"
+        - 0
+        - 0
+        - 0
+        - 1620750.2508
+        - 4277012.7153
+        - 0
+        "###);
+        assert_yaml_snapshot!(transformation, @"~");
     }
 }
