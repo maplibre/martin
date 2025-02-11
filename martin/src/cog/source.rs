@@ -382,10 +382,23 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     res
 }
 
+fn get_origin(
+    tie_points: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    match (tie_points, transformation) {
+        (Some(points), _) if points.len() == 6 => Ok([points[3], points[4], points[5]]),
+        (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
+        _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
+    use tiff::tags;
     use std::path::PathBuf;
 
     use crate::cog::source::get_tile_idx;
@@ -458,5 +471,15 @@ mod tests {
         .unwrap();
         let expected = std::fs::read(expected_file_path).unwrap();
         assert_eq!(png_bytes, expected);
+    }
+
+    #[test]
+    fn can_get_origin() {
+        let matrix: Option<&[f64]> = None;
+        let tie_point = Some(vec![0.0, 0.0, 0.0, 1620750.2508, 4277012.7153, 0.0]);
+
+        let origin = super::get_origin(tie_point.as_deref(), matrix.as_deref(), &PathBuf::from("not_exist.tif")).unwrap();
+        assert_eq!(origin, [1620750.2508, 4277012.7153, 0.0]);
+        //todo add a test for matrix either in this PR. 
     }
 }
