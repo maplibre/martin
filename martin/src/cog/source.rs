@@ -27,6 +27,7 @@ struct Meta {
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
     origin: [f64; 3],
+    extent: [f64; 4],
 }
 
 #[derive(Clone, Debug)]
@@ -329,8 +330,17 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
             path.to_path_buf(),
         )
     })?;
+
     let full_width = full_resolution[0] * f64::from(full_width_pixel);
-    let full_height = full_resolution[1] * f64::from(full_length_pixel);
+    let full_length = full_resolution[1] * f64::from(full_length_pixel);
+
+    let extent = get_extent(
+        transformations.as_deref(),
+        &origin,
+        (full_width_pixel, full_length_pixel),
+        (full_width, full_length),
+    );
+
     for (idx, image_ifd) in images_ifd.iter().enumerate() {
         decoder
             .seek_to_image(*image_ifd)
@@ -351,7 +361,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
                 )
             })?;
             let res_x = f64::from(image_width) / f64::from(full_width);
-            let res_y = f64::from(image_length) / f64::from(full_height);
+            let res_y = f64::from(image_length) / f64::from(full_length);
             resolution = [res_x, res_y, 0.0];
         }
         let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, path, *image_ifd)?;
@@ -369,11 +379,61 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
         resolutions,
+        extent,
         origin,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
     })
+}
+
+fn get_extent(
+    transformation: Option<&[f64]>,
+    origin: &[f64],
+    (full_width_pixel, full_height_pixel): (u32, u32),
+    (full_width, full_height): (f64, f64),
+) -> [f64; 4] {
+    if let Some(matrix) = transformation {
+        let corners = [
+            [0, 0],
+            [0, full_height_pixel],
+            [full_width_pixel, 0],
+            [full_width_pixel, full_height_pixel],
+        ];
+        let transed = corners.map(|pixel| {
+            let i = f64::from(pixel[0]);
+            let j = f64::from(pixel[1]);
+            let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
+            let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
+            (x, y)
+        });
+        let mut min_x = transed[0].0;
+        let mut min_y = transed[1].1;
+        let mut max_x = transed[0].0;
+        let mut max_y = transed[1].1;
+        for (x, y) in transed {
+            if x <= min_x {
+                min_x = x;
+            }
+            if y <= min_y {
+                min_y = y;
+            }
+            if x >= max_x {
+                max_x = x;
+            }
+            if y >= max_y {
+                max_y = y;
+            }
+        }
+        return [min_x, min_y, max_x, max_y];
+    } else {
+        let x1 = origin[0];
+        let y1 = origin[1];
+        let x2 = x1 + f64::from(full_width);
+        let y2 = y1 + f64::from(full_height);
+
+        return [x1.min(x2), y1.min(y2), x1.max(x2), y1.max(y2)];
+    }
 }
 
 fn get_full_resolution(

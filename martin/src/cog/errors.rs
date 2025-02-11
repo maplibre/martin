@@ -51,4 +51,7 @@ pub enum CogError {
 
     #[error("Get full resolution failed from file: {0}")]
     GetFullResolutionFailed(PathBuf),
+
+    #[error("Get extent failed from file: {0}")]
+    GetExtentFailed(PathBuf),
 }
