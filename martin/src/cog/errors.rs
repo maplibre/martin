@@ -48,4 +48,7 @@ pub enum CogError {
 
     #[error("Coord transformation in {0} is invalid")]
     InvalidGeoInformation(PathBuf, String),
+
+    #[error("Get full resolution failed from file: {0}")]
+    GetFullResolutionFailed(PathBuf),
 }

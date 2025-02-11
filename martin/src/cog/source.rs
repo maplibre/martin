@@ -300,8 +300,6 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
-    let (pixel_scale, tie_points, transformation) = get_model_infos(&mut decoder, path);
-
     verify_requirments(&mut decoder, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
@@ -314,6 +312,21 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
     let images_ifd = get_images_ifd(&mut decoder, path);
 
+    let (pixel_scale, _, transformations) = get_model_infos(&mut decoder, path);
+
+    let mut resolutions = HashMap::new();
+    let full_resolution =
+        get_full_resolution(pixel_scale.as_deref(), transformations.as_deref(), path)?;
+    let (full_width_pixel, full_length_pixel) = decoder.dimensions().map_err(|e| {
+        CogError::TagsNotFound(
+            e,
+            vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
+            0, // we are at ifd 0, the first image, haven't seek to others
+            path.to_path_buf(),
+        )
+    })?;
+    let full_width = full_resolution[0] * f64::from(full_width_pixel);
+    let full_height = full_resolution[1] * f64::from(full_length_pixel);
     for (idx, image_ifd) in images_ifd.iter().enumerate() {
         decoder
             .seek_to_image(*image_ifd)
@@ -321,11 +334,27 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
         let zoom = u8::try_from(images_ifd.len() - (idx + 1))
             .map_err(|_| CogError::TooManyImages(path.clone()))?;
-
+        let resolution;
+        if zoom == 0 {
+            resolution = full_resolution;
+        } else {
+            let (image_width, image_length) = decoder.dimensions().map_err(|e| {
+                CogError::TagsNotFound(
+                    e,
+                    vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
+                    *image_ifd,
+                    path.to_path_buf(),
+                )
+            })?;
+            let res_x = f64::from(image_width) / f64::from(full_width);
+            let res_y = f64::from(image_length) / f64::from(full_height);
+            resolution = [res_x, res_y, 0.0];
+        }
         let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, path, *image_ifd)?;
 
         zoom_and_ifd.insert(zoom, *image_ifd);
         zoom_and_tile_across_down.insert(zoom, (tiles_across, tiles_down));
+        resolutions.insert(zoom, resolution);
     }
 
     if images_ifd.is_empty() {
@@ -339,6 +368,27 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         zoom_and_tile_across_down,
         nodata,
     })
+}
+
+fn get_full_resolution(
+    pixel_scale: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    match (pixel_scale, transformation) {
+        (Some(scale), _) => Ok([scale[0], scale[1], scale[2]]),
+        (_, Some(matrix)) => {
+            if matrix[1] == 0.0 && matrix[4] == 0.0 {
+                Ok([matrix[0], matrix[5], matrix[10]])
+            } else {
+                let x_res = (matrix[0] * matrix[0]) + (matrix[4] * matrix[4]);
+                let y_res = ((matrix[1] * matrix[1]) + (matrix[5] * matrix[5])).sqrt() * -1.0;
+                let z_res = matrix[10];
+                return Ok([x_res, y_res, z_res]);
+            }
+        }
+        (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
+    }
 }
 
 fn get_model_infos(
@@ -462,6 +512,8 @@ mod tests {
 
     use crate::cog::source::get_tile_idx;
 
+    use super::{get_full_resolution, get_model_infos};
+
     #[test]
     fn can_calc_tile_idx() {
         assert_eq!(Some(0), get_tile_idx(TileCoord { z: 0, x: 0, y: 0 }, 3, 3));
@@ -569,5 +621,24 @@ mod tests {
         - 0
         "###);
         assert_yaml_snapshot!(transformation, @"~");
+    }
+
+    #[test]
+    fn can_get_full_resolution() {
+        let pixel_scale = Some(vec![10.000, -10.000, 0.000]);
+        let transformation: Option<&[f64]> = None;
+
+        let resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            transformation.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .ok();
+
+        assert_yaml_snapshot!(resolution, @r###"
+        - 10
+        - -10
+        - 0
+        "###);
     }
 }
