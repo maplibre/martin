@@ -5,6 +5,7 @@ use std::vec;
 use std::{fmt::Debug, path::PathBuf};
 
 use log::warn;
+use serde::Serialize;
 use std::io::BufWriter;
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
@@ -18,7 +19,7 @@ use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
 
 use super::CogError;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct Meta {
     min_zoom: u8,
     max_zoom: u8,
@@ -234,7 +235,11 @@ fn rgb_to_png(
     Ok(result_file_buffer)
 }
 
-fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
+fn verify_requirments(
+    decoder: &mut Decoder<File>,
+    (pixel_scale, tie_points, transformation): (Option<&[f64]>, Option<&[f64]>, Option<&[f64]>),
+    path: &Path,
+) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
     // see the requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
@@ -279,18 +284,25 @@ fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), Co
         ))?;
     };
 
-    let model = get_model_infos(decoder, &path.to_path_buf());
-
-    match model {
+    match (pixel_scale, tie_points, transformation) {
         (Some(pixel_scale), Some(tie_points), _)
-            if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 =>
+             =>
         {
-            Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3, and the length of tie points should be a multiple of 6".to_string()))
+            if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3, and the length of tie points should be a multiple of 6".to_string()))
+            }else{
+                Ok(())
+            }
+       }
+        (_, _, Some(matrix))
+        => {
+            if matrix.len() < 16 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
+        }else{
+                Ok(())
         }
-        (_, _, Some(matrix)) if matrix.len() != 16 => {
-            Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
-        }
-        _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The model information is not found, either transformation (tag number 34264) or pixel scale(tag number 33550) && tie points(33922) should be inside ".to_string())),
+        },
+            _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The model information is not found, either transformation (tag number 34264) or pixel scale(tag number 33550) && tie points(33922) should be inside ".to_string())),
     }?;
 
     Ok(())
@@ -303,7 +315,16 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
-    verify_requirments(&mut decoder, path)?;
+    let (pixel_scale, tie_points, transformations) = get_model_infos(&mut decoder, path);
+    verify_requirments(
+        &mut decoder,
+        (
+            pixel_scale.as_deref(),
+            tie_points.as_deref(),
+            transformations.as_deref(),
+        ),
+        &path,
+    )?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
 
@@ -314,8 +335,6 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     };
 
     let images_ifd = get_images_ifd(&mut decoder, path);
-
-    let (pixel_scale, tie_points, transformations) = get_model_infos(&mut decoder, path);
 
     let origin = get_origin(tie_points.as_deref(), transformations.as_deref(), path)?;
 
@@ -570,6 +589,7 @@ fn get_origin(
 #[cfg(test)]
 mod tests {
 
+    use actix_web::dev::Path;
     use insta::assert_yaml_snapshot;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
@@ -706,5 +726,14 @@ mod tests {
         - -10
         - 0
         "###);
+    }
+
+    #[test]
+    fn can_get_meta() {
+        let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
+
+        let meta = super::get_meta(&path).unwrap();
+
+        assert_yaml_snapshot!(meta, @r###""###)
     }
 }
