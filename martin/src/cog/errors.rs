@@ -42,7 +42,7 @@ pub enum CogError {
 
     #[error("Striped tiff file is not supported, the tiff file is {0}")]
     NotSupportedChunkType(PathBuf),
-    
+
     #[error("Get origin failed for {0}")]
     GetOriginFailed(PathBuf),
 }

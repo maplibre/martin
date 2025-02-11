@@ -285,6 +285,8 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
+    let (pixel_scale, tie_points, transformation) = get_model_infos(&mut decoder, path);
+
     verify_requirments(&mut decoder, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
@@ -322,6 +324,46 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         zoom_and_tile_across_down,
         nodata,
     })
+}
+
+fn get_model_infos(
+    decoder: &mut Decoder<File>,
+    path: &PathBuf,
+) -> (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>) {
+    let pixel_scale = decoder
+        .get_tag_f64_vec(Tag::ModelPixelScaleTag)
+        .map_err(|e| {
+            CogError::TagsNotFound(
+                e,
+                vec![Tag::ModelPixelScaleTag.to_u16()],
+                0,
+                path.to_path_buf(),
+            )
+        })
+        .ok();
+    let tie_points = decoder
+        .get_tag_f64_vec(Tag::ModelTiepointTag)
+        .map_err(|e| {
+            CogError::TagsNotFound(
+                e,
+                vec![Tag::ModelTiepointTag.to_u16()],
+                0,
+                path.to_path_buf(),
+            )
+        })
+        .ok();
+    let transformation = decoder
+        .get_tag_f64_vec(Tag::ModelTransformationTag)
+        .map_err(|e| {
+            CogError::TagsNotFound(
+                e,
+                vec![Tag::ModelTransformationTag.to_u16()],
+                0,
+                path.to_path_buf(),
+            )
+        })
+        .ok();
+    (pixel_scale, tie_points, transformation)
 }
 
 fn get_grid_dims(
@@ -398,8 +440,8 @@ fn get_origin(
 mod tests {
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
-    use tiff::tags;
     use std::path::PathBuf;
+    use tiff::tags;
 
     use crate::cog::source::get_tile_idx;
 
@@ -478,8 +520,13 @@ mod tests {
         let matrix: Option<&[f64]> = None;
         let tie_point = Some(vec![0.0, 0.0, 0.0, 1620750.2508, 4277012.7153, 0.0]);
 
-        let origin = super::get_origin(tie_point.as_deref(), matrix.as_deref(), &PathBuf::from("not_exist.tif")).unwrap();
+        let origin = super::get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
         assert_eq!(origin, [1620750.2508, 4277012.7153, 0.0]);
-        //todo add a test for matrix either in this PR. 
+        //todo add a test for matrix either in this PR.
     }
 }
