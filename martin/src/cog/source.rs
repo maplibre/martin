@@ -26,6 +26,7 @@ struct Meta {
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
+    origin: [f64; 3],
 }
 
 #[derive(Clone, Debug)]
@@ -313,7 +314,9 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
     let images_ifd = get_images_ifd(&mut decoder, path);
 
-    let (pixel_scale, _, transformations) = get_model_infos(&mut decoder, path);
+    let (pixel_scale, tie_points, transformations) = get_model_infos(&mut decoder, path);
+
+    let origin = get_origin(tie_points.as_deref(), transformations.as_deref(), path)?;
 
     let mut resolutions = HashMap::new();
     let full_resolution =
@@ -366,6 +369,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
         resolutions,
+        origin,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
