@@ -379,8 +379,10 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
                     path.to_path_buf(),
                 )
             })?;
-            let res_x = f64::from(image_width) / f64::from(full_width);
-            let res_y = f64::from(image_length) / f64::from(full_length);
+
+            let res_x = f64::from(full_width) / f64::from(image_width);
+            let res_y = f64::from(full_length) / f64::from(image_length);
+
             resolution = [res_x, res_y, 0.0];
         }
         let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, path, *image_ifd)?;
