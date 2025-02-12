@@ -325,20 +325,14 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         ),
         &path,
     )?;
-    let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
-    let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
-
     let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
         no_data.parse().ok()
     } else {
         None
     };
 
-    let images_ifd = get_images_ifd(&mut decoder, path);
-
     let origin = get_origin(tie_points.as_deref(), transformations.as_deref(), path)?;
 
-    let mut resolutions = HashMap::new();
     let full_resolution =
         get_full_resolution(pixel_scale.as_deref(), transformations.as_deref(), path)?;
     let (full_width_pixel, full_length_pixel) = decoder.dimensions().map_err(|e| {
@@ -359,6 +353,12 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         (full_width_pixel, full_length_pixel),
         (full_width, full_length),
     );
+    let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
+    let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
+
+    let mut resolutions = HashMap::new();
+
+    let images_ifd = get_images_ifd(&mut decoder, path);
 
     for (idx, image_ifd) in images_ifd.iter().enumerate() {
         decoder
@@ -736,6 +736,54 @@ mod tests {
 
         let meta = super::get_meta(&path).unwrap();
 
-        assert_yaml_snapshot!(meta, @r###""###)
+        assert_yaml_snapshot!(meta, @r###"
+        min_zoom: 0
+        max_zoom: 3
+        resolutions:
+          2:
+            - 20
+            - 20
+            - 0
+          1:
+            - 40
+            - 40
+            - 0
+          0:
+            - 10
+            - 10
+            - 0
+          3:
+            - 10
+            - 10
+            - 0
+        zoom_and_ifd:
+          3: 0
+          1: 2
+          0: 3
+          2: 1
+        zoom_and_tile_across_down:
+          0:
+            - 1
+            - 1
+          2:
+            - 1
+            - 1
+          1:
+            - 1
+            - 1
+          3:
+            - 2
+            - 2
+        nodata: ~
+        origin:
+          - 1620750.2508
+          - 4277012.7153
+          - 0
+        extent:
+          - 1620750.2508
+          - 4277012.7153
+          - 1625870.2508
+          - 4282132.7153
+        "###)
     }
 }
