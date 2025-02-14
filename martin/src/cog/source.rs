@@ -19,7 +19,7 @@ use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
 
 use super::CogError;
 
-// about the model space of tiff image. 
+// about the model space of tiff image.
 // pixel scale, tie points and transformations
 type ModelInfo = (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>);
 
@@ -33,7 +33,7 @@ struct Meta {
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
-    }
+}
 
 #[derive(Clone, Debug)]
 pub struct CogSource {
@@ -163,7 +163,7 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
     let mut resolutions_map = serde_json::Map::new();
     for (key, value) in &meta.zoom_and_resolutions {
         resolutions_map.insert(
-            key.to_string(),                            // Convert u8 key to String
+            key.to_string(), // Convert u8 key to String
             serde_json::Value::from(value.to_vec()[0]),
         );
     }

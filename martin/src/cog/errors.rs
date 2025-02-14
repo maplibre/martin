@@ -55,6 +55,8 @@ pub enum CogError {
     #[error("Get extent failed from file: {0}")]
     GetExtentFailed(PathBuf),
 
-    #[error("The pixel size of the image {0} is not squared, the x_scale is {1}, the y_scale is {2}")]
+    #[error(
+        "The pixel size of the image {0} is not squared, the x_scale is {1}, the y_scale is {2}"
+    )]
     NonSquaredImage(PathBuf, f64, f64),
 }
