@@ -338,8 +338,8 @@ fn verify_requirments(
         (Some(pixel_scale), Some(tie_points), _)
              =>
         {
-            if (pixel_scale[0] - pixel_scale[1]) > 0.01{
-                Err(CogError::NonSquaredImage(path.to_path_buf()))
+            if (pixel_scale[0] + pixel_scale[1]) > 0.01{
+                Err(CogError::NonSquaredImage(path.to_path_buf(), pixel_scale[0], pixel_scale[1]))
             }
             else if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 {
                 Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3, and the length of tie points should be a multiple of 6".to_string()))
@@ -792,7 +792,16 @@ mod tests {
             insta::assert_yaml_snapshot!(meta,@r###"
             min_zoom: 0
             max_zoom: 3
-            resolutions:
+            origin:
+              - 1620750.2508
+              - 4277012.7153
+              - 0
+            extent:
+              - 1620750.2508
+              - 4271892.7153
+              - 1625870.2508
+              - 4277012.7153
+            zoom_and_resolutions:
               0:
                 - 80
                 - -80
@@ -828,15 +837,6 @@ mod tests {
                 - 2
                 - 2
             nodata: ~
-            origin:
-              - 1620750.2508
-              - 4277012.7153
-              - 0
-            extent:
-              - 1620750.2508
-              - 4271892.7153
-              - 1625870.2508
-              - 4277012.7153
             "###);
         });
     }
