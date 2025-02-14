@@ -19,19 +19,21 @@ use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
 
 use super::CogError;
 
+// about the model space of tiff image. 
+// pixel scale, tie points and transformations
 type ModelInfo = (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>);
 
 #[derive(Clone, Debug, Serialize)]
 struct Meta {
     min_zoom: u8,
     max_zoom: u8,
-    resolutions: HashMap<u8, [f64; 3]>,
+    origin: [f64; 3],
+    extent: [f64; 4],
+    zoom_and_resolutions: HashMap<u8, [f64; 3]>,
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
-    origin: [f64; 3],
-    extent: [f64; 4],
-}
+    }
 
 #[derive(Clone, Debug)]
 pub struct CogSource {
@@ -159,10 +161,10 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
     );
 
     let mut resolutions_map = serde_json::Map::new();
-    for (key, value) in &meta.resolutions {
+    for (key, value) in &meta.zoom_and_resolutions {
         resolutions_map.insert(
             key.to_string(),                            // Convert u8 key to String
-            serde_json::Value::from(value.to_vec()[0]), // Convert [f64; 3] to Vec<f64> and then to serde_json::Value
+            serde_json::Value::from(value.to_vec()[0]),
         );
     }
 
@@ -183,7 +185,7 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
 
     tilejson
         .other
-        .insert("cog_custom_grid".to_string(), serde_json::json!(cog_info));
+        .insert("custom_grid".to_string(), serde_json::json!(cog_info));
     tilejson
 }
 
@@ -336,7 +338,7 @@ fn verify_requirments(
         (Some(pixel_scale), Some(tie_points), _)
              =>
         {
-            if (pixel_scale[0] - pixel_scale[1]) > 0.001{
+            if (pixel_scale[0] - pixel_scale[1]) > 0.01{
                 Err(CogError::NonSquaredImage(path.to_path_buf()))
             }
             else if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 {
@@ -445,7 +447,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     Ok(Meta {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
-        resolutions,
+        zoom_and_resolutions: resolutions,
         extent,
         origin,
         zoom_and_ifd,
@@ -777,7 +779,7 @@ mod tests {
     }
 
     #[test]
-    fn can_get_resolutions() {
+    fn can_get_meta() {
         let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
 
         let meta = super::get_meta(&path).unwrap();
