@@ -607,6 +607,7 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
             break;
         }
     }
+    res.sort_unstable();
     res
 }
 
