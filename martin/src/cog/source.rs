@@ -67,7 +67,7 @@ impl CogSource {
         let mut resolutions_map = serde_json::Map::new();
         for (key, value) in &meta.resolutions {
             resolutions_map.insert(
-                key.to_string(),                         // Convert u8 key to String
+                key.to_string(),                            // Convert u8 key to String
                 serde_json::Value::from(value.to_vec()[0]), // Convert [f64; 3] to Vec<f64> and then to serde_json::Value
             );
         }
