@@ -122,6 +122,7 @@ static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
+approx.workspace = true
 cargo-husky.workspace = true
 criterion.workspace = true
 ctor.workspace = true
