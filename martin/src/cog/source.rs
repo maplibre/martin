@@ -394,10 +394,9 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
 
-    let mut resolutions = HashMap::new();
+    let mut resolutions: HashMap<u8, [f64; 3]> = HashMap::new();
 
     let images_ifd = get_images_ifd(&mut decoder, path);
-
     for (idx, image_ifd) in images_ifd.iter().enumerate() {
         decoder
             .seek_to_image(*image_ifd)
@@ -406,7 +405,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         let zoom = u8::try_from(images_ifd.len() - (idx + 1))
             .map_err(|_| CogError::TooManyImages(path.clone()))?;
 
-        let resolution = if zoom == 0 {
+        let resolution = if *image_ifd == 0 {
             full_resolution
         } else {
             let (image_width, image_length) = decoder.dimensions().map_err(|e| {
@@ -516,7 +515,7 @@ fn get_full_resolution(
 }
 
 fn get_model_infos(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
-    let pixel_scale = decoder
+    let mut pixel_scale = decoder
         .get_tag_f64_vec(Tag::ModelPixelScaleTag)
         .map_err(|e| {
             CogError::TagsNotFound(
@@ -527,6 +526,9 @@ fn get_model_infos(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
             )
         })
         .ok();
+    if let Some(pixel) = pixel_scale {
+        pixel_scale = Some(vec![pixel[0], -pixel[1], pixel[2]]);
+    }
     let tie_points = decoder
         .get_tag_f64_vec(Tag::ModelTiepointTag)
         .map_err(|e| {
@@ -607,7 +609,7 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
             break;
         }
     }
-    res.sort_unstable();
+    // how to get it sorted from big to little number
     res
 }
 
@@ -625,8 +627,7 @@ fn get_origin(
 
 #[cfg(test)]
 mod tests {
-
-    use insta::assert_yaml_snapshot;
+    use insta::{assert_yaml_snapshot, Settings};
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
     use std::{fs::File, path::PathBuf};
@@ -733,7 +734,7 @@ mod tests {
 
         assert_yaml_snapshot!(pixel_scale, @r###"
         - 10
-        - 10
+        - -10
         - 0
         "###);
         assert_yaml_snapshot!(tie_points, @r###"
@@ -767,59 +768,65 @@ mod tests {
     }
 
     #[test]
-    fn can_get_meta() {
+    fn can_get_resolutions() {
         let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
 
         let meta = super::get_meta(&path).unwrap();
 
-        assert_yaml_snapshot!(meta, @r###"
-        min_zoom: 0
-        max_zoom: 3
-        resolutions:
-          2:
-            - 20
-            - 20
-            - 0
-          1:
-            - 40
-            - 40
-            - 0
-          0:
-            - 10
-            - 10
-            - 0
-          3:
-            - 10
-            - 10
-            - 0
-        zoom_and_ifd:
-          3: 0
-          1: 2
-          0: 3
-          2: 1
-        zoom_and_tile_across_down:
-          0:
-            - 1
-            - 1
-          2:
-            - 1
-            - 1
-          1:
-            - 1
-            - 1
-          3:
-            - 2
-            - 2
-        nodata: ~
-        origin:
-          - 1620750.2508
-          - 4277012.7153
-          - 0
-        extent:
-          - 1620750.2508
-          - 4277012.7153
-          - 1625870.2508
-          - 4282132.7153
-        "###);
+        let mut settings = Settings::new();
+        settings.set_sort_maps(true);
+
+        // with this settings, the order of hashmap would be fixed to get a stable test
+        settings.bind(|| {
+            insta::assert_yaml_snapshot!(meta,@r###"
+            min_zoom: 0
+            max_zoom: 3
+            resolutions:
+              0:
+                - 80
+                - -80
+                - 0
+              1:
+                - 40
+                - -40
+                - 0
+              2:
+                - 20
+                - -20
+                - 0
+              3:
+                - 10
+                - -10
+                - 0
+            zoom_and_ifd:
+              0: 3
+              1: 2
+              2: 1
+              3: 0
+            zoom_and_tile_across_down:
+              0:
+                - 1
+                - 1
+              1:
+                - 1
+                - 1
+              2:
+                - 1
+                - 1
+              3:
+                - 2
+                - 2
+            nodata: ~
+            origin:
+              - 1620750.2508
+              - 4277012.7153
+              - 0
+            extent:
+              - 1620750.2508
+              - 4271892.7153
+              - 1625870.2508
+              - 4277012.7153
+            "###);
+        });
     }
 }
