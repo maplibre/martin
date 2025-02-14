@@ -46,11 +46,51 @@ impl CogSource {
     pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let meta = get_meta(&path)?;
-        let tilejson = tilejson! {
+        let mut tilejson = tilejson! {
             tiles: vec![],
             minzoom: meta.min_zoom,
             maxzoom: meta.max_zoom
         };
+
+        let mut cog_info = serde_json::Map::new();
+
+        cog_info.insert(
+            "minZoom".to_string(),
+            serde_json::Value::from(meta.min_zoom),
+        );
+
+        cog_info.insert(
+            "maxZoom".to_string(),
+            serde_json::Value::from(meta.max_zoom),
+        );
+
+        let mut resolutions_map = serde_json::Map::new();
+        for (key, value) in &meta.resolutions {
+            resolutions_map.insert(
+                key.to_string(),                         // Convert u8 key to String
+                serde_json::Value::from(value.to_vec()), // Convert [f64; 3] to Vec<f64> and then to serde_json::Value
+            );
+        }
+
+        cog_info.insert(
+            "resolutions".to_string(),
+            serde_json::Value::from(resolutions_map),
+        );
+
+        cog_info.insert(
+            "origin".to_string(),
+            serde_json::Value::from(meta.origin.to_vec()),
+        );
+
+        cog_info.insert(
+            "extent".to_string(),
+            serde_json::Value::from(meta.extent.to_vec()),
+        );
+
+        tilejson
+            .other
+            .insert("cog_custom_grid".to_string(), serde_json::json!(cog_info));
+
         Ok(CogSource {
             id,
             path,
