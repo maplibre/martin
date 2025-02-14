@@ -68,7 +68,7 @@ impl CogSource {
         for (key, value) in &meta.resolutions {
             resolutions_map.insert(
                 key.to_string(),                         // Convert u8 key to String
-                serde_json::Value::from(value.to_vec()), // Convert [f64; 3] to Vec<f64> and then to serde_json::Value
+                serde_json::Value::from(value.to_vec()[0]), // Convert [f64; 3] to Vec<f64> and then to serde_json::Value
             );
         }
 
