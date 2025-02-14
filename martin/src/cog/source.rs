@@ -19,6 +19,8 @@ use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
 
 use super::CogError;
 
+type ModelInfo = (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>);
+
 #[derive(Clone, Debug, Serialize)]
 struct Meta {
     min_zoom: u8,
@@ -237,7 +239,7 @@ fn rgb_to_png(
 
 fn verify_requirments(
     decoder: &mut Decoder<File>,
-    (pixel_scale, tie_points, transformation): (Option<&[f64]>, Option<&[f64]>, Option<&[f64]>),
+    model_info: &ModelInfo,
     path: &Path,
 ) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
@@ -284,7 +286,7 @@ fn verify_requirments(
         ))?;
     };
 
-    match (pixel_scale, tie_points, transformation) {
+    match model_info {
         (Some(pixel_scale), Some(tie_points), _)
              =>
         {
@@ -315,21 +317,17 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
-    let (pixel_scale, tie_points, transformations) = get_model_infos(&mut decoder, path);
-    verify_requirments(
-        &mut decoder,
-        (
-            pixel_scale.as_deref(),
-            tie_points.as_deref(),
-            transformations.as_deref(),
-        ),
-        &path,
-    )?;
+    let model_info = get_model_infos(&mut decoder, path);
+    verify_requirments(&mut decoder, &model_info, path)?;
     let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
         no_data.parse().ok()
     } else {
         None
     };
+
+    let pixel_scale = model_info.0;
+    let tie_points = model_info.1;
+    let transformations = model_info.2;
 
     let origin = get_origin(tie_points.as_deref(), transformations.as_deref(), path)?;
 
@@ -340,7 +338,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
             e,
             vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
             0, // we are at ifd 0, the first image, haven't seek to others
-            path.to_path_buf(),
+            path.clone(),
         )
     })?;
 
@@ -367,24 +365,24 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
         let zoom = u8::try_from(images_ifd.len() - (idx + 1))
             .map_err(|_| CogError::TooManyImages(path.clone()))?;
-        let resolution;
-        if zoom == 0 {
-            resolution = full_resolution;
+
+        let resolution = if zoom == 0 {
+            full_resolution
         } else {
             let (image_width, image_length) = decoder.dimensions().map_err(|e| {
                 CogError::TagsNotFound(
                     e,
                     vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
                     *image_ifd,
-                    path.to_path_buf(),
+                    path.clone(),
                 )
             })?;
 
-            let res_x = f64::from(full_width) / f64::from(image_width);
-            let res_y = f64::from(full_length) / f64::from(image_length);
+            let res_x = full_width / f64::from(image_width);
+            let res_y = full_length / f64::from(image_length);
 
-            resolution = [res_x, res_y, 0.0];
-        }
+            [res_x, res_y, 0.0]
+        };
         let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, path, *image_ifd)?;
 
         zoom_and_ifd.insert(zoom, *image_ifd);
@@ -447,14 +445,13 @@ fn get_extent(
             }
         }
         return [min_x, min_y, max_x, max_y];
-    } else {
-        let x1 = origin[0];
-        let y1 = origin[1];
-        let x2 = x1 + f64::from(full_width);
-        let y2 = y1 + f64::from(full_height);
-
-        return [x1.min(x2), y1.min(y2), x1.max(x2), y1.max(y2)];
     }
+    let x1 = origin[0];
+    let y1 = origin[1];
+    let x2 = x1 + full_width;
+    let y2 = y1 + full_height;
+
+    [x1.min(x2), y1.min(y2), x1.max(x2), y1.max(y2)]
 }
 
 fn get_full_resolution(
@@ -471,17 +468,14 @@ fn get_full_resolution(
                 let x_res = (matrix[0] * matrix[0]) + (matrix[4] * matrix[4]);
                 let y_res = ((matrix[1] * matrix[1]) + (matrix[5] * matrix[5])).sqrt() * -1.0;
                 let z_res = matrix[10];
-                return Ok([x_res, y_res, z_res]);
+                Ok([x_res, y_res, z_res])
             }
         }
         (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
     }
 }
 
-fn get_model_infos(
-    decoder: &mut Decoder<File>,
-    path: &PathBuf,
-) -> (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>) {
+fn get_model_infos(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
     let pixel_scale = decoder
         .get_tag_f64_vec(Tag::ModelPixelScaleTag)
         .map_err(|e| {
@@ -591,16 +585,13 @@ fn get_origin(
 #[cfg(test)]
 mod tests {
 
-    use actix_web::dev::Path;
     use insta::assert_yaml_snapshot;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
     use std::{fs::File, path::PathBuf};
     use tiff::decoder::Decoder;
 
-    use crate::cog::source::get_tile_idx;
-
-    use super::{get_full_resolution, get_model_infos};
+    use crate::cog::source::{get_full_resolution, get_tile_idx};
 
     #[test]
     fn can_calc_tile_idx() {
@@ -675,15 +666,15 @@ mod tests {
     #[test]
     fn can_get_origin() {
         let matrix: Option<&[f64]> = None;
-        let tie_point = Some(vec![0.0, 0.0, 0.0, 1620750.2508, 4277012.7153, 0.0]);
+        let tie_point = Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]);
 
         let origin = super::get_origin(
             tie_point.as_deref(),
-            matrix.as_deref(),
+            matrix,
             &PathBuf::from("not_exist.tif"),
         )
         .unwrap();
-        assert_eq!(origin, [1620750.2508, 4277012.7153, 0.0]);
+        assert_eq!(origin, [1_620_750.250_8, 4_277_012.715_3, 0.0]);
         //todo add a test for matrix either in this PR.
     }
 
@@ -718,7 +709,7 @@ mod tests {
 
         let resolution = get_full_resolution(
             pixel_scale.as_deref(),
-            transformation.as_deref(),
+            transformation,
             &PathBuf::from("not_exist.tif"),
         )
         .ok();
@@ -784,6 +775,6 @@ mod tests {
           - 4277012.7153
           - 1625870.2508
           - 4282132.7153
-        "###)
+        "###);
     }
 }
