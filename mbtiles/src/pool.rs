@@ -34,7 +34,9 @@ impl MbtilesPool {
         match validation_level {
             ValidationLevel::Thorough => {
                 self.mbtiles.detect_type(&mut *conn).await?;
-                self.mbtiles.check_integrity(&mut *conn, IntegrityCheckType::Full).await?;
+                self.mbtiles
+                    .check_integrity(&mut *conn, IntegrityCheckType::Full)
+                    .await?;
                 self.mbtiles.check_tiles_type_validity(&mut *conn).await?;
                 self.mbtiles.check_each_tile_hash(&mut *conn).await?;
             }

@@ -290,7 +290,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 configs.insert(id.clone(), source.clone());
                 let src_result = cfg.custom.new_sources(id, source.into_path()).await;
                 match src_result {
-                    Err(FileError::IgnoreOnInvalid(_, _)) => {},
+                    Err(FileError::IgnoreOnInvalid(_, _)) => {}
                     Err(e) => return Err(e),
                     Ok(src) => results.push(src),
                 };

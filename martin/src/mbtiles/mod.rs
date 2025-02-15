@@ -53,13 +53,23 @@ impl SourceConfigExtras for MbtConfig {
         if let Err(validation_error) = source.validate(self.validate).await {
             match self.on_invalid {
                 OnInvalid::Abort => {
-                    return Err(FileError::AbortOnInvalid(path, validation_error.to_string()));
+                    return Err(FileError::AbortOnInvalid(
+                        path,
+                        validation_error.to_string(),
+                    ));
                 }
                 OnInvalid::IgnoreSource => {
-                    return Err(FileError::IgnoreOnInvalid(path, validation_error.to_string()));
+                    return Err(FileError::IgnoreOnInvalid(
+                        path,
+                        validation_error.to_string(),
+                    ));
                 }
                 OnInvalid::Warn => {
-                    warn!("MBTile file {} failed validity check {:?}", path.display(), validation_error);
+                    warn!(
+                        "MBTile file {} failed validity check {:?}",
+                        path.display(),
+                        validation_error
+                    );
                 }
             }
         }
@@ -94,10 +104,7 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
-    async fn new(
-        id: String,
-        path: PathBuf
-    ) -> FileResult<Self> {
+    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let mbt = MbtilesPool::new(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -115,7 +122,7 @@ impl MbtSource {
             tile_info: meta.tile_info,
         })
     }
-    
+
     async fn validate(&self, validation_level: ValidationLevel) -> MbtResult<()> {
         self.mbtiles.validate(validation_level).await
     }
