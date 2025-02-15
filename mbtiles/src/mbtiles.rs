@@ -23,6 +23,22 @@ pub enum MbtTypeCli {
     Normalized,
 }
 
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
+pub enum ValidationLevel {
+    /// Do not validate
+    Skip,
+
+    /// Quickly check the file
+    #[default]
+    Fast,
+
+    /// Do a slow check of everything
+    Thorough,
+}
+
+
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]

@@ -3,6 +3,7 @@ use std::path::Path;
 use sqlx::{Pool, Sqlite, SqlitePool};
 
 use crate::errors::MbtResult;
+use crate::mbtiles::ValidationLevel;
 use crate::{IntegrityCheckType, Mbtiles, Metadata};
 
 #[derive(Clone, Debug)]
@@ -28,19 +29,19 @@ impl MbtilesPool {
         self.mbtiles.get_tile(&mut *conn, z, x, y).await
     }
 
-    pub async fn validate(&self, check_type: IntegrityCheckType) -> MbtResult<()> {
+    pub async fn validate(&self, validation_level: ValidationLevel) -> MbtResult<()> {
         let mut conn = self.pool.acquire().await?;
-        match check_type {
-            IntegrityCheckType::Full => {
+        match validation_level {
+            ValidationLevel::Thorough => {
                 self.mbtiles.detect_type(&mut *conn).await?;
-                self.mbtiles.check_integrity(&mut *conn, check_type).await?;
+                self.mbtiles.check_integrity(&mut *conn, IntegrityCheckType::Full).await?;
                 self.mbtiles.check_tiles_type_validity(&mut *conn).await?;
                 self.mbtiles.check_each_tile_hash(&mut *conn).await?;
             }
-            IntegrityCheckType::Quick => {
+            ValidationLevel::Fast => {
                 self.mbtiles.detect_type(&mut *conn).await?;
             }
-            IntegrityCheckType::Off => {}
+            ValidationLevel::Skip => {}
         }
         Ok(())
     }

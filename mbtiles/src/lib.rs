@@ -11,7 +11,7 @@ mod errors;
 pub use errors::{MbtError, MbtResult};
 
 mod mbtiles;
-pub use mbtiles::{CopyType, MbtTypeCli, Mbtiles};
+pub use mbtiles::{CopyType, MbtTypeCli, Mbtiles, ValidationLevel};
 
 mod metadata;
 pub use metadata::Metadata;
