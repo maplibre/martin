@@ -49,6 +49,9 @@ pub struct CopierArgs {
     #[cfg(feature = "postgres")]
     #[command(flatten)]
     pub pg: Option<martin::args::PgArgs>,
+    #[cfg(feature = "mbtiles")]
+    #[command(flatten)]
+    pub mbtiles: Option<martin::args::MbtArgs>,
 }
 
 #[serde_with::serde_as]
@@ -141,6 +144,8 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         srv: SrvArgs::default(),
         #[cfg(feature = "postgres")]
         pg: copy_args.pg,
+        #[cfg(feature = "mbtiles")]
+        mbtiles: copy_args.mbtiles,
     };
 
     args.merge_into_config(&mut config, &env)?;
