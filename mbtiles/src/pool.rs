@@ -33,7 +33,9 @@ impl MbtilesPool {
         let mut conn = self.pool.acquire().await?;
         match validation_level {
             ValidationLevel::Thorough => {
-                self.mbtiles.validate(&mut *conn, IntegrityCheckType::Full, AggHashType::Verify).await?;
+                self.mbtiles
+                    .validate(&mut *conn, IntegrityCheckType::Full, AggHashType::Verify)
+                    .await?;
             }
             ValidationLevel::Fast => {
                 self.mbtiles.detect_type(&mut *conn).await?;
