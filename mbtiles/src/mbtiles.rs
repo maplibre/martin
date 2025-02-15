@@ -23,7 +23,7 @@ pub enum MbtTypeCli {
     Normalized,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, EnumDisplay)]
 #[serde(rename_all = "lowercase")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum ValidationLevel {

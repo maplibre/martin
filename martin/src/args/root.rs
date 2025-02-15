@@ -35,6 +35,9 @@ pub struct Args {
     #[cfg(feature = "postgres")]
     #[command(flatten)]
     pub pg: Option<crate::args::pg::PgArgs>,
+    #[cfg(feature = "mbtiles")]
+    #[command(flatten)]
+    pub mbtiles: Option<crate::args::mbtiles::MbtArgs>,
 }
 
 // None of these params will be transferred to the config
@@ -116,8 +119,14 @@ impl Args {
         }
 
         #[cfg(feature = "mbtiles")]
-        if !cli_strings.is_empty() {
-            config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
+        {
+            if !cli_strings.is_empty() {
+                config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
+            }
+            let mbt_args = self.mbtiles.unwrap_or_default();
+            if let FileConfigEnum::Config(c) = &mut config.mbtiles {
+                mbt_args.override_config(&mut c.custom);
+            }
         }
 
         #[cfg(feature = "cog")]

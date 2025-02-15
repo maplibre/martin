@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use clap::ValueEnum;
+use enum_display::EnumDisplay;
 use log::{trace, warn};
 use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::{MbtResult, MbtilesPool, ValidationLevel};
@@ -18,7 +19,9 @@ use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[derive(
+    PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum, EnumDisplay,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
     /// Print warning message, and abort if the error is critical
@@ -26,7 +29,7 @@ pub enum OnInvalid {
     Warn,
 
     /// Skip this source
-    IgnoreSource,
+    Ignore,
 
     /// Do not start Martin on any warnings
     Abort,
@@ -61,7 +64,7 @@ impl SourceConfigExtras for MbtConfig {
                         validation_error.to_string(),
                     ));
                 }
-                OnInvalid::IgnoreSource => {
+                OnInvalid::Ignore => {
                     return Err(FileError::IgnoreOnInvalid(
                         path,
                         validation_error.to_string(),

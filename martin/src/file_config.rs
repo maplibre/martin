@@ -346,7 +346,12 @@ async fn resolve_int<T: SourceConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(cfg.custom.new_sources(id, path).await?);
+                let src_result = cfg.custom.new_sources(id, path).await;
+                match src_result {
+                    Err(FileError::IgnoreOnInvalid(_, _)) => {}
+                    Err(e) => return Err(e),
+                    Ok(src) => results.push(src),
+                };
             }
         }
     }
