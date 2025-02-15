@@ -4,7 +4,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 
 use crate::errors::MbtResult;
 use crate::mbtiles::ValidationLevel;
-use crate::{IntegrityCheckType, Mbtiles, Metadata};
+use crate::{AggHashType, IntegrityCheckType, Mbtiles, Metadata};
 
 #[derive(Clone, Debug)]
 pub struct MbtilesPool {
@@ -33,12 +33,7 @@ impl MbtilesPool {
         let mut conn = self.pool.acquire().await?;
         match validation_level {
             ValidationLevel::Thorough => {
-                self.mbtiles.detect_type(&mut *conn).await?;
-                self.mbtiles
-                    .check_integrity(&mut *conn, IntegrityCheckType::Full)
-                    .await?;
-                self.mbtiles.check_tiles_type_validity(&mut *conn).await?;
-                self.mbtiles.check_each_tile_hash(&mut *conn).await?;
+                self.mbtiles.validate(&mut *conn, IntegrityCheckType::Full, AggHashType::Verify).await?;
             }
             ValidationLevel::Fast => {
                 self.mbtiles.detect_type(&mut *conn).await?;
