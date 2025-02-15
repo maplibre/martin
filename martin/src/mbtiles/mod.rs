@@ -37,7 +37,10 @@ pub struct MbtConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
+    #[serde(default)]
     pub validate: ValidationLevel,
+
+    #[serde(default)]
     pub on_invalid: OnInvalid,
 }
 
@@ -66,9 +69,9 @@ impl SourceConfigExtras for MbtConfig {
                 }
                 OnInvalid::Warn => {
                     warn!(
-                        "MBTile file {} failed validity check {:?}",
+                        "Source {} failed validation, this may cause performance issues: {}",
                         path.display(),
-                        validation_error
+                        validation_error.to_string()
                     );
                 }
             }
