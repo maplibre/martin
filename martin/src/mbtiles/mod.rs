@@ -4,23 +4,55 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use clap::ValueEnum;
 use log::trace;
 use martin_tile_utils::{TileCoord, TileInfo};
-use mbtiles::MbtilesPool;
+use mbtiles::{IntegrityCheckType, MbtilesPool};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
 
 use crate::config::UnrecognizedValues;
-use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
+use crate::file_config::FileError::{self, AcquireConnError, InvalidMetadata, IoError};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
+
+// #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+// #[serde(rename_all = "lowercase")]
+// pub enum Validate {
+//     /// Do not validate
+//     Skip,
+
+//     /// Quickly check the file
+//     #[default]
+//     Fast,
+
+//     /// Do a slow check of everything
+//     Thorough,
+// }
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum OnInvalid {
+    /// Print warning message, and abort if the error is critical
+    #[default]
+    Warn,
+
+    /// Skip this source
+    IgnoreSource,
+
+    /// Do not start Martin on any warnings
+    Abort,
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
+
+    pub validate: IntegrityCheckType,
+    pub on_invalid: OnInvalid,
 }
 
 impl ConfigExtras for MbtConfig {
@@ -31,7 +63,18 @@ impl ConfigExtras for MbtConfig {
 
 impl SourceConfigExtras for MbtConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
+        let source = MbtSource::new(id, path, self.validate)
+            .await
+            .map_err(|e| {
+                match e {
+                    FileError::MbtError => {
+                        
+                    },
+                    _ => e
+                }
+            })?;
+
+        Ok(Box::new(source))
     }
 
     // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
@@ -62,7 +105,11 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
-    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    async fn new(
+        id: String,
+        path: PathBuf,
+        validate: IntegrityCheckType,
+    ) -> FileResult<Self> {
         let mbt = MbtilesPool::new(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -73,12 +120,30 @@ impl MbtSource {
             .await
             .map_err(|e| InvalidMetadata(e.to_string(), path))?;
 
-        Ok(Self {
-            id,
-            mbtiles: Arc::new(mbt),
-            tilejson: meta.tilejson,
-            tile_info: meta.tile_info,
-        })
+        mbt
+            .validate(validate)
+            .await
+            .map_err(|e| FileError::MbtError(e, String::new()))
+            .map(|_| {
+                Self {
+                    id,
+                    mbtiles: Arc::new(mbt),
+                    tilejson: meta.tilejson,
+                    tile_info: meta.tile_info,
+                }
+            })
+        // match validate {
+        //     Validate::Thorough => mbt
+        //         .validate(mbtiles::IntegrityCheckType::Full)
+        //         .await
+        //         .map_err(|e| FileError::MbtError(e, String::new())),
+        //     Validate::Fast => mbt
+        //         .validate(mbtiles::IntegrityCheckType::Quick)
+        //         .await
+                
+        //     Validate::Skip => Ok(()),
+        // }
+        // .map(|_| )
     }
 }
 
@@ -128,13 +193,15 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
+    use mbtiles::IntegrityCheckType;
 
     use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
-    use crate::mbtiles::MbtConfig;
+    use crate::mbtiles::{MbtConfig, OnInvalid};
 
     #[test]
     fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let cfg: FileConfigEnum<MbtConfig> =
+            serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -146,8 +213,10 @@ mod tests {
                 pm-src3: https://example.org/file3.ext
                 pm-src4:
                   path: https://example.org/file4.ext
+            validate: quick
+            on_invalid: abort
         "})
-        .unwrap();
+            .unwrap();
         let res = cfg.finalize("");
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
@@ -187,5 +256,7 @@ mod tests {
                 ),
             ]))
         );
+        assert_eq!(cfg.custom.validate, IntegrityCheckType::Quick);
+        assert_eq!(cfg.custom.on_invalid, OnInvalid::Abort);
     }
 }
