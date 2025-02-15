@@ -50,6 +50,10 @@ pub enum FileError {
     #[error(r"PMTiles error {0} processing {1}")]
     PmtError(pmtiles::PmtError, String),
 
+    #[cfg(feature = "mbtiles")]
+    #[error(r"MBTiles error {0} processing {1}")]
+    MbtError(mbtiles::MbtError, String),
+
     #[cfg(feature = "cog")]
     #[error(transparent)]
     CogError(#[from] crate::cog::CogError),
