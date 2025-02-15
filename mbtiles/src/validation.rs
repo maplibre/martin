@@ -4,7 +4,7 @@ use std::str::from_utf8;
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
 use martin_tile_utils::{Format, TileInfo, MAX_ZOOM};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqliteConnection, SqliteExecutor, query};
@@ -51,7 +51,7 @@ impl MbtType {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum IntegrityCheckType {
