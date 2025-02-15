@@ -174,7 +174,7 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
-    use mbtiles::{IntegrityCheckType, ValidationLevel};
+    use mbtiles::ValidationLevel;
 
     use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
     use crate::mbtiles::{MbtConfig, OnInvalid};
