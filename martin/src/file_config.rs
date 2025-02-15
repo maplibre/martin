@@ -46,13 +46,15 @@ pub enum FileError {
     #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
+    #[error("Source {0} caused an abort due to validation error {1}")]
+    AbortOnInvalid(PathBuf, String),
+
+    #[error("Source {0} was ignored due to validation error {1}")]
+    IgnoreOnInvalid(PathBuf, String),
+
     #[cfg(feature = "pmtiles")]
     #[error(r"PMTiles error {0} processing {1}")]
     PmtError(pmtiles::PmtError, String),
-
-    #[cfg(feature = "mbtiles")]
-    #[error(r"MBTiles error {0} processing {1}")]
-    MbtError(mbtiles::MbtError, String),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]
@@ -286,7 +288,12 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
+                let src_result = cfg.custom.new_sources(id, source.into_path()).await;
+                match src_result {
+                    Err(FileError::IgnoreOnInvalid(_, _)) => {},
+                    Err(e) => return Err(e),
+                    Ok(src) => results.push(src),
+                };
             }
         }
     }

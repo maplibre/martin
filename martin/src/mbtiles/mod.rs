@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use clap::ValueEnum;
-use log::trace;
+use log::{trace, warn};
 use martin_tile_utils::{TileCoord, TileInfo};
-use mbtiles::{IntegrityCheckType, MbtilesPool};
+use mbtiles::{MbtResult, MbtilesPool, ValidationLevel};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
@@ -17,20 +17,6 @@ use crate::file_config::FileError::{self, AcquireConnError, InvalidMetadata, IoE
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
-
-// #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
-// #[serde(rename_all = "lowercase")]
-// pub enum Validate {
-//     /// Do not validate
-//     Skip,
-
-//     /// Quickly check the file
-//     #[default]
-//     Fast,
-
-//     /// Do a slow check of everything
-//     Thorough,
-// }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
@@ -51,7 +37,7 @@ pub struct MbtConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
-    pub validate: IntegrityCheckType,
+    pub validate: ValidationLevel,
     pub on_invalid: OnInvalid,
 }
 
@@ -63,17 +49,20 @@ impl ConfigExtras for MbtConfig {
 
 impl SourceConfigExtras for MbtConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        let source = MbtSource::new(id, path, self.validate)
-            .await
-            .map_err(|e| {
-                match e {
-                    FileError::MbtError => {
-                        
-                    },
-                    _ => e
+        let source = MbtSource::new(id, path.clone()).await?;
+        if let Err(validation_error) = source.validate(self.validate).await {
+            match self.on_invalid {
+                OnInvalid::Abort => {
+                    return Err(FileError::AbortOnInvalid(path, validation_error.to_string()));
                 }
-            })?;
-
+                OnInvalid::IgnoreSource => {
+                    return Err(FileError::IgnoreOnInvalid(path, validation_error.to_string()));
+                }
+                OnInvalid::Warn => {
+                    warn!("MBTile file {} failed validity check {:?}", path.display(), validation_error);
+                }
+            }
+        }
         Ok(Box::new(source))
     }
 
@@ -107,8 +96,7 @@ impl Debug for MbtSource {
 impl MbtSource {
     async fn new(
         id: String,
-        path: PathBuf,
-        validate: IntegrityCheckType,
+        path: PathBuf
     ) -> FileResult<Self> {
         let mbt = MbtilesPool::new(&path)
             .await
@@ -120,30 +108,16 @@ impl MbtSource {
             .await
             .map_err(|e| InvalidMetadata(e.to_string(), path))?;
 
-        mbt
-            .validate(validate)
-            .await
-            .map_err(|e| FileError::MbtError(e, String::new()))
-            .map(|_| {
-                Self {
-                    id,
-                    mbtiles: Arc::new(mbt),
-                    tilejson: meta.tilejson,
-                    tile_info: meta.tile_info,
-                }
-            })
-        // match validate {
-        //     Validate::Thorough => mbt
-        //         .validate(mbtiles::IntegrityCheckType::Full)
-        //         .await
-        //         .map_err(|e| FileError::MbtError(e, String::new())),
-        //     Validate::Fast => mbt
-        //         .validate(mbtiles::IntegrityCheckType::Quick)
-        //         .await
-                
-        //     Validate::Skip => Ok(()),
-        // }
-        // .map(|_| )
+        Ok(Self {
+            id,
+            mbtiles: Arc::new(mbt),
+            tilejson: meta.tilejson,
+            tile_info: meta.tile_info,
+        })
+    }
+    
+    async fn validate(&self, validation_level: ValidationLevel) -> MbtResult<()> {
+        self.mbtiles.validate(validation_level).await
     }
 }
 
@@ -193,7 +167,7 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
-    use mbtiles::IntegrityCheckType;
+    use mbtiles::{IntegrityCheckType, ValidationLevel};
 
     use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
     use crate::mbtiles::{MbtConfig, OnInvalid};
@@ -213,7 +187,7 @@ mod tests {
                 pm-src3: https://example.org/file3.ext
                 pm-src4:
                   path: https://example.org/file4.ext
-            validate: quick
+            validate: thorough
             on_invalid: abort
         "})
             .unwrap();
@@ -256,7 +230,7 @@ mod tests {
                 ),
             ]))
         );
-        assert_eq!(cfg.custom.validate, IntegrityCheckType::Quick);
+        assert_eq!(cfg.custom.validate, ValidationLevel::Thorough);
         assert_eq!(cfg.custom.on_invalid, OnInvalid::Abort);
     }
 }
