@@ -274,7 +274,12 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+                let src_result = cfg.custom.new_sources_url(id.clone(), url.clone()).await;
+                match src_result {
+                    Err(FileError::IgnoreOnInvalid(_, _)) => {}
+                    Err(e) => return Err(e),
+                    Ok(src) => results.push(src),
+                };
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -317,7 +322,12 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+            let src_result = cfg.custom.new_sources_url(id.clone(), url.clone()).await;
+            match src_result {
+                Err(FileError::IgnoreOnInvalid(_, _)) => {}
+                Err(e) => return Err(e),
+                Ok(src) => results.push(src),
+            };
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
