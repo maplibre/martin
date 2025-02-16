@@ -33,6 +33,7 @@ struct Meta {
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
+    tile_size: (u32, u32),
 }
 
 #[derive(Clone, Debug)]
@@ -167,6 +168,11 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
             serde_json::Value::from(value.to_vec()[0]),
         );
     }
+
+    cog_info.insert(
+        "tileSize".to_string(),
+        serde_json::Value::from([meta.tile_size.0, meta.tile_size.1]),
+    );
 
     cog_info.insert(
         "resolutions".to_string(),
@@ -370,6 +376,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
 
     let model_info = get_model_infos(&mut decoder, path);
     verify_requirments(&mut decoder, &model_info, path)?;
+    let tile_size = decoder.chunk_dimensions();
     let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
         no_data.parse().ok()
     } else {
@@ -448,6 +455,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
         zoom_and_resolutions: resolutions,
+        tile_size,
         extent,
         origin,
         zoom_and_ifd,
@@ -837,6 +845,9 @@ mod tests {
                 - 2
                 - 2
             nodata: ~
+            tile_size:
+              - 256
+              - 256
             "###);
         });
     }
