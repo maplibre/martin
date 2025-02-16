@@ -274,8 +274,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                let src_result = cfg.custom.new_sources_url(id.clone(), url.clone()).await;
-                match src_result {
+                match cfg.custom.new_sources_url(id.clone(), url.clone()).await {
                     Err(FileError::IgnoreOnInvalid(_, _)) => {}
                     Err(e) => return Err(e),
                     Ok(src) => results.push(src),
@@ -293,8 +292,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                let src_result = cfg.custom.new_sources(id, source.into_path()).await;
-                match src_result {
+                match cfg.custom.new_sources(id, source.into_path()).await {
                     Err(FileError::IgnoreOnInvalid(_, _)) => {}
                     Err(e) => return Err(e),
                     Ok(src) => results.push(src),
@@ -322,8 +320,7 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            let src_result = cfg.custom.new_sources_url(id.clone(), url.clone()).await;
-            match src_result {
+            match cfg.custom.new_sources_url(id.clone(), url.clone()).await {
                 Err(FileError::IgnoreOnInvalid(_, _)) => {}
                 Err(e) => return Err(e),
                 Ok(src) => results.push(src),
@@ -356,8 +353,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                let src_result = cfg.custom.new_sources(id, path).await;
-                match src_result {
+                match cfg.custom.new_sources(id, path).await {
                     Err(FileError::IgnoreOnInvalid(_, _)) => {}
                     Err(e) => return Err(e),
                     Ok(src) => results.push(src),
