@@ -21,6 +21,7 @@ use super::CogError;
 
 // about the model space of tiff image.
 // pixel scale, tie points and transformations
+// todo use struct instead of tuple maybe
 type ModelInfo = (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>);
 
 #[derive(Clone, Debug, Serialize)]
@@ -140,59 +141,6 @@ impl CogSource {
         }?;
         Ok(png_file_bytes)
     }
-}
-
-fn meta_to_tilejson(meta: &Meta) -> TileJSON {
-    let mut tilejson = tilejson! {
-        tiles: vec![],
-        minzoom: meta.min_zoom,
-        maxzoom: meta.max_zoom
-    };
-
-    let mut cog_info = serde_json::Map::new();
-
-    cog_info.insert(
-        "minZoom".to_string(),
-        serde_json::Value::from(meta.min_zoom),
-    );
-
-    cog_info.insert(
-        "maxZoom".to_string(),
-        serde_json::Value::from(meta.max_zoom),
-    );
-
-    let mut resolutions_map = serde_json::Map::new();
-    for (key, value) in &meta.zoom_and_resolutions {
-        resolutions_map.insert(
-            key.to_string(), // Convert u8 key to String
-            serde_json::Value::from(value.to_vec()[0]),
-        );
-    }
-
-    cog_info.insert(
-        "tileSize".to_string(),
-        serde_json::Value::from([meta.tile_size.0, meta.tile_size.1]),
-    );
-
-    cog_info.insert(
-        "resolutions".to_string(),
-        serde_json::Value::from(resolutions_map),
-    );
-
-    cog_info.insert(
-        "origin".to_string(),
-        serde_json::Value::from(meta.origin.to_vec()),
-    );
-
-    cog_info.insert(
-        "extent".to_string(),
-        serde_json::Value::from(meta.extent.to_vec()),
-    );
-
-    tilejson
-        .other
-        .insert("custom_grid".to_string(), serde_json::json!(cog_info));
-    tilejson
 }
 
 #[async_trait]
@@ -387,7 +335,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let tie_points = model_info.1;
     let transformations = model_info.2;
 
-    let origin = get_origin(tie_points.as_deref(), transformations.as_deref(), path)?;
+    let origin: [f64; 3] = get_origin(tie_points.as_deref(), transformations.as_deref(), path)?;
 
     let full_resolution =
         get_full_resolution(pixel_scale.as_deref(), transformations.as_deref(), path)?;
@@ -477,18 +425,18 @@ fn get_extent(
             [full_width_pixel, 0],
             [full_width_pixel, full_height_pixel],
         ];
-        let transed = corners.map(|pixel| {
+        let transformed = corners.map(|pixel| {
             let i = f64::from(pixel[0]);
             let j = f64::from(pixel[1]);
             let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
             let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
             (x, y)
         });
-        let mut min_x = transed[0].0;
-        let mut min_y = transed[1].1;
-        let mut max_x = transed[0].0;
-        let mut max_y = transed[1].1;
-        for (x, y) in transed {
+        let mut min_x = transformed[0].0;
+        let mut min_y = transformed[1].1;
+        let mut max_x = transformed[0].0;
+        let mut max_y = transformed[1].1;
+        for (x, y) in transformed {
             if x <= min_x {
                 min_x = x;
             }
@@ -643,6 +591,59 @@ fn get_origin(
         (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
         _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
     }
+}
+
+fn meta_to_tilejson(meta: &Meta) -> TileJSON {
+    let mut tilejson = tilejson! {
+        tiles: vec![],
+        minzoom: meta.min_zoom,
+        maxzoom: meta.max_zoom
+    };
+
+    let mut cog_info = serde_json::Map::new();
+
+    cog_info.insert(
+        "minZoom".to_string(),
+        serde_json::Value::from(meta.min_zoom),
+    );
+
+    cog_info.insert(
+        "maxZoom".to_string(),
+        serde_json::Value::from(meta.max_zoom),
+    );
+
+    let mut resolutions_map = serde_json::Map::new();
+    for (key, value) in &meta.zoom_and_resolutions {
+        resolutions_map.insert(
+            key.to_string(), // Convert u8 key to String
+            serde_json::Value::from(value.to_vec()[0]),
+        );
+    }
+
+    cog_info.insert(
+        "tileSize".to_string(),
+        serde_json::Value::from([meta.tile_size.0, meta.tile_size.1]),
+    );
+
+    cog_info.insert(
+        "resolutions".to_string(),
+        serde_json::Value::from(resolutions_map),
+    );
+
+    cog_info.insert(
+        "origin".to_string(),
+        serde_json::Value::from(meta.origin.to_vec()),
+    );
+
+    cog_info.insert(
+        "extent".to_string(),
+        serde_json::Value::from(meta.extent.to_vec()),
+    );
+
+    tilejson
+        .other
+        .insert("custom_grid".to_string(), serde_json::json!(cog_info));
+    tilejson
 }
 
 #[cfg(test)]
