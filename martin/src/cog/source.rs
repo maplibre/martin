@@ -632,6 +632,7 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     res
 }
 
+// see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
 fn get_origin(
     tie_points: Option<&[f64]>,
     transformation: Option<&[f64]>,
@@ -739,8 +740,22 @@ mod tests {
         assert_abs_diff_eq!(origin[0], 1_620_750.250_8);
         assert_abs_diff_eq!(origin[1], 4_277_012.715_3);
         assert_abs_diff_eq!(origin[2], 0.0);
-        // assert_eq!(origin, [1_620_750.250_8, 4_277_012.715_3, 0.0]);
-        //todo add a test for matrix either in this PR.
+
+        let matrix = Some(vec![
+            0.0, 100.0, 0.0, 400000.0, 100.0, 0.0, 0.0, 500000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 1.0,
+        ]);
+        let tie_point: Option<Vec<f64>> = None;
+
+        let origin = super::get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(origin[0], 400000.0);
+        assert_abs_diff_eq!(origin[1], 500000.0);
+        assert_abs_diff_eq!(origin[2], 0.0);
     }
 
     #[test]
