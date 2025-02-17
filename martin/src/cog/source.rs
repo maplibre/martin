@@ -726,36 +726,33 @@ mod tests {
         assert_eq!(png_bytes, expected);
     }
 
-    #[test]
-    fn can_get_origin() {
-        let matrix: Option<&[f64]> = None;
-        let tie_point = Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]);
-
-        let origin = super::get_origin(
-            tie_point.as_deref(),
-            matrix,
-            &PathBuf::from("not_exist.tif"),
-        )
-        .unwrap();
-        assert_abs_diff_eq!(origin[0], 1_620_750.250_8);
-        assert_abs_diff_eq!(origin[1], 4_277_012.715_3);
-        assert_abs_diff_eq!(origin[2], 0.0);
-
-        let matrix = Some(vec![
+    #[rstest]
+    #[case(
+        None,Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),
+        [1_620_750.250_8, 4_277_012.715_3, 0.0]
+    )]
+    #[case(
+        Some(vec![
             0.0, 100.0, 0.0, 400000.0, 100.0, 0.0, 0.0, 500000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 1.0,
-        ]);
-        let tie_point: Option<Vec<f64>> = None;
-
+        ]),
+        None,
+        [400000.0, 500000.0, 0.0]
+    )]
+    fn can_get_origin(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] expected: [f64; 3],
+    ) {
         let origin = super::get_origin(
             tie_point.as_deref(),
             matrix.as_deref(),
             &PathBuf::from("not_exist.tif"),
         )
         .unwrap();
-        assert_abs_diff_eq!(origin[0], 400000.0);
-        assert_abs_diff_eq!(origin[1], 500000.0);
-        assert_abs_diff_eq!(origin[2], 0.0);
+        assert_abs_diff_eq!(origin[0], expected[0]);
+        assert_abs_diff_eq!(origin[1], expected[1]);
+        assert_abs_diff_eq!(origin[2], expected[2]);
     }
 
     #[test]
