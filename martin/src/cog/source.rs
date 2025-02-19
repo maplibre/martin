@@ -799,6 +799,55 @@ mod tests {
         "###);
     }
 
+    #[rstest]
+    #[case(
+        None,Some(vec![10.0,-10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512))
+    ]
+    #[case(
+        Some(vec![
+            10.0,0.0,0.0,1_620_750.250_8,
+            0.0,-10.0,0.0,4_277_012.715_3,
+            0.0,0.0,0.0,0.0,
+            0.0,0.0,0.0,1.0
+        ]),None,None,(512,512))
+    ]
+    fn can_get_extent(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] pixel_scale: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] (full_width_pixel, full_length_pixel): (u32, u32),
+    ) {
+        use crate::cog::source::{get_extent, get_origin};
+
+        let origin = get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        let full_resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+
+        let full_width = full_resolution[0] * f64::from(full_width_pixel);
+        let full_length = full_resolution[1] * f64::from(full_length_pixel);
+
+        let extent = get_extent(
+            matrix.as_deref(),
+            &origin,
+            (full_width_pixel, full_length_pixel),
+            (full_width, full_length),
+        );
+
+        assert_abs_diff_eq!(extent[0], 1620750.2508);
+        assert_abs_diff_eq!(extent[1], 4271892.7153);
+        assert_abs_diff_eq!(extent[2], 1625870.2508);
+        assert_abs_diff_eq!(extent[3], 4277012.7153);
+    }
+
     #[test]
     fn can_get_meta() {
         let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
