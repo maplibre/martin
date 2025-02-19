@@ -292,7 +292,7 @@ fn verify_requirments(
         (Some(pixel_scale), Some(tie_points), _)
              =>
         {
-            if (pixel_scale[0] + pixel_scale[1]) > 0.01{
+            if (pixel_scale[0] + pixel_scale[1]).abs() > 0.01{
                 Err(CogError::NonSquaredImage(path.to_path_buf(), pixel_scale[0], pixel_scale[1]))
             }
             else if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 {
