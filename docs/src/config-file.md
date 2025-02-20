@@ -70,7 +70,7 @@ postgres:
   # This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
   # It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
   # `null` (the default): Unlimited
-  max_feature_count: null
+  max_feature_count: 100_000
 
   # Control the automatic generation of bounds for spatial tables [default: quick]
   # 'calc' - compute table geometry bounds on startup.
