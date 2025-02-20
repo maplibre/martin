@@ -53,8 +53,7 @@ async fn mbt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
@@ -73,7 +72,7 @@ async fn mbt_get_catalog() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -85,8 +84,7 @@ async fn mbt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
     tiles:
@@ -105,7 +103,7 @@ async fn mbt_get_catalog_gzip() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    "###);
+    ");
 }
 
 #[actix_rt::test]

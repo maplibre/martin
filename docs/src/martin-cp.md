@@ -1,8 +1,8 @@
 # Generating Tiles in Bulk
 
 `martin-cp` is a tool for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles
-into a new or an existing MBTiles file. `martin-cp` can be used to generate tiles for a large area or multiple areas (
-bounding boxes). If multiple areas overlap, it will ensure each tile is generated only once. `martin-cp` supports the
+into a new or an existing MBTiles file. `martin-cp` can be used to generate tiles for a large area or multiple areas
+(bounding boxes). If multiple areas overlap, it will ensure each tile is generated only once. `martin-cp` supports the
 same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
 
 After copying, `martin-cp` will update the `agg_tiles_hash` metadata value unless `--skip-agg-tiles-hash` is specified.

@@ -14,7 +14,7 @@ use url::Url;
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
-use crate::source::{TileData, UrlQuery};
+use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -30,14 +30,14 @@ impl ConfigExtras for MbtConfig {
 }
 
 impl SourceConfigExtras for MbtConfig {
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }
 
     // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
     //       See https://github.com/rust-lang/rust-clippy/pull/12323
     #[allow(clippy::no_effect_underscore_binding)]
-    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
+    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<TileInfoSource> {
         unreachable!()
     }
 }
@@ -96,7 +96,7 @@ impl Source for MbtSource {
         self.tile_info
     }
 
-    fn clone_source(&self) -> Box<dyn Source> {
+    fn clone_source(&self) -> TileInfoSource {
         Box::new(self.clone())
     }
 
@@ -151,7 +151,7 @@ mod tests {
                   path: https://example.org/file4.ext
         "})
         .unwrap();
-        let res = cfg.finalize("").unwrap();
+        let res = cfg.finalize("");
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();

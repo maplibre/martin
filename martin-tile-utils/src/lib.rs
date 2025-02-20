@@ -57,8 +57,8 @@ impl Format {
 
     /// Get the `format` value as it should be stored in the `MBTiles` metadata table
     #[must_use]
-    pub fn metadata_format_value(&self) -> &'static str {
-        match *self {
+    pub fn metadata_format_value(self) -> &'static str {
+        match self {
             Self::Gif => "gif",
             Self::Jpeg => "jpeg",
             Self::Json => "json",
@@ -82,8 +82,8 @@ impl Format {
     }
 
     #[must_use]
-    pub fn is_detectable(&self) -> bool {
-        match *self {
+    pub fn is_detectable(self) -> bool {
+        match self {
             Self::Png | Self::Jpeg | Self::Gif | Self::Webp => true,
             // TODO: Json can be detected, but currently we only detect it
             //       when it's not compressed, so to avoid a warning, keeping it as false for now.
@@ -143,8 +143,8 @@ impl Encoding {
     }
 
     #[must_use]
-    pub fn is_encoded(&self) -> bool {
-        match *self {
+    pub fn is_encoded(self) -> bool {
+        match self {
             Self::Uncompressed | Self::Internal => false,
             Self::Gzip | Self::Zlib | Self::Brotli | Self::Zstd => true,
         }

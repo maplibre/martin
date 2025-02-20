@@ -1,6 +1,7 @@
 ## Sprite Sources
 
-Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays. The SVG filenames without extension will be used as the sprites' image IDs (remember that one sprite and thus `sprite_id` contains multiple images).
+Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays.
+The SVG filenames without extension will be used as the sprites' image IDs (remember that one sprite and thus `sprite_id` contains multiple images).
 The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs.
 For example `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
 
@@ -40,6 +41,19 @@ the PNG, there is a high DPI version available at `/sprite/<sprite_id>@2x.json`.
 }
 ```
 
+##### Coloring at runtime via Signed Distance Fields (SDFs)
+
+If you want to set the color of a sprite at runtime, you will need use the [Signed Distance Fields (SDFs)](https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf)-endpoints.
+For example, maplibre does support the image being modified via the [`icon-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-color) and [`icon-halo-color`](https://maplibre.org/maplibre-style-spec/layers/#icon-halo-color) properties if using SDFs.
+
+SDFs have the significant **downside of only allowing one color**.
+If you want multiple colors, you will need to layer icons on top of each other.
+
+The following APIs are available:
+
+- `/sdf_sprite/<sprite_id>.json` for getting a sprite index as SDF and
+- `/sdf_sprite/<sprite_id>.png` for getting sprite PNGs as SDF
+
 #### Combining Multiple Sprites
 
 Multiple `sprite_id` values can be combined into one sprite with the same pattern as for tile
@@ -73,4 +87,4 @@ sprites:
     my_sprites: /path/to/some_dir
 ```
 
-The sprites are now avaliable at `/sprite/my_images,some_dir.png`/ ...
+The sprites are now available at `/sprite/my_images,some_dir.png`/ ...

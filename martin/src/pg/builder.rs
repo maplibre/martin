@@ -206,7 +206,6 @@ impl PgBuilder {
             match src {
                 Err(v) => {
                     error!("Failed to create a source: {v}");
-                    continue;
                 }
                 Ok((id, pg_sql, src_inf)) => {
                     debug!("{id} query: {}", pg_sql.sql_query);
@@ -496,95 +495,86 @@ mod tests {
     #[allow(clippy::too_many_lines)]
     fn test_auto_publish_no_auto() {
         let cfg = auto("{}");
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table:
-              source_id_format: "{table}"
-            auto_funcs:
-              source_id_format: "{function}"
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table:
+          source_id_format: "{table}"
+        auto_funcs:
+          source_id_format: "{function}"
+        "#);
 
         let cfg = auto("tables: {}");
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table: ~
-            auto_funcs: ~
-            "###);
+        assert_yaml_snapshot!(cfg, @r"
+        auto_table: ~
+        auto_funcs: ~
+        ");
 
         let cfg = auto("functions: {}");
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table: ~
-            auto_funcs: ~
-            "###);
+        assert_yaml_snapshot!(cfg, @r"
+        auto_table: ~
+        auto_funcs: ~
+        ");
 
         let cfg = auto("auto_publish: true");
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table:
-              source_id_format: "{table}"
-            auto_funcs:
-              source_id_format: "{function}"
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table:
+          source_id_format: "{table}"
+        auto_funcs:
+          source_id_format: "{function}"
+        "#);
 
         let cfg = auto("auto_publish: false");
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table: ~
-            auto_funcs: ~
-            "###);
+        assert_yaml_snapshot!(cfg, @r"
+        auto_table: ~
+        auto_funcs: ~
+        ");
 
         let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables: true"});
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table:
-              schemas:
-                - public
-              source_id_format: "{table}"
-            auto_funcs: ~
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table:
+          schemas:
+            - public
+          source_id_format: "{table}"
+        auto_funcs: ~
+        "#);
 
         let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 functions: true"});
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table: ~
-            auto_funcs:
-              schemas:
-                - public
-              source_id_format: "{function}"
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table: ~
+        auto_funcs:
+          schemas:
+            - public
+          source_id_format: "{function}"
+        "#);
 
         let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables: false"});
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table: ~
-            auto_funcs:
-              schemas:
-                - public
-              source_id_format: "{function}"
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table: ~
+        auto_funcs:
+          schemas:
+            - public
+          source_id_format: "{function}"
+        "#);
 
         let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 functions: false"});
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table:
-              schemas:
-                - public
-              source_id_format: "{table}"
-            auto_funcs: ~
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table:
+          schemas:
+            - public
+          source_id_format: "{table}"
+        auto_funcs: ~
+        "#);
 
         let cfg = auto(indoc! {"
             auto_publish:
@@ -592,15 +582,14 @@ mod tests {
                 tables:
                     from_schemas: osm
                     id_format: 'foo_{schema}.{table}_bar'"});
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table:
-              schemas:
-                - osm
-                - public
-              source_id_format: "foo_{schema}.{table}_bar"
-            auto_funcs: ~
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table:
+          schemas:
+            - osm
+            - public
+          source_id_format: "foo_{schema}.{table}_bar"
+        auto_funcs: ~
+        "#);
 
         let cfg = auto(indoc! {"
             auto_publish:
@@ -608,15 +597,14 @@ mod tests {
                 tables:
                     from_schemas: osm
                     source_id_format: '{schema}.{table}'"});
-        assert_yaml_snapshot!(cfg, @r###"
-        ---
+        assert_yaml_snapshot!(cfg, @r#"
         auto_table:
           schemas:
             - osm
             - public
           source_id_format: "{schema}.{table}"
         auto_funcs: ~
-        "###);
+        "#);
 
         let cfg = auto(indoc! {"
             auto_publish:
@@ -624,14 +612,13 @@ mod tests {
                     from_schemas:
                       - osm
                       - public"});
-        assert_yaml_snapshot!(cfg, @r###"
-            ---
-            auto_table:
-              schemas:
-                - osm
-                - public
-              source_id_format: "{table}"
-            auto_funcs: ~
-            "###);
+        assert_yaml_snapshot!(cfg, @r#"
+        auto_table:
+          schemas:
+            - osm
+            - public
+          source_id_format: "{table}"
+        auto_funcs: ~
+        "#);
     }
 }

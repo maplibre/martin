@@ -186,13 +186,13 @@ pub async fn table_to_query(
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
     let query = format!(
-        r#"
+        r"
 SELECT
   ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
 FROM (
   SELECT
     ST_AsMVTGeom(
-        ST_Transform(ST_CurveToLine({geometry_column}), 3857),
+        ST_Transform(ST_CurveToLine({geometry_column}::geometry), 3857),
         ST_TileEnvelope($1::integer, $2::integer, $3::integer),
         {extent}, {buffer}, {clip_geom}
     ) AS geom
@@ -203,7 +203,7 @@ FROM (
     {geometry_column} && ST_Transform({bbox_search}, {srid})
   {limit_clause}
 ) AS tile;
-"#
+"
     )
     .trim()
     .to_string();
@@ -222,18 +222,18 @@ async fn calc_bounds(
     Ok(pool.get()
         .await?
         .query_one(&format!(
-            r#"
-WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}), {srid}) AS rb FROM {schema}.{table})
+            r"
+WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
                 WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) = 'ST_Point'
-                THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}, 1)), {srid})
+                THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}::geometry, 1)), {srid})
                 ELSE (SELECT * FROM real_bounds)
             END,
             4326
         ) AS bounds
 FROM {schema}.{table};
-                "#), &[])
+                "), &[])
         .await
         .map_err(|e| PostgresError(e, "querying table bounds"))?
         .get::<_, Option<ewkb::Polygon>>("bounds")

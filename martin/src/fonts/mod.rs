@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use bit_set::BitSet;
 use itertools::Itertools as _;
@@ -52,13 +52,13 @@ pub enum FontError {
     #[error(transparent)]
     FreeType(#[from] pbf_font_tools::freetype::Error),
 
-    #[error("IO error accessing {}: {0}", .1.display())]
+    #[error("IO error accessing {1}: {0}")]
     IoError(std::io::Error, PathBuf),
 
-    #[error("Invalid font file {}", .0.display())]
+    #[error("Invalid font file {0}")]
     InvalidFontFilePath(PathBuf),
 
-    #[error("No font files found in {}", .0.display())]
+    #[error("No font files found in {0}")]
     NoFontFilesFound(PathBuf),
 
     #[error("Font {0} is missing a family name")]
@@ -278,7 +278,7 @@ fn parse_font(
     fonts: &mut HashMap<String, FontSource>,
     path: PathBuf,
 ) -> FontResult<()> {
-    static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+    static RE_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\s|/|,)+").unwrap());
 
     let mut face = lib.new_face(&path, 0)?;
     let num_faces = face.num_faces() as isize;
@@ -296,10 +296,7 @@ fn parse_font(
             name.push_str(style);
         }
         // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
-        name = RE_SPACES
-            .get_or_init(|| Regex::new(r"(\s|/|,)+").unwrap())
-            .replace_all(name.as_str(), " ")
-            .to_string();
+        name = RE_SPACES.replace_all(name.as_str(), " ").to_string();
 
         match fonts.entry(name) {
             Entry::Occupied(v) => {

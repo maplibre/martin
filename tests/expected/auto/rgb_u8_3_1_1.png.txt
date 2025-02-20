@@ -1,0 +1,1 @@
+tests/output/auto/rgb_u8_3_1_1.png: PNG image data, 256 x 256, 8-bit/color RGBA, non-interlaced

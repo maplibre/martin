@@ -13,4 +13,6 @@ mod root;
 pub use root::{Args, ExtraArgs, MetaArgs};
 
 mod srv;
-pub use srv::{PreferredEncoding, SrvArgs, WebUiMode};
+#[cfg(feature = "webui")]
+pub use srv::WebUiMode;
+pub use srv::{PreferredEncoding, SrvArgs};

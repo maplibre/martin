@@ -1,0 +1,10 @@
+{
+  "bicycle": {
+    "height": 21,
+    "pixelRatio": 1,
+    "width": 21,
+    "x": 0,
+    "y": 0,
+    "sdf": true
+  }
+}
