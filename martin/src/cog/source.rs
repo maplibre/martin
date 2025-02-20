@@ -612,13 +612,12 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
         serde_json::Value::from(meta.max_zoom),
     );
 
-    let mut resolutions_map = serde_json::Map::new();
-    for (key, value) in &meta.zoom_and_resolutions {
-        resolutions_map.insert(
-            key.to_string(), // Convert u8 key to String
-            serde_json::Value::from(value.to_vec()[0]),
-        );
+    let mut resolutions_map = Vec::new();
+    for value in meta.zoom_and_resolutions.values() {
+        resolutions_map.push(value[0]);
     }
+
+    resolutions_map.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     cog_info.insert(
         "tileSize".to_string(),
@@ -632,7 +631,7 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
 
     cog_info.insert(
         "origin".to_string(),
-        serde_json::Value::from(meta.origin.to_vec()),
+        serde_json::Value::from([meta.origin[0], meta.origin[1]]),
     );
 
     cog_info.insert(
