@@ -734,11 +734,11 @@ mod tests {
     )]
     #[case(
         Some(vec![
-            0.0, 100.0, 0.0, 400000.0, 100.0, 0.0, 0.0, 500000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 100.0, 0.0, 400_000.0, 100.0, 0.0, 0.0, 500_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 1.0,
         ]),
         None,
-        [400000.0, 500000.0, 0.0]
+        [400_000.0, 500_000.0, 0.0]
     )]
     fn can_get_origin(
         #[case] matrix: Option<Vec<f64>>,
@@ -842,10 +842,10 @@ mod tests {
             (full_width, full_length),
         );
 
-        assert_abs_diff_eq!(extent[0], 1620750.2508);
-        assert_abs_diff_eq!(extent[1], 4271892.7153);
-        assert_abs_diff_eq!(extent[2], 1625870.2508);
-        assert_abs_diff_eq!(extent[3], 4277012.7153);
+        assert_abs_diff_eq!(extent[0], 1_620_750.250_8);
+        assert_abs_diff_eq!(extent[1], 4_271_892.715_3);
+        assert_abs_diff_eq!(extent[2], 1_625_870.250_8);
+        assert_abs_diff_eq!(extent[3], 4_277_012.715_3);
     }
 
     #[test]
