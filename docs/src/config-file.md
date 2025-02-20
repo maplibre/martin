@@ -64,11 +64,11 @@ postgres:
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
 
-  # Limit the number of table geo features included in a tile.
+  # Limit the number of geo features per tile.
   #
-  # If the number of features is higher than this, they will not be included in the tile and thus look "cut off"/incomplete.
+  # If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
   # This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
-  # It is sensible to have such a limit in place if you have user generated/untrusted geodata. (Think: lots of datapoints near null island)
+  # It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
   # `null` (the default): Unlimited
   max_feature_count: null
 
