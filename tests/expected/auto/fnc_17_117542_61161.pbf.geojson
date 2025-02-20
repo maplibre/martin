@@ -1,0 +1,136 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          3726,
+          1627
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2209,
+          674
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3612,
+          775
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3808,
+          8
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3159,
+          1425
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3124,
+          1084
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2976,
+          184
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2305,
+          966
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2379,
+          1662
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3833,
+          2035
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "source_mvt_layer": "public.function_zxy_query"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

@@ -35,11 +35,11 @@ pub enum CopyType {
 
 impl CopyType {
     #[must_use]
-    pub fn copy_tiles(&self) -> bool {
+    pub fn copy_tiles(self) -> bool {
         matches!(self, Self::All | Self::Tiles)
     }
     #[must_use]
-    pub fn copy_metadata(&self) -> bool {
+    pub fn copy_metadata(self) -> bool {
         matches!(self, Self::All | Self::Metadata)
     }
 }

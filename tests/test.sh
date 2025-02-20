@@ -27,6 +27,17 @@ TEST_TEMP_DIR="$(dirname "$0")/mbtiles_temp_files"
 rm -rf "$TEST_TEMP_DIR"
 mkdir -p "$TEST_TEMP_DIR"
 
+# Verify the tools used in the tests are available
+# todo add more verification for other tools like jq file curl sqlite3...
+if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+  if ! command -v ogrmerge.py > /dev/null; then
+  echo "gdal-bin is required for testing"
+  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
+  echo "see more at https://gdal.org/en/stable/download.html#binaries"
+  exit 1
+  fi
+fi
+
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
@@ -95,7 +106,10 @@ test_pbf() {
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
-    ./tests/fixtures/vtzero-show "$FILENAME" > "$FILENAME.txt"
+    # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
+    ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
+    jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
+    mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
   fi
 }
 
@@ -172,7 +186,8 @@ validate_log() {
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
   remove_line "$LOG_FILE" 'Source IDs must be unique'
-  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended 12.0.0'
+  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
+  remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -205,7 +220,7 @@ LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -281,6 +296,21 @@ test_png mb_png_0_0_0 geography-class-png/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
+>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
+test_jsn rgb_u8       rgb_u8
+test_png rgb_u8_0_0_0 rgb_u8/0/0/0
+test_png rgb_u8_3_0_0 rgb_u8/3/0/0
+test_png rgb_u8_3_1_1 rgb_u8/3/1/1
+
+test_jsn rgba_u8       rgba_u8
+test_png rgba_u8_0_0_0 rgba_u8/0/0/0
+test_png rgba_u8_3_0_0 rgba_u8/3/0/0
+test_png rgba_u8_3_1_1 rgba_u8/3/1/1
+
+test_jsn rgba_u8_nodata       rgba_u8_nodata
+test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
+test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
+
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
@@ -291,6 +321,7 @@ test_jsn fnc_comment              function_Mixed_Name
 kill_process "$MARTIN_PROC_ID" Martin
 
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
@@ -387,6 +418,7 @@ test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "

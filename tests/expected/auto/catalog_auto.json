@@ -150,10 +150,22 @@
       "content_type": "application/x-protobuf",
       "description": "public.points_empty_srid.geom"
     },
+    "rgb_u8": {
+      "content_type": "image/png"
+    },
+    "rgba_u8": {
+      "content_type": "image/png"
+    },
+    "rgba_u8_nodata": {
+      "content_type": "image/png"
+    },
     "stamen_toner__raster_CC-BY-ODbL_z3": {
       "content_type": "image/png"
     },
     "table_source": {
+      "content_type": "application/x-protobuf"
+    },
+    "table_source_geog": {
       "content_type": "application/x-protobuf"
     },
     "table_source_multiple_geom": {

@@ -206,7 +206,6 @@ impl PgBuilder {
             match src {
                 Err(v) => {
                     error!("Failed to create a source: {v}");
-                    continue;
                 }
                 Ok((id, pg_sql, src_inf)) => {
                     debug!("{id} query: {}", pg_sql.sql_query);

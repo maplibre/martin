@@ -54,6 +54,10 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<crate::mbtiles::MbtConfig>,
 
+    #[cfg(feature = "cog")]
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub cog: FileConfigEnum<crate::cog::CogConfig>,
+
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: FileConfigEnum<SpriteConfig>,
@@ -81,13 +85,16 @@ impl Config {
         }
 
         #[cfg(feature = "pmtiles")]
-        res.extend(self.pmtiles.finalize("pmtiles.")?);
+        res.extend(self.pmtiles.finalize("pmtiles."));
 
         #[cfg(feature = "mbtiles")]
-        res.extend(self.mbtiles.finalize("mbtiles.")?);
+        res.extend(self.mbtiles.finalize("mbtiles."));
+
+        #[cfg(feature = "cog")]
+        res.extend(self.cog.finalize("cog."));
 
         #[cfg(feature = "sprites")]
-        res.extend(self.sprites.finalize("sprites.")?);
+        res.extend(self.sprites.finalize("sprites."));
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
@@ -102,6 +109,9 @@ impl Config {
 
         #[cfg(feature = "mbtiles")]
         let is_empty = is_empty && self.mbtiles.is_empty();
+
+        #[cfg(feature = "cog")]
+        let is_empty = is_empty && self.cog.is_empty();
 
         #[cfg(feature = "sprites")]
         let is_empty = is_empty && self.sprites.is_empty();
@@ -168,14 +178,21 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
             let cfg = &mut self.pmtiles;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), "pmtiles");
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["pmtiles"]);
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), "mbtiles");
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["mbtiles"]);
+            sources.push(Box::pin(val));
+        }
+
+        #[cfg(feature = "cog")]
+        if !self.cog.is_empty() {
+            let cfg = &mut self.cog;
+            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);
             sources.push(Box::pin(val));
         }
 

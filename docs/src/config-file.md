@@ -26,7 +26,7 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
-# Set TileJSON URL path prefix. This overides the default of respecting the X-Rewrite-URL header.
+# Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
 # Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
 # Must begin with a `/`.
 # Examples: `/`, `/tiles`
@@ -64,8 +64,13 @@ postgres:
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
 
-  # Limit the number of table geo features included in a tile. Unlimited by default.
-  max_feature_count: 1000
+  # Limit the number of geo features per tile.
+  #
+  # If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
+  # This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
+  # It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+  # `null` (the default): Unlimited
+  max_feature_count: 100_000
 
   # Control the automatic generation of bounds for spatial tables [default: quick]
   # 'calc' - compute table geometry bounds on startup.
@@ -198,6 +203,19 @@ mbtiles:
   sources:
     # named source matching source name to a single file
     mb-src1: /path/to/mbtiles1.mbtiles
+
+# Cloud Optimized GeoTIFF File Sources
+cog:
+  paths:
+    # scan this whole dir, matching all *.tif and *.tiff files
+    - /dir-path
+    # specific TIFF file will be published as a cog source
+    - /path/to/cogfile1.tif
+    - /path/to/cogfile2.tiff
+  sources:
+    # named source matching source name to a single file
+     cog-src1: /path/to/cog1.tif
+     cog-src2: /path/to/cog2.tif
 
 # Sprite configuration
 sprites:

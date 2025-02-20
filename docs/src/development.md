@@ -25,7 +25,7 @@ Install a few required libs and tools:
 
 ```bash, ignore
 # For Ubuntu-based distros
-sudo apt install -y  build-essential pkg-config jq file
+sudo apt install -y  build-essential pkg-config jq file gdal-bin
 ```
 
 Install [Just](https://github.com/casey/just#readme) (improved makefile processor). Note that some Linux and Homebrew
