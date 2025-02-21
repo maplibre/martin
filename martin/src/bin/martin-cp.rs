@@ -14,8 +14,8 @@ use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::srv::{merge_tilejson, DynTileSource};
 use martin::{
-    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileData,
-    TileRect,
+    append_rect, read_config, Config, MartinError, MartinResult, ServerState, TileData,
+    TileInfoSource, TileRect,
 };
 use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
@@ -392,7 +392,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[&dyn Source],
+    sources: &[TileInfoSource],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
