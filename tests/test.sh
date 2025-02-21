@@ -27,6 +27,17 @@ TEST_TEMP_DIR="$(dirname "$0")/mbtiles_temp_files"
 rm -rf "$TEST_TEMP_DIR"
 mkdir -p "$TEST_TEMP_DIR"
 
+# Verify the tools used in the tests are available
+# todo add more verification for other tools like jq file curl sqlite3...
+if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+  if ! command -v ogrmerge.py > /dev/null; then
+  echo "gdal-bin is required for testing"
+  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
+  echo "see more at https://gdal.org/en/stable/download.html#binaries"
+  exit 1
+  fi
+fi
+
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
@@ -95,7 +106,10 @@ test_pbf() {
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
-    ./tests/fixtures/vtzero-show "$FILENAME" > "$FILENAME.txt"
+    # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
+    ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
+    jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
+    mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
   fi
 }
 
@@ -172,7 +186,8 @@ validate_log() {
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
   remove_line "$LOG_FILE" 'Source IDs must be unique'
-  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended 12.0.0'
+  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
+  remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then

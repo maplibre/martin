@@ -19,10 +19,12 @@ unused_qualifications = "warn"
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
+enum_variant_names = "allow"
 implicit_hasher = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 module_name_repetitions = "allow"
+struct_field_names = "allow"
 
 [workspace.dependencies]
 actix-cors = "0.7"
@@ -52,8 +54,8 @@ json-patch = "3.0"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 libsqlite3-sys = { version = ">=0.27", features = ["bundled"] }
 log = "0.4"
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.5.1" }
-mbtiles = { path = "./mbtiles", version = "0.11.1" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
+mbtiles = { path = "./mbtiles", version = "0.12.0" }
 md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
@@ -67,7 +69,7 @@ pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.24"
-rustls = "0.23.21"
+rustls = "0.23.23"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
@@ -80,11 +82,11 @@ serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
 sqlite-compressions = { version = "0.2.16", default-features = false, features = ["bsdiffraw", "gzip"] }
-sqlite-hashes = { version = "0.7.6", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlite-hashes = { version = "0.7.9", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
-testcontainers-modules = { version = "0.11.5", features = ["postgres"] }
+testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"
 tile-grid = "0.6"

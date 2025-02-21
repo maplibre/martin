@@ -177,7 +177,7 @@ test-int: clean-test install-sqlx
         echo "** Skipping diffing with the expected output"
     else
         echo "** Comparing actual output with expected output..."
-        if ! diff --brief --recursive --new-file tests/output tests/expected; then
+        if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
             exit 1

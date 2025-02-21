@@ -15,20 +15,26 @@ pub const POOL_SIZE_DEFAULT: usize = 20;
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
 /// See <https://postgis.net/docs/ST_TileEnvelope.html>
-const MINIMUM_POSTGIS_VER: Version = Version::new(3, 0, 0);
-/// Minimum version of postgres required for [`MINIMUM_POSTGIS_VER`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
-const MINIMUM_POSTGRES_VER: Version = Version::new(11, 0, 0);
+const MINIMUM_POSTGIS_VERSION: Version = Version::new(3, 0, 0);
+/// Minimum version of postgres required for [`MINIMUM_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
+const MINIMUM_POSTGRES_VERSION: Version = Version::new(11, 0, 0);
 /// After this [`PostGIS`](https://postgis.net/) version we can use margin parameter in `ST_TileEnvelope`
-const RECOMMENDED_POSTGIS_VER: Version = Version::new(3, 1, 0);
-/// Minimum version of postgres required for [`RECOMMENDED_POSTGIS_VER`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
-const RECOMMENDED_POSTGRES_VER: Version = Version::new(12, 0, 0);
+const ST_TILE_ENVELOPE_POSTGIS_VERSION: Version = Version::new(3, 1, 0);
+/// Before this [`PostGIS`](https://postgis.net/) version, some geometry was missing in some cases.
+/// One example is lines not drawing at zoom level 0, but every other level for very long lines.
+const MISSING_GEOM_FIXED_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
+/// Minimum version of postgres required for [`RECOMMENDED_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
+const RECOMMENDED_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
 
 #[derive(Clone, Debug)]
 pub struct PgPool {
     id: String,
     pool: Pool,
-    // When true, we can use margin parameter in ST_TileEnvelope
-    margin: bool,
+    /// Indicates if `ST_TileEnvelope` supports the margin parameter.
+    ///
+    /// `true` if running postgis >= 3.1
+    /// This being `false` indicates that tiles may be cut off at the edges.
+    supports_tile_margin: bool,
 }
 
 impl PgPool {
@@ -42,25 +48,38 @@ impl PgPool {
 
         let conn = get_conn(&pool, &id).await?;
         let pg_ver = get_postgres_version(&conn).await?;
-        if pg_ver < MINIMUM_POSTGRES_VER {
-            return Err(PostgresqlTooOld(pg_ver, MINIMUM_POSTGRES_VER));
-        }
-        if pg_ver < RECOMMENDED_POSTGRES_VER {
-            warn!("PostgreSQL {pg_ver} is older than the recommended {RECOMMENDED_POSTGRES_VER}.");
+        if pg_ver < MINIMUM_POSTGRES_VERSION {
+            return Err(PostgresqlTooOld(pg_ver, MINIMUM_POSTGRES_VERSION));
         }
 
         let postgis_ver = get_postgis_version(&conn).await?;
-        if postgis_ver < MINIMUM_POSTGIS_VER {
-            return Err(PostgisTooOld(postgis_ver, MINIMUM_POSTGIS_VER));
+        if postgis_ver < MINIMUM_POSTGIS_VERSION {
+            return Err(PostgisTooOld(postgis_ver, MINIMUM_POSTGIS_VERSION));
         }
-        let margin = postgis_ver >= RECOMMENDED_POSTGIS_VER;
-        if !margin {
-            warn!("PostGIS {postgis_ver} is older than the recommended {RECOMMENDED_POSTGIS_VER}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
+
+        // In the warning cases below, we could technically run.
+        // This is not ideal for reasons explained in the warnings
+
+        if pg_ver < RECOMMENDED_POSTGRES_VERSION {
+            warn!(
+                "PostgreSQL {pg_ver} is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
+            );
+        }
+        let supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
+        if !supports_tile_margin {
+            warn!("PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
+        }
+        if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
+            warn!("PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788");
         }
 
         info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
 
-        Ok(Self { id, pool, margin })
+        Ok(Self {
+            id,
+            pool,
+            supports_tile_margin,
+        })
     }
 
     fn parse_config(config: &PgConfig) -> PgResult<(String, Manager)> {
@@ -108,9 +127,13 @@ impl PgPool {
         self.id.as_str()
     }
 
+    /// Indicates if `ST_TileEnvelope` supports the margin parameter.
+    ///
+    /// `true` if running postgis >= `3.1`
+    /// This being false indicates that tiles may be cut off at the edges.
     #[must_use]
     pub fn supports_tile_margin(&self) -> bool {
-        self.margin
+        self.supports_tile_margin
     }
 }
 
