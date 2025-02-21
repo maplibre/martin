@@ -5,6 +5,7 @@ use std::vec;
 use std::{fmt::Debug, path::PathBuf};
 
 use log::warn;
+use serde::Serialize;
 use std::io::BufWriter;
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
@@ -18,13 +19,22 @@ use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
 
 use super::CogError;
 
-#[derive(Clone, Debug)]
+// about the model space of tiff image.
+// pixel scale, tie points and transformations
+// todo use struct instead of tuple maybe
+type ModelInfo = (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>);
+
+#[derive(Clone, Debug, Serialize)]
 struct Meta {
     min_zoom: u8,
     max_zoom: u8,
+    origin: [f64; 3],
+    extent: [f64; 4],
+    zoom_and_resolutions: HashMap<u8, [f64; 3]>,
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
+    tile_size: (u32, u32),
 }
 
 #[derive(Clone, Debug)]
@@ -40,11 +50,9 @@ impl CogSource {
     pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let meta = get_meta(&path)?;
-        let tilejson = tilejson! {
-            tiles: vec![],
-            minzoom: meta.min_zoom,
-            maxzoom: meta.max_zoom
-        };
+
+        let tilejson: TileJSON = meta_to_tilejson(&meta);
+
         Ok(CogSource {
             id,
             path,
@@ -231,7 +239,11 @@ fn rgb_to_png(
     Ok(result_file_buffer)
 }
 
-fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
+fn verify_requirments(
+    decoder: &mut Decoder<File>,
+    model_info: &ModelInfo,
+    path: &Path,
+) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
     // see the requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
@@ -275,6 +287,31 @@ fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), Co
             path.to_path_buf(),
         ))?;
     };
+
+    match model_info {
+        (Some(pixel_scale), Some(tie_points), _)
+             =>
+        {
+            if (pixel_scale[0] + pixel_scale[1]).abs() > 0.01{
+                Err(CogError::NonSquaredImage(path.to_path_buf(), pixel_scale[0], pixel_scale[1]))
+            }
+            else if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3, and the length of tie points should be a multiple of 6".to_string()))
+            }else{
+                Ok(())
+            }
+       }
+        (_, _, Some(matrix))
+        => {
+            if matrix.len() < 16 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
+        }else{
+                Ok(())
+        }
+        },
+            _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The model information is not found, either transformation (tag number 34264) or pixel scale(tag number 33550) && tie points(33922) should be inside ".to_string())),
+    }?;
+
     Ok(())
 }
 
@@ -285,18 +322,47 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
-    verify_requirments(&mut decoder, path)?;
-    let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
-    let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
-
+    let model_info = get_model_infos(&mut decoder, path);
+    verify_requirments(&mut decoder, &model_info, path)?;
+    let tile_size = decoder.chunk_dimensions();
     let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
         no_data.parse().ok()
     } else {
         None
     };
 
-    let images_ifd = get_images_ifd(&mut decoder, path);
+    let pixel_scale = model_info.0;
+    let tie_points = model_info.1;
+    let transformations = model_info.2;
 
+    let origin: [f64; 3] = get_origin(tie_points.as_deref(), transformations.as_deref(), path)?;
+
+    let full_resolution =
+        get_full_resolution(pixel_scale.as_deref(), transformations.as_deref(), path)?;
+    let (full_width_pixel, full_length_pixel) = decoder.dimensions().map_err(|e| {
+        CogError::TagsNotFound(
+            e,
+            vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
+            0, // we are at ifd 0, the first image, haven't seek to others
+            path.clone(),
+        )
+    })?;
+
+    let full_width = full_resolution[0] * f64::from(full_width_pixel);
+    let full_length = full_resolution[1] * f64::from(full_length_pixel);
+
+    let extent = get_extent(
+        transformations.as_deref(),
+        &origin,
+        (full_width_pixel, full_length_pixel),
+        (full_width, full_length),
+    );
+    let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
+    let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
+
+    let mut resolutions: HashMap<u8, [f64; 3]> = HashMap::new();
+
+    let images_ifd = get_images_ifd(&mut decoder, path);
     for (idx, image_ifd) in images_ifd.iter().enumerate() {
         decoder
             .seek_to_image(*image_ifd)
@@ -305,10 +371,28 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         let zoom = u8::try_from(images_ifd.len() - (idx + 1))
             .map_err(|_| CogError::TooManyImages(path.clone()))?;
 
+        let resolution = if *image_ifd == 0 {
+            full_resolution
+        } else {
+            let (image_width, image_length) = decoder.dimensions().map_err(|e| {
+                CogError::TagsNotFound(
+                    e,
+                    vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
+                    *image_ifd,
+                    path.clone(),
+                )
+            })?;
+
+            let res_x = full_width / f64::from(image_width);
+            let res_y = full_length / f64::from(image_length);
+
+            [res_x, res_y, 0.0]
+        };
         let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, path, *image_ifd)?;
 
         zoom_and_ifd.insert(zoom, *image_ifd);
         zoom_and_tile_across_down.insert(zoom, (tiles_across, tiles_down));
+        resolutions.insert(zoom, resolution);
     }
 
     if images_ifd.is_empty() {
@@ -318,10 +402,123 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     Ok(Meta {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
+        zoom_and_resolutions: resolutions,
+        tile_size,
+        extent,
+        origin,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
     })
+}
+
+fn get_extent(
+    transformation: Option<&[f64]>,
+    origin: &[f64],
+    (full_width_pixel, full_height_pixel): (u32, u32),
+    (full_width, full_height): (f64, f64),
+) -> [f64; 4] {
+    if let Some(matrix) = transformation {
+        let corners = [
+            [0, 0],
+            [0, full_height_pixel],
+            [full_width_pixel, 0],
+            [full_width_pixel, full_height_pixel],
+        ];
+        let transformed = corners.map(|pixel| {
+            let i = f64::from(pixel[0]);
+            let j = f64::from(pixel[1]);
+            let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
+            let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
+            (x, y)
+        });
+        let mut min_x = transformed[0].0;
+        let mut min_y = transformed[1].1;
+        let mut max_x = transformed[0].0;
+        let mut max_y = transformed[1].1;
+        for (x, y) in transformed {
+            if x <= min_x {
+                min_x = x;
+            }
+            if y <= min_y {
+                min_y = y;
+            }
+            if x >= max_x {
+                max_x = x;
+            }
+            if y >= max_y {
+                max_y = y;
+            }
+        }
+        return [min_x, min_y, max_x, max_y];
+    }
+    let x1 = origin[0];
+    let y1 = origin[1];
+    let x2 = x1 + full_width;
+    let y2 = y1 + full_height;
+
+    [x1.min(x2), y1.min(y2), x1.max(x2), y1.max(y2)]
+}
+
+fn get_full_resolution(
+    pixel_scale: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    match (pixel_scale, transformation) {
+        (Some(scale), _) => Ok([scale[0], scale[1], scale[2]]),
+        (_, Some(matrix)) => {
+            if matrix[1] == 0.0 && matrix[4] == 0.0 {
+                Ok([matrix[0], matrix[5], matrix[10]])
+            } else {
+                let x_res = (matrix[0] * matrix[0]) + (matrix[4] * matrix[4]);
+                let y_res = ((matrix[1] * matrix[1]) + (matrix[5] * matrix[5])).sqrt() * -1.0;
+                let z_res = matrix[10];
+                Ok([x_res, y_res, z_res])
+            }
+        }
+        (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
+    }
+}
+
+fn get_model_infos(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
+    let mut pixel_scale = decoder
+        .get_tag_f64_vec(Tag::ModelPixelScaleTag)
+        .map_err(|e| {
+            CogError::TagsNotFound(
+                e,
+                vec![Tag::ModelPixelScaleTag.to_u16()],
+                0,
+                path.to_path_buf(),
+            )
+        })
+        .ok();
+    if let Some(pixel) = pixel_scale {
+        pixel_scale = Some(vec![pixel[0], -pixel[1], pixel[2]]);
+    }
+    let tie_points = decoder
+        .get_tag_f64_vec(Tag::ModelTiepointTag)
+        .map_err(|e| {
+            CogError::TagsNotFound(
+                e,
+                vec![Tag::ModelTiepointTag.to_u16()],
+                0,
+                path.to_path_buf(),
+            )
+        })
+        .ok();
+    let transformation = decoder
+        .get_tag_f64_vec(Tag::ModelTransformationTag)
+        .map_err(|e| {
+            CogError::TagsNotFound(
+                e,
+                vec![Tag::ModelTransformationTag.to_u16()],
+                0,
+                path.to_path_buf(),
+            )
+        })
+        .ok();
+    (pixel_scale, tie_points, transformation)
 }
 
 fn get_grid_dims(
@@ -379,16 +576,85 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
             break;
         }
     }
+    // how to get it sorted from big to little number
     res
+}
+
+// see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+fn get_origin(
+    tie_points: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    match (tie_points, transformation) {
+        (Some(points), _) if points.len() == 6 => Ok([points[3], points[4], points[5]]),
+        (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
+        _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
+    }
+}
+
+fn meta_to_tilejson(meta: &Meta) -> TileJSON {
+    let mut tilejson = tilejson! {
+        tiles: vec![],
+        minzoom: meta.min_zoom,
+        maxzoom: meta.max_zoom
+    };
+
+    let mut cog_info = serde_json::Map::new();
+
+    cog_info.insert(
+        "minZoom".to_string(),
+        serde_json::Value::from(meta.min_zoom),
+    );
+
+    cog_info.insert(
+        "maxZoom".to_string(),
+        serde_json::Value::from(meta.max_zoom),
+    );
+
+    let mut resolutions_map = Vec::new();
+    for value in meta.zoom_and_resolutions.values() {
+        resolutions_map.push(value[0]);
+    }
+
+    resolutions_map.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+
+    cog_info.insert(
+        "tileSize".to_string(),
+        serde_json::Value::from([meta.tile_size.0, meta.tile_size.1]),
+    );
+
+    cog_info.insert(
+        "resolutions".to_string(),
+        serde_json::Value::from(resolutions_map),
+    );
+
+    cog_info.insert(
+        "origin".to_string(),
+        serde_json::Value::from([meta.origin[0], meta.origin[1]]),
+    );
+
+    cog_info.insert(
+        "extent".to_string(),
+        serde_json::Value::from(meta.extent.to_vec()),
+    );
+
+    tilejson
+        .other
+        .insert("custom_grid".to_string(), serde_json::json!(cog_info));
+    tilejson
 }
 
 #[cfg(test)]
 mod tests {
+    use insta::{assert_yaml_snapshot, Settings};
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
-    use std::path::PathBuf;
+    use std::{fs::File, path::PathBuf};
+    use tiff::decoder::Decoder;
 
-    use crate::cog::source::get_tile_idx;
+    use crate::cog::source::{get_full_resolution, get_tile_idx};
+    use approx::assert_abs_diff_eq;
 
     #[test]
     fn can_calc_tile_idx() {
@@ -458,5 +724,192 @@ mod tests {
         .unwrap();
         let expected = std::fs::read(expected_file_path).unwrap();
         assert_eq!(png_bytes, expected);
+    }
+
+    #[rstest]
+    #[case(
+        None,Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),
+        [1_620_750.250_8, 4_277_012.715_3, 0.0]
+    )]
+    #[case(
+        Some(vec![
+            0.0, 100.0, 0.0, 400_000.0, 100.0, 0.0, 0.0, 500_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 1.0,
+        ]),
+        None,
+        [400_000.0, 500_000.0, 0.0]
+    )]
+    fn can_get_origin(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] expected: [f64; 3],
+    ) {
+        let origin = super::get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(origin[0], expected[0]);
+        assert_abs_diff_eq!(origin[1], expected[1]);
+        assert_abs_diff_eq!(origin[2], expected[2]);
+    }
+
+    #[test]
+    fn can_get_model_infos() {
+        let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
+        let tif_file = File::open(&path).unwrap();
+        let mut decoder = Decoder::new(tif_file).unwrap();
+
+        let (pixel_scale, tie_points, transformation) = super::get_model_infos(&mut decoder, &path);
+
+        assert_yaml_snapshot!(pixel_scale, @r###"
+        - 10
+        - -10
+        - 0
+        "###);
+        assert_yaml_snapshot!(tie_points, @r###"
+        - 0
+        - 0
+        - 0
+        - 1620750.2508
+        - 4277012.7153
+        - 0
+        "###);
+        assert_yaml_snapshot!(transformation, @"~");
+    }
+
+    #[test]
+    fn can_get_full_resolution() {
+        let pixel_scale = Some(vec![10.000, -10.000, 0.000]);
+        let transformation: Option<&[f64]> = None;
+
+        let resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            transformation,
+            &PathBuf::from("not_exist.tif"),
+        )
+        .ok();
+
+        assert_yaml_snapshot!(resolution, @r###"
+        - 10
+        - -10
+        - 0
+        "###);
+    }
+
+    #[rstest]
+    #[case(
+        None,Some(vec![10.0,-10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512))
+    ]
+    #[case(
+        Some(vec![
+            10.0,0.0,0.0,1_620_750.250_8,
+            0.0,-10.0,0.0,4_277_012.715_3,
+            0.0,0.0,0.0,0.0,
+            0.0,0.0,0.0,1.0
+        ]),None,None,(512,512))
+    ]
+    fn can_get_extent(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] pixel_scale: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] (full_width_pixel, full_length_pixel): (u32, u32),
+    ) {
+        use crate::cog::source::{get_extent, get_origin};
+
+        let origin = get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        let full_resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+
+        let full_width = full_resolution[0] * f64::from(full_width_pixel);
+        let full_length = full_resolution[1] * f64::from(full_length_pixel);
+
+        let extent = get_extent(
+            matrix.as_deref(),
+            &origin,
+            (full_width_pixel, full_length_pixel),
+            (full_width, full_length),
+        );
+
+        assert_abs_diff_eq!(extent[0], 1_620_750.250_8);
+        assert_abs_diff_eq!(extent[1], 4_271_892.715_3);
+        assert_abs_diff_eq!(extent[2], 1_625_870.250_8);
+        assert_abs_diff_eq!(extent[3], 4_277_012.715_3);
+    }
+
+    #[test]
+    fn can_get_meta() {
+        let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
+
+        let meta = super::get_meta(&path).unwrap();
+
+        let mut settings = Settings::new();
+        settings.set_sort_maps(true);
+
+        // with this settings, the order of hashmap would be fixed to get a stable test
+        settings.bind(|| {
+            insta::assert_yaml_snapshot!(meta,@r###"
+            min_zoom: 0
+            max_zoom: 3
+            origin:
+              - 1620750.2508
+              - 4277012.7153
+              - 0
+            extent:
+              - 1620750.2508
+              - 4271892.7153
+              - 1625870.2508
+              - 4277012.7153
+            zoom_and_resolutions:
+              0:
+                - 80
+                - -80
+                - 0
+              1:
+                - 40
+                - -40
+                - 0
+              2:
+                - 20
+                - -20
+                - 0
+              3:
+                - 10
+                - -10
+                - 0
+            zoom_and_ifd:
+              0: 3
+              1: 2
+              2: 1
+              3: 0
+            zoom_and_tile_across_down:
+              0:
+                - 1
+                - 1
+              1:
+                - 1
+                - 1
+              2:
+                - 1
+                - 1
+              3:
+                - 2
+                - 2
+            nodata: ~
+            tile_size:
+              - 256
+              - 256
+            "###);
+        });
     }
 }
