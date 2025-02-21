@@ -17,6 +17,8 @@ use crate::pg::PgResult;
 use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
 use crate::MartinResult;
+use tokio_retry2::strategy::{jitter_range, FixedInterval};
+use tokio_retry2::{Retry, RetryError};
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -133,7 +135,18 @@ impl PgConfig {
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<TileInfoSources> {
-        let pg = PgBuilder::new(self, id_resolver).await?;
+        // waits a maximum of 20s..25s before failing permanently
+        let retry_strategy = FixedInterval::from_millis(500)
+            .map(jitter_range(0.8, 1.0)) // jitter 400ms..500ms => no thundering herd
+            .take(50);
+
+        let pg = Retry::spawn(retry_strategy, || async {
+            PgBuilder::new(self, id_resolver.clone())
+                .await
+                .map_err(RetryError::transient)
+        })
+        .await?;
+
         let inst_tables = on_slow(
             pg.instantiate_tables(),
             // warn only if default bounds timeout has already passed
