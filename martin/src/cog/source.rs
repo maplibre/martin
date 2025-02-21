@@ -617,7 +617,7 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
         resolutions_map.push(value[0]);
     }
 
-    resolutions_map.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    resolutions_map.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
 
     cog_info.insert(
         "tileSize".to_string(),
