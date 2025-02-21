@@ -367,7 +367,7 @@ where
     Ok(())
 }
 
-fn validate_zoom(zoom: Option<i32>, zoom_name: &'static str) -> MbtResult<Option<u8>> {
+fn validate_zoom(zoom: Option<i64>, zoom_name: &'static str) -> MbtResult<Option<u8>> {
     if let Some(zoom) = zoom {
         let z = u8::try_from(zoom).ok().filter(|v| *v <= MAX_ZOOM);
         if z.is_none() {
@@ -394,10 +394,8 @@ FROM tiles;"
     .fetch_one(conn)
     .await?;
 
-    #[allow(clippy::cast_possible_truncation)]
-    let min_zoom = validate_zoom(info.min_zoom.map(|v| v as i32), "zoom_level")?;
-    #[allow(clippy::cast_possible_truncation)]
-    let max_zoom = validate_zoom(info.max_zoom.map(|v| v as i32), "zoom_level")?;
+    let min_zoom = validate_zoom(info.min_zoom, "zoom_level")?;
+    let max_zoom = validate_zoom(info.max_zoom, "zoom_level")?;
 
     match (min_zoom, max_zoom) {
         (Some(min_zoom), Some(max_zoom)) => Ok(Some((min_zoom, max_zoom))),
