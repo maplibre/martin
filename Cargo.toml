@@ -3,7 +3,7 @@ resolver = "3"
 members = ["martin", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
 rust-version = "1.85"

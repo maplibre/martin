@@ -8,7 +8,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
 use spreet::{
-    get_svg_input_paths, sprite_name, SpreetError, Sprite, Spritesheet, SpritesheetBuilder,
+    SpreetError, Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name,
 };
 use tokio::io::AsyncReadExt;
 
@@ -133,8 +133,11 @@ impl SpriteSources {
         } else {
             match self.0.entry(id) {
                 Entry::Occupied(v) => {
-                    warn!("Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
-                    v.key(), v.get().path.display());
+                    warn!(
+                        "Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
+                        v.key(),
+                        v.get().path.display()
+                    );
                 }
                 Entry::Vacant(v) => {
                     info!("Configured sprite source {} from {disp_path}", v.key());
@@ -300,7 +303,9 @@ mod tests {
 
             // The PNG output is too flaky to be reliably used in a test
             if png != expected {
-                warn!("Generated PNG does not match expected PNG, make sure to bless tests with\n  cargo test --features bless-tests\n");
+                warn!(
+                    "Generated PNG does not match expected PNG, make sure to bless tests with\n  cargo test --features bless-tests\n"
+                );
             }
             // assert_eq!(
             //     png, expected,
