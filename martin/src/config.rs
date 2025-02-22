@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::future::Future;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;

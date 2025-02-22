@@ -8,14 +8,14 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
-use crate::OptOneMany::{Many, One};
-use crate::config::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::{copy_unrecognized_config, UnrecognizedValues};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
+use crate::MartinResult;
+use crate::OptOneMany::{Many, One};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -74,13 +74,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
