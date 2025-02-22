@@ -8,14 +8,14 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::{copy_unrecognized_config, UnrecognizedValues};
+use crate::MartinResult;
+use crate::OptOneMany::{Many, One};
+use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
-use crate::MartinResult;
-use crate::OptOneMany::{Many, One};
 
 pub type FileResult<T> = Result<T, FileError>;
 
