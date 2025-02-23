@@ -6,10 +6,16 @@ fn copy_dir_all(
     exclude_dirs: &[std::path::PathBuf],
 ) -> std::io::Result<()> {
     assert!(!exclude_dirs.contains(&src.as_ref().to_path_buf()));
-    assert!(src.as_ref().is_dir(), "source for the copy operation is not an existing directory");
-    assert!(!dst.as_ref().exists(), "destination for the copy operation must not exist");
+    assert!(
+        src.as_ref().is_dir(),
+        "source for the copy operation is not an existing directory"
+    );
+    assert!(
+        !dst.as_ref().exists(),
+        "destination for the copy operation must not exist"
+    );
     std::fs::create_dir_all(&dst)?;
-    
+
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
@@ -46,10 +52,20 @@ fn main() -> std::io::Result<()> {
         if out_martin_ui_dir.exists() {
             std::fs::remove_dir_all(&out_martin_ui_dir)?;
         }
-        copy_dir_all(&martin_ui_dir, &out_martin_ui_dir, &[martin_ui_dir.join("dist"), martin_ui_dir.join("node_modules")])?;
-        
+        copy_dir_all(
+            &martin_ui_dir,
+            &out_martin_ui_dir,
+            &[
+                martin_ui_dir.join("dist"),
+                martin_ui_dir.join("node_modules"),
+            ],
+        )?;
+
         let target_to_keep = martin_ui_dir.join("dist");
-        assert!(!target_to_keep.exists() || target_to_keep.is_dir(), "the martin-ui/dist must either not exist or have been produced by previous builds");
+        assert!(
+            !target_to_keep.exists() || target_to_keep.is_dir(),
+            "the martin-ui/dist must either not exist or have been produced by previous builds"
+        );
 
         println!("installing and building in {out_martin_ui_dir:?}");
         static_files::NpmBuild::new(&out_martin_ui_dir)
