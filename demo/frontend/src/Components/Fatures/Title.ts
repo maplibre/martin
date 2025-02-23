@@ -12,11 +12,11 @@ export default styled.div`
   -webkit-text-stroke-width: 1px;
   -webkit-text-stroke-color: white;
   text-transform: uppercase;
-  
+
   @media (max-width: 500px) {
     font-size: 35px;
   }
-  
+
   img {
     max-width: 100%;
   }
