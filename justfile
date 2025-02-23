@@ -327,8 +327,15 @@ clippy-md:
 update-breaking:
     cargo +nightly -Z unstable-options update --breaking
 
+# A few useful tests to run locally to simulate CI
+ci-test: env-info restart fmt clippy check-doc test check
+
 # These steps automatically run before git push via a git hook
-git-pre-push: env-info restart fmt clippy check-doc test check
+git-pre-push:
+    # TODO: these should be deleted after a while
+    echo "Pre-commit is no longer required."
+    echo "Please remove the git hook by running    rm .git/hooks/pre-push"
+    exit 1
 
 # Get environment info
 [private]
