@@ -12,8 +12,8 @@ export default styled.div`
 
   z-index: 3;
   height: 615px;
-  
-  
+
+
   @media (max-width: 500px) {
     position: initial;
 

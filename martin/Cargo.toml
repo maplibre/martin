@@ -74,7 +74,6 @@ actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
 bit-set = { workspace = true, optional = true }
-brotli.workspace = true
 clap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
@@ -118,7 +117,6 @@ static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
-cargo-husky.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
