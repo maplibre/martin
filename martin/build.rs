@@ -25,14 +25,15 @@ fn main() -> std::io::Result<()> {
         // - move the frontend code to the OUT_DIR,
         // - install npm dependencies and
         // - build the frontend
-        let out_dir = std::env::var("OUT_DIR").unwrap();
-        let new_dir = format!("{out_dir}/martin-ui/");
+        let out_dir = std::env::var("OUT_DIR").unwrap().parse::<std::path::PathBuf>().unwrap();
+        let new_dir = out_dir.join("martin-ui");
+        let target_to_keep = std::path::PathBuf::from("martin-ui").join("dist");
         copy_dir_all("martin-ui", &new_dir)?;
 
         static_files::NpmBuild::new(&new_dir)
             .install()?
             .run("build")?
-            .target("martin-ui/dist")
+            .target(&target_to_keep)
             .change_detection()
             .to_resource_dir()
             .build()?;
@@ -41,7 +42,7 @@ fn main() -> std::io::Result<()> {
         // `copy_dir_all` was never anticipated by the crate we use
         // => we need to do this with different arguments.
         static_files::NpmBuild::new("martin-ui")
-            .target(&out_dir)
+            .target(&target_to_keep)
             .change_detection();
     }
     Ok(())
