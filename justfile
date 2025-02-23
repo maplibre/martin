@@ -54,7 +54,7 @@ clean: clean-test stop && clean-martin-ui
     cargo clean
 
 clean-martin-ui:
-    rm -rf martin-ui/dist martin-ui/node_modules
+    rm -rf martin/martin-ui/dist martin/martin-ui/node_modules
     cargo clean -p static-files
 
 # Delete test output files
