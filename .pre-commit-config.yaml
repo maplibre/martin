@@ -25,5 +25,16 @@ repos:
         language: rust
         pass_filenames: false
 
-# TODO: Add SQL hooks for formatting and linting
+  #
+  # TODO: This needs a more thorough configuration, e.g. spacing, alignment, capitalization, etc
+  #
+  # https://docs.sqlfluff.com/en/stable/production/pre_commit.html
+  # - repo: https://github.com/sqlfluff/sqlfluff
+  #   rev: 3.3.1
+  #   hooks:
+  #     - id: sqlfluff-fix
+  #       name: sqlfluff-fix-jinja
+  #       args: [ "--dialect", "postgres" ]
+  #       files: '^.*\.sql$'
+
 # TODO: Add NPM hooks for formatting and linting
