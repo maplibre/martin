@@ -25,7 +25,10 @@ fn main() -> std::io::Result<()> {
         // - move the frontend code to the OUT_DIR,
         // - install npm dependencies and
         // - build the frontend
-        let out_dir = std::env::var("OUT_DIR").unwrap().parse::<std::path::PathBuf>().unwrap();
+        let out_dir = std::env::var("OUT_DIR")
+            .unwrap()
+            .parse::<std::path::PathBuf>()
+            .unwrap();
         let new_dir = out_dir.join("martin-ui");
         let target_to_keep = std::path::PathBuf::from("martin-ui").join("dist");
         copy_dir_all("martin-ui", &new_dir)?;
