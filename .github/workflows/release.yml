@@ -27,6 +27,6 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2025-02-22
+          toolchain: nightly
       - name: Test packaging
-        run: cargo +nightly publish --workspace -Z package-workspace --dry-run
+        run: cargo publish --workspace -Z package-workspace --dry-run
