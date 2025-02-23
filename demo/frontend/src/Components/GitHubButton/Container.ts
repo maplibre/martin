@@ -9,9 +9,9 @@ export default styled.a`
   font-size: 20px;
   color: #fff;
   text-decoration: none;
-  
+
   background-color: transparent;
-  
+
   cursor: pointer;
 
   &:hover{
