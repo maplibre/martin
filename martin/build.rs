@@ -37,7 +37,6 @@ fn main() -> std::io::Result<()> {
             .install()?
             .run("build")?
             .target(&target_to_keep)
-            .change_detection()
             .to_resource_dir()
             .build()?;
         // Above code does have the problem that change detection would not be working properly.
