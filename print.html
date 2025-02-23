@@ -203,7 +203,7 @@ cd martin
 curl -L -O https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles
 
 # Download the latest version of Martin binary, extract it, and make it executable
-curl -L -O https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz 
+curl -L -O https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
 tar -xzf martin-x86_64-unknown-linux-gnu.tar.gz
 chmod +x ./martin
 
@@ -398,15 +398,15 @@ Options:
           Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
           Must begin with a `/`.
           Examples: `/`, `/tiles`
-          
+
   -W, --workers &lt;WORKERS&gt;
           Number of web server workers
 
       --preferred-encoding &lt;PREFERRED_ENCODING&gt;
           Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip
-          
+
           [possible values: brotli, gzip]
-          
+
   -u, --webui &lt;WEB_UI&gt;
           Control Martin web UI.  Disabled by default
 
@@ -628,11 +628,11 @@ sudo nano /etc/apache2/sites-available/mydomain.tld.conf
     ServerAdmin webmaster@localhost
     DocumentRoot /var/www/mydomain
     ProxyPreserveHost On
-    
+
     RewriteEngine on
     RewriteCond %{REQUEST_URI} ^/tiles/(.*)$
     RewriteRule ^/tiles/(.*)$ http://localhost:3000/tiles/$1 [P,L]
-    
+
     &lt;IfModule mod_headers.c&gt;
         RequestHeader set X-Forwarded-Proto "https"
     &lt;/IfModule&gt;
@@ -1825,7 +1825,7 @@ diff.</p>
 <pre><code class="language-bash"># This command will compare `file1.mbtiles` and `file2.mbtiles`, and generate a new diff file `diff.mbtiles`.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
 
-# If diff.mbtiles is applied to file1.mbtiles, it will produce file2.mbtiles 
+# If diff.mbtiles is applied to file1.mbtiles, it will produce file2.mbtiles
 mbtiles apply-patch file1.mbtiles diff.mbtiles file2a.mbtiles
 
 # file2.mbtiles and file2a.mbtiles should now be the same
