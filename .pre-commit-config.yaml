@@ -12,20 +12,20 @@ repos:
     rev: v5.0.0
     hooks:
       - id: check-added-large-files
-      - id: check-toml
+      - id: check-executables-have-shebangs
       - id: check-json
         exclude: '.+/tsconfig.json'
+      - id: check-shebang-scripts-are-executable
+        exclude: '.+\.rs' # would be triggered by #![some_attribute]
+      - id: check-symlinks
+      - id: check-toml
       - id: check-yaml
         args: [ --allow-multiple-documents ]
+      - id: destroyed-symlinks
       - id: end-of-file-fixer
       - id: mixed-line-ending
         args: [ --fix=lf ]
       - id: trailing-whitespace
-      - id: check-executables-have-shebangs
-      - id: check-shebang-scripts-are-executable
-        exclude: '.+\.rs' # would be triggered by #![doc = include_str!("../README.md")]
-      - id: check-symlinks
-      - id: destroyed-symlinks
 
   - repo: local
     hooks:
