@@ -11,14 +11,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: mixed-line-ending
-        args:
-          - --fix=lf
+      - id: check-added-large-files
       - id: check-toml
       - id: check-yaml
-      - id: check-added-large-files
+        args: [ --allow-multiple-documents, --unsafe ]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [ --fix=lf ]
+      - id: trailing-whitespace
 
   - repo: local
     hooks:
@@ -37,7 +37,7 @@ repos:
   #   rev: 3.3.1
   #   hooks:
   #     - id: sqlfluff-fix
-  #       name: sqlfluff-fix-jinja
+  #       name: sqlfluff-fix
   #       args: [ "--dialect", "postgres" ]
   #       files: '^.*\.sql$'
 
