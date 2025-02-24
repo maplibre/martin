@@ -21,6 +21,11 @@ repos:
       - id: mixed-line-ending
         args: [ --fix=lf ]
       - id: trailing-whitespace
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+        exclude: '.+\.rs' # would be triggered by #![doc = include_str!("../README.md")]
+      - id: check-symlinks
+      - id: destroyed-symlinks
 
   - repo: local
     hooks:
