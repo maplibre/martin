@@ -6,17 +6,17 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
+use crate::MartinResult;
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::{copy_unrecognized_config, UnrecognizedValues};
+use crate::config::{UnrecognizedValues, copy_unrecognized_config};
+use crate::pg::PgError;
+use crate::pg::PgResult;
 use crate::pg::builder::PgBuilder;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::utils::on_slow;
-use crate::pg::PgError;
-use crate::pg::PgResult;
 use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
-use crate::MartinResult;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -140,9 +140,15 @@ impl PgConfig {
             DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)),
             || {
                 if pg.auto_bounds() == BoundsCalcType::Skip {
-                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.", pg.get_id());
+                    warn!(
+                        "Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.",
+                        pg.get_id()
+                    );
                 } else {
-                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.", pg.get_id());
+                    warn!(
+                        "Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.",
+                        pg.get_id()
+                    );
                 }
             },
         );
@@ -164,8 +170,8 @@ mod tests {
     use tilejson::Bounds;
 
     use super::*;
-    use crate::config::tests::assert_config;
     use crate::config::Config;
+    use crate::config::tests::assert_config;
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
     use crate::test_utils::some;

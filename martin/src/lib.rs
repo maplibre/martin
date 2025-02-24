@@ -2,15 +2,15 @@
 #![forbid(unsafe_code)]
 
 mod config;
-pub use config::{read_config, Config, ServerState};
+pub use config::{Config, ServerState, read_config};
 
 mod source;
 pub use source::{CatalogSourceEntry, Source, Tile, TileData, TileSources, UrlQuery};
 
 mod utils;
 pub use utils::{
-    append_rect, IdResolver, MartinError, MartinResult, OptBoolObj, OptOneMany, TileRect,
-    NO_MAIN_CACHE,
+    IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, OptBoolObj, OptOneMany, TileRect,
+    append_rect,
 };
 
 pub mod args;
