@@ -14,6 +14,8 @@ repos:
       - id: check-added-large-files
       - id: check-toml
       - id: check-yaml
+      - id: check-json
+        exclude: '.+/tsconfig.json'
         args: [ --allow-multiple-documents, --unsafe ]
       - id: end-of-file-fixer
       - id: mixed-line-ending
