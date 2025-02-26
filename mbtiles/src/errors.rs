@@ -57,7 +57,7 @@ pub enum MbtError {
     #[error("The destination file {0} is not empty. Some operations like creating a diff file require the destination file to be non-existent or empty.")]
     NonEmptyTargetFile(PathBuf),
 
-    #[error("The file {0} does not have the required uniqueness constraint")]
+    #[error("The file {0} does not have the required uniqueness constraint. Try adding a unique index on the `map` or `tiles` table.")]
     NoUniquenessConstraint(String),
 
     #[error("Could not copy MBTiles file: {reason}")]

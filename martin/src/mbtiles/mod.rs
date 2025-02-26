@@ -4,23 +4,47 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::trace;
+use clap::ValueEnum;
+use enum_display::EnumDisplay;
+use log::{trace, warn};
 use martin_tile_utils::{TileCoord, TileInfo};
-use mbtiles::MbtilesPool;
+use mbtiles::{MbtResult, MbtilesPool, ValidationLevel};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
 
 use crate::config::UnrecognizedValues;
-use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
+use crate::file_config::FileError::{self, AcquireConnError, InvalidMetadata, IoError};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
+
+#[derive(
+    PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum, EnumDisplay,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum OnInvalid {
+    /// Print warning message, and abort if the error is critical
+    #[default]
+    Warn,
+
+    /// Skip this source
+    Ignore,
+
+    /// Do not start Martin on any warnings
+    Abort,
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
+
+    #[serde(default)]
+    pub validate: ValidationLevel,
+
+    #[serde(default)]
+    pub on_invalid: OnInvalid,
 }
 
 impl ConfigExtras for MbtConfig {
@@ -31,7 +55,31 @@ impl ConfigExtras for MbtConfig {
 
 impl SourceConfigExtras for MbtConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
+        let source = MbtSource::new(id, path.clone()).await?;
+        if let Err(validation_error) = source.validate(self.validate).await {
+            match self.on_invalid {
+                OnInvalid::Abort => {
+                    return Err(FileError::AbortOnInvalid(
+                        path,
+                        validation_error.to_string(),
+                    ));
+                }
+                OnInvalid::Ignore => {
+                    return Err(FileError::IgnoreOnInvalid(
+                        path,
+                        validation_error.to_string(),
+                    ));
+                }
+                OnInvalid::Warn => {
+                    warn!(
+                        "Source {} failed validation, this may cause performance issues: {}",
+                        path.display(),
+                        validation_error.to_string()
+                    );
+                }
+            }
+        }
+        Ok(Box::new(source))
     }
 
     // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
@@ -79,6 +127,10 @@ impl MbtSource {
             tilejson: meta.tilejson,
             tile_info: meta.tile_info,
         })
+    }
+
+    async fn validate(&self, validation_level: ValidationLevel) -> MbtResult<()> {
+        self.mbtiles.validate(validation_level).await
     }
 }
 
@@ -131,13 +183,15 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
+    use mbtiles::ValidationLevel;
 
     use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
-    use crate::mbtiles::MbtConfig;
+    use crate::mbtiles::{MbtConfig, OnInvalid};
 
     #[test]
     fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let cfg: FileConfigEnum<MbtConfig> =
+            serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -149,8 +203,10 @@ mod tests {
                 pm-src3: https://example.org/file3.ext
                 pm-src4:
                   path: https://example.org/file4.ext
+            validate: thorough
+            on_invalid: abort
         "})
-        .unwrap();
+            .unwrap();
         let res = cfg.finalize("");
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
@@ -190,5 +246,7 @@ mod tests {
                 ),
             ]))
         );
+        assert_eq!(cfg.custom.validate, ValidationLevel::Thorough);
+        assert_eq!(cfg.custom.on_invalid, OnInvalid::Abort);
     }
 }
