@@ -2753,6 +2753,7 @@ dependencies = [
  "tilejson",
  "tokio",
  "tokio-postgres-rustls",
+ "tokio-retry2",
  "url",
 ]
 
@@ -5274,6 +5275,17 @@ dependencies = [
  "tokio-postgres",
  "tokio-rustls",
  "x509-cert",
+]
+
+[[package]]
+name = "tokio-retry2"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1264d076dd34560544a2799e40e457bd07c43d30f4a845686b031bcd8455c84f"
+dependencies = [
+ "pin-project",
+ "rand 0.9.0",
+ "tokio",
 ]
 
 [[package]]
