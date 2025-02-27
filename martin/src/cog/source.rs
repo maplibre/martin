@@ -11,10 +11,10 @@ use tiff::tags::Tag::{self, GdalNodata};
 
 use async_trait::async_trait;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
-use tilejson::{tilejson, TileJSON};
+use tilejson::{TileJSON, tilejson};
 
 use crate::file_config::FileError;
-use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
+use crate::{MartinResult, Source, TileData, UrlQuery, file_config::FileResult};
 
 use super::CogError;
 
