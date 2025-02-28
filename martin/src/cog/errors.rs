@@ -42,4 +42,21 @@ pub enum CogError {
 
     #[error("Striped tiff file is not supported, the tiff file is {0}")]
     NotSupportedChunkType(PathBuf),
+
+    #[error("Get origin failed for {0}")]
+    GetOriginFailed(PathBuf),
+
+    #[error("Coord transformation in {0} is invalid")]
+    InvalidGeoInformation(PathBuf, String),
+
+    #[error("Get full resolution failed from file: {0}")]
+    GetFullResolutionFailed(PathBuf),
+
+    #[error("Get extent failed from file: {0}")]
+    GetExtentFailed(PathBuf),
+
+    #[error(
+        "The pixel size of the image {0} is not squared, the x_scale is {1}, the y_scale is {2}"
+    )]
+    NonSquaredImage(PathBuf, f64, f64),
 }
