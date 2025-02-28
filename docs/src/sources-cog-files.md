@@ -59,10 +59,13 @@ cog:
 
 ## Tile Grid
 
-Generally COG has a custom tile grid which is not aligned to the google 3857 which is default in almost any map client like MapLibre, OpenLayers, etc..
+Generally `COG` file has a custom tile grid which is not aligned to the google 3857 which is default in almost any map client like MapLibre, OpenLayers, etc..
 
-To display this COG the clients needs to know the custom tile grid of COG.
-To not break the compatiblity of TileJSON spec, martin choose to add a field in tilejson to show the custom tile grid.
+To display the `COG` file the clients needs to know the custom `tile grid` of COG.
+
+To not break the compatiblity of TileJSON spec, martin choose to add a field in `TileJSON` to tell the custom tile grid.
+
+Lile we have a cog source named `rgb_u8`, we could see the custom filed in our `TileJson` by visit `http://your_host:your_port/rgb_u8`.
 
 ```json
 {
@@ -72,7 +75,7 @@ To not break the compatiblity of TileJSON spec, martin choose to add a field in 
   "tiles": [
     "http://localhost:3111/rgb_u8/{z}/{x}/{y}"
   ],
-  "custom_grid": {
+  "custom_grid": {   // the custom tile grid added here
     "extent": [
       1620750.2508,
       4271892.7153,
