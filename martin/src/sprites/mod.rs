@@ -249,14 +249,14 @@ mod tests {
         //.sdf => generate sdf from png, add sdf == true
         //- => does not generate sdf, omits sdf == true
         for extension in ["_sdf", ""] {
-            let paths = sprites.iter().map(|v| v.path.clone()).collect::<Vec<_>>();
+            let paths = sprites.iter().map(|v| v.value().clone()).collect::<Vec<_>>();
             test_src(paths.iter(), 1, "all_1", extension).await;
             test_src(paths.iter(), 2, "all_2", extension).await;
 
             let src1_path = sprites
                 .get("src1")
                 .into_iter()
-                .map(|v| v.path.clone())
+                .map(|v| v.value().clone())
                 .collect::<Vec<_>>();
             test_src(src1_path.iter(), 1, "src1_1", extension).await;
             test_src(src1_path.iter(), 2, "src1_2", extension).await;
@@ -264,7 +264,7 @@ mod tests {
             let src2_path = sprites
                 .get("src2")
                 .into_iter()
-                .map(|v| v.path.clone())
+                .map(|v| v.value().clone())
                 .collect::<Vec<_>>();
             test_src(src2_path.iter(), 1, "src2_1", extension).await;
             test_src(src2_path.iter(), 2, "src2_2", extension).await;
@@ -272,7 +272,7 @@ mod tests {
     }
 
     async fn test_src(
-        sources: impl Iterator<Item = &PathBuf>,
+        sources: impl Iterator<Item = &SpriteSource>,
         pixel_ratio: u8,
         filename: &str,
         extension: &str,
