@@ -249,7 +249,10 @@ mod tests {
         //.sdf => generate sdf from png, add sdf == true
         //- => does not generate sdf, omits sdf == true
         for extension in ["_sdf", ""] {
-            let paths = sprites.iter().map(|v| v.value().clone()).collect::<Vec<_>>();
+            let paths = sprites
+                .iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
             test_src(paths.iter(), 1, "all_1", extension).await;
             test_src(paths.iter(), 2, "all_2", extension).await;
 
