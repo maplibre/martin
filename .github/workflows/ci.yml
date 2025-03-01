@@ -275,6 +275,8 @@ jobs:
       - name: Rust Versions
         run: rustc --version && cargo --version
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
