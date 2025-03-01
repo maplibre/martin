@@ -6,7 +6,7 @@ export default styled.footer`
   justify-content: center;
 
   padding: 23px;
-  
+
   font-size: 16px;
 
   background-color: #171727;

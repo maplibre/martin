@@ -33,19 +33,19 @@ Options:
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
 
       --base-path <BASE_PATH>
-          Set TileJSON URL path prefix. This overides the default of respecting the X-Rewrite-URL header.
+          Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
           Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
           Must begin with a `/`.
           Examples: `/`, `/tiles`
-          
+
   -W, --workers <WORKERS>
           Number of web server workers
 
       --preferred-encoding <PREFERRED_ENCODING>
           Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip
-          
+
           [possible values: brotli, gzip]
-          
+
   -u, --webui <WEB_UI>
           Control Martin web UI.  Disabled by default
 

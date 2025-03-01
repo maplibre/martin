@@ -21,5 +21,5 @@ tilejson:
   foo: '{"bar":"foo"}'
   format: pbf
   generator: martin-cp v0.0.0
-agg_tiles_hash: EF19FCBCE73ADE1C85E856E6BBA9B4C7
+agg_tiles_hash: 7323D1D8A07A7176998822DB65E08567
 

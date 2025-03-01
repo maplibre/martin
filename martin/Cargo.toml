@@ -7,10 +7,6 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAs
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
 categories = ["science::geo", "web-programming::http-server"]
-exclude = [
-    # Tests include a lot of data and other test files that are not needed for the users of the library
-    "/tests",
-]
 default-run = "martin"
 edition.workspace = true
 license.workspace = true
@@ -59,12 +55,13 @@ name = "bench"
 harness = false
 
 [features]
-default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "postgres", "sprites"]
+default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites"]
 webui = ["dep:actix-web-static-files", "dep:static-files"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles"]
+cog = ["dep:tiff", "dep:png"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
@@ -78,7 +75,6 @@ actix-web.workspace = true
 async-trait.workspace = true
 aws-config.workspace = true
 bit-set = { workspace = true, optional = true }
-brotli.workspace = true
 clap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
@@ -94,6 +90,7 @@ moka.workspace = true
 num_cpus.workspace = true
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
@@ -102,14 +99,15 @@ rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
 rustls.workspace = true
 semver = { workspace = true, optional = true }
-serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
+serde.workspace = true
 spreet = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
+tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
@@ -120,7 +118,6 @@ static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
-cargo-husky.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true

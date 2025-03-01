@@ -1,0 +1,44 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+# exclusions should be separated with a pipe (|) character and a newline
+exclude: |
+  (?x)^(
+      tests/expected/.*
+  )$
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args:
+          - --fix=lf
+      - id: check-toml
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: Rust Format
+        description: "Automatically format Rust code with cargo fmt"
+        entry: sh -c "cargo fmt --all"
+        language: rust
+        pass_filenames: false
+
+  #
+  # TODO: This needs a more thorough configuration, e.g. spacing, alignment, capitalization, etc
+  #
+  # https://docs.sqlfluff.com/en/stable/production/pre_commit.html
+  # - repo: https://github.com/sqlfluff/sqlfluff
+  #   rev: 3.3.1
+  #   hooks:
+  #     - id: sqlfluff-fix
+  #       name: sqlfluff-fix-jinja
+  #       args: [ "--dialect", "postgres" ]
+  #       files: '^.*\.sql$'
+
+# TODO: Add NPM hooks for formatting and linting

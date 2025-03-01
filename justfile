@@ -58,7 +58,7 @@ clean: clean-test stop && clean-martin-ui
     cargo clean
 
 clean-martin-ui:
-    rm -rf martin-ui/dist martin-ui/node_modules
+    rm -rf martin/martin-ui/dist martin/martin-ui/node_modules
     cargo clean -p static-files
 
 # Delete test output files
@@ -176,7 +176,7 @@ test-int: clean-test install-sqlx
         echo "** Skipping diffing with the expected output"
     else
         echo "** Comparing actual output with expected output..."
-        if ! diff --brief --recursive --new-file tests/output tests/expected; then
+        if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
             exit 1
@@ -331,8 +331,15 @@ clippy-md:
 update-breaking:
     cargo +nightly -Z unstable-options update --breaking
 
+# A few useful tests to run locally to simulate CI
+ci-test: env-info restart fmt clippy check-doc test check
+
 # These steps automatically run before git push via a git hook
-git-pre-push: env-info restart fmt clippy check-doc test check
+git-pre-push:
+    # TODO: these should be deleted after a while
+    echo "Pre-commit is no longer required."
+    echo "Please remove the git hook by running    rm .git/hooks/pre-push"
+    exit 1
 
 # Get environment info
 [private]

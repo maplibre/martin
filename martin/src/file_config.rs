@@ -39,15 +39,19 @@ pub enum FileError {
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
-    #[error(r#"Error occurred in processing S3 source uri: {0}"#)]
+    #[error(r"Error occurred in processing S3 source uri: {0}")]
     S3SourceError(String),
-
-    #[error(r#"Unable to acquire connection to file: {0}"#)]
+    
+    #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
     #[cfg(feature = "pmtiles")]
-    #[error(r#"PMTiles error {0} processing {1}"#)]
+    #[error(r"PMTiles error {0} processing {1}")]
     PmtError(pmtiles::PmtError, String),
+
+    #[cfg(feature = "cog")]
+    #[error(transparent)]
+    CogError(#[from] crate::cog::CogError),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
@@ -158,12 +162,12 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         Ok(Some(res))
     }
 
-    pub fn finalize(&self, prefix: &str) -> MartinResult<UnrecognizedValues> {
+    pub fn finalize(&self, prefix: &str) -> UnrecognizedValues {
         let mut res = UnrecognizedValues::new();
         if let Self::Config(cfg) = self {
             copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
         }
-        Ok(res)
+        res
     }
 }
 
@@ -234,7 +238,7 @@ pub async fn resolve_files<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     cache: OptMainCache,
-    extension: &str,
+    extension: &[&str],
 ) -> MartinResult<TileInfoSources> {
     resolve_int(config, idr, cache, extension)
         .map_err(crate::MartinError::from)
@@ -245,7 +249,7 @@ async fn resolve_int<T: SourceConfigExtras>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     cache: OptMainCache,
-    extension: &str,
+    extension: &[&str],
 ) -> FileResult<TileInfoSources> {
     let Some(cfg) = config.extract_file_config(cache)? else {
         return Ok(TileInfoSources::default());
@@ -284,16 +288,20 @@ async fn resolve_int<T: SourceConfigExtras>(
 
     for path in cfg.paths {
         if let Some(url) = parse_url(T::parse_urls(), &path)? {
-            let id = url
-                .path_segments()
-                .and_then(Iterator::last)
-                .and_then(|s| {
-                    // Strip extension and trailing dot, or keep the original string
-                    s.strip_suffix(extension)
-                        .and_then(|s| s.strip_suffix('.'))
-                        .or(Some(s))
-                })
-                .unwrap_or("pmt_web_source");
+            let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
+            let id = if let Some(ext) = target_ext {
+                url.path_segments()
+                    .and_then(Iterator::last)
+                    .and_then(|s| {
+                        // Strip extension and trailing dot, or keep the original string
+                        s.strip_suffix(ext)
+                            .and_then(|s| s.strip_suffix('.'))
+                            .or(Some(s))
+                    })
+                    .unwrap_or("web_source")
+            } else {
+                "web_source"
+            };
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
@@ -336,13 +344,21 @@ async fn resolve_int<T: SourceConfigExtras>(
     Ok(results)
 }
 
-fn dir_to_paths(path: &Path, extension: &str) -> Result<Vec<PathBuf>, FileError> {
+fn dir_to_paths(path: &Path, extension: &[&str]) -> Result<Vec<PathBuf>, FileError> {
     Ok(path
         .read_dir()
         .map_err(|e| IoError(e, path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
-            f.path().extension().filter(|e| *e == extension).is_some() && f.path().is_file()
+            f.path()
+                .extension()
+                .filter(|actual_ext| {
+                    extension
+                        .iter()
+                        .any(|expected_ext| expected_ext == actual_ext)
+                })
+                .is_some()
+                && f.path().is_file()
         })
         .map(|f| f.path())
         .collect())

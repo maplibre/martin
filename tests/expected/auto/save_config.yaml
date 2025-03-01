@@ -146,6 +146,19 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    table_source_geog:
+      schema: public
+      table: table_source_geog
+      srid: 4326
+      geometry_column: geog
+      bounds:
+      - -2.0
+      - 0.0
+      - 142.84131509869133
+      - 45.0
+      geometry_type: Geometry
+      properties:
+        gid: int4
     table_source_multiple_geom:
       schema: public
       table: table_source_multiple_geom
@@ -216,6 +229,7 @@ pmtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
+  - tests/fixtures/cog
   sources:
     cb_2018_us_zcta510_500k: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     png: tests/fixtures/pmtiles/png.pmtiles
@@ -225,6 +239,7 @@ mbtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
+  - tests/fixtures/cog
   sources:
     geography-class-jpg: tests/fixtures/mbtiles/geography-class-jpg.mbtiles
     geography-class-jpg-diff: tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles
@@ -238,6 +253,15 @@ mbtiles:
     world_cities_diff: tests/fixtures/mbtiles/world_cities_diff.mbtiles
     world_cities_modified: tests/fixtures/mbtiles/world_cities_modified.mbtiles
     zoomed_world_cities: tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
+cog:
+  paths:
+  - tests/fixtures/mbtiles
+  - tests/fixtures/pmtiles
+  - tests/fixtures/cog
+  sources:
+    rgb_u8: tests/fixtures/cog/rgb_u8.tif
+    rgba_u8: tests/fixtures/cog/rgba_u8.tif
+    rgba_u8_nodata: tests/fixtures/cog/rgba_u8_nodata.tiff
 sprites: tests/fixtures/sprites/src1
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
