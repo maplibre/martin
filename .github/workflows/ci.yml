@@ -261,7 +261,7 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest  # M-series CPU
           - target: debian-x86_64
-            os: ubuntu-latest
+            os: ubuntu-22.04
           - target: x86_64-apple-darwin
             os: macos-13  # x64 CPU
           - target: x86_64-pc-windows-msvc
