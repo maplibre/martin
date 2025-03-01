@@ -6,7 +6,7 @@ export default styled.div`
   margin: auto auto 125px;
 
   font-size: 40px;
-  
+
   @media (max-width: 500px) {
     display: none;
   }

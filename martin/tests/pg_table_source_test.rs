@@ -129,8 +129,8 @@ async fn table_source() {
 #[actix_rt::test]
 async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    let tj = source(&mock, "table_source").get_tilejson();
-    assert_yaml_snapshot!(tj, @r"
+    let src = source(&mock, "table_source");
+    assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
     tiles: []
     vector_layers:

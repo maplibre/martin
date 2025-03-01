@@ -14,8 +14,9 @@ use martin_tile_utils::{
 use serde::Deserialize;
 
 use crate::args::PreferredEncoding;
-use crate::source::{Source, TileSources, UrlQuery};
+use crate::source::{TileInfoSources, TileSources, UrlQuery};
 use crate::srv::SrvConfig;
+use crate::srv::server::map_internal_error;
 use crate::srv::server::map_internal_error;
 use crate::utils::cache::get_or_insert_cached_value;
 use crate::utils::{CacheKey, CacheValue, MainCache, OptMainCache};
@@ -62,7 +63,7 @@ async fn get_tile(
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<&'a dyn Source>,
+    pub sources: TileInfoSources,
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,

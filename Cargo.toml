@@ -37,10 +37,10 @@ approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.8"
 brotli = ">=5, <8"
-cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.2"
+ctor = "0.3"
+dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 enum-display = "0.1"
 env_logger = "0.11"
@@ -52,7 +52,6 @@ insta = "1"
 itertools = "0.14"
 json-patch = "3.0"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
-libsqlite3-sys = { version = ">=0.27", features = ["bundled"] }
 log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
 mbtiles = { path = "./mbtiles", version = "0.12.0" }
@@ -89,7 +88,6 @@ subst = { version = "0.3", features = ["yaml"] }
 testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"
-tile-grid = "0.6"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
