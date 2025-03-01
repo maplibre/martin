@@ -6,7 +6,7 @@ members = ["martin", "martin-tile-utils", "mbtiles"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.76"
+rust-version = "1.80"
 readme = "README.md"
 homepage = "https://martin.maplibre.org/"
 
@@ -19,10 +19,12 @@ unused_qualifications = "warn"
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
+enum_variant_names = "allow"
 implicit_hasher = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 module_name_repetitions = "allow"
+struct_field_names = "allow"
 
 [workspace.dependencies]
 actix-cors = "0.7"
@@ -35,10 +37,9 @@ approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.8"
 brotli = ">=5, <8"
-cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.2"
+ctor = "0.3"
 deadpool-postgres = "0.14"
 enum-display = "0.1"
 env_logger = "0.11"
@@ -47,13 +48,12 @@ flume = "0.11"
 futures = "0.3"
 indoc = "2"
 insta = "1"
-itertools = "0.13"
+itertools = "0.14"
 json-patch = "3.0"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
-libsqlite3-sys = { version = ">=0.27", features = ["bundled"] }
 log = "0.4"
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.5.1" }
-mbtiles = { path = "./mbtiles", version = "0.11.1" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
+mbtiles = { path = "./mbtiles", version = "0.12.0" }
 md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
@@ -66,8 +66,8 @@ postgres-protocol = "0.6"
 pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.23"
-rustls = "0.23.20"
+rstest = "0.24"
+rustls = "0.23.23"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
@@ -80,14 +80,13 @@ serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
 sqlite-compressions = { version = "0.2.16", default-features = false, features = ["bsdiffraw", "gzip"] }
-sqlite-hashes = { version = "0.7.6", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlite-hashes = { version = "0.7.9", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
-testcontainers-modules = { version = "0.11.4", features = ["postgres"] }
+testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"
-tile-grid = "0.6"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
@@ -100,14 +99,6 @@ sqlx-macros.opt-level = 3
 # See https://docs.rs/insta/latest/insta/#optional-faster-runs
 insta.opt-level = 3
 similar.opt-level = 3
-
-#[patch.crates-io]
-#enum-display = { path = "../enum-display" }
-#pmtiles = { path = "../pmtiles-rs" }
-#sqlite-hashes = { path = "../sqlite-hashes" }
-#tilejson = { path = "../tilejson" }
-#pmtiles = { git = "https://github.com/nyurik/pmtiles-rs", branch = "override" }
-#tilejson = { git = "https://github.com/nyurik/tilejson", branch = "btreemap" }
 
 [profile.release]
 # Make release binaries a bit smaller

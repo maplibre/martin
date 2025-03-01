@@ -1,0 +1,2212 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 1,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 2,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 3,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          636,
+          1311
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 4,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          69,
+          3783
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 5,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3786,
+          2534
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 6,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3802,
+          3431
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 7,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2619,
+          2576
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 8,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          8,
+          2251
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 9,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3639,
+          1152
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 10,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2961,
+          1833
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 11,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2312,
+          2092
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 12,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2337,
+          1483
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 13,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1455,
+          1594
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 14,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          862,
+          2279
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 15,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1415,
+          4080
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 16,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2754,
+          3130
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 17,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          769,
+          1278
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 18,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3825,
+          1950
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 19,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2749,
+          2390
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 20,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          49,
+          2064
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 21,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3553,
+          1114
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 22,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2583,
+          1696
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 23,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2316,
+          2306
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 24,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1728,
+          1438
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 25,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1310,
+          995
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 26,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1377,
+          2018
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 27,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          166,
+          1389
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 28,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3898,
+          2774
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 29,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2780,
+          2198
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 30,
+        "source_mvt_layer": "points1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 1,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 2,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 3,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          874,
+          1932
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 4,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1392,
+          3432
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 5,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3788,
+          2533
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 6,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1136,
+          1206
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 7,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          417,
+          429
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 8,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3316,
+          1807
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 9,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2607,
+          1772
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 10,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1841,
+          1896
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 11,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          667,
+          2267
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 12,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2111,
+          2017
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 13,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2542,
+          2026
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 14,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1224,
+          1934
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 15,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2068,
+          3715
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 16,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3857,
+          2228
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 17,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1381,
+          1037
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 18,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          355,
+          1636
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 19,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          4086,
+          708
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 20,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3025,
+          1806
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 21,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2561,
+          3043
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 22,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1876,
+          1373
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 23,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          68,
+          1923
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 24,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2353,
+          2384
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 25,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3166,
+          1909
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 26,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          941,
+          1943
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 27,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3897,
+          2980
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 28,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1158,
+          2910
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 29,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          4013,
+          2199
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 30,
+        "source_mvt_layer": "points2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2048,
+          2048
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 1,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2025,
+          2071
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 2,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2048,
+            2048
+          ],
+          [
+            2059,
+            2059
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "gid": 3,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2071,
+            2071
+          ],
+          [
+            2082,
+            2082
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "gid": 4,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2389,
+          2162
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 5,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2389,
+            2162
+          ],
+          [
+            2162,
+            2406
+          ],
+          [
+            2503,
+            2545
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "gid": 6,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2162,
+              2280
+            ],
+            [
+              2276,
+              2545
+            ],
+            [
+              2503,
+              2545
+            ],
+            [
+              2389,
+              2162
+            ],
+            [
+              2162,
+              2280
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "gid": 7,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2560,
+              2623
+            ],
+            [
+              2446,
+              2162
+            ],
+            [
+              2162,
+              2280
+            ],
+            [
+              2219,
+              2545
+            ],
+            [
+              2560,
+              2623
+            ]
+          ],
+          [
+            [
+              2446,
+              2474
+            ],
+            [
+              2276,
+              2406
+            ],
+            [
+              2389,
+              2280
+            ],
+            [
+              2446,
+              2474
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "gid": 8,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2162,
+            2545
+          ],
+          [
+            2276,
+            2280
+          ],
+          [
+            2389,
+            2162
+          ],
+          [
+            2503,
+            2406
+          ]
+        ],
+        "type": "MultiPoint"
+      },
+      "properties": {
+        "gid": 9,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2162,
+            2545
+          ],
+          [
+            2276,
+            2280
+          ],
+          [
+            2389,
+            2162
+          ],
+          [
+            2503,
+            2406
+          ]
+        ],
+        "type": "MultiPoint"
+      },
+      "properties": {
+        "gid": 10,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2162,
+              2162
+            ],
+            [
+              2276,
+              2280
+            ],
+            [
+              2162,
+              2545
+            ]
+          ],
+          [
+            [
+              2503,
+              2545
+            ],
+            [
+              2389,
+              2406
+            ],
+            [
+              2503,
+              2280
+            ],
+            [
+              2389,
+              2162
+            ]
+          ]
+        ],
+        "type": "MultiLineString"
+      },
+      "properties": {
+        "gid": 11,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                2162,
+                2280
+              ],
+              [
+                2503,
+                2162
+              ],
+              [
+                2219,
+                2105
+              ],
+              [
+                2105,
+                2162
+              ],
+              [
+                2162,
+                2280
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                2389,
+                2280
+              ],
+              [
+                2162,
+                2545
+              ],
+              [
+                2560,
+                2545
+              ],
+              [
+                2389,
+                2280
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "gid": 12,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                2276,
+                2474
+              ],
+              [
+                2560,
+                2280
+              ],
+              [
+                2389,
+                2105
+              ],
+              [
+                2162,
+                2162
+              ],
+              [
+                2162,
+                2406
+              ],
+              [
+                2276,
+                2474
+              ]
+            ],
+            [
+              [
+                2276,
+                2342
+              ],
+              [
+                2276,
+                2221
+              ],
+              [
+                2389,
+                2280
+              ],
+              [
+                2276,
+                2342
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                2276,
+                2623
+              ],
+              [
+                2503,
+                2545
+              ],
+              [
+                2560,
+                2406
+              ],
+              [
+                2276,
+                2623
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "gid": 13,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2094,
+            2116
+          ],
+          [
+            2128,
+            2162
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "gid": 14,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2059,
+            2105
+          ],
+          [
+            2059,
+            2099
+          ],
+          [
+            2060,
+            2098
+          ],
+          [
+            2060,
+            2094
+          ],
+          [
+            2061,
+            2092
+          ],
+          [
+            2061,
+            2091
+          ],
+          [
+            2062,
+            2089
+          ],
+          [
+            2062,
+            2087
+          ],
+          [
+            2063,
+            2085
+          ],
+          [
+            2064,
+            2084
+          ],
+          [
+            2065,
+            2082
+          ],
+          [
+            2066,
+            2081
+          ],
+          [
+            2067,
+            2079
+          ],
+          [
+            2073,
+            2073
+          ],
+          [
+            2075,
+            2072
+          ],
+          [
+            2076,
+            2071
+          ],
+          [
+            2080,
+            2069
+          ],
+          [
+            2081,
+            2068
+          ],
+          [
+            2083,
+            2067
+          ],
+          [
+            2085,
+            2067
+          ],
+          [
+            2086,
+            2066
+          ],
+          [
+            2090,
+            2066
+          ],
+          [
+            2092,
+            2065
+          ],
+          [
+            2103,
+            2065
+          ],
+          [
+            2104,
+            2066
+          ],
+          [
+            2106,
+            2066
+          ],
+          [
+            2108,
+            2067
+          ],
+          [
+            2110,
+            2067
+          ],
+          [
+            2111,
+            2068
+          ],
+          [
+            2115,
+            2070
+          ],
+          [
+            2116,
+            2071
+          ],
+          [
+            2118,
+            2072
+          ],
+          [
+            2120,
+            2074
+          ],
+          [
+            2122,
+            2075
+          ],
+          [
+            2123,
+            2076
+          ],
+          [
+            2124,
+            2078
+          ],
+          [
+            2126,
+            2079
+          ],
+          [
+            2127,
+            2081
+          ],
+          [
+            2128,
+            2082
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "gid": 15,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2048,
+            2048
+          ],
+          [
+            2047,
+            2049
+          ],
+          [
+            2047,
+            2050
+          ],
+          [
+            2046,
+            2050
+          ],
+          [
+            2046,
+            2057
+          ],
+          [
+            2047,
+            2057
+          ],
+          [
+            2047,
+            2059
+          ],
+          [
+            2048,
+            2059
+          ],
+          [
+            2048,
+            2060
+          ],
+          [
+            2049,
+            2060
+          ],
+          [
+            2050,
+            2061
+          ],
+          [
+            2052,
+            2061
+          ],
+          [
+            2052,
+            2062
+          ],
+          [
+            2055,
+            2062
+          ],
+          [
+            2056,
+            2061
+          ],
+          [
+            2058,
+            2061
+          ],
+          [
+            2058,
+            2060
+          ],
+          [
+            2059,
+            2060
+          ],
+          [
+            2059,
+            2059
+          ],
+          [
+            2060,
+            2059
+          ],
+          [
+            2060,
+            2058
+          ],
+          [
+            2061,
+            2058
+          ],
+          [
+            2061,
+            2056
+          ],
+          [
+            2062,
+            2055
+          ],
+          [
+            2062,
+            2052
+          ],
+          [
+            2061,
+            2052
+          ],
+          [
+            2061,
+            2050
+          ],
+          [
+            2060,
+            2049
+          ],
+          [
+            2060,
+            2048
+          ],
+          [
+            2059,
+            2048
+          ],
+          [
+            2048,
+            2059
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "gid": 16,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2044,
+              2070
+            ],
+            [
+              2045,
+              2071
+            ],
+            [
+              2051,
+              2071
+            ],
+            [
+              2052,
+              2070
+            ],
+            [
+              2055,
+              2070
+            ],
+            [
+              2056,
+              2069
+            ],
+            [
+              2058,
+              2069
+            ],
+            [
+              2059,
+              2068
+            ],
+            [
+              2060,
+              2068
+            ],
+            [
+              2068,
+              2060
+            ],
+            [
+              2068,
+              2059
+            ],
+            [
+              2069,
+              2058
+            ],
+            [
+              2069,
+              2056
+            ],
+            [
+              2070,
+              2055
+            ],
+            [
+              2070,
+              2052
+            ],
+            [
+              2071,
+              2051
+            ],
+            [
+              2071,
+              2046
+            ],
+            [
+              2070,
+              2045
+            ],
+            [
+              2070,
+              2043
+            ],
+            [
+              2069,
+              2043
+            ],
+            [
+              2069,
+              2041
+            ],
+            [
+              2068,
+              2041
+            ],
+            [
+              2068,
+              2040
+            ],
+            [
+              2067,
+              2040
+            ],
+            [
+              2067,
+              2039
+            ],
+            [
+              2066,
+              2039
+            ],
+            [
+              2065,
+              2038
+            ],
+            [
+              2064,
+              2038
+            ],
+            [
+              2064,
+              2037
+            ],
+            [
+              2055,
+              2037
+            ],
+            [
+              2055,
+              2038
+            ],
+            [
+              2054,
+              2038
+            ],
+            [
+              2053,
+              2039
+            ],
+            [
+              2052,
+              2039
+            ],
+            [
+              2052,
+              2040
+            ],
+            [
+              2051,
+              2040
+            ],
+            [
+              2051,
+              2041
+            ],
+            [
+              2050,
+              2041
+            ],
+            [
+              2050,
+              2042
+            ],
+            [
+              2049,
+              2043
+            ],
+            [
+              2049,
+              2044
+            ],
+            [
+              2048,
+              2045
+            ],
+            [
+              2047,
+              2044
+            ],
+            [
+              2047,
+              2043
+            ],
+            [
+              2046,
+              2042
+            ],
+            [
+              2046,
+              2041
+            ],
+            [
+              2045,
+              2041
+            ],
+            [
+              2045,
+              2040
+            ],
+            [
+              2044,
+              2040
+            ],
+            [
+              2044,
+              2039
+            ],
+            [
+              2043,
+              2039
+            ],
+            [
+              2042,
+              2038
+            ],
+            [
+              2041,
+              2038
+            ],
+            [
+              2041,
+              2037
+            ],
+            [
+              2032,
+              2037
+            ],
+            [
+              2032,
+              2038
+            ],
+            [
+              2031,
+              2038
+            ],
+            [
+              2030,
+              2039
+            ],
+            [
+              2029,
+              2039
+            ],
+            [
+              2029,
+              2040
+            ],
+            [
+              2028,
+              2040
+            ],
+            [
+              2028,
+              2041
+            ],
+            [
+              2027,
+              2041
+            ],
+            [
+              2027,
+              2043
+            ],
+            [
+              2026,
+              2043
+            ],
+            [
+              2026,
+              2045
+            ],
+            [
+              2025,
+              2046
+            ],
+            [
+              2025,
+              2051
+            ],
+            [
+              2026,
+              2052
+            ],
+            [
+              2026,
+              2055
+            ],
+            [
+              2027,
+              2056
+            ],
+            [
+              2027,
+              2058
+            ],
+            [
+              2028,
+              2059
+            ],
+            [
+              2028,
+              2060
+            ],
+            [
+              2036,
+              2068
+            ],
+            [
+              2037,
+              2068
+            ],
+            [
+              2038,
+              2069
+            ],
+            [
+              2040,
+              2069
+            ],
+            [
+              2041,
+              2070
+            ],
+            [
+              2044,
+              2070
+            ]
+          ],
+          [
+            [
+              2048,
+              2059
+            ],
+            [
+              2037,
+              2048
+            ],
+            [
+              2048,
+              2054
+            ],
+            [
+              2059,
+              2048
+            ],
+            [
+              2048,
+              2059
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "gid": 17,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2105,
+              2105
+            ],
+            [
+              2082,
+              2105
+            ],
+            [
+              2082,
+              2082
+            ],
+            [
+              2048,
+              2082
+            ]
+          ],
+          [
+            [
+              2048,
+              2048
+            ],
+            [
+              2050,
+              2048
+            ],
+            [
+              2051,
+              2047
+            ],
+            [
+              2057,
+              2047
+            ],
+            [
+              2058,
+              2048
+            ],
+            [
+              2060,
+              2048
+            ],
+            [
+              2061,
+              2049
+            ],
+            [
+              2063,
+              2049
+            ],
+            [
+              2063,
+              2050
+            ],
+            [
+              2064,
+              2050
+            ],
+            [
+              2068,
+              2054
+            ],
+            [
+              2068,
+              2055
+            ],
+            [
+              2069,
+              2055
+            ],
+            [
+              2069,
+              2056
+            ],
+            [
+              2070,
+              2057
+            ],
+            [
+              2070,
+              2059
+            ],
+            [
+              2071,
+              2059
+            ],
+            [
+              2071,
+              2062
+            ],
+            [
+              2072,
+              2063
+            ],
+            [
+              2072,
+              2067
+            ],
+            [
+              2071,
+              2068
+            ],
+            [
+              2071,
+              2071
+            ]
+          ]
+        ],
+        "type": "MultiLineString"
+      },
+      "properties": {
+        "gid": 18,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 19,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 20,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 21,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 22,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 23,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 24,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 25,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 26,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 27,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 28,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

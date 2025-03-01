@@ -202,7 +202,7 @@ pub async fn table_to_query(
     let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
     let query = format!(
-        r#"
+        r"
 SELECT
   ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
 FROM (
@@ -219,7 +219,7 @@ FROM (
     {geometry_column} && ST_Transform({bbox_search}, {srid})
   {limit_clause}
 ) AS tile;
-"#
+"
     )
     .trim()
     .to_string();
@@ -255,7 +255,7 @@ async fn calc_bounds(
         } else {
             let geometry_column = escape_identifier(geometry_column);
             cn.query_one(
-                &format!(r#"
+                &format!(r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
@@ -265,8 +265,7 @@ SELECT ST_Transform(
             END,
             4326
         ) AS bounds
-FROM {schema}.{table};
-                "#),
+FROM {schema}.{table};"),
                 &[]
             ).await
         };

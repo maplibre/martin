@@ -2,7 +2,7 @@ lints.workspace = true
 
 [package]
 name = "martin-tile-utils"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Utilities to help with map tile processing, such as type and compression detection. Used by the MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
