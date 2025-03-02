@@ -40,6 +40,7 @@ brotli = ">=5, <8"
 clap = { version = "4", features = ["derive"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.3"
+dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 enum-display = "0.1"
 env_logger = "0.11"

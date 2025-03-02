@@ -41,7 +41,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "reload", "sprite", "status",
 ];
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
@@ -227,7 +227,7 @@ pub mod tests {
         }
 
         fn clone_source(&self) -> TileInfoSource {
-            unimplemented!()
+            Box::new(self.clone())
         }
 
         async fn get_tile(

@@ -11,14 +11,21 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: mixed-line-ending
-        args:
-          - --fix=lf
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+      - id: check-json
+        exclude: '.+/tsconfig.json'
+      - id: check-shebang-scripts-are-executable
+        exclude: '.+\.rs' # would be triggered by #![some_attribute]
+      - id: check-symlinks
       - id: check-toml
       - id: check-yaml
-      - id: check-added-large-files
+        args: [ --allow-multiple-documents ]
+      - id: destroyed-symlinks
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [ --fix=lf ]
+      - id: trailing-whitespace
 
   - repo: local
     hooks:
@@ -37,7 +44,7 @@ repos:
   #   rev: 3.3.1
   #   hooks:
   #     - id: sqlfluff-fix
-  #       name: sqlfluff-fix-jinja
+  #       name: sqlfluff-fix
   #       args: [ "--dialect", "postgres" ]
   #       files: '^.*\.sql$'
 
