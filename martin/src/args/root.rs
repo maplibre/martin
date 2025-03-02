@@ -121,6 +121,11 @@ impl Args {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
         }
 
+        #[cfg(feature = "styles")]
+        if !cli_strings.is_empty() {
+            config.styles = parse_file_args(&mut cli_strings, &["json"], false);
+        }
+
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfigEnum::new(self.extras.sprite);
@@ -313,6 +318,7 @@ mod tests {
           - "../tests/fixtures/cog"
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
+        styles: "../tests/fixtures/cog"
         "#);
     }
 }

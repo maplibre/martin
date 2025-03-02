@@ -31,6 +31,8 @@ pub mod pmtiles;
 pub mod sprites;
 pub mod srv;
 
+#[cfg(feature = "styles")]
+mod styles;
 #[cfg(test)]
 #[path = "utils/test_utils.rs"]
 mod test_utils;
