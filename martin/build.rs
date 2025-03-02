@@ -1,33 +1,32 @@
 #[cfg(feature = "webui")]
 /// copies a directory and its contents to a new location recursively
 fn copy_dir_all(
-    src: impl AsRef<std::path::Path>,
-    dst: impl AsRef<std::path::Path>,
+    src: &std::path::PathBuf,
+    dst: &std::path::PathBuf,
     exclude_dirs: &[std::path::PathBuf],
 ) -> std::io::Result<()> {
-    assert!(!exclude_dirs.contains(&src.as_ref().to_path_buf()));
-    assert!(
-        src.as_ref().is_dir(),
-        "source for the copy operation is not an existing directory"
-    );
-    assert!(
-        !dst.as_ref().exists(),
-        "destination for the copy operation must not exist"
-    );
-    std::fs::create_dir_all(&dst)?;
+    assert!(!exclude_dirs.contains(src) && !exclude_dirs.contains(dst));
+    assert!(src.is_dir());
+
+    // creating symlinks is cheap => recreate instead of sync
+    if dst.exists() {
+        std::fs::remove_dir_all(dst)?;
+    }
+    std::fs::create_dir_all(dst)?;
 
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
-        let ty = entry.file_type()?;
-        let src_path = entry.path();
-        let dst_path = dst.as_ref().join(entry.file_name());
-        if ty.is_dir() {
-            if exclude_dirs.contains(&src_path) {
-                continue;
-            }
-            copy_dir_all(src_path, &dst_path, exclude_dirs)?;
+        if exclude_dirs.contains(&entry.path()) {
+            continue;
+        }
+        let target = dst.join(entry.file_name());
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(entry.path(), target)?;
+        #[cfg(windows)]
+        if entry.file_type()?.is_dir() {
+            std::os::windows::fs::symlink_dir(entry.path(), target)
         } else {
-            std::fs::copy(src_path, dst_path)?;
+            std::os::windows::fs::symlink_file(entry.path(), target)
         }
     }
     Ok(())
@@ -49,9 +48,6 @@ fn main() -> std::io::Result<()> {
             .parse::<std::path::PathBuf>()
             .unwrap();
         let out_martin_ui_dir = out_dir.join("martin-ui");
-        if out_martin_ui_dir.exists() {
-            std::fs::remove_dir_all(&out_martin_ui_dir)?;
-        }
         copy_dir_all(
             &martin_ui_dir,
             &out_martin_ui_dir,
