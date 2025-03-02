@@ -71,6 +71,10 @@ pub struct ExtraArgs {
     #[arg(short, long)]
     #[cfg(feature = "fonts")]
     pub font: Vec<PathBuf>,
+    /// Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times.
+    #[arg(short, long)]
+    #[cfg(feature = "styles")]
+    pub style: Vec<PathBuf>,
 }
 
 impl Args {
@@ -124,6 +128,16 @@ impl Args {
         #[cfg(feature = "styles")]
         if !cli_strings.is_empty() {
             config.styles = parse_file_args(&mut cli_strings, &["json"], false);
+            assert!(
+                matches!(config.styles, FileConfigEnum::Paths(_)),
+                "parse_file_args can only produce Paths"
+            );
+        }
+        #[cfg(feature = "styles")]
+        if !self.extras.style.is_empty() {
+            if let FileConfigEnum::Paths(ref mut previous_styles) = &mut config.styles {
+                previous_styles.extend(self.extras.style);
+            }
         }
 
         #[cfg(feature = "sprites")]
@@ -154,7 +168,12 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     false
 }
 
-#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "cog",
+    feature = "styles"
+))]
 pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
     extensions: &[&str],

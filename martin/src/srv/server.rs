@@ -47,6 +47,8 @@ pub struct Catalog {
     pub sprites: crate::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
     pub fonts: crate::fonts::FontCatalog,
+    #[cfg(feature = "styles")]
+    pub styles: crate::styles::StyleCatalog,
 }
 
 impl Catalog {
@@ -57,6 +59,8 @@ impl Catalog {
             sprites: state.sprites.get_catalog()?,
             #[cfg(feature = "fonts")]
             fonts: state.fonts.get_catalog(),
+            #[cfg(feature = "styles")]
+            styles: state.styles.get_catalog()?,
         })
     }
 }
