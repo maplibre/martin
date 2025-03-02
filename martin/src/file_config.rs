@@ -309,7 +309,7 @@ async fn resolve_int<T: SourceConfigExtras>(
             let dir_files = if is_dir {
                 // directories will be kept in the config just in case there are new files
                 directories.push(path.clone());
-                dir_to_paths(&path, extension)?
+                collect_files_with_extension(&path, extension)?
             } else if path.is_file() {
                 vec![path]
             } else {
@@ -341,16 +341,21 @@ async fn resolve_int<T: SourceConfigExtras>(
     Ok(results)
 }
 
-fn dir_to_paths(path: &Path, extension: &[&str]) -> Result<Vec<PathBuf>, FileError> {
-    Ok(path
+/// Returns a vector of file paths matching any `allowed_extension` within the given directory.
+///
+/// # Errors
+///
+/// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
+fn collect_files_with_extension(base_path: &Path, allowed_extension: &[&str]) -> Result<Vec<PathBuf>, FileError> {
+    Ok(base_path
         .read_dir()
-        .map_err(|e| IoError(e, path.to_path_buf()))?
+        .map_err(|e| IoError(e, base_path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
             f.path()
                 .extension()
                 .filter(|actual_ext| {
-                    extension
+                    allowed_extension
                         .iter()
                         .any(|expected_ext| expected_ext == actual_ext)
                 })
