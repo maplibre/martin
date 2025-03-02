@@ -7,10 +7,17 @@ use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "sprites",
+    feature = "cog"
+))]
 use crate::file_config::FileConfigEnum;
 use crate::MartinError::ConfigAndConnectionsError;
-use crate::{MartinResult, OptOneMany};
+use crate::MartinResult;
+#[cfg(feature = "fonts")]
+use crate::OptOneMany;
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
@@ -58,9 +65,11 @@ pub struct MetaArgs {
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
+    #[cfg(feature = "sprites")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
+    #[cfg(feature = "fonts")]
     pub font: Vec<PathBuf>,
 }
 
@@ -117,6 +126,7 @@ impl Args {
             config.sprites = FileConfigEnum::new(self.extras.sprite);
         }
 
+        #[cfg(feature = "fonts")]
         if !self.extras.font.is_empty() {
             config.fonts = OptOneMany::new(self.extras.font);
         }
