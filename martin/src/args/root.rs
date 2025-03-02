@@ -319,11 +319,14 @@ mod tests {
 
     #[test]
     fn cli_multiple_extensions() {
+        // multiple file-extensions are cleanly separated to the different configurations
         let args = Args::parse_from([
             "martin",
-            "../tests/fixtures/cog",
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
+            "../tests/fixtures/mbtiles/json.mbtiles",
+            "../tests/fixtures/styles/americana.json",
+            "../tests/fixtures/pmtiles/png.pmtiles",
         ]);
 
         let env = FauxEnv::default();
@@ -338,6 +341,25 @@ mod tests {
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
         styles: "../tests/fixtures/cog"
+        "#);
+    }
+
+    #[test]
+    fn cli_directories_propergate() {
+        let args = Args::parse_from([
+            "martin",
+            "../tests/fixtures/",
+        ]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        pmtiles: "../tests/fixtures"
+        mbtiles: "../tests/fixtures"
+        cog: "../tests/fixtures"
+        styles: "../tests/fixtures"
         "#);
     }
 }

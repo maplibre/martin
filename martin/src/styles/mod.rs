@@ -220,7 +220,12 @@ mod tests {
 
         let styles = StyleSources::resolve(&mut cfg).unwrap();
         assert_eq!(styles.0.len(), 2);
-        insta::assert_yaml_snapshot!(styles, @r#""#);
+        insta::assert_yaml_snapshot!(styles, @r#"
+        maptiler_basic:
+          path: "../tests/fixtures/styles/src2/maptiler_basic.json"
+        navigatum-basemap:
+          path: "../tests/fixtures/styles/src2/navigatum-basemap.json"
+        "#);
 
         let catalog = styles.get_catalog().unwrap();
         insta::assert_yaml_snapshot!(catalog, @r#""#);
