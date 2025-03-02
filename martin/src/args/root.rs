@@ -7,7 +7,12 @@ use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites", feature = "cog"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "sprites",
+    feature = "cog"
+))]
 use crate::file_config::FileConfigEnum;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
