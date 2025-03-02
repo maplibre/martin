@@ -17,7 +17,6 @@ use crate::args::PreferredEncoding;
 use crate::source::{TileInfoSources, TileSources, UrlQuery};
 use crate::srv::SrvConfig;
 use crate::srv::server::map_internal_error;
-use crate::srv::server::map_internal_error;
 use crate::utils::cache::get_or_insert_cached_value;
 use crate::utils::{CacheKey, CacheValue, MainCache, OptMainCache};
 use crate::{Tile, TileData};
