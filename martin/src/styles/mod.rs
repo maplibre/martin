@@ -103,8 +103,7 @@ impl StyleSources {
             let paths = get_input_paths(&source.path)?;
             let mut styles = Vec::with_capacity(paths.len());
             for path in paths {
-                let name = parse_name(&path, &source.path)
-                    .map_err(StyleError::InvalidFilePath)?;
+                let name = parse_name(&path, &source.path).map_err(StyleError::InvalidFilePath)?;
                 styles.push(name);
             }
             styles.sort();

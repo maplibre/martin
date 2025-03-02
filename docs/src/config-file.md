@@ -232,12 +232,12 @@ fonts:
   - /path/to/font_dir
 
 # We support serving styles
-# In the future, we plan on adding support for rendering too 
+# In the future, we plan on adding support for rendering too
 styles:
    paths:
      # all files in this dir will be published as a "styles_dir_FILENAME" style source
      - /path/to/styles_dir
-     # will be published as maplibre_style 
+     # will be published as maplibre_style
      - /path/to/maplibre_style.json
    sources:
      # will be published as style1_FILENAME
