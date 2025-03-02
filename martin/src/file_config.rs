@@ -346,7 +346,10 @@ async fn resolve_int<T: SourceConfigExtras>(
 /// # Errors
 ///
 /// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
-fn collect_files_with_extension(base_path: &Path, allowed_extension: &[&str]) -> Result<Vec<PathBuf>, FileError> {
+fn collect_files_with_extension(
+    base_path: &Path,
+    allowed_extension: &[&str],
+) -> Result<Vec<PathBuf>, FileError> {
     Ok(base_path
         .read_dir()
         .map_err(|e| IoError(e, base_path.to_path_buf()))?
