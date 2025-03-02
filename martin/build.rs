@@ -1,31 +1,31 @@
 #[cfg(feature = "webui")]
 /// copies a directory and its contents to a new location recursively
 fn copy_dir_all(
-    src: impl AsRef<std::path::Path>,
-    dst: impl AsRef<std::path::Path>,
+    src: &std::path::PathBuf,
+    dst: &std::path::PathBuf,
     exclude_dirs: &[std::path::PathBuf],
 ) -> std::io::Result<()> {
-    assert!(!exclude_dirs.contains(&src.as_ref().to_path_buf()));
+    assert!(!exclude_dirs.contains(src));
     assert!(
-        src.as_ref().is_dir(),
+        src.is_dir(),
         "source for the copy operation is not an existing directory"
     );
     assert!(
-        !dst.as_ref().exists(),
+        !dst.exists(),
         "destination for the copy operation must not exist"
     );
-    std::fs::create_dir_all(&dst)?;
+    std::fs::create_dir_all(dst)?;
 
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
         let src_path = entry.path();
-        let dst_path = dst.as_ref().join(entry.file_name());
+        let dst_path = dst.join(entry.file_name());
         if ty.is_dir() {
             if exclude_dirs.contains(&src_path) {
                 continue;
             }
-            copy_dir_all(src_path, &dst_path, exclude_dirs)?;
+            copy_dir_all(&src_path, &dst_path, exclude_dirs)?;
         } else {
             std::fs::copy(src_path, dst_path)?;
         }
@@ -42,7 +42,7 @@ fn main() -> std::io::Result<()> {
         // - move the frontend code to the OUT_DIR,
         // - install npm dependencies and
         // - build the frontend
-        let martin_ui_dir = std::path::PathBuf::from("martin-ui");
+        let martin_ui_dir = std::env::current_dir()?.join("martin-ui");
         assert!(martin_ui_dir.is_dir(), "martin-ui directory does not exist");
         let out_dir = std::env::var("OUT_DIR")
             .unwrap()
@@ -61,24 +61,22 @@ fn main() -> std::io::Result<()> {
             ],
         )?;
 
-        let target_to_keep = martin_ui_dir.join("dist");
-        assert!(
-            !target_to_keep.exists() || target_to_keep.is_dir(),
-            "the martin-ui/dist must either not exist or have been produced by previous builds"
-        );
-
         println!("installing and building in {out_martin_ui_dir:?}");
         static_files::NpmBuild::new(&out_martin_ui_dir)
             .install()?
             .run("build")?
-            .target(&target_to_keep)
+            .target(out_martin_ui_dir.join("dist"))
             .to_resource_dir()
             .build()?;
         // Above code does have the problem that change detection would not be working properly.
         //
         // `copy_dir_all` was never anticipated by the crate we use
         // => we need to do this with different arguments.
-        println!("success -> change_detection");
+        let target_to_keep = martin_ui_dir.join("dist");
+        assert!(
+            !target_to_keep.exists() || target_to_keep.is_dir(),
+            "the martin-ui/dist must either not exist or have been produced by previous builds"
+        );
         static_files::NpmBuild::new(martin_ui_dir)
             .target(&target_to_keep)
             .change_detection();
