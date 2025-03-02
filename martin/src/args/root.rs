@@ -346,10 +346,7 @@ mod tests {
 
     #[test]
     fn cli_directories_propergate() {
-        let args = Args::parse_from([
-            "martin",
-            "../tests/fixtures/",
-        ]);
+        let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
         let env = FauxEnv::default();
         let mut config = Config::default();
