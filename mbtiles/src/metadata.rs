@@ -139,7 +139,11 @@ impl Mbtiles {
                         tj.other.insert(name, Value::String(value));
                     }
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
-                    "scheme" => (), // ignore scheme because it defaults to xyz
+                    "scheme" => {
+                        if value != "tms" {
+                            warn!("File {file} has an unexpected metadata value schema='{value}'. Only 'tms' is supported. Ignoring.")
+                        }
+                    }
                     _ => {
                         let file = &self.filename();
                         info!("{file} has an unrecognized metadata value {name}={value}");
