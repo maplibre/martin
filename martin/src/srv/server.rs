@@ -8,22 +8,22 @@ use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::Data;
-use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
+use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinError::BindingError;
-use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
 use crate::config::ServerState;
 use crate::source::TileCatalog;
-use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use crate::MartinError::BindingError;
+use crate::MartinResult;
 
 #[cfg(feature = "webui")]
 mod webui {
@@ -201,8 +201,8 @@ pub mod tests {
     use tilejson::TileJSON;
 
     use super::*;
-    use crate::UrlQuery;
     use crate::source::{Source, TileData, TileInfoSource};
+    use crate::UrlQuery;
 
     #[derive(Debug, Clone)]
     pub struct TestSource {

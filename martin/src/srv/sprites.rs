@@ -3,12 +3,12 @@ use std::string::ToString;
 use actix_web::error::ErrorNotFound;
 use actix_web::http::header::ContentType;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, Result as ActixResult, middleware, route};
+use actix_web::{middleware, route, HttpResponse, Result as ActixResult};
 use spreet::Spritesheet;
 
 use crate::sprites::{SpriteError, SpriteSources};
-use crate::srv::SourceIDsRequest;
 use crate::srv::server::map_internal_error;
+use crate::srv::SourceIDsRequest;
 
 #[route("/sprite/{source_ids}.png", method = "GET", method = "HEAD")]
 async fn get_sprite_png(

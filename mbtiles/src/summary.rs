@@ -11,10 +11,10 @@ use std::str::FromStr;
 use martin_tile_utils::{get_zoom_precision, xyz_to_bbox};
 use serde::Serialize;
 use size_format::SizeFormatterBinary;
-use sqlx::{SqliteExecutor, query};
+use sqlx::{query, SqliteExecutor};
 use tilejson::Bounds;
 
-use crate::{MbtResult, MbtType, Mbtiles, invert_y_value};
+use crate::{invert_y_value, MbtResult, MbtType, Mbtiles};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ZoomInfo {
@@ -193,7 +193,7 @@ mod tests {
 
     use insta::assert_yaml_snapshot;
 
-    use crate::{MbtResult, MbtType, Mbtiles, init_mbtiles_schema};
+    use crate::{init_mbtiles_schema, MbtResult, MbtType, Mbtiles};
 
     #[actix_rt::test]
     async fn summary_empty_file() -> MbtResult<()> {

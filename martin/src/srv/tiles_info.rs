@@ -3,10 +3,10 @@ use std::string::ToString;
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::Uri;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, middleware, route};
+use actix_web::{middleware, route, HttpRequest, HttpResponse, Result as ActixResult};
 use itertools::Itertools as _;
 use serde::Deserialize;
-use tilejson::{TileJSON, tilejson};
+use tilejson::{tilejson, TileJSON};
 
 use crate::source::{TileInfoSource, TileSources};
 use crate::srv::SrvConfig;

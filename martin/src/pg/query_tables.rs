@@ -9,14 +9,14 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::pg::PgError::PostgresError;
-use crate::pg::PgResult;
 use crate::pg::builder::SqlTableInfoMapMapMap;
 use crate::pg::config::PgInfo;
 use crate::pg::config_table::TableInfo;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
 use crate::pg::utils::{json_to_hashmap, polygon_to_bbox};
+use crate::pg::PgError::PostgresError;
+use crate::pg::PgResult;
 
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
@@ -39,16 +39,12 @@ pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMa
             match serde_json::from_str::<Value>(text) {
                 Ok(v) => Some(v),
                 Err(e) => {
-                    warn!(
-                        "Unable to deserialize SQL comment on {schema}.{table} as tilejson, the automatically generated tilejson would be used: {e}"
-                    );
+                    warn!("Unable to deserialize SQL comment on {schema}.{table} as tilejson, the automatically generated tilejson would be used: {e}");
                     None
                 }
             }
         } else {
-            debug!(
-                "Unable to find a  SQL comment on {schema}.{table}, the tilejson would be generated automatically"
-            );
+            debug!("Unable to find a  SQL comment on {schema}.{table}, the tilejson would be generated automatically");
             None
         };
 
@@ -136,9 +132,9 @@ pub async fn table_to_query(
                     info.bounds = bounds?;
                 } else {
                     warn!(
-                        "Timeout computing {} bounds for {id}, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices.",
-                        info.format_id(),
-                    );
+                            "Timeout computing {} bounds for {id}, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices.",
+                            info.format_id(),
+                        );
                 }
             }
         }

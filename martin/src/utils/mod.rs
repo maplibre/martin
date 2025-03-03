@@ -1,5 +1,5 @@
 pub(crate) mod cache;
-pub use cache::{CacheKey, CacheValue, MainCache, NO_MAIN_CACHE, OptMainCache};
+pub use cache::{CacheKey, CacheValue, MainCache, OptMainCache, NO_MAIN_CACHE};
 
 mod cfg_containers;
 pub use cfg_containers::{OptBoolObj, OptOneMany};
@@ -11,7 +11,7 @@ mod id_resolver;
 pub use id_resolver::IdResolver;
 
 mod rectangle;
-pub use rectangle::{TileRect, append_rect};
+pub use rectangle::{append_rect, TileRect};
 
 mod utilities;
 pub use utilities::*;

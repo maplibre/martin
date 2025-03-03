@@ -4,16 +4,12 @@ use std::path::PathBuf;
 use enum_display::EnumDisplay;
 use itertools::Itertools as _;
 use log::{debug, info, trace, warn};
-use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
+use martin_tile_utils::{bbox_to_xyz, MAX_ZOOM};
 use serde::{Deserialize, Serialize};
 use sqlite_hashes::rusqlite::Connection;
-use sqlx::{Connection as _, Executor as _, Row, SqliteConnection, query};
+use sqlx::{query, Connection as _, Executor as _, Row, SqliteConnection};
 use tilejson::Bounds;
 
-use crate::AggHashType::Verify;
-use crate::IntegrityCheckType::Quick;
-use crate::MbtType::{Flat, FlatWithHash, Normalized};
-use crate::PatchType::BinDiffRaw;
 use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};
 use crate::errors::MbtResult;
@@ -21,10 +17,14 @@ use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
 };
+use crate::AggHashType::Verify;
+use crate::IntegrityCheckType::Quick;
+use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::PatchType::BinDiffRaw;
 use crate::{
-    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType,
-    MbtError, MbtType, MbtTypeCli, Mbtiles, action_with_rusqlite, get_bsdiff_tbl_name,
-    invert_y_value, reset_db_settings,
+    action_with_rusqlite, get_bsdiff_tbl_name, invert_y_value, reset_db_settings, AggHashType,
+    CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
+    AGG_TILES_HASH_BEFORE_APPLY,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -298,8 +298,7 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
-        info!(
-            "Applying patch from {dif_path} ({dif_type}) to {src_mbt} ({src_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
+        info!("Applying patch from {dif_path} ({dif_type}) to {src_mbt} ({src_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
             dif_path = dif_mbt.filepath(),
             dif_type = dif_info.mbt_type,
             src_mbt = self.src_mbt,
@@ -330,9 +329,7 @@ impl MbtileCopierInt {
         if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
             self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
             if matches!(dif_info.patch_type, Some(BinDiffGz)) {
-                info!(
-                    "Skipping {AGG_TILES_HASH_AFTER_APPLY} validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value"
-                );
+                info!("Skipping {AGG_TILES_HASH_AFTER_APPLY} validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value");
             } else {
                 let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
                 match (dif_info.agg_tiles_hash_after_apply, new_hash) {
@@ -536,7 +533,7 @@ impl MbtileCopierInt {
                         self.options.dst_file.clone(),
                         dst,
                         cli,
-                    ));
+                    ))
                 }
             }
         }
@@ -638,9 +635,7 @@ impl MbtileCopierInt {
                 // converting it on the fly to the actual zoom level
                 let (min_x, min_y, max_x, max_y) =
                     bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, MAX_ZOOM);
-                trace!(
-                    "Bounding box {bbox} converted to {min_x},{min_y},{max_x},{max_y} at zoom {MAX_ZOOM}"
-                );
+                trace!("Bounding box {bbox} converted to {min_x},{min_y},{max_x},{max_y} at zoom {MAX_ZOOM}");
                 let (min_y, max_y) = (
                     invert_y_value(MAX_ZOOM, max_y),
                     invert_y_value(MAX_ZOOM, min_y),
@@ -879,12 +874,10 @@ mod tests {
             expected_dst_type
         );
 
-        assert!(
-            dst_conn
-                .fetch_optional("SELECT * FROM testSrcDb.tiles EXCEPT SELECT * FROM tiles")
-                .await?
-                .is_none()
-        );
+        assert!(dst_conn
+            .fetch_optional("SELECT * FROM testSrcDb.tiles EXCEPT SELECT * FROM tiles")
+            .await?
+            .is_none());
 
         Ok(())
     }
@@ -1022,44 +1015,36 @@ mod tests {
         };
         let mut dst_conn = opt.run().await?;
 
-        assert!(
-            dst_conn
-                .fetch_optional("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
-                .await?
-                .is_some()
-        );
+        assert!(dst_conn
+            .fetch_optional("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
+            .await?
+            .is_some());
 
         assert_eq!(
             get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM map;").await,
             3
         );
 
-        assert!(
-            get_one::<Option<i32>>(
-                &mut dst_conn,
-                "SELECT * FROM tiles WHERE zoom_level = 2 AND tile_row = 2 AND tile_column = 2;"
-            )
-            .await
-            .is_some()
-        );
+        assert!(get_one::<Option<i32>>(
+            &mut dst_conn,
+            "SELECT * FROM tiles WHERE zoom_level = 2 AND tile_row = 2 AND tile_column = 2;"
+        )
+        .await
+        .is_some());
 
-        assert!(
-            get_one::<Option<i32>>(
-                &mut dst_conn,
-                "SELECT * FROM tiles WHERE zoom_level = 1 AND tile_row = 1 AND tile_column = 1;"
-            )
-            .await
-            .is_some()
-        );
+        assert!(get_one::<Option<i32>>(
+            &mut dst_conn,
+            "SELECT * FROM tiles WHERE zoom_level = 1 AND tile_row = 1 AND tile_column = 1;"
+        )
+        .await
+        .is_some());
 
-        assert!(
-            get_one::<Option<i32>>(
-                &mut dst_conn,
-                "SELECT * FROM map WHERE zoom_level = 0 AND tile_row = 0 AND tile_column = 0;",
-            )
-            .await
-            .is_some()
-        );
+        assert!(get_one::<Option<i32>>(
+            &mut dst_conn,
+            "SELECT * FROM map WHERE zoom_level = 0 AND tile_row = 0 AND tile_column = 0;",
+        )
+        .await
+        .is_some());
 
         Ok(())
     }
@@ -1111,12 +1096,10 @@ mod tests {
         Mbtiles::new(src_file)?
             .attach_to(&mut dst_conn, "testOtherDb")
             .await?;
-        assert!(
-            dst_conn
-                .fetch_optional("SELECT * FROM testOtherDb.tiles EXCEPT SELECT * FROM tiles;")
-                .await?
-                .is_none()
-        );
+        assert!(dst_conn
+            .fetch_optional("SELECT * FROM testOtherDb.tiles EXCEPT SELECT * FROM tiles;")
+            .await?
+            .is_none());
 
         Ok(())
     }
@@ -1168,16 +1151,14 @@ mod tests {
             .await?;
 
         // Ensure all entries in expected_tiles are in tiles and vice versa
-        assert!(
-            query(
-                "SELECT * FROM expected_tiles EXCEPT SELECT * FROM tiles
+        assert!(query(
+            "SELECT * FROM expected_tiles EXCEPT SELECT * FROM tiles
                UNION
              SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
-            )
-            .fetch_optional(&mut dst_conn)
-            .await?
-            .is_none()
-        );
+        )
+        .fetch_optional(&mut dst_conn)
+        .await?
+        .is_none());
 
         Ok(())
     }

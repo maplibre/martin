@@ -6,23 +6,23 @@ use std::time::Duration;
 
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
-use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
+use actix_web::http::header::{AcceptEncoding, Header as _, ACCEPT_ENCODING};
 use clap::Parser;
-use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
+use futures::TryStreamExt;
 use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
-use martin::srv::{DynTileSource, merge_tilejson};
+use martin::srv::{merge_tilejson, DynTileSource};
 use martin::{
-    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, TileRect,
-    append_rect, read_config,
+    append_rect, read_config, Config, MartinError, MartinResult, ServerState, TileData,
+    TileInfoSource, TileRect,
 };
-use martin_tile_utils::{TileCoord, TileInfo, bbox_to_xyz};
-use mbtiles::UpdateZoomType::GrowOnly;
+use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
+use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::{
-    CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
-    is_empty_database,
+    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtError, MbtType, MbtTypeCli,
+    Mbtiles,
 };
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;

@@ -3,7 +3,7 @@ use tilejson::{Bounds, TileJSON};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
-use crate::pg::utils::{InfoMap, patch_json};
+use crate::pg::utils::{patch_json, InfoMap};
 
 pub type FuncInfoSources = InfoMap<FunctionInfo>;
 
