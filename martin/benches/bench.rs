@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, Criterion};
 use martin::srv::DynTileSource;
 use martin::{CatalogSourceEntry, MartinResult, Source, TileData, TileSources, UrlQuery};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pprof::criterion::{Output, PProfProfiler};
-use tilejson::{TileJSON, tilejson};
+use tilejson::{tilejson, TileJSON};
 
 #[derive(Clone, Debug)]
 struct NullSource {

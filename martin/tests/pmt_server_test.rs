@@ -1,5 +1,5 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
-use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
+use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;

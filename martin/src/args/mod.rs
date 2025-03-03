@@ -7,7 +7,7 @@ pub use environment::{Env, OsEnv};
 #[cfg(feature = "postgres")]
 mod pg;
 #[cfg(feature = "postgres")]
-pub use pg::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT, PgArgs};
+pub use pg::{BoundsCalcType, PgArgs, DEFAULT_BOUNDS_TIMEOUT};
 
 mod root;
 pub use root::{Args, ExtraArgs, MetaArgs};

@@ -13,13 +13,13 @@ use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
-    CopyType, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
-    apply_patch, init_mbtiles_schema, invert_y_value,
+    apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
+    MbtilesCopier, PatchTypeCli, UpdateZoomType,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
-use sqlx::{Executor as _, Row, SqliteConnection, query, query_as};
+use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
 use tokio::runtime::Handle;
 
 const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";
@@ -534,9 +534,7 @@ async fn diff_and_patch(
         shorten(a_type),
     );
 
-    eprintln!(
-        "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
-    );
+    eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
     let (dif_mbt, mut dif_cn) = open!(diff_and_patch, "{prefix}__{dif_db}");
     copy! {
         databases.path(a_db, a_type),
@@ -553,9 +551,7 @@ async fn diff_and_patch(
         let prefix = format!("{prefix}__to__{}", shorten(*dst_type));
         let expected_b = databases.dump(b_db, *dst_type);
 
-        eprintln!(
-            "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}"
-        );
+        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}");
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__1");
         copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
@@ -564,9 +560,7 @@ async fn diff_and_patch(
         let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
 
-        eprintln!(
-            "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it"
-        );
+        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it");
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__2");
         copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
@@ -603,9 +597,7 @@ async fn diff_and_patch_bsdiff(
         shorten(a_type),
     );
 
-    eprintln!(
-        "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
-    );
+    eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
     let (dif_mbt, mut dif_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{dif_db}");
     copy! {
         databases.path(a_db, a_type),

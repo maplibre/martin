@@ -8,9 +8,7 @@ pub enum CogError {
     #[error("Couldn't decode {1} as tiff file: {0}")]
     InvalidTiffFile(TiffError, PathBuf),
 
-    #[error(
-        "Requested zoom level {0} from file {1} is out of range. Possible zoom levels are {2} to {3}"
-    )]
+    #[error("Requested zoom level {0} from file {1} is out of range. Possible zoom levels are {2} to {3}")]
     ZoomOutOfRange(u8, PathBuf, u8, u8),
 
     #[error("Couldn't find any image in the tiff file: {0}")]

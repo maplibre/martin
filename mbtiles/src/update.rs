@@ -6,9 +6,9 @@ use log::{info, warn};
 use sqlx::SqliteExecutor;
 
 use self::UpdateZoomType::{GrowOnly, Reset, Skip};
-use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
-use crate::{Mbtiles, compute_min_max_zoom};
+use crate::MbtError::InvalidZoomValue;
+use crate::{compute_min_max_zoom, Mbtiles};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -45,20 +45,14 @@ impl Mbtiles {
                 if meta_zoom == calc_zoom {
                     info!("Metadata value {zoom_name} is already set to correct value {meta_zoom}");
                 } else if update_zoom == Skip {
-                    info!(
-                        "Metadata value {zoom_name} is set to {meta_zoom}, but should be set to {calc_zoom}. Skipping update"
-                    );
+                    info!("Metadata value {zoom_name} is set to {meta_zoom}, but should be set to {calc_zoom}. Skipping update");
                 } else if is_outside_range || update_zoom == Reset {
                     info!("Updating metadata {zoom_name} from {meta_zoom} to {calc_zoom}");
                     self.set_metadata_value(conn, zoom_name, calc_zoom).await?;
                 } else if is_max_zoom {
-                    info!(
-                        "Metadata value {zoom_name}={meta_zoom} is greater than the computed {zoom_name} {calc_zoom} in tiles table, not updating"
-                    );
+                    info!("Metadata value {zoom_name}={meta_zoom} is greater than the computed {zoom_name} {calc_zoom} in tiles table, not updating");
                 } else {
-                    info!(
-                        "Metadata value {zoom_name}={meta_zoom} is less than the computed {zoom_name} {calc_zoom} in tiles table, not updating"
-                    );
+                    info!("Metadata value {zoom_name}={meta_zoom} is less than the computed {zoom_name} {calc_zoom} in tiles table, not updating");
                 }
             }
             Ok(None) => {

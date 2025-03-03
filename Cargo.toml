@@ -1,12 +1,12 @@
 [workspace]
-resolver = "3"
+resolver = "2"
 members = ["martin", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
-edition = "2024"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.85"
+rust-version = "1.80"
 readme = "README.md"
 homepage = "https://martin.maplibre.org/"
 

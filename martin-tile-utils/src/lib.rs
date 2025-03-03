@@ -271,7 +271,11 @@ pub fn get_zoom_precision(zoom: u8) -> usize {
     assert!(zoom < MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
     let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
     let log = lng_delta.log10() - 0.5;
-    if log > 0.0 { 0 } else { -log.ceil() as usize }
+    if log > 0.0 {
+        0
+    } else {
+        -log.ceil() as usize
+    }
 }
 
 #[must_use]
@@ -300,10 +304,10 @@ mod tests {
 
     use std::fs::read;
 
-    use Encoding::{Internal, Uncompressed};
-    use Format::{Jpeg, Json, Png, Webp};
     use approx::assert_relative_eq;
     use insta::assert_snapshot;
+    use Encoding::{Internal, Uncompressed};
+    use Format::{Jpeg, Json, Png, Webp};
 
     use super::*;
 

@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 mod config;
-pub use config::{Config, ServerState, read_config};
+pub use config::{read_config, Config, ServerState};
 
 mod source;
 pub use source::{
@@ -11,8 +11,8 @@ pub use source::{
 
 mod utils;
 pub use utils::{
-    IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, OptBoolObj, OptOneMany, TileRect,
-    append_rect,
+    append_rect, IdResolver, MartinError, MartinResult, OptBoolObj, OptOneMany, TileRect,
+    NO_MAIN_CACHE,
 };
 
 pub mod args;

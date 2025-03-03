@@ -5,9 +5,7 @@ use futures::future::join_all;
 use itertools::Itertools as _;
 use log::{debug, error, info, warn};
 
-use crate::OptBoolObj::{Bool, NoValue, Object};
 use crate::args::BoundsCalcType;
-use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
@@ -15,11 +13,13 @@ use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
-use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
+use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
+use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
 use crate::utils::OptOneMany::NoVals;
+use crate::OptBoolObj::{Bool, NoValue, Object};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
@@ -229,10 +229,7 @@ impl PgBuilder {
                 continue;
             };
             if db_funcs.is_empty() {
-                warn!(
-                    "No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md",
-                    cfg_inf.schema
-                );
+                warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
                 continue;
             }
             let func_name = &cfg_inf.function;
@@ -333,17 +330,12 @@ fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTabl
         } else {
             match find_kv_ignore_case(props, key) {
                 Ok(Some(result)) => {
-                    info!(
-                        "For source {id}, id_column '{key}' was not found, but found '{result}' instead."
-                    );
+                    info!("For source {id}, id_column '{key}' was not found, but found '{result}' instead.");
                     (result, props.get(result).unwrap())
                 }
                 Ok(None) => continue,
                 Err(multiple) => {
-                    error!(
-                        "Unable to configure source {id} because id_column '{key}' has no exact match or more than one potential matches: {}",
-                        multiple.join(", ")
-                    );
+                    error!("Unable to configure source {id} because id_column '{key}' has no exact match or more than one potential matches: {}", multiple.join(", "));
                     continue;
                 }
             }
@@ -351,10 +343,7 @@ fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTabl
         // ID column can be any integer type as defined in
         // https://github.com/postgis/postgis/blob/559c95d85564fb74fa9e3b7eafb74851810610da/postgis/mvt.c#L387C4-L387C66
         if typ != "int4" && typ != "int8" && typ != "int2" {
-            warn!(
-                "Unable to use column `{key}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.",
-                inf.schema, inf.table
-            );
+            warn!("Unable to use column `{key}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.", inf.schema, inf.table);
             continue;
         }
 

@@ -1,11 +1,11 @@
 #![allow(clippy::unreadable_literal)]
 
 use insta::assert_snapshot;
-use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
+use martin_tile_utils::{bbox_to_xyz, MAX_ZOOM};
 use mbtiles::MbtError::InvalidTileIndex;
-use mbtiles::{Mbtiles, create_metadata_table};
+use mbtiles::{create_metadata_table, Mbtiles};
 use rstest::rstest;
-use sqlx::{Executor as _, SqliteConnection, query};
+use sqlx::{query, Executor as _, SqliteConnection};
 
 #[ctor::ctor]
 fn init() {

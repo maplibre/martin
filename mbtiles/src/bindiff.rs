@@ -1,22 +1,22 @@
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
+use std::sync::Arc;
 use std::time::Instant;
 
 use enum_display::EnumDisplay;
-use flume::{Receiver, Sender, bounded};
+use flume::{bounded, Receiver, Sender};
 use futures::TryStreamExt;
 use log::{debug, error, info};
-use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
+use martin_tile_utils::{decode_brotli, decode_gzip, encode_brotli, encode_gzip, TileCoord};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
-use sqlx::{Executor, Row, SqliteConnection, query};
+use sqlx::{query, Executor, Row, SqliteConnection};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
-use crate::{MbtError, MbtResult, MbtType, Mbtiles, create_bsdiffraw_tables, get_bsdiff_tbl_name};
+use crate::{create_bsdiffraw_tables, get_bsdiff_tbl_name, MbtError, MbtResult, MbtType, Mbtiles};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -189,8 +189,7 @@ impl BinDiffDiffer {
     ) -> Self {
         let insert_sql = format!(
             "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash) VALUES (?, ?, ?, ?, ?)",
-            get_bsdiff_tbl_name(patch_type)
-        );
+            get_bsdiff_tbl_name(patch_type));
         Self {
             src_mbt,
             dif_mbt,

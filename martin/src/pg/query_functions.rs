@@ -5,12 +5,12 @@ use log::{debug, warn};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 
-use crate::pg::PgError::PostgresError;
-use crate::pg::PgResult;
 use crate::pg::builder::SqlFuncInfoMapMap;
 use crate::pg::config_function::FunctionInfo;
 use crate::pg::pg_source::PgSqlInfo;
 use crate::pg::pool::PgPool;
+use crate::pg::PgError::PostgresError;
+use crate::pg::PgResult;
 
 /// Get the list of functions from the database
 ///
