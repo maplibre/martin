@@ -91,12 +91,13 @@ impl StyleSources {
         Ok(results)
     }
 
-    /// gets the style path from the internal catalog
+    /// retrieve a styles' `PathBuf` from the internal catalog
     pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
         let item = self.0.get(style_id)?;
         Some(item.path.clone())
     }
 
+    /// an external representation of the internal catalog
     pub fn get_catalog(&self) -> StyleResult<StyleCatalog> {
         let entries = StyleCatalog::new();
         for source in &self.0 {
@@ -112,7 +113,10 @@ impl StyleSources {
         Ok(entries)
     }
 
+    /// add a single file with an id to the internal catalog
     fn add_single_source(&mut self, id: String, path: PathBuf) {
+        assert!(path.is_file());
+        assert!(!id.is_empty());
         match self.0.entry(id) {
             Entry::Occupied(v) => {
                 warn!("Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
@@ -210,6 +214,18 @@ pub fn parse_name(path: &PathBuf, base_path: &PathBuf) -> Result<String, PathBuf
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    #[test]
+    fn test_add_single_source() {
+        use std::fs::File;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("americana.json");
+        File::create(path).unwrap()
+
+        let mut style_sources = StyleSources::default();
+        style_sources.add_single_source("americana".to_string(), path.clone());
+
+        assert_yaml_snapshot!(style_sources, @"");
+    }
 
     #[actix_rt::test]
     async fn test_styles_resolve() {
