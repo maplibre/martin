@@ -111,7 +111,10 @@ impl Mbtiles {
         let query = query!("SELECT name, value FROM metadata WHERE value IS NOT ''");
         let mut rows = query.fetch(&mut *conn);
 
-        let mut tj = tilejson! { tiles: vec![] };
+        let mut tj = tilejson! { 
+            tiles: vec![], 
+            scheme: "xyz".to_string() 
+        };
         let mut layer_type: Option<String> = None;
         let mut json: Option<JSONValue> = None;
         let mut agg_tiles_hash: Option<String> = None;
@@ -136,6 +139,7 @@ impl Mbtiles {
                         tj.other.insert(name, Value::String(value));
                     }
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
+                    "scheme" => (), // ignore scheme because it defaults to xyz
                     _ => {
                         let file = &self.filename();
                         info!("{file} has an unrecognized metadata value {name}={value}");
