@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
 use crate::args::environment::Env;
-use crate::pg::{PgConfig, PgSslCerts, POOL_SIZE_DEFAULT};
+use crate::pg::{POOL_SIZE_DEFAULT, PgConfig, PgSslCerts};
 use crate::utils::{OptBoolObj, OptOneMany};
 
 // Must match the help string for BoundsType::Quick
@@ -92,32 +92,42 @@ impl PgArgs {
         } = self;
 
         if let Some(value) = default_srid {
-            info!("Overriding configured default SRID to {value} on all Postgres connections because of a CLI parameter");
+            info!(
+                "Overriding configured default SRID to {value} on all Postgres connections because of a CLI parameter"
+            );
             pg_config.iter_mut().for_each(|c| {
                 c.default_srid = default_srid;
             });
         }
         if let Some(value) = pool_size {
-            info!("Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter");
+            info!(
+                "Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter"
+            );
             pg_config.iter_mut().for_each(|c| {
                 c.pool_size = pool_size;
             });
         }
         if let Some(value) = auto_bounds {
-            info!("Overriding auto_bounds to {value} on all Postgres connections because of a CLI parameter");
+            info!(
+                "Overriding auto_bounds to {value} on all Postgres connections because of a CLI parameter"
+            );
             pg_config.iter_mut().for_each(|c| {
                 c.auto_bounds = auto_bounds;
             });
         }
         if let Some(value) = max_feature_count {
-            info!("Overriding maximum feature count to {value} on all Postgres connections because of a CLI parameter");
+            info!(
+                "Overriding maximum feature count to {value} on all Postgres connections because of a CLI parameter"
+            );
             pg_config.iter_mut().for_each(|c| {
                 c.max_feature_count = max_feature_count;
             });
         }
         if let Some(ref value) = ca_root_file {
-            info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
-                value.display());
+            info!(
+                "Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
+                value.display()
+            );
             pg_config.iter_mut().for_each(|c| {
                 c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
             });
@@ -133,7 +143,9 @@ impl PgArgs {
         ] {
             // We don't want to warn about these in case they were used in the config file expansion
             if env.has_unused_var(v) {
-                warn!("Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file.");
+                warn!(
+                    "Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file."
+                );
             }
         }
     }
@@ -213,8 +225,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::test_utils::{os, some, FauxEnv};
     use crate::MartinError;
+    use crate::test_utils::{FauxEnv, os, some};
 
     #[test]
     fn test_extract_conn_strings() {

@@ -5,7 +5,7 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::{ConfigExtras, SourceConfigExtras};
-use crate::{file_config::FileResult, Source};
+use crate::{Source, file_config::FileResult};
 
 use super::source::CogSource;
 

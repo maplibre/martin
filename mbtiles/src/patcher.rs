@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
 use log::{debug, info, warn};
-use sqlx::{query, Connection as _};
+use sqlx::{Connection as _, query};
 
-use crate::queries::detach_db;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::queries::detach_db;
 use crate::{
-    MbtError, MbtResult, MbtType, Mbtiles, AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY,
-    AGG_TILES_HASH_BEFORE_APPLY,
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtError, MbtResult,
+    MbtType, Mbtiles,
 };
 
 pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -> MbtResult<()> {
@@ -38,7 +38,9 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
             ));
         }
         (true, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
-            warn!("Aggregate tiles hash mismatch: Patch file expected {expected_hash} but found {base_hash} in {base_mbt} (force mode)");
+            warn!(
+                "Aggregate tiles hash mismatch: Patch file expected {expected_hash} but found {base_hash} in {base_mbt} (force mode)"
+            );
         }
         _ => {}
     }
@@ -189,10 +191,12 @@ mod tests {
             .attach_to(&mut src_conn, "testOtherDb")
             .await?;
 
-        assert!(src_conn
-            .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-            .await?
-            .is_none());
+        assert!(
+            src_conn
+                .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
+                .await?
+                .is_none()
+        );
 
         Ok(())
     }
@@ -221,10 +225,12 @@ mod tests {
             .attach_to(&mut src_conn, "testOtherDb")
             .await?;
 
-        assert!(src_conn
-            .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-            .await?
-            .is_none());
+        assert!(
+            src_conn
+                .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
+                .await?
+                .is_none()
+        );
 
         Ok(())
     }

@@ -46,7 +46,9 @@ pub enum MartinError {
     #[error("Unable to write config file {1}: {0}")]
     ConfigWriteError(io::Error, PathBuf),
 
-    #[error("No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file.")]
+    #[error(
+        "No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+    )]
     NoSources,
 
     #[error("Unrecognizable connection strings: {0:?}")]
