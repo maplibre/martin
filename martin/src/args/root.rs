@@ -309,13 +309,12 @@ mod tests {
 
     #[test]
     fn cli_multiple_extensions() {
-        // multiple file-extensions are cleanly separated to the different configurations
         let args = Args::parse_from([
             "martin",
+            "../tests/fixtures/pmtiles/png.pmtiles",
+            "../tests/fixtures/mbtiles/json.mbtiles",
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
-            "../tests/fixtures/mbtiles/json.mbtiles",
-            "../tests/fixtures/pmtiles/png.pmtiles",
         ]);
 
         let env = FauxEnv::default();
