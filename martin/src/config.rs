@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
+#[cfg(any(feature = "fonts", feature = "postgres"))]
+use crate::OptOneMany;
 #[cfg(any(
     feature = "mbtiles",
     feature = "pmtiles",
@@ -25,8 +27,6 @@ use crate::source::{TileInfoSources, TileSources};
 use crate::sprites::{SpriteConfig, SpriteSources};
 use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
-#[cfg(any(feature = "fonts", feature = "postgres"))]
-use crate::OptOneMany;
 use crate::{IdResolver, MartinResult};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
