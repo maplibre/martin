@@ -64,7 +64,7 @@ pub struct MetaArgs {
 #[command()]
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
-    #[arg(short, long)]
+    #[arg(short = 's', long)]
     #[cfg(feature = "sprites")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
@@ -72,7 +72,7 @@ pub struct ExtraArgs {
     #[cfg(feature = "fonts")]
     pub font: Vec<PathBuf>,
     /// Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times.
-    #[arg(short, long)]
+    #[arg(short = 'S', long)]
     #[cfg(feature = "styles")]
     pub style: Vec<PathBuf>,
 }
@@ -126,18 +126,8 @@ impl Args {
         }
 
         #[cfg(feature = "styles")]
-        if !cli_strings.is_empty() {
-            config.styles = parse_file_args(&mut cli_strings, &["json"], false);
-            assert!(
-                matches!(config.styles, FileConfigEnum::Paths(_)),
-                "parse_file_args can only produce Paths"
-            );
-        }
-        #[cfg(feature = "styles")]
         if !self.extras.style.is_empty() {
-            if let FileConfigEnum::Paths(ref mut previous_styles) = &mut config.styles {
-                previous_styles.extend(self.extras.style);
-            }
+            config.styles = FileConfigEnum::new(self.extras.style);
         }
 
         #[cfg(feature = "sprites")]
@@ -325,7 +315,6 @@ mod tests {
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
             "../tests/fixtures/mbtiles/json.mbtiles",
-            "../tests/fixtures/styles/americana.json",
             "../tests/fixtures/pmtiles/png.pmtiles",
         ]);
 
@@ -334,13 +323,11 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/cog"
-        mbtiles: "../tests/fixtures/cog"
+        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
-          - "../tests/fixtures/cog"
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
-        styles: "../tests/fixtures/cog"
         "#);
     }
 
@@ -353,10 +340,9 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures"
-        mbtiles: "../tests/fixtures"
-        cog: "../tests/fixtures"
-        styles: "../tests/fixtures"
+        pmtiles: "../tests/fixtures/"
+        mbtiles: "../tests/fixtures/"
+        cog: "../tests/fixtures/"
         "#);
     }
 }
