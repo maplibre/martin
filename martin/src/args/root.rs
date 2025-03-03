@@ -297,7 +297,8 @@ mod tests {
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
             "martin",
-            "../tests/fixtures/cog",
+            "../tests/fixtures/pmtiles/png.pmtiles",
+            "../tests/fixtures/mbtiles/json.mbtiles",
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
         ]);
@@ -307,12 +308,26 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/cog"
-        mbtiles: "../tests/fixtures/cog"
+        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
-          - "../tests/fixtures/cog"
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
+        "#);
+    }
+
+    #[test]
+    fn cli_directories_propergate() {
+        let args = Args::parse_from(["martin", "../tests/fixtures/"]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        pmtiles: "../tests/fixtures/"
+        mbtiles: "../tests/fixtures/"
+        cog: "../tests/fixtures/"
         "#);
     }
 }
