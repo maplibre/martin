@@ -190,12 +190,13 @@ SELECT (regexp_matches(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
     use testcontainers_modules::testcontainers::ImageExt as _;
+
+    use super::*;
 
     #[tokio::test]
     async fn parse_version() -> anyhow::Result<()> {
