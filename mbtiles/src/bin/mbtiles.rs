@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use log::error;
 use mbtiles::{
     apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
     MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
 };
 use tilejson::Bounds;
+use tracing::error;
 
 #[derive(Parser, PartialEq, Debug)]
 #[command(

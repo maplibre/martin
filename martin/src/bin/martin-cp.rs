@@ -10,7 +10,6 @@ use actix_web::http::header::{AcceptEncoding, Header as _, ACCEPT_ENCODING};
 use clap::Parser;
 use futures::stream::{self, StreamExt};
 use futures::TryStreamExt;
-use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::srv::{merge_tilejson, DynTileSource};
 use martin::{
@@ -28,6 +27,7 @@ use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
 use tokio::try_join;
+use tracing::{debug, error, event_enabled, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_secs(60);
@@ -433,7 +433,7 @@ async fn main() {
 
     if let Err(e) = start(CopierArgs::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
+        if event_enabled!(tracing::Level::ERROR) {
             error!("{e}");
         } else {
             eprintln!("{e}");

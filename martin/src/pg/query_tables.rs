@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use futures::pin_mut;
-use log::{debug, warn};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;
 use tilejson::Bounds;
 use tokio::time::timeout;
+use tracing::{debug, warn};
 
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::pg::builder::SqlTableInfoMapMapMap;

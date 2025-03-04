@@ -3,12 +3,12 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 
 use enum_display::EnumDisplay;
-use log::debug;
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};
 use sqlite_hashes::register_md5_functions;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement};
+use tracing::debug;
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};

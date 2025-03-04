@@ -1,5 +1,5 @@
 use clap::Parser;
-use log::{error, info, log_enabled};
+use log::{error, log_enabled, info};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};
@@ -38,7 +38,7 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "webui")]
     if web_ui_mode == martin::args::WebUiMode::EnableForAll {
-        log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
+        tracing::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
     } else {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
@@ -50,8 +50,7 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin=info");
-    env_logger::Builder::from_env(env).init();
+    setup_logging();
 
     if let Err(e) = start(Args::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
@@ -61,5 +60,47 @@ async fn main() {
             eprintln!("{e}");
         }
         std::process::exit(1);
+    }
+}
+
+fn setup_logging() {
+    use tracing_log::log::Level;
+    use tracing_subscriber::filter::{Directive, EnvFilter};
+    use tracing_subscriber::fmt::Layer;
+    use tracing_subscriber::prelude::*;
+    // transform log records into `tracing` `Event`s.
+    tracing_log::LogTracer::builder()
+        .init()
+        .expect("the global logger to only be set once");
+
+    let log_format = LogFormat::from_env();
+    let registry = tracing_subscriber::registry()
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(Directive::from(Level::Info))
+                .from_env(),
+        )
+        .with((log_format == LogFormat::Compact).then(|| Layer::default().compact()))
+        .with((log_format == LogFormat::Pretty).then(|| Layer::default().pretty()))
+        .with((log_format == LogFormat::Json).then(|| Layer::default().json()));
+    tracing::subscriber::set_global_default(registry)
+        .expect("since martin has not set the global_default, no global default is set");
+}
+enum LogFormat {
+    Json,
+    Pretty,
+    Compact,
+}
+impl LogFormat {
+    fn from_env() -> Self {
+        match std::env::var("MARTIN_LOG_FORMAT")
+            .unwrap_or_default()
+            .as_str()
+        {
+            "pretty" | "verbose" => LogFormat::Pretty,
+            "json" | "jsonl" => LogFormat::Json,
+            "compact" => LogFormat::Compact,
+            _ => LogFormat::Compact,
+        }
     }
 }

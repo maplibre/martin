@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::trace;
 use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::MbtilesPool;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
+use tracing::trace;
 use url::Url;
 
 use crate::config::UnrecognizedValues;

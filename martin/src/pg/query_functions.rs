@@ -1,9 +1,9 @@
 use std::fmt::Write as _;
 use std::iter::zip;
 
-use log::{debug, warn};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
+use tracing::{debug, warn};
 
 use crate::pg::builder::SqlFuncInfoMapMap;
 use crate::pg::config_function::FunctionInfo;

@@ -1,7 +1,7 @@
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use log::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
+use tracing::{info, warn};
 
 use crate::pg::config::PgConfig;
 use crate::pg::tls::{make_connector, parse_conn_str, SslModeOverride};

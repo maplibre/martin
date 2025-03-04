@@ -4,10 +4,10 @@ use std::path::Path;
 use std::vec;
 use std::{fmt::Debug, path::PathBuf};
 
-use log::warn;
 use std::io::BufWriter;
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
+use tracing::warn;
 
 use async_trait::async_trait;
 use martin_tile_utils::{Format, TileCoord, TileInfo};

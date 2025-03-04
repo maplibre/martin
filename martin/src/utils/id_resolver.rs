@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::sync::{Arc, Mutex};
 
-use log::warn;
+use tracing::warn;
 
 #[derive(Debug, Default, Clone)]
 pub struct IdResolver {

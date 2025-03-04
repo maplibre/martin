@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use log::warn;
+use tracing::warn;
 
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;

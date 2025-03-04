@@ -7,7 +7,6 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
@@ -15,6 +14,7 @@ use pmtiles::reqwest::Client;
 use pmtiles::{Compression, Directory, HttpBackend, MmapBackend, TileType};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
+use tracing::{trace, warn};
 use url::Url;
 
 use crate::config::UnrecognizedValues;
