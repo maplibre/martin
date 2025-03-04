@@ -1,23 +1,21 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::fs::File;
-use std::path::Path;
-use std::vec;
-use std::{fmt::Debug, path::PathBuf};
-
-use log::warn;
-use serde::Serialize;
 use std::io::BufWriter;
-use tiff::decoder::{ChunkType, Decoder, DecodingResult};
-use tiff::tags::Tag::{self, GdalNodata};
+use std::path::{Path, PathBuf};
+use std::vec;
 
 use async_trait::async_trait;
+use log::warn;
+use serde::Serialize;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
+use tiff::decoder::{ChunkType, Decoder, DecodingResult};
+use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{tilejson, TileJSON};
 
-use crate::file_config::FileError;
-use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
-
 use super::CogError;
+use crate::file_config::{FileError, FileResult};
+use crate::{MartinResult, Source, TileData, UrlQuery};
 
 // about the model space of tiff image.
 // pixel scale, tie points and transformations
@@ -647,11 +645,11 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, path::PathBuf};
     use insta::{assert_yaml_snapshot, Settings};
+    use tiff::decoder::Decoder;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
-    use std::{fs::File, path::PathBuf};
-    use tiff::decoder::Decoder;
 
     use crate::cog::source::{get_full_resolution, get_tile_idx};
     use approx::assert_abs_diff_eq;

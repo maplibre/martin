@@ -1,8 +1,8 @@
-use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,7 @@ pub struct CatalogSpriteEntry {
     pub images: Vec<String>,
 }
 
-pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
+pub type SpriteCatalog = DashMap<String, CatalogSpriteEntry>;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SpriteConfig {
@@ -71,7 +71,7 @@ impl ConfigExtras for SpriteConfig {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct SpriteSources(HashMap<String, SpriteSource>);
+pub struct SpriteSources(DashMap<String, SpriteSource>);
 
 impl SpriteSources {
     pub fn resolve(config: &mut FileConfigEnum<SpriteConfig>) -> FileResult<Self> {
@@ -109,8 +109,8 @@ impl SpriteSources {
 
     pub fn get_catalog(&self) -> SpriteResult<SpriteCatalog> {
         // TODO: all sprite generation should be pre-cached
-        let mut entries = SpriteCatalog::new();
-        for (id, source) in &self.0 {
+        let entries = SpriteCatalog::new();
+        for source in &self.0 {
             let paths = get_svg_input_paths(&source.path, true)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
             let mut images = Vec::with_capacity(paths.len());
@@ -121,7 +121,7 @@ impl SpriteSources {
                 );
             }
             images.sort();
-            entries.insert(id.clone(), CatalogSpriteEntry { images });
+            entries.insert(source.key().clone(), CatalogSpriteEntry { images });
         }
         Ok(entries)
     }
@@ -141,7 +141,7 @@ impl SpriteSources {
                     v.insert(SpriteSource { path });
                 }
             }
-        };
+        }
     }
 
     /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
@@ -155,14 +155,17 @@ impl SpriteSources {
 
         let sprite_ids = ids
             .split(',')
-            .map(|id| {
-                self.0
-                    .get(id)
-                    .ok_or_else(|| SpriteError::SpriteNotFound(id.to_string()))
-            })
+            .map(|id| self.get(id))
             .collect::<SpriteResult<Vec<_>>>()?;
 
-        get_spritesheet(sprite_ids.into_iter(), dpi, as_sdf).await
+        get_spritesheet(sprite_ids.iter(), dpi, as_sdf).await
+    }
+
+    fn get(&self, id: &str) -> SpriteResult<SpriteSource> {
+        match self.0.get(id) {
+            Some(v) => Ok(v.clone()),
+            None => Err(SpriteError::SpriteNotFound(id.to_string())),
+        }
     }
 }
 
@@ -247,14 +250,28 @@ mod tests {
         //.sdf => generate sdf from png, add sdf == true
         //- => does not generate sdf, omits sdf == true
         for extension in ["_sdf", ""] {
-            test_src(sprites.values(), 1, "all_1", extension).await;
-            test_src(sprites.values(), 2, "all_2", extension).await;
+            let paths = sprites
+                .iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
+            test_src(paths.iter(), 1, "all_1", extension).await;
+            test_src(paths.iter(), 2, "all_2", extension).await;
 
-            test_src(sprites.get("src1").into_iter(), 1, "src1_1", extension).await;
-            test_src(sprites.get("src1").into_iter(), 2, "src1_2", extension).await;
+            let src1_path = sprites
+                .get("src1")
+                .into_iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
+            test_src(src1_path.iter(), 1, "src1_1", extension).await;
+            test_src(src1_path.iter(), 2, "src1_2", extension).await;
 
-            test_src(sprites.get("src2").into_iter(), 1, "src2_1", extension).await;
-            test_src(sprites.get("src2").into_iter(), 2, "src2_2", extension).await;
+            let src2_path = sprites
+                .get("src2")
+                .into_iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
+            test_src(src2_path.iter(), 1, "src2_1", extension).await;
+            test_src(src2_path.iter(), 2, "src2_2", extension).await;
         }
     }
 

@@ -28,6 +28,7 @@ use crate::MartinResult;
 #[cfg(feature = "webui")]
 mod webui {
     #![allow(clippy::unreadable_literal)]
+    #![allow(clippy::too_many_lines)]
     #![allow(clippy::wildcard_imports)]
     include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 }
@@ -40,7 +41,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "reload", "sprite", "status",
 ];
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
@@ -226,7 +227,7 @@ pub mod tests {
         }
 
         fn clone_source(&self) -> TileInfoSource {
-            unimplemented!()
+            Box::new(self.clone())
         }
 
         async fn get_tile(
