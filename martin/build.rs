@@ -18,7 +18,7 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
     });
     let excludes = exclude_dirs.iter().map(|v| src.join(v)).collect::<Vec<_>>();
 
-    let mut it = walkdir::WalkDir::new(src).into_iter();
+    let mut it = walkdir::WalkDir::new(src).follow_links(true).into_iter();
     loop {
         let entry = match it.next() {
             None => break,
