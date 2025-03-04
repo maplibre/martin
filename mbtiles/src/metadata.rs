@@ -138,7 +138,8 @@ impl Mbtiles {
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
                     "scheme" => {
                         if value != "tms" {
-                            warn!("File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring.")
+                            let file = &self.filename();
+                            warn!("File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring.");
                         }
                     }
                     _ => {
