@@ -1,8 +1,8 @@
 use clap::Parser;
-use log::{error, log_enabled, info};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};
+use tracing::{error, event_enabled, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -54,7 +54,7 @@ async fn main() {
 
     if let Err(e) = start(Args::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
+        if event_enabled!(tracing::Level::ERROR) {
             error!("{e}");
         } else {
             eprintln!("{e}");
@@ -64,8 +64,7 @@ async fn main() {
 }
 
 fn setup_logging() {
-    use tracing_log::log::Level;
-    use tracing_subscriber::filter::{Directive, EnvFilter};
+    use tracing_subscriber::filter::EnvFilter;
     use tracing_subscriber::fmt::Layer;
     use tracing_subscriber::prelude::*;
     // transform log records into `tracing` `Event`s.
@@ -77,8 +76,8 @@ fn setup_logging() {
     let registry = tracing_subscriber::registry()
         .with(
             EnvFilter::builder()
-                .with_default_directive(Directive::from(Level::Info))
-                .from_env(),
+                .with_default_directive(tracing::Level::INFO.into())
+                .from_env_lossy(),
         )
         .with((log_format == LogFormat::Compact).then(|| Layer::default().compact()))
         .with((log_format == LogFormat::Pretty).then(|| Layer::default().pretty()))
@@ -86,6 +85,7 @@ fn setup_logging() {
     tracing::subscriber::set_global_default(registry)
         .expect("since martin has not set the global_default, no global default is set");
 }
+#[derive(PartialEq, Eq)]
 enum LogFormat {
     Json,
     Pretty,
@@ -99,7 +99,6 @@ impl LogFormat {
         {
             "pretty" | "verbose" => LogFormat::Pretty,
             "json" | "jsonl" => LogFormat::Json,
-            "compact" => LogFormat::Compact,
             _ => LogFormat::Compact,
         }
     }

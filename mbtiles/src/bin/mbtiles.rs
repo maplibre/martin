@@ -13,7 +13,7 @@ use tracing::error;
     version,
     name = "mbtiles",
     about = "A utility to work with .mbtiles file content",
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information."
 )]
 pub struct Args {
     /// Display detailed information
@@ -207,17 +207,52 @@ impl SharedCopyOpts {
 
 #[tokio::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("mbtiles=info");
-    env_logger::Builder::from_env(env)
-        .format_indent(None)
-        .format_module_path(false)
-        .format_target(false)
-        .format_timestamp(None)
-        .init();
+    setup_logging();
 
     if let Err(err) = main_int().await {
         error!("{err}");
         std::process::exit(1);
+    }
+}
+
+fn setup_logging() {
+    use tracing_subscriber::filter::EnvFilter;
+    use tracing_subscriber::fmt::Layer;
+    use tracing_subscriber::prelude::*;
+    // transform log records into `tracing` `Event`s.
+    tracing_log::LogTracer::builder()
+        .init()
+        .expect("the global logger to only be set once");
+
+    let log_format = LogFormat::from_env();
+    let registry = tracing_subscriber::registry()
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(tracing::Level::INFO.into())
+                .from_env_lossy(),
+        )
+        .with((log_format == LogFormat::Compact).then(|| Layer::default().compact()))
+        .with((log_format == LogFormat::Pretty).then(|| Layer::default().pretty()))
+        .with((log_format == LogFormat::Json).then(|| Layer::default().json()));
+    tracing::subscriber::set_global_default(registry)
+        .expect("since martin has not set the global_default, no global default is set");
+}
+#[derive(PartialEq, Eq)]
+enum LogFormat {
+    Json,
+    Pretty,
+    Compact,
+}
+impl LogFormat {
+    fn from_env() -> Self {
+        match std::env::var("MBTILES_LOG_FORMAT")
+            .unwrap_or_default()
+            .as_str()
+        {
+            "pretty" | "verbose" => LogFormat::Pretty,
+            "json" | "jsonl" => LogFormat::Json,
+            _ => LogFormat::Compact,
+        }
     }
 }
 

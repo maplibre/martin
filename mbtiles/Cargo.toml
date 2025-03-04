@@ -14,14 +14,13 @@ rust-version.workspace = true
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml"]
+cli = ["dep:anyhow", "dep:clap", "dep:tracing-subscriber", "dep:tracing-log", "dep:serde_yaml"]
 
 [dependencies]
 enum-display.workspace = true
 flume.workspace = true
 futures.workspace = true
 itertools.workspace = true
-log.workspace = true
 martin-tile-utils.workspace = true
 md5.workspace = true
 num_cpus.workspace = true
@@ -35,19 +34,20 @@ sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing.workspace = true
 xxhash-rust.workspace = true
 
 # Bin dependencies
 anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
-env_logger = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
+tracing-log = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
 ctor.workspace = true
-env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true

@@ -78,12 +78,10 @@ clap.workspace = true
 dashmap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
-env_logger.workspace = true
 futures.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
-log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
@@ -112,6 +110,10 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+tracing.workspace = true
+tracing-actix-web.workspace = true
+tracing-log.workspace = true
+tracing-subscriber.workspace = true
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }

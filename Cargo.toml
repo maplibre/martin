@@ -43,7 +43,6 @@ ctor = "0.3"
 dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 enum-display = "0.1"
-env_logger = "0.11"
 flate2 = "1"
 flume = "0.11"
 futures = "0.3"
@@ -52,7 +51,6 @@ insta = "1"
 itertools = "0.14"
 json-patch = "3.0"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
-log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
 mbtiles = { path = "./mbtiles", version = "0.12.0" }
 md5 = "0.7.0"
@@ -91,6 +89,10 @@ tiff = "0.9.1"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
+tracing = { version = "0.1.41", features = ["log"] }
+tracing-actix-web = { version = "0.7.16", features = ["uuid_v7"] }
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
 url = "2.5"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 

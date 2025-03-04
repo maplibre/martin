@@ -39,7 +39,7 @@ const BATCH_SIZE: usize = 1000;
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information."
 )]
 pub struct CopierArgs {
     #[command(flatten)]
@@ -428,8 +428,7 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin_cp=info");
-    env_logger::Builder::from_env(env).init();
+    setup_logging();
 
     if let Err(e) = start(CopierArgs::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
@@ -439,6 +438,47 @@ async fn main() {
             eprintln!("{e}");
         }
         std::process::exit(1);
+    }
+}
+
+fn setup_logging() {
+    use tracing_subscriber::filter::EnvFilter;
+    use tracing_subscriber::fmt::Layer;
+    use tracing_subscriber::prelude::*;
+    // transform log records into `tracing` `Event`s.
+    tracing_log::LogTracer::builder()
+        .init()
+        .expect("the global logger to only be set once");
+
+    let log_format = LogFormat::from_env();
+    let registry = tracing_subscriber::registry()
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(tracing::Level::INFO.into())
+                .from_env_lossy(),
+        )
+        .with((log_format == LogFormat::Compact).then(|| Layer::default().compact()))
+        .with((log_format == LogFormat::Pretty).then(|| Layer::default().pretty()))
+        .with((log_format == LogFormat::Json).then(|| Layer::default().json()));
+    tracing::subscriber::set_global_default(registry)
+        .expect("since martin has not set the global_default, no global default is set");
+}
+#[derive(PartialEq, Eq)]
+enum LogFormat {
+    Json,
+    Pretty,
+    Compact,
+}
+impl LogFormat {
+    fn from_env() -> Self {
+        match std::env::var("MARTIN_CP_LOG_FORMAT")
+            .unwrap_or_default()
+            .as_str()
+        {
+            "pretty" | "verbose" => LogFormat::Pretty,
+            "json" | "jsonl" => LogFormat::Json,
+            _ => LogFormat::Compact,
+        }
     }
 }
 
