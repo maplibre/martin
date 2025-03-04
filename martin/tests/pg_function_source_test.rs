@@ -16,8 +16,8 @@ fn init() {
 #[actix_rt::test]
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    let tj = source(&mock, "function_zxy_query").get_tilejson();
-    assert_yaml_snapshot!(tj, @r"
+    let src = source(&mock, "function_zxy_query");
+    assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
     tiles: []
     name: function_zxy_query

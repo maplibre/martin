@@ -56,7 +56,7 @@ harness = false
 
 [features]
 default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites"]
-webui = ["dep:actix-web-static-files", "dep:static-files"]
+webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
@@ -75,6 +75,7 @@ actix-web.workspace = true
 async-trait.workspace = true
 bit-set = { workspace = true, optional = true }
 clap.workspace = true
+dashmap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger.workspace = true
@@ -113,6 +114,7 @@ tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 
 [build-dependencies]
+walkdir = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
