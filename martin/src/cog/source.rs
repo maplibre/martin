@@ -7,8 +7,8 @@ use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
-use serde::Serialize;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
+use serde::Serialize;
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{tilejson, TileJSON};
@@ -645,11 +645,11 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, path::PathBuf};
     use insta::{assert_yaml_snapshot, Settings};
-    use tiff::decoder::Decoder;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
+    use std::{fs::File, path::PathBuf};
+    use tiff::decoder::Decoder;
 
     use crate::cog::source::{get_full_resolution, get_tile_idx};
     use approx::assert_abs_diff_eq;
