@@ -139,7 +139,9 @@ impl Mbtiles {
                     "scheme" => {
                         if value != "tms" {
                             let file = &self.filename();
-                            warn!("File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring.");
+                            warn!(
+                                "File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring."
+                            );
                         }
                     }
                     _ => {

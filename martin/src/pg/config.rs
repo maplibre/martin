@@ -9,12 +9,11 @@ use tilejson::TileJSON;
 use crate::MartinResult;
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::{UnrecognizedValues, copy_unrecognized_config};
-use crate::pg::PgError;
-use crate::pg::PgResult;
 use crate::pg::builder::PgBuilder;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
 use crate::pg::utils::on_slow;
+use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
 
