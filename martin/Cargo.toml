@@ -121,9 +121,9 @@ static-files = { workspace = true, optional = true }
 [dev-dependencies]
 anyhow.workspace = true
 criterion.workspace = true
-ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
+tracing-test.workspace = true

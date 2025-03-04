@@ -47,10 +47,10 @@ tracing-subscriber = { workspace = true, optional = true }
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
-ctor.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
+tracing-test.workspace = true
 
 [lib]
 path = "src/lib.rs"

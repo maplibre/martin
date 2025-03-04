@@ -1105,21 +1105,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ctor"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21d960ecacd0a1bf55e73144b72de745e7bf275c7952c50e36e8af0a0cb7ab1f"
-dependencies = [
- "ctor-proc-macro",
-]
-
-[[package]]
-name = "ctor-proc-macro"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c426d2ba3e525b39c1f0a9ba41b9fe61878dee11fa4e4a76b6ab440f46c5db5d"
-
-[[package]]
 name = "darling"
 version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2699,7 +2684,6 @@ dependencies = [
  "bit-set",
  "clap",
  "criterion",
- "ctor",
  "dashmap",
  "deadpool-postgres",
  "enum-display",
@@ -2743,6 +2727,7 @@ dependencies = [
  "tracing-actix-web",
  "tracing-log",
  "tracing-subscriber",
+ "tracing-test",
  "url",
 ]
 
@@ -2772,7 +2757,6 @@ dependencies = [
  "actix-rt",
  "anyhow",
  "clap",
- "ctor",
  "enum-display",
  "flume",
  "futures",
@@ -2797,6 +2781,7 @@ dependencies = [
  "tracing",
  "tracing-log",
  "tracing-subscriber",
+ "tracing-test",
  "xxhash-rust",
 ]
 
@@ -5476,6 +5461,27 @@ dependencies = [
  "tracing-core",
  "tracing-log",
  "tracing-serde",
+]
+
+[[package]]
+name = "tracing-test"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "557b891436fe0d5e0e363427fc7f217abf9ccd510d5136549847bdcbcd011d68"
+dependencies = [
+ "tracing-core",
+ "tracing-subscriber",
+ "tracing-test-macro",
+]
+
+[[package]]
+name = "tracing-test-macro"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04659ddb06c87d233c566112c1c9c5b9e98256d9af50ec3bc9c8327f873a7568"
+dependencies = [
+ "quote",
+ "syn 2.0.98",
 ]
 
 [[package]]
