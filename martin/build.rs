@@ -1,7 +1,7 @@
+#[cfg(feature = "webui")]
 use std::fs;
+#[cfg(feature = "webui")]
 use std::path::Path;
-
-use walkdir::WalkDir;
 
 #[cfg(feature = "webui")]
 fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
@@ -18,7 +18,7 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
     });
     let excludes = exclude_dirs.iter().map(|v| src.join(v)).collect::<Vec<_>>();
 
-    let mut it = WalkDir::new(src).into_iter();
+    let mut it = walkdir::WalkDir::new(src).into_iter();
     loop {
         let entry = match it.next() {
             None => break,
