@@ -19,12 +19,8 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
     let excludes = exclude_dirs.iter().map(|v| src.join(v)).collect::<Vec<_>>();
 
     let mut it = walkdir::WalkDir::new(src).follow_links(true).into_iter();
-    loop {
-        let entry = match it.next() {
-            None => break,
-            Some(Err(err)) => panic!("failed to read directory entry: {err}"),
-            Some(Ok(entry)) => entry,
-        };
+    while let Some(entry) = it.next() {
+        let entry = entry.expect("failed to read directory entry");
         if excludes.iter().any(|v| v == entry.path()) {
             it.skip_current_dir();
             continue;
@@ -37,11 +33,6 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
                 .strip_prefix(src)
                 .expect("path is not a prefix of the source directory"),
         );
-
-        // Tell Cargo to monitor all root level entries for changes
-        if dst_path.components().count() == 1 {
-            println!("cargo:rerun-if-changed={}", entry.path().display());
-        }
 
         if entry.file_type().is_dir() {
             fs::create_dir_all(&dst_path).unwrap_or_else(|e| {
@@ -104,6 +95,7 @@ fn webui() {
         "the martin-ui/dist must either not exist or have been produced by previous builds"
     );
 
+    // TODO: we may need to move index.html one level down per change_detection() docs
     static_files::NpmBuild::new(martin_ui_dir)
         .target(&target_to_keep)
         .change_detection();
