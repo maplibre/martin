@@ -94,6 +94,7 @@ tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
 tracing-test = { version = "0.2.5",features = ["no-env-filter"] }
 url = "2.5"
+walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 [profile.dev.package]

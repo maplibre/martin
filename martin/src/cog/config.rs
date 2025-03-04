@@ -1,13 +1,13 @@
-use std::{fmt::Debug, path::PathBuf};
+use std::fmt::Debug;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, SourceConfigExtras};
-use crate::{file_config::FileResult, Source};
-
 use super::source::CogSource;
+use crate::config::UnrecognizedValues;
+use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::Source;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {

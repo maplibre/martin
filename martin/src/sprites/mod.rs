@@ -1,3 +1,7 @@
+use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::path::PathBuf;
+
 use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
@@ -5,9 +9,6 @@ use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
 use spreet::{
     get_svg_input_paths, sprite_name, SpreetError, Sprite, Spritesheet, SpritesheetBuilder,
 };
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-use std::path::PathBuf;
 use tokio::io::AsyncReadExt;
 use tracing::{info, warn};
 
