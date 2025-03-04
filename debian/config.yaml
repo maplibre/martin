@@ -44,3 +44,10 @@ cache_size_mb: 512
 # fonts:
 #   - /path/to/font/file.ttf
 #   - /path/to/font_dir
+
+# styles:
+#   paths:
+#     - /path/to/styles_dir
+#     - /path/to/maplibre_style.json
+#   sources:
+#     styles1: /path/to/styles_dir2

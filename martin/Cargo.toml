@@ -55,19 +55,21 @@ name = "bench"
 harness = false
 
 [features]
-default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites"]
+default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites", "styles"]
 webui = ["dep:actix-web-static-files", "dep:static-files"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles"]
 cog = ["dep:tiff", "dep:png"]
+styles = ["dep:actix-files"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
 
 [dependencies]
 actix-cors.workspace = true
+actix-files = { workspace = true, optional = true }
 actix-http.workspace = true
 actix-rt.workspace = true
 actix-web-static-files = { workspace = true, optional = true }
@@ -125,3 +127,4 @@ insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
+tempfile.workspace = true

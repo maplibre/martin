@@ -220,7 +220,7 @@ LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/americana.json --style tests/fixtures/styles/src2 )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -406,6 +406,10 @@ test_jsn spr_cmp_2x    sprite/src1,mysrc@2x.json
 test_jsn sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.json
 test_png spr_cmp_2x    sprite/src1,mysrc@2x.png
 test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
+
+# Test styles
+test_jsn style_src1    style/src1
+test_jsn style_src1  style/americana
 
 # Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255

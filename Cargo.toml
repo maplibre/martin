@@ -28,6 +28,7 @@ struct_field_names = "allow"
 
 [workspace.dependencies]
 actix-cors = "0.7"
+actix-files = "0.6.6"
 actix-http = "3"
 actix-rt = "2"
 actix-web = "4"
@@ -85,6 +86,7 @@ sqlite-hashes = { version = "0.7.9", default-features = false, features = ["md5"
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
+tempfile = "3.17.1"
 testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"

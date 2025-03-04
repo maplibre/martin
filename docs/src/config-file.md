@@ -230,4 +230,19 @@ fonts:
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   - /path/to/font/file.ttf
   - /path/to/font_dir
+
+# We support serving styles
+# In the future, we plan on adding support for rendering too
+styles:
+   paths:
+     # each json file in this dir will publish as style
+     # The name of the file will be used as the style name
+     - /path/to/styles_dir
+     # will be published as maplibre_style
+     - /path/to/maplibre_style.json
+   sources:
+     # will be published as style1_FILENAME
+     style1: /path/to/styles_dir2
+     # will be published as style2
+     style2: /path/to/americana.json
 ```
