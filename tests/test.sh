@@ -152,7 +152,10 @@ test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
   echo "Checking $LOG_FILE for expected text: '$EXPECTED_TEXT'"
-  grep -q "$EXPECTED_TEXT" "$LOG_FILE"
+  if ! grep -q "$EXPECTED_TEXT" "$LOG_FILE"; then
+    echo "ERROR: Expected text was not found in the log file"
+    exit 1
+  fi
   remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
