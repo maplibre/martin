@@ -114,7 +114,6 @@ import XYZ from 'ol/source/XYZ.js';
 
 import TileGrid from 'ol/tilegrid/TileGrid.js';
 
-// the tiling schema could be GoogleMapsCompatible, see https://gdal.org/en/latest/drivers/raster/cog.html#reprojection-related-creation-options
 var custom_grid = new TileGrid({
   extent: [
     1620750.2508,
@@ -138,15 +137,8 @@ const map = new Map({
   target: 'map',
   layers: [
     new TileLayer({
-      source: new XYZ({
-        url: 'https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=vgdy5zgzM4IIqQCC6SOn',
-        attributions: '© MapTiler © OpenStreetMap contributors'
-      })
-    }),
-    new TileLayer({
       source: source
     }),
-
   ],
   view: new View({
     center: [(1620750.2508 + 1625870.2508) / 2, (4271892.7153 + 4277012.7153) / 2],
