@@ -45,10 +45,8 @@ pub use crate::args::Env;
 mod test_readme {
     macro_rules! external_doc_test {
         ($x:expr) => {
-            unsafe {
-                #[doc = $x]
-                extern "C" {}
-            }
+            #[doc = $x]
+            unsafe extern "C" {}
         };
     }
 
