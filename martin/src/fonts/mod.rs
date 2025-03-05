@@ -154,6 +154,12 @@ impl FontSources {
             .collect()
     }
 
+    /// Returns an alphabetically sorted list of font stacks (i.e. the name of the font)
+    #[must_use]
+    pub fn get_fontstacks(&self) -> Vec<String> {
+        self.fonts.keys().cloned().sorted().collect()
+    }
+
     /// Given a list of IDs in a format "id1,id2,id3", return a combined font.
     #[allow(clippy::cast_possible_truncation)]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> FontResult<Vec<u8>> {
