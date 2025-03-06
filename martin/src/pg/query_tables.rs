@@ -116,15 +116,7 @@ pub async fn table_to_query(
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
                 debug!("Computing {} table bounds for {id}", info.format_id());
-                info.bounds = calc_bounds(
-                    &pool,
-                    &info.schema,
-                    &info.table,
-                    &info.geometry_column,
-                    srid,
-                    false,
-                )
-                .await?;
+                info.bounds = calc_bounds(&pool, &info, srid, false).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
@@ -132,16 +124,13 @@ pub async fn table_to_query(
                     info.format_id(),
                     DEFAULT_BOUNDS_TIMEOUT.as_secs()
                 );
-                let bounds = calc_bounds(
-                    &pool,
-                    &info.schema,
-                    &info.table,
-                    &info.geometry_column,
-                    srid,
-                    true,
-                );
-                pin_mut!(bounds);
-                if let Ok(bounds) = timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await {
+                let bounds = {
+                    let bounds = calc_bounds(&pool, &info, srid, true);
+                    pin_mut!(bounds);
+                    timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await
+                };
+
+                if let Ok(bounds) = bounds {
                     info.bounds = bounds?;
                 } else {
                     warn!(
@@ -230,14 +219,12 @@ FROM (
 /// Compute the bounds of a table. This could be slow if the table is large or has no geo index.
 async fn calc_bounds(
     pool: &PgPool,
-    schema: &str,
-    table: &str,
-    geometry_column: &str,
+    info: &TableInfo,
     srid: i32,
     mut is_quick: bool,
 ) -> PgResult<Option<Bounds>> {
-    let schema = escape_identifier(schema);
-    let table = escape_identifier(table);
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
 
     let cn = pool.get().await?;
     loop {
@@ -248,12 +235,12 @@ async fn calc_bounds(
                 &[
                     &&schema[1..schema.len() - 1],
                     &&table[1..table.len() - 1],
-                    &geometry_column,
+                    &info.geometry_column,
                     &srid,
                 ],
             ).await
         } else {
-            let geometry_column = escape_identifier(geometry_column);
+            let geometry_column = escape_identifier(&info.geometry_column);
             cn.query_one(
                 &format!(r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
@@ -280,7 +267,7 @@ FROM {schema}.{table};"),
             // ST_EstimatedExtent failed probably because there is no index or statistics or if it's a view
             // This can only happen once if we are in quick mode
             is_quick = false;
-            warn!("ST_EstimatedExtent on {schema}.{table}.{geometry_column} failed, trying slower method to compute bounds");
+            warn!("ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds", info.geometry_column);
         } else {
             return Ok(None);
         }
