@@ -118,7 +118,9 @@ pub async fn table_to_query(
                 debug!("Computing {} table bounds for {id}", info.format_id());
                 info.bounds = calc_bounds(
                     &pool,
-                    &info
+                    &info.schema,
+                    &info.table,
+                    &info.geometry_column,
                     srid,
                     false,
                 )
