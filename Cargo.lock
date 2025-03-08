@@ -2716,6 +2716,7 @@ dependencies = [
  "itertools 0.14.0",
  "json-patch",
  "lambda-web",
+ "martin-observability-utils",
  "martin-tile-utils",
  "mbtiles",
  "moka",
@@ -2756,6 +2757,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "martin-observability-utils"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "martin-tile-utils"
 version = "0.6.0"
 dependencies = [
@@ -2786,6 +2796,7 @@ dependencies = [
  "futures",
  "insta",
  "itertools 0.14.0",
+ "martin-observability-utils",
  "martin-tile-utils",
  "md5",
  "num_cpus",
@@ -2803,8 +2814,6 @@ dependencies = [
  "tilejson",
  "tokio",
  "tracing",
- "tracing-log",
- "tracing-subscriber",
  "tracing-test",
  "xxhash-rust",
 ]

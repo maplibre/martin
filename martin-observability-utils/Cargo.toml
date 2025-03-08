@@ -1,0 +1,20 @@
+lints.workspace = true
+
+[package]
+name = "martin-observability-utils"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Utilities to help with logging. Used by the MapLibre's Martin tile server."
+keywords = ["maps", "tiles", "mvt", "tileserver"]
+categories = ["science::geo", "parsing"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+
+[dependencies]
+tracing.workspace = true
+tracing-log.workspace = true
+tracing-subscriber.workspace = true

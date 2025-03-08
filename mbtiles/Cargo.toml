@@ -11,10 +11,11 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+homepage = "https://maplibre.org/martin/tools.html#mbtiles"
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:tracing-subscriber", "dep:tracing-log", "dep:serde_yaml"]
+cli = ["dep:anyhow", "dep:clap", "dep:martin-observability-utils", "dep:serde_yaml"]
 
 [dependencies]
 enum-display.workspace = true
@@ -22,6 +23,7 @@ flume.workspace = true
 futures.workspace = true
 itertools.workspace = true
 martin-tile-utils.workspace = true
+martin-observability-utils = { workspace = true, optional = true }
 md5.workspace = true
 num_cpus.workspace = true
 serde.workspace = true
@@ -41,8 +43,6 @@ xxhash-rust.workspace = true
 anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
-tracing-log = { workspace = true, optional = true }
-tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
