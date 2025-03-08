@@ -113,8 +113,6 @@ tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 tracing.workspace = true
 tracing-actix-web.workspace = true
-tracing-log.workspace = true
-tracing-subscriber.workspace = true
 
 [build-dependencies]
 walkdir = { workspace = true, optional = true }

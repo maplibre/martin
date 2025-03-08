@@ -2749,8 +2749,6 @@ dependencies = [
  "tokio-postgres-rustls",
  "tracing",
  "tracing-actix-web",
- "tracing-log",
- "tracing-subscriber",
  "tracing-test",
  "url",
  "walkdir",
