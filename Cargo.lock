@@ -2724,7 +2724,6 @@ dependencies = [
  "tokio",
  "tokio-postgres-rustls",
  "tracing",
- "tracing-actix-web",
  "tracing-log",
  "tracing-subscriber",
  "tracing-test",
@@ -2909,12 +2908,6 @@ checksum = "e1a5d38b9b352dbd913288736af36af41c48d61b1a8cd34bcecd727561b7d511"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "mutually_exclusive_features"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e94e1e6445d314f972ff7395df2de295fe51b71821694f0b0e1e79c4f12c8577"
 
 [[package]]
 name = "nanorand"
@@ -5386,19 +5379,6 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
-]
-
-[[package]]
-name = "tracing-actix-web"
-version = "0.7.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "332bbdf3bd208d1fe6446f8ffb4e8c2ae66e25da0fb38e0b69545e640ecee6a6"
-dependencies = [
- "actix-web",
- "mutually_exclusive_features",
- "pin-project",
- "tracing",
- "uuid",
 ]
 
 [[package]]
