@@ -174,6 +174,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
+            .wrap(tracing_actix_web::TracingLogger::default())
             .configure(|c| router(c, &config))
     };
 
