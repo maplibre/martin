@@ -69,6 +69,7 @@ fn setup_logging() {
     use tracing_subscriber::prelude::*;
     // transform log records into `tracing` `Event`s.
     tracing_log::LogTracer::builder()
+        .with_interest_cache(tracing_log::InterestCacheConfig::default())
         .init()
         .expect("the global logger to only be set once");
 
