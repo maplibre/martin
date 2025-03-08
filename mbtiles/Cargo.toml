@@ -12,7 +12,6 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 homepage = "https://maplibre.org/martin/tools.html#mbtiles"
-readme = "README.md"
 
 [features]
 default = ["cli"]

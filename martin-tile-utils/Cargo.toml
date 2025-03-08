@@ -16,7 +16,6 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
-readme = "README.md"
 
 [dependencies]
 brotli.workspace = true
