@@ -33,8 +33,8 @@ mbtiles *ARGS:
     cargo run -p mbtiles -- {{ARGS}}
 
 # Start release-compiled Martin server and a test database
-run-release *ARGS: start
-    cargo run -- {{ARGS}}
+run-release *ARGS="--webui enable-for-all": start
+    cargo run -p martin --release -- {{ARGS}}
 
 # Start Martin server and open a test page
 debug-page *ARGS: start
