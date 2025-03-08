@@ -1,11 +1,15 @@
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-use clap::{Parser, Subcommand};
+use clap::builder::{StringValueParser, TypedValueParser};
+use clap::error::{ContextKind, ContextValue};
+use clap::{Arg, Command, Parser, Subcommand};
 use log::error;
 use mbtiles::{
-    apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
+    apply_patch, extract, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
     MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
 };
+use regex::Regex;
 use tilejson::Bounds;
 
 #[derive(Parser, PartialEq, Debug)]
@@ -94,6 +98,9 @@ enum Commands {
         #[arg(long, value_enum)]
         agg_hash: Option<AggHashType>,
     },
+    /// Extract tiles into the filesystem or an object store
+    #[command(name = "extract")]
+    Extract(ExtractArgs),
 }
 
 #[allow(clippy::doc_markdown)]
@@ -205,6 +212,117 @@ impl SharedCopyOpts {
     }
 }
 
+#[derive(Clone)]
+pub struct KeyValueParser {
+    inner: StringValueParser,
+    regex_kex_value: Regex,
+}
+
+impl Default for KeyValueParser {
+    fn default() -> Self {
+        Self {
+            inner: StringValueParser::new(),
+            regex_kex_value: Regex::new(r"\s*([^\s=]+)\s*=\s*(.*)").expect("key-value regex"),
+        }
+    }
+}
+
+impl TypedValueParser for KeyValueParser {
+    type Value = (String, String);
+
+    fn parse_ref(
+        &self,
+        cmd: &Command,
+        arg: Option<&Arg>,
+        value: &OsStr,
+    ) -> Result<Self::Value, clap::Error> {
+        let value = self.inner.parse_ref(cmd, arg, value)?;
+        if let Some(captures) = self.regex_kex_value.captures(&value) {
+            let (_, [key, value]) = captures.extract();
+            Ok((key.to_string(), value.to_string()))
+        } else {
+            let mut err = clap::Error::new(clap::error::ErrorKind::ValueValidation);
+            if let Some(arg) = arg {
+                err.insert(
+                    ContextKind::InvalidArg,
+                    ContextValue::String(arg.to_string()),
+                );
+            }
+            err.insert(ContextKind::InvalidValue, ContextValue::String(value));
+            err.insert(
+                ContextKind::Usage,
+                ContextValue::String(
+                    "value must be valid key-value pair in the form <key>=<value>".to_string(),
+                ),
+            );
+            Err(err)
+        }
+    }
+}
+
+/// Extract tiles from an MBTiles file to an object store or filesystem.
+#[allow(clippy::doc_markdown)]
+#[derive(Clone, Default, PartialEq, Debug, clap::Args)]
+pub struct ExtractArgs {
+    /// MBTiles file to extract from.
+    file: PathBuf,
+
+    /// The object store URL to extract to.
+    ///
+    /// Supported schemes are:
+    /// - file:///path
+    /// - s3://bucket/path for Amazon S3
+    /// - az://container/path or abfs://container@account_name.dfs.core.windows.net/path for Microsoft Azure
+    /// - gs://bucket/path for Google Cloud Storage
+    ///
+    /// The path-fragment supports placeholders which will be replaced with the tiles x, y,
+    /// and z coordinates. Examples:
+    ///
+    /// - file:///my/directory/{z}/{x}/{y}.pbf
+    /// - s3://my-bucket/tiles/{z}/{x}/{y}.png
+    ///
+    /// Not using these placeholders will result in the same file being overwritten over and over
+    /// again.
+    ///
+    /// Some of the supported object stores require additional configuration like access keys, endpoints, ...
+    /// using the `-o` option and/or environment variables. Supported environment variables are documented here:
+    ///
+    /// - Amazon S3: https://docs.rs/object_store/0.11.1/object_store/aws/struct.AmazonS3Builder.html#method.from_env
+    /// - Microsoft Azure: https://docs.rs/object_store/0.11.1/object_store/azure/struct.MicrosoftAzureBuilder.html#method.from_env
+    /// - Google Cloud Storage: https://docs.rs/object_store/0.11.1/object_store/gcp/struct.GoogleCloudStorageBuilder.html#method.from_env
+    ///
+    /// Additionally, there are aliases for the schemes as documented in the object_store crate:
+    /// https://docs.rs/object_store/0.11.1/object_store/enum.ObjectStoreScheme.html#supported-formats
+    ///
+    /// In case the object store supports metadata like the content-type and content-encoding, these will be set
+    /// according to the tile format and encoding specified in the metadata in the MBTiles file. S3, Azure, and GCP
+    /// support this metadata.
+    #[arg(verbatim_doc_comment)]
+    object_store_url: String,
+
+    /// Options to pass to the object store. These are key-value pairs in the form `key=value`.
+    ///
+    /// The supported options are documented here:
+    ///
+    /// - Amazon S3: https://docs.rs/object_store/0.11.1/object_store/aws/enum.AmazonS3ConfigKey.html
+    /// - Microsoft Azure: https://docs.rs/object_store/0.11.1/object_store/azure/enum.AzureConfigKey.html
+    /// - Google Cloud Storage: https://docs.rs/object_store/0.11.1/object_store/gcp/enum.GoogleConfigKey.html
+    ///
+    /// Example options to access the S3-compatible MinIO server running on localhost:
+    ///
+    ///     -o endpoint=http://localhost:9000 -o access_key_id=*** -o secret_access_key=*** -o aws_allow_http=1
+    #[arg(short = 'o', value_parser = KeyValueParser::default(), verbatim_doc_comment)]
+    object_store_options: Vec<(String, String)>,
+
+    /// The number of concurrent tasks to use when extracting tiles.
+    #[arg(short = 'c', default_value = "8")]
+    concurrency: u8,
+
+    /// Decode/decompress the tile data before writing to the object store.
+    #[arg(long, default_value = "false")]
+    decode: bool,
+}
+
 #[tokio::main]
 async fn main() {
     let env = env_logger::Env::default().default_filter_or("mbtiles=info");
@@ -289,6 +407,16 @@ async fn main_int() -> anyhow::Result<()> {
             let mut conn = mbt.open_readonly().await?;
             println!("MBTiles file summary for {mbt}");
             println!("{}", mbt.summary(&mut conn).await?);
+        }
+        Commands::Extract(args) => {
+            extract(
+                args.file,
+                &args.object_store_url,
+                args.object_store_options,
+                args.concurrency,
+                args.decode,
+            )
+            .await?;
         }
     }
 
@@ -641,6 +769,44 @@ mod tests {
                     agg_hash: Some(AggHashType::Off),
                 }
             }
+        );
+    }
+
+    #[test]
+    fn test_parse_keyvalue() {
+        let parser = KeyValueParser::default();
+        assert_eq!(
+            parser
+                .parse_ref(&Command::new("test"), None, OsStr::new("key=value"))
+                .unwrap(),
+            ("key".to_string(), "value".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_keyvalue_whitespace() {
+        let parser = KeyValueParser::default();
+        assert_eq!(
+            parser
+                .parse_ref(&Command::new("test"), None, OsStr::new("key  =   value"))
+                .unwrap(),
+            ("key".to_string(), "value".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_keyvalue_fail() {
+        let parser = KeyValueParser::default();
+        assert_eq!(
+            parser
+                .parse_ref(
+                    &Command::new("test"),
+                    None,
+                    OsStr::new("missing equals sign")
+                )
+                .unwrap_err()
+                .kind(),
+            ErrorKind::ValueValidation
         );
     }
 }
