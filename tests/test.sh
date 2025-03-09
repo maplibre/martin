@@ -148,9 +148,18 @@ remove_line() {
   mv "${FILE}.tmp" "${FILE}"
 }
 
+# the log now contains some terminal escape codes, which make searching for strings less readable
+# => removing them solves this problem
+remove_terminal_escape_sequences() {
+  LOG_FILE="$1"
+  echo "Removing terminal escape sequences from $LOG_FILE"
+  sed -i 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g' $LOG_FILE
+}
+
 test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
+  remove_terminal_escape_sequences "$LOG_FILE"
   echo "Checking $LOG_FILE for expected text: '$EXPECTED_TEXT'"
   if ! grep -q "$EXPECTED_TEXT" "$LOG_FILE"; then
     echo "ERROR: Expected text was not found in the log file"
@@ -185,6 +194,7 @@ test_martin_cp() {
 validate_log() {
   LOG_FILE="$1"
   >&2 echo "Validating log file $LOG_FILE"
+  remove_terminal_escape_sequences "$LOG_FILE"
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
@@ -323,9 +333,9 @@ test_jsn fnc_comment              function_Mixed_Name
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN martin::fonts: Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
@@ -420,9 +430,9 @@ test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN martin::fonts: Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
