@@ -208,9 +208,13 @@ impl SharedCopyOpts {
 
 #[tokio::main]
 async fn main() {
-    let log_filter =
-        LogLevel::from_env_var("RUST_LOG").lossy_parse_to_filter_with_default("mbtiles=info");
-    let log_format = LogFormat::from_env_var("MBTILES_LOG_FORMAT");
+    // since logging is not yet available, we have to manually check the locations
+    let log_filter = LogLevel::from_argument("--log-level")
+        .or_env_var("MBTILES_LOG_FORMAT")
+        .lossy_parse_to_filter_with_default("martin=info");
+    let log_format = LogFormat::from_argument("--log-level")
+        .or_env_var("RUST_LOG")
+        .or_default(LogFormatOptions::Compact);
     MartinObservability::from((log_filter, log_format))
         .with_initialised_log_tracing()
         .set_global_subscriber();

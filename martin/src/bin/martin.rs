@@ -2,7 +2,7 @@ use clap::Parser;
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};
-use martin_observability_utils::{LogFormat, LogLevel, MartinObservability};
+use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use tracing::{error, event_enabled, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -52,11 +52,14 @@ async fn start(args: Args) -> MartinResult<()> {
 #[actix_web::main]
 async fn main() {
     // since logging is not yet available, we have to manually check the locations
-    let log_filter = LogLevel::from_env_var("RUST_LOG")
-        .or_from_argument("--log-level")
+    let log_filter = LogLevel::from_argument("--log-level")
         .or_in_config_file("--config", "log_level")
+        .or_env_var("MARTIN_LOG_FORMAT")
         .lossy_parse_to_filter_with_default("martin=info");
-    let log_format = LogFormat::from_env_var("MARTIN_LOG_FORMAT");
+    let log_format = LogFormat::from_argument("--log-level")
+        .or_in_config_file("--config", "log_format")
+        .or_env_var("RUST_LOG")
+        .or_default(LogFormatOptions::Compact);
     MartinObservability::from((log_filter, log_format))
         .with_initialised_log_tracing()
         .set_global_subscriber();

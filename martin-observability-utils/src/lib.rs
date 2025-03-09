@@ -8,8 +8,8 @@ use tracing_subscriber::EnvFilter;
 
 #[derive(Default)]
 pub struct MartinObservability {
-    log_format: LogFormat,
     filter: EnvFilter,
+    log_format: LogFormatOptions,
 }
 impl MartinObservability {
     /// transform [`log`](https://docs.rs/log) records into [`tracing`](https://docs.rs/tracing) [`Event`](tracing::Event)s.
@@ -36,23 +36,25 @@ impl MartinObservability {
         use tracing_subscriber::prelude::*;
         let registry = tracing_subscriber::registry().with(self.filter);
         match self.log_format {
-            LogFormat::Full => set_global_default(registry.with(Layer::default())),
-            LogFormat::Compact => set_global_default(registry.with(Layer::default().json())),
-            LogFormat::Pretty => set_global_default(registry.with(Layer::default().pretty())),
-            LogFormat::Json => set_global_default(registry.with(Layer::default().compact())),
+            LogFormatOptions::Full => set_global_default(registry.with(Layer::default())),
+            LogFormatOptions::Compact => set_global_default(registry.with(Layer::default().json())),
+            LogFormatOptions::Pretty => {
+                set_global_default(registry.with(Layer::default().pretty()))
+            }
+            LogFormatOptions::Json => set_global_default(registry.with(Layer::default().compact())),
         }
         .expect("since martin has not set the global_default, no global default is set");
     }
 }
-impl From<(EnvFilter, LogFormat)> for MartinObservability {
-    fn from((filter, log_format): (EnvFilter, LogFormat)) -> Self {
-        Self { log_format, filter }
+impl From<(EnvFilter, LogFormatOptions)> for MartinObservability {
+    fn from((filter, log_format): (EnvFilter, LogFormatOptions)) -> Self {
+        Self { filter, log_format }
     }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Default, Debug, clap::ValueEnum)]
-pub enum LogFormat {
-    /// Emits human-readable, single-line logs.
+pub enum LogFormatOptions {
+    /// Emit human-readable, single-line logs.
     /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output)
     Full,
     /// A variant of the full-format, optimized for short line lengths.
@@ -62,22 +64,76 @@ pub enum LogFormat {
     /// Excessively pretty, multi-line logs for local development/debugging, prioritizing readability over compact storage.
     /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output)
     Pretty,
-    /// Outputs newline-delimited (structured) JSON logs, ***not*** optimized for human readability.
+    /// Output newline-delimited (structured) JSON logs, ***not*** optimized for human readability.
     /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output)
     Json,
 }
-impl LogFormat {
-    /// log format (how the logs are formatted on the cli) from an environment variable
-    ///
-    /// Default: [`LogFormat::Compact`]
-    #[must_use]
-    pub fn from_env_var(key: &'static str) -> Self {
+impl LogFormatOptions {
+    fn from_str(key: &str) -> Option<Self> {
         match std::env::var(key).unwrap_or_default().as_str() {
-            "full" => LogFormat::Full,
-            "pretty" | "verbose" => LogFormat::Pretty,
-            "json" | "jsonl" => LogFormat::Json,
-            _ => LogFormat::Compact,
+            "full" => Some(LogFormatOptions::Full),
+            "pretty" | "verbose" => Some(LogFormatOptions::Pretty),
+            "json" | "jsonl" => Some(LogFormatOptions::Json),
+            "compact" => Some(LogFormatOptions::Compact),
+            _ => None,
         }
+    }
+}
+
+pub struct LogFormat(Option<LogFormatOptions>);
+impl LogFormat {
+    /// Search for the log format (how the logs are formatted on the cli) as an argument in the CLI
+    ///
+    /// Due to [`clap`] having a help function, it is not possible to use it.
+    #[must_use]
+    pub fn from_argument(argument: &str) -> Self {
+        let args = std::env::args().collect::<Vec<String>>();
+        let v = get_next_after_argument(argument, &args);
+        if let Some(v) = v {
+            if let Some(v) = LogFormatOptions::from_str(&v) {
+                Self(Some(v))
+            } else {
+                eprintln!("Ignoring specified cli argument {argument} {v} as it is not a valid log format. Can be one of full, compact, pretty, json");
+                Self(None)
+            }
+        } else {
+            Self(None)
+        }
+    }
+    /// Search for the log format (how the logs are formatted on the cli) at a path in a config file
+    #[must_use]
+    pub fn or_in_config_file(mut self, argument: &str, key: &str) -> Self {
+        if self.0.is_none() {
+            let args = std::env::args().collect::<Vec<String>>();
+            if let Some(path) = get_next_after_argument(argument, &args) {
+                let path = PathBuf::from(path);
+                if let Some(v) = read_path_in_file(&path, key) {
+                    match LogFormatOptions::from_str(&v) {
+                        Some(v) => self.0=Some(v),
+                        None => eprintln!("Ignoring specified option {key}: {v} inside {path:?} as it is not a valid log format. Can be one of full, compact, pretty, json"),
+                    }
+                }
+            }
+        }
+        self
+    }
+    /// Gets log format (how the logs are formatted on the cli) from an environment variable
+    #[must_use]
+    pub fn or_env_var(mut self, key: &'static str) -> Self {
+        if self.0.is_none() {
+            if let Ok(v) = std::env::var(key) {
+                match LogFormatOptions::from_str(&v) {
+                    Some(v) => self.0=Some(v),
+                    None => eprintln!("Ignoring specified environment variable {key}={v} as it is not a valid log format. Can be one of full, compact, pretty, json"),
+                }
+            }
+        }
+        self
+    }
+    /// Sets a default
+    #[must_use]
+    pub fn or_default(self, default_format: LogFormatOptions) -> LogFormatOptions {
+        self.0.unwrap_or(default_format)
     }
 }
 
@@ -87,24 +143,14 @@ impl LogFormat {
 #[derive(Clone, PartialEq, Debug)]
 pub struct LogLevel(Option<String>);
 impl LogLevel {
-    /// Get log directives from an environment variable
-    #[must_use]
-    pub fn from_env_var(key: &str) -> Self {
-        Self(std::env::var(key).ok())
-    }
     /// Search for the log level at a path in the CLI
     ///
     /// Due to [`clap`] having a help function, it is not possible to use it.
     /// All errors during this operation are ignored as the default ([`tracing::Level::INFO`]) will print errors for this too during the regular parsing.
     #[must_use]
-    pub fn or_from_argument(mut self, argument: &str) -> Self {
-        if self.0.is_none() {
-            let args = std::env::args().collect::<Vec<String>>();
-            if let Some(arg) = Self::get_next_after_argument(argument, &args) {
-                self.0 = Some(arg);
-            }
-        }
-        self
+    pub fn from_argument(argument: &str) -> Self {
+        let args = std::env::args().collect::<Vec<String>>();
+        Self(get_next_after_argument(argument, &args))
     }
     /// Search for the log level at a path in a config file
     ///
@@ -113,10 +159,18 @@ impl LogLevel {
     pub fn or_in_config_file(mut self, argument: &str, key: &str) -> Self {
         if self.0.is_none() {
             let args = std::env::args().collect::<Vec<String>>();
-            if let Some(path) = Self::get_next_after_argument(argument, &args) {
+            if let Some(path) = get_next_after_argument(argument, &args) {
                 let path = PathBuf::from(path);
-                self.0 = Self::read_path_in_file(path.as_path(), key);
+                self.0 = read_path_in_file(path.as_path(), key);
             }
+        }
+        self
+    }
+    /// Get log directives from an environment variable
+    #[must_use]
+    pub fn or_env_var(mut self, key: &str) -> Self {
+        if self.0.is_none() {
+            self.0 = std::env::var(key).ok();
         }
         self
     }
@@ -131,68 +185,48 @@ impl LogLevel {
         };
         EnvFilter::builder().parse_lossy(directives)
     }
-
-    /// Search for the argument following a certain argument in the cli
-    #[must_use]
-    pub(crate) fn get_next_after_argument(argument: &str, args: &[String]) -> Option<String> {
-        let mut args = args.into_iter();
-        let _ = args.next(); // first argument is binary
-        while let Some(arg) = args.next() {
-            if arg == argument {
-                return args.next().cloned();
-            }
-        }
-        None
-    }
-    /// Reads a key from a yaml file at a path
-    ///
-    /// All errors are ignored and return [`None`]
-    #[must_use]
-    pub(crate) fn read_path_in_file(path: &Path, key: &str) -> Option<String> {
-        let mut config_file = Vec::new();
-        let _ = File::open(path).ok()?.read_to_end(&mut config_file).ok()?;
-        let map: HashMap<String, serde_yaml::Value> = serde_yaml::from_slice(&config_file).ok()?;
-        if let Some(v) = map.get(key) {
-            if let Some(v) = v.as_str() {
-                return Some(v.to_string());
-            }
-        }
-        None
-    }
 }
+
+/// Search for the argument following a certain argument in the cli
+#[must_use]
+fn get_next_after_argument(argument: &str, args: &[String]) -> Option<String> {
+    let mut args = args.iter();
+    let _ = args.next(); // first argument is binary
+    while let Some(arg) = args.next() {
+        if arg == argument {
+            return args.next().cloned();
+        }
+    }
+    None
+}
+/// Reads a key from a yaml file at a path
+///
+/// All errors are ignored and return [`None`]
+#[must_use]
+fn read_path_in_file(path: &Path, key: &str) -> Option<String> {
+    let mut config_file = Vec::new();
+    let _ = File::open(path).ok()?.read_to_end(&mut config_file).ok()?;
+    let map: HashMap<String, serde_yaml::Value> = serde_yaml::from_slice(&config_file).ok()?;
+    if let Some(v) = map.get(key) {
+        if let Some(v) = v.as_str() {
+            return Some(v.to_string());
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
-    use super::LogFormat;
     use super::*;
     use std::io::Write;
 
     #[test]
-    fn test_log_format_from_env_var() {
-        assert_eq!(
-            LogFormat::from_env_var("TEST_NOT_EXISTING_VARIABLE"),
-            LogFormat::Compact
-        );
-        let cases = [
-            ("full", LogFormat::Full),
-            ("pretty", LogFormat::Pretty),
-            ("verbose", LogFormat::Pretty),
-            ("json", LogFormat::Json),
-            ("jsonl", LogFormat::Json),
-            ("compact", LogFormat::Compact),
-            ("unknown", LogFormat::Compact),
-        ];
-        for (value, expected) in cases {
-            std::env::set_var("TEST_LOG_FORMAT_1", value);
-            assert_eq!(LogFormat::from_env_var("TEST_LOG_FORMAT_1"), expected);
-        }
-    }
-    #[test]
-    fn test_env_var() {
+    fn test_log_level_env_var() {
         std::env::set_var("TEST_LOG_LEVEL_DEBUG", "debug");
 
-        let log_level = LogLevel::from_env_var("TEST_NOT_EXISTING_VARIABLE");
+        let log_level = LogLevel(None).or_env_var("TEST_NOT_EXISTING_VARIABLE");
         assert_eq!(log_level, LogLevel(None));
-        let log_level = LogLevel::from_env_var("TEST_LOG_LEVEL_DEBUG");
+        let log_level = LogLevel(None).or_env_var("TEST_LOG_LEVEL_DEBUG");
         assert_eq!(log_level, LogLevel(Some("debug".to_string())));
     }
 
@@ -204,13 +238,13 @@ mod tests {
             "trace".to_string(),
             "--log-level2".to_string(),
         ];
-        let log_level = LogLevel::get_next_after_argument("not-found", &args);
+        let log_level = get_next_after_argument("not-found", &args);
         assert_eq!(log_level, None);
-        let log_level = LogLevel::get_next_after_argument("binary-path-goes-here", &args);
+        let log_level = get_next_after_argument("binary-path-goes-here", &args);
         assert_eq!(log_level, None); // should be skipped
-        let log_level = LogLevel::get_next_after_argument("--log-level", &args);
+        let log_level = get_next_after_argument("--log-level", &args);
         assert_eq!(log_level, Some("trace".to_string()));
-        let log_level = LogLevel::get_next_after_argument("--log-level2", &args);
+        let log_level = get_next_after_argument("--log-level2", &args);
         assert_eq!(log_level, None);
     }
 
@@ -219,15 +253,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("config.yaml");
 
-        let log_level = LogLevel::read_path_in_file(&config_path, "log_level");
+        let log_level = read_path_in_file(&config_path, "log_level");
         assert_eq!(log_level, None);
 
         let mut file = File::create(&config_path).unwrap();
         file.write_all("log_level: warn".as_bytes()).unwrap();
 
-        let log_level = LogLevel::read_path_in_file(&config_path, "key_not_found");
+        let log_level = read_path_in_file(&config_path, "key_not_found");
         assert_eq!(log_level, None);
-        let log_level = LogLevel::read_path_in_file(&config_path, "log_level");
+        let log_level = read_path_in_file(&config_path, "log_level");
         assert_eq!(log_level, Some("warn".to_string()));
     }
 
@@ -236,6 +270,9 @@ mod tests {
         let log_level = LogLevel(Some("info".to_string()));
         let filter = log_level.lossy_parse_to_filter_with_default("warn");
         assert_eq!(filter.to_string(), "info");
+        let filter =
+            LogLevel(Some("adsdas".to_string())).lossy_parse_to_filter_with_default("warn");
+        assert_eq!(filter.to_string(), "");
 
         let default_filter = LogLevel(None).lossy_parse_to_filter_with_default("warn");
         assert_eq!(default_filter.to_string(), "warn");
