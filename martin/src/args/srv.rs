@@ -11,19 +11,26 @@ pub struct SrvArgs {
     pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {LISTEN_ADDRESSES_DEFAULT}]"), short, long)]
     pub listen_addresses: Option<String>,
-    /// Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
-    /// Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
+    /// Set TileJSON URL path prefix.
+    ///
+    /// This overrides the default of respecting the X-Rewrite-URL header.
+    /// Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged.
+    /// If you need to rewrite URLs, please use a reverse proxy.
     /// Must begin with a `/`.
+    ///
     /// Examples: `/`, `/tiles`
     #[arg(long)]
     pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
     pub workers: Option<usize>,
-    /// Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip.
+    /// Martin server preferred tile encoding. [DEFAULT: gzip]
+    ///
+    /// If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used.
+    /// `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
     #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
-    /// Control Martin web UI.  Disabled by default.
+    /// Control Martin web UI. [DEFAULT: disabled]
     #[arg(short = 'u', long = "webui")]
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
@@ -33,7 +40,8 @@ pub struct SrvArgs {
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
-    /// Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost.
+    /// Disable Web UI interface.  
+    /// ***This is the default, but once implemented, the default will be enabled for localhost.***
     #[default]
     #[serde(alias = "false")]
     Disable,
