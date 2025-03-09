@@ -56,8 +56,7 @@ Options:
           Control Martin web UI. [DEFAULT: disabled]
 
           Possible values:
-          - disable:        Disable Web UI interface.
-            This is the default, but once implemented, the default will be enabled for localhost.
+          - disable:        Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost.
           - enable-for-all: Enable Web UI interface on all connections
 
   -b, --auto-bounds <AUTO_BOUNDS>

@@ -40,8 +40,7 @@ pub struct SrvArgs {
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
-    /// Disable Web UI interface.  
-    /// ***This is the default, but once implemented, the default will be enabled for localhost.***
+    /// Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***
     #[default]
     #[serde(alias = "false")]
     Disable,
