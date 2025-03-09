@@ -16,7 +16,7 @@ use martin::{
     append_rect, read_config, Config, MartinError, MartinResult, ServerState, TileData,
     TileInfoSource, TileRect,
 };
-use martin_observability_utils::{LogFormat, LogLevel, MartinObservability};
+use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::UpdateZoomType::GrowOnly;
@@ -50,6 +50,13 @@ pub struct CopierArgs {
     #[cfg(feature = "postgres")]
     #[command(flatten)]
     pub pg: Option<martin::args::PgArgs>,
+    /// How to format the logs. [DEFAULT: compact]
+    #[arg(long)]
+    pub log_format: Option<LogFormatOptions>,
+    /// Set which logs martin outputs. [DEFAULT: martin-cp=info]
+    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
+    #[arg(long)]
+    pub log_level: Option<String>,
 }
 
 #[serde_with::serde_as]

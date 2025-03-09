@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use martin_observability_utils::{LogFormat, LogLevel, MartinObservability};
+use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use mbtiles::{
     apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
     MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
@@ -22,6 +22,13 @@ pub struct Args {
     verbose: bool,
     #[command(subcommand)]
     command: Commands,
+    /// How to format the logs. [DEFAULT: compact]
+    #[arg(long)]
+    pub log_format: Option<LogFormatOptions>,
+    /// Set which logs mbtiles outputs. [DEFAULT: mbtiles=info]
+    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
+    #[arg(long)]
+    pub log_level: Option<String>,
 }
 
 #[allow(clippy::doc_markdown)]

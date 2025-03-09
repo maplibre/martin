@@ -29,8 +29,8 @@ pub struct SrvArgs {
     pub web_ui: Option<WebUiMode>,
     /// How to format the logs. [DEFAULT: compact]
     #[arg(long)]
-    pub log_format: Option<martin_observability_utils::LogFormat>,
-    /// Set which logs martin outputs.
+    pub log_format: Option<LogFormatOptions>,
+    /// Set which logs martin outputs. [DEFAULT: martin=info]
     /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
     #[arg(long)]
     pub log_level: Option<String>,
