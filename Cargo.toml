@@ -37,7 +37,7 @@ approx = "0.5.1"
 async-trait = "0.1"
 bit-set = "0.8"
 brotli = ">=5, <8"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "unstable-markdown"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.4.1"
 dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
