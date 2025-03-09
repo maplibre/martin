@@ -404,6 +404,7 @@ fn databases() -> Databases {
     })
 }
 
+#[tracing_test::traced_test]
 #[tokio::test]
 async fn update() -> MbtResult<()> {
     let (mbt, mut cn) = new_file_no_hash!(databases, Flat, METADATA_V1, TILES_V1, "update");
@@ -414,6 +415,7 @@ async fn update() -> MbtResult<()> {
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -506,6 +508,7 @@ async fn convert(
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -567,6 +570,7 @@ async fn diff_and_patch(
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -616,6 +620,7 @@ async fn diff_and_patch_bsdiff(
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -644,6 +649,7 @@ async fn patch_on_copy(
 }
 
 /// A simple tester to run specific values
+#[tracing_test::traced_test]
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_one() {
