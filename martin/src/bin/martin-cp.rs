@@ -429,7 +429,8 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let filter = LogLevel::from_env_var("RUST_LOG").lossy_parse_to_filter_with_default("info");
+    let filter =
+        LogLevel::from_env_var("RUST_LOG").lossy_parse_to_filter_with_default("martin_cp=info");
     let log_format = LogFormat::from_env_var("MARTIN_CP_LOG_FORMAT");
     MartinObservability::from((filter, log_format))
         .with_initialised_log_tracing()

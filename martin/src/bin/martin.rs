@@ -55,7 +55,7 @@ async fn main() {
     let log_filter = LogLevel::from_env_var("RUST_LOG")
         .or_from_argument("--log-level")
         .or_in_config_file("--config", "log_level")
-        .lossy_parse_to_filter_with_default("info");
+        .lossy_parse_to_filter_with_default("martin=info");
     let log_format = LogFormat::from_env_var("MARTIN_LOG_FORMAT");
     MartinObservability::from((log_filter, log_format))
         .with_initialised_log_tracing()
