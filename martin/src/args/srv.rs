@@ -13,9 +13,9 @@ pub struct SrvArgs {
     pub listen_addresses: Option<String>,
     /// Set TileJSON URL path prefix.
     ///
-    /// This overrides the default of respecting the X-Rewrite-URL header.  
-    /// Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged.  
-    /// If you need to rewrite URLs, please use a reverse proxy.  
+    /// This overrides the default of respecting the X-Rewrite-URL header.
+    /// Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged.
+    /// If you need to rewrite URLs, please use a reverse proxy.
     /// Must begin with a `/`.
     ///
     /// Examples: `/`, `/tiles`
