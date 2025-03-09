@@ -46,7 +46,7 @@ pub struct MetaArgs {
     /// Path to config file. If set, no tile source-related parameters are allowed.
     #[arg(short, long)]
     pub config: Option<PathBuf>,
-    /// Save resulting config to a file or use "-" to print to stdout.  
+    /// Save resulting config to a file or use "-" to print to stdout.
     /// By default, only print if sources are auto-detected.
     #[arg(long)]
     pub save_config: Option<PathBuf>,
