@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
 
 #[allow(clippy::doc_markdown)]
-#[derive(clap::Args, Debug, PartialEq, Default)]
+#[derive(clap::Args, PartialEq, Debug, Default)]
 #[command(about, version)]
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {KEEP_ALIVE_DEFAULT}]"), short, long)]
@@ -27,6 +27,19 @@ pub struct SrvArgs {
     #[arg(short = 'u', long = "webui")]
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
+    /// How to format the logs.
+    ///
+    /// Can be either of:
+    /// - `full` emits human-readable, single-line logs for each event
+    /// - `compact` (default) `full`, but optimized for short line lengths.
+    /// - `pretty` excessively pretty, multi-line logs, optimized for human readability. For evaluation and development.
+    /// - `json` newline-delimited JSON logs. For production use with systems where structured logs are consumed as JSON.
+    #[arg(long)]
+    pub log_format: Option<martin_observability_utils::LogFormat>,
+    /// Set which logs martin outputs.
+    /// See <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax> for more information.
+    #[arg(long)]
+    pub log_level: Option<String>,
 }
 
 #[cfg(feature = "webui")]

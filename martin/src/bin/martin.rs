@@ -51,10 +51,14 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-    MartinObservability::default()
+    // since logging is not yet available, we have to manually check the locations
+    let log_filter = LogLevel::from_env_var("RUST_LOG")
+        .or_from_argument("--log-level")
+        .or_in_config_file("--config", "log_level")
+        .lossy_parse_to_filter_with_default("info");
+    let log_format = LogFormat::from_env_var("MARTIN_LOG_FORMAT");
+    MartinObservability::from((log_filter,log_format))
         .with_initialised_log_tracing()
-        .with_log_level(LogLevel::from_env_var("MARTIN_LOG_LEVEL").or_default(tracing::Level::INFO))
-        .with_log_format(LogFormat::from_env_var("MARTIN_LOG_FORMAT"))
         .set_global_subscriber();
 
     if let Err(e) = start(Args::parse()).await {

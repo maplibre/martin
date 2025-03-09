@@ -1,23 +1,17 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use tracing_subscriber::EnvFilter;
+
 #[derive(Default)]
 pub struct MartinObservability {
     log_format: LogFormat,
-    log_level: LogLevel,
+    filter: EnvFilter,
 }
 impl MartinObservability {
-    /// Set the log format for the application
-    #[must_use]
-    pub fn with_log_format(mut self, log_format: LogFormat) -> Self {
-        self.log_format = log_format;
-        self
-    }
-    /// Set the log level for the application
-    #[must_use]
-    pub fn with_log_level(mut self, log_level: LogLevel) -> Self {
-        self.log_level = log_level;
-        self
-    }
     /// transform [`log`](https://docs.rs/log) records into [`tracing`](https://docs.rs/tracing) [`Event`](tracing::Event)s.
     ///
     /// # Panics
@@ -40,8 +34,7 @@ impl MartinObservability {
         use tracing::subscriber::set_global_default;
         use tracing_subscriber::fmt::Layer;
         use tracing_subscriber::prelude::*;
-        let registry = tracing_subscriber::registry()
-            .with(tracing_subscriber::filter::EnvFilter::from(self.log_level));
+        let registry = tracing_subscriber::registry().with(self.filter);
         match self.log_format {
             LogFormat::Full => set_global_default(registry.with(Layer::default())),
             LogFormat::Compact => set_global_default(registry.with(Layer::default().json())),
@@ -51,8 +44,13 @@ impl MartinObservability {
         .expect("since martin has not set the global_default, no global default is set");
     }
 }
+impl From<(EnvFilter,LogFormat)> for MartinObservability {
+    fn from((filter, log_format): (EnvFilter, LogFormat)) -> Self {
+        Self{log_format,filter}
+    }
+}
 
-#[derive(PartialEq, Eq, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Debug, clap::ValueEnum)]
 pub enum LogFormat {
     /// Emits human-readable, single-line logs for each event that occurs, with the current span context displayed before the formatted representation of the event.
     /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output) for sample output.
@@ -87,43 +85,79 @@ impl LogFormat {
     }
 }
 
-pub struct LogLevel {
-    key: String,
-    level: tracing::Level,
-}
+/// Allows configuring log directives
+///
+/// See <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax> for more information.
+#[derive(Clone, PartialEq, Debug)]
+pub struct LogLevel(Option<String>);
 impl LogLevel {
-    /// Get log level from an environment variable
-    ///
-    /// Default: [`LogLevel::default`]
+    /// Get log directives from an environment variable
     #[must_use]
-    pub fn from_env_var(key: &'static str) -> Self {
-        let mut level = Self::default();
-        if std::env::var(key).is_ok() {
-            level.key = key.to_string();
-        }
-        level
+    pub fn from_env_var(key: &str) -> Self {
+        Self(std::env::var(key).ok())
     }
-    /// Sets the environment variable key for the log level if it exsts
+    /// Search for the log level at a path in the CLI
+    ///
+    /// Due to [`clap`] having a help function, it is not possible to use it.
+    /// All errors during this operation are ignored as the default ([`tracing::Level::INFO`]) will print errors for this too during the regular parsing.
     #[must_use]
-    pub fn or_default(mut self, level: tracing::Level) -> Self {
-        self.level = level;
+    pub fn or_from_argument(mut self, argument: &str) -> Self {
+        if self.0.is_none() {
+            if let Some(arg) = Self::get_next_after_argument(argument) {
+                self.0 = Some(arg);
+            }
+        }
         self
     }
-}
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel {
-            key: "RUST_LOG".to_string(),
-            level: tracing::Level::INFO,
+/// Search for the log level at a path in a config file
+///
+/// All errors during this operation are ignored as the default ([`tracing::Level::INFO`]) will print errors for this too during the regular parsing.
+    #[must_use]
+    pub fn or_in_config_file(mut self, argument: &str, key: &str) -> Self {
+        if self.0.is_none() {
+            if let Some(path) = Self::get_next_after_argument(argument) {
+                let path = PathBuf::from(path);
+                self.0 = Self::read_path_in_file(path.as_path(), key);
+            }
         }
+        self
     }
-}
+    /// Parse a [`EnvFilter`] from the directives in the string to this point, ignoring any that are invalid.
+    ///
+    /// See <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax> for more information.
+    #[must_use]
+    pub fn lossy_parse_to_filter_with_default(self, default_directives: &str) -> EnvFilter {
+        let directives = match self.0 {
+            Some(directives) => directives,
+            None => default_directives.to_string(),
+        };
+        EnvFilter::builder().parse_lossy(directives)
+    }
 
-impl From<LogLevel> for tracing_subscriber::filter::EnvFilter {
-    fn from(value: LogLevel) -> Self {
-        tracing_subscriber::filter::EnvFilter::builder()
-            .with_env_var(value.key)
-            .with_default_directive(value.level.into())
-            .from_env_lossy()
+    /// Search for the argument following a certain argument in the cli
+    #[must_use]
+    fn get_next_after_argument(argument: &str) -> Option<String> {
+        let mut args = std::env::args().skip(1);
+        while let Some(arg) = args.next() {
+            if arg == argument {
+                return args.next();
+            }
+        }
+        None
+    }
+    /// Reads a key from a yaml file at a path
+    ///
+    /// All errors are ignored and return [`None`]
+    #[must_use]
+    fn read_path_in_file(path: &Path, key: &str) -> Option<String> {
+        let mut config_file = Vec::new();
+        let _ = File::open(path).ok()?.read_to_end(&mut config_file).ok()?;
+        let map: HashMap<String, serde_yaml::Value> = serde_yaml::from_slice(&config_file).ok()?;
+        if let Some(v) = map.get(key) {
+            if let Some(v) = v.as_str() {
+                return Some(v.to_string());
+            }
+        }
+        None
     }
 }
