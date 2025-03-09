@@ -27,17 +27,11 @@ pub struct SrvArgs {
     #[arg(short = 'u', long = "webui")]
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
-    /// How to format the logs.
-    ///
-    /// Can be either of:
-    /// - `full` emits human-readable, single-line logs for each event
-    /// - `compact` (default) `full`, but optimized for short line lengths.
-    /// - `pretty` excessively pretty, multi-line logs, optimized for human readability. For evaluation and development.
-    /// - `json` newline-delimited JSON logs. For production use with systems where structured logs are consumed as JSON.
+    /// How to format the logs. [DEFAULT: compact]
     #[arg(long)]
     pub log_format: Option<martin_observability_utils::LogFormat>,
     /// Set which logs martin outputs.
-    /// See <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax> for more information.
+    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
     #[arg(long)]
     pub log_level: Option<String>,
 }

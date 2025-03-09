@@ -52,22 +52,18 @@ impl From<(EnvFilter, LogFormat)> for MartinObservability {
 
 #[derive(PartialEq, Eq, Clone, Copy, Default, Debug, clap::ValueEnum)]
 pub enum LogFormat {
-    /// Emits human-readable, single-line logs for each event that occurs, with the current span context displayed before the formatted representation of the event.
-    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output) for sample output.
+    /// Emits human-readable, single-line logs.
+    /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output)
     Full,
-    /// A variant of [`LogFormat::Full`], optimized for short line lengths.
-    /// Fields from the current span context are appended to the fields of the formatted event.
-    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output) for sample output.
+    /// A variant of the full-format, optimized for short line lengths.
+    /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output)
     #[default]
     Compact,
-    /// Emits excessively pretty, multi-line logs, optimized for human readability.
-    /// This is primarily intended to be used in local development and debugging, or for command-line applications, where automated analysis and compact storage of logs is less of a priority than readability and visual appeal.
-    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output) for sample output.
+    /// Excessively pretty, multi-line logs for local development/debugging, prioritizing readability over compact storage.
+    /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output)
     Pretty,
-    /// Outputs newline-delimited JSON logs.
-    /// This is intended for production use with systems where structured logs are consumed as JSON by analysis and viewing tools.
-    /// The JSON output is not optimized for human readability.
-    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output) for sample output.
+    /// Outputs newline-delimited (structured) JSON logs, ***not*** optimized for human readability.
+    /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output)
     Json,
 }
 impl LogFormat {
@@ -87,7 +83,7 @@ impl LogFormat {
 
 /// Allows configuring log directives
 ///
-/// See <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax> for more information.
+/// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
 #[derive(Clone, PartialEq, Debug)]
 pub struct LogLevel(Option<String>);
 impl LogLevel {
@@ -126,7 +122,7 @@ impl LogLevel {
     }
     /// Parse a [`EnvFilter`] from the directives in the string to this point, ignoring any that are invalid.
     ///
-    /// See <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax> for more information.
+    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
     #[must_use]
     pub fn lossy_parse_to_filter_with_default(self, default_directives: &str) -> EnvFilter {
         let directives = match self.0 {
