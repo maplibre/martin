@@ -22,13 +22,19 @@ pub struct Args {
     verbose: bool,
     #[command(subcommand)]
     command: Commands,
-    /// How to format the logs. [DEFAULT: compact]
-    #[arg(long)]
-    pub log_format: Option<LogFormatOptions>,
-    /// Set which logs mbtiles outputs. [DEFAULT: mbtiles=info]
+    /// How to format the logs.
+    #[arg(long, default_value = "compact")]
+    // ! log_format is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
+    log_format: LogFormatOptions,
+    /// Set which logs mbtiles outputs.
     /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
-    #[arg(long)]
-    pub log_level: Option<String>,
+    #[arg(long, default_value = "mbtiles=info")]
+    // ! log_level is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
+    log_level: String,
 }
 
 #[allow(clippy::doc_markdown)]
@@ -365,7 +371,9 @@ mod tests {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
                     ..Default::default()
-                })
+                }),
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -395,7 +403,9 @@ mod tests {
                         ..Default::default()
                     },
                     ..Default::default()
-                })
+                }),
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -459,7 +469,9 @@ mod tests {
                         ..Default::default()
                     },
                     ..Default::default()
-                })
+                }),
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -482,7 +494,9 @@ mod tests {
                     dst_file: PathBuf::from("dst_file"),
                     diff_with_file: Some(PathBuf::from("no_file")),
                     ..Default::default()
-                })
+                }),
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -508,7 +522,9 @@ mod tests {
                         ..Default::default()
                     },
                     ..Default::default()
-                })
+                }),
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -527,7 +543,9 @@ mod tests {
                         ..Default::default()
                     },
                     ..Default::default()
-                })
+                }),
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -555,7 +573,9 @@ mod tests {
                         on_duplicate: Some(CopyDuplicateMode::Override),
                         ..Default::default()
                     },
-                })
+                }),
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -579,7 +599,9 @@ mod tests {
                 command: MetaGetValue {
                     file: PathBuf::from("src_file"),
                     key: "key".to_string(),
-                }
+                },
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -604,7 +626,9 @@ mod tests {
                     file: PathBuf::from("src_file"),
                     key: "key".to_string(),
                     value: None
-                }
+                },
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -619,7 +643,9 @@ mod tests {
                     file: PathBuf::from("src_file"),
                     key: "key".to_string(),
                     value: Some("value".to_string())
-                }
+                },
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -634,7 +660,9 @@ mod tests {
                     base_file: PathBuf::from("src_file"),
                     patch_file: PathBuf::from("diff_file"),
                     force: false,
-                }
+                },
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }
@@ -650,7 +678,9 @@ mod tests {
                     integrity_check: IntegrityCheckType::Quick,
                     update_agg_tiles_hash: false,
                     agg_hash: Some(AggHashType::Off),
-                }
+                },
+                log_format: LogFormatOptions::Compact,
+                log_level: "mbtiles=info".to_string(),
             }
         );
     }

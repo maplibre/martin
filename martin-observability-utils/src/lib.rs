@@ -37,11 +37,11 @@ impl MartinObservability {
         let registry = tracing_subscriber::registry().with(self.filter);
         match self.log_format {
             LogFormatOptions::Full => set_global_default(registry.with(Layer::default())),
-            LogFormatOptions::Compact => set_global_default(registry.with(Layer::default().json())),
+            LogFormatOptions::Compact => set_global_default(registry.with(Layer::default().compact())),
             LogFormatOptions::Pretty => {
                 set_global_default(registry.with(Layer::default().pretty()))
             }
-            LogFormatOptions::Json => set_global_default(registry.with(Layer::default().compact())),
+            LogFormatOptions::Json => set_global_default(registry.with(Layer::default().json())),
         }
         .expect("since martin has not set the global_default, no global default is set");
     }
@@ -52,7 +52,7 @@ impl From<(EnvFilter, LogFormatOptions)> for MartinObservability {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Default, Debug, clap::ValueEnum)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Debug, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
 pub enum LogFormatOptions {
     /// Emit human-readable, single-line logs.
     /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output)
@@ -272,7 +272,7 @@ mod tests {
         assert_eq!(filter.to_string(), "info");
         let filter =
             LogLevel(Some("adsdas".to_string())).lossy_parse_to_filter_with_default("warn");
-        assert_eq!(filter.to_string(), "");
+        assert_eq!(filter.to_string(), "adsdas=trace");
 
         let default_filter = LogLevel(None).lossy_parse_to_filter_with_default("warn");
         assert_eq!(default_filter.to_string(), "warn");

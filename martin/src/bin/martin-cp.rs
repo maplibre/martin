@@ -52,10 +52,16 @@ pub struct CopierArgs {
     pub pg: Option<martin::args::PgArgs>,
     /// How to format the logs. [DEFAULT: compact]
     #[arg(long)]
+    // ! log_format is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
     pub log_format: Option<LogFormatOptions>,
     /// Set which logs martin outputs. [DEFAULT: martin-cp=info]
     /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
     #[arg(long)]
+    // ! log_level is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
     pub log_level: Option<String>,
 }
 

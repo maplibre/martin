@@ -1,7 +1,7 @@
-use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
-
 use crate::srv::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use clap::ValueEnum;
+use martin_observability_utils::LogFormatOptions;
+use serde::{Deserialize, Serialize};
 
 #[allow(clippy::doc_markdown)]
 #[derive(clap::Args, PartialEq, Debug, Default)]
@@ -29,10 +29,16 @@ pub struct SrvArgs {
     pub web_ui: Option<WebUiMode>,
     /// How to format the logs. [DEFAULT: compact]
     #[arg(long)]
+    // ! log_format is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
     pub log_format: Option<LogFormatOptions>,
     /// Set which logs martin outputs. [DEFAULT: martin=info]
     /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
     #[arg(long)]
+    // ! log_level is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
     pub log_level: Option<String>,
 }
 
