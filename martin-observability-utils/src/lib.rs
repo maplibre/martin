@@ -103,7 +103,8 @@ impl LogLevel {
     #[must_use]
     pub fn or_from_argument(mut self, argument: &str) -> Self {
         if self.0.is_none() {
-            if let Some(arg) = Self::get_next_after_argument(argument) {
+            let args = std::env::args().collect::<Vec<String>>();
+            if let Some(arg) = Self::get_next_after_argument(argument, &args) {
                 self.0 = Some(arg);
             }
         }
@@ -115,7 +116,8 @@ impl LogLevel {
     #[must_use]
     pub fn or_in_config_file(mut self, argument: &str, key: &str) -> Self {
         if self.0.is_none() {
-            if let Some(path) = Self::get_next_after_argument(argument) {
+            let args = std::env::args().collect::<Vec<String>>();
+            if let Some(path) = Self::get_next_after_argument(argument, &args) {
                 let path = PathBuf::from(path);
                 self.0 = Self::read_path_in_file(path.as_path(), key);
             }
@@ -136,11 +138,12 @@ impl LogLevel {
 
     /// Search for the argument following a certain argument in the cli
     #[must_use]
-    fn get_next_after_argument(argument: &str) -> Option<String> {
-        let mut args = std::env::args().skip(1);
+    pub(crate) fn get_next_after_argument(argument: &str, args: &[String]) -> Option<String> {
+        let mut args = args.into_iter();
+        let _ = args.next(); // first argument is binary
         while let Some(arg) = args.next() {
             if arg == argument {
-                return args.next();
+                return args.next().cloned();
             }
         }
         None
@@ -149,7 +152,7 @@ impl LogLevel {
     ///
     /// All errors are ignored and return [`None`]
     #[must_use]
-    fn read_path_in_file(path: &Path, key: &str) -> Option<String> {
+    pub(crate) fn read_path_in_file(path: &Path, key: &str) -> Option<String> {
         let mut config_file = Vec::new();
         let _ = File::open(path).ok()?.read_to_end(&mut config_file).ok()?;
         let map: HashMap<String, serde_yaml::Value> = serde_yaml::from_slice(&config_file).ok()?;
@@ -159,5 +162,86 @@ impl LogLevel {
             }
         }
         None
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::LogFormat;
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn test_log_format_from_env_var() {
+        assert_eq!(
+            LogFormat::from_env_var("TEST_NOT_EXISTING_VARIABLE"),
+            LogFormat::Compact
+        );
+        let cases = [
+            ("full", LogFormat::Full),
+            ("pretty", LogFormat::Pretty),
+            ("verbose", LogFormat::Pretty),
+            ("json", LogFormat::Json),
+            ("jsonl", LogFormat::Json),
+            ("compact", LogFormat::Compact),
+            ("unknown", LogFormat::Compact),
+        ];
+        for (value, expected) in cases {
+            std::env::set_var("TEST_LOG_FORMAT_1", value);
+            assert_eq!(LogFormat::from_env_var("TEST_LOG_FORMAT_1"), expected);
+        }
+    }
+    #[test]
+    fn test_env_var() {
+        std::env::set_var("TEST_LOG_LEVEL_DEBUG", "debug");
+
+        let log_level = LogLevel::from_env_var("TEST_NOT_EXISTING_VARIABLE");
+        assert_eq!(log_level, LogLevel(None));
+        let log_level = LogLevel::from_env_var("TEST_LOG_LEVEL_DEBUG");
+        assert_eq!(log_level, LogLevel(Some("debug".to_string())));
+    }
+
+    #[test]
+    fn test_get_next_after_argument() {
+        let args = vec![
+            "binary-path-goes-here".to_string(),
+            "--log-level".to_string(),
+            "trace".to_string(),
+            "--log-level2".to_string(),
+        ];
+        let log_level = LogLevel::get_next_after_argument("not-found", &args);
+        assert_eq!(log_level, None);
+        let log_level = LogLevel::get_next_after_argument("binary-path-goes-here", &args);
+        assert_eq!(log_level, None); // should be skipped
+        let log_level = LogLevel::get_next_after_argument("--log-level", &args);
+        assert_eq!(log_level, Some("trace".to_string()));
+        let log_level = LogLevel::get_next_after_argument("--log-level2", &args);
+        assert_eq!(log_level, None);
+    }
+
+    #[test]
+    fn test_read_path_in_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.yaml");
+
+        let log_level = LogLevel::read_path_in_file(&config_path, "log_level");
+        assert_eq!(log_level, None);
+
+        let mut file = File::create(&config_path).unwrap();
+        file.write_all("log_level: warn".as_bytes()).unwrap();
+
+        let log_level = LogLevel::read_path_in_file(&config_path, "key_not_found");
+        assert_eq!(log_level, None);
+        let log_level = LogLevel::read_path_in_file(&config_path, "log_level");
+        assert_eq!(log_level, Some("warn".to_string()));
+    }
+
+    #[test]
+    fn test_lossy_parse_to_filter_with_default() {
+        let log_level = LogLevel(Some("info".to_string()));
+        let filter = log_level.lossy_parse_to_filter_with_default("warn");
+        assert_eq!(filter.to_string(), "info");
+
+        let default_filter = LogLevel(None).lossy_parse_to_filter_with_default("warn");
+        assert_eq!(default_filter.to_string(), "warn");
     }
 }

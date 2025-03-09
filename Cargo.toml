@@ -83,6 +83,7 @@ sqlite-hashes = { version = "0.7.9", default-features = false, features = ["md5"
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
+tempfile = "3.18.0"
 testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"
