@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use martin_observability_utils::LogFormatOptions;
 use crate::args::PreferredEncoding;
+use martin_observability_utils::LogFormatOptions;
+use serde::{Deserialize, Serialize};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";

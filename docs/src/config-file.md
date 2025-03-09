@@ -50,7 +50,7 @@ web_ui: disable
 # - full:    Emit human-readable, single-line logs. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output
 # - compact: A variant of the full-format, optimized for short line lengths. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output
 # - pretty:  Excessively pretty, multi-line logs for local development/debugging, prioritizing readability over compact storage Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output
-# - json:    Outputs newline-delimited (structured) JSON logs, not optimized for human readability. Sample:https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output 
+# - json:    Outputs newline-delimited (structured) JSON logs, not optimized for human readability. Sample:https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output
 log_format: compact
 
 # Set which logs martin outputs. [DEFAULT: martin=info]

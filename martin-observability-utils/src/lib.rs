@@ -37,7 +37,9 @@ impl MartinObservability {
         let registry = tracing_subscriber::registry().with(self.filter);
         match self.log_format {
             LogFormatOptions::Full => set_global_default(registry.with(Layer::default())),
-            LogFormatOptions::Compact => set_global_default(registry.with(Layer::default().compact())),
+            LogFormatOptions::Compact => {
+                set_global_default(registry.with(Layer::default().compact()))
+            }
             LogFormatOptions::Pretty => {
                 set_global_default(registry.with(Layer::default().pretty()))
             }
@@ -52,7 +54,17 @@ impl From<(EnvFilter, LogFormatOptions)> for MartinObservability {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Default, Debug, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
+#[derive(
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    Default,
+    Debug,
+    clap::ValueEnum,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum LogFormatOptions {
     /// Emit human-readable, single-line logs.
     /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output)
