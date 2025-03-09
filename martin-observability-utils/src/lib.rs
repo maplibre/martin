@@ -44,9 +44,9 @@ impl MartinObservability {
         .expect("since martin has not set the global_default, no global default is set");
     }
 }
-impl From<(EnvFilter,LogFormat)> for MartinObservability {
+impl From<(EnvFilter, LogFormat)> for MartinObservability {
     fn from((filter, log_format): (EnvFilter, LogFormat)) -> Self {
-        Self{log_format,filter}
+        Self { log_format, filter }
     }
 }
 
@@ -109,9 +109,9 @@ impl LogLevel {
         }
         self
     }
-/// Search for the log level at a path in a config file
-///
-/// All errors during this operation are ignored as the default ([`tracing::Level::INFO`]) will print errors for this too during the regular parsing.
+    /// Search for the log level at a path in a config file
+    ///
+    /// All errors during this operation are ignored as the default ([`tracing::Level::INFO`]) will print errors for this too during the regular parsing.
     #[must_use]
     pub fn or_in_config_file(mut self, argument: &str, key: &str) -> Self {
         if self.0.is_none() {
