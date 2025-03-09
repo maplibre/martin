@@ -44,6 +44,21 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
+# How to format the logs. [DEFAULT: compact]
+#
+# Possible values:
+# - full:    Emit human-readable, single-line logs. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output
+# - compact: A variant of the full-format, optimized for short line lengths. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output
+# - pretty:  Excessively pretty, multi-line logs for local development/debugging, prioritizing readability over compact storage Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output
+# - json:    Outputs newline-delimited (structured) JSON logs, not optimized for human readability. Sample:https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output 
+log_format: compact
+
+# Set which logs martin outputs. [DEFAULT: martin=info]
+# Can also be specified via the `RUST_LOG` environment variable.
+#
+# More information: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax
+log_level: martin=info
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string. You can use env vars too, for example:
