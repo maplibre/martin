@@ -856,8 +856,10 @@ version = "4.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf4ced95c6f4a675af3da73304b9ac4ed991640c36374e4b46795c49e17cf1ed"
 dependencies = [
+ "anstyle",
  "heck 0.5.0",
  "proc-macro2",
+ "pulldown-cmark",
  "quote",
  "syn 2.0.99",
 ]
@@ -3692,6 +3694,17 @@ name = "protoc-bin-vendored-win32"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dc55d7dec32ecaf61e0bd90b3d2392d721a28b95cfd23c3e176eccefbeab2f2"
+
+[[package]]
+name = "pulldown-cmark"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f86ba2052aebccc42cbbb3ed234b8b13ce76f75c3551a303cb2bcffcff12bb14"
+dependencies = [
+ "bitflags 2.8.0",
+ "memchr",
+ "unicase",
+]
 
 [[package]]
 name = "quick-xml"
