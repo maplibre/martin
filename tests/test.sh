@@ -155,10 +155,11 @@ remove_line() {
 test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
-  echo "Checking $LOG_FILE for expected text: '$EXPECTED_TEXT'"
   if ! grep -q "$EXPECTED_TEXT" "$LOG_FILE"; then
-    echo "ERROR: Expected text was not found in the log file"
+    echo "ERROR: $LOG_FILE log file does not have: '$EXPECTED_TEXT'"
     exit 1
+  else
+    >&2 echo "OK: $LOG_FILE contains expected text: '$EXPECTED_TEXT'"
   fi
   remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }

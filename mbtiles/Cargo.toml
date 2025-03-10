@@ -1,5 +1,3 @@
-lints.workspace = true
-
 [package]
 name = "mbtiles"
 version = "0.12.0"
@@ -58,3 +56,6 @@ path = "src/lib.rs"
 name = "mbtiles"
 path = "src/bin/mbtiles.rs"
 required-features = ["cli"]
+
+[lints]
+workspace = true
