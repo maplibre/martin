@@ -1,9 +1,11 @@
 ## Command-line Interface
 
-You can configure Martin using command-line interface. See `martin --help` or `cargo run -- --help` for more
-information.
+You can configure Martin using command-line interface.
+See `martin --help` or `cargo run -- --help` for more information:
 
 ```text
+Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+
 Usage: martin [OPTIONS] [CONNECTION]...
 
 Arguments:
@@ -15,7 +17,8 @@ Options:
           Path to config file. If set, no tile source-related parameters are allowed
 
       --save-config <SAVE_CONFIG>
-          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
+          Save resulting config to a file or use "-" to print to stdout.
+          By default, only print if sources are auto-detected
 
   -C, --cache-size <CACHE_SIZE>
           Main cache size (in MB)
@@ -33,24 +36,30 @@ Options:
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
 
       --base-path <BASE_PATH>
-          Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
-          Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
-          Must begin with a `/`.
-          Examples: `/`, `/tiles`
-          
+          Set TileJSON URL path prefix.
+
+          This overrides the default of respecting the X-Rewrite-URL header.
+          Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged.
+          If you need to rewrite URLs, please use a reverse proxy.
+          Must begin with a /.
+
+          Examples: /, /tiles
+
   -W, --workers <WORKERS>
           Number of web server workers
 
       --preferred-encoding <PREFERRED_ENCODING>
-          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip
-          
+          Martin server preferred tile encoding. [DEFAULT: gzip]
+
+          If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. gzip is faster, but brotli is smaller, and may be faster with caching.
+
           [possible values: brotli, gzip]
-          
+
   -u, --webui <WEB_UI>
-          Control Martin web UI.  Disabled by default
+          Control Martin web UI. [DEFAULT: disabled]
 
           Possible values:
-          - disable:        Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost
+          - disable:        Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost.
           - enable-for-all: Enable Web UI interface on all connections
 
   -b, --auto-bounds <AUTO_BOUNDS>
@@ -78,4 +87,6 @@ Options:
 
   -V, --version
           Print version
+
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
 ```

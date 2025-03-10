@@ -6,7 +6,7 @@ export default styled.img`
 
   margin-top: -120px;
   margin-bottom: 50px;
-  
+
   @media (max-width: 500px) {
     display: block;
   }

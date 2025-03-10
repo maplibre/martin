@@ -1,5 +1,3 @@
-lints.workspace = true
-
 [package]
 name = "martin"
 version = "0.15.0"
@@ -7,10 +5,6 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAs
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
 categories = ["science::geo", "web-programming::http-server"]
-exclude = [
-    # Tests include a lot of data and other test files that are not needed for the users of the library
-    "/tests",
-]
 default-run = "martin"
 edition.workspace = true
 license.workspace = true
@@ -60,7 +54,7 @@ harness = false
 
 [features]
 default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites"]
-webui = ["dep:actix-web-static-files", "dep:static-files"]
+webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
@@ -78,8 +72,8 @@ actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
 bit-set = { workspace = true, optional = true }
-brotli.workspace = true
 clap.workspace = true
+dashmap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger.workspace = true
@@ -94,7 +88,7 @@ moka.workspace = true
 num_cpus.workspace = true
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
-png= { workspace = true, optional = true }
+png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
@@ -111,18 +105,18 @@ spreet = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
-tiff= { workspace = true, optional = true }
+tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 
 [build-dependencies]
+walkdir = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
-cargo-husky.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
@@ -130,3 +124,6 @@ insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
+
+[lints]
+workspace = true
