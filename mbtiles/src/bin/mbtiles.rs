@@ -224,7 +224,7 @@ async fn main() {
     // since logging is not yet available, we have to manually check the locations
     let log_filter = LogLevel::from_argument("--log-level")
         .or_env_var("MBTILES_LOG_FORMAT")
-        .lossy_parse_to_filter_with_default("martin=info");
+        .lossy_parse_to_filter_with_default("mbtiles=info");
     let log_format = LogFormat::from_argument("--log-level")
         .or_env_var("RUST_LOG")
         .or_default(LogFormatOptions::Compact);
