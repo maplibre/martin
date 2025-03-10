@@ -74,7 +74,7 @@ pub struct CopyArgs {
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
-    /// Output format of the new destination file. Ignored if the file exists. Defaults to 'normalized'.
+    /// Output format of the new destination file. Ignored if the file exists. [DEFAULT: normalized]
     #[arg(
         long = "mbtiles-type",
         alias = "dst-type",
@@ -86,6 +86,7 @@ pub struct CopyArgs {
     #[arg(long)]
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
+    ///
     /// If set to multiple values like `gzip,br`, martin-cp will use the first encoding,
     /// or re-encode if the tile is already encoded and that encoding is not listed.
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
@@ -117,7 +118,7 @@ pub struct CopyArgs {
     /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
     #[arg(long)]
     pub skip_agg_tiles_hash: bool,
-    /// Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times.
+    /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
 }

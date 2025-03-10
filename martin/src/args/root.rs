@@ -56,7 +56,7 @@ pub struct MetaArgs {
     /// **Deprecated** Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
-    /// Connection strings, e.g. postgres://... or /path/to/files
+    /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
 }
 
