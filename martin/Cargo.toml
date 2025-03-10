@@ -1,5 +1,3 @@
-lints.workspace = true
-
 [package]
 name = "martin"
 version = "0.15.0"
@@ -126,3 +124,6 @@ insta = { workspace = true, features = ["yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
+
+[lints]
+workspace = true
