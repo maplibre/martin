@@ -363,9 +363,11 @@ as a command-line argument. A PG connection string can also be passed via the <c
 each <a href="https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns">geospatial-enabled</a> table in your
 database.</p>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="command-line-interface"><a class="header" href="#command-line-interface">Command-line Interface</a></h2>
-<p>You can configure Martin using command-line interface. See <code>martin --help</code> or <code>cargo run -- --help</code> for more
-information.</p>
-<pre><code class="language-text">Usage: martin [OPTIONS] [CONNECTION]...
+<p>You can configure Martin using command-line interface.
+See <code>martin --help</code> or <code>cargo run -- --help</code> for more information:</p>
+<pre><code class="language-text">Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+
+Usage: martin [OPTIONS] [CONNECTION]...
 
 Arguments:
   [CONNECTION]...
@@ -376,7 +378,8 @@ Options:
           Path to config file. If set, no tile source-related parameters are allowed
 
       --save-config &lt;SAVE_CONFIG&gt;
-          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
+          Save resulting config to a file or use "-" to print to stdout.
+          By default, only print if sources are auto-detected
 
   -C, --cache-size &lt;CACHE_SIZE&gt;
           Main cache size (in MB)
@@ -394,24 +397,30 @@ Options:
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
 
       --base-path &lt;BASE_PATH&gt;
-          Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
-          Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
-          Must begin with a `/`.
-          Examples: `/`, `/tiles`
+          Set TileJSON URL path prefix.
+
+          This overrides the default of respecting the X-Rewrite-URL header.
+          Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged.
+          If you need to rewrite URLs, please use a reverse proxy.
+          Must begin with a /.
+
+          Examples: /, /tiles
 
   -W, --workers &lt;WORKERS&gt;
           Number of web server workers
 
       --preferred-encoding &lt;PREFERRED_ENCODING&gt;
-          Martin server preferred tile encoding. If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Defaults to gzip
+          Martin server preferred tile encoding. [DEFAULT: gzip]
+
+          If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. gzip is faster, but brotli is smaller, and may be faster with caching.
 
           [possible values: brotli, gzip]
 
   -u, --webui &lt;WEB_UI&gt;
-          Control Martin web UI.  Disabled by default
+          Control Martin web UI. [DEFAULT: disabled]
 
           Possible values:
-          - disable:        Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost
+          - disable:        Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost.
           - enable-for-all: Enable Web UI interface on all connections
 
   -b, --auto-bounds &lt;AUTO_BOUNDS&gt;
@@ -439,6 +448,8 @@ Options:
 
   -V, --version
           Print version
+
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
 <p>You can also configure Martin using environment variables, but only if the configuration file is not used. See <a href="config-file.html">configuration section</a> on how to use environment variables with config files. See also <a href="pg-connections.html#postgresql-ssl-connections">SSL configuration</a> section below.</p>
