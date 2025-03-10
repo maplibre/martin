@@ -115,10 +115,7 @@ impl Source for MbtSource {
         } else {
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z,
-                xyz.x,
-                xyz.y,
-                &self.id
+                xyz.z, xyz.x, xyz.y, &self.id
             );
             Ok(Vec::new())
         }

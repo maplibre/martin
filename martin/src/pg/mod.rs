@@ -14,5 +14,5 @@ pub use config::{PgCfgPublish, PgCfgPublishFuncs, PgCfgPublishTables, PgConfig, 
 pub use config_function::FunctionInfo;
 pub use config_table::TableInfo;
 pub use errors::{PgError, PgResult};
-pub use pool::{PgPool, POOL_SIZE_DEFAULT};
+pub use pool::{POOL_SIZE_DEFAULT, PgPool};
 pub use query_functions::query_available_function;
