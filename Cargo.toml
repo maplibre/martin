@@ -82,7 +82,7 @@ size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.7.9", default-features = false, features = ["md5", "aggregate", "hex"] }
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+sqlx = { version = "0.8.3", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
