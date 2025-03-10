@@ -1,4 +1,4 @@
-[INFO ] cp_flat has an unrecognized metadata value foo={"bar":"foo"}
+ INFO mbtiles::metadata: cp_flat has an unrecognized metadata value foo={"bar":"foo"}
 id: cp_flat
 tile_info:
   format: mvt

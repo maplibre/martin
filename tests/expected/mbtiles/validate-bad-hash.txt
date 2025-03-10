@@ -1,4 +1,4 @@
-[INFO ] Quick integrity check passed for ./tests/fixtures/files/bad_hash.mbtiles
-[INFO ] All values in the `tiles` table/view are valid for ./tests/fixtures/files/bad_hash.mbtiles
-[INFO ] All tile hashes are valid for ./tests/fixtures/files/bad_hash.mbtiles
-[ERROR] Computed aggregate tiles hash D4E1030D57751A0B45A28A71267E46B8 does not match tile data in metadata CAFEC0DEDEADBEEFDEADBEEFDEADBEEF for MBTile file ./tests/fixtures/files/bad_hash.mbtiles
+ INFO mbtiles::validation: Quick integrity check passed for ./tests/fixtures/files/bad_hash.mbtiles
+ INFO mbtiles::validation: All values in the `tiles` table/view are valid for ./tests/fixtures/files/bad_hash.mbtiles
+ INFO mbtiles::validation: All tile hashes are valid for ./tests/fixtures/files/bad_hash.mbtiles
+ERROR mbtiles: Computed aggregate tiles hash D4E1030D57751A0B45A28A71267E46B8 does not match tile data in metadata CAFEC0DEDEADBEEFDEADBEEFDEADBEEF for MBTile file ./tests/fixtures/files/bad_hash.mbtiles

@@ -1,4 +1,4 @@
-[INFO ] Using 'mvt' tile format from metadata table in file cp_flat-with-hash
+ INFO mbtiles::validation: Using 'mvt' tile format from metadata table in file cp_flat-with-hash
 id: cp_flat-with-hash
 tile_info:
   format: mvt
