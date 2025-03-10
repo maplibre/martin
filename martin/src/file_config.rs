@@ -42,6 +42,12 @@ pub enum FileError {
     #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
+    #[error("Source {0} caused an abort due to validation error {1}")]
+    AbortOnInvalid(PathBuf, String),
+
+    #[error("Source {0} was ignored due to validation error {1}")]
+    IgnoreOnInvalid(PathBuf, String),
+
     #[cfg(feature = "pmtiles")]
     #[error(r"PMTiles error {0} processing {1}")]
     PmtError(pmtiles::PmtError, String),
@@ -264,7 +270,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+                match cfg.custom.new_sources_url(id.clone(), url.clone()).await {
+                    Err(FileError::IgnoreOnInvalid(_, _)) => {}
+                    Err(e) => return Err(e),
+                    Ok(src) => results.push(src),
+                };
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -278,7 +288,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
+                match cfg.custom.new_sources(id, source.into_path()).await {
+                    Err(FileError::IgnoreOnInvalid(_, _)) => {}
+                    Err(e) => return Err(e),
+                    Ok(src) => results.push(src),
+                };
             }
         }
     }
@@ -302,7 +316,11 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+            match cfg.custom.new_sources_url(id.clone(), url.clone()).await {
+                Err(FileError::IgnoreOnInvalid(_, _)) => {}
+                Err(e) => return Err(e),
+                Ok(src) => results.push(src),
+            };
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -331,7 +349,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(cfg.custom.new_sources(id, path).await?);
+                match cfg.custom.new_sources(id, path).await {
+                    Err(FileError::IgnoreOnInvalid(_, _)) => {}
+                    Err(e) => return Err(e),
+                    Ok(src) => results.push(src),
+                };
             }
         }
     }
