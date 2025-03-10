@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n    SELECT zoom_level,\n        tile_column,\n        tile_row,\n        tile_data\n    FROM tiles",
+  "describe": {
+    "columns": [
+      {
+        "name": "zoom_level",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "tile_column",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "tile_row",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "tile_data",
+        "ordinal": 3,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "59c196dc5fb08815db2cace0fe86b091334c898c23708f6ce3b1b2c7b0a43868"
+}
