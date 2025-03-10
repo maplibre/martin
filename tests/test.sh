@@ -27,6 +27,10 @@ TEST_TEMP_DIR="$(dirname "$0")/mbtiles_temp_files"
 rm -rf "$TEST_TEMP_DIR"
 mkdir -p "$TEST_TEMP_DIR"
 
+# by default, martin/.. do pretty up their output for terminals with colors
+# in CI, while comparing outputs, this makes testcases less readable
+export NO_COLOR=true
+
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
 if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
@@ -148,18 +152,9 @@ remove_line() {
   mv "${FILE}.tmp" "${FILE}"
 }
 
-# the log now contains some terminal escape codes, which make searching for strings less readable
-# => removing them solves this problem
-remove_terminal_escape_sequences() {
-  LOG_FILE="$1"
-  echo "Removing terminal escape sequences from $LOG_FILE"
-  sed -i 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g' $LOG_FILE
-}
-
 test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
-  remove_terminal_escape_sequences "$LOG_FILE"
   echo "Checking $LOG_FILE for expected text: '$EXPECTED_TEXT'"
   if ! grep -q "$EXPECTED_TEXT" "$LOG_FILE"; then
     echo "ERROR: Expected text was not found in the log file"
@@ -194,7 +189,6 @@ test_martin_cp() {
 validate_log() {
   LOG_FILE="$1"
   >&2 echo "Validating log file $LOG_FILE"
-  remove_terminal_escape_sequences "$LOG_FILE"
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
