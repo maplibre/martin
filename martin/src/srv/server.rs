@@ -12,8 +12,8 @@ use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
-use log::error;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
@@ -173,7 +173,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .app_data(Data::new(config.clone()))
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .wrap(middleware::Logger::default())
+            .wrap(tracing_actix_web::TracingLogger::default())
             .configure(|c| router(c, &config))
     };
 

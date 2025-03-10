@@ -6,9 +6,9 @@ mod pg_utils;
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
-use log::warn;
 use martin::Config;
 pub use pg_utils::*;
+use tracing::warn;
 
 #[path = "../../src/utils/test_utils.rs"]
 mod test_utils;

@@ -2,8 +2,8 @@
 #![allow(unused_qualifications)]
 
 use enum_display::EnumDisplay;
-use log::{info, warn};
 use sqlx::SqliteExecutor;
+use tracing::{info, warn};
 
 use self::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::errors::MbtResult;

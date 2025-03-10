@@ -5,10 +5,10 @@ use std::time::Duration;
 use deadpool_postgres::tokio_postgres::types::Json;
 use futures::pin_mut;
 use itertools::Itertools as _;
-use log::{error, info, warn};
 use postgis::{ewkb, LineString, Point, Polygon};
 use tilejson::{Bounds, TileJSON};
 use tokio::time::timeout;
+use tracing::{error, info, warn};
 
 use crate::source::UrlQuery;
 

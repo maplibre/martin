@@ -1,7 +1,7 @@
-use log::debug;
 use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
 use sqlx::{query, Executor as _, Row, SqliteConnection, SqliteExecutor};
+use tracing::debug;
 
 use crate::bindiff::PatchType;
 use crate::errors::MbtResult;

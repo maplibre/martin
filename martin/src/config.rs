@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
-use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
+use tracing::info;
 
 #[cfg(any(
     feature = "mbtiles",

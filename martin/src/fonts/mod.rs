@@ -6,12 +6,12 @@ use std::sync::LazyLock;
 use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
-use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::protobuf::Message;
 use pbf_font_tools::{render_sdf_glyph, Fontstack, Glyphs, PbfFontError};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info, warn};
 
 use crate::OptOneMany;
 

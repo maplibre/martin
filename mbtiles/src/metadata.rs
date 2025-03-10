@@ -2,13 +2,13 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use futures::TryStreamExt;
-use log::{info, warn};
 use martin_tile_utils::TileInfo;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value as JSONValue, Value};
 use sqlx::{query, SqliteExecutor};
 use tilejson::{tilejson, Bounds, Center, TileJSON};
+use tracing::{info, warn};
 
 use crate::errors::MbtResult;
 use crate::MbtError::InvalidZoomValue;

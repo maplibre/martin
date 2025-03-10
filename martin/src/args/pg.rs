@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};

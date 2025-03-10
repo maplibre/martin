@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use log::{debug, info, warn};
 use sqlx::{query, Connection as _};
+use tracing::{debug, info, warn};
 
 use crate::queries::detach_db;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};

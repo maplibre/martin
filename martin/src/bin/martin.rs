@@ -1,8 +1,9 @@
 use clap::Parser;
-use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};
+use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
+use tracing::{error, event_enabled, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -38,7 +39,7 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "webui")]
     if web_ui_mode == martin::args::WebUiMode::EnableForAll {
-        log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
+        tracing::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
     } else {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
@@ -50,12 +51,22 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin=info");
-    env_logger::Builder::from_env(env).init();
+    // since logging is not yet available, we have to manually check the locations
+    let log_filter = LogLevel::from_argument("--log-level")
+        .or_in_config_file("--config", "log_level")
+        .or_env_var("MARTIN_LOG_FORMAT")
+        .lossy_parse_to_filter_with_default("martin=info");
+    let log_format = LogFormat::from_argument("--log-level")
+        .or_in_config_file("--config", "log_format")
+        .or_env_var("RUST_LOG")
+        .or_default(LogFormatOptions::Compact);
+    MartinObservability::from((log_filter, log_format))
+        .with_initialised_log_tracing()
+        .set_global_subscriber();
 
     if let Err(e) = start(Args::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
+        if event_enabled!(tracing::Level::ERROR) {
             error!("{e}");
         } else {
             eprintln!("{e}");

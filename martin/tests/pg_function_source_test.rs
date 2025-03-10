@@ -1,6 +1,5 @@
 #![cfg(feature = "postgres")]
 
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin_tile_utils::TileCoord;
@@ -8,12 +7,8 @@ use martin_tile_utils::TileCoord;
 pub mod utils;
 pub use utils::*;
 
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
-
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let src = source(&mock, "function_zxy_query");
@@ -27,6 +22,7 @@ async fn function_source_tilejson() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn function_source_tile() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let src = source(&mock, "function_zxy_query");
@@ -45,6 +41,7 @@ async fn function_source_tile() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn function_source_schemas() {
     let cfg = mock_pgcfg(indoc! {"
         connection_string: $DATABASE_URL

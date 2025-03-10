@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use std::env::var_os;
 use std::ffi::OsString;
 
-use log::warn;
 use subst::VariableMap;
+use tracing::warn;
 
 /// A simple wrapper for the environment var access,
 /// so we can mock it in tests.

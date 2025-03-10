@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-
 use crate::args::PreferredEncoding;
+use martin_observability_utils::LogFormatOptions;
+use serde::{Deserialize, Serialize};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -15,6 +15,17 @@ pub struct SrvConfig {
     pub preferred_encoding: Option<PreferredEncoding>,
     #[cfg(feature = "webui")]
     pub web_ui: Option<crate::args::WebUiMode>,
+    /// How to format the logs. [DEFAULT: compact]
+    // ! log_format is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is to not have unexpected values !
+    pub log_format: Option<LogFormatOptions>,
+    /// Set which logs martin outputs. [DEFAULT: martin=info]
+    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
+    // ! log_level is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is to not have unexpected values !
+    pub log_level: Option<String>,
 }
 
 #[cfg(test)]

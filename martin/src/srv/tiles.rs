@@ -7,11 +7,11 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{route, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
 use futures::future::try_join_all;
-use log::trace;
 use martin_tile_utils::{
     decode_brotli, decode_gzip, encode_brotli, encode_gzip, Encoding, Format, TileCoord, TileInfo,
 };
 use serde::Deserialize;
+use tracing::trace;
 
 use crate::args::PreferredEncoding;
 use crate::source::{TileInfoSources, TileSources, UrlQuery};

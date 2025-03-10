@@ -4,10 +4,10 @@ use std::fmt::Debug;
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
+use tracing::debug;
 
 use crate::MartinResult;
 

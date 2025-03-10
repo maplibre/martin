@@ -1,15 +1,16 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
-use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::vec;
 
-use async_trait::async_trait;
-use log::warn;
-use martin_tile_utils::{Format, TileCoord, TileInfo};
+use std::io::BufWriter;
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
+use tracing::warn;
+
+use async_trait::async_trait;
+use martin_tile_utils::{Format, TileCoord, TileInfo};
 use tilejson::{tilejson, TileJSON};
 
 use super::CogError;

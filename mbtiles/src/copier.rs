@@ -3,12 +3,12 @@ use std::path::PathBuf;
 
 use enum_display::EnumDisplay;
 use itertools::Itertools as _;
-use log::{debug, info, trace, warn};
 use martin_tile_utils::{bbox_to_xyz, MAX_ZOOM};
 use serde::{Deserialize, Serialize};
 use sqlite_hashes::rusqlite::Connection;
 use sqlx::{query, Connection as _, Executor as _, Row, SqliteConnection};
 use tilejson::Bounds;
+use tracing::{debug, info, trace, warn};
 
 use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};

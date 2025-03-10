@@ -1,18 +1,13 @@
 #![cfg(feature = "postgres")]
 
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin_tile_utils::TileCoord;
 pub mod utils;
 pub use utils::*;
 
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
-
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn table_source() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     insta::with_settings!({sort_maps => true}, {
@@ -127,6 +122,7 @@ async fn table_source() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let src = source(&mock, "table_source");
@@ -149,6 +145,7 @@ async fn tables_tilejson() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn tables_tile_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let tile = source(&mock, "table_source")
@@ -160,6 +157,7 @@ async fn tables_tile_ok() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn tables_srid_ok() {
     let mock = mock_sources(mock_pgcfg(indoc! {"
         connection_string: $DATABASE_URL
@@ -181,6 +179,7 @@ async fn tables_srid_ok() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn tables_multiple_geom_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
 
@@ -192,6 +191,7 @@ async fn tables_multiple_geom_ok() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn table_source_schemas() {
     let cfg = mock_pgcfg(indoc! {"
         connection_string: $DATABASE_URL

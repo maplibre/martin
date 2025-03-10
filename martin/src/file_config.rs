@@ -4,8 +4,8 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use futures::TryFutureExt;
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 use url::Url;
 
 use crate::config::{copy_unrecognized_config, UnrecognizedValues};

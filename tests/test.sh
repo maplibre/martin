@@ -27,6 +27,10 @@ TEST_TEMP_DIR="$(dirname "$0")/mbtiles_temp_files"
 rm -rf "$TEST_TEMP_DIR"
 mkdir -p "$TEST_TEMP_DIR"
 
+# by default, martin/.. do pretty up their output for terminals with colors
+# in CI, while comparing outputs, this makes testcases less readable
+export NO_COLOR=true
+
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
 if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
@@ -323,9 +327,9 @@ test_jsn fnc_comment              function_Mixed_Name
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN martin::fonts: Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
@@ -420,9 +424,9 @@ test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN martin::pg::query_tables: Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN martin::fonts: Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
