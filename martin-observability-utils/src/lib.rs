@@ -37,9 +37,10 @@ impl MartinObservability {
         let registry = tracing_subscriber::registry().with(self.filter);
         match self.log_format {
             LogFormatOptions::Full => set_global_default(registry.with(Layer::default())),
-            LogFormatOptions::Compact => {
-                set_global_default(registry.with(Layer::default().compact()))
-            }
+            LogFormatOptions::Compact => set_global_default(registry.with(Layer::default().compact())),
+            LogFormatOptions::Bare => {
+                set_global_default(registry.with(Layer::default().compact().without_time()))
+            },
             LogFormatOptions::Pretty => {
                 set_global_default(registry.with(Layer::default().pretty()))
             }
@@ -73,6 +74,8 @@ pub enum LogFormatOptions {
     /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output)
     #[default]
     Compact,
+    /// the bare log without timestamps, modules. Just the level and the log
+    Bare,
     /// Excessively pretty, multi-line logs for local development/debugging, prioritizing readability over compact storage.
     /// See [here for a sample](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output)
     Pretty,
@@ -87,6 +90,7 @@ impl LogFormatOptions {
             "pretty" | "verbose" => Some(LogFormatOptions::Pretty),
             "json" | "jsonl" => Some(LogFormatOptions::Json),
             "compact" => Some(LogFormatOptions::Compact),
+            "bare" => Some(LogFormatOptions::Bare),
             _ => None,
         }
     }
@@ -105,7 +109,7 @@ impl LogFormat {
             if let Some(v) = LogFormatOptions::from_str(&v) {
                 Self(Some(v))
             } else {
-                eprintln!("Ignoring specified cli argument {argument} {v} as it is not a valid log format. Can be one of full, compact, pretty, json");
+                eprintln!("Ignoring specified cli argument {argument} {v} as it is not a valid log format. Can be one of full, compact, bare, pretty, json");
                 Self(None)
             }
         } else {
@@ -122,7 +126,7 @@ impl LogFormat {
                 if let Some(v) = read_path_in_file(&path, key) {
                     match LogFormatOptions::from_str(&v) {
                         Some(v) => self.0=Some(v),
-                        None => eprintln!("Ignoring specified option {key}: {v} inside {path:?} as it is not a valid log format. Can be one of full, compact, pretty, json"),
+                        None => eprintln!("Ignoring specified option {key}: {v} inside {path:?} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"),
                     }
                 }
             }
@@ -136,7 +140,7 @@ impl LogFormat {
             if let Ok(v) = std::env::var(key) {
                 match LogFormatOptions::from_str(&v) {
                     Some(v) => self.0=Some(v),
-                    None => eprintln!("Ignoring specified environment variable {key}={v} as it is not a valid log format. Can be one of full, compact, pretty, json"),
+                    None => eprintln!("Ignoring specified environment variable {key}={v} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"),
                 }
             }
         }

@@ -23,7 +23,7 @@ pub struct Args {
     #[command(subcommand)]
     command: Commands,
     /// How to format the logs.
-    #[arg(long, default_value = "compact")]
+    #[arg(long, default_value = "bare")]
     // ! log_format is never actually used from here (instead done as the first thing in initialisation).
     // ! We need tracing to raise errors/warnings during parsing configuration options.
     // ! This is just for clap help generation !
@@ -227,7 +227,7 @@ async fn main() {
         .lossy_parse_to_filter_with_default("mbtiles=info");
     let log_format = LogFormat::from_argument("--log-level")
         .or_env_var("RUST_LOG")
-        .or_default(LogFormatOptions::Compact);
+        .or_default(LogFormatOptions::Bare);
     MartinObservability::from((log_filter, log_format))
         .with_initialised_log_tracing()
         .set_global_subscriber();
@@ -372,7 +372,7 @@ mod tests {
                     dst_file: PathBuf::from("dst_file"),
                     ..Default::default()
                 }),
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -404,7 +404,7 @@ mod tests {
                     },
                     ..Default::default()
                 }),
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -470,7 +470,7 @@ mod tests {
                     },
                     ..Default::default()
                 }),
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -495,7 +495,7 @@ mod tests {
                     diff_with_file: Some(PathBuf::from("no_file")),
                     ..Default::default()
                 }),
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -523,7 +523,7 @@ mod tests {
                     },
                     ..Default::default()
                 }),
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -544,7 +544,7 @@ mod tests {
                     },
                     ..Default::default()
                 }),
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -574,7 +574,7 @@ mod tests {
                         ..Default::default()
                     },
                 }),
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -600,7 +600,7 @@ mod tests {
                     file: PathBuf::from("src_file"),
                     key: "key".to_string(),
                 },
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -627,7 +627,7 @@ mod tests {
                     key: "key".to_string(),
                     value: None
                 },
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -644,7 +644,7 @@ mod tests {
                     key: "key".to_string(),
                     value: Some("value".to_string())
                 },
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -661,7 +661,7 @@ mod tests {
                     patch_file: PathBuf::from("diff_file"),
                     force: false,
                 },
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
@@ -679,7 +679,7 @@ mod tests {
                     update_agg_tiles_hash: false,
                     agg_hash: Some(AggHashType::Off),
                 },
-                log_format: LogFormatOptions::Compact,
+                log_format: LogFormatOptions::Bare,
                 log_level: "mbtiles=info".to_string(),
             }
         );
