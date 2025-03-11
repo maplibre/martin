@@ -26,7 +26,7 @@ Press `F1` on your keyboard, and input "Generate Launch Configurations from Carg
 Let's say you want to debugging Martin with this command:
 
 ```shell
-martin postgres://postgres:postgres@localhost:5411/db --default-srid 4490
+martin postgres://postgres:postgres@localhost:5411/db
 ```
 
 You could find `Debug executable 'martin'` in your `launch.json`, like below:
