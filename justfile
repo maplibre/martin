@@ -33,8 +33,8 @@ mbtiles *ARGS:
     cargo run -p mbtiles -- {{ARGS}}
 
 # Start release-compiled Martin server and a test database
-run-release *ARGS: start
-    cargo run -- {{ARGS}}
+run-release *ARGS="--webui enable-for-all": start
+    cargo run -p martin --release -- {{ARGS}}
 
 # Start Martin server and open a test page
 debug-page *ARGS: start
@@ -54,7 +54,7 @@ clean: clean-test stop && clean-martin-ui
     cargo clean
 
 clean-martin-ui:
-    rm -rf martin-ui/dist martin-ui/node_modules
+    rm -rf martin/martin-ui/dist martin/martin-ui/node_modules
     cargo clean -p static-files
 
 # Delete test output files
@@ -119,12 +119,12 @@ bench-server: start
 bench-http: (cargo-install "oha")
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
-    oha -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha -z 60s  http://localhost:3000/function_zxy_query/18/235085/122323
-    oha -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
-    oha -z 60s  http://localhost:3000/png/0/0/0
-    oha -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
-    oha -z 60s  http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/png/0/0/0
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Run all tests using a test database
 test: start (test-cargo "--all-targets") test-doc test-int
@@ -323,12 +323,20 @@ clippy-md:
     docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
-# Update all dependencies including the breaking ones
-update-breaking:
+# Update dependencies, including breaking changes
+update:
     cargo +nightly -Z unstable-options update --breaking
+    cargo update
+
+# A few useful tests to run locally to simulate CI
+ci-test: env-info restart fmt clippy check-doc test check
 
 # These steps automatically run before git push via a git hook
-git-pre-push: env-info restart fmt clippy check-doc test check
+git-pre-push:
+    # TODO: these should be deleted after a while
+    echo "Pre-commit is no longer required."
+    echo "Please remove the git hook by running    rm .git/hooks/pre-push"
+    exit 1
 
 # Get environment info
 [private]

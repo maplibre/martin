@@ -7,10 +7,17 @@ use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "sprites",
+    feature = "cog"
+))]
 use crate::file_config::FileConfigEnum;
 use crate::MartinError::ConfigAndConnectionsError;
-use crate::{MartinResult, OptOneMany};
+use crate::MartinResult;
+#[cfg(feature = "fonts")]
+use crate::OptOneMany;
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
@@ -49,7 +56,7 @@ pub struct MetaArgs {
     /// **Deprecated** Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
-    /// Connection strings, e.g. postgres://... or /path/to/files
+    /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
 }
 
@@ -58,9 +65,11 @@ pub struct MetaArgs {
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short, long)]
+    #[cfg(feature = "sprites")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
+    #[cfg(feature = "fonts")]
     pub font: Vec<PathBuf>,
 }
 
@@ -117,6 +126,7 @@ impl Args {
             config.sprites = FileConfigEnum::new(self.extras.sprite);
         }
 
+        #[cfg(feature = "fonts")]
         if !self.extras.font.is_empty() {
             config.fonts = OptOneMany::new(self.extras.font);
         }
@@ -287,7 +297,8 @@ mod tests {
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
             "martin",
-            "../tests/fixtures/cog",
+            "../tests/fixtures/pmtiles/png.pmtiles",
+            "../tests/fixtures/mbtiles/json.mbtiles",
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
         ]);
@@ -297,12 +308,26 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/cog"
-        mbtiles: "../tests/fixtures/cog"
+        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
-          - "../tests/fixtures/cog"
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
+        "#);
+    }
+
+    #[test]
+    fn cli_directories_propergate() {
+        let args = Args::parse_from(["martin", "../tests/fixtures/"]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        pmtiles: "../tests/fixtures/"
+        mbtiles: "../tests/fixtures/"
+        cog: "../tests/fixtures/"
         "#);
     }
 }

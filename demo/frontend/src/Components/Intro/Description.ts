@@ -6,7 +6,7 @@ export default styled.div`
 
   font-size: 30px;
   line-height: 1.45;
-  
+
   @media (max-width: 500px) {
     font-size: 20px;
   }

@@ -20,7 +20,7 @@
   - [PostgreSQL Table Sources](sources-pg-tables.md)
   - [PostgreSQL Function Sources](sources-pg-functions.md)
   - [MBTiles and PMTiles File Sources](sources-files.md)
-  - [Cloud Optimized GeoTIFF File Sources](sources-cog-files.md)
+  <!-- - [Cloud Optimized GeoTIFF File Sources](sources-cog-files.md) -->
   - [Composite Sources](sources-composite.md)
   - [Sprite Sources](sources-sprites.md)
   - [Font Sources](sources-fonts.md)

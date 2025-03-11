@@ -11,7 +11,12 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "sprites",
+    feature = "cog"
+))]
 use crate::file_config::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::fonts::FontSources;
@@ -21,7 +26,9 @@ use crate::sprites::{SpriteConfig, SpriteSources};
 use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
 use crate::utils::{init_aws_lc_tls, parse_base_path, CacheValue, MainCache, OptMainCache};
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-use crate::{IdResolver, MartinResult, OptOneMany};
+#[cfg(any(feature = "fonts", feature = "postgres"))]
+use crate::OptOneMany;
+use crate::{IdResolver, MartinResult};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
@@ -62,6 +69,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: FileConfigEnum<SpriteConfig>,
 
+    #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: OptOneMany<PathBuf>,
 
