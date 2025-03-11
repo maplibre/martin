@@ -7,6 +7,7 @@ We assume you are working on Ubuntu (or WSL) with Visual Studio Code in this pos
 ## Editor Plugins
 
 Install plugins below:
+
 * [CodeLLDB](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
 
@@ -20,14 +21,16 @@ The most convenient way is to generate a launch.json and modify it.
 
 Press `F1` on your keyboard, and input "Generate Launch Configurations from Cargo.toml". Execute it and save it to your `.vscode` directory.
 
-## Modify 
+## Modify
 
 Let's say you want to debugging Martin with this command:
+
 ```shell
 martin postgres://postgres:postgres@localhost:5411/db --default-srid 4490
 ```
 
 You could find `Debug executable 'martin'` in your `launch.json`, like below:
+
 ```json
         {
             "type": "lldb",
@@ -100,15 +103,6 @@ Click `Run and Debug` on the left panel of `Visual Studio Code`. Choose `my firs
 
 Wait for the breakpoint to be hit.
 
-
 ## Working with Just
 
-
 //todo
-
-
-
-
-
-
-
