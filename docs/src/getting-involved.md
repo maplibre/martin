@@ -102,7 +102,3 @@ async fn start(args: Args) -> MartinResult<()> {
 Click `Run and Debug` on the left panel of `Visual Studio Code`. Choose `my first debug` and press `F5` on your keyboard.
 
 Wait for the breakpoint to be hit.
-
-## Working with Just
-
-//todo
