@@ -201,11 +201,11 @@ bless-tests:
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
     #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --unreferenced=auto -p mbtiles {{ARGS}}
+    cargo insta test --accept -p mbtiles {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --unreferenced=auto -p martin {{ARGS}}
+    cargo insta test --accept -p martin {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *ARGS: (cargo-install "cargo-insta")
