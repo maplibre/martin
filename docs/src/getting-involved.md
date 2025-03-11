@@ -58,7 +58,7 @@ Just copy and paste after it, and modify your pasted like this:
         {
             "type": "lldb",
             "request": "launch",
-            "name": "my first debug", // name it any as you like 
+            "name": "my first debug", // name it any as you like
             "cargo": {
                 "args": [
                     "build",
