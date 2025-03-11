@@ -745,7 +745,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                         // if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
                         //     return format!("blob({})", from_utf8(&v).unwrap());
                         // }
-                        // if let Ok(v) = row.try_get::<i32, _>(idx) {
+                        // if let Ok(v) = row.try_get::<i64, _>(idx) {
                         //     return v.to_string();
                         // }
                         // if let Ok(v) = row.try_get::<f64, _>(idx) {
@@ -753,7 +753,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                         // }
                         // panic!("Unknown column type: {typ}");
                         (match typ.as_str() {
-                            "INTEGER" => row.get::<Option<i32>, _>(idx).map(|v| v.to_string()),
+                            "INTEGER" => row.get::<Option<i64>, _>(idx).map(|v| v.to_string()),
                             "REAL" => row.get::<Option<f64>, _>(idx).map(|v| v.to_string()),
                             "TEXT" => row
                                 .get::<Option<String>, _>(idx)
