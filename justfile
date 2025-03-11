@@ -201,11 +201,11 @@ bless-tests:
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
     #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --unreferenced=auto -p mbtiles {{ARGS}}
+    cargo insta test --accept -p mbtiles {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --unreferenced=auto -p martin {{ARGS}}
+    cargo insta test --accept -p martin {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *ARGS: (cargo-install "cargo-insta")
@@ -323,9 +323,10 @@ clippy-md:
     docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
-# Update all dependencies including the breaking ones
-update-breaking:
+# Update dependencies, including breaking changes
+update:
     cargo +nightly -Z unstable-options update --breaking
+    cargo update
 
 # A few useful tests to run locally to simulate CI
 ci-test: env-info restart fmt clippy check-doc test check
