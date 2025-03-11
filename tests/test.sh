@@ -156,7 +156,8 @@ test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
   if ! grep -q "$EXPECTED_TEXT" "$LOG_FILE"; then
-    echo "ERROR: $LOG_FILE log file does not have: '$EXPECTED_TEXT'"
+    echo "ERROR: $LOG_FILE log file does not contain '$EXPECTED_TEXT':"
+    cat $LOG_FILE
     exit 1
   else
     >&2 echo "OK: $LOG_FILE contains expected text: '$EXPECTED_TEXT'"
