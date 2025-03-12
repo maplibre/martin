@@ -27,14 +27,15 @@ repos:
         args: [ --fix=lf ]
       - id: trailing-whitespace
 
-  -   repo: local
-      hooks:
-      -   id: rustfmt
-          name: rustfmt
-          entry: rustfmt --edition 2024 --style-edition 2024
-          language: rust
-          language_version: 1.85.0
-          types: [rust]
+  - repo: local
+    hooks:
+      - id: rustfmt
+        name: Rust Format
+        description: "Automatically format Rust code with cargo fmt"
+        entry: rustfmt --edition 2024 --style-edition 2024
+        language: rust
+        language_version: 1.85.0
+        types: [rust]
 
   #
   # TODO: This needs a more thorough configuration, e.g. spacing, alignment, capitalization, etc
