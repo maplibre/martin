@@ -197,19 +197,22 @@ macro_rules! impl_pmtiles_source {
                 }
 
                 let format = match hdr.tile_type {
-                    TileType::Mvt => TileInfo::new(Format::Mvt, match hdr.tile_compression {
-                        Compression::None => Encoding::Uncompressed,
-                        Compression::Unknown => {
-                            warn!(
-                                "MVT tiles have unknown compression in file {}",
-                                $display_path(&path)
-                            );
-                            Encoding::Uncompressed
-                        }
-                        Compression::Gzip => Encoding::Gzip,
-                        Compression::Brotli => Encoding::Brotli,
-                        Compression::Zstd => Encoding::Zstd,
-                    }),
+                    TileType::Mvt => TileInfo::new(
+                        Format::Mvt,
+                        match hdr.tile_compression {
+                            Compression::None => Encoding::Uncompressed,
+                            Compression::Unknown => {
+                                warn!(
+                                    "MVT tiles have unknown compression in file {}",
+                                    $display_path(&path)
+                                );
+                                Encoding::Uncompressed
+                            }
+                            Compression::Gzip => Encoding::Gzip,
+                            Compression::Brotli => Encoding::Brotli,
+                            Compression::Zstd => Encoding::Zstd,
+                        },
+                    ),
                     // All these assume uncompressed data (validated above)
                     TileType::Png => Format::Png.into(),
                     TileType::Jpeg => Format::Jpeg.into(),

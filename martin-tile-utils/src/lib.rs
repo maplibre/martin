@@ -198,10 +198,13 @@ impl TileInfo {
 
 impl From<Format> for TileInfo {
     fn from(format: Format) -> Self {
-        Self::new(format, match format {
-            Format::Png | Format::Jpeg | Format::Webp | Format::Gif => Encoding::Internal,
-            Format::Mvt | Format::Json => Encoding::Uncompressed,
-        })
+        Self::new(
+            format,
+            match format {
+                Format::Png | Format::Jpeg | Format::Webp | Format::Gif => Encoding::Internal,
+                Format::Mvt | Format::Json => Encoding::Uncompressed,
+            },
+        )
     }
 }
 

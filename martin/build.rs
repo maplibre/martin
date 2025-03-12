@@ -72,10 +72,11 @@ fn webui() {
         .expect("OUT_DIR environment variable is not a valid path")
         .join("martin-ui");
 
-    copy_file_tree(&martin_ui_dir, &out_martin_ui_dir, &[
-        "dist",
-        "node_modules",
-    ]);
+    copy_file_tree(
+        &martin_ui_dir,
+        &out_martin_ui_dir,
+        &["dist", "node_modules"],
+    );
 
     println!("installing and building in {out_martin_ui_dir:?}");
     static_files::NpmBuild::new(&out_martin_ui_dir)

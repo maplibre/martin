@@ -158,17 +158,20 @@ mod tests {
         assert_eq!(rectangles, vec![TileRect::new(0, 0, 0, 0, 0)]);
 
         append(&mut rectangles, TileRect::new(0, 1, 0, 1, 1));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 0, 0, 0, 0),
-            TileRect::new(0, 1, 0, 1, 1),
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![TileRect::new(0, 0, 0, 0, 0), TileRect::new(0, 1, 0, 1, 1),]
+        );
 
         append(&mut rectangles, TileRect::new(0, 0, 0, 1, 1));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 0, 0, 0, 0),
-            TileRect::new(0, 1, 0, 1, 1),
-            TileRect::new(0, 0, 1, 0, 1)
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![
+                TileRect::new(0, 0, 0, 0, 0),
+                TileRect::new(0, 1, 0, 1, 1),
+                TileRect::new(0, 0, 1, 0, 1)
+            ]
+        );
     }
 
     #[test]
@@ -178,57 +181,72 @@ mod tests {
         assert_eq!(rectangles, vec![TileRect::new(0, 2, 2, 4, 4)]);
 
         append(&mut rectangles, TileRect::new(0, 1, 3, 3, 3));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 2, 2, 4, 4),
-            TileRect::new(0, 1, 3, 1, 3),
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![TileRect::new(0, 2, 2, 4, 4), TileRect::new(0, 1, 3, 1, 3),]
+        );
 
         append(&mut rectangles, TileRect::new(0, 3, 1, 3, 3));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 2, 2, 4, 4),
-            TileRect::new(0, 1, 3, 1, 3),
-            TileRect::new(0, 3, 1, 3, 1),
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![
+                TileRect::new(0, 2, 2, 4, 4),
+                TileRect::new(0, 1, 3, 1, 3),
+                TileRect::new(0, 3, 1, 3, 1),
+            ]
+        );
 
         append(&mut rectangles, TileRect::new(0, 3, 3, 5, 3));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 2, 2, 4, 4),
-            TileRect::new(0, 1, 3, 1, 3),
-            TileRect::new(0, 3, 1, 3, 1),
-            TileRect::new(0, 5, 3, 5, 3),
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![
+                TileRect::new(0, 2, 2, 4, 4),
+                TileRect::new(0, 1, 3, 1, 3),
+                TileRect::new(0, 3, 1, 3, 1),
+                TileRect::new(0, 5, 3, 5, 3),
+            ]
+        );
 
         append(&mut rectangles, TileRect::new(0, 3, 3, 3, 5));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 2, 2, 4, 4),
-            TileRect::new(0, 1, 3, 1, 3),
-            TileRect::new(0, 3, 1, 3, 1),
-            TileRect::new(0, 5, 3, 5, 3),
-            TileRect::new(0, 3, 5, 3, 5),
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![
+                TileRect::new(0, 2, 2, 4, 4),
+                TileRect::new(0, 1, 3, 1, 3),
+                TileRect::new(0, 3, 1, 3, 1),
+                TileRect::new(0, 5, 3, 5, 3),
+                TileRect::new(0, 3, 5, 3, 5),
+            ]
+        );
 
         append(&mut rectangles, TileRect::new(0, 3, 3, 5, 5));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 2, 2, 4, 4),
-            TileRect::new(0, 1, 3, 1, 3),
-            TileRect::new(0, 3, 1, 3, 1),
-            TileRect::new(0, 5, 3, 5, 3),
-            TileRect::new(0, 3, 5, 3, 5),
-            TileRect::new(0, 5, 4, 5, 5),
-            TileRect::new(0, 4, 5, 4, 5),
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![
+                TileRect::new(0, 2, 2, 4, 4),
+                TileRect::new(0, 1, 3, 1, 3),
+                TileRect::new(0, 3, 1, 3, 1),
+                TileRect::new(0, 5, 3, 5, 3),
+                TileRect::new(0, 3, 5, 3, 5),
+                TileRect::new(0, 5, 4, 5, 5),
+                TileRect::new(0, 4, 5, 4, 5),
+            ]
+        );
 
         append(&mut rectangles, TileRect::new(0, 1, 1, 3, 3));
-        assert_eq!(rectangles, vec![
-            TileRect::new(0, 2, 2, 4, 4),
-            TileRect::new(0, 1, 3, 1, 3),
-            TileRect::new(0, 3, 1, 3, 1),
-            TileRect::new(0, 5, 3, 5, 3),
-            TileRect::new(0, 3, 5, 3, 5),
-            TileRect::new(0, 5, 4, 5, 5),
-            TileRect::new(0, 4, 5, 4, 5),
-            TileRect::new(0, 1, 1, 1, 2),
-            TileRect::new(0, 2, 1, 2, 1),
-        ]);
+        assert_eq!(
+            rectangles,
+            vec![
+                TileRect::new(0, 2, 2, 4, 4),
+                TileRect::new(0, 1, 3, 1, 3),
+                TileRect::new(0, 3, 1, 3, 1),
+                TileRect::new(0, 5, 3, 5, 3),
+                TileRect::new(0, 3, 5, 3, 5),
+                TileRect::new(0, 5, 4, 5, 5),
+                TileRect::new(0, 4, 5, 4, 5),
+                TileRect::new(0, 1, 1, 1, 2),
+                TileRect::new(0, 2, 1, 2, 1),
+            ]
+        );
     }
 }

@@ -261,21 +261,27 @@ mod tests {
                     default_srid: Some(4326),
                     pool_size: Some(20),
                     max_feature_count: Some(100),
-                    tables: Some(BTreeMap::from([("table_source".to_string(), TableInfo {
-                        schema: "public".to_string(),
-                        table: "table_source".to_string(),
-                        srid: 4326,
-                        geometry_column: "geom".to_string(),
-                        minzoom: Some(0),
-                        maxzoom: Some(30),
-                        bounds: Some([-180, -90, 180, 90].into()),
-                        extent: Some(2048),
-                        buffer: Some(10),
-                        clip_geom: Some(false),
-                        geometry_type: some("GEOMETRY"),
-                        properties: Some(BTreeMap::from([("gid".to_string(), "int4".to_string())])),
-                        ..Default::default()
-                    })])),
+                    tables: Some(BTreeMap::from([(
+                        "table_source".to_string(),
+                        TableInfo {
+                            schema: "public".to_string(),
+                            table: "table_source".to_string(),
+                            srid: 4326,
+                            geometry_column: "geom".to_string(),
+                            minzoom: Some(0),
+                            maxzoom: Some(30),
+                            bounds: Some([-180, -90, 180, 90].into()),
+                            extent: Some(2048),
+                            buffer: Some(10),
+                            clip_geom: Some(false),
+                            geometry_type: some("GEOMETRY"),
+                            properties: Some(BTreeMap::from([(
+                                "gid".to_string(),
+                                "int4".to_string(),
+                            )])),
+                            ..Default::default()
+                        },
+                    )])),
                     functions: Some(BTreeMap::from([(
                         "function_zxy_query".to_string(),
                         FunctionInfo::new_extended(

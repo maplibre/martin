@@ -371,19 +371,22 @@ mod tests {
             "--min-zoom",
             "1",
         ]);
-        assert_eq!(args, Args {
-            verbose: false,
-            command: Copy(CopyArgs {
-                src_file: PathBuf::from("src_file"),
-                dst_file: PathBuf::from("dst_file"),
-                options: SharedCopyOpts {
-                    min_zoom: Some(1),
-                    max_zoom: Some(100),
+        assert_eq!(
+            args,
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    options: SharedCopyOpts {
+                        min_zoom: Some(1),
+                        max_zoom: Some(100),
+                        ..Default::default()
+                    },
                     ..Default::default()
-                },
-                ..Default::default()
-            })
-        });
+                })
+            }
+        );
     }
 
     #[test]
