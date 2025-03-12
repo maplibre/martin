@@ -1,0 +1,25 @@
+lints.workspace = true
+
+[package]
+name = "martin-tracing-utils"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Utilities to help with tracing. Used by the MapLibre's Martin tile server."
+keywords = ["tracing", "mvt", "tileserver"]
+categories = ["science::geo", "web-programming"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[dependencies]
+clap.workspace = true
+serde = {workspace = true, optional = true}
+serde_yaml = {workspace = true, optional = true}
+tracing-log.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
