@@ -34,7 +34,6 @@ repos:
         description: "Automatically format Rust code with cargo fmt"
         entry: sh -c "cargo fmt --all"
         language: rust
-        language_version: 1.85.0
         pass_filenames: false
 
   #
