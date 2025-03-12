@@ -29,12 +29,13 @@ repos:
 
   - repo: local
     hooks:
-      - id: cargo-fmt
+      - id: rustfmt
         name: Rust Format
         description: "Automatically format Rust code with cargo fmt"
-        entry: sh -c "cargo fmt --all"
+        entry: rustfmt --edition 2024 --style-edition 2024
         language: rust
-        pass_filenames: false
+        language_version: 1.85.0
+        types: [rust]
 
   #
   # TODO: This needs a more thorough configuration, e.g. spacing, alignment, capitalization, etc
