@@ -436,14 +436,11 @@ async fn convert(
     let mem = Mbtiles::new(":memory:")?;
     let (frm_mbt, _frm_cn) = new_file!(convert, frm_type, METADATA_V1, TILES_V1, "{frm}-{to}");
 
-    pretty_assert_eq!(
-        databases.dump("v1", dst_type),
-        &copy_dump! {
-            path(&frm_mbt),
-            path(&mem),
-            dst_type_cli => Some(dst_type),
-        }
-    );
+    pretty_assert_eq!(databases.dump("v1", dst_type), &copy_dump! {
+        path(&frm_mbt),
+        path(&mem),
+        dst_type_cli => Some(dst_type),
+    });
 
     let dmp = copy_dump! {
         path(&frm_mbt),
@@ -484,26 +481,20 @@ async fn convert(
     };
     assert_dump!(dmp, "v1__bbox__{to}");
 
-    pretty_assert_eq!(
-        &z6only,
-        &copy_dump! {
-            path(&frm_mbt),
-            path(&mem),
-            dst_type_cli => Some(dst_type),
-            min_zoom => Some(6),
-        }
-    );
+    pretty_assert_eq!(&z6only, &copy_dump! {
+        path(&frm_mbt),
+        path(&mem),
+        dst_type_cli => Some(dst_type),
+        min_zoom => Some(6),
+    });
 
-    pretty_assert_eq!(
-        &z6only,
-        &copy_dump! {
-            path(&frm_mbt),
-            path(&mem),
-            dst_type_cli => Some(dst_type),
-            min_zoom => Some(6),
-            max_zoom => Some(6),
-        }
-    );
+    pretty_assert_eq!(&z6only, &copy_dump! {
+        path(&frm_mbt),
+        path(&mem),
+        dst_type_cli => Some(dst_type),
+        min_zoom => Some(6),
+        max_zoom => Some(6),
+    });
 
     Ok(())
 }

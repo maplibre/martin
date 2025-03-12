@@ -154,14 +154,11 @@ mod tests {
             panic!();
         };
         let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
-        assert_eq!(
-            paths,
-            vec![
-                PathBuf::from("/dir-path"),
-                PathBuf::from("/path/to/file2.ext"),
-                PathBuf::from("http://example.org/file.ext"),
-            ]
-        );
+        assert_eq!(paths, vec![
+            PathBuf::from("/dir-path"),
+            PathBuf::from("/path/to/file2.ext"),
+            PathBuf::from("http://example.org/file.ext"),
+        ]);
         assert_eq!(
             cfg.sources,
             Some(BTreeMap::from_iter(vec![

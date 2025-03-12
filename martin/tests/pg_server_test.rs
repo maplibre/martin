@@ -849,10 +849,9 @@ postgres:
         .insert_header(("x-rewrite-url", "/tiles/function_zxy_query?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
-    assert_eq!(
-        result.tiles,
-        &["http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"]
-    );
+    assert_eq!(result.tiles, &[
+        "http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"
+    ]);
 }
 
 #[actix_rt::test]
@@ -869,10 +868,9 @@ postgres:
         .insert_header(("X-Rewrite-URL", "/proxy/function_zxy_query_jsonb"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
-    assert_eq!(
-        result.tiles,
-        &["https://example.org:7654/proxy/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
-    );
+    assert_eq!(result.tiles, &[
+        "https://example.org:7654/proxy/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"
+    ]);
 }
 
 #[actix_rt::test]
