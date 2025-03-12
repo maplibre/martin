@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.function_zxy_query_test(z integer, x integer, 
 DECLARE
   mvt bytea;
 BEGIN
-  RAISE DEBUG 'query_params: %', query_params;
+  RAISE DEBUG 'function got query_params: %', query_params;
 
   IF (query_params->>'token')::varchar IS NULL THEN
     RAISE EXCEPTION 'the `token` json parameter does not exist in `query_params`';
