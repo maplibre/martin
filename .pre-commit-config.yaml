@@ -33,7 +33,6 @@ repos:
           name: rustfmt
           entry: rustfmt --edition 2024 --style-edition 2024
           language: rust
-          language_version: 1.85.0
           types: [rust]
 
   #
