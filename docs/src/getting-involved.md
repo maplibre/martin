@@ -54,7 +54,7 @@ You could find `Debug executable 'martin'` in your `launch.json`, like below:
 
 Just copy and paste after it, and modify your pasted like this:
 
-```yaml
+```javascript
         {
             "type": "lldb",
             "request": "launch",
