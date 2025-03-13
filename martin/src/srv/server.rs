@@ -28,6 +28,7 @@ use crate::MartinResult;
 #[cfg(feature = "webui")]
 mod webui {
     #![allow(clippy::unreadable_literal)]
+    #![allow(clippy::too_many_lines)]
     #![allow(clippy::wildcard_imports)]
     include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 }

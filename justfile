@@ -33,8 +33,8 @@ mbtiles *ARGS:
     cargo run -p mbtiles -- {{ARGS}}
 
 # Start release-compiled Martin server and a test database
-run-release *ARGS: start
-    cargo run -- {{ARGS}}
+run-release *ARGS="--webui enable-for-all": start
+    cargo run -p martin --release -- {{ARGS}}
 
 # Start Martin server and open a test page
 debug-page *ARGS: start
@@ -119,12 +119,12 @@ bench-server: start
 bench-http: (cargo-install "oha")
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
-    oha -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha -z 60s  http://localhost:3000/function_zxy_query/18/235085/122323
-    oha -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
-    oha -z 60s  http://localhost:3000/png/0/0/0
-    oha -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
-    oha -z 60s  http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/png/0/0/0
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Run all tests using a test database
 test: start (test-cargo "--all-targets") test-doc test-int
@@ -201,11 +201,11 @@ bless-tests:
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
     #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --unreferenced=auto -p mbtiles {{ARGS}}
+    cargo insta test --accept -p mbtiles {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --unreferenced=auto -p martin {{ARGS}}
+    cargo insta test --accept -p martin {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *ARGS: (cargo-install "cargo-insta")
@@ -323,9 +323,10 @@ clippy-md:
     docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
-# Update all dependencies including the breaking ones
-update-breaking:
+# Update dependencies, including breaking changes
+update:
     cargo +nightly -Z unstable-options update --breaking
+    cargo update
 
 # A few useful tests to run locally to simulate CI
 ci-test: env-info restart fmt clippy check-doc test check

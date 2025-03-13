@@ -248,6 +248,7 @@ mbtiles:
     uncompressed_mvt: tests/fixtures/mbtiles/uncompressed_mvt.mbtiles
     webp: tests/fixtures/mbtiles/webp.mbtiles
     world_cities: tests/fixtures/mbtiles/world_cities.mbtiles
+    world_cities_bindiff: tests/fixtures/mbtiles/world_cities_bindiff.mbtiles
     world_cities_diff: tests/fixtures/mbtiles/world_cities_diff.mbtiles
     world_cities_modified: tests/fixtures/mbtiles/world_cities_modified.mbtiles
     zoomed_world_cities: tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
