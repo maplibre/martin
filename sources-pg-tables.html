@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Using with Leaflet - Martin Tile Server Documentation</title>
+        <title>PostgreSQL Table Sources - Martin Tile Server Documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -88,7 +88,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">1.</strong> Quick Start</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="quick-start-linux.html"><strong aria-hidden="true">1.1.</strong> On Linux</a></li><li class="chapter-item expanded "><a href="quick-start-macos.html"><strong aria-hidden="true">1.2.</strong> On macOS</a></li><li class="chapter-item expanded "><a href="quick-start-windows.html"><strong aria-hidden="true">1.3.</strong> On Windows</a></li><li class="chapter-item expanded "><a href="quick-start-qgis.html"><strong aria-hidden="true">1.4.</strong> View with QGIS</a></li></ol></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="run.html"><strong aria-hidden="true">3.</strong> Running</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="run-with-cli.html"><strong aria-hidden="true">3.1.</strong> Command Line Interface</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="env-vars.html"><strong aria-hidden="true">3.1.1.</strong> Environment Variables</a></li></ol></li><li class="chapter-item expanded "><a href="run-with-docker.html"><strong aria-hidden="true">3.2.</strong> Running with Docker</a></li><li class="chapter-item expanded "><a href="run-with-docker-compose.html"><strong aria-hidden="true">3.3.</strong> Running with Docker Compose</a></li><li class="chapter-item expanded "><a href="run-with-nginx.html"><strong aria-hidden="true">3.4.</strong> Running with NGINX</a></li><li class="chapter-item expanded "><a href="run-with-apache.html"><strong aria-hidden="true">3.5.</strong> Running with Apache</a></li><li class="chapter-item expanded "><a href="run-with-lambda.html"><strong aria-hidden="true">3.6.</strong> Running in AWS Lambda</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">3.7.</strong> Troubleshooting</a></li></ol></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">4.</strong> Configuration File</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="pg-connections.html"><strong aria-hidden="true">4.1.</strong> PostgreSQL Connections</a></li><li class="chapter-item expanded "><a href="sources-pg-tables.html"><strong aria-hidden="true">4.2.</strong> PostgreSQL Table Sources</a></li><li class="chapter-item expanded "><a href="sources-pg-functions.html"><strong aria-hidden="true">4.3.</strong> PostgreSQL Function Sources</a></li><li class="chapter-item expanded "><a href="sources-files.html"><strong aria-hidden="true">4.4.</strong> MBTiles and PMTiles File Sources</a></li><li class="chapter-item expanded "><a href="sources-composite.html"><strong aria-hidden="true">4.5.</strong> Composite Sources</a></li><li class="chapter-item expanded "><a href="sources-sprites.html"><strong aria-hidden="true">4.6.</strong> Sprite Sources</a></li><li class="chapter-item expanded "><a href="sources-fonts.html"><strong aria-hidden="true">4.7.</strong> Font Sources</a></li></ol></li><li class="chapter-item expanded "><a href="using.html"><strong aria-hidden="true">5.</strong> Usage and Endpoint API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="using-with-maplibre.html"><strong aria-hidden="true">5.1.</strong> Using with MapLibre</a></li><li class="chapter-item expanded "><a href="using-with-leaflet.html" class="active"><strong aria-hidden="true">5.2.</strong> Using with Leaflet</a></li><li class="chapter-item expanded "><a href="using-with-deck-gl.html"><strong aria-hidden="true">5.3.</strong> Using with deck.gl</a></li><li class="chapter-item expanded "><a href="using-with-mapbox.html"><strong aria-hidden="true">5.4.</strong> Using with Mapbox</a></li><li class="chapter-item expanded "><a href="using-with-openlayers.html"><strong aria-hidden="true">5.5.</strong> Using with OpenLayers</a></li><li class="chapter-item expanded "><a href="recipes.html"><strong aria-hidden="true">5.6.</strong> Recipes</a></li></ol></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">6.</strong> Tools</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="martin-cp.html"><strong aria-hidden="true">6.1.</strong> martin-cp bulk tile generation</a></li><li class="chapter-item expanded "><a href="mbtiles-meta.html"><strong aria-hidden="true">6.2.</strong> MBTiles Metadata</a></li><li class="chapter-item expanded "><a href="mbtiles-schema.html"><strong aria-hidden="true">6.3.</strong> MBTiles Schemas</a></li><li class="chapter-item expanded "><a href="mbtiles-copy.html"><strong aria-hidden="true">6.4.</strong> Copying MBTiles</a></li><li class="chapter-item expanded "><a href="mbtiles-diff.html"><strong aria-hidden="true">6.5.</strong> Diffing/Patching MBTiles</a></li><li class="chapter-item expanded "><a href="mbtiles-validation.html"><strong aria-hidden="true">6.6.</strong> Validating MBTiles</a></li></ol></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">7.</strong> Development</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="martin-as-a-library.html"><strong aria-hidden="true">7.1.</strong> Martin as a library</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">1.</strong> Quick Start</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="quick-start-linux.html"><strong aria-hidden="true">1.1.</strong> On Linux</a></li><li class="chapter-item expanded "><a href="quick-start-macos.html"><strong aria-hidden="true">1.2.</strong> On macOS</a></li><li class="chapter-item expanded "><a href="quick-start-windows.html"><strong aria-hidden="true">1.3.</strong> On Windows</a></li><li class="chapter-item expanded "><a href="quick-start-qgis.html"><strong aria-hidden="true">1.4.</strong> View with QGIS</a></li></ol></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="run.html"><strong aria-hidden="true">3.</strong> Running</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="run-with-cli.html"><strong aria-hidden="true">3.1.</strong> Command Line Interface</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="env-vars.html"><strong aria-hidden="true">3.1.1.</strong> Environment Variables</a></li></ol></li><li class="chapter-item expanded "><a href="run-with-docker.html"><strong aria-hidden="true">3.2.</strong> Running with Docker</a></li><li class="chapter-item expanded "><a href="run-with-docker-compose.html"><strong aria-hidden="true">3.3.</strong> Running with Docker Compose</a></li><li class="chapter-item expanded "><a href="run-with-nginx.html"><strong aria-hidden="true">3.4.</strong> Running with NGINX</a></li><li class="chapter-item expanded "><a href="run-with-apache.html"><strong aria-hidden="true">3.5.</strong> Running with Apache</a></li><li class="chapter-item expanded "><a href="run-with-lambda.html"><strong aria-hidden="true">3.6.</strong> Running in AWS Lambda</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">3.7.</strong> Troubleshooting</a></li></ol></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">4.</strong> Configuration File</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="pg-connections.html"><strong aria-hidden="true">4.1.</strong> PostgreSQL Connections</a></li><li class="chapter-item expanded "><a href="sources-pg-tables.html" class="active"><strong aria-hidden="true">4.2.</strong> PostgreSQL Table Sources</a></li><li class="chapter-item expanded "><a href="sources-pg-functions.html"><strong aria-hidden="true">4.3.</strong> PostgreSQL Function Sources</a></li><li class="chapter-item expanded "><a href="sources-files.html"><strong aria-hidden="true">4.4.</strong> MBTiles and PMTiles File Sources</a></li><li class="chapter-item expanded "><a href="sources-composite.html"><strong aria-hidden="true">4.5.</strong> Composite Sources</a></li><li class="chapter-item expanded "><a href="sources-sprites.html"><strong aria-hidden="true">4.6.</strong> Sprite Sources</a></li><li class="chapter-item expanded "><a href="sources-fonts.html"><strong aria-hidden="true">4.7.</strong> Font Sources</a></li></ol></li><li class="chapter-item expanded "><a href="using.html"><strong aria-hidden="true">5.</strong> Usage and Endpoint API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="using-with-maplibre.html"><strong aria-hidden="true">5.1.</strong> Using with MapLibre</a></li><li class="chapter-item expanded "><a href="using-with-leaflet.html"><strong aria-hidden="true">5.2.</strong> Using with Leaflet</a></li><li class="chapter-item expanded "><a href="using-with-deck-gl.html"><strong aria-hidden="true">5.3.</strong> Using with deck.gl</a></li><li class="chapter-item expanded "><a href="using-with-mapbox.html"><strong aria-hidden="true">5.4.</strong> Using with Mapbox</a></li><li class="chapter-item expanded "><a href="using-with-openlayers.html"><strong aria-hidden="true">5.5.</strong> Using with OpenLayers</a></li><li class="chapter-item expanded "><a href="recipes.html"><strong aria-hidden="true">5.6.</strong> Recipes</a></li></ol></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">6.</strong> Tools</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="martin-cp.html"><strong aria-hidden="true">6.1.</strong> martin-cp bulk tile generation</a></li><li class="chapter-item expanded "><a href="mbtiles-meta.html"><strong aria-hidden="true">6.2.</strong> MBTiles Metadata</a></li><li class="chapter-item expanded "><a href="mbtiles-schema.html"><strong aria-hidden="true">6.3.</strong> MBTiles Schemas</a></li><li class="chapter-item expanded "><a href="mbtiles-copy.html"><strong aria-hidden="true">6.4.</strong> Copying MBTiles</a></li><li class="chapter-item expanded "><a href="mbtiles-diff.html"><strong aria-hidden="true">6.5.</strong> Diffing/Patching MBTiles</a></li><li class="chapter-item expanded "><a href="mbtiles-validation.html"><strong aria-hidden="true">6.6.</strong> Validating MBTiles</a></li></ol></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">7.</strong> Development</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="martin-as-a-library.html"><strong aria-hidden="true">7.1.</strong> Martin as a library</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -150,7 +150,7 @@
                         <a href="https://github.com/maplibre/martin" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/maplibre/martin/edit/main/docs/src/using-with-leaflet.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/maplibre/martin/edit/main/docs/src/sources-pg-tables.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -179,30 +179,64 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h2 id="using-with-leaflet"><a class="header" href="#using-with-leaflet">Using with Leaflet</a></h2>
-<p><a href="https://github.com/Leaflet/Leaflet">Leaflet</a> is the leading open-source JavaScript library for mobile-friendly interactive maps.</p>
-<p>You can add vector tiles using <a href="https://github.com/Leaflet/Leaflet.VectorGrid">Leaflet.VectorGrid</a> plugin. You must initialize a <a href="https://leaflet.github.io/Leaflet.VectorGrid/vectorgrid-api-docs.html#vectorgrid-protobuf">VectorGrid.Protobuf</a> with a URL template, just like in L.TileLayers. The difference is that you should define the styling for all the features.</p>
-<pre><code class="language-js">L.vectorGrid
-  .protobuf('http://localhost:3000/points/{z}/{x}/{y}', {
-    vectorTileLayerStyles: {
-      'points': {
-        color: 'red',
-        fill: true
-      }
+                        <h2 id="table-sources"><a class="header" href="#table-sources">Table Sources</a></h2>
+<p>Table Source is a database table which can be used to query <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a>. If a <a href="pg-connections.html">PostgreSQL connection string</a> is given, Martin will publish all tables as data sources if they have at least one geometry column. If geometry column SRID is 0, a default SRID must be set, or else that geo-column/table will be ignored. All non-geometry table columns will be published as vector tile feature tags (properties).</p>
+<h3 id="modifying-tilejson"><a class="header" href="#modifying-tilejson">Modifying Tilejson</a></h3>
+<p>Martin will automatically generate a <code>TileJSON</code> manifest for each table source. It will contain the <code>name</code>, <code>description</code>, <code>minzoom</code>, <code>maxzoom</code>, <code>bounds</code> and <code>vector_layer</code> information.
+For example, if there is a table <code>public.table_source</code>:
+the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
+<p>The table:</p>
+<pre><code class="language-sql">CREATE TABLE "public"."table_source" ( "gid" int4 NOT NULL, "geom" "public"."geometry" );
+</code></pre>
+<p>The TileJSON:</p>
+<pre><code class="language-json">{
+    "tilejson": "3.0.0",
+    "tiles": [
+        "http://localhost:3000/table_source/{z}/{x}/{y}"
+    ],
+    "vector_layers": [
+        {
+            "id": "table_source",
+            "fields": {
+                "gid": "int4"
+            }
+        }
+    ],
+    "bounds": [
+        -2.0,
+        -1.0,
+        142.84131509869133,
+        45.0
+    ],
+    "description": "public.table_source.geom",
+    "name": "table_source"
+}
+</code></pre>
+<p>By default the <code>description</code> and <code>name</code> is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting <code>auto_publish</code> section in <a href="https://maplibre.org/martin/config-file.html#config-example">configuration file</a>.</p>
+<h4 id="tilejson-in-sql-comments"><a class="header" href="#tilejson-in-sql-comments">TileJSON in SQL Comments</a></h4>
+<p>Other than adjusting <code>auto_publish</code> section in configuration file, you can fine tune the <code>TileJSON</code> on the database side directly: Add a valid JSON as an SQL comment on the table.</p>
+<p>Martin will merge table comment into the generated TileJSON using JSON Merge patch. The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON.</p>
+<pre><code class="language-sql">DO $do$ BEGIN
+    EXECUTE 'COMMENT ON TABLE table_source IS $tj$' || $$
+    {
+        "version": "1.2.3",
+        "attribution": "osm",
+        "description": "a description from table comment",
+        "foo": {"bar": "foo"}
     }
-  })
-  .addTo(map);
+    $$::json || '$tj$';
+END $do$;
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="using-with-maplibre.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="pg-connections.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="using-with-deck-gl.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sources-pg-functions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -212,11 +246,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="using-with-maplibre.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="pg-connections.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="using-with-deck-gl.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sources-pg-functions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
