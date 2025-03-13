@@ -2132,7 +2132,7 @@ checksum = "cc2b571658e38e0c01b1fdca3bbbe93c00d3d71693ff2770043f8c29bc7d6f80"
 dependencies = [
  "bytes",
  "futures-channel",
- "futures-util",
+ "futures-util"
  "http 1.3.1",
  "http-body 1.0.1",
  "httparse",
@@ -4687,9 +4687,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-hashes"
-version = "0.7.9"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96bb62526112c007e85b8c80ccec304ea847f60455d5aab62130d837cb44114d"
+checksum = "9cab17baac6ad0190c00413552f42f36f6a7e614ffec7dc968a0f1b1d41abca4"
 dependencies = [
  "digest",
  "hex",
