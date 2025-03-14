@@ -59,7 +59,7 @@ lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles"]
 cog = ["dep:tiff", "dep:png"]
-styles = ["dep:actix-files"]
+styles = ["dep:actix-files", "dep:walkdir"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
@@ -111,7 +111,7 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
-walkdir.workspace = true
+walkdir = { workspace = true, optional = true }
 
 [build-dependencies]
 walkdir = { workspace = true, optional = true }
