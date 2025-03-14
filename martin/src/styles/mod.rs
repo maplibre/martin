@@ -267,7 +267,10 @@ mod tests {
             Some(style_dir.join("americana.json"))
         );
         assert_eq!(styles.style_json_path("src2"), None);
-        assert_eq!(styles.style_json_path("maptiler_basic"), None);
+        assert_eq!(
+            styles.style_json_path("maptiler_basic"),
+            Some(style_dir.join("src2").join("maptiler_basic.json"))
+        );
         assert_eq!(
             styles.style_json_path("maptiler_basic.json"),
             Some(style_dir.join("src2").join("maptiler_basic.json"))
