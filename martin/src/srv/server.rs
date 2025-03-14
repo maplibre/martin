@@ -61,7 +61,7 @@ impl Catalog {
             #[cfg(feature = "fonts")]
             fonts: state.fonts.get_catalog(),
             #[cfg(feature = "styles")]
-            styles: state.styles.get_catalog()?,
+            styles: state.styles.get_catalog(),
         })
     }
 }

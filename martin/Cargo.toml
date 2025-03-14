@@ -111,6 +111,7 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+walkdir.workspace = true
 
 [build-dependencies]
 walkdir = { workspace = true, optional = true }
@@ -121,7 +122,7 @@ anyhow.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["yaml"] }
+insta = { workspace = true, features = ["json", "yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
