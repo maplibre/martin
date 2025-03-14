@@ -12,26 +12,8 @@ pub type StyleResult<T> = Result<T, StyleError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum StyleError {
-    #[error("Style {0} not found")]
-    StyleNotFound(String),
-
-    #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
-
     #[error("Walk directory error {0}: {1}")]
     DirectoryWalking(walkdir::Error, PathBuf),
-
-    #[error("Style path is not a file: {0}")]
-    InvalidFilePath(PathBuf),
-
-    #[error("Style {0} uses bad file {1}")]
-    InvalidStyleFilePath(String, PathBuf),
-
-    #[error("No sprite files found in {0}")]
-    NoStyleFilesFound(PathBuf),
-
-    #[error("Style {1} could not be loaded because {0}")]
-    UnableToReadStyle(serde_json::Error, PathBuf),
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -302,7 +284,7 @@ mod tests {
         let transitively_hidden_file3 = hidden_subdir2.join("file3.txt");
         File::create(&transitively_hidden_file3).unwrap();
 
-        let mut result = list_contained_files(&dir.path().to_path_buf()).unwrap();
+        let mut result = list_contained_files(dir.path()).unwrap();
         result.sort();
         assert_eq!(result, vec![file1, subdir_file2]);
     }
