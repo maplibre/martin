@@ -29,6 +29,17 @@
       ]
     }
   },
+  "styles": {
+    "americana": {
+      "path": "tests/fixtures/styles/americana.json"
+    },
+    "maptiler_basic": {
+      "path": "/home/frank/dev/martin/tests/fixtures/styles/src2/maptiler_basic.json"
+    },
+    "navigatum-basemap": {
+      "path": "/home/frank/dev/martin/tests/fixtures/styles/src2/navigatum-basemap.json"
+    }
+  },
   "tiles": {
     "MixPoints": {
       "content_type": "application/x-protobuf",
