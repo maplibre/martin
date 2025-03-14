@@ -59,14 +59,13 @@ lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles"]
 cog = ["dep:tiff", "dep:png"]
-styles = ["dep:actix-files", "dep:walkdir"]
+styles = ["dep:walkdir", "tokio/fs"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
 
 [dependencies]
 actix-cors.workspace = true
-actix-files = { workspace = true, optional = true }
 actix-http.workspace = true
 actix-rt.workspace = true
 actix-web-static-files = { workspace = true, optional = true }
