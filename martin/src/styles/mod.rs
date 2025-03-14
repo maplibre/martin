@@ -96,6 +96,7 @@ impl StyleSources {
 
     /// retrieve a styles' `PathBuf` from the internal catalog
     pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
+        let style_id = style_id.trim_end_matches(".json").trim();
         let item = self.0.get(style_id)?;
         Some(item.path.clone())
     }
@@ -125,7 +126,11 @@ impl StyleSources {
                         warn!("Ignoring {child_path:?} of style source {id} from {base_path:?} because it has no name");
                         continue;
                     };
-                    let name = name.to_string_lossy().to_string();
+                    let name = name
+                        .to_string_lossy()
+                        .trim_end_matches(".json")
+                        .trim()
+                        .to_string();
                     self.add_single_source(name, child_path);
                 }
             }
@@ -217,11 +222,11 @@ mod tests {
         assert_eq!(styles.0.len(), 3);
         insta::with_settings!({sort_maps => true}, {
         insta::assert_yaml_snapshot!(styles, @r#"
-        americana.json:
+        americana:
           path: "../tests/fixtures/styles/americana.json"
-        maptiler_basic.json:
+        maptiler_basic:
           path: "../tests/fixtures/styles/src2/maptiler_basic.json"
-        navigatum-basemap.json:
+        navigatum-basemap:
           path: "../tests/fixtures/styles/src2/navigatum-basemap.json"
         "#);
         });
@@ -243,13 +248,13 @@ mod tests {
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"
         {
-          "americana.json": {
+          "americana": {
             "path": "../tests/fixtures/styles/americana.json"
           },
-          "maptiler_basic.json": {
+          "maptiler_basic": {
             "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
           },
-          "navigatum-basemap.json": {
+          "navigatum-basemap": {
             "path": "../tests/fixtures/styles/src2/navigatum-basemap.json"
           }
         }
