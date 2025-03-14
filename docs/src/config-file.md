@@ -243,11 +243,11 @@ styles:
    sources:
      # each json file in this directory will publish as style
      # The filename will be used as the styles' id
-     # 
+     #
      # source_name1 will be logged and can be useful for debugging
      source_name1: /path/to/styles_dir1
      # will be published as style2
-     # 
+     #
      # source_name2 will be logged and can be useful for debugging
      source_name2: /path/to/style2.json
 ```
