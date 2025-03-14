@@ -195,4 +195,4 @@ styles:
   sources:
     style-src1: tests/fixtures/styles/src2
   paths:
-    - tests/fixtures/styles/americana.json
+    - tests/fixtures/styles/maplibre_demo.json

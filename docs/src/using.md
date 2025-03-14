@@ -72,8 +72,8 @@ curl localhost:3000/catalog | jq
     ...
   },
   "styles": {
-    "americana": {
-      "path": "path/to/americana.json",
+    "maplibre_demo": {
+      "path": "path/to/maplibre_demo.json",
     },
   },
 }

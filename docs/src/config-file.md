@@ -235,14 +235,19 @@ fonts:
 # In the future, we plan on adding support for rendering too
 styles:
    paths:
-     # each json file in this dir will publish as style
+     # each json file in this directory will published as a style
      # The name of the file will be used as the style name
      - /path/to/styles_dir
      # will be published as maplibre_style
      - /path/to/maplibre_style.json
    sources:
-     # will be published as style1_FILENAME
-     style1: /path/to/styles_dir2
+     # each json file in this directory will publish as style
+     # The filename will be used as the styles' id
+     # 
+     # source_name1 will be logged and can be useful for debugging
+     source_name1: /path/to/styles_dir1
      # will be published as style2
-     style2: /path/to/americana.json
+     # 
+     # source_name2 will be logged and can be useful for debugging
+     source_name2: /path/to/style2.json
 ```

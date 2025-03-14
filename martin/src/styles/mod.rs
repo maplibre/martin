@@ -199,22 +199,22 @@ mod tests {
     fn test_add_single_source() {
         use std::fs::File;
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("americana.json");
+        let path = dir.path().join("maplibre_demo.json");
         File::create(path.clone()).unwrap();
 
         let mut style_sources = StyleSources::default();
-        style_sources.add_single_source("americana".to_string(), path.clone());
+        style_sources.add_single_source("maplibre_demo".to_string(), path.clone());
 
         assert_eq!(style_sources.0.len(), 1);
-        let americana = style_sources.0.get("americana").unwrap();
-        assert_eq!(americana.path, path);
+        let maplibre_demo = style_sources.0.get("maplibre_demo").unwrap();
+        assert_eq!(maplibre_demo.path, path);
     }
 
     #[actix_rt::test]
     async fn test_styles_resolve() {
         let style_dir = PathBuf::from("../tests/fixtures/styles/");
         let mut cfg = FileConfigEnum::new(vec![
-            style_dir.join("americana.json"),
+            style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
         ]);
 
@@ -222,12 +222,12 @@ mod tests {
         assert_eq!(styles.0.len(), 3);
         insta::with_settings!({sort_maps => true}, {
         insta::assert_yaml_snapshot!(styles, @r#"
-        americana:
-          path: "../tests/fixtures/styles/americana.json"
+        maplibre_demo:
+          path: "../tests/fixtures/styles/maplibre_demo.json"
         maptiler_basic:
           path: "../tests/fixtures/styles/src2/maptiler_basic.json"
-        navigatum-basemap:
-          path: "../tests/fixtures/styles/src2/navigatum-basemap.json"
+        osm-liberty-lite:
+          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
         "#);
         });
     }
@@ -236,7 +236,7 @@ mod tests {
     async fn test_style_external() {
         let style_dir = PathBuf::from("../tests/fixtures/styles/");
         let mut cfg = FileConfigEnum::new(vec![
-            style_dir.join("americana.json"),
+            style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
         ]);
 
@@ -248,14 +248,14 @@ mod tests {
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"
         {
-          "americana": {
-            "path": "../tests/fixtures/styles/americana.json"
+          "maplibre_demo": {
+            "path": "../tests/fixtures/styles/maplibre_demo.json"
           },
           "maptiler_basic": {
             "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
           },
-          "navigatum-basemap": {
-            "path": "../tests/fixtures/styles/src2/navigatum-basemap.json"
+          "osm-liberty-lite": {
+            "path": "../tests/fixtures/styles/src2/osm-liberty-lite.json"
           }
         }
         "#);
@@ -263,21 +263,22 @@ mod tests {
 
         assert_eq!(styles.style_json_path("NON_EXISTENT"), None);
         assert_eq!(
-            styles.style_json_path("americana.json"),
-            Some(style_dir.join("americana.json"))
+            styles.style_json_path("maplibre_demo.json"),
+            Some(style_dir.join("maplibre_demo.json"))
         );
         assert_eq!(styles.style_json_path("src2"), None);
+        let src2_dir = style_dir.join("src2");
         assert_eq!(
             styles.style_json_path("maptiler_basic"),
-            Some(style_dir.join("src2").join("maptiler_basic.json"))
+            Some(src2_dir.join("maptiler_basic.json"))
         );
         assert_eq!(
             styles.style_json_path("maptiler_basic.json"),
-            Some(style_dir.join("src2").join("maptiler_basic.json"))
+            Some(src2_dir.join("maptiler_basic.json"))
         );
         assert_eq!(
-            styles.style_json_path("navigatum-basemap.json"),
-            Some(style_dir.join("src2").join("navigatum-basemap.json"))
+            styles.style_json_path("osm-liberty-lite.json"),
+            Some(src2_dir.join("osm-liberty-lite.json"))
         );
     }
 

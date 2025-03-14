@@ -25,14 +25,14 @@
     }
   },
   "styles": {
-    "americana": {
-      "path": "tests/fixtures/styles/americana.json"
+    "maplibre_demo": {
+      "path": "tests/fixtures/styles/maplibre_demo.json"
     },
     "maptiler_basic": {
       "path": "tests/fixtures/styles/src2/maptiler_basic.json"
     },
-    "navigatum-basemap": {
-      "path": "tests/fixtures/styles/src2/navigatum-basemap.json"
+    "osm-liberty-lite": {
+      "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
     }
   },
   "tiles": {

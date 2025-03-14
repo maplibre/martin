@@ -176,7 +176,7 @@ sprites:
   sources:
     mysrc: tests/fixtures/sprites/src2
 styles:
-  paths: tests/fixtures/styles/americana.json
+  paths: tests/fixtures/styles/maplibre_demo.json
   sources:
     style-src1: tests/fixtures/styles/src2
 fonts:
