@@ -432,8 +432,10 @@ test_png spr_cmp_2x    sprite/src1,mysrc@2x.png
 test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
 
 # Test styles
-test_jsn style_src1    style/src1
-test_jsn style_src1  style/americana
+test_jsn style_src2_maptiler_basic    style/maptiler_basic
+test_jsn style_src2_maptiler_basic.1  style/maptiler_basic.json
+test_jsn style_americana              style/americana
+test_jsn style_americana.1            style/americana.json
 
 # Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255

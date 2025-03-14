@@ -176,6 +176,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "fonts")]
         let app = app.app_data(Data::new(state.fonts.clone()));
 
+        #[cfg(feature = "styles")]
+        let app = app.app_data(Data::new(state.styles.clone()));
+
         app.app_data(Data::new(catalog.clone()))
             .app_data(Data::new(config.clone()))
             .wrap(cors_middleware)
