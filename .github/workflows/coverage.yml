@@ -51,10 +51,14 @@ jobs:
       - run: rustup update stable
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --codecov --output-path codecov.info
+      - name: Remove artifacts that may affect the coverage results
+        run: cargo llvm-cov clean --workspace
+      - name: Run code coverage for all features
+        run: cargo llvm-cov --all-features --workspace --no-report
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+      - name: Generate report without tests
+        run: cargo llvm-cov report  --codecov --output-path codecov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
