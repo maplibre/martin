@@ -182,7 +182,7 @@ test-int: clean-test install-sqlx
     fi
 
 # Generate code coverage report
-coverage *ARGS="--open": clean-test clean start install-sqlx (cargo-install "cargo-llvm-cov")
+coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
     #!/usr/bin/env bash
     set -euo pipefail
     if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
