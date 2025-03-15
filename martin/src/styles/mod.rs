@@ -106,8 +106,13 @@ impl StyleSources {
             Ok(contained_paths) => {
                 for child_path in contained_paths {
                     let Some(name) = child_path.file_name() else {
-                        assert!(!base_path.is_file(), "base_path cannot be a file without name as otherwise the id would not exist");
-                        warn!("Ignoring {child_path:?} of style source {id} from {base_path:?} because it has no name");
+                        assert!(
+                            !base_path.is_file(),
+                            "base_path cannot be a file without name as otherwise the id would not exist"
+                        );
+                        warn!(
+                            "Ignoring {child_path:?} of style source {id} from {base_path:?} because it has no name"
+                        );
                         continue;
                     };
                     let name = name
@@ -128,8 +133,12 @@ impl StyleSources {
         assert!(!id.is_empty());
         match self.0.entry(id) {
             Entry::Occupied(v) => {
-                warn!("Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
-               id=v.key(), old_path=v.get().path.display(), new_path=path.display());
+                warn!(
+                    "Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
+                    id = v.key(),
+                    old_path = v.get().path.display(),
+                    new_path = path.display()
+                );
             }
             Entry::Vacant(v) => {
                 info!(

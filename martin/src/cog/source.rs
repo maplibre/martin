@@ -10,7 +10,7 @@ use log::warn;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
-use tilejson::{tilejson, TileJSON};
+use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
 use crate::file_config::{FileError, FileResult};

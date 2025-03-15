@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::future::Future;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -11,6 +10,9 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
+use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
+#[cfg(any(feature = "fonts", feature = "postgres"))]
+use crate::OptOneMany;
 #[cfg(any(
     feature = "mbtiles",
     feature = "pmtiles",
@@ -23,13 +25,10 @@ use crate::fonts::FontSources;
 use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
 use crate::sprites::SpriteSources;
-use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
+use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
 #[cfg(feature = "styles")]
 use crate::styles::StyleSources;
-use crate::utils::{init_aws_lc_tls, parse_base_path, CacheValue, MainCache, OptMainCache};
-use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-#[cfg(any(feature = "fonts", feature = "postgres"))]
-use crate::OptOneMany;
+use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
@@ -141,11 +140,7 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        if is_empty {
-            Err(NoSources)
-        } else {
-            Ok(res)
-        }
+        if is_empty { Err(NoSources) } else { Ok(res) }
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
