@@ -34,8 +34,9 @@ impl IdResolver {
         };
         let new_name = self.resolve_int(name, unique_name);
         if name != new_name {
-            warn!("Source `{name}`{info} was renamed to `{new_name}`. Source IDs must be unique, cannot be reserved, and must contain alpha-numeric characters or `._-`",
-                 info = info.map_or(String::new(), |v| format!(" ({v})"))
+            warn!(
+                "Source `{name}`{info} was renamed to `{new_name}`. Source IDs must be unique, cannot be reserved, and must contain alpha-numeric characters or `._-`",
+                info = info.map_or(String::new(), |v| format!(" ({v})"))
             );
         }
         new_name

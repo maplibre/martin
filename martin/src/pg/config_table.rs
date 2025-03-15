@@ -6,7 +6,7 @@ use tilejson::{Bounds, TileJSON, VectorLayer};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
-use crate::pg::utils::{normalize_key, patch_json, InfoMap};
+use crate::pg::utils::{InfoMap, normalize_key, patch_json};
 
 pub type TableInfoSources = InfoMap<TableInfo>;
 

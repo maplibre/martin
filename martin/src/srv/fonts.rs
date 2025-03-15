@@ -2,7 +2,7 @@ use std::string::ToString;
 
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
-use actix_web::{middleware, route, HttpResponse, Result as ActixResult};
+use actix_web::{HttpResponse, Result as ActixResult, middleware, route};
 use serde::Deserialize;
 
 use crate::fonts::{FontError, FontSources};

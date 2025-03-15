@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::source::CogSource;
+use crate::Source;
 use crate::config::UnrecognizedValues;
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
-use crate::Source;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
