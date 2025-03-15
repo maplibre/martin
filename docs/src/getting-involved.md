@@ -32,50 +32,50 @@ martin postgres://postgres:postgres@localhost:5411/db
 You could find `Debug executable 'martin'` in your `launch.json`, like below:
 
 ```json
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug executable 'martin'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=martin",
-                    "--package=martin"
-                ],
-                "filter": {
-                    "name": "martin",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
+{
+    "type": "lldb",
+    "request": "launch",
+    "name": "Debug executable 'martin'",
+    "cargo": {
+        "args": [
+            "build",
+            "--bin=martin",
+            "--package=martin"
+        ],
+        "filter": {
+            "name": "martin",
+            "kind": "bin"
+        }
+    },
+    "args": [],
+    "cwd": "${workspaceFolder}"
+},
 ```
 
 Just copy and paste after it, and modify your pasted like this:
 
 ```javascript
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "my first debug", // name it any as you like
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=martin",
-                    "--package=martin"
-                ],
-                "filter": {
-                    "name": "martin",
-                    "kind": "bin"
-                }
-            },
-            "args": ["postgres://postgres:postgres@localhost:5411/db"], // add your arguments here
-             "env": {
-                 "DEFAULT_SRID": 4490, // add your env here
-             },
-            "cwd": "${workspaceFolder}"
-        },
+{
+    "type": "lldb",
+    "request": "launch",
+    "name": "my first debug", // name it any as you like
+    "cargo": {
+        "args": [
+            "build",
+            "--bin=martin",
+            "--package=martin"
+        ],
+        "filter": {
+            "name": "martin",
+            "kind": "bin"
+        }
+    },
+    "args": ["postgres://postgres:postgres@localhost:5411/db"], // add your arguments here
+     "env": {
+         "DEFAULT_SRID": 4490, // add your env here
+     },
+    "cwd": "${workspaceFolder}"
+},
 ```
 
 ### Add a breakpoint
