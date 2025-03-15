@@ -16,16 +16,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  grcov:
+  coverage:
     runs-on: ubuntu-latest
     env:
+      CARGO_TERM_COLOR: always
       # PG_* variables are used by psql
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
     services:
       postgres:
-        image: postgis/postgis:14-3.3-alpine
+        image: postgis/postgis:16-3.5-alpine
         env:
           # POSTGRES_* variables are used by the postgis/postgres image
           POSTGRES_DB: ${{ env.PGDATABASE }}
@@ -36,7 +37,7 @@ jobs:
           - 5432/tcp
         # needed because the postgres container does not provide a healthcheck
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-    steps:
+    steps:      
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -47,36 +48,19 @@ jobs:
           tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-
-      - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2024-10-01
-
-      - name: Cleanup GCDA files
-        run: rm -rf martin/target/debug/deps/*.gcda
-
-      - name: Run tests
-        run: cargo test
+      - run: rustup update stable
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
         env:
           CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTFLAGS: '-Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort'
+          RUSTDOCFLAGS: '-Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort'
           DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-
-      - name: Gather coverage data
-        id: coverage
-        uses: actions-rs/grcov@v0.1
-
-      - name: Codecov upload
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: ${{ steps.coverage.outputs.report }}
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Check conditional cfg values
-        run: |
-          cargo check -Z unstable-options -Z check-cfg --workspace
-        env:
-          RUSTFLAGS: '-D warnings'
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true
