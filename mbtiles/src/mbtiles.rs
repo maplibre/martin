@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize};
 use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};
 use sqlite_hashes::register_md5_functions;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query, Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement};
+use sqlx::{Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement, query};
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{invert_y_value, CopyDuplicateMode, MbtType};
+use crate::{CopyDuplicateMode, MbtType, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]

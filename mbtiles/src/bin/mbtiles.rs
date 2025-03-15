@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
-    apply_patch, AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult,
-    MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
+    AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtTypeCli, Mbtiles,
+    MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch,
 };
 use tilejson::Bounds;
 
@@ -326,8 +326,8 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
 mod tests {
     use std::path::PathBuf;
 
-    use clap::error::ErrorKind;
     use clap::Parser;
+    use clap::error::ErrorKind;
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
@@ -505,7 +505,9 @@ mod tests {
     #[test]
     fn test_copy_limit() {
         assert_eq!(
-            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"]),
+            Args::parse_from([
+                "mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"
+            ]),
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {

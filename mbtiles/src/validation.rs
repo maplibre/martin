@@ -3,24 +3,24 @@ use std::str::from_utf8;
 
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
-use martin_tile_utils::{Format, TileInfo, MAX_ZOOM};
+use martin_tile_utils::{Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{query, Row, SqliteConnection, SqliteExecutor};
+use sqlx::{Row, SqliteConnection, SqliteExecutor, query};
 use tilejson::TileJSON;
 
+use crate::MbtError::{
+    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
+    InvalidTileIndex,
+};
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
-use crate::MbtError::{
-    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
-    InvalidTileIndex,
-};
-use crate::{get_patch_type, invert_y_value, Mbtiles};
+use crate::{Mbtiles, get_patch_type, invert_y_value};
 
 /// Metadata key for the aggregate tiles hash value
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
@@ -124,7 +124,9 @@ impl Mbtiles {
         let mut tested_zoom = -1_i64;
 
         // First, pick any random tile
-        let query = query!("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1");
+        let query = query!(
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1"
+        );
         let row = query.fetch_optional(&mut *conn).await?;
         if let Some(r) = row {
             tile_info = self.parse_tile(r.zoom_level, r.tile_column, r.tile_row, r.tile_data);
@@ -161,17 +163,23 @@ impl Mbtiles {
                 }
                 (None, Some(fmt)) => {
                     if fmt.is_detectable() {
-                        warn!("Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}");
+                        warn!(
+                            "Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}"
+                        );
                     } else {
                         info!("Using '{fmt}' tile format from metadata table in file {file}");
                     }
                     tile_info = Some(fmt.into());
                 }
                 (Some(info), Some(fmt)) if info.format == fmt => {
-                    debug!("Detected tile format {info} matches metadata.format '{fmt}' in file {file}");
+                    debug!(
+                        "Detected tile format {info} matches metadata.format '{fmt}' in file {file}"
+                    );
                 }
                 (Some(info), _) => {
-                    warn!("Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}.");
+                    warn!(
+                        "Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
+                    );
                 }
             }
         }
@@ -410,7 +418,9 @@ LIMIT 1;"
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
         if old_hash.as_ref() == Some(&hash) {
-            info!("Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}");
+            info!(
+                "Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}"
+            );
         } else {
             if let Some(old_hash) = old_hash {
                 info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
@@ -493,14 +503,18 @@ LIMIT 1;"
                     self.filepath().to_string(),
                 ));
             }
-            warn!("File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}");
+            warn!(
+                "File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}"
+            );
         } else if info.agg_tiles_hash_before_apply.is_some()
             || info.agg_tiles_hash_after_apply.is_some()
         {
             if !force {
                 return Err(MbtError::DiffingDiffFile(self.filepath().to_string()));
             }
-            warn!("File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file.");
+            warn!(
+                "File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file."
+            );
         }
         Ok(())
     }
@@ -522,13 +536,16 @@ LIMIT 1;"
                     ));
                 }
                 warn!(
-                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool.");
+                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool."
+                );
             }
             _ => {
                 if !force {
                     return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_string()));
                 }
-                warn!("The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool.");
+                warn!(
+                    "The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool."
+                );
             }
         }
         Ok(())

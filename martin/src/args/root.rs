@@ -3,6 +3,10 @@ use std::path::PathBuf;
 use clap::Parser;
 use log::warn;
 
+use crate::MartinError::ConfigAndConnectionsError;
+use crate::MartinResult;
+#[cfg(feature = "fonts")]
+use crate::OptOneMany;
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
@@ -14,10 +18,6 @@ use crate::config::Config;
     feature = "cog"
 ))]
 use crate::file_config::FileConfigEnum;
-use crate::MartinError::ConfigAndConnectionsError;
-use crate::MartinResult;
-#[cfg(feature = "fonts")]
-use crate::OptOneMany;
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
@@ -184,9 +184,9 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use super::*;
+    use crate::MartinError::UnrecognizableConnections;
     use crate::args::PreferredEncoding;
     use crate::test_utils::FauxEnv;
-    use crate::MartinError::UnrecognizableConnections;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);

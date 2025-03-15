@@ -1,12 +1,12 @@
 use log::debug;
 use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
-use sqlx::{query, Executor as _, Row, SqliteConnection, SqliteExecutor};
+use sqlx::{Executor as _, Row, SqliteConnection, SqliteExecutor, query};
 
-use crate::bindiff::PatchType;
-use crate::errors::MbtResult;
 use crate::MbtError::InvalidZoomValue;
 use crate::MbtType;
+use crate::bindiff::PatchType;
+use crate::errors::MbtResult;
 
 /// Returns true if the database is empty (no tables/indexes/...)
 pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>

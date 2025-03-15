@@ -6,11 +6,11 @@ use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
+use crate::MartinResult;
+use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
-use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::source::{Source, TileData, TileInfoSource, UrlQuery};
-use crate::MartinResult;
 
 #[derive(Clone, Debug)]
 pub struct PgSource {
