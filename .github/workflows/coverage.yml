@@ -3,16 +3,10 @@ name: Code coverage
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - 'demo/**'
-      - 'docs/**'
+    paths-ignore: [ '**.md' ]
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - 'demo/**'
-      - 'docs/**'
+    paths-ignore: [ '**.md' ]
   workflow_dispatch:
 
 jobs:
@@ -20,60 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
-      # PG_* variables are used by psql
-      PGDATABASE: test
-      PGHOST: localhost
-      PGUSER: postgres
-    services:
-      postgres:
-        image: postgis/postgis:16-3.5-alpine
-        env:
-          # POSTGRES_* variables are used by the postgis/postgres image
-          POSTGRES_DB: ${{ env.PGDATABASE }}
-          POSTGRES_USER: ${{ env.PGUSER }}
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          # will assign a random free host port
-          - 5432/tcp
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
-      - name: Set up system dependencies
-        run: sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
 
-      - name: Setup database
-        run: tests/fixtures/initdb.sh
-      - name: Setup NGINX for pmtiles test
-        uses: nyurik/action-setup-nginx@v1.1
-        id: nginx
-        with: { port: '5412', output-unix-paths: 'yes' }
-      - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
-        env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
-
-      - run: rustup update stable
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Set the environment variables needed to get coverage
-        run: source <(cargo llvm-cov show-env --doctests --export-prefix)
-      - name: Remove artifacts that may affect the coverage results
-        run: cargo llvm-cov clean --workspace
-      - name: Run the tests
-        run: |
-          cargo test
-          tests/test.sh
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-      - name: Generate report without tests
-        run: cargo llvm-cov report --doctests --codecov --output-path codecov.info
-
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-llvm-cov' }
+      - name: Generate code coverage
+        run: just ci-coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: codecov.info
+          files: target/llvm-cov/codecov.info
           fail_ci_if_error: true

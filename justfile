@@ -181,6 +181,30 @@ test-int: clean-test install-sqlx
         fi
     fi
 
+# Generate code coverage report
+coverage *ARGS="--open": clean-test clean start install-sqlx (cargo-install "cargo-llvm-cov")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
+        echo "llvm-tools-preview could not be found. Installing..." ;\
+        rustup component add llvm-tools-preview ;\
+    fi
+
+    source <(cargo llvm-cov show-env --export-prefix)
+    cargo llvm-cov clean --workspace
+
+    {{just_executable()}} test
+    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    {{just_executable()}} test-int
+
+    cargo llvm-cov report {{ARGS}}
+
+# Generate code coverage report to upload to codecov.io
+ci-coverage: && \
+            (coverage '--codecov --output-path target/llvm-cov/codecov.info')
+    # ATTENTION: the full file path above is used in the CI workflow
+    mkdir -p target/llvm-cov
+
 # Run AWS Lambda smoke test against SAM local
 test-lambda:
     tests/test-aws-lambda.sh
@@ -222,52 +246,6 @@ package-deb: (cargo-install "cargo-deb")
 # Build and open code documentation
 docs:
     cargo doc --no-deps --open
-
-# Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
-coverage FORMAT='html': (cargo-install "grcov")
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
-        echo "llvm-tools-preview could not be found. Installing..." ;\
-        rustup component add llvm-tools-preview ;\
-    fi
-
-    {{just_executable()}} clean
-    {{just_executable()}} start
-
-    PROF_DIR=target/prof
-    mkdir -p "$PROF_DIR"
-    PROF_DIR=$(realpath "$PROF_DIR")
-
-    OUTPUT_RESULTS_DIR=target/coverage/{{FORMAT}}
-    mkdir -p "$OUTPUT_RESULTS_DIR"
-
-    export CARGO_INCREMENTAL=0
-    export RUSTFLAGS=-Cinstrument-coverage
-    # Avoid problems with relative paths
-    export LLVM_PROFILE_FILE=$PROF_DIR/cargo-test-%p-%m.profraw
-    export MARTIN_PORT=3111
-
-    cargo test --all-targets
-    tests/test.sh
-
-    set -x
-    grcov --binary-path ./target/debug    \
-          -s .                            \
-          -t {{FORMAT}}                 \
-          --branch                        \
-          --ignore 'benches/*'            \
-          --ignore 'tests/*'              \
-          --ignore-not-existing           \
-          -o target/coverage/{{FORMAT}} \
-          --llvm                          \
-          "$PROF_DIR"
-    { set +x; } 2>/dev/null
-
-    # if this is html, open it in the browser
-    if [ "{{FORMAT}}" = "html" ]; then
-        open "$OUTPUT_RESULTS_DIR/index.html"
-    fi
 
 # Build and run martin docker image
 docker-run *ARGS:
