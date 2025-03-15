@@ -45,10 +45,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Setup database
-        run: |
-          tests/fixtures/initdb.sh
+        run: tests/fixtures/initdb.sh
+      - name: Setup NGINX for pmtiles test
+        uses: nyurik/action-setup-nginx@v1.1
+        id: nginx
+        with: { port: '5412', output-unix-paths: 'yes' }
+      - name: Copy static files
+        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
+
       - run: rustup update stable
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -64,6 +70,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
       - name: Generate report without tests
         run: cargo llvm-cov report --doctests --codecov --output-path codecov.info
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
