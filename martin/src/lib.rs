@@ -32,10 +32,10 @@ pub mod sprites;
 pub mod srv;
 
 #[cfg(test)]
-#[path = "utils/test_utils.rs"]
-mod test_utils;
+#[path = "utils/tests.rs"]
+mod tests;
 
-// test_utils is used from tests in other modules, and it uses this crate's object.
+// tests is used from tests in other modules, and it uses this crate's object.
 // Must make it accessible as carte::Env from both places when testing.
 #[cfg(test)]
 pub use crate::args::Env;

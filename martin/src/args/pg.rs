@@ -213,7 +213,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::test_utils::{os, some, FauxEnv};
+    use crate::tests::{os, some, FauxEnv};
     use crate::MartinError;
 
     #[test]

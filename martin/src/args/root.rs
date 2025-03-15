@@ -185,7 +185,7 @@ mod tests {
 
     use super::*;
     use crate::args::PreferredEncoding;
-    use crate::test_utils::FauxEnv;
+    use crate::tests::FauxEnv;
     use crate::MartinError::UnrecognizableConnections;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
@@ -206,7 +206,7 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use crate::test_utils::some;
+        use crate::tests::some;
         use crate::utils::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();

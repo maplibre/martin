@@ -266,7 +266,7 @@ where
 pub mod tests {
     use super::*;
     use crate::config::Config;
-    use crate::test_utils::FauxEnv;
+    use crate::tests::FauxEnv;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
