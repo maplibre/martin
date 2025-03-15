@@ -4,8 +4,8 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use deadpool_postgres::tokio_postgres::config::SslMode;
 use deadpool_postgres::tokio_postgres::Config;
+use deadpool_postgres::tokio_postgres::config::SslMode;
 use log::{info, warn};
 use regex::Regex;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -177,7 +177,9 @@ pub fn make_connector(
         }
     } else {
         if pg_certs.ssl_key.is_some() || pg_certs.ssl_key.is_some() {
-            warn!("SSL client certificate and key files must be set to use client certificate with Postgres. Only one of them was set.");
+            warn!(
+                "SSL client certificate and key files must be set to use client certificate with Postgres. Only one of them was set."
+            );
         }
         builder.with_no_client_auth()
     };
