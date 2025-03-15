@@ -2,9 +2,9 @@ use std::convert::identity;
 use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::{trace, warn};
@@ -114,7 +114,9 @@ impl ConfigExtras for PmtConfig {
         self.cache = cache;
 
         if self.unrecognized.contains_key("dir_cache_size_mb") {
-            warn!("dir_cache_size_mb is no longer used. Instead, use cache_size_mb param in the root of the config file.");
+            warn!(
+                "dir_cache_size_mb is no longer used. Instead, use cache_size_mb param in the root of the config file."
+            );
         }
 
         Ok(())
@@ -269,10 +271,7 @@ macro_rules! impl_pmtiles_source {
                 } else {
                     trace!(
                         "Couldn't find tile data in {}/{}/{} of {}",
-                        xyz.z,
-                        xyz.x,
-                        xyz.y,
-                        &self.id
+                        xyz.z, xyz.x, xyz.y, &self.id
                     );
                     Ok(Vec::new())
                 }

@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 mod config;
-pub use config::{read_config, Config, ServerState};
+pub use config::{Config, ServerState, read_config};
 
 mod source;
 pub use source::{
@@ -11,8 +11,8 @@ pub use source::{
 
 mod utils;
 pub use utils::{
-    append_rect, IdResolver, MartinError, MartinResult, OptBoolObj, OptOneMany, TileRect,
-    NO_MAIN_CACHE,
+    IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, OptBoolObj, OptOneMany, TileRect,
+    append_rect,
 };
 
 pub mod args;
@@ -46,7 +46,7 @@ mod test_readme {
     macro_rules! external_doc_test {
         ($x:expr) => {
             #[doc = $x]
-            extern "C" {}
+            unsafe extern "C" {}
         };
     }
 
