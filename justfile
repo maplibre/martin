@@ -199,12 +199,6 @@ coverage *ARGS="--open": clean-test clean start install-sqlx (cargo-install "car
 
     cargo llvm-cov report {{ARGS}}
 
-# Generate code coverage report to upload to codecov.io
-ci-coverage: && \
-            (coverage '--codecov --output-path target/llvm-cov/codecov.info')
-    # ATTENTION: the full file path above is used in the CI workflow
-    mkdir -p target/llvm-cov
-
 # Run AWS Lambda smoke test against SAM local
 test-lambda:
     tests/test-aws-lambda.sh

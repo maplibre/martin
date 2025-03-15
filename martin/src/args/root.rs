@@ -186,8 +186,6 @@ mod tests {
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::args::PreferredEncoding;
-
-    use crate::MartinError::UnrecognizableConnections;
     use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {

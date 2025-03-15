@@ -30,7 +30,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-llvm-cov' }
       - name: Generate code coverage
-        run: just ci-coverage
+        run: just coverage --codecov --output-path target/codecov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
