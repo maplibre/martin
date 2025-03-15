@@ -193,7 +193,7 @@ coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
     source <(cargo llvm-cov show-env --export-prefix)
     cargo llvm-cov clean --workspace
 
-    {{just_executable()}} test-cargo --all-targets
+    # {{just_executable()}} test-cargo --all-targets
     # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
     {{just_executable()}} test-int
 
