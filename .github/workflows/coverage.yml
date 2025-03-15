@@ -58,7 +58,7 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
       - name: Generate report without tests
-        run: cargo llvm-cov report  --codecov --output-path codecov.info
+        run: cargo llvm-cov report --doctests --codecov --output-path codecov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
