@@ -38,23 +38,28 @@ jobs:
         # needed because the postgres container does not provide a healthcheck
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
+      - name: Set up system dependencies
+        run: sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
 
       - name: Setup database
         run: |
-          sudo apt-get install postgresql-client
           tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
       - run: rustup update stable
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Set the environment variables needed to get coverage
+        run: source <(cargo llvm-cov show-env --doctests --export-prefix)
       - name: Remove artifacts that may affect the coverage results
         run: cargo llvm-cov clean --workspace
-      - name: Run code coverage for all features
-        run: cargo llvm-cov --all-features --workspace --no-report
+      - name: Run the tests
+        run: |
+          cargo test
+          tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
       - name: Generate report without tests
