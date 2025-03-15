@@ -12,6 +12,8 @@ pub type StyleResult<T> = Result<T, StyleError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum StyleError {
+    #[error("IO error {0}: {1}")]
+    IoError(std::io::Error, PathBuf),
     #[error("Walk directory error {0}: {1}")]
     DirectoryWalking(walkdir::Error, PathBuf),
 }
@@ -150,6 +152,7 @@ impl StyleSources {
 ///
 /// This function will return an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
 fn list_contained_files(source_path: &Path) -> StyleResult<Vec<PathBuf>> {
+    let working_directory = std::env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
         .follow_links(true)
@@ -159,7 +162,16 @@ fn list_contained_files(source_path: &Path) -> StyleResult<Vec<PathBuf>> {
         let entry =
             entry.map_err(|e| StyleError::DirectoryWalking(e, source_path.to_path_buf()))?;
         if entry.path().is_file() {
-            contained_files.push(entry.into_path());
+            // path should be relative to the working directory in the catalog
+            let relative_path = match working_directory {
+                Some(ref work_dir) => entry
+                    .path()
+                    .strip_prefix(work_dir.as_path())
+                    .unwrap_or_else(|_| entry.path())
+                    .to_owned(),
+                None => entry.into_path(),
+            };
+            contained_files.push(relative_path);
         }
     }
     Ok(contained_files)
