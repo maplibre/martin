@@ -111,7 +111,9 @@ impl LogFormat {
             if let Some(v) = LogFormatOptions::from_str(&v) {
                 Self(Some(v))
             } else {
-                eprintln!("Ignoring specified cli argument {argument} {v} as it is not a valid log format. Can be one of full, compact, bare, pretty, json");
+                eprintln!(
+                    "Ignoring specified cli argument {argument} {v} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"
+                );
                 Self(None)
             }
         } else {
@@ -127,8 +129,10 @@ impl LogFormat {
                 let path = PathBuf::from(path);
                 if let Some(v) = read_path_in_file(&path, key) {
                     match LogFormatOptions::from_str(&v) {
-                        Some(v) => self.0=Some(v),
-                        None => eprintln!("Ignoring specified option {key}: {v} inside {path:?} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"),
+                        Some(v) => self.0 = Some(v),
+                        None => eprintln!(
+                            "Ignoring specified option {key}: {v} inside {path:?} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"
+                        ),
                     }
                 }
             }
@@ -141,8 +145,10 @@ impl LogFormat {
         if self.0.is_none() {
             if let Ok(v) = std::env::var(key) {
                 match LogFormatOptions::from_str(&v) {
-                    Some(v) => self.0=Some(v),
-                    None => eprintln!("Ignoring specified environment variable {key}={v} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"),
+                    Some(v) => self.0 = Some(v),
+                    None => eprintln!(
+                        "Ignoring specified environment variable {key}={v} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"
+                    ),
                 }
             }
         }
