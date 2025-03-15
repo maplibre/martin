@@ -246,7 +246,10 @@ mod tests {
 
     #[test]
     fn test_log_level_env_var() {
-        std::env::set_var("TEST_LOG_LEVEL_DEBUG", "debug");
+        // Safety: Definitively NOT safe, but works for testing purposes
+        unsafe {
+            std::env::set_var("TEST_LOG_LEVEL_DEBUG", "debug");
+        }
 
         let log_level = LogLevel(None).or_env_var("TEST_NOT_EXISTING_VARIABLE");
         assert_eq!(log_level, LogLevel(None));
