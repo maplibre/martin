@@ -46,7 +46,7 @@ pub enum FileError {
     AcquireConnError(String),
 
     #[cfg(feature = "pmtiles")]
-    #[error(r"PMTiles error {0} processing {1}")]
+    #[error(r"PMTiles error {0:?} processing {1}")]
     PmtError(pmtiles::PmtError, String),
 
     #[cfg(feature = "cog")]
