@@ -3,13 +3,13 @@ use log::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
 
-use crate::pg::config::PgConfig;
-use crate::pg::tls::{make_connector, parse_conn_str, SslModeOverride};
 use crate::pg::PgError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
     PostgresPoolConnError, PostgresqlTooOld,
 };
 use crate::pg::PgResult;
+use crate::pg::config::PgConfig;
+use crate::pg::tls::{SslModeOverride, make_connector, parse_conn_str};
 
 pub const POOL_SIZE_DEFAULT: usize = 20;
 
@@ -67,10 +67,14 @@ impl PgPool {
         }
         let supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
         if !supports_tile_margin {
-            warn!("PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges.");
+            warn!(
+                "PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
+            );
         }
         if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
-            warn!("PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788");
+            warn!(
+                "PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
+            );
         }
 
         info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
@@ -190,12 +194,13 @@ SELECT (regexp_matches(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
-    use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
     use testcontainers_modules::testcontainers::ImageExt as _;
+    use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+
+    use super::*;
 
     #[tokio::test]
     async fn parse_version() -> anyhow::Result<()> {

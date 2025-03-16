@@ -1,13 +1,12 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["martin", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.80"
-readme = "README.md"
+rust-version = "1.85"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.lints.rust]
@@ -38,9 +37,10 @@ async-trait = "0.1"
 aws-config = { version = "1.5.10", features = ["behavior-version-latest"] }
 bit-set = "0.8"
 brotli = ">=5, <8"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "unstable-markdown"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.3"
+ctor = "0.4.1"
+dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 enum-display = "0.1"
 env_logger = "0.11"
@@ -50,7 +50,7 @@ futures = "0.3"
 indoc = "2"
 insta = "1"
 itertools = "0.14"
-json-patch = "3.0"
+json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
@@ -67,7 +67,7 @@ postgres-protocol = "0.6"
 pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
-rstest = "0.24"
+rstest = "0.25"
 rustls = "0.23.23"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
@@ -80,9 +80,9 @@ serde_with = "3"
 serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
-sqlite-compressions = { version = "0.2.16", default-features = false, features = ["bsdiffraw", "gzip"] }
-sqlite-hashes = { version = "0.7.9", default-features = false, features = ["md5", "aggregate", "hex"] }
-sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
+sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
+sqlite-hashes = { version = "0.9.0", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlx = { version = "0.8.3", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
@@ -92,6 +92,7 @@ tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
 url = "2.5"
+walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 [profile.dev.package]

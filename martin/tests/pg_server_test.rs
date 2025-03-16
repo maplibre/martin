@@ -2,12 +2,12 @@
 
 use actix_http::Request;
 use actix_web::http::StatusCode;
-use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
+use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_body};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::srv::SrvConfig;
 use martin::OptOneMany;
+use martin::srv::SrvConfig;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -1024,8 +1024,8 @@ tables:
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
     assert!(matches!(&src.properties, Some(v) if v.len() == 1));
-    let tj = source(&mock, "no_id").get_tilejson();
-    assert_yaml_snapshot!(tj, @r"
+    let src = source(&mock, "no_id");
+    assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
     tiles: []
     vector_layers:

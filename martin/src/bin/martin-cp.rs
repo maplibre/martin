@@ -6,23 +6,23 @@ use std::time::Duration;
 
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
-use actix_web::http::header::{AcceptEncoding, Header as _, ACCEPT_ENCODING};
+use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
 use clap::Parser;
-use futures::stream::{self, StreamExt};
 use futures::TryStreamExt;
+use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
-use martin::srv::{merge_tilejson, DynTileSource};
+use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
-    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileData,
-    TileRect,
+    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, TileRect,
+    append_rect, read_config,
 };
-use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
-use mbtiles::sqlx::SqliteConnection;
+use martin_tile_utils::{TileCoord, TileInfo, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
+use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
-    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtError, MbtType, MbtTypeCli,
-    Mbtiles,
+    CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
+    is_empty_database,
 };
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
@@ -60,7 +60,7 @@ pub struct CopyArgs {
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
-    /// Output format of the new destination file. Ignored if the file exists. Defaults to 'normalized'.
+    /// Output format of the new destination file. Ignored if the file exists. [DEFAULT: normalized]
     #[arg(
         long = "mbtiles-type",
         alias = "dst-type",
@@ -72,6 +72,7 @@ pub struct CopyArgs {
     #[arg(long)]
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
+    ///
     /// If set to multiple values like `gzip,br`, martin-cp will use the first encoding,
     /// or re-encode if the tile is already encoded and that encoding is not listed.
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
@@ -103,7 +104,7 @@ pub struct CopyArgs {
     /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
     #[arg(long)]
     pub skip_agg_tiles_hash: bool,
-    /// Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times.
+    /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
 }
@@ -392,7 +393,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[&dyn Source],
+    sources: &[TileInfoSource],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {

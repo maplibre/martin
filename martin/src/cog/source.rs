@@ -1,22 +1,20 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::fs::File;
-use std::path::Path;
-use std::vec;
-use std::{fmt::Debug, path::PathBuf};
-
-use log::warn;
 use std::io::BufWriter;
-use tiff::decoder::{ChunkType, Decoder, DecodingResult};
-use tiff::tags::Tag::{self, GdalNodata};
+use std::path::{Path, PathBuf};
+use std::vec;
 
 use async_trait::async_trait;
+use log::warn;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
-use tilejson::{tilejson, TileJSON};
-
-use crate::file_config::FileError;
-use crate::{file_config::FileResult, MartinResult, Source, TileData, UrlQuery};
+use tiff::decoder::{ChunkType, Decoder, DecodingResult};
+use tiff::tags::Tag::{self, GdalNodata};
+use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
+use crate::file_config::{FileError, FileResult};
+use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
 struct Meta {
@@ -384,9 +382,10 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
-    use std::path::PathBuf;
 
     use crate::cog::source::get_tile_idx;
 

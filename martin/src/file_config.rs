@@ -8,14 +8,14 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::{copy_unrecognized_config, UnrecognizedValues};
+use crate::MartinResult;
+use crate::OptOneMany::{Many, One};
+use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
-use crate::MartinResult;
-use crate::OptOneMany::{Many, One};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -77,13 +77,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -312,7 +312,7 @@ async fn resolve_int<T: SourceConfigExtras>(
             let dir_files = if is_dir {
                 // directories will be kept in the config just in case there are new files
                 directories.push(path.clone());
-                dir_to_paths(&path, extension)?
+                collect_files_with_extension(&path, extension)?
             } else if path.is_file() {
                 vec![path]
             } else {
@@ -344,16 +344,24 @@ async fn resolve_int<T: SourceConfigExtras>(
     Ok(results)
 }
 
-fn dir_to_paths(path: &Path, extension: &[&str]) -> Result<Vec<PathBuf>, FileError> {
-    Ok(path
+/// Returns a vector of file paths matching any `allowed_extension` within the given directory.
+///
+/// # Errors
+///
+/// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
+fn collect_files_with_extension(
+    base_path: &Path,
+    allowed_extension: &[&str],
+) -> Result<Vec<PathBuf>, FileError> {
+    Ok(base_path
         .read_dir()
-        .map_err(|e| IoError(e, path.to_path_buf()))?
+        .map_err(|e| IoError(e, base_path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
             f.path()
                 .extension()
                 .filter(|actual_ext| {
-                    extension
+                    allowed_extension
                         .iter()
                         .any(|expected_ext| expected_ext == actual_ext)
                 })

@@ -3,12 +3,12 @@ use std::string::ToString;
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::Uri;
 use actix_web::web::{Data, Path};
-use actix_web::{middleware, route, HttpRequest, HttpResponse, Result as ActixResult};
+use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, middleware, route};
 use itertools::Itertools as _;
 use serde::Deserialize;
-use tilejson::{tilejson, TileJSON};
+use tilejson::{TileJSON, tilejson};
 
-use crate::source::{Source, TileSources};
+use crate::source::{TileInfoSource, TileSources};
 use crate::srv::SrvConfig;
 
 #[derive(Deserialize)]
@@ -62,7 +62,7 @@ async fn get_source_info(
 }
 
 #[must_use]
-pub fn merge_tilejson(sources: &[&dyn Source], tiles_url: String) -> TileJSON {
+pub fn merge_tilejson(sources: &[TileInfoSource], tiles_url: String) -> TileJSON {
     if sources.len() == 1 {
         let mut tj = sources[0].get_tilejson().clone();
         tj.tiles = vec![tiles_url];
@@ -183,7 +183,7 @@ pub mod tests {
             },
             data: Vec::default(),
         };
-        let tj = merge_tilejson(&[&src1], url.clone());
+        let tj = merge_tilejson(&[Box::new(src1.clone())], url.clone());
         assert_eq!(
             TileJSON {
                 tiles: vec![url.clone()],
@@ -210,7 +210,7 @@ pub mod tests {
             data: Vec::default(),
         };
 
-        let tj = merge_tilejson(&[&src1, &src2], url.clone());
+        let tj = merge_tilejson(&[Box::new(src1.clone()), Box::new(src2)], url.clone());
         assert_eq!(tj.tiles, vec![url]);
         assert_eq!(tj.name, Some("layer1,layer2".to_string()));
         assert_eq!(tj.minzoom, Some(5));

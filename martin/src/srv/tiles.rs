@@ -1,22 +1,22 @@
-use actix_http::header::Quality;
 use actix_http::ContentEncoding;
+use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
-    AcceptEncoding, Encoding as HeaderEnc, Preference, CONTENT_ENCODING,
+    AcceptEncoding, CONTENT_ENCODING, Encoding as HeaderEnc, Preference,
 };
 use actix_web::web::{Data, Path, Query};
-use actix_web::{route, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
+use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
 use log::trace;
 use martin_tile_utils::{
-    decode_brotli, decode_gzip, encode_brotli, encode_gzip, Encoding, Format, TileCoord, TileInfo,
+    Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, encode_brotli, encode_gzip,
 };
 use serde::Deserialize;
 
 use crate::args::PreferredEncoding;
-use crate::source::{Source, TileSources, UrlQuery};
-use crate::srv::server::map_internal_error;
+use crate::source::{TileInfoSources, TileSources, UrlQuery};
 use crate::srv::SrvConfig;
+use crate::srv::server::map_internal_error;
 use crate::utils::cache::get_or_insert_cached_value;
 use crate::utils::{CacheKey, CacheValue, MainCache, OptMainCache};
 use crate::{Tile, TileData};
@@ -62,7 +62,7 @@ async fn get_tile(
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<&'a dyn Source>,
+    pub sources: TileInfoSources,
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,
@@ -162,8 +162,7 @@ impl<'a> DynTileSource<'a> {
                 if !can_join {
                     return Err(ErrorBadRequest(format!(
                         "Can't merge {} tiles. Make sure there is only one non-empty tile source at zoom level {}",
-                        self.info,
-                        xyz.z
+                        self.info, xyz.z
                     )))?;
                 }
                 tiles.concat()

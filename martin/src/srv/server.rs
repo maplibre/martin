@@ -8,26 +8,27 @@ use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::Data;
-use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
 
+use crate::MartinError::BindingError;
+use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
 use crate::config::ServerState;
 use crate::source::TileCatalog;
-use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
-use crate::MartinError::BindingError;
-use crate::MartinResult;
 
 #[cfg(feature = "webui")]
 mod webui {
     #![allow(clippy::unreadable_literal)]
+    #![allow(clippy::too_many_lines)]
     #![allow(clippy::wildcard_imports)]
     include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 }
@@ -40,7 +41,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "reload", "sprite", "status",
 ];
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
@@ -201,8 +202,8 @@ pub mod tests {
     use tilejson::TileJSON;
 
     use super::*;
-    use crate::source::{Source, TileData, TileInfoSource};
     use crate::UrlQuery;
+    use crate::source::{Source, TileData, TileInfoSource};
 
     #[derive(Debug, Clone)]
     pub struct TestSource {
@@ -226,7 +227,7 @@ pub mod tests {
         }
 
         fn clone_source(&self) -> TileInfoSource {
-            unimplemented!()
+            Box::new(self.clone())
         }
 
         async fn get_tile(

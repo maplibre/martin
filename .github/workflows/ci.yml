@@ -128,8 +128,8 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         with:
           platforms: linux/amd64,linux/arm64
-      - name: Set up gdal-bin
-        run: sudo apt-get install -y gdal-bin
+      - name: Set up gdal-bin and sqlite3-tools
+        run: sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         # https://github.com/docker/setup-buildx-action
@@ -263,7 +263,8 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest  # M-series CPU
           - target: debian-x86_64
-            os: ubuntu-latest
+            os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
+            # TODO: update to ubuntu-latest again once debian 13 launches
           - target: x86_64-apple-darwin
             os: macos-13  # x64 CPU
           - target: x86_64-pc-windows-msvc
@@ -277,6 +278,8 @@ jobs:
       - name: Rust Versions
         run: rustc --version && cargo --version
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
@@ -396,9 +399,9 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Set up gdal-bin
+      - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y gdal-bin
+        run: sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
@@ -523,8 +526,8 @@ jobs:
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target_releases/
-      - name: Install gdal-bin
-        run: sudo apt-get install -y gdal-bin
+      - name: Set up gdal-bin and sqlite3-tools
+        run: sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then

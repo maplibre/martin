@@ -1,12 +1,12 @@
 use log::debug;
 use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
-use sqlx::{query, Executor as _, Row, SqliteConnection, SqliteExecutor};
+use sqlx::{Executor as _, Row, SqliteConnection, SqliteExecutor, query};
 
-use crate::bindiff::PatchType;
-use crate::errors::MbtResult;
 use crate::MbtError::InvalidZoomValue;
 use crate::MbtType;
+use crate::bindiff::PatchType;
+use crate::errors::MbtResult;
 
 /// Returns true if the database is empty (no tables/indexes/...)
 pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>
@@ -61,12 +61,7 @@ where
          ) AS is_valid;"
     );
 
-    Ok(sql
-        .fetch_one(&mut *conn)
-        .await?
-        .is_valid
-        .unwrap_or_default()
-        == 1)
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
 /// Check if `MBTiles` has a table or a view named `tiles_with_hash` with needed fields
@@ -90,12 +85,7 @@ where
        ) as is_valid;"
     );
 
-    Ok(sql
-        .fetch_one(&mut *conn)
-        .await?
-        .is_valid
-        .unwrap_or_default()
-        == 1)
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
 pub async fn is_flat_with_hash_tables_type<T>(conn: &mut T) -> MbtResult<bool>
@@ -115,7 +105,7 @@ where
 
     let is_valid = sql.fetch_one(&mut *conn).await?.is_valid;
 
-    Ok(is_valid.unwrap_or_default() == 1 && has_tiles_with_hash(&mut *conn).await?)
+    Ok(is_valid == 1 && has_tiles_with_hash(&mut *conn).await?)
 }
 
 pub async fn is_flat_tables_type<T>(conn: &mut T) -> MbtResult<bool>
@@ -144,12 +134,7 @@ where
          ) as is_valid;"
     );
 
-    Ok(sql
-        .fetch_one(&mut *conn)
-        .await?
-        .is_valid
-        .unwrap_or_default()
-        == 1)
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
 pub async fn create_metadata_table<T>(conn: &mut T) -> MbtResult<()>
@@ -382,7 +367,7 @@ where
     Ok(())
 }
 
-fn validate_zoom(zoom: Option<i32>, zoom_name: &'static str) -> MbtResult<Option<u8>> {
+fn validate_zoom(zoom: Option<i64>, zoom_name: &'static str) -> MbtResult<Option<u8>> {
     if let Some(zoom) = zoom {
         let z = u8::try_from(zoom).ok().filter(|v| *v <= MAX_ZOOM);
         if z.is_none() {

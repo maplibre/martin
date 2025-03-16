@@ -20,7 +20,6 @@
   - [PostgreSQL Table Sources](sources-pg-tables.md)
   - [PostgreSQL Function Sources](sources-pg-functions.md)
   - [MBTiles and PMTiles File Sources](sources-files.md)
-  - [Cloud Optimized GeoTIFF File Sources](sources-cog-files.md)
   - [Composite Sources](sources-composite.md)
   - [Sprite Sources](sources-sprites.md)
   - [Font Sources](sources-fonts.md)
@@ -39,4 +38,5 @@
   - [Diffing/Patching MBTiles](mbtiles-diff.md)
   - [Validating MBTiles](mbtiles-validation.md)
 - [Development](development.md)
+  - [Getting involved](getting-involved.md)
   - [Martin as a library](martin-as-a-library.md)
