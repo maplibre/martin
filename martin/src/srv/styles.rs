@@ -43,3 +43,36 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
         }
     }
 }
+
+#[cfg(feature = "styles_rendering")]
+#[derive(Deserialize, Debug)]
+struct StyleRenderRequest {
+    style_id: String,
+    z: u8,
+    x: u32,
+    y: u32,
+}
+
+#[cfg(feature = "styles_rendering")]
+#[route("/style/{style_id}/{z}/{x}/{y}.png", method = "GET")]
+async fn get_style_rendered(
+    path: Path<StyleRenderRequest>,
+    styles: Data<StyleSources>,
+) -> HttpResponse {
+    let style_id = &path.style_id;
+    let Some(style_path) = styles.style_json_path(style_id) else {
+        return HttpResponse::NotFound()
+            .content_type(ContentType::plaintext())
+            .body("No such style exists");
+    };
+    let xyz = martin_tile_utils::TileCoord {
+        z: path.z,
+        x: path.x,
+        y: path.y,
+    };
+    log::trace!("Rendering style {style_id} ({style_path:?}) at {xyz}");
+
+    HttpResponse::Ok()
+        .content_type(ContentType.png())
+        .body(styles.render(path, xyz))
+}

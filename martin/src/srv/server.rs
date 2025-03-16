@@ -129,6 +129,8 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
 
     #[cfg(feature = "styles")]
     cfg.service(crate::srv::styles::get_style_json);
+    #[cfg(feature = "styles_rendering")]
+    cfg.service(crate::srv::styles::get_style_rendered);
 
     #[cfg(feature = "webui")]
     {
