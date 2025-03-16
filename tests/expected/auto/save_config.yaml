@@ -263,6 +263,9 @@ cog:
     rgba_u8: tests/fixtures/cog/rgba_u8.tif
     rgba_u8_nodata: tests/fixtures/cog/rgba_u8_nodata.tiff
 sprites: tests/fixtures/sprites/src1
+styles:
+- tests/fixtures/styles/maplibre_demo.json
+- tests/fixtures/styles/src2
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
 - tests/fixtures/fonts

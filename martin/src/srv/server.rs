@@ -48,6 +48,8 @@ pub struct Catalog {
     pub sprites: crate::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
     pub fonts: crate::fonts::FontCatalog,
+    #[cfg(feature = "styles")]
+    pub styles: crate::styles::StyleCatalog,
 }
 
 impl Catalog {
@@ -58,6 +60,8 @@ impl Catalog {
             sprites: state.sprites.get_catalog()?,
             #[cfg(feature = "fonts")]
             fonts: state.fonts.get_catalog(),
+            #[cfg(feature = "styles")]
+            styles: state.styles.get_catalog(),
         })
     }
 }
@@ -123,6 +127,9 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     #[cfg(feature = "fonts")]
     cfg.service(crate::srv::fonts::get_font);
 
+    #[cfg(feature = "styles")]
+    cfg.service(crate::srv::styles::get_style_json);
+
     #[cfg(feature = "webui")]
     {
         // TODO: this can probably be simplified with a wrapping middleware,
@@ -168,6 +175,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         #[cfg(feature = "fonts")]
         let app = app.app_data(Data::new(state.fonts.clone()));
+
+        #[cfg(feature = "styles")]
+        let app = app.app_data(Data::new(state.styles.clone()));
 
         app.app_data(Data::new(catalog.clone()))
             .app_data(Data::new(config.clone()))

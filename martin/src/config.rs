@@ -24,10 +24,13 @@ use crate::file_config::FileConfigEnum;
 use crate::fonts::FontSources;
 use crate::source::{TileInfoSources, TileSources};
 #[cfg(feature = "sprites")]
-use crate::sprites::{SpriteConfig, SpriteSources};
-use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
-use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
-use crate::{IdResolver, MartinResult};
+use crate::sprites::SpriteSources;
+use crate::srv::{SrvConfig, RESERVED_KEYWORDS};
+#[cfg(feature = "styles")]
+use crate::styles::StyleSources;
+use crate::utils::{init_aws_lc_tls, parse_base_path, CacheValue, MainCache, OptMainCache};
+use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
+use crate::{IdResolver, MartinResult, OptOneMany};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
@@ -38,6 +41,8 @@ pub struct ServerState {
     pub sprites: SpriteSources,
     #[cfg(feature = "fonts")]
     pub fonts: FontSources,
+    #[cfg(feature = "styles")]
+    pub styles: StyleSources,
 }
 
 #[serde_with::skip_serializing_none]
@@ -66,7 +71,11 @@ pub struct Config {
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub sprites: FileConfigEnum<SpriteConfig>,
+    pub sprites: FileConfigEnum<crate::sprites::SpriteConfig>,
+
+    #[cfg(feature = "styles")]
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub styles: FileConfigEnum<crate::styles::StyleConfig>,
 
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
@@ -103,6 +112,9 @@ impl Config {
         #[cfg(feature = "sprites")]
         res.extend(self.sprites.finalize("sprites."));
 
+        #[cfg(feature = "styles")]
+        res.extend(self.styles.finalize("styles."));
+
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
 
@@ -122,6 +134,9 @@ impl Config {
 
         #[cfg(feature = "sprites")]
         let is_empty = is_empty && self.sprites.is_empty();
+
+        #[cfg(feature = "styles")]
+        let is_empty = is_empty && self.styles.is_empty();
 
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
@@ -160,6 +175,8 @@ impl Config {
             sprites: SpriteSources::resolve(&mut self.sprites)?,
             #[cfg(feature = "fonts")]
             fonts: FontSources::resolve(&mut self.fonts)?,
+            #[cfg(feature = "styles")]
+            styles: StyleSources::resolve(&mut self.styles)?,
             cache,
         })
     }
