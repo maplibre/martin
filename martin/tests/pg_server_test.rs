@@ -55,6 +55,7 @@ postgres:
     assert_yaml_snapshot!(body, @r#"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       "-function.withweired---_-characters":
         content_type: application/x-protobuf
