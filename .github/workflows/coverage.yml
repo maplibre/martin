@@ -20,44 +20,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
-      # PG_* variables are used by psql
-      PGDATABASE: test
-      PGHOST: localhost
-      PGUSER: postgres
-    services:
-      postgres:
-        image: postgis/postgis:16-3.5-alpine
-        env:
-          # POSTGRES_* variables are used by the postgis/postgres image
-          POSTGRES_DB: ${{ env.PGDATABASE }}
-          POSTGRES_USER: ${{ env.PGUSER }}
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          # will assign a random free host port
-          - 5432/tcp
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
+      - name: Set up system dependencies
+        run: sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
 
-      - name: Setup database
-        run: |
-          sudo apt-get install postgresql-client
-          tests/fixtures/initdb.sh
-        env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - run: rustup update stable
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-llvm-cov' }
       - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --codecov --output-path codecov.info
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        run: just coverage --codecov --output-path target/codecov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: codecov.info
+          files: target/codecov.info
           fail_ci_if_error: true

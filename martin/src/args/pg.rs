@@ -226,7 +226,7 @@ mod tests {
 
     use super::*;
     use crate::MartinError;
-    use crate::test_utils::{FauxEnv, os, some};
+    use crate::tests::{FauxEnv, os, some};
 
     #[test]
     fn test_extract_conn_strings() {
