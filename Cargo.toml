@@ -52,6 +52,7 @@ itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
+maplibre_native = "0.1.1"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
 mbtiles = { path = "./mbtiles", version = "0.12.0" }
 md5 = "0.7.0"
@@ -84,6 +85,7 @@ sqlite-hashes = { version = "0.9.0", default-features = false, features = ["md5"
 sqlx = { version = "0.8.3", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
+tempfile = "3.17.1"
 testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"
