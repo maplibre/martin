@@ -189,6 +189,8 @@ mod tests {
     fn parse() {
         let cfg: FileConfigEnum<MbtConfig> =
             serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+            validate: thorough
+            on_invalid: abort
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -200,8 +202,6 @@ mod tests {
                 pm-src3: https://example.org/file3.ext
                 pm-src4:
                   path: https://example.org/file4.ext
-            validate: thorough
-            on_invalid: abort
         "})
             .unwrap();
         let res = cfg.finalize("");
