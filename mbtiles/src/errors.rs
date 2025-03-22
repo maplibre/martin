@@ -65,7 +65,9 @@ pub enum MbtError {
     )]
     NonEmptyTargetFile(PathBuf),
 
-    #[error("The file {0} does not have the required uniqueness constraint. Try adding a unique index on the `map` or `tiles` table.")]
+    #[error(
+        "The file {0} does not have the required uniqueness constraint. Try adding a unique index on the `map` or `tiles` table."
+    )]
     NoUniquenessConstraint(String),
 
     #[error("Could not copy MBTiles file: {reason}")]
