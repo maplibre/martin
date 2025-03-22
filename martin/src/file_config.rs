@@ -9,7 +9,6 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{MartinResult, Source};
 use crate::OptOneMany::{Many, One};
 use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
@@ -17,6 +16,7 @@ use crate::file_config::FileError::{
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
+use crate::{MartinResult, Source};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -275,7 +275,10 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                maybe_add_source(&mut results, cfg.custom.new_sources_url(id.clone(), url.clone()).await )?;
+                maybe_add_source(
+                    &mut results,
+                    cfg.custom.new_sources_url(id.clone(), url.clone()).await,
+                )?;
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -289,7 +292,10 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                maybe_add_source(&mut results, cfg.custom.new_sources(id, source.into_path()).await)?;
+                maybe_add_source(
+                    &mut results,
+                    cfg.custom.new_sources(id, source.into_path()).await,
+                )?;
             }
         }
     }
@@ -313,7 +319,10 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            maybe_add_source(&mut results, cfg.custom.new_sources_url(id.clone(), url.clone()).await)?;
+            maybe_add_source(
+                &mut results,
+                cfg.custom.new_sources_url(id.clone(), url.clone()).await,
+            )?;
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -403,13 +412,16 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         .transpose()
 }
 
-fn maybe_add_source(results: &mut Vec<Box<dyn Source>>, result: FileResult<TileInfoSource>) -> Result<(), FileError> {
+fn maybe_add_source(
+    results: &mut Vec<Box<dyn Source>>,
+    result: FileResult<TileInfoSource>,
+) -> Result<(), FileError> {
     match result {
         Err(FileError::IgnoreOnInvalid(_, _)) => Ok(()),
         Err(e) => Err(e),
         Ok(src) => {
             results.push(src);
             Ok(())
-        },
+        }
     }
 }
