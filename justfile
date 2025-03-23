@@ -181,24 +181,6 @@ test-int: clean-test install-sqlx
         fi
     fi
 
-# Generate code coverage report
-coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
-        echo "llvm-tools-preview could not be found. Installing..." ;\
-        rustup component add llvm-tools-preview ;\
-    fi
-
-    source <(cargo llvm-cov show-env --export-prefix)
-    cargo llvm-cov clean --workspace
-
-    {{just_executable()}} test-cargo --all-targets
-    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
-    {{just_executable()}} test-int
-
-    cargo llvm-cov report {{ARGS}}
-
 # Run AWS Lambda smoke test against SAM local
 test-lambda:
     tests/test-aws-lambda.sh
@@ -240,6 +222,24 @@ package-deb: (cargo-install "cargo-deb")
 # Build and open code documentation
 docs:
     cargo doc --no-deps --open
+
+# Generate code coverage report
+coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
+        echo "llvm-tools-preview could not be found. Installing..." ;\
+        rustup component add llvm-tools-preview ;\
+    fi
+
+    source <(cargo llvm-cov show-env --export-prefix)
+    cargo llvm-cov clean --workspace
+
+    {{just_executable()}} test-cargo --all-targets
+    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    {{just_executable()}} test-int
+
+    cargo llvm-cov report {{ARGS}}
 
 # Build and run martin docker image
 docker-run *ARGS:
