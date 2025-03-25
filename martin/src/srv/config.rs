@@ -22,7 +22,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::test_utils::some;
+    use crate::tests::some;
 
     #[test]
     fn parse_config() {
