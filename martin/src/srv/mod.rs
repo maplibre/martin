@@ -15,3 +15,6 @@ pub use tiles_info::{SourceIDsRequest, merge_tilejson};
 
 #[cfg(feature = "sprites")]
 mod sprites;
+
+#[cfg(feature = "styles")]
+mod styles;
