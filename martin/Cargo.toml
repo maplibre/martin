@@ -106,6 +106,7 @@ subst.workspace = true
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
+actix-web-prom.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true

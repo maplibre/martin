@@ -24,6 +24,8 @@ use crate::source::TileCatalog;
 use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use actix_web_prom::PrometheusMetricsBuilder;
+use std::collections::HashMap;
 
 #[cfg(feature = "webui")]
 mod webui {
@@ -145,6 +147,12 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+    let labels = HashMap::new();
+    // labels.insert("label_foo".to_string(), "value_barbarbbabbmiles".to_string());
+    let prometheus = PrometheusMetricsBuilder::new("martin")
+        .endpoint("/metrics")
+        .const_labels(labels)
+        .build()?;
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
@@ -174,6 +182,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
             .wrap(middleware::Logger::default())
+            .wrap(prometheus.clone())
             .configure(|c| router(c, &config))
     };
 
