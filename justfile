@@ -321,7 +321,8 @@ env-info:
 
 # Update sqlite database schema.
 prepare-sqlite: install-sqlx
-    cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/files/world_cities.mbtiles -- --lib --tests
+    mkdir -p mbtiles/.sqlx
+    cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
 
 # Install SQLX cli if not already installed.
 [private]
