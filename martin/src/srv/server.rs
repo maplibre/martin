@@ -15,7 +15,7 @@ use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinError::BindingError;
+use crate::MartinError::{self, BindingError};
 use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
@@ -152,8 +152,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     let prometheus = PrometheusMetricsBuilder::new("martin")
         .endpoint("/metrics")
         .const_labels(labels)
-        .build()
-        .unwrap();
+        .build()?;
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
