@@ -14,16 +14,16 @@ pub trait Env<'a>: VariableMap<'a> {
     #[must_use]
     fn get_env_str(&self, key: &str) -> Option<String> {
         match self.var_os(key) {
-            Some(s) => {
-                match s.into_string() {
-                    Ok(v) => Some(v),
-                    Err(v) => {
-                        let v = v.to_string_lossy();
-                        warn!("Environment variable {key} has invalid unicode. Lossy representation: {v}");
-                        None
-                    }
+            Some(s) => match s.into_string() {
+                Ok(v) => Some(v),
+                Err(v) => {
+                    let v = v.to_string_lossy();
+                    warn!(
+                        "Environment variable {key} has invalid unicode. Lossy representation: {v}"
+                    );
+                    None
                 }
-            }
+            },
             None => None,
         }
     }
@@ -38,8 +38,9 @@ pub trait Env<'a>: VariableMap<'a> {
 #[derive(Default)]
 pub struct OsEnv(RefCell<HashSet<String>>);
 
-impl<'a> Env<'a> for OsEnv {
+impl Env<'_> for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
+        #[allow(unused_qualifications)]
         std::env::var_os(key)
     }
 

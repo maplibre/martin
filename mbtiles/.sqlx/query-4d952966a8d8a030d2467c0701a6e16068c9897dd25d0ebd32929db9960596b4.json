@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM metadata WHERE name=?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "4d952966a8d8a030d2467c0701a6e16068c9897dd25d0ebd32929db9960596b4"
+}

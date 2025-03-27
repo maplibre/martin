@@ -1,181 +1,222 @@
-[
-  {
-    "id": "MixPoints",
-    "content_type": "application/x-protobuf",
-    "description": "MixedCase.MixPoints.Geom"
+{
+  "fonts": {
+    "Overpass Mono Light": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Light"
+    },
+    "Overpass Mono Regular": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Regular"
+    }
   },
-  {
-    "id": "function_Mixed_Name",
-    "content_type": "application/x-protobuf",
-    "description": "MixedCase.function_Mixed_Name"
+  "sprites": {
+    "src1": {
+      "images": [
+        "another_bicycle",
+        "bear",
+        "sub/circle"
+      ]
+    }
   },
-  {
-    "id": "function_null",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_null"
-  },
-  {
-    "id": "function_null_row",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_null_row"
-  },
-  {
-    "id": "function_null_row2",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_null_row2"
-  },
-  {
-    "id": "function_zoom_xy",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zoom_xy"
-  },
-  {
-    "id": "function_zxy",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy"
-  },
-  {
-    "id": "function_zxy2",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy2"
-  },
-  {
-    "id": "function_zxy_query",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query"
-  },
-  {
-    "id": "function_zxy_query_jsonb",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query_jsonb"
-  },
-  {
-    "id": "function_zxy_query_test",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query_test"
-  },
-  {
-    "id": "function_zxy_row",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_row"
-  },
-  {
-    "id": "function_zxy_row_key",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_row_key"
-  },
-  {
-    "id": "geography-class-jpg",
-    "content_type": "image/jpeg",
-    "name": "Geography Class",
-    "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
-  },
-  {
-    "id": "geography-class-jpg-modified",
-    "content_type": "image/jpeg",
-    "name": "Geography Class",
-    "description": "A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips."
-  },
-  {
-    "id": "geography-class-png",
-    "content_type": "image/png",
-    "name": "Geography Class",
-    "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
-  },
-  {
-    "id": "geography-class-png-no-bounds",
-    "content_type": "image/png",
-    "name": "Geography Class",
-    "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
-  },
-  {
-    "id": "json",
-    "content_type": "application/json",
-    "name": "Dummy json data"
-  },
-  {
-    "id": "png",
-    "content_type": "image/png",
-    "name": "ne2sr"
-  },
-  {
-    "id": "points1",
-    "content_type": "application/x-protobuf",
-    "description": "public.points1.geom"
-  },
-  {
-    "id": "points1_vw",
-    "content_type": "application/x-protobuf",
-    "description": "public.points1_vw.geom"
-  },
-  {
-    "id": "points2",
-    "content_type": "application/x-protobuf",
-    "description": "public.points2.geom"
-  },
-  {
-    "id": "points3857",
-    "content_type": "application/x-protobuf",
-    "description": "public.points3857.geom"
-  },
-  {
-    "id": "points_empty_srid",
-    "content_type": "application/x-protobuf",
-    "description": "public.points_empty_srid.geom"
-  },
-  {
-    "id": "stamen_toner__raster_CC-BY-ODbL_z3",
-    "content_type": "image/png"
-  },
-  {
-    "id": "table_source",
-    "content_type": "application/x-protobuf",
-    "description": "public.table_source.geom"
-  },
-  {
-    "id": "table_source_multiple_geom",
-    "content_type": "application/x-protobuf",
-    "description": "public.table_source_multiple_geom.geom1"
-  },
-  {
-    "id": "table_source_multiple_geom.1",
-    "content_type": "application/x-protobuf",
-    "description": "public.table_source_multiple_geom.geom2"
-  },
-  {
-    "id": "uncompressed_mvt",
-    "content_type": "application/x-protobuf",
-    "name": "Major cities from Natural Earth data",
-    "description": "Major cities from Natural Earth data"
-  },
-  {
-    "id": "webp",
-    "content_type": "image/webp",
-    "name": "ne2sr"
-  },
-  {
-    "id": "webp2",
-    "content_type": "image/webp",
-    "name": "ne2sr"
-  },
-  {
-    "id": "world_cities",
-    "content_type": "application/x-protobuf",
-    "content_encoding": "gzip",
-    "name": "Major cities from Natural Earth data",
-    "description": "Major cities from Natural Earth data"
-  },
-  {
-    "id": "world_cities_diff",
-    "content_type": "application/x-protobuf",
-    "name": "Major cities from Natural Earth data",
-    "description": "Major cities from Natural Earth data"
-  },
-  {
-    "id": "world_cities_modified",
-    "content_type": "application/x-protobuf",
-    "content_encoding": "gzip",
-    "name": "Major cities from Natural Earth data",
-    "description": "A modified version of major cities from Natural Earth data"
+  "tiles": {
+    "-function.withweired---_-characters": {
+      "content_type": "application/x-protobuf",
+      "description": "a function source with special characters"
+    },
+    ".-Points-----------quote": {
+      "content_type": "application/x-protobuf",
+      "description": "Escaping test table"
+    },
+    "MixPoints": {
+      "content_type": "application/x-protobuf",
+      "description": "a description from comment on table"
+    },
+    "auto_table": {
+      "content_type": "application/x-protobuf",
+      "description": "autodetect.auto_table.geom"
+    },
+    "bigint_table": {
+      "content_type": "application/x-protobuf",
+      "description": "autodetect.bigint_table.geom"
+    },
+    "function_Mixed_Name": {
+      "content_type": "application/x-protobuf",
+      "description": "a function source with MixedCase name"
+    },
+    "function_null": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_null"
+    },
+    "function_null_row": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_null_row"
+    },
+    "function_null_row2": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_null_row2"
+    },
+    "function_zoom_xy": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zoom_xy"
+    },
+    "function_zxy": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy"
+    },
+    "function_zxy2": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy2"
+    },
+    "function_zxy_query": {
+      "content_type": "application/x-protobuf"
+    },
+    "function_zxy_query_jsonb": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy_query_jsonb"
+    },
+    "function_zxy_query_test": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy_query_test"
+    },
+    "function_zxy_row": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy_row"
+    },
+    "function_zxy_row_key": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy_row_key"
+    },
+    "geography-class-jpg": {
+      "content_type": "image/jpeg",
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
+    },
+    "geography-class-jpg-diff": {
+      "content_type": "image/jpeg",
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
+    },
+    "geography-class-jpg-modified": {
+      "content_type": "image/jpeg",
+      "description": "A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.",
+      "name": "Geography Class"
+    },
+    "geography-class-png": {
+      "content_type": "image/png",
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
+    },
+    "geography-class-png-no-bounds": {
+      "content_type": "image/png",
+      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "name": "Geography Class"
+    },
+    "json": {
+      "content_type": "application/json",
+      "name": "Dummy json data"
+    },
+    "png": {
+      "content_type": "image/png",
+      "name": "ne2sr"
+    },
+    "points1": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points1.geom"
+    },
+    "points1_vw": {
+      "attribution": "some attribution from SQL comment",
+      "content_type": "application/x-protobuf",
+      "description": "description from SQL comment"
+    },
+    "points2": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points2.geom"
+    },
+    "points3857": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points3857.geom"
+    },
+    "points_empty": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points_empty.geom"
+    },
+    "points_empty_srid": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points_empty_srid.geom"
+    },
+    "rgb_u8": {
+      "content_type": "image/png"
+    },
+    "rgba_u8": {
+      "content_type": "image/png"
+    },
+    "rgba_u8_nodata": {
+      "content_type": "image/png"
+    },
+    "stamen_toner__raster_CC-BY-ODbL_z3": {
+      "content_type": "image/png"
+    },
+    "table_source": {
+      "content_type": "application/x-protobuf"
+    },
+    "table_source_geog": {
+      "content_type": "application/x-protobuf"
+    },
+    "table_source_multiple_geom": {
+      "content_type": "application/x-protobuf",
+      "description": "public.table_source_multiple_geom.geom1"
+    },
+    "table_source_multiple_geom.1": {
+      "content_type": "application/x-protobuf",
+      "description": "public.table_source_multiple_geom.geom2"
+    },
+    "uncompressed_mvt": {
+      "content_type": "application/x-protobuf",
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
+    },
+    "webp": {
+      "content_type": "image/webp",
+      "name": "ne2sr"
+    },
+    "webp2": {
+      "content_type": "image/webp",
+      "name": "ne2sr"
+    },
+    "world_cities": {
+      "content_encoding": "gzip",
+      "content_type": "application/x-protobuf",
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
+    },
+    "world_cities_bindiff": {
+      "content_encoding": "gzip",
+      "content_type": "application/x-protobuf",
+      "description": "A modified version of major cities from Natural Earth data"
+    },
+    "world_cities_diff": {
+      "content_encoding": "gzip",
+      "content_type": "application/x-protobuf",
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
+    },
+    "world_cities_modified": {
+      "content_encoding": "gzip",
+      "content_type": "application/x-protobuf",
+      "description": "A modified version of major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
+    },
+    "zoomed_world_cities": {
+      "content_encoding": "gzip",
+      "content_type": "application/x-protobuf",
+      "description": "Major cities from Natural Earth data",
+      "name": "Major cities from Natural Earth data"
+    }
   }
-]
+}

@@ -1,0 +1,24 @@
+name: Demo
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'demo/**'
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+jobs:
+  demo:
+    name: Demo
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - run: cd demo && just build

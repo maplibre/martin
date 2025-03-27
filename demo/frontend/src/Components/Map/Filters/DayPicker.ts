@@ -11,7 +11,7 @@ export default styled.div`
   }
 
   .DayPicker-Caption > div {
-    font-weight: bold;  
+    font-weight: bold;
     color: #dadfee;
   }
 

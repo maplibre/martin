@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{MartinError, MartinResult};
 
 #[derive(Debug, Clone)]
 pub enum State<T: Clone> {
@@ -38,7 +38,7 @@ impl Arguments {
     {
         let mut result = Vec::new();
         for (i, name) in self.values.iter().enumerate() {
-            if matches!(self.state[i], State::Take(_)) {
+            if matches!(self.state[i], State::Take(())) {
                 continue;
             }
             let state = handle(name);
@@ -58,7 +58,7 @@ impl Arguments {
     }
 
     /// Check that all params have been claimed
-    pub fn check(self) -> Result<(), Error> {
+    pub fn check(self) -> MartinResult<()> {
         let mut unrecognized = Vec::new();
         for (i, value) in self.values.into_iter().enumerate() {
             if let State::Ignore = self.state[i] {
@@ -68,7 +68,7 @@ impl Arguments {
         if unrecognized.is_empty() {
             Ok(())
         } else {
-            Err(Error::UnrecognizableConnections(unrecognized))
+            Err(MartinError::UnrecognizableConnections(unrecognized))
         }
     }
 }

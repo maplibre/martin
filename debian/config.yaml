@@ -7,6 +7,9 @@ listen_addresses: '0.0.0.0:3000'
 # Number of web server workers
 worker_processes: 8
 
+# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
+cache_size_mb: 512
+
 # see https://maplibre.org/martin/config-file.html
 
 # postgres:
@@ -14,18 +17,30 @@ worker_processes: 8
 #   default_srid: 4326
 #   pool_size: 20
 #   max_feature_count: 1000
-#   disable_bounds: false
+#   auto_bounds: skip
 
 # pmtiles:
 #   paths:
 #     - /dir-path
 #     - /path/to/pmtiles.pmtiles
+#     - http://example.org/pmtiles.pmtiles
 #   sources:
 #     pm-src1: /path/to/pmtiles1.pmtiles
-    
+#     pm-web1: http://example.org/pmtiles1.pmtiles
+
 # mbtiles:
 #   paths:
 #     - /dir-path
 #     - /path/to/mbtiles.mbtiles
 #   sources:
 #     mb-src1: /path/to/mbtiles1.mbtiles
+
+# sprites:
+#   paths:
+#     - /path/to/sprites_dir
+#   sources:
+#     sprite1: /path/to/sprites_dir2
+
+# fonts:
+#   - /path/to/font/file.ttf
+#   - /path/to/font_dir

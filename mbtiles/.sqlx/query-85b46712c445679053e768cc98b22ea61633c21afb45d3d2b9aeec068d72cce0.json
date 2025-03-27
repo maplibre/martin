@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (\n           -- 'tiles_with_hash' table or view columns and their types are as expected:\n           -- 5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).\n           -- The order is not important\n           SELECT COUNT(*) = 5\n           FROM pragma_table_info('tiles_with_hash')\n           WHERE ((name = 'zoom_level' AND type = 'INTEGER')\n               OR (name = 'tile_column' AND type = 'INTEGER')\n               OR (name = 'tile_row' AND type = 'INTEGER')\n               OR (name = 'tile_data' AND type = 'BLOB')\n               OR (name = 'tile_hash' AND type = 'TEXT'))\n           --\n       ) as is_valid;",
+  "describe": {
+    "columns": [
+      {
+        "name": "is_valid",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "85b46712c445679053e768cc98b22ea61633c21afb45d3d2b9aeec068d72cce0"
+}

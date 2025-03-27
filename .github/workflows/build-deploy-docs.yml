@@ -1,4 +1,4 @@
-name: Build documentation
+name: Documentation
 
 on:
   push:
@@ -7,23 +7,38 @@ on:
 
 jobs:
   build-docs:
-    name: Build
+    name: Build Docs
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+
+      - name: 'Validate .md files (use "just fmt-md" to fix)'
+        uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          config: '.github/files/config.markdownlint-cli2.jsonc'
+
+      - name: 'Check Markdown URLs (same as "just clippy-md")'
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'no'
+          use-verbose-mode: 'yes'
+          folder-path: 'docs/src'
+          file-path: './README.md'
+          config-file: '.github/files/markdown.links.config.json'
 
       - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v1
+        uses: peaceiris/actions-mdbook@v2
         with:
-          mdbook-version: 'latest'
+          mdbook-version: '0.4.40'
 
       - run: mdbook build docs
 
       - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./target/book

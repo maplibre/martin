@@ -1,0 +1,4 @@
+[INFO ] Quick integrity check passed for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+[INFO ] All values in the `tiles` table/view are valid for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+[INFO ] All tile hashes are valid for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+[INFO ] Updating agg_tiles_hash from CAFEC0DEDEADBEEFDEADBEEFDEADBEEF to D4E1030D57751A0B45A28A71267E46B8 in tests/mbtiles_temp_files/fix_bad_hash.mbtiles

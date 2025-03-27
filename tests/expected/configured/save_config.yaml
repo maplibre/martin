@@ -1,0 +1,180 @@
+cache_size_mb: 8
+keep_alive: 75
+listen_addresses: localhost:3111
+worker_processes: 1
+postgres:
+  default_srid: 4326
+  max_feature_count: 1000
+  pool_size: 20
+  auto_publish:
+    tables:
+      from_schemas: autodetect
+      id_columns:
+      - feat_id
+      - big_feat_id
+      clip_geom: false
+      buffer: 3
+      extent: 9000
+  tables:
+    MixPoints:
+      schema: MixedCase
+      table: MixPoints
+      srid: 4326
+      geometry_column: Geom
+      id_column: giD
+      bounds:
+      - -170.94984639004662
+      - -84.20025580733805
+      - 167.70892858284475
+      - 74.23573284753762
+      geometry_type: POINT
+      properties:
+        taBLe: text
+    auto_table:
+      schema: autodetect
+      table: auto_table
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds:
+      - -166.87107126230424
+      - -53.44747249115674
+      - 168.14061220360549
+      - 84.22411861475385
+      extent: 9000
+      buffer: 3
+      clip_geom: false
+      geometry_type: POINT
+      properties:
+        gid: int4
+    bigint_table:
+      schema: autodetect
+      table: bigint_table
+      srid: 4326
+      geometry_column: geom
+      id_column: big_feat_id
+      bounds:
+      - -174.89475564568033
+      - -77.2579745396886
+      - 174.72753224514435
+      - 73.80785950599903
+      extent: 9000
+      buffer: 3
+      clip_geom: false
+      geometry_type: POINT
+      properties:
+        id: int4
+    points1:
+      layer_id: abc
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: POINT
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+  functions:
+    fnc_Mixed_Name:
+      schema: MixedCase
+      function: function_Mixed_Name
+    function_zxy_query:
+      schema: public
+      function: function_zxy_query
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+    function_zxy_query_test:
+      schema: public
+      function: function_zxy_query_test
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+pmtiles:
+  sources:
+    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt2: http://localhost:5412/webp2.pmtiles
+    webp2: http://localhost:5412/webp2.pmtiles
+cog:
+  sources:
+    cog-src1: tests/fixtures/cog/rgba_u8.tif
+    cog-src2: tests/fixtures/cog/rgb_u8.tif
+    rgba_u8_nodata: tests/fixtures/cog/rgba_u8_nodata.tiff
+sprites:
+  paths: tests/fixtures/sprites/src1
+  sources:
+    mysrc: tests/fixtures/sprites/src2
+fonts:
+- tests/fixtures/fonts/overpass-mono-regular.ttf
+- tests/fixtures/fonts

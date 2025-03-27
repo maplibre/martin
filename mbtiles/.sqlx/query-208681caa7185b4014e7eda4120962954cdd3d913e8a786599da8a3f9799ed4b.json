@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "PRAGMA page_size;",
+  "describe": {
+    "columns": [
+      {
+        "name": "page_size",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "208681caa7185b4014e7eda4120962954cdd3d913e8a786599da8a3f9799ed4b"
+}

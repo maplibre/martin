@@ -1,0 +1,9 @@
+MBTiles file summary for tests/mbtiles_temp_files/cp_normalized.mbtiles
+Schema: normalized
+Page size: 512B
+
+ Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
+    0 |         1 |   20.7KiB |   20.7KiB |   20.7KiB | -180,-85,180,85
+    1 |         4 |   11.8KiB |   20.6KiB |   16.4KiB | -180,-85,180,85
+  all |         5 |   11.8KiB |   20.7KiB |   17.2KiB | -180,-85,180,85
+

@@ -1,0 +1,16 @@
+[INFO ] Using 'mvt' tile format from metadata table in file cp_flat-with-hash
+id: cp_flat-with-hash
+tile_info:
+  format: mvt
+  encoding: ''
+tilejson:
+  tilejson: 3.0.0
+  tiles: []
+  description: public.function_zxy_query_test
+  maxzoom: 6
+  minzoom: 0
+  name: function_zxy_query_test
+  format: pbf
+  generator: martin-cp v0.0.0
+agg_tiles_hash: 9B931A386D6075D1DA55323BD4DBEDAE
+

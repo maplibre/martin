@@ -1,0 +1,57 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "B86122579EDCDD4C51F3910894FCC1A1"  )',
+    '(  "agg_tiles_hash_after_apply", "3BCDEE3F52407FF1315629298CB99133"  )',
+    '(  "agg_tiles_hash_before_apply", "9ED9178D7025276336C783C2B54D6258"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-remove", NULL  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles_with_hash'
+sql = '''
+CREATE TABLE tiles_with_hash (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             tile_hash text,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  5, 1, 1, blob(edit-v2), "FF76830FF90D79BB335884F256031731"  )',
+    '(  5, 1, 2, blob(not-empty), "99DEE0E66806ECF1C20C09F64B2C0A34"  )',
+    '(  5, 1, 3, blob(), "D41D8CD98F00B204E9800998ECF8427E"  )',
+    '(  5, 2, 2, NULL, ""  )',
+    '(  5, 2, 3, NULL, ""  )',
+    '(  5, 3, 7, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  5, 3, 8, blob(new), "22AF645D1859CB5CA6DA0C484F1F37EA"  )',
+    '(  6, 1, 4, blob(edit-v2a), "03132BFACDB00CC63D6B7DD98D974DD5"  )',
+    '(  6, 2, 6, NULL, ""  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles_with_hash'
+
+[[]]
+type = 'view'
+tbl_name = 'tiles'
+sql = '''
+CREATE VIEW tiles AS
+             SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash'''

@@ -1,0 +1,17 @@
+{
+  "description": "a function source with MixedCase name",
+  "name": "function_Mixed_Name",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/function_Mixed_Name/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "Geom": "",
+        "TABLE": ""
+      },
+      "id": "MixedCase.function_Mixed_Name"
+    }
+  ]
+}

@@ -14,6 +14,10 @@ FROM points1;
 -- INSERT INTO points1
 -- SELECT generate_series(4, 30) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
+--
+-- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+--   just restart
+--   just pg_dump --data-only --inserts --rows-per-insert=100 --table=points1
 
 INSERT INTO points1
 values (1, '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740'),
@@ -49,3 +53,12 @@ values (1, '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740'),
 
 CREATE INDEX ON points1 USING GIST (geom);
 CLUSTER points1_geom_idx ON points1;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON VIEW points1_vw IS $tj$' || $$
+    {
+        "description": "description from SQL comment",
+        "attribution": "some attribution from SQL comment"
+    }
+    $$::json || '$tj$';
+END $do$;

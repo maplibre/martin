@@ -1,8 +1,8 @@
-# PostgreSQL Connection String
+## PostgreSQL Connection String
 
 Martin supports many of the PostgreSQL connection string settings such as `host`, `port`, `user`, `password`, `dbname`, `sslmode`, `connect_timeout`, `keepalives`, `keepalives_idle`, etc. See the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING) for more details.
 
-## PostgreSQL SSL Connections
+### PostgreSQL SSL Connections
 
 Martin supports PostgreSQL `sslmode` including `disable`, `prefer`, `require`, `verify-ca` and `verify-full` modes as described in the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-ssl.html).  Certificates can be provided in the configuration file, or can be set using the same env vars as used for `psql`. When set as env vars, they apply to all PostgreSQL connections.  See [environment vars](env-vars.md) section for more details.
 

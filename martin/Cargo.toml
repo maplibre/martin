@@ -1,29 +1,28 @@
 [package]
 name = "martin"
-version = "0.8.7"
+version = "0.15.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
-exclude = [
-    # Tests include a lot of data and other test files that are not needed for the users of the library
-    "/tests",
-]
+categories = ["science::geo", "web-programming::http-server"]
 default-run = "martin"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-readme.workspace = true
 homepage.workspace = true
 
 [package.metadata.deb]
 name = "martin"
-maintainer = "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>, Yuri Astrakhan <YuriAstrakhan@gmail.com>, MapLibre contributors"
-depends = "$auto"
+revision = ""
+maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan.kuzmin@gmail.com>, MapLibre contributors"
 maintainer-scripts = "../debian"
+depends = "$auto"
 assets = [
     ["target/release/martin", "/usr/bin/martin", "755"],
-    ["../README.md","/usr/share/doc/martin/README.md","644"],
+    ["target/release/martin-cp", "/usr/bin/martin-cp", "755"],
+    ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
+    ["../README.md", "/usr/share/doc/martin/README.md", "644"],
     ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
     ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
 ]
@@ -41,59 +40,90 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "martin"
-path = "src/bin/main.rs"
+path = "src/bin/martin.rs"
+
+[[bin]]
+name = "martin-cp"
+path = "src/bin/martin-cp.rs"
+required-features = ["mbtiles"]
+
+[[bench]]
+name = "bench"
+harness = false
 
 [features]
-default = []
-vendored-openssl = ["ssl", "openssl?/vendored"]
-ssl = ["dep:openssl", "dep:postgres-openssl"]
+default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites"]
+webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+fonts = ["dep:bit-set", "dep:pbf_font_tools"]
+lambda = ["dep:lambda-web"]
+mbtiles = ["dep:mbtiles"]
+pmtiles = ["dep:pmtiles"]
+cog = ["dep:tiff", "dep:png"]
+postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
+sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
 
 [dependencies]
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-rt.workspace = true
+actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
-actix.workspace = true
 async-trait.workspace = true
-brotli.workspace = true
+bit-set = { workspace = true, optional = true }
 clap.workspace = true
-deadpool-postgres.workspace = true
+dashmap.workspace = true
+deadpool-postgres = { workspace = true, optional = true }
+enum-display.workspace = true
 env_logger.workspace = true
-flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
+json-patch = { workspace = true, optional = true }
+lambda-web = { workspace = true, optional = true }
 log.workspace = true
-martin-mbtiles.workspace = true
 martin-tile-utils.workspace = true
+mbtiles = { workspace = true, optional = true }
+moka.workspace = true
 num_cpus.workspace = true
-pmtiles.workspace = true
-postgis.workspace = true
-postgres-protocol.workspace = true
-postgres.workspace = true
+pbf_font_tools = { workspace = true, optional = true }
+pmtiles = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
+postgis = { workspace = true, optional = true }
+postgres = { workspace = true, optional = true }
+postgres-protocol = { workspace = true, optional = true }
 regex.workspace = true
-semver.workspace = true
-serde.workspace = true
-serde_json = { workspace = true, features = ["preserve_order"] }
+rustls-native-certs.workspace = true
+rustls-pemfile.workspace = true
+rustls.workspace = true
+semver = { workspace = true, optional = true }
+serde_json.workspace = true
+serde_with.workspace = true
 serde_yaml.workspace = true
-spreet.workspace = true
+serde.workspace = true
+spreet = { workspace = true, optional = true }
+static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
+tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 actix-web-prom.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
+tokio-postgres-rustls = { workspace = true, optional = true }
+url.workspace = true
 
-# Optional dependencies for ssl support
-openssl = { workspace = true, optional = true }
-postgres-openssl = { workspace = true, optional = true }
+[build-dependencies]
+walkdir = { workspace = true, optional = true }
+static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
-cargo-husky.workspace = true
+anyhow.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-#test-log = "0.2"
+insta = { workspace = true, features = ["yaml"] }
+pprof.workspace = true
+rstest.workspace = true
+testcontainers-modules.workspace = true
 
-[[bench]]
-name = "sources"
-harness = false
+[lints]
+workspace = true

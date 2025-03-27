@@ -1,41 +1,92 @@
-[
-  {
-    "id": "MixPoints",
-    "content_type": "application/x-protobuf",
-    "description": "MixedCase.MixPoints.Geom"
+{
+  "fonts": {
+    "Overpass Mono Light": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Light"
+    },
+    "Overpass Mono Regular": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Regular"
+    }
   },
-  {
-    "id": "function_zxy_query",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query"
+  "sprites": {
+    "mysrc": {
+      "images": [
+        "bicycle"
+      ]
+    },
+    "src1": {
+      "images": [
+        "another_bicycle",
+        "bear",
+        "sub/circle"
+      ]
+    }
   },
-  {
-    "id": "function_zxy_query_test",
-    "content_type": "application/x-protobuf",
-    "description": "public.function_zxy_query_test"
-  },
-  {
-    "id": "pmt",
-    "content_type": "image/png"
-  },
-  {
-    "id": "points1",
-    "content_type": "application/x-protobuf",
-    "description": "public.points1.geom"
-  },
-  {
-    "id": "points2",
-    "content_type": "application/x-protobuf",
-    "description": "public.points2.geom"
-  },
-  {
-    "id": "points3857",
-    "content_type": "application/x-protobuf",
-    "description": "public.points3857.geom"
-  },
-  {
-    "id": "table_source",
-    "content_type": "application/x-protobuf",
-    "description": "public.table_source.geom"
+  "tiles": {
+    "MixPoints": {
+      "content_type": "application/x-protobuf",
+      "description": "a description from comment on table"
+    },
+    "auto_table": {
+      "content_type": "application/x-protobuf",
+      "description": "autodetect.auto_table.geom"
+    },
+    "bigint_table": {
+      "content_type": "application/x-protobuf",
+      "description": "autodetect.bigint_table.geom"
+    },
+    "cog-src1": {
+      "content_type": "image/png"
+    },
+    "cog-src2": {
+      "content_type": "image/png"
+    },
+    "fnc_Mixed_Name": {
+      "content_type": "application/x-protobuf",
+      "description": "a function source with MixedCase name"
+    },
+    "function_zxy_query": {
+      "content_type": "application/x-protobuf"
+    },
+    "function_zxy_query_test": {
+      "content_type": "application/x-protobuf",
+      "description": "public.function_zxy_query_test"
+    },
+    "pmt": {
+      "content_type": "image/png"
+    },
+    "pmt2": {
+      "content_type": "image/webp",
+      "name": "ne2sr"
+    },
+    "points1": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points1.geom"
+    },
+    "points2": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points2.geom"
+    },
+    "points3857": {
+      "content_type": "application/x-protobuf",
+      "description": "public.points3857.geom"
+    },
+    "rgba_u8_nodata": {
+      "content_type": "image/png"
+    },
+    "table_source": {
+      "content_type": "application/x-protobuf"
+    },
+    "webp2": {
+      "content_type": "image/webp",
+      "name": "ne2sr"
+    }
   }
-]
+}

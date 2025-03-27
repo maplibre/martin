@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.function_zxy_query(z integer, x integer, y int
 DECLARE
   mvt bytea;
 BEGIN
-  RAISE NOTICE 'query: %', query;
+  RAISE DEBUG 'function got query: %', query;
 
   SELECT INTO mvt ST_AsMVT(tile, 'public.function_zxy_query', 4096, 'geom') FROM (
     SELECT
@@ -16,3 +16,12 @@ BEGIN
   RETURN mvt;
 END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION public.function_zxy_query (INT4, INT4, INT4, JSON) IS $tj$' || $$
+    {
+      "description": null,
+      "foo": {"bar": "foo"}
+    }
+    $$::json || '$tj$';
+END $do$;

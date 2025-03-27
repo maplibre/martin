@@ -11,12 +11,12 @@ import Filters from './Filters';
 
 const mapStyle = { height: '615px', marginLeft: '350px' };
 
-class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
+class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> {
 
   map: any;
   nav: any;
 
-  constructor(props) {
+  constructor(props: {} | Readonly<{}>) {
     super(props);
     this.state = {
       visibleLayer: 'trips',
@@ -39,49 +39,50 @@ class Map extends PureComponent<{}, {visibleLayer, range, hour}> {
     });
     this.nav = new maplibregl.NavigationControl();
 
-    
     this.map.addControl(this.nav, 'top-right');
     this.map.on('load', this.mapOnLoad);
   }
 
   componentDidUpdate() {
-    const queryParams = this.getQueryParams();
-    const newStyleUrl = `http://localhost:3000/get_trips?${queryParams}`;
     const newStyle = this.map.getStyle();
-
-    newStyle.sources['public.get_trips'].url = newStyleUrl;
+    newStyle.sources['trips_source'].url = `/tiles/get_trips?${this.getQueryParams()}`;
     this.map.setStyle(newStyle);
   }
 
   mapOnLoad = () => {
     const queryParams = this.getQueryParams();
 
-    this.map.addSource('public.get_trips', {
+    this.map.addSource('trips_source', {
       type: 'vector',
-      url: `http://localhost:3000/get_trips?${queryParams}`
+      url: `/tiles/get_trips?${queryParams}`
     });
-    layers.forEach(({ mapboxLayer }) => {
-      this.map.addLayer(mapboxLayer, 'place_town');
+    layers.forEach(({ maplibreLayer }) => {
+      this.map.addLayer(maplibreLayer, 'place_town');
     });
   };
 
-  changeFilter = (filter, value) => {
-    this.setState(state => ({
-      ...state,
-      [filter]: value
-    }));
+  changeFilter = (filter: string, value: any) => {
+    if (filter !== undefined && value !== undefined) {
+      this.setState(state => ({
+        ...state,
+        [filter]: value
+      }));
+    }
   };
 
   getQueryParams = () => {
     const { range: { from, to }, hour } = this.state;
 
     const dateFrom = `${dateConverter(from)}.2017`;
-    const dateTo = `${dateConverter(to)}.2017`;
+    let dateTo = `${dateConverter(to)}.2017`;
+    if (to === undefined) {
+      dateTo = dateFrom;
+    }
 
     return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`);
   };
 
-  toggleLayer = (layerId) => {
+  toggleLayer = (layerId: string) => {
     layers.forEach(({ id }) => {
       if (layerId === id) {
         this.map.setLayoutProperty(id, 'visibility', 'visible');

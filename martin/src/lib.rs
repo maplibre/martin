@@ -1,36 +1,44 @@
-#![warn(clippy::pedantic)]
-// Bounds struct derives PartialEq, but not Eq,
-// so all containing types must also derive PartialEq without Eq
-#![allow(clippy::derive_partial_eq_without_eq)]
-#![allow(clippy::implicit_hasher)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::module_name_repetitions)]
+#![doc = include_str!("../README.md")]
+#![forbid(unsafe_code)]
+
+mod config;
+pub use config::{Config, ServerState, read_config};
+
+mod source;
+pub use source::{
+    CatalogSourceEntry, Source, Tile, TileData, TileInfoSource, TileSources, UrlQuery,
+};
+
+mod utils;
+pub use utils::{
+    IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, OptBoolObj, OptOneMany, TileRect,
+    append_rect,
+};
 
 pub mod args;
-mod config;
+#[cfg(feature = "cog")]
+pub mod cog;
 pub mod file_config;
+#[cfg(feature = "fonts")]
+pub mod fonts;
+#[cfg(feature = "mbtiles")]
 pub mod mbtiles;
+#[cfg(feature = "postgres")]
 pub mod pg;
+#[cfg(feature = "pmtiles")]
 pub mod pmtiles;
-mod source;
+#[cfg(feature = "sprites")]
 pub mod sprites;
 pub mod srv;
-mod utils;
 
 #[cfg(test)]
-#[path = "utils/test_utils.rs"]
-mod test_utils;
+#[path = "utils/tests.rs"]
+mod tests;
 
-// test_utils is used from tests in other modules, and it uses this crate's object.
+// tests is used from tests in other modules, and it uses this crate's object.
 // Must make it accessible as carte::Env from both places when testing.
 #[cfg(test)]
 pub use crate::args::Env;
-pub use crate::config::{read_config, Config};
-pub use crate::source::{Source, Sources, Xyz};
-pub use crate::utils::{
-    decode_brotli, decode_gzip, BoolOrObject, Error, IdResolver, OneOrMany, Result,
-};
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]
@@ -38,7 +46,7 @@ mod test_readme {
     macro_rules! external_doc_test {
         ($x:expr) => {
             #[doc = $x]
-            extern "C" {}
+            unsafe extern "C" {}
         };
     }
 

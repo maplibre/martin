@@ -1,56 +1,108 @@
 [workspace]
-members = ["martin", "martin-tile-utils", "martin-mbtiles"]
+resolver = "3"
+members = ["martin", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.65"
-readme = "README.md"
+rust-version = "1.85"
 homepage = "https://martin.maplibre.org/"
 
+[workspace.lints.rust]
+unused_qualifications = "warn"
+# Lints inheritance from workspace is not yet supported
+# Crate mbtiles uses unsafe code, so we can't forbid it here
+# unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+derive_partial_eq_without_eq = "allow"
+enum_variant_names = "allow"
+implicit_hasher = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+struct_field_names = "allow"
+
 [workspace.dependencies]
-actix = "0.13"
-actix-cors = "0.6"
+actix-cors = "0.7"
 actix-http = "3"
 actix-rt = "2"
 actix-web = "4"
 actix-web-prom = "0.6.0"
+actix-web-static-files = "4"
 anyhow = "1.0"
+approx = "0.5.1"
 async-trait = "0.1"
-brotli = "3"
-cargo-husky = { version = "1", features = ["user-hooks"], default-features = false }
-clap = { version = "4", features = ["derive"] }
+bit-set = "0.8"
+brotli = ">=5, <8"
+clap = { version = "4", features = ["derive", "unstable-markdown"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.2"
-deadpool-postgres = "0.10"
-env_logger = "0.10"
+ctor = "0.4.1"
+dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
+deadpool-postgres = "0.14"
+enum-display = "0.1"
+env_logger = "0.11"
 flate2 = "1"
+flume = "0.11"
 futures = "0.3"
 indoc = "2"
-itertools = "0.11"
+insta = "1"
+itertools = "0.14"
+json-patch = "4"
+lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-martin-mbtiles = { path = "./martin-mbtiles", version = "0.4.0", default-features = false, features = ["native-tls"] }  # disable CLI tools
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.1.0" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
+mbtiles = { path = "./mbtiles", version = "0.12.0" }
+md5 = "0.7.0"
+moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
-openssl = "0.10"
-pmtiles = { version = "0.2.2", features = ["mmap-async-tokio", "tilejson"] }
+pbf_font_tools = { version = "2.5.1", features = ["freetype"] }
+pmtiles = { version = "0.11", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots"] }
+png = "0.17.14"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
-postgres-openssl = "0.5"
 postgres-protocol = "0.6"
+pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
+pretty_assertions = "1"
 regex = "1"
+rstest = "0.25"
+rustls = "0.23.25"
+# ring feature does not require NASM windows executable, but works slower
+#rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
+rustls-native-certs = "0.8"
+rustls-pemfile = "2"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_with = "3"
 serde_yaml = "0.9"
-spreet = { version = "0.8", default-features = false }
-sqlx = { version = "0.7", features = ["sqlite"] }
-subst = { version = "0.2", features = ["yaml"] }
-thiserror = "1"
-tilejson = "0.3"
-tokio = { version = "1.29.1", features = ["macros"] }
+size_format = "1.0.2"
+spreet = { version = "0.11", default-features = false }
+sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
+sqlite-hashes = { version = "0.9.0", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlx = { version = "0.8.3", features = ["sqlite", "runtime-tokio"] }
+static-files = "0.2"
+subst = { version = "0.3", features = ["yaml"] }
+testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
+thiserror = "2"
+tiff = "0.9.1"
+tilejson = "0.4"
+tokio = { version = "1", features = ["macros"] }
+tokio-postgres-rustls = "0.13"
+url = "2.5"
+walkdir = "2.5.0"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
-[profile.dev.package.sqlx-macros]
+[profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
-opt-level = 3
+sqlx-macros.opt-level = 3
+# See https://docs.rs/insta/latest/insta/#optional-faster-runs
+insta.opt-level = 3
+similar.opt-level = 3
+
+[profile.release]
+# Make release binaries a bit smaller
+lto = true
+codegen-units = 1

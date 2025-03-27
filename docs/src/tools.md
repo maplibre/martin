@@ -1,47 +1,17 @@
-# Tools
+# CLI Tools
 
-Martin has a few additional tools that can be used to interact with the data.
+Martin project contains additional tooling to help manage the data servable with Martin tile server.
 
-## MBTiles tool
-A small utility that allows users to interact with the `*.mbtiles` files from the command line. Use `mbtiles --help` to see a list of available commands, and `mbtiles <command> --help` to see help for a specific command.
+## `martin-cp`
 
-This tool can be installed by compiling the latest released version with `cargo install martin-mbtiles`, or by downloading a pre-built binary from the [releases page](https://github.com/maplibre/martin/releases/latest).
+`martin-cp` is a tool for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file. It can be used to generate tiles for a large area or multiple areas. If multiple areas overlap, it will generate tiles only once. `martin-cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
 
-### meta-get
-Retrieve raw metadata value by its name. The value is printed to stdout without any modifications.  For example, to get the `description` value from an mbtiles file:
+## `mbtiles`
 
-```shell
-mbtiles meta-get my_file.mbtiles description
-```
+`mbtiles` is a small utility to interact with the `*.mbtiles` files from the command line. It allows users to examine, copy, validate, compare, and apply diffs between them.
 
-### copy
-Copy an mbtiles file, optionally filtering its content by zoom levels. Can also flatten mbtiles file from de-duplicated tiles to a simple table structure.
+Use `mbtiles --help` to see a list of available commands, and `mbtiles <command> --help` to see help for a specific command.
 
-```shell
-mbtiles copy src_file.mbtiles dst_file.mbtiles \
-        --min-zoom 0 --max-zoom 10 --force-simple
-```
+This tool can be installed by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built binary from the [releases page](https://github.com/maplibre/martin/releases/latest).
 
-Copy command can also be used to compare two mbtiles files and generate a diff.
-```shell
-mbtiles copy src_file.mbtiles diff_file.mbtiles \
-        --force-simple --diff-with-file modified_file.mbtiles
-```
-
-### apply-diff
-Apply the diff file generated from `copy` command above to an mbtiles file. The diff file can be applied to the `src_file.mbtiles` elsewhere, to avoid copying/transmitting the entire modified dataset.
-```shell
-mbtiles apply_diff src_file.mbtiles diff_file.mbtiles
-```
-
-Another way to apply the diff is to use the `sqlite3` command line tool directly. This SQL will delete all tiles from `src_file.mbtiles` that are set to `NULL` in `diff_file.mbtiles`, and then insert or update all new tiles from `diff_file.mbtiles` into `src_file.mbtiles`. The name of the diff file is passed as a query parameter to the sqlite3 command line tool, and then used in the SQL statements.
-```shell
-sqlite3 src_file.mbtiles \
-  -bail \
-  -cmd ".parameter set @diffDbFilename diff_file.mbtiles" \
-  "ATTACH DATABASE @diffDbFilename AS diffDb;" \
-  "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
-  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
-```
-
-**_NOTE:_** Both of these methods for applying a diff _only_ work for mbtiles files in the simple tables format; they do _not_ work for mbtiles files in deduplicated format.
+The `mbtiles` utility builds on top of the [MBTiles specification](https://github.com/mapbox/mbtiles-spec). It adds a few additional conventions to ensure that the content of the tile data is valid, and can be used for reliable diffing and patching of the tilesets.

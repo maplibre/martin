@@ -1,0 +1,25 @@
+[INFO ] cp_flat has an unrecognized metadata value foo={"bar":"foo"}
+id: cp_flat
+tile_info:
+  format: mvt
+  encoding: gzip
+tilejson:
+  tilejson: 3.0.0
+  tiles: []
+  vector_layers:
+  - id: table_source
+    fields:
+      gid: int4
+  bounds:
+  - -2.0
+  - -1.0
+  - 142.84131509869133
+  - 45.0
+  maxzoom: 6
+  minzoom: 0
+  name: table_source
+  foo: '{"bar":"foo"}'
+  format: pbf
+  generator: martin-cp v0.0.0
+agg_tiles_hash: 7323D1D8A07A7176998822DB65E08567
+

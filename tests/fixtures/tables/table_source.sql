@@ -33,3 +33,12 @@ INSERT INTO table_source(geom) values (GeomFromEWKT('SRID=4326;POINT(142.8403402
 INSERT INTO table_source(geom) values (GeomFromEWKT('SRID=4326;POINT(142.84131509869133 11.92781306544329)'));
 
 -- DO NOT CREATE INDEX ON GEOMETRY COLUMN -- this table is used in a test case
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON TABLE table_source IS $tj$' || $$
+    {
+        "description": null,
+        "foo": {"bar": "foo"}
+    }
+    $$::json || '$tj$';
+END $do$;

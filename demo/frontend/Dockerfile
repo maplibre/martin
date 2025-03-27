@@ -1,4 +1,4 @@
-FROM node:20-alpine as builder
+FROM node:alpine as builder
 
 WORKDIR /usr/src/app
 
@@ -7,4 +7,8 @@ COPY yarn.lock .
 RUN yarn install
 
 COPY . .
-CMD yarn run build
+RUN yarn run build
+
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=builder /usr/src/app/dist /usr/share/nginx/html

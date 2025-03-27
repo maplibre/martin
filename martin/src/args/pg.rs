@@ -1,25 +1,47 @@
+use std::time::Duration;
+
+use clap::ValueEnum;
+use enum_display::EnumDisplay;
 use log::{info, warn};
+use serde::{Deserialize, Serialize};
 
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
 use crate::args::environment::Env;
-use crate::pg::{PgConfig, PgSslCerts, POOL_SIZE_DEFAULT};
-use crate::utils::OneOrMany;
+use crate::pg::{POOL_SIZE_DEFAULT, PgConfig, PgSslCerts};
+use crate::utils::{OptBoolObj, OptOneMany};
+
+// Must match the help string for BoundsType::Quick
+pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[derive(
+    PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum, EnumDisplay,
+)]
+#[serde(rename_all = "lowercase")]
+#[enum_display(case = "Kebab")]
+pub enum BoundsCalcType {
+    /// Compute table geometry bounds, but abort if it takes longer than 5 seconds.
+    #[default]
+    Quick,
+    /// Compute table geometry bounds. The startup time may be significant. Make sure all GEO columns have indexes.
+    Calc,
+    /// Skip bounds calculation. The bounds will be set to the whole world.
+    Skip,
+}
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct PgArgs {
-    /// Disable the automatic generation of bounds for spatial PG tables.
+    /// Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
     #[arg(short = 'b', long)]
-    pub disable_bounds: bool,
+    pub auto_bounds: Option<BoundsCalcType>,
     /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
-    #[cfg(feature = "ssl")]
     #[arg(long)]
     pub ca_root_file: Option<std::path::PathBuf>,
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
-    #[arg(help = format!("Maximum connections pool size [DEFAULT: {}]", POOL_SIZE_DEFAULT), short, long)]
+    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {POOL_SIZE_DEFAULT}]"), short, long)]
     pub pool_size: Option<usize>,
     /// Limit the number of features in a tile from a PG table source.
     #[arg(short, long)]
@@ -31,7 +53,7 @@ impl PgArgs {
         self,
         cli_strings: &mut Arguments,
         env: &impl Env<'a>,
-    ) -> Option<OneOrMany<PgConfig>> {
+    ) -> OptOneMany<PgConfig> {
         let connections = Self::extract_conn_strings(cli_strings, env);
         let default_srid = self.get_default_srid(env);
         let certs = self.get_certs(env);
@@ -42,57 +64,76 @@ impl PgArgs {
                 connection_string: Some(s),
                 ssl_certificates: certs.clone(),
                 default_srid,
-                disable_bounds: if self.disable_bounds {
-                    Some(true)
-                } else {
-                    None
-                },
+                auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
-                auto_publish: None,
+                auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,
             })
             .collect();
 
         match results.len() {
-            0 => None,
-            1 => Some(OneOrMany::One(results.into_iter().next().unwrap())),
-            _ => Some(OneOrMany::Many(results)),
+            0 => OptOneMany::NoVals,
+            1 => OptOneMany::One(results.into_iter().next().unwrap()),
+            _ => OptOneMany::Many(results),
         }
     }
 
-    pub fn override_config<'a>(self, pg_config: &mut OneOrMany<PgConfig>, env: &impl Env<'a>) {
-        if self.default_srid.is_some() {
-            info!("Overriding configured default SRID to {} on all Postgres connections because of a CLI parameter", self.default_srid.unwrap());
-            pg_config.iter_mut().for_each(|c| {
-                c.default_srid = self.default_srid;
-            });
-        }
-        if self.pool_size.is_some() {
-            info!("Overriding configured pool size to {} on all Postgres connections because of a CLI parameter", self.pool_size.unwrap());
-            pg_config.iter_mut().for_each(|c| {
-                c.pool_size = self.pool_size;
-            });
-        }
-        if self.max_feature_count.is_some() {
-            info!("Overriding maximum feature count to {} on all Postgres connections because of a CLI parameter", self.max_feature_count.unwrap());
-            pg_config.iter_mut().for_each(|c| {
-                c.max_feature_count = self.max_feature_count;
-            });
-        }
+    /// Apply CLI parameters from `self` to the configuration loaded from the config file `pg_config`
+    pub fn override_config<'a>(self, pg_config: &mut OptOneMany<PgConfig>, env: &impl Env<'a>) {
+        // This ensures that if a new parameter is added to the struct, it will not be forgotten here
+        let Self {
+            default_srid,
+            pool_size,
+            auto_bounds,
+            max_feature_count,
+            ca_root_file,
+        } = self;
 
-        #[cfg(feature = "ssl")]
-        if self.ca_root_file.is_some() {
-            info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
-                self.ca_root_file.as_ref().unwrap().display());
+        if let Some(value) = default_srid {
+            info!(
+                "Overriding configured default SRID to {value} on all Postgres connections because of a CLI parameter"
+            );
             pg_config.iter_mut().for_each(|c| {
-                c.ssl_certificates.ssl_root_cert = self.ca_root_file.clone();
+                c.default_srid = default_srid;
+            });
+        }
+        if let Some(value) = pool_size {
+            info!(
+                "Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.pool_size = pool_size;
+            });
+        }
+        if let Some(value) = auto_bounds {
+            info!(
+                "Overriding auto_bounds to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.auto_bounds = auto_bounds;
+            });
+        }
+        if let Some(value) = max_feature_count {
+            info!(
+                "Overriding maximum feature count to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.max_feature_count = max_feature_count;
+            });
+        }
+        if let Some(ref value) = ca_root_file {
+            info!(
+                "Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
+                value.display()
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
             });
         }
 
         for v in &[
-            "CA_ROOT_FILE",
             "DANGER_ACCEPT_INVALID_CERTS",
             "DATABASE_URL",
             "DEFAULT_SRID",
@@ -102,7 +143,9 @@ impl PgArgs {
         ] {
             // We don't want to warn about these in case they were used in the config file expansion
             if env.has_unused_var(v) {
-                warn!("Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file.");
+                warn!(
+                    "Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file."
+                );
             }
         }
     }
@@ -145,13 +188,6 @@ impl PgArgs {
             })
     }
 
-    #[cfg(not(feature = "ssl"))]
-    #[allow(clippy::unused_self)]
-    fn get_certs<'a>(&self, _env: &impl Env<'a>) -> PgSslCerts {
-        PgSslCerts {}
-    }
-
-    #[cfg(feature = "ssl")]
     fn get_certs<'a>(&self, env: &impl Env<'a>) -> PgSslCerts {
         let mut result = PgSslCerts {
             ssl_cert: Self::parse_env_var(env, "PGSSLCERT", "ssl certificate"),
@@ -161,18 +197,10 @@ impl PgArgs {
         if result.ssl_root_cert.is_none() {
             result.ssl_root_cert = Self::parse_env_var(env, "PGSSLROOTCERT", "root certificate(s)");
         }
-        if result.ssl_root_cert.is_none() {
-            result.ssl_root_cert = Self::parse_env_var(
-                env,
-                "CA_ROOT_FILE",
-                "root certificate(s). This setting is obsolete, please use PGSSLROOTCERT instead",
-            );
-        }
 
         result
     }
 
-    #[cfg(feature = "ssl")]
     fn parse_env_var<'a>(
         env: &impl Env<'a>,
         env_var: &str,
@@ -194,12 +222,11 @@ fn is_postgresql_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "ssl")]
     use std::path::PathBuf;
 
     use super::*;
-    use crate::test_utils::{os, some, FauxEnv};
-    use crate::Error;
+    use crate::MartinError;
+    use crate::tests::{FauxEnv, os, some};
 
     #[test]
     fn test_extract_conn_strings() {
@@ -213,7 +240,7 @@ mod tests {
             vec!["postgresql://localhost:5432", "postgres://localhost:5432"]
         );
         assert!(matches!(args.check(), Err(
-            Error::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
+            MartinError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
     }
 
     #[test]
@@ -235,10 +262,10 @@ mod tests {
         let config = PgArgs::default().into_config(&mut args, &FauxEnv::default());
         assert_eq!(
             config,
-            Some(OneOrMany::One(PgConfig {
+            OptOneMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 ..Default::default()
-            }))
+            })
         );
         assert!(args.check().is_ok());
     }
@@ -251,7 +278,7 @@ mod tests {
                 ("DATABASE_URL", os("postgres://localhost:5432")),
                 ("DEFAULT_SRID", os("10")),
                 ("DANGER_ACCEPT_INVALID_CERTS", os("1")),
-                ("CA_ROOT_FILE", os("file")),
+                ("PGSSLROOTCERT", os("file")),
             ]
             .into_iter()
             .collect(),
@@ -259,16 +286,15 @@ mod tests {
         let config = PgArgs::default().into_config(&mut args, &env);
         assert_eq!(
             config,
-            Some(OneOrMany::One(PgConfig {
+            OptOneMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(10),
-                #[cfg(feature = "ssl")]
                 ssl_certificates: PgSslCerts {
                     ssl_root_cert: Some(PathBuf::from("file")),
                     ..Default::default()
                 },
                 ..Default::default()
-            }))
+            })
         );
         assert!(args.check().is_ok());
     }
@@ -294,17 +320,16 @@ mod tests {
         let config = pg_args.into_config(&mut args, &env);
         assert_eq!(
             config,
-            Some(OneOrMany::One(PgConfig {
+            OptOneMany::One(PgConfig {
                 connection_string: some("postgres://localhost:5432"),
                 default_srid: Some(20),
-                #[cfg(feature = "ssl")]
                 ssl_certificates: PgSslCerts {
                     ssl_cert: Some(PathBuf::from("cert")),
                     ssl_key: Some(PathBuf::from("key")),
                     ssl_root_cert: Some(PathBuf::from("root")),
                 },
                 ..Default::default()
-            }))
+            })
         );
         assert!(args.check().is_ok());
     }

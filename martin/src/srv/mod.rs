@@ -1,7 +1,17 @@
 mod config;
+pub use config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+
+#[cfg(feature = "fonts")]
+mod fonts;
+
 mod server;
+pub use server::{Catalog, RESERVED_KEYWORDS, new_server, router};
 
-pub use config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
-pub use server::{new_server, router, RESERVED_KEYWORDS};
+mod tiles;
+pub use tiles::{DynTileSource, TileRequest};
 
-pub use crate::source::IndexEntry;
+mod tiles_info;
+pub use tiles_info::{SourceIDsRequest, merge_tilejson};
+
+#[cfg(feature = "sprites")]
+mod sprites;

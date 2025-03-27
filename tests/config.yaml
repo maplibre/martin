@@ -8,6 +8,9 @@ listen_addresses: '0.0.0.0:3000'
 # Number of web server workers
 worker_processes: 8
 
+# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
+cache_size_mb: 8
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string
@@ -16,8 +19,16 @@ postgres:
   # If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
 
-  # Maximum connections pool size [default: 20]
+  # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
+
+  auto_publish:
+    tables:
+      from_schemas: autodetect
+      id_columns: [feat_id, big_feat_id]
+      clip_geom: false
+      buffer: 3
+      extent: 9000
 
   # Associative arrays of table sources
   tables:
@@ -152,11 +163,30 @@ postgres:
       maxzoom: 30
       bounds: [-180.0, -90.0, 180.0, 90.0]
 
+    fnc_Mixed_Name:
+      schema: MixedCase
+      function: function_Mixed_Name
+
+
 pmtiles:
+  paths:
+    - http://localhost:5412/webp2.pmtiles
   sources:
-    pmt: tests/fixtures/files/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt2: http://localhost:5412/webp2.pmtiles
 
 sprites:
   paths: tests/fixtures/sprites/src1
   sources:
     mysrc: tests/fixtures/sprites/src2
+
+cog:
+  paths:
+    - tests/fixtures/cog/rgba_u8_nodata.tiff
+  sources:
+    cog-src1: tests/fixtures/cog/rgba_u8.tif
+    cog-src2: tests/fixtures/cog/rgb_u8.tif
+
+fonts:
+  - tests/fixtures/fonts/overpass-mono-regular.ttf
+  - tests/fixtures/fonts
