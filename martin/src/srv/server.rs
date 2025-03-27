@@ -15,7 +15,7 @@ use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinError::{self, BindingError};
+use crate::MartinError::BindingError;
 use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
