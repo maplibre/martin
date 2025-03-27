@@ -27,24 +27,6 @@ use crate::srv::tiles_info::get_source_info;
 use actix_web_prom::PrometheusMetricsBuilder;
 use std::collections::HashMap;
 
-/// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
-/// Reserved keywords must never end in a "dot number" (e.g. ".1")
-pub const RESERVED_KEYWORDS: &[&str] = &[
-    "catalog", "config", "font", "health", "help", "index", "manifest", "refresh", "reload",
-    "sprite", "status",
-];
-
-static SUPPORTED_ENCODINGS: &[HeaderEnc] = &[
-    HeaderEnc::brotli(),
-    HeaderEnc::gzip(),
-    HeaderEnc::identity(),
-];
-
-#[derive(Deserialize)]
-struct TileJsonRequest {
-    source_ids: String,
-}
-
 #[cfg(feature = "webui")]
 mod webui {
     #![allow(clippy::unreadable_literal)]
