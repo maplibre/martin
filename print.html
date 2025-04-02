@@ -1080,15 +1080,14 @@ END $do$;
 <div style="break-before: page; page-break-before: always;"></div><h2 id="postgresql-function-sources"><a class="header" href="#postgresql-function-sources">PostgreSQL Function Sources</a></h2>
 <p>Function Source is a database function which can be used to
 query <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a>. When started, Martin will look for the functions with
-a suitable signature. A function that takes <code>z integer</code> (or <code>zoom integer</code>), <code>x integer</code>, <code>y integer</code>, and an
-optional <code>query json</code> and returns <code>bytea</code>, can be used as a Function Source. Alternatively the function could return a
-record with a single <code>bytea</code> field, or a record with two fields of types <code>bytea</code> and <code>text</code>, where the <code>text</code> field is
-an etag key (i.e. md5 hash).</p>
+a suitable signature.</p>
+<p>A function can be used as a Function Source if it returns either a <code>bytea</code> value, or a record with <code>bytea</code> and a <code>text</code> values.  The <code>text</code> value is expected to be a user-defined hash, e.g. an MD5 value, and it will eventually be used as an <a href="https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/ETag">ETag</a>.</p>
+<p>A valid function must also have these arguments:</p>
 <div class="table-wrapper"><table><thead><tr><th>Argument</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>z (or zoom)</td><td>integer</td><td>Tile zoom parameter</td></tr>
-<tr><td>x</td><td>integer</td><td>Tile x parameter</td></tr>
-<tr><td>y</td><td>integer</td><td>Tile y parameter</td></tr>
-<tr><td>query (optional, any name)</td><td>json</td><td>Query string parameters</td></tr>
+<tr><td><code>z</code> (or <code>zoom</code>)</td><td>integer</td><td>Tile zoom parameter</td></tr>
+<tr><td><code>x</code></td><td>integer</td><td>Tile x parameter</td></tr>
+<tr><td><code>y</code></td><td>integer</td><td>Tile y parameter</td></tr>
+<tr><td><code>query</code> (optional, any name)</td><td>json</td><td>Query string parameters</td></tr>
 </tbody></table>
 </div>
 <h3 id="simple-function"><a class="header" href="#simple-function">Simple Function</a></h3>
