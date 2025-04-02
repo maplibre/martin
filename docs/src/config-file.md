@@ -209,8 +209,8 @@ cog:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
-    - /path/to/cogfile1.tif
-    - /path/to/cogfile2.tiff
+    - /path/to/cog_file1.tif
+    - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
@@ -231,8 +231,8 @@ fonts:
   - /path/to/font/file.ttf
   - /path/to/font_dir
 
-# We support serving styles
-# In the future, we plan on adding support for rendering too
+# Publish MapLibre style files
+# In the future, the style files will be used for the server-side rendering as well
 styles:
    paths:
      # each json file in this directory will published as a style

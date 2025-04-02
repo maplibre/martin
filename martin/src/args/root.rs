@@ -331,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn cli_directories_propergate() {
+    fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
         let env = FauxEnv::default();
