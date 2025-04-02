@@ -177,10 +177,10 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         app.app_data(Data::new(catalog.clone()))
             .app_data(Data::new(config.clone()))
+            .wrap(prometheus.clone())
+            .wrap(middleware::Logger::default())
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .wrap(middleware::Logger::default())
-            .wrap(prometheus.clone())
             .configure(|c| router(c, &config))
     };
 
