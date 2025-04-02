@@ -6,7 +6,7 @@ a suitable signature.
 
 A function can be used as a Function Source if it returns either a `bytea` value, or a record with `bytea` and a `text` values.  The `text` value is expected to be a user-defined hash, e.g. an MD5 value, and it will eventually be used as an [ETag](https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/ETag).
 
-And if it also has the following arguments:
+A valid function must also have these arguments:
 
 | Argument                     | Type    | Description             |
 |------------------------------|---------|-------------------------|
