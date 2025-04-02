@@ -173,7 +173,7 @@ mod tests {
     use crate::config::tests::assert_config;
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
-    use crate::test_utils::some;
+    use crate::tests::some;
     use crate::utils::OptOneMany::{Many, One};
 
     #[test]

@@ -10,10 +10,10 @@ use log::warn;
 use martin::Config;
 pub use pg_utils::*;
 
-#[path = "../../src/utils/test_utils.rs"]
-mod test_utils;
+#[path = "../../src/utils/tests.rs"]
+mod tests;
 #[allow(clippy::wildcard_imports)]
-pub use test_utils::*;
+pub use tests::*;
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {
