@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::args::PreferredEncoding;
 
@@ -15,6 +16,8 @@ pub struct SrvConfig {
     pub preferred_encoding: Option<PreferredEncoding>,
     #[cfg(feature = "webui")]
     pub web_ui: Option<crate::args::WebUiMode>,
+    /// Additional metric labels to be added to every metric reported under `/metrics`
+    pub additional_metric_labels: HashMap<String, String>,
 }
 
 #[cfg(test)]
