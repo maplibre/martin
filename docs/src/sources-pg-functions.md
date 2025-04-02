@@ -2,17 +2,20 @@
 
 Function Source is a database function which can be used to
 query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with
-a suitable signature. A function that takes `z integer` (or `zoom integer`), `x integer`, `y integer`, and an
-optional `query json` and returns `bytea`, can be used as a Function Source. Alternatively the function could return a
-record with a single `bytea` field, or a record with two fields of types `bytea` and `text`, where the `text` field is
-an etag key (i.e. md5 hash).
+a suitable signature.
 
-| Argument                   | Type    | Description             |
-|----------------------------|---------|-------------------------|
-| z (or zoom)                | integer | Tile zoom parameter     |
-| x                          | integer | Tile x parameter        |
-| y                          | integer | Tile y parameter        |
-| query (optional, any name) | json    | Query string parameters |
+A function can be used as a Function Source if it returns either:
+- `bytea` or
+- `bytea` and `text`, where the `text` field will in the future be used as an [ETAG](https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/ETag) key (i.e. md5 hash).
+
+And if it also has the following arguments: 
+
+| Argument                     | Type    | Description             |
+|------------------------------|---------|-------------------------|
+| `z` (or `zoom`)              | integer | Tile zoom parameter     |
+| `x`                          | integer | Tile x parameter        |
+| `y`                          | integer | Tile y parameter        |
+| `query` (optional, any name) | json    | Query string parameters |
 
 ### Simple Function
 
