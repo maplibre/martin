@@ -308,6 +308,7 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
+        additional_metric_labels: {}
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
@@ -325,6 +326,7 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
+        additional_metric_labels: {}
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"

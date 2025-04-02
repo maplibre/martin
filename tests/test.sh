@@ -97,6 +97,15 @@ test_jsn() {
   $CURL "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
 }
 
+test_metrics() {
+  FILENAME="$TEST_OUT_DIR/$1"
+  URL="$MARTIN_URL/metrics"
+
+  echo "Testing $(basename "$FILENAME") from $URL"
+  $CURL "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME"
+  $CURL --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME"
+}
+
 test_pbf() {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
@@ -446,6 +455,8 @@ test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+
+test_metrics "metrics_1"
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"

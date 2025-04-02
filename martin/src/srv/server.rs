@@ -24,6 +24,7 @@ use crate::source::TileCatalog;
 use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use actix_web_prom::PrometheusMetricsBuilder;
 
 #[cfg(feature = "webui")]
 mod webui {
@@ -145,6 +146,11 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+    let prometheus = PrometheusMetricsBuilder::new("martin")
+        .endpoint("/metrics")
+        .mask_unmatched_patterns("UNKNOWN") // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
+        .const_labels(config.additional_metric_labels.clone())
+        .build()?;
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
@@ -171,9 +177,10 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         app.app_data(Data::new(catalog.clone()))
             .app_data(Data::new(config.clone()))
+            .wrap(prometheus.clone())
+            .wrap(middleware::Logger::default())
             .wrap(cors_middleware)
             .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .wrap(middleware::Logger::default())
             .configure(|c| router(c, &config))
     };
 
