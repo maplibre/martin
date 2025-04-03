@@ -9,6 +9,11 @@ mod pg;
 #[cfg(feature = "postgres")]
 pub use pg::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT, PgArgs};
 
+#[cfg(feature = "mbtiles")]
+mod mbtiles;
+#[cfg(feature = "mbtiles")]
+pub use mbtiles::MbtArgs;
+
 mod root;
 pub use root::{Args, ExtraArgs, MetaArgs};
 

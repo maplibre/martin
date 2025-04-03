@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 
 use futures::TryFutureExt;
 use log::{info, warn};
+use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
 use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
@@ -16,6 +16,7 @@ use crate::file_config::FileError::{
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
+use crate::{MartinResult, Source};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -41,6 +42,12 @@ pub enum FileError {
 
     #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
+
+    #[error("Source {0} caused an abort due to validation error {1}")]
+    AbortOnInvalid(PathBuf, String),
+
+    #[error("Source {0} was ignored due to validation error {1}")]
+    IgnoreOnInvalid(PathBuf, String),
 
     #[cfg(feature = "pmtiles")]
     #[error(r"PMTiles error {0} processing {1}")]
@@ -264,7 +271,10 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+                maybe_add_source(
+                    &mut results,
+                    cfg.custom.new_sources_url(id.clone(), url.clone()).await,
+                )?;
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -278,7 +288,10 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
+                maybe_add_source(
+                    &mut results,
+                    cfg.custom.new_sources(id, source.into_path()).await,
+                )?;
             }
         }
     }
@@ -302,7 +315,10 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+            maybe_add_source(
+                &mut results,
+                cfg.custom.new_sources_url(id.clone(), url.clone()).await,
+            )?;
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -331,7 +347,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(cfg.custom.new_sources(id, path).await?);
+                maybe_add_source(&mut results, cfg.custom.new_sources(id, path).await)?;
             }
         }
     }
@@ -390,4 +406,18 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
+}
+
+fn maybe_add_source(
+    results: &mut Vec<Box<dyn Source>>,
+    result: FileResult<TileInfoSource>,
+) -> Result<(), FileError> {
+    match result {
+        Err(FileError::IgnoreOnInvalid(_, _)) => Ok(()),
+        Err(e) => Err(e),
+        Ok(src) => {
+            results.push(src);
+            Ok(())
+        }
+    }
 }
