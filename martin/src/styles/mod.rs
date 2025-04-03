@@ -106,11 +106,7 @@ impl StyleSources {
             Ok(contained_paths) => {
                 for child_path in contained_paths {
                     let Some(name) = child_path.file_name() else {
-                        // FIXME: we should never panic in production code
-                        assert!(
-                            !base_path.is_file(),
-                            "base_path cannot be a file without name as otherwise the id would not exist"
-                        );
+                        // child_path is a file and may be equal to base_path
                         warn!(
                             "Ignoring {child_path:?} of style source {id} from {base_path:?} because it has no name"
                         );
