@@ -235,19 +235,15 @@ fonts:
 # In the future, the style files will be used for the server-side rendering as well
 styles:
    paths:
-     # each json file in this directory will published as a style
+     # publish all *.json files in this directory
      # The name of the file will be used as the style name
      - /path/to/styles_dir
-     # will be published as maplibre_style
+     # publish a single file - here `maplibre_style` will be the style name 
      - /path/to/maplibre_style.json
    sources:
-     # each json file in this directory will publish as style
-     # The filename will be used as the styles' id
-     #
-     # source_name1 will be logged and can be useful for debugging
-     source_name1: /path/to/styles_dir1
-     # will be published as style2
-     #
-     # source_name2 will be logged and can be useful for debugging
-     source_name2: /path/to/style2.json
+     # publish first JSON file found in this directory as `some_style_name`
+     # If more than one JSON file is found, Martin will print a warning
+     some_style_name: /path/to/styles_dir
+     #  Publish specific file as `style_name2` style source
+     other_style_name: /path/to/other_style.json
 ```
