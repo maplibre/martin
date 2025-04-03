@@ -238,7 +238,7 @@ styles:
      # publish all *.json files in this directory
      # The name of the file will be used as the style name
      - /path/to/styles_dir
-     # publish a single file - here `maplibre_style` will be the style name 
+     # publish a single file - here `maplibre_style` will be the style name
      - /path/to/maplibre_style.json
    sources:
      # publish first JSON file found in this directory as `some_style_name`
