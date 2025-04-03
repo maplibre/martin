@@ -46,7 +46,7 @@ web_ui: disable
 
 # More advanced monitoring montoring options
 observability:
-  # Additional static metric labels to be added to every metric reported under `/metrics`
+  # Additional static metric labels to be added to every metric reported under `/_/metrics`
   # example: { environment: production, server: martin }
   additional_metric_labels: {}
 

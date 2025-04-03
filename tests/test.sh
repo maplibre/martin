@@ -100,7 +100,7 @@ test_jsn() {
 
 test_metrics() {
   FILENAME="$TEST_OUT_DIR/$1"
-  URL="$MARTIN_URL/metrics"
+  URL="$MARTIN_URL/_/metrics"
 
   echo "Testing $(basename "$FILENAME") from $URL"
   $CURL "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME"
