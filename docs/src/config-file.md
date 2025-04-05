@@ -241,9 +241,12 @@ styles:
      # publish a single file - here `maplibre_style` will be the style name
      - /path/to/maplibre_style.json
    sources:
-     # publish first JSON file found in this directory as `some_style_name`
-     # If more than one JSON file is found, Martin will print a warning
-     some_style_name: /path/to/styles_dir
-     #  Publish specific file as `style_name2` style source
+     # publish a JSON file found at this path as `some_style_name`
+     #
+     # Contrairy to paths, if directories are specified, Martin will print a warning and ignore them.
+     # To serve a style-directory, use the `paths` section above or name each style individually.
+     # This prevents footguns with names being unclear.
+     some_style_name: /path/to/this/style.json
+     #  Publish specific file as `other_style_name`
      other_style_name: /path/to/other_style.json
 ```

@@ -48,16 +48,11 @@ impl StyleSources {
 
         if let Some(sources) = cfg.sources {
             for (id, source) in sources {
-                let mut files = list_contained_files(source.get_path(), "json")?;
-                if files.len() >= 2 {
-                    warn!(
-                        "Ignoring multiple styles (.json files) found in source {id}: {source:?}. To register a folder, specify it using paths or name each file with an ids."
-                    );
-                } else if let Some(file) = files.pop() {
+                if source.get_path().is_file() {
                     configs.insert(id.clone(), source.clone());
-                    results.add_style(id, file);
+                    results.add_style(id, source.into_path());
                 } else {
-                    warn!("No styles (.json files) found in source {id}: {source:?}");
+                    warn!("style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead.");
                 }
             }
         };
@@ -233,7 +228,7 @@ mod tests {
         let style_dir = PathBuf::from("../tests/fixtures/styles/");
         let mut configs = BTreeMap::new();
         configs.insert("maplibre_demo", style_dir.join("maplibre_demo.json"));
-        configs.insert("src_ignored_due_to_multi_styles", style_dir.join("src2"));
+        configs.insert("src_ignored_due_to_directory", style_dir.join("src2"));
         configs.insert(
             "osm-liberty-lite",
             style_dir.join("src2").join("osm-liberty-lite.json"),
