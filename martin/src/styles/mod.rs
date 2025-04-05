@@ -50,7 +50,9 @@ impl StyleSources {
             for (id, source) in sources {
                 let mut files = list_contained_files(source.get_path(), "json")?;
                 if files.len() >= 2 {
-                    warn!("Ignoring multiple styles (.json files) found in source {id}: {source:?}. To register a folder, specify it using paths or name each file with an ids.");
+                    warn!(
+                        "Ignoring multiple styles (.json files) found in source {id}: {source:?}. To register a folder, specify it using paths or name each file with an ids."
+                    );
                 } else if let Some(file) = files.pop() {
                     configs.insert(id.clone(), source.clone());
                     results.add_style(id, file);
@@ -72,7 +74,11 @@ impl StyleSources {
                     warn!("Ignoring style source with no name from {path:?}");
                     continue;
                 };
-                let style_id = name.to_string_lossy().trim_end_matches(".json").trim().to_string();
+                let style_id = name
+                    .to_string_lossy()
+                    .trim_end_matches(".json")
+                    .trim()
+                    .to_string();
                 results.add_style(style_id, path);
                 paths_with_names.push(base_path.clone());
             }
@@ -193,7 +199,7 @@ mod tests {
 
         let mut style_sources = StyleSources::default();
         assert_eq!(style_sources.0.len(), 0);
-        
+
         style_sources.add_style("maplibre_demo".to_string(), path.clone());
         assert_eq!(style_sources.0.len(), 1);
         let maplibre_demo = style_sources.0.get("maplibre_demo").unwrap();
@@ -228,8 +234,14 @@ mod tests {
         let mut configs = BTreeMap::new();
         configs.insert("maplibre_demo", style_dir.join("maplibre_demo.json"));
         configs.insert("src_ignored_due_to_multi_styles", style_dir.join("src2"));
-        configs.insert("osm-liberty-lite", style_dir.join("src2").join("osm-liberty-lite.json"));
-        let configs = configs.into_iter().map(|(k, v)| (k.to_string(), FileConfigSrc::Path(v))).collect();
+        configs.insert(
+            "osm-liberty-lite",
+            style_dir.join("src2").join("osm-liberty-lite.json"),
+        );
+        let configs = configs
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), FileConfigSrc::Path(v)))
+            .collect();
         let mut cfg = FileConfigEnum::new_extended(vec![], configs, StyleConfig::default());
 
         let styles = StyleSources::resolve(&mut cfg).unwrap();
