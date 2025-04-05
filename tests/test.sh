@@ -434,8 +434,8 @@ test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
 # Test styles
 test_jsn style_src2_maptiler_basic    style/maptiler_basic
 test_jsn style_src2_maptiler_basic.1  style/maptiler_basic.json
-test_jsn style_maplibre_demo          style/maplibre_demo
-test_jsn style_maplibre_demo.1        style/maplibre_demo.json
+test_jsn style_maplibre_demo          style/maplibre
+test_jsn style_maplibre_demo.1        style/maplibre.json
 
 # Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255
