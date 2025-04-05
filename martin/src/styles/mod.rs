@@ -6,17 +6,7 @@ use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
 use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, FileConfigEnum, FileResult};
-
-pub type StyleResult<T> = Result<T, StyleError>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum StyleError {
-    #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
-    #[error("Walk directory error {0}: {1}")]
-    DirectoryWalking(walkdir::Error, PathBuf),
-}
+use crate::file_config::{ConfigExtras, FileConfigEnum, FileError, FileResult};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogStyleEntry {
@@ -58,20 +48,37 @@ impl StyleSources {
 
         if let Some(sources) = cfg.sources {
             for (id, source) in sources {
-                configs.insert(id.clone(), source.clone());
-                results.add_sources(&id, &source.abs_path()?);
+                let mut files = list_contained_files(source.get_path(), "json")?;
+                if files.len() >= 2 {
+                    warn!("Ignoring multiple styles (.json files) found in source {id}: {source:?}. To register a folder, specify it using paths or name each file with an ids.");
+                } else if let Some(file) = files.pop() {
+                    configs.insert(id.clone(), source.clone());
+                    results.add_style(id, file);
+                } else {
+                    warn!("No styles (.json files) found in source {id}: {source:?}");
+                }
             }
         };
 
         let mut paths_with_names = Vec::new();
-        for path in cfg.paths {
-            let Some(name) = path.file_name() else {
-                warn!("Ignoring style source with no name from {path:?}");
+        for base_path in cfg.paths {
+            let files = list_contained_files(&base_path, "json")?;
+            if files.is_empty() {
+                warn!("No styles (.json files) found in path {base_path:?}");
                 continue;
-            };
-            paths_with_names.push(path.clone());
-            results.add_sources(name.to_string_lossy().as_ref(), &path);
+            }
+            for path in files {
+                let Some(name) = path.file_name() else {
+                    warn!("Ignoring style source with no name from {path:?}");
+                    continue;
+                };
+                let style_id = name.to_string_lossy().trim_end_matches(".json").trim().to_string();
+                results.add_style(style_id, path);
+                paths_with_names.push(base_path.clone());
+            }
         }
+        paths_with_names.sort_unstable();
+        paths_with_names.dedup();
 
         *config = FileConfigEnum::new_extended(paths_with_names, configs, cfg.custom);
 
@@ -79,6 +86,7 @@ impl StyleSources {
     }
 
     /// retrieve a styles' `PathBuf` from the internal catalog
+    #[must_use]
     pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
         let style_id = style_id.trim_end_matches(".json").trim();
         let item = self.0.get(style_id)?;
@@ -100,34 +108,10 @@ impl StyleSources {
         entries
     }
 
-    /// Adds all the contained files in the given file/directory as style sources.
-    fn add_sources(&mut self, id: &str, base_path: &PathBuf) {
-        match list_contained_files(base_path) {
-            Ok(contained_paths) => {
-                for child_path in contained_paths {
-                    let Some(name) = child_path.file_name() else {
-                        // child_path is a file and may be equal to base_path
-                        warn!(
-                            "Ignoring {child_path:?} of style source {id} from {base_path:?} because it has no name"
-                        );
-                        continue;
-                    };
-                    let name = name
-                        .to_string_lossy()
-                        .trim_end_matches(".json")
-                        .trim()
-                        .to_string();
-                    self.add_single_source(name, child_path);
-                }
-            }
-            Err(e) => warn!("Ignoring style source {id} from {base_path:?} because of {e}"),
-        }
-    }
-
-    /// add a single file with an id to the internal catalog
-    fn add_single_source(&mut self, id: String, path: PathBuf) {
-        assert!(path.is_file());
-        assert!(!id.is_empty());
+    /// add a single style file with an id to the internal catalog
+    fn add_style(&mut self, id: String, path: PathBuf) {
+        debug_assert!(path.is_file());
+        debug_assert!(!id.is_empty());
         match self.0.entry(id) {
             Entry::Occupied(v) => {
                 warn!(
@@ -157,7 +141,7 @@ impl StyleSources {
 /// # Errors
 ///
 /// This function will return an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
-fn list_contained_files(source_path: &Path) -> StyleResult<Vec<PathBuf>> {
+fn list_contained_files(source_path: &Path, filter_extension: &str) -> FileResult<Vec<PathBuf>> {
     let working_directory = std::env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
@@ -165,9 +149,13 @@ fn list_contained_files(source_path: &Path) -> StyleResult<Vec<PathBuf>> {
         .into_iter()
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e));
     for entry in it {
-        let entry =
-            entry.map_err(|e| StyleError::DirectoryWalking(e, source_path.to_path_buf()))?;
-        if entry.path().is_file() {
+        let entry = entry.map_err(|e| FileError::DirectoryWalking(e, source_path.to_path_buf()))?;
+        if entry.path().is_file()
+            && entry
+                .path()
+                .extension()
+                .is_some_and(|ext| ext == filter_extension)
+        {
             // path should be relative to the working directory in the catalog
             let relative_path = match working_directory {
                 Some(ref work_dir) => entry
@@ -193,25 +181,27 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::file_config::FileConfigSrc;
+
     use super::*;
-    use std::path::PathBuf;
     #[test]
     fn test_add_single_source() {
         use std::fs::File;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("maplibre_demo.json");
-        File::create(path.clone()).unwrap();
+        File::create(&path).unwrap();
 
         let mut style_sources = StyleSources::default();
-        style_sources.add_single_source("maplibre_demo".to_string(), path.clone());
-
+        assert_eq!(style_sources.0.len(), 0);
+        
+        style_sources.add_style("maplibre_demo".to_string(), path.clone());
         assert_eq!(style_sources.0.len(), 1);
         let maplibre_demo = style_sources.0.get("maplibre_demo").unwrap();
         assert_eq!(maplibre_demo.path, path);
     }
 
-    #[actix_rt::test]
-    async fn test_styles_resolve() {
+    #[test]
+    fn test_styles_resolve_paths() {
         let style_dir = PathBuf::from("../tests/fixtures/styles/");
         let mut cfg = FileConfigEnum::new(vec![
             style_dir.join("maplibre_demo.json"),
@@ -232,8 +222,30 @@ mod tests {
         });
     }
 
-    #[actix_rt::test]
-    async fn test_style_external() {
+    #[test]
+    fn test_styles_resolve_sources() {
+        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let mut configs = BTreeMap::new();
+        configs.insert("maplibre_demo", style_dir.join("maplibre_demo.json"));
+        configs.insert("src_ignored_due_to_multi_styles", style_dir.join("src2"));
+        configs.insert("osm-liberty-lite", style_dir.join("src2").join("osm-liberty-lite.json"));
+        let configs = configs.into_iter().map(|(k, v)| (k.to_string(), FileConfigSrc::Path(v))).collect();
+        let mut cfg = FileConfigEnum::new_extended(vec![], configs, StyleConfig::default());
+
+        let styles = StyleSources::resolve(&mut cfg).unwrap();
+        assert_eq!(styles.0.len(), 2);
+        insta::with_settings!({sort_maps => true}, {
+        insta::assert_yaml_snapshot!(styles, @r#"
+        maplibre_demo:
+          path: "../tests/fixtures/styles/maplibre_demo.json"
+        osm-liberty-lite:
+          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+        "#);
+        });
+    }
+
+    #[test]
+    fn test_style_external() {
         let style_dir = PathBuf::from("../tests/fixtures/styles/");
         let mut cfg = FileConfigEnum::new(vec![
             style_dir.join("maplibre_demo.json"),
@@ -302,14 +314,14 @@ mod tests {
         let transitively_hidden_file3 = hidden_subdir2.join("file3.txt");
         File::create(&transitively_hidden_file3).unwrap();
 
-        let mut result = list_contained_files(dir.path()).unwrap();
+        let mut result = list_contained_files(dir.path(), "txt").unwrap();
         result.sort();
         assert_eq!(result, vec![file1, subdir_file2]);
     }
 
     #[test]
     fn test_list_contained_files_error() {
-        let result = list_contained_files(&PathBuf::from("/non_existent"));
+        let result = list_contained_files(&PathBuf::from("/non_existent"), "txt");
         assert!(result.is_err());
     }
 }
