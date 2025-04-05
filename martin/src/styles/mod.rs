@@ -52,7 +52,9 @@ impl StyleSources {
                     configs.insert(id.clone(), source.clone());
                     results.add_style(id, source.into_path());
                 } else {
-                    warn!("style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead.");
+                    warn!(
+                        "style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead."
+                    );
                 }
             }
         };
