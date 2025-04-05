@@ -25,7 +25,7 @@
     }
   },
   "styles": {
-    "maplibre": {
+    "maplibre_demo": {
       "path": "tests/fixtures/styles/maplibre_demo.json"
     },
     "maptiler_basic": {
