@@ -357,8 +357,17 @@ mod tests {
     #[case(0.0, 1.0, 0, (0,0))]
     #[case(0.0, 1.0, 1, (1,0))]
     #[case(0.0, 1.0, 2, (2,1))]
-    fn test_tile_colrow(#[case] lng: f64,#[case] lat: f64,#[case] zoom: u8,#[case] expected: (u32, u32)) {
-        assert_eq!(expected, tile_index(lng,lat,zoom), "{lng},{lat}@z{zoom} should be {expected:?}");
+    fn test_tile_colrow(
+        #[case] lng: f64,
+        #[case] lat: f64,
+        #[case] zoom: u8,
+        #[case] expected: (u32, u32),
+    ) {
+        assert_eq!(
+            expected,
+            tile_index(lng, lat, zoom),
+            "{lng},{lat}@z{zoom} should be {expected:?}"
+        );
     }
 
     #[rstest]
@@ -454,7 +463,7 @@ mod tests {
         assert_relative_eq!(actual_webmercator.0, webmercator.0, epsilon = epsilon);
         assert_relative_eq!(actual_webmercator.1, webmercator.1, epsilon = epsilon);
     }
-    
+
     #[rstest]
     #[case(0..11, 0)]
     #[case(11..14, 1)]
@@ -463,12 +472,14 @@ mod tests {
     #[case(21..24, 4)]
     #[case(24..27, 5)]
     #[case(27..30, 6)]
-    fn test_get_zoom_precision(#[case] zoom: std::ops::Range<u8>, #[case] expected_precision: usize) {
+    fn test_get_zoom_precision(
+        #[case] zoom: std::ops::Range<u8>,
+        #[case] expected_precision: usize,
+    ) {
         for z in zoom {
             let actual_precision = get_zoom_precision(z);
             assert_eq!(
-                actual_precision,
-                expected_precision,
+                actual_precision, expected_precision,
                 "Zoom level {z} should have precision {expected_precision}, but was {actual_precision}"
             );
         }
