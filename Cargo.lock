@@ -2841,7 +2841,7 @@ dependencies = [
  "approx",
  "brotli 7.0.0",
  "flate2",
- "insta",
+ "rstest",
 ]
 
 [[package]]
