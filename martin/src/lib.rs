@@ -30,6 +30,8 @@ pub mod pmtiles;
 #[cfg(feature = "sprites")]
 pub mod sprites;
 pub mod srv;
+#[cfg(feature = "styles")]
+pub mod styles;
 
 #[cfg(test)]
 #[path = "utils/tests.rs"]

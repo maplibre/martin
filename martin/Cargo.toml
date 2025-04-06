@@ -52,13 +52,14 @@ name = "bench"
 harness = false
 
 [features]
-default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites"]
+default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites", "styles"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles"]
 cog = ["dep:tiff", "dep:png"]
+styles = ["dep:walkdir", "tokio/fs"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
@@ -109,6 +110,7 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+walkdir = { workspace = true, optional = true }
 
 [build-dependencies]
 walkdir = { workspace = true, optional = true }
@@ -119,10 +121,11 @@ anyhow.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["yaml"] }
+insta = { workspace = true, features = ["json", "yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

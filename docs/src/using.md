@@ -14,6 +14,7 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/sdf_sprite/{spriteID}[@2x].{json,png}` | [SDF Sprite sources](sources-sprites.md)       |
 | `/font/{font}/{start}-{end}`             | [Font source](sources-fonts.md)                |
 | `/font/{font1},…,{fontN}/{start}-{end}`  | [Composite Font source](sources-fonts.md)      |
+| `/style/{style}`                         | [Style source](sources-styles.md)              |
 | `/health`                                | Martin server health check: returns 200 `OK`   |
 
 ### Duplicate Source ID
@@ -69,7 +70,12 @@ curl localhost:3000/catalog | jq
       "end": 65533
     },
     ...
-  }
+  },
+  "styles": {
+    "maplibre_demo": {
+      "path": "path/to/maplibre_demo.json",
+    },
+  },
 }
 ```
 

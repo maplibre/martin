@@ -56,6 +56,7 @@ async fn mbt_get_catalog() {
     assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       m_json:
         content_type: application/json
@@ -87,6 +88,7 @@ async fn mbt_get_catalog_gzip() {
     assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       m_json:
         content_type: application/json
