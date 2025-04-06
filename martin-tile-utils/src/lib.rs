@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter, Result};
 
 /// circumference of the earth in meters
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
-/// adius of the earth in meters
+/// radius of the earth in meters
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
