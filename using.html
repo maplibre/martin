@@ -192,6 +192,7 @@
 <tr><td><code>/sdf_sprite/{spriteID}[@2x].{json,png}</code></td><td><a href="sources-sprites.html">SDF Sprite sources</a></td></tr>
 <tr><td><code>/font/{font}/{start}-{end}</code></td><td><a href="sources-fonts.html">Font source</a></td></tr>
 <tr><td><code>/font/{font1},…,{fontN}/{start}-{end}</code></td><td><a href="sources-fonts.html">Composite Font source</a></td></tr>
+<tr><td><code>/style/{style}</code></td><td><a href="sources-styles.html">Style source</a></td></tr>
 <tr><td><code>/health</code></td><td>Martin server health check: returns 200 <code>OK</code></td></tr>
 </tbody></table>
 </div>
@@ -238,7 +239,12 @@ the same way as duplicate source IDs are handled, e.g. a <code>catalog</code> so
       "end": 65533
     },
     ...
-  }
+  },
+  "styles": {
+    "maplibre_demo": {
+      "path": "path/to/maplibre_demo.json",
+    },
+  },
 }
 </code></pre>
 <h3 id="source-tilejson"><a class="header" href="#source-tilejson">Source TileJSON</a></h3>

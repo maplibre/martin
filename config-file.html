@@ -381,8 +381,8 @@ cog:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
-    - /path/to/cogfile1.tif
-    - /path/to/cogfile2.tiff
+    - /path/to/cog_file1.tif
+    - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
@@ -402,6 +402,25 @@ fonts:
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   - /path/to/font/file.ttf
   - /path/to/font_dir
+
+# Publish MapLibre style files
+# In the future, the style files will be used for the server-side rendering as well
+styles:
+   paths:
+     # publish all *.json files in this directory
+     # The name of the file will be used as the style name
+     - /path/to/styles_dir
+     # publish a single file - here `maplibre_style` will be the style name
+     - /path/to/maplibre_style.json
+   sources:
+     # publish a JSON file found at this path as `some_style_name`
+     #
+     # Contrairy to paths, if directories are specified, Martin will print a warning and ignore them.
+     # To serve a style-directory, use the `paths` section above or name each style individually.
+     # This prevents footguns with names being unclear.
+     some_style_name: /path/to/this/style.json
+     #  Publish specific file as `other_style_name`
+     other_style_name: /path/to/other_style.json
 </code></pre>
 
                     </main>
