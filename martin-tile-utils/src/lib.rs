@@ -6,7 +6,9 @@
 use std::f64::consts::PI;
 use std::fmt::{Display, Formatter, Result};
 
+/// circumference of the earth in meters
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
+/// adius of the earth in meters
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
@@ -233,7 +235,11 @@ pub fn tile_index(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
 }
 
 /// Convert min/max XYZ tile coordinates to a bounding box values.
+///
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
+///
+/// # Panics
+/// Panics if `zoom` is greater than [`MAX_ZOOM`].
 #[must_use]
 pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> [f64; 4] {
     assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
@@ -274,6 +280,8 @@ pub fn get_zoom_precision(zoom: u8) -> usize {
     if log > 0.0 { 0 } else { -log.ceil() as usize }
 }
 
+/// transform [`WebMercator`](https://epsg.io/3857) to [WGS84](https://epsg.io/4326)
+// from https://github.com/Esri/arcgis-osm-editor/blob/e4b9905c264aa22f8eeb657efd52b12cdebea69a/src/OSMWeb10_1/Utils/WebMercator.cs
 #[must_use]
 pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
     let lng = (x / EARTH_RADIUS).to_degrees();
@@ -281,15 +289,14 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
     (lng, lat)
 }
 
-/// transform WGS84 to `WebMercator`
+/// transform [WGS84](https://epsg.io/4326) to [`WebMercator`](https://epsg.io/3857)
 // from https://github.com/Esri/arcgis-osm-editor/blob/e4b9905c264aa22f8eeb657efd52b12cdebea69a/src/OSMWeb10_1/Utils/WebMercator.cs
 #[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
     let x = lon * PI / 180.0 * EARTH_RADIUS;
 
-    let rad = lat * PI / 180.0;
-    let sin = rad.sin();
-    let y = EARTH_RADIUS / 2.0 * ((1.0 + sin) / (1.0 - sin)).ln();
+    let y_sin = lat.to_radians().sin();
+    let y = EARTH_RADIUS / 2.0 * ((1.0 + y_sin) / (1.0 - y_sin)).ln();
 
     (x, y)
 }
