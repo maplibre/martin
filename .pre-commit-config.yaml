@@ -1,7 +1,6 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 
-# exclusions should be separated with a pipe (|) character and a newline
 exclude: |
   (?x)^(
       tests/expected/.*
@@ -16,15 +15,15 @@ repos:
       - id: check-json
         exclude: '.+/tsconfig.json'
       - id: check-shebang-scripts-are-executable
-        exclude: '.+\.rs' # would be triggered by #![some_attribute]
+        exclude: '.+\.rs'
       - id: check-symlinks
       - id: check-toml
       - id: check-yaml
-        args: [ --allow-multiple-documents ]
+        args: [--allow-multiple-documents]
       - id: destroyed-symlinks
       - id: end-of-file-fixer
       - id: mixed-line-ending
-        args: [ --fix=lf ]
+        args: [--fix=lf]
       - id: trailing-whitespace
 
   - repo: local
@@ -36,16 +35,9 @@ repos:
         language: rust
         pass_filenames: false
 
-  #
-  # TODO: This needs a more thorough configuration, e.g. spacing, alignment, capitalization, etc
-  #
-  # https://docs.sqlfluff.com/en/stable/production/pre_commit.html
-  # - repo: https://github.com/sqlfluff/sqlfluff
-  #   rev: 3.3.1
-  #   hooks:
-  #     - id: sqlfluff-fix
-  #       name: sqlfluff-fix
-  #       args: [ "--dialect", "postgres" ]
-  #       files: '^.*\.sql$'
-
-# TODO: Add NPM hooks for formatting and linting
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.0.7
+    hooks:
+      - id: sqlfluff-lint
+        args: [--dialect=postgres]
+        files: \.sql$
