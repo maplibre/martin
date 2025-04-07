@@ -22,6 +22,7 @@
   - [MBTiles and PMTiles File Sources](sources-files.md)
   - [Composite Sources](sources-composite.md)
   - [Sprite Sources](sources-sprites.md)
+  - [Style Sources](sources-styles.md)
   - [Font Sources](sources-fonts.md)
 - [Usage and Endpoint API](using.md)
   - [Using with MapLibre](using-with-maplibre.md)
