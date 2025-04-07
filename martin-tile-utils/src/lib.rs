@@ -310,7 +310,7 @@ mod tests {
     use Encoding::{Internal, Uncompressed};
     use Format::{Jpeg, Json, Png, Webp};
     use approx::assert_relative_eq;
-    use insta::assert_snapshot;
+    use rstest::rstest;
 
     use super::*;
 
@@ -347,94 +347,141 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_tile_colrow() {
-        assert_eq!((0, 0), tile_index(-180.0, 85.0511, 0));
+    #[rstest]
+    #[case(-180.0, 85.0511, 0, (0,0))]
+    #[case(-180.0, 85.0511, 1, (0,0))]
+    #[case(-180.0, 85.0511, 2, (0,0))]
+    #[case(0.0, 0.0, 0, (0,0))]
+    #[case(0.0, 0.0, 1, (1,1))]
+    #[case(0.0, 0.0, 2, (2,2))]
+    #[case(0.0, 1.0, 0, (0,0))]
+    #[case(0.0, 1.0, 1, (1,0))]
+    #[case(0.0, 1.0, 2, (2,1))]
+    fn test_tile_colrow(
+        #[case] lng: f64,
+        #[case] lat: f64,
+        #[case] zoom: u8,
+        #[case] expected: (u32, u32),
+    ) {
+        assert_eq!(
+            expected,
+            tile_index(lng, lat, zoom),
+            "{lng},{lat}@z{zoom} should be {expected:?}"
+        );
     }
 
-    #[test]
-    fn test_xyz_to_bbox() {
-        // you could easily get test cases from maptiler: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#4/-118.82/71.02
-        let bbox = xyz_to_bbox(0, 0, 0, 0, 0);
-        assert_relative_eq!(bbox[0], -180.0, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], -85.0511287798066, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], 180.0, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], 85.0511287798066, epsilon = f64::EPSILON * 2.0);
-
-        let bbox = xyz_to_bbox(1, 0, 0, 0, 0);
-        assert_relative_eq!(bbox[0], -180.0, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], 0.0, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], 0.0, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], 85.0511287798066, epsilon = f64::EPSILON * 2.0);
-
-        let bbox = xyz_to_bbox(5, 1, 1, 2, 2);
-        assert_relative_eq!(bbox[0], -168.75, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], 81.09321385260837, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], -146.25, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], 83.97925949886205, epsilon = f64::EPSILON * 2.0);
-
-        let bbox = xyz_to_bbox(5, 1, 3, 2, 5);
-        assert_relative_eq!(bbox[0], -168.75, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], 74.01954331150226, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], -146.25, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], 81.09321385260837, epsilon = f64::EPSILON * 2.0);
+    #[rstest]
+    // you could easily get test cases from maptiler: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#4/-118.82/71.02
+    #[case(0, 0, 0, 0, 0, [-180.0,-85.0511287798066,180.0,85.0511287798066])]
+    #[case(1, 0, 0, 0, 0, [-180.0,0.0,0.0,85.0511287798066])]
+    #[case(5, 1, 1, 2, 2, [-168.75,81.09321385260837,-146.25,83.97925949886205])]
+    #[case(5, 1, 3, 2, 5, [-168.75,74.01954331150226,-146.25,81.09321385260837])]
+    fn test_xyz_to_bbox(
+        #[case] zoom: u8,
+        #[case] min_x: u32,
+        #[case] min_y: u32,
+        #[case] max_x: u32,
+        #[case] max_y: u32,
+        #[case] expected: [f64; 4],
+    ) {
+        let bbox = xyz_to_bbox(zoom, min_x, min_y, max_x, max_y);
+        assert_relative_eq!(bbox[0], expected[0], epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], expected[1], epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], expected[2], epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], expected[3], epsilon = f64::EPSILON * 2.0);
     }
 
-    #[test]
-    fn test_box_to_xyz() {
-        fn tst(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> String {
-            let (x0, y0, x1, y1) = bbox_to_xyz(left, bottom, right, top, zoom);
-            format!("({x0}, {y0}, {x1}, {y1})")
+    #[rstest]
+    #[case(0, (0, 0, 0, 0))]
+    #[case(1, (0, 1, 0, 1))]
+    #[case(2, (0, 3, 0, 3))]
+    #[case(3, (0, 7, 0, 7))]
+    #[case(4, (0, 14, 1, 15))]
+    #[case(5, (0, 29, 2, 31))]
+    #[case(6, (0, 58, 5, 63))]
+    #[case(7, (0, 116, 11, 126))]
+    #[case(8, (0, 233, 23, 253))]
+    #[case(9, (0, 466, 47, 507))]
+    #[case(10, (1, 933, 94, 1014))]
+    #[case(11, (3, 1866, 188, 2029))]
+    #[case(12, (6, 3732, 377, 4059))]
+    #[case(13, (12, 7465, 755, 8119))]
+    #[case(14, (25, 14931, 1510, 16239))]
+    #[case(15, (51, 29863, 3020, 32479))]
+    #[case(16, (102, 59727, 6041, 64958))]
+    #[case(17, (204, 119455, 12083, 129917))]
+    #[case(18, (409, 238911, 24166, 259834))]
+    #[case(19, (819, 477823, 48332, 519669))]
+    #[case(20, (1638, 955647, 96665, 1039339))]
+    #[case(21, (3276, 1911295, 193331, 2078678))]
+    #[case(22, (6553, 3822590, 386662, 4157356))]
+    #[case(23, (13107, 7645181, 773324, 8314713))]
+    #[case(24, (26214, 15290363, 1546649, 16629427))]
+    #[case(25, (52428, 30580726, 3093299, 33258855))]
+    #[case(26, (104857, 61161453, 6186598, 66517711))]
+    #[case(27, (209715, 122322907, 12373196, 133035423))]
+    #[case(28, (419430, 244645814, 24746393, 266070846))]
+    #[case(29, (838860, 489291628, 49492787, 532141692))]
+    #[case(30, (1677721, 978583256, 98985574, 1064283385))]
+    fn test_box_to_xyz(#[case] zoom: u8, #[case] expected_xyz: (u32, u32, u32, u32)) {
+        let actual_xyz = bbox_to_xyz(
+            -179.43749999999955,
+            -84.76987877980656,
+            -146.8124999999996,
+            -81.37446385260833,
+            zoom,
+        );
+        assert_eq!(
+            actual_xyz, expected_xyz,
+            "zoom {zoom} does not have te right xyz"
+        );
+    }
+
+    #[rstest]
+    // test data via https://epsg.io/transform#s_srs=4326&t_srs=3857
+    #[case((0.0,0.0), (0.0,0.0))]
+    #[case((30.0,0.0), (3339584.723798207,0.0))]
+    #[case((-30.0,0.0), (-3339584.723798207,0.0))]
+    #[case((0.0,30.0), (0.0,3503549.8435043753))]
+    #[case((0.0,-30.0), (0.0,-3503549.8435043753))]
+    #[case((38.897957,-77.036560), (4330100.766138651, -13872207.775755845))] // white house
+    #[case((-180.0,-85.0), (-20037508.342789244, -19971868.880408566))]
+    #[case((180.0,85.0), (20037508.342789244, 19971868.880408566))]
+    #[case((0.026949458523585632,0.08084834874097367), (3000.0, 9000.0))]
+    fn test_coordinate_syste_conversion(
+        #[case] wgs84: (f64, f64),
+        #[case] webmercator: (f64, f64),
+    ) {
+        // epsg produces the expected values with f32 precision, grrr..
+        let epsilon = f64::from(f32::EPSILON);
+
+        let actual_wgs84 = webmercator_to_wgs84(webmercator.0, webmercator.1);
+        assert_relative_eq!(actual_wgs84.0, wgs84.0, epsilon = epsilon);
+        assert_relative_eq!(actual_wgs84.1, wgs84.1, epsilon = epsilon);
+
+        let actual_webmercator = wgs84_to_webmercator(wgs84.0, wgs84.1);
+        assert_relative_eq!(actual_webmercator.0, webmercator.0, epsilon = epsilon);
+        assert_relative_eq!(actual_webmercator.1, webmercator.1, epsilon = epsilon);
+    }
+
+    #[rstest]
+    #[case(0..11, 0)]
+    #[case(11..14, 1)]
+    #[case(14..17, 2)]
+    #[case(17..21, 3)]
+    #[case(21..24, 4)]
+    #[case(24..27, 5)]
+    #[case(27..30, 6)]
+    fn test_get_zoom_precision(
+        #[case] zoom: std::ops::Range<u8>,
+        #[case] expected_precision: usize,
+    ) {
+        for z in zoom {
+            let actual_precision = get_zoom_precision(z);
+            assert_eq!(
+                actual_precision, expected_precision,
+                "Zoom level {z} should have precision {expected_precision}, but was {actual_precision}"
+            );
         }
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 0), @"(0, 0, 0, 0)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 1), @"(0, 1, 0, 1)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 2), @"(0, 3, 0, 3)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 3), @"(0, 7, 0, 7)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 4), @"(0, 14, 1, 15)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 5), @"(0, 29, 2, 31)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 6), @"(0, 58, 5, 63)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 7), @"(0, 116, 11, 126)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 8), @"(0, 233, 23, 253)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 9), @"(0, 466, 47, 507)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 10), @"(1, 933, 94, 1014)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 11), @"(3, 1866, 188, 2029)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 12), @"(6, 3732, 377, 4059)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 13), @"(12, 7465, 755, 8119)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 14), @"(25, 14931, 1510, 16239)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 15), @"(51, 29863, 3020, 32479)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 16), @"(102, 59727, 6041, 64958)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 17), @"(204, 119455, 12083, 129917)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 18), @"(409, 238911, 24166, 259834)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 19), @"(819, 477823, 48332, 519669)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 20), @"(1638, 955647, 96665, 1039339)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 21), @"(3276, 1911295, 193331, 2078678)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 22), @"(6553, 3822590, 386662, 4157356)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 23), @"(13107, 7645181, 773324, 8314713)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 24), @"(26214, 15290363, 1546649, 16629427)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 25), @"(52428, 30580726, 3093299, 33258855)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 26), @"(104857, 61161453, 6186598, 66517711)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 27), @"(209715, 122322907, 12373196, 133035423)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 28), @"(419430, 244645814, 24746393, 266070846)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 29), @"(838860, 489291628, 49492787, 532141692)");
-        assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 30), @"(1677721, 978583256, 98985574, 1064283385)");
-    }
-
-    #[test]
-    fn meter_to_lng_lat() {
-        let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
-        assert_relative_eq!(lng, -179.9999999749437, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(lat, -85.05112877764508, epsilon = f64::EPSILON * 2.0);
-
-        let (lng, lat) = webmercator_to_wgs84(20037508.34, 20037508.34);
-        assert_relative_eq!(lng, 179.9999999749437, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(lat, 85.05112877764508, epsilon = f64::EPSILON * 2.0);
-
-        let (lng, lat) = webmercator_to_wgs84(0.0, 0.0);
-        assert_relative_eq!(lng, 0.0, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(lat, 0.0, epsilon = f64::EPSILON * 2.0);
-
-        let (lng, lat) = webmercator_to_wgs84(3000.0, 9000.0);
-        assert_relative_eq!(lng, 0.026949458523585632, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(lat, 0.08084834874097367, epsilon = f64::EPSILON * 2.0);
     }
 }
