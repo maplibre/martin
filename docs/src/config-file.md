@@ -209,8 +209,8 @@ cog:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
-    - /path/to/cogfile1.tif
-    - /path/to/cogfile2.tiff
+    - /path/to/cog_file1.tif
+    - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
@@ -231,23 +231,21 @@ fonts:
   - /path/to/font/file.ttf
   - /path/to/font_dir
 
-# We support serving styles
-# In the future, we plan on adding support for rendering too
+# Publish MapLibre style files
 styles:
    paths:
-     # each json file in this directory will published as a style
+     # publish all *.json files in this directory
      # The name of the file will be used as the style name
      - /path/to/styles_dir
-     # will be published as maplibre_style
+     # publish a single file - here `maplibre_style` will be the style name
      - /path/to/maplibre_style.json
    sources:
-     # each json file in this directory will publish as style
-     # The filename will be used as the styles' id
+     # publish a JSON file found at this path as `some_style_name`
      #
-     # source_name1 will be logged and can be useful for debugging
-     source_name1: /path/to/styles_dir1
-     # will be published as style2
-     #
-     # source_name2 will be logged and can be useful for debugging
-     source_name2: /path/to/style2.json
+     # Contrairy to paths, if directories are specified, Martin will print a warning and ignore them.
+     # To serve a style-directory, use the `paths` section above or name each style individually.
+     # This prevents footguns with names being unclear.
+     some_style_name: /path/to/this/style.json
+     #  Publish specific file as `other_style_name`
+     other_style_name: /path/to/other_style.json
 ```

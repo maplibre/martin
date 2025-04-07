@@ -223,8 +223,8 @@ package-deb: (cargo-install "cargo-deb")
 docs:
     cargo doc --no-deps --open
 
-# Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
-coverage FORMAT='html': (cargo-install "grcov")
+# Generate code coverage report
+coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
     #!/usr/bin/env bash
     set -euo pipefail
     if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
@@ -232,42 +232,14 @@ coverage FORMAT='html': (cargo-install "grcov")
         rustup component add llvm-tools-preview ;\
     fi
 
-    {{just_executable()}} clean
-    {{just_executable()}} start
+    source <(cargo llvm-cov show-env --export-prefix)
+    cargo llvm-cov clean --workspace
 
-    PROF_DIR=target/prof
-    mkdir -p "$PROF_DIR"
-    PROF_DIR=$(realpath "$PROF_DIR")
+    {{just_executable()}} test-cargo --all-targets
+    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    {{just_executable()}} test-int
 
-    OUTPUT_RESULTS_DIR=target/coverage/{{FORMAT}}
-    mkdir -p "$OUTPUT_RESULTS_DIR"
-
-    export CARGO_INCREMENTAL=0
-    export RUSTFLAGS=-Cinstrument-coverage
-    # Avoid problems with relative paths
-    export LLVM_PROFILE_FILE=$PROF_DIR/cargo-test-%p-%m.profraw
-    export MARTIN_PORT=3111
-
-    cargo test --all-targets
-    tests/test.sh
-
-    set -x
-    grcov --binary-path ./target/debug    \
-          -s .                            \
-          -t {{FORMAT}}                 \
-          --branch                        \
-          --ignore 'benches/*'            \
-          --ignore 'tests/*'              \
-          --ignore-not-existing           \
-          -o target/coverage/{{FORMAT}} \
-          --llvm                          \
-          "$PROF_DIR"
-    { set +x; } 2>/dev/null
-
-    # if this is html, open it in the browser
-    if [ "{{FORMAT}}" = "html" ]; then
-        open "$OUTPUT_RESULTS_DIR/index.html"
-    fi
+    cargo llvm-cov report {{ARGS}}
 
 # Build and run martin docker image
 docker-run *ARGS:
@@ -330,13 +302,6 @@ update:
 
 # A few useful tests to run locally to simulate CI
 ci-test: env-info restart fmt clippy check-doc test check
-
-# These steps automatically run before git push via a git hook
-git-pre-push:
-    # TODO: these should be deleted after a while
-    echo "Pre-commit is no longer required."
-    echo "Please remove the git hook by running    rm .git/hooks/pre-push"
-    exit 1
 
 # Get environment info
 [private]

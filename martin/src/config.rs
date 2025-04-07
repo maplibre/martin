@@ -21,11 +21,7 @@ use crate::OptOneMany;
     feature = "cog"
 ))]
 use crate::file_config::FileConfigEnum;
-#[cfg(feature = "fonts")]
-use crate::fonts::FontSources;
 use crate::source::{TileInfoSources, TileSources};
-#[cfg(feature = "sprites")]
-use crate::sprites::SpriteSources;
 use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
 #[cfg(feature = "styles")]
 use crate::styles::StyleSources;
@@ -38,11 +34,11 @@ pub struct ServerState {
     pub cache: OptMainCache,
     pub tiles: TileSources,
     #[cfg(feature = "sprites")]
-    pub sprites: SpriteSources,
+    pub sprites: crate::sprites::SpriteSources,
     #[cfg(feature = "fonts")]
-    pub fonts: FontSources,
+    pub fonts: crate::fonts::FontSources,
     #[cfg(feature = "styles")]
-    pub styles: StyleSources,
+    pub styles: crate::styles::StyleSources,
 }
 
 #[serde_with::skip_serializing_none]
@@ -172,11 +168,11 @@ impl Config {
         Ok(ServerState {
             tiles: self.resolve_tile_sources(&resolver, cache.clone()).await?,
             #[cfg(feature = "sprites")]
-            sprites: SpriteSources::resolve(&mut self.sprites)?,
+            sprites: crate::sprites::SpriteSources::resolve(&mut self.sprites)?,
             #[cfg(feature = "fonts")]
-            fonts: FontSources::resolve(&mut self.fonts)?,
+            fonts: crate::fonts::FontSources::resolve(&mut self.fonts)?,
             #[cfg(feature = "styles")]
-            styles: StyleSources::resolve(&mut self.styles)?,
+            styles: crate::styles::StyleSources::resolve(&mut self.styles)?,
             cache,
         })
     }
@@ -278,7 +274,7 @@ where
 pub mod tests {
     use super::*;
     use crate::config::Config;
-    use crate::test_utils::FauxEnv;
+    use crate::tests::FauxEnv;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()

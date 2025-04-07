@@ -193,6 +193,6 @@ fonts:
 
 styles:
   sources:
-    style-src1: tests/fixtures/styles/src2
+    maplibre: tests/fixtures/styles/maplibre_demo.json
   paths:
-    - tests/fixtures/styles/maplibre_demo.json
+    - tests/fixtures/styles/src2

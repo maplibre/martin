@@ -200,7 +200,7 @@ mod tests {
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::args::PreferredEncoding;
-    use crate::test_utils::FauxEnv;
+    use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -220,7 +220,7 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use crate::test_utils::some;
+        use crate::tests::some;
         use crate::utils::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
@@ -331,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn cli_directories_propergate() {
+    fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
         let env = FauxEnv::default();
