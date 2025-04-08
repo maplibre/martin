@@ -6,6 +6,7 @@ use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
 use crate::config::UnrecognizedValues;
+
 use crate::file_config::{ConfigExtras, FileConfigEnum, FileError, FileResult};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -94,6 +95,23 @@ impl StyleSources {
         let style_id = style_id.trim_end_matches(".json").trim();
         let item = self.0.get(style_id)?;
         Some(item.path.clone())
+    }
+
+    // assumptions:
+    // - martin is not an interacive renderer (think 60fps, embedded)
+    // - We are not rendering the same tile all the time (instead, it is cached)
+    //
+    // For now, we only use a static renderer which is optimized for our kind of usage
+    // In the future, we may consider adding support for smarter rendering including a pool of renderers.
+    #[cfg(feature = "styles_rendering")]
+    pub fn render(
+        &self,
+        path: &Path,
+        zxy: martin_tile_utils::TileCoord,
+    ) -> StyleResult<Vec<u8>, Error> {
+        let mut map = maplibre_native::ImageRendererOptions::new().build_static_renderer();
+        map.set_style_path(path);
+        Ok(map.render_static(zxy.z, zxy.x, zxy.y))
     }
 
     /// an external representation of the internal catalog
@@ -187,6 +205,7 @@ mod tests {
     use crate::file_config::FileConfigSrc;
 
     use super::*;
+
     #[test]
     fn test_add_single_source() {
         use std::fs::File;
