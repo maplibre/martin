@@ -1,0 +1,6 @@
+[sqlfluff]
+dialect = postgres
+templater = jinja
+
+[sqlfluff:rules]
+exclude_rules = L009,L031
