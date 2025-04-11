@@ -9,7 +9,10 @@ use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::{MartinResult, file_config::ValidationLevel};
+use crate::{
+    MartinResult,
+    file_config::{OnInvalid, ValidationLevel},
+};
 
 pub type TileData = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
@@ -114,9 +117,9 @@ pub trait Source: Send + Debug {
         false
     }
 
-    // fn get_validation_level(&self) -> ValidationLevel;
+    fn get_validation_level(&self) -> Option<ValidationLevel>;
 
-    // fn get_on_invalid(&self) -> OnInvalid;
+    fn get_on_invalid(&self) -> Option<OnInvalid>;
 
     async fn validate(&self, validation_level: ValidationLevel) -> MartinResult<()>;
 

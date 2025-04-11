@@ -323,6 +323,8 @@ mod tests {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            validation_level: None,
+            on_invalid: None,
         })]);
 
         let accept_enc = Some(AcceptEncoding(
@@ -351,11 +353,15 @@ mod tests {
             id: "non-empty",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            validation_level: None,
+            on_invalid: None,
         };
         let empty_source = TestSource {
             id: "empty",
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
+            validation_level: None,
+            on_invalid: None,
         };
         let sources = TileSources::new(vec![Box::new(non_empty_source), Box::new(empty_source)]);
 

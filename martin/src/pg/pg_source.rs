@@ -7,7 +7,7 @@ use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
 use crate::MartinResult;
-use crate::file_config::ValidationLevel;
+use crate::file_config::{OnInvalid, ValidationLevel};
 use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
@@ -19,6 +19,8 @@ pub struct PgSource {
     info: PgSqlInfo,
     pool: PgPool,
     tilejson: TileJSON,
+    validation_level: Option<ValidationLevel>,
+    on_invalid: Option<OnInvalid>,
 }
 
 impl PgSource {
@@ -29,6 +31,8 @@ impl PgSource {
             info,
             pool,
             tilejson,
+            validation_level: None,
+            on_invalid: None,
         }
     }
 }
@@ -53,6 +57,14 @@ impl Source for PgSource {
 
     fn support_url_query(&self) -> bool {
         self.info.use_url_query
+    }
+
+    fn get_validation_level(&self) -> Option<ValidationLevel> {
+        self.validation_level
+    }
+
+    fn get_on_invalid(&self) -> Option<OnInvalid> {
+        self.on_invalid
     }
 
     async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {

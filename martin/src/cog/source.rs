@@ -13,7 +13,7 @@ use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
-use crate::file_config::{FileError, FileResult, ValidationLevel};
+use crate::file_config::{FileError, FileResult, OnInvalid, ValidationLevel};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -32,6 +32,8 @@ pub struct CogSource {
     meta: Meta,
     tilejson: TileJSON,
     tileinfo: TileInfo,
+    validation_level: Option<ValidationLevel>,
+    on_invalid: Option<OnInvalid>,
 }
 
 impl CogSource {
@@ -49,6 +51,8 @@ impl CogSource {
             meta,
             tilejson,
             tileinfo,
+            validation_level: None,
+            on_invalid: None,
         })
     }
     #[allow(clippy::cast_sign_loss)]
@@ -149,6 +153,14 @@ impl Source for CogSource {
 
     fn clone_source(&self) -> Box<dyn Source> {
         Box::new(self.clone())
+    }
+
+    fn get_validation_level(&self) -> Option<ValidationLevel> {
+        self.validation_level
+    }
+
+    fn get_on_invalid(&self) -> Option<OnInvalid> {
+        self.on_invalid
     }
 
     async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {

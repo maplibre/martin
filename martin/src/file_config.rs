@@ -110,12 +110,16 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
     ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
     ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
@@ -306,7 +310,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+                results.push(
+                    cfg.custom
+                        .new_sources_url(id.clone(), url.clone(), cfg.validate, cfg.on_invalid)
+                        .await?,
+                );
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -320,7 +328,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
+                results.push(
+                    cfg.custom
+                        .new_sources(id, source.into_path(), cfg.validate, cfg.on_invalid)
+                        .await?,
+                );
             }
         }
     }
@@ -344,7 +356,11 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+            results.push(
+                cfg.custom
+                    .new_sources_url(id.clone(), url.clone(), cfg.validate, cfg.on_invalid)
+                    .await?,
+            );
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -373,7 +389,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(cfg.custom.new_sources(id, path).await?);
+                results.push(
+                    cfg.custom
+                        .new_sources(id, path, cfg.validate, cfg.on_invalid)
+                        .await?,
+                );
             }
         }
     }

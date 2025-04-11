@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
-use martin::file_config::ValidationLevel;
+use martin::file_config::{OnInvalid, ValidationLevel};
 use martin::srv::DynTileSource;
 use martin::{CatalogSourceEntry, MartinResult, Source, TileData, TileSources, UrlQuery};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
@@ -41,6 +41,14 @@ impl Source for NullSource {
 
     fn support_url_query(&self) -> bool {
         false
+    }
+
+    fn get_validation_level(&self) -> Option<ValidationLevel> {
+        None
+    }
+
+    fn get_on_invalid(&self) -> Option<OnInvalid> {
+        None
     }
 
     async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {

@@ -13,7 +13,9 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras, ValidationLevel};
+use crate::file_config::{
+    ConfigExtras, FileResult, OnInvalid, SourceConfigExtras, ValidationLevel,
+};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinError, MartinResult, Source};
 
@@ -30,14 +32,28 @@ impl ConfigExtras for MbtConfig {
 }
 
 impl SourceConfigExtras for MbtConfig {
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        Ok(Box::new(MbtSource::new(id, path.clone()).await?))
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
+    ) -> FileResult<TileInfoSource> {
+        Ok(Box::new(
+            MbtSource::new(id, path.clone(), validation_level, on_invalid).await?,
+        ))
     }
 
     // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
     //       See https://github.com/rust-lang/rust-clippy/pull/12323
     #[allow(clippy::no_effect_underscore_binding)]
-    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<TileInfoSource> {
+    async fn new_sources_url(
+        &self,
+        _id: String,
+        _url: Url,
+        _validation_level: Option<ValidationLevel>,
+        _on_invalidd: Option<OnInvalid>,
+    ) -> FileResult<TileInfoSource> {
         unreachable!()
     }
 }
@@ -48,8 +64,8 @@ pub struct MbtSource {
     mbtiles: Arc<MbtilesPool>,
     tilejson: TileJSON,
     tile_info: TileInfo,
-    // validation_level: ValidationLevel,
-    // on_invalid: OnInvalid
+    validation_level: Option<ValidationLevel>,
+    on_invalid: Option<OnInvalid>,
 }
 
 impl Debug for MbtSource {
@@ -64,7 +80,12 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
-    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    async fn new(
+        id: String,
+        path: PathBuf,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
+    ) -> FileResult<Self> {
         let mbt = MbtilesPool::new(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -80,6 +101,8 @@ impl MbtSource {
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
             tile_info: meta.tile_info,
+            validation_level,
+            on_invalid,
         })
     }
 }
@@ -102,13 +125,13 @@ impl Source for MbtSource {
         Box::new(self.clone())
     }
 
-    // fn get_validation_level(&self) -> ValidationLevel {
-    //     self.validation_level
-    // }
+    fn get_validation_level(&self) -> Option<ValidationLevel> {
+        self.validation_level
+    }
 
-    // fn get_on_invalid(&self) -> OnInvalid {
-    //     self.on_invalid
-    // }
+    fn get_on_invalid(&self) -> Option<OnInvalid> {
+        self.on_invalid
+    }
 
     async fn validate(&self, validation_level: ValidationLevel) -> MartinResult<()> {
         match validation_level {

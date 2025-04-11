@@ -218,9 +218,11 @@ impl Config {
 
         let mut sources_to_prune: Vec<usize> = vec![];
         for (idx, source) in resolved_sources.iter().enumerate() {
-            let validation_result = source.validate(self.srv.validate).await;
+            let validation_result = source
+                .validate(source.get_validation_level().unwrap_or(self.srv.validate))
+                .await;
             if let Err(e) = validation_result {
-                match self.srv.on_invalid {
+                match source.get_on_invalid().unwrap_or(self.srv.on_invalid) {
                     OnInvalid::Abort => return MartinResult::Err(e),
                     OnInvalid::Warn => {
                         warn!(
