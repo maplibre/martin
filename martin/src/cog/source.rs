@@ -94,7 +94,7 @@ impl CogSource {
             tile_idx = idx;
         } else {
             return Ok(Vec::new());
-        };
+        }
         let decode_result = decoder
             .read_chunk(tile_idx)
             .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, *ifd, self.path.clone()))?;
@@ -272,7 +272,7 @@ fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), Co
             color_type,
             path.to_path_buf(),
         ))?;
-    };
+    }
     Ok(())
 }
 

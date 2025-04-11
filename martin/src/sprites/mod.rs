@@ -88,7 +88,7 @@ impl SpriteSources {
                 configs.insert(id.clone(), source.clone());
                 results.add_source(id, source.abs_path()?);
             }
-        };
+        }
 
         for path in cfg.paths {
             let Some(name) = path.file_name() else {
