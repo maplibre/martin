@@ -57,7 +57,7 @@ impl StyleSources {
                     );
                 }
             }
-        };
+        }
 
         let mut paths_with_names = Vec::new();
         for base_path in cfg.paths {

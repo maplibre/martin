@@ -264,7 +264,7 @@ impl MbtileCopierInt {
             self.dst_mbt
                 .set_metadata_value(&mut conn, AGG_TILES_HASH_AFTER_APPLY, &hash)
                 .await?;
-        };
+        }
 
         // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
         if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
@@ -582,7 +582,7 @@ impl MbtileCopierInt {
             }
         } else {
             init_mbtiles_schema(&mut *conn, dst).await?;
-        };
+        }
 
         Ok(())
     }
