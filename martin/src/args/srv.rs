@@ -1,7 +1,10 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::{
+    file_config::{OnInvalid, ValidationLevel},
+    srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig},
+};
 
 #[allow(clippy::doc_markdown)]
 #[derive(clap::Args, Debug, PartialEq, Default)]
@@ -34,6 +37,12 @@ pub struct SrvArgs {
     #[arg(short = 'u', long = "webui")]
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
+    /// Level of validation to apply to sources
+    #[arg(long)]
+    pub validate: Option<ValidationLevel>,
+    /// How to handle invalid source
+    #[arg(long)]
+    pub on_invalid: Option<OnInvalid>,
 }
 
 #[cfg(feature = "webui")]
@@ -80,6 +89,12 @@ impl SrvArgs {
         }
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
+        }
+        if let Some(v) = self.validate {
+            srv_config.validate = v
+        }
+        if let Some(v) = self.on_invalid {
+            srv_config.on_invalid = v;
         }
         #[cfg(feature = "webui")]
         if self.web_ui.is_some() {

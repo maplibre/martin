@@ -6,6 +6,7 @@ use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
+use crate::file_config::ValidationLevel;
 use crate::MartinResult;
 use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::pg::pool::PgPool;
@@ -52,6 +53,10 @@ impl Source for PgSource {
 
     fn support_url_query(&self) -> bool {
         self.info.use_url_query
+    }
+
+    async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {
+        MartinResult::Ok(())
     }
 
     async fn get_tile(

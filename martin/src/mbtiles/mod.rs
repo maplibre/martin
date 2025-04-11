@@ -4,47 +4,23 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use clap::ValueEnum;
-use enum_display::EnumDisplay;
-use log::{trace, warn};
+use log::trace;
 use martin_tile_utils::{TileCoord, TileInfo};
-use mbtiles::{MbtResult, MbtilesPool, ValidationLevel};
+use mbtiles::MbtilesPool;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
 
 use crate::config::UnrecognizedValues;
-use crate::file_config::FileError::{self, AcquireConnError, InvalidMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
+use crate::file_config::{ConfigExtras, FileResult, OnInvalid, SourceConfigExtras, ValidationLevel};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
-use crate::{MartinResult, Source};
-
-#[derive(
-    PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum, EnumDisplay,
-)]
-#[serde(rename_all = "lowercase")]
-pub enum OnInvalid {
-    /// Print warning message, and abort if the error is critical
-    #[default]
-    Warn,
-
-    /// Skip this source
-    Ignore,
-
-    /// Do not start Martin on any warnings
-    Abort,
-}
+use crate::{MartinError, MartinResult, Source};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
-
-    #[serde(default)]
-    pub validate: ValidationLevel,
-
-    #[serde(default)]
-    pub on_invalid: OnInvalid,
 }
 
 impl ConfigExtras for MbtConfig {
@@ -55,31 +31,7 @@ impl ConfigExtras for MbtConfig {
 
 impl SourceConfigExtras for MbtConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        let source = MbtSource::new(id, path.clone()).await?;
-        if let Err(validation_error) = source.validate(self.validate).await {
-            match self.on_invalid {
-                OnInvalid::Abort => {
-                    return Err(FileError::AbortOnInvalid(
-                        path,
-                        validation_error.to_string(),
-                    ));
-                }
-                OnInvalid::Ignore => {
-                    return Err(FileError::IgnoreOnInvalid(
-                        path,
-                        validation_error.to_string(),
-                    ));
-                }
-                OnInvalid::Warn => {
-                    warn!(
-                        "Source {} failed validation, this may cause performance issues: {}",
-                        path.display(),
-                        validation_error.to_string()
-                    );
-                }
-            }
-        }
-        Ok(Box::new(source))
+        Ok(Box::new(MbtSource::new(id, path.clone()).await?))
     }
 
     // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
@@ -96,6 +48,8 @@ pub struct MbtSource {
     mbtiles: Arc<MbtilesPool>,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    // validation_level: ValidationLevel,
+    // on_invalid: OnInvalid
 }
 
 impl Debug for MbtSource {
@@ -128,10 +82,6 @@ impl MbtSource {
             tile_info: meta.tile_info,
         })
     }
-
-    async fn validate(&self, validation_level: ValidationLevel) -> MbtResult<()> {
-        self.mbtiles.validate(validation_level).await
-    }
 }
 
 #[async_trait]
@@ -150,6 +100,30 @@ impl Source for MbtSource {
 
     fn clone_source(&self) -> TileInfoSource {
         Box::new(self.clone())
+    }
+
+    // fn get_validation_level(&self) -> ValidationLevel {
+    //     self.validation_level
+    // }
+
+    // fn get_on_invalid(&self) -> OnInvalid {
+    //     self.on_invalid
+    // }
+
+    async fn validate(&self, validation_level: ValidationLevel) -> MartinResult<()> {
+        match validation_level {
+            ValidationLevel::Thorough => self
+                .mbtiles
+                .validate_thorough()
+                .await
+                .map_err(MartinError::from),
+            ValidationLevel::Fast => self
+                .mbtiles
+                .validate_fast()
+                .await
+                .map_err(MartinError::from),
+            _ => Ok(()),
+        }
     }
 
     async fn get_tile(
@@ -179,11 +153,11 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::PathBuf;
 
+    use crate::mbtiles::ValidationLevel;
     use indoc::indoc;
-    use mbtiles::ValidationLevel;
 
-    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
-    use crate::mbtiles::{MbtConfig, OnInvalid};
+    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc, OnInvalid};
+    use crate::mbtiles::MbtConfig;
 
     #[test]
     fn parse() {
@@ -243,7 +217,7 @@ mod tests {
                 ),
             ]))
         );
-        assert_eq!(cfg.custom.validate, ValidationLevel::Thorough);
-        assert_eq!(cfg.custom.on_invalid, OnInvalid::Abort);
+        assert_eq!(cfg.validate, Some(ValidationLevel::Thorough));
+        assert_eq!(cfg.on_invalid, Some(OnInvalid::Abort));
     }
 }

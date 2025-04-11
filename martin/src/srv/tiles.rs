@@ -319,11 +319,11 @@ mod tests {
         #[case] preferred_enc: Option<PreferredEncoding>,
         #[case] expected_enc: Encoding,
     ) {
-        let sources = TileSources::new(vec![vec![Box::new(TestSource {
+        let sources = TileSources::new(vec![Box::new(TestSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
-        })]]);
+        })]);
 
         let accept_enc = Some(AcceptEncoding(
             accept_enc.iter().map(|s| s.parse().unwrap()).collect(),
@@ -357,10 +357,10 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
         };
-        let sources = TileSources::new(vec![vec![
+        let sources = TileSources::new(vec![
             Box::new(non_empty_source),
             Box::new(empty_source),
-        ]]);
+        ]);
 
         for (source_id, expected) in &[
             ("non-empty", vec![1_u8, 2, 3]),

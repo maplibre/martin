@@ -6,10 +6,11 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
+use crate::file_config::OnInvalid;
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use crate::OptOneMany;
@@ -209,7 +210,34 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        Ok(TileSources::new(try_join_all(sources).await?))
+        let resolved_sources = try_join_all(sources).await?
+            .into_iter()
+            .flatten()
+            .collect::<TileInfoSources>();
+        
+        let mut sources_to_prune: Vec<usize> = vec![];
+        for (idx, source) in resolved_sources.iter().enumerate() {
+            let validation_result = source.validate(self.srv.validate).await;
+            if let Err(e) = validation_result {
+                match self.srv.on_invalid {
+                    OnInvalid::Abort => {
+                        return MartinResult::Err(e)
+                    },
+                    OnInvalid::Warn => {
+                        warn!(
+                            "Source {} failed validation, this may cause performance issues: {}",
+                            source.get_id(),
+                            e.to_string()
+                        );
+                    },
+                    OnInvalid::Ignore => {
+                        sources_to_prune.push(idx)
+                    },
+                }
+            }
+        }
+
+        Ok(TileSources::new(resolved_sources))
     }
 
     pub fn save_to_file(&self, file_name: PathBuf) -> MartinResult<()> {

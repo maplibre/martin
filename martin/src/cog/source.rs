@@ -13,7 +13,7 @@ use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
-use crate::file_config::{FileError, FileResult};
+use crate::file_config::{FileError, FileResult, ValidationLevel};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -149,6 +149,10 @@ impl Source for CogSource {
 
     fn clone_source(&self) -> Box<dyn Source> {
         Box::new(self.clone())
+    }
+
+    async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {
+        MartinResult::Ok(())
     }
 
     async fn get_tile(

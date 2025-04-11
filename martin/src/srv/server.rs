@@ -212,6 +212,7 @@ pub mod tests {
     use tilejson::TileJSON;
 
     use super::*;
+    use crate::file_config::ValidationLevel;
     use crate::UrlQuery;
     use crate::source::{Source, TileData, TileInfoSource};
 
@@ -238,6 +239,10 @@ pub mod tests {
 
         fn clone_source(&self) -> TileInfoSource {
             Box::new(self.clone())
+        }
+
+        async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {
+            MartinResult::Ok(())
         }
 
         async fn get_tile(

@@ -19,7 +19,7 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras};
+use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras, ValidationLevel};
 use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
@@ -254,6 +254,10 @@ macro_rules! impl_pmtiles_source {
 
             fn clone_source(&self) -> TileInfoSource {
                 Box::new(self.clone())
+            }
+
+            async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {
+                MartinResult::Ok(())
             }
 
             async fn get_tile(
