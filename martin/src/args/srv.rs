@@ -91,7 +91,7 @@ impl SrvArgs {
             srv_config.preferred_encoding = self.preferred_encoding;
         }
         if let Some(v) = self.validate {
-            srv_config.validate = v
+            srv_config.validate = v;
         }
         if let Some(v) = self.on_invalid {
             srv_config.on_invalid = v;

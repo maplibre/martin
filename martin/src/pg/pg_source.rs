@@ -6,8 +6,8 @@ use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
-use crate::file_config::ValidationLevel;
 use crate::MartinResult;
+use crate::file_config::ValidationLevel;
 use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;

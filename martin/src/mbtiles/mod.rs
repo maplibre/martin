@@ -13,7 +13,7 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileResult, OnInvalid, SourceConfigExtras, ValidationLevel};
+use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras, ValidationLevel};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinError, MartinResult, Source};
 
@@ -122,7 +122,6 @@ impl Source for MbtSource {
                 .validate_fast()
                 .await
                 .map_err(MartinError::from),
-            _ => Ok(()),
         }
     }
 

@@ -19,7 +19,9 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras, ValidationLevel};
+use crate::file_config::{
+    ConfigExtras, FileError, FileResult, SourceConfigExtras, ValidationLevel,
+};
 use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};

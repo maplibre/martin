@@ -9,7 +9,7 @@ use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::{file_config::{OnInvalid, ValidationLevel}, MartinResult};
+use crate::{MartinResult, file_config::ValidationLevel};
 
 pub type TileData = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;

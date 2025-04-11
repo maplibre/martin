@@ -357,10 +357,7 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
         };
-        let sources = TileSources::new(vec![
-            Box::new(non_empty_source),
-            Box::new(empty_source),
-        ]);
+        let sources = TileSources::new(vec![Box::new(non_empty_source), Box::new(empty_source)]);
 
         for (source_id, expected) in &[
             ("non-empty", vec![1_u8, 2, 3]),

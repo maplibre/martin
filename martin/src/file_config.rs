@@ -9,6 +9,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
 use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
@@ -16,7 +17,6 @@ use crate::file_config::FileError::{
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
-use crate::{MartinResult, Source};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -432,18 +432,4 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
-}
-
-fn maybe_add_source(
-    results: &mut Vec<Box<dyn Source>>,
-    result: FileResult<TileInfoSource>,
-) -> Result<(), FileError> {
-    match result {
-        Err(FileError::IgnoreOnInvalid(_, _)) => Ok(()),
-        Err(e) => Err(e),
-        Ok(src) => {
-            results.push(src);
-            Ok(())
-        }
-    }
 }

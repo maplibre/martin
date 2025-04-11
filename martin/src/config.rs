@@ -10,7 +10,6 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-use crate::file_config::OnInvalid;
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use crate::OptOneMany;
@@ -21,6 +20,7 @@ use crate::OptOneMany;
     feature = "cog"
 ))]
 use crate::file_config::FileConfigEnum;
+use crate::file_config::OnInvalid;
 use crate::source::{TileInfoSources, TileSources};
 use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
@@ -210,29 +210,28 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        let resolved_sources = try_join_all(sources).await?
+        let resolved_sources = try_join_all(sources)
+            .await?
             .into_iter()
             .flatten()
             .collect::<TileInfoSources>();
-        
+
         let mut sources_to_prune: Vec<usize> = vec![];
         for (idx, source) in resolved_sources.iter().enumerate() {
             let validation_result = source.validate(self.srv.validate).await;
             if let Err(e) = validation_result {
                 match self.srv.on_invalid {
-                    OnInvalid::Abort => {
-                        return MartinResult::Err(e)
-                    },
+                    OnInvalid::Abort => return MartinResult::Err(e),
                     OnInvalid::Warn => {
                         warn!(
                             "Source {} failed validation, this may cause performance issues: {}",
                             source.get_id(),
-                            e.to_string()
+                            e
                         );
-                    },
+                    }
                     OnInvalid::Ignore => {
-                        sources_to_prune.push(idx)
-                    },
+                        sources_to_prune.push(idx);
+                    }
                 }
             }
         }

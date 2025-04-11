@@ -212,8 +212,8 @@ pub mod tests {
     use tilejson::TileJSON;
 
     use super::*;
-    use crate::file_config::ValidationLevel;
     use crate::UrlQuery;
+    use crate::file_config::ValidationLevel;
     use crate::source::{Source, TileData, TileInfoSource};
 
     #[derive(Debug, Clone)]
