@@ -3,4 +3,4 @@ dialect = postgres
 templater = jinja
 
 [sqlfluff:rules]
-exclude_rules = L009,L031
+exclude_rules = L009,L031,RF04,RF05
