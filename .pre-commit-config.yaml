@@ -39,6 +39,11 @@ repos:
   - repo: https://github.com/sqlfluff/sqlfluff
     rev: 3.3.1
     hooks:
-      - id: sqlfluff-lint
-        args: [--dialect=postgres]
+      - id: sqlfluff-fix
+        # AL07: Avoid table aliases in from clauses and join conditions <- we sometimes do this for long names
+        # LT05: Line is too long <- not useful. mostly triggers for comments
+        # LT12: Files must end with a single trailing newline <- already done by trailing-whitespace
+        args: [--dialect=postgres, "--exclude-rules=AL07,LT05,LT12"]
         files: \.sql$
+
+# TODO: Add NPM hooks for formatting and linting

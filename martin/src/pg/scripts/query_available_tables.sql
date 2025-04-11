@@ -4,12 +4,12 @@ columns AS (
     -- list of table columns
     SELECT
         ns.nspname AS table_schema,
-        class.relname AS table_name,
+        cls.relname AS table_name,
         attr.attname AS column_name,
         trim(LEADING '_' FROM tp.typname) AS type_name
     FROM pg_attribute AS attr
-    INNER JOIN pg_catalog.pg_class AS class ON attr.attrelid = class.oid
-    INNER JOIN pg_catalog.pg_namespace AS ns ON class.relnamespace = ns.oid
+    INNER JOIN pg_catalog.pg_class AS cls ON attr.attrelid = cls.oid
+    INNER JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
     INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
     WHERE
         NOT attr.attisdropped
@@ -21,14 +21,14 @@ spatially_indexed_columns AS (
     -- list of columns with spatial indexes
     SELECT
         ns.nspname AS table_schema,
-        class.relname AS table_name,
+        cls.relname AS table_name,
         attr.attname AS column_name
     FROM pg_attribute AS attr
-    INNER JOIN pg_class AS class ON attr.attrelid = class.oid
-    INNER JOIN pg_namespace AS ns ON class.relnamespace = ns.oid
+    INNER JOIN pg_class AS cls ON attr.attrelid = cls.oid
+    INNER JOIN pg_namespace AS ns ON cls.relnamespace = ns.oid
     INNER JOIN pg_index AS ix
         ON
-            class.oid = ix.indrelid
+            cls.oid = ix.indrelid
             AND ix.indnkeyatts = 1 -- consider single column indices only
             AND attr.attnum = ix.indkey[0]
     INNER JOIN pg_opclass AS op
@@ -46,17 +46,17 @@ spatially_indexed_columns AS (
 annotated_geometry_columns AS (
     -- list of geometry columns with additional metadata
     SELECT
-        f_table_schema AS schema,
-        f_table_name AS name,
-        f_geometry_column AS geom,
-        srid,
-        type,
+        geometry_columns.f_table_schema AS schema, -- noqa: RF04
+        geometry_columns.f_table_name AS name, -- noqa: RF04
+        geometry_columns.f_geometry_column AS geom,
+        geometry_columns.srid,
+        geometry_columns.type,
         -- 'geometry' AS column_type
-        coalesce(class.relkind = 'v', false) AS is_view,
+        coalesce(cls.relkind = 'v', false) AS is_view,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geometry_columns
-    INNER JOIN pg_catalog.pg_class AS class
-        ON geometry_columns.f_table_name = class.relname
+    INNER JOIN pg_catalog.pg_class AS cls
+        ON geometry_columns.f_table_name = cls.relname
     INNER JOIN pg_catalog.pg_namespace AS ns
         ON geometry_columns.f_table_schema = ns.nspname
     LEFT JOIN spatially_indexed_columns AS sic
@@ -71,17 +71,17 @@ annotated_geometry_columns AS (
 annotated_geography_columns AS (
     -- list of geography columns with additional metadata
     SELECT
-        f_table_schema AS schema,
-        f_table_name AS name,
-        f_geography_column AS geom,
-        srid,
-        type,
+        geography_columns.f_table_schema AS schema, -- noqa: RF04
+        geography_columns.f_table_name AS name, -- noqa: RF04
+        geography_columns.f_geography_column AS geom,
+        geography_columns.srid,
+        geography_columns.type,
         -- 'geography' AS column_type
-        coalesce(class.relkind = 'v', false) AS is_view,
+        coalesce(cls.relkind = 'v', false) AS is_view,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geography_columns
-    INNER JOIN pg_catalog.pg_class AS class
-        ON geography_columns.f_table_name = class.relname
+    INNER JOIN pg_catalog.pg_class AS cls
+        ON geography_columns.f_table_name = cls.relname
     INNER JOIN pg_catalog.pg_namespace AS ns
         ON geography_columns.f_table_schema = ns.nspname
     LEFT JOIN spatially_indexed_columns AS sic
@@ -104,22 +104,22 @@ descriptions AS (
     -- comments on table/views
     SELECT
         pg_namespace.nspname AS schema_name,
-        relname AS table_name,
+        cls.relname AS table_name,
         pg_description.description
-    FROM pg_class
-    INNER JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
-    LEFT JOIN pg_description ON pg_class.oid = pg_description.objoid
-    WHERE relkind = 'r' OR relkind = 'v'
+    FROM pg_class AS cls
+    INNER JOIN pg_namespace ON cls.relnamespace = pg_namespace.oid
+    LEFT JOIN pg_description ON cls.oid = pg_description.objoid
+    WHERE cls.relkind = 'r' OR cls.relkind = 'v'
 )
 
 SELECT
-    schema,
-    name,
-    geom,
-    srid,
-    type,
-    is_view,
-    geom_idx,
+    gc.schema,
+    gc.name,
+    gc.geom,
+    gc.srid,
+    gc.type,
+    gc.is_view,
+    gc.geom_idx,
     dc.description,
     coalesce(
         jsonb_object_agg(columns.column_name, columns.type_name)
@@ -140,5 +140,5 @@ LEFT JOIN descriptions AS dc
     ON
         gc.schema = dc.schema_name
         AND gc.name = dc.table_name
-GROUP BY
+GROUP BY -- noqa: AM06
     gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description;

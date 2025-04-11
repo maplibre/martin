@@ -1,3 +1,4 @@
+-- noqa: disable=RF05
 DROP FUNCTION IF EXISTS public."""function.withweired$*;_ characters";
 
 CREATE OR REPLACE FUNCTION public."""function.withweired$*;_ characters"(

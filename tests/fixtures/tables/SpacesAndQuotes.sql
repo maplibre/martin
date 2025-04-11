@@ -1,3 +1,4 @@
+-- noqa: disable=RF05
 DROP SCHEMA IF EXISTS """Quotes' and Space.Dot." CASCADE;
 CREATE SCHEMA """Quotes' \ \' \"" and Space.Dot.";
 
