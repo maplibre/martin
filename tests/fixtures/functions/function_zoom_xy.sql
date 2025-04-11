@@ -1,6 +1,8 @@
 DROP FUNCTION IF EXISTS public.function_zoom_xy;
 
-CREATE OR REPLACE FUNCTION public.function_zoom_xy(zoom integer, x integer, y integer) RETURNS bytea AS $$
+CREATE OR REPLACE FUNCTION public.function_zoom_xy(
+    zoom integer, x integer, y integer
+) RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN
