@@ -213,6 +213,7 @@ pub mod tests {
 
     use super::*;
     use crate::UrlQuery;
+    use crate::file_config::{OnInvalid, ValidationLevel};
     use crate::source::{Source, TileData, TileInfoSource};
 
     #[derive(Debug, Clone)]
@@ -220,6 +221,8 @@ pub mod tests {
         pub id: &'static str,
         pub tj: TileJSON,
         pub data: TileData,
+        pub validation_level: Option<ValidationLevel>,
+        pub on_invalid: Option<OnInvalid>,
     }
 
     #[async_trait]
@@ -238,6 +241,18 @@ pub mod tests {
 
         fn clone_source(&self) -> TileInfoSource {
             Box::new(self.clone())
+        }
+
+        fn get_validation_level(&self) -> Option<ValidationLevel> {
+            self.validation_level
+        }
+
+        fn get_on_invalid(&self) -> Option<OnInvalid> {
+            self.on_invalid
+        }
+
+        async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {
+            MartinResult::Ok(())
         }
 
         async fn get_tile(

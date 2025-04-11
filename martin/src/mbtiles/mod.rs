@@ -13,9 +13,11 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::file_config::{
+    ConfigExtras, FileResult, OnInvalid, SourceConfigExtras, ValidationLevel,
+};
 use crate::source::{TileData, TileInfoSource, UrlQuery};
-use crate::{MartinResult, Source};
+use crate::{MartinError, MartinResult, Source};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {
@@ -30,14 +32,28 @@ impl ConfigExtras for MbtConfig {
 }
 
 impl SourceConfigExtras for MbtConfig {
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
+    ) -> FileResult<TileInfoSource> {
+        Ok(Box::new(
+            MbtSource::new(id, path.clone(), validation_level, on_invalid).await?,
+        ))
     }
 
     // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
     //       See https://github.com/rust-lang/rust-clippy/pull/12323
     #[allow(clippy::no_effect_underscore_binding)]
-    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<TileInfoSource> {
+    async fn new_sources_url(
+        &self,
+        _id: String,
+        _url: Url,
+        _validation_level: Option<ValidationLevel>,
+        _on_invalidd: Option<OnInvalid>,
+    ) -> FileResult<TileInfoSource> {
         unreachable!()
     }
 }
@@ -48,6 +64,8 @@ pub struct MbtSource {
     mbtiles: Arc<MbtilesPool>,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    validation_level: Option<ValidationLevel>,
+    on_invalid: Option<OnInvalid>,
 }
 
 impl Debug for MbtSource {
@@ -62,7 +80,12 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
-    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    async fn new(
+        id: String,
+        path: PathBuf,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
+    ) -> FileResult<Self> {
         let mbt = MbtilesPool::new(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -78,6 +101,8 @@ impl MbtSource {
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
             tile_info: meta.tile_info,
+            validation_level,
+            on_invalid,
         })
     }
 }
@@ -98,6 +123,29 @@ impl Source for MbtSource {
 
     fn clone_source(&self) -> TileInfoSource {
         Box::new(self.clone())
+    }
+
+    fn get_validation_level(&self) -> Option<ValidationLevel> {
+        self.validation_level
+    }
+
+    fn get_on_invalid(&self) -> Option<OnInvalid> {
+        self.on_invalid
+    }
+
+    async fn validate(&self, validation_level: ValidationLevel) -> MartinResult<()> {
+        match validation_level {
+            ValidationLevel::Thorough => self
+                .mbtiles
+                .validate_thorough()
+                .await
+                .map_err(MartinError::from),
+            ValidationLevel::Fast => self
+                .mbtiles
+                .validate_fast()
+                .await
+                .map_err(MartinError::from),
+        }
     }
 
     async fn get_tile(
@@ -127,14 +175,18 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::PathBuf;
 
+    use crate::mbtiles::ValidationLevel;
     use indoc::indoc;
 
-    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
+    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc, OnInvalid};
     use crate::mbtiles::MbtConfig;
 
     #[test]
     fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let cfg: FileConfigEnum<MbtConfig> =
+            serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+            validate: thorough
+            on_invalid: abort
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -147,7 +199,7 @@ mod tests {
                 pm-src4:
                   path: https://example.org/file4.ext
         "})
-        .unwrap();
+            .unwrap();
         let res = cfg.finalize("");
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
@@ -187,5 +239,7 @@ mod tests {
                 ),
             ]))
         );
+        assert_eq!(cfg.validate, Some(ValidationLevel::Thorough));
+        assert_eq!(cfg.on_invalid, Some(OnInvalid::Abort));
     }
 }

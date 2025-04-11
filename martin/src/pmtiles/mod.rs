@@ -19,7 +19,9 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras};
+use crate::file_config::{
+    ConfigExtras, FileError, FileResult, OnInvalid, SourceConfigExtras, ValidationLevel,
+};
 use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
@@ -136,13 +138,25 @@ impl SourceConfigExtras for PmtConfig {
         true
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        _validation_level: Option<ValidationLevel>,
+        _on_invalidd: Option<OnInvalid>,
+    ) -> FileResult<TileInfoSource> {
         Ok(Box::new(
             PmtFileSource::new(self.new_cached_source(), id, path).await?,
         ))
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
+    async fn new_sources_url(
+        &self,
+        id: String,
+        url: Url,
+        _validation_level: Option<ValidationLevel>,
+        _on_invalidd: Option<OnInvalid>,
+    ) -> FileResult<TileInfoSource> {
         Ok(Box::new(
             PmtHttpSource::new(
                 self.client.clone().unwrap(),
@@ -164,6 +178,8 @@ macro_rules! impl_pmtiles_source {
             pmtiles: Arc<AsyncPmTilesReader<$backend, PmtCache>>,
             tilejson: TileJSON,
             tile_info: TileInfo,
+            validation_level: Option<ValidationLevel>,
+            on_invalid: Option<OnInvalid>,
         }
 
         impl Debug for $name {
@@ -234,6 +250,8 @@ macro_rules! impl_pmtiles_source {
                     pmtiles: Arc::new(reader),
                     tilejson,
                     tile_info: format,
+                    validation_level: None,
+                    on_invalid: None,
                 })
             }
         }
@@ -254,6 +272,18 @@ macro_rules! impl_pmtiles_source {
 
             fn clone_source(&self) -> TileInfoSource {
                 Box::new(self.clone())
+            }
+
+            fn get_validation_level(&self) -> Option<ValidationLevel> {
+                self.validation_level
+            }
+
+            fn get_on_invalid(&self) -> Option<OnInvalid> {
+                self.on_invalid
+            }
+
+            async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {
+                MartinResult::Ok(())
             }
 
             async fn get_tile(

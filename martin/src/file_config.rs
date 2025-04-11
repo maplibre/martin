@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::mem;
 use std::path::{Path, PathBuf};
 
+use clap::ValueEnum;
 use futures::TryFutureExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -46,6 +47,12 @@ pub enum FileError {
     #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
+    #[error("Source {0} caused an abort due to validation error {1}")]
+    AbortOnInvalid(PathBuf, String),
+
+    #[error("Source {0} was ignored due to validation error {1}")]
+    IgnoreOnInvalid(PathBuf, String),
+
     #[cfg(feature = "pmtiles")]
     #[error(r"PMTiles error {0} processing {1}")]
     PmtError(pmtiles::PmtError, String),
@@ -53,6 +60,31 @@ pub enum FileError {
     #[cfg(feature = "cog")]
     #[error(transparent)]
     CogError(#[from] crate::cog::CogError),
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum ValidationLevel {
+    /// Quickly check the source
+    #[default]
+    Fast,
+
+    /// Do a slow check of everything
+    Thorough,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum OnInvalid {
+    /// Print warning message, and abort if the error is critical
+    #[default]
+    Warn,
+
+    /// Skip this source
+    Ignore,
+
+    /// Do not start Martin on any warnings
+    Abort,
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
@@ -78,12 +110,16 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
     ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
+        validation_level: Option<ValidationLevel>,
+        on_invalid: Option<OnInvalid>,
     ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
@@ -123,6 +159,8 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
                 } else {
                     Some(configs)
                 },
+                validate: None,
+                on_invalid: None,
                 custom,
             })
         }
@@ -180,6 +218,10 @@ pub struct FileConfig<T> {
     pub paths: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
     pub sources: Option<BTreeMap<String, FileConfigSrc>>,
+    #[serde(default)]
+    pub validate: Option<ValidationLevel>,
+    #[serde(default)]
+    pub on_invalid: Option<OnInvalid>,
     /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
     pub custom: T,
@@ -268,7 +310,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let dup = if dup { "duplicate " } else { "" };
                 let id = idr.resolve(&id, url.to_string());
                 configs.insert(id.clone(), source);
-                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+                results.push(
+                    cfg.custom
+                        .new_sources_url(id.clone(), url.clone(), cfg.validate, cfg.on_invalid)
+                        .await?,
+                );
                 info!("Configured {dup}source {id} from {}", sanitize_url(&url));
             } else {
                 let can = source.abs_path()?;
@@ -282,7 +328,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
+                results.push(
+                    cfg.custom
+                        .new_sources(id, source.into_path(), cfg.validate, cfg.on_invalid)
+                        .await?,
+                );
             }
         }
     }
@@ -306,7 +356,11 @@ async fn resolve_int<T: SourceConfigExtras>(
 
             let id = idr.resolve(id, url.to_string());
             configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
+            results.push(
+                cfg.custom
+                    .new_sources_url(id.clone(), url.clone(), cfg.validate, cfg.on_invalid)
+                    .await?,
+            );
             info!("Configured source {id} from URL {}", sanitize_url(&url));
         } else {
             let is_dir = path.is_dir();
@@ -335,7 +389,11 @@ async fn resolve_int<T: SourceConfigExtras>(
                 info!("Configured source {id} from {}", can.display());
                 files.insert(can);
                 configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(cfg.custom.new_sources(id, path).await?);
+                results.push(
+                    cfg.custom
+                        .new_sources(id, path, cfg.validate, cfg.on_invalid)
+                        .await?,
+                );
             }
         }
     }
