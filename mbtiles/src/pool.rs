@@ -184,6 +184,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     #[tokio::test]
     async fn test_flat_with_hash() {
         let pool =
