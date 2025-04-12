@@ -34,22 +34,22 @@ pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
 pub enum MbtType {
-    /// Flat MBTiles file without any hash values
+    /// Flat `MBTiles` file without any hash values
     ///
-    /// The closest to the original MBTiles specification.
+    /// The closest to the original `MBTiles` specification.
     /// It stores all tiles in a single table.
     /// This schema is the most efficient when the tileset contains no duplicate tiles.
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#flat> for the concrete schema.
     Flat,
-    /// [`MbtType::Flat`] MBTiles file with hash values
+    /// [`MbtType::Flat`] `MBTiles` file with hash values
     ///
     /// Similar to the [`MbtType::Flat`] schema, but also includes a `tile_hash` column that contains a hash value of the `tile_data` column.
     /// Use this schema when the tileset has no duplicate tiles, but you still want to be able to validate the content of each tile individually.
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#flat-with-hash> for the concrete schema.
     FlatWithHash,
-    /// Normalized MBTiles file
+    /// Normalized `MBTiles` file
     ///
     /// The most efficient when the tileset contains duplicate tiles.
     /// It stores all tile blobs in the `images` table, and stores the tile Z,X,Y coordinates in a `map` table.
@@ -256,7 +256,7 @@ impl Mbtiles {
         }
     }
 
-    /// Detect the type of the MBTiles file.
+    /// Detect the type of the `MBTiles` file.
     ///
     /// See [`MbtType`] for more information.
     pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>

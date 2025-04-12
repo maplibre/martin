@@ -18,7 +18,7 @@ impl MbtilesPool {
         Ok(Self { mbtiles, pool })
     }
 
-    /// Get the metadata of the MBTiles file.
+    /// Get the metadata of the `MBTiles` file.
     ///
     /// See [`Metadata`] for more information.
     pub async fn get_metadata(&self) -> MbtResult<Metadata> {
