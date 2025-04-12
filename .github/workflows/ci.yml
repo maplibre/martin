@@ -454,9 +454,6 @@ jobs:
       matrix:
         include:
           # These must match the versions of postgres used in the docker-compose.yml
-          - img_ver: 11-3.0-alpine
-            args: postgres
-            sslmode: disable
           - img_ver: 16-3.5-alpine
             args: postgres
             sslmode: disable
