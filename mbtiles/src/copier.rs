@@ -368,7 +368,7 @@ impl MbtileCopierInt {
     }
 
     /// Validate the integrity of the mbtiles file if requested
-    /// 
+    ///
     /// See [`Mbtiles::validate`] for the validations performed.
     async fn validate(&self, mbt: &Mbtiles, conn: &mut SqliteConnection) -> MbtResult<()> {
         if self.options.validate {

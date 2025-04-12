@@ -116,7 +116,7 @@ impl Mbtiles {
     /// - sqlite internal integrity check
     /// - tiles' table has the expected column, row, zoom, and data values
     /// - each tile has the correct hash stored
-    /// 
+    ///
     /// Depending on the `agg_hash` parameter, the function will either verify or update the aggregate tiles hash value.
     pub async fn validate<T>(
         &self,
