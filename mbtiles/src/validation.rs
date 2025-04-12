@@ -34,8 +34,31 @@ pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
 pub enum MbtType {
+    /// Flat `MBTiles` file without any hash values
+    ///
+    /// The closest to the original `MBTiles` specification.
+    /// It stores all tiles in a single table.
+    /// This schema is the most efficient when the tileset contains no duplicate tiles.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#flat> for the concrete schema.
     Flat,
+    /// [`MbtType::Flat`] `MBTiles` file with hash values
+    ///
+    /// Similar to the [`MbtType::Flat`] schema, but also includes a `tile_hash` column that contains a hash value of the `tile_data` column.
+    /// Use this schema when the tileset has no duplicate tiles, but you still want to be able to validate the content of each tile individually.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#flat-with-hash> for the concrete schema.
     FlatWithHash,
+    /// Normalized `MBTiles` file
+    ///
+    /// The most efficient when the tileset contains duplicate tiles.
+    /// It stores all tile blobs in the `images` table, and stores the tile Z,X,Y coordinates in a `map` table.
+    /// The `map` table contains a `tile_id` column that is a foreign key to the `images` table.
+    /// The `tile_id` column is a hash of the `tile_data` column, making it possible to both validate each individual tile like in the [`MbtType::FlatWithHash`] schema, and also to optimize storage by storing each unique tile only once.
+    ///
+    /// The `hash_view` argument specifies whether to create/assume a `tiles_with_hash` view exists.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
     Normalized { hash_view: bool },
 }
 
@@ -75,6 +98,7 @@ pub enum AggHashType {
 }
 
 impl Mbtiles {
+    /// Open the mbtiles file and validate its integrity.
     pub async fn open_and_validate(
         &self,
         check_type: IntegrityCheckType,
@@ -88,6 +112,12 @@ impl Mbtiles {
         self.validate(&mut conn, check_type, agg_hash).await
     }
 
+    /// Validate the integrity of the mbtiles file by:
+    /// - sqlite internal integrity check
+    /// - tiles' table has the expected column, row, zoom, and data values
+    /// - each tile has the correct hash stored
+    ///
+    /// Depending on the `agg_hash` parameter, the function will either verify or update the aggregate tiles hash value.
     pub async fn validate<T>(
         &self,
         conn: &mut T,
@@ -197,6 +227,7 @@ impl Mbtiles {
         }
     }
 
+    /// Detects the format of a tile and returns its information if none of the values are `None`
     fn parse_tile(
         &self,
         z: Option<i64>,
@@ -225,6 +256,9 @@ impl Mbtiles {
         }
     }
 
+    /// Detect the type of the `MBTiles` file.
+    ///
+    /// See [`MbtType`] for more information.
     pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
