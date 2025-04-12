@@ -52,8 +52,8 @@ itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.0" }
-mbtiles = { path = "./mbtiles", version = "0.12.0" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.1" }
+mbtiles = { path = "./mbtiles", version = "0.12.2" }
 md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
