@@ -27,8 +27,6 @@ impl MbtilesPool {
     }
 
     /// Get a tile from the pool
-    ///
-    /// See [`MbtilesPool::get_tile_and_hash`] if you need the tiles' hash for cases where it exists.
     pub async fn get_tile(&self, z: u8, x: u32, y: u32) -> MbtResult<Option<Vec<u8>>> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.get_tile(&mut *conn, z, x, y).await
