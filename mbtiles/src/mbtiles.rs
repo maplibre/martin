@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};
 use sqlite_hashes::register_md5_functions;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Connection as _, Executor, SqliteConnection, SqliteExecutor, Statement, query};
+use sqlx::{Connection as _, Executor, Row, SqliteConnection, SqliteExecutor, Statement, query};
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
@@ -132,6 +132,8 @@ impl Mbtiles {
     }
 
     /// Get a tile from the database
+    ///
+    /// See [`Mbtiles::get_tile_and_hash`] if you do need the hash
     pub async fn get_tile<T>(
         &self,
         conn: &mut T,
@@ -151,6 +153,62 @@ impl Mbtiles {
             }
         }
         Ok(None)
+    }
+
+    /// Get a tile and its hash if it exists from the database
+    ///
+    /// For [`MbtType::Flat`] accessing the hash is not possible, we thus md5 hash the tile data.
+    ///
+    /// See [`Mbtiles::get_tile`] if you don't need the hash
+    pub async fn get_tile_and_hash(
+        &self,
+        conn: &mut SqliteConnection,
+        mbt_type: MbtType,
+        z: u8,
+        x: u32,
+        y: u32,
+    ) -> MbtResult<Option<(Vec<u8>, String)>> {
+        if mbt_type == MbtType::Flat {
+            // we need to register the md5 functions here as the connection might change
+            let mut handle_lock = conn.lock_handle().await?;
+            let handle = handle_lock.as_raw_handle().as_ptr();
+            // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
+            // The registered functions will be dropped when SQLX drops DB connection.
+            let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
+            register_md5_functions(&rc)?;
+        }
+        let sql = Self::get_tile_and_hash_sql(mbt_type);
+        let y = invert_y_value(z, y);
+        let Some(row) = query(sql)
+            .bind(z)
+            .bind(x)
+            .bind(y)
+            .fetch_optional(conn)
+            .await?
+        else {
+            return Ok(None);
+        };
+        Ok(Some((row.get(0), row.get(1))))
+    }
+
+    /// sql query for getting tile and hash
+    ///
+    /// For [`MbtType::Flat`] accessing it is not possible, we thus md5 hash the tile data.
+    fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
+        match mbt_type {
+            MbtType::Flat => {
+                "SELECT tile_data, md5_hex(tile_data) as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+            }
+            MbtType::FlatWithHash => {
+                "SELECT tile_data, tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+            }
+            MbtType::Normalized { hash_view: true } => {
+                "SELECT tile_data, tile_hash FROM tiles_with_hash where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+            }
+            MbtType::Normalized { hash_view: false } => {
+                "SELECT images.tile_data, images.tile_id AS tile_hash FROM map JOIN images ON map.tile_id = images.tile_id  where map.zoom_level = ? AND map.tile_column = ? AND map.tile_row = ?"
+            }
+        }
     }
 
     pub async fn insert_tiles(
