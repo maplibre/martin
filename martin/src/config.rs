@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
@@ -216,7 +216,7 @@ impl Config {
             .flatten()
             .collect::<TileInfoSources>();
 
-        let mut sources_to_prune: Vec<usize> = vec![];
+        let mut sources_to_prune: HashSet<usize> = HashSet::new();
         for (idx, source) in resolved_sources.iter().enumerate() {
             let validation_result = source
                 .validate(source.get_validation_level().unwrap_or(self.srv.validate))
@@ -232,13 +232,20 @@ impl Config {
                         );
                     }
                     OnInvalid::Ignore => {
-                        sources_to_prune.push(idx);
+                        sources_to_prune.insert(idx);
                     }
                 }
             }
         }
 
-        Ok(TileSources::new(resolved_sources))
+        Ok(TileSources::new(
+            resolved_sources
+                .into_iter()
+                .enumerate()
+                .filter(|e| !sources_to_prune.contains(&e.0))
+                .map(|(_, s)| s)
+                .collect(),
+        ))
     }
 
     pub fn save_to_file(&self, file_name: PathBuf) -> MartinResult<()> {

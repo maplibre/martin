@@ -115,6 +115,11 @@ impl Args {
             config.pmtiles = parse_file_args(&mut cli_strings, &["pmtiles"], true);
         }
 
+        #[cfg(feature = "mbtiles")]
+        if !cli_strings.is_empty() {
+            config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
+        }
+
         #[cfg(feature = "cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
