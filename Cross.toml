@@ -2,12 +2,9 @@
 pre-build = [
     # install nodejs and npm to compile static web resources
     # note that architecture could be the same as the container, not $CROSS_DEB_ARCH
-    # Need to use a fairly old Node.js version to support the old underlying docker image
-    "curl -fsSL https://deb.nodesource.com/setup_17.x -o nodesource_setup.sh",
-    "bash nodesource_setup.sh",
-    "apt-get install -y nodejs",
+    "curl  https://fnm.vercel.app/install -o install.sh",
+    # Download and install Node.js:
+    "bash install.sh",
+    "fnm install 22",
     "node -v",
-    # Using old NPM, so must ensure correct access
-    "mkdir -p /.npm",
-    "chown -R 1001:127 /.npm",
 ]
