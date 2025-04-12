@@ -127,7 +127,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
       - name: Set up gdal-bin and sqlite3-tools
-        run: sudo apt-get install -y gdal-bin sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         # https://github.com/docker/setup-buildx-action
@@ -399,7 +399,7 @@ jobs:
           path: target/
       - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y gdal-bin sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
