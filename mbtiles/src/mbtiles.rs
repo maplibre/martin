@@ -131,6 +131,9 @@ impl Mbtiles {
         Ok(())
     }
 
+    /// Get a tile from the database
+    ///
+    /// See [`MBTiles::get_tile_and_hash`] if you need the hash too
     pub async fn get_tile<T>(
         &self,
         conn: &mut T,
