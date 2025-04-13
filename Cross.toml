@@ -5,9 +5,7 @@ pre-build = [
     "apt install -qq -y --no-install-recommends unzip",
     "curl  https://fnm.vercel.app/install -o install.sh",
     "bash install.sh",
-    "export PATH='$FNM_PATH:$PATH'",
-    "eval '`fnm env`'",
     # Download and install Node.js:
-    "fnm install 22",
+    "/root/.local/share/fnm/fnm install 22",
     "node -v",
 ]
