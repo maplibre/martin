@@ -1,4 +1,2 @@
 [build]
-pre-build = [
-    "node -v",
-]
+pre-build = []
