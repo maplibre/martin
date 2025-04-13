@@ -1,11 +1,12 @@
 [build]
 pre-build = [
-    "apt install -y unzip",
     # install nodejs and npm to compile static web resources
     # note that architecture could be the same as the container, not $CROSS_DEB_ARCH
+    "apt install -qq -y --no-install-recommends unzip",
     "curl  https://fnm.vercel.app/install -o install.sh",
-    # Download and install Node.js:
     "bash install.sh",
+    "source /root/.bashrc",
+    # Download and install Node.js:
     "fnm install 22",
     "node -v",
 ]
