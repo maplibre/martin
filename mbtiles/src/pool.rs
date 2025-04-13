@@ -62,7 +62,7 @@ impl MbtilesPool {
         z: u8,
         x: u32,
         y: u32,
-    ) -> MbtResult<Option<(Vec<u8>, String)>> {
+    ) -> MbtResult<Option<(Vec<u8>, Option<String>)>> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles
             .get_tile_and_hash(&mut conn, mbt_type, z, x, y)
@@ -114,10 +114,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(t2, t1);
-        assert_eq!(
-            h2.to_uppercase(),
-            "9B10637442EB23B9A1D14606C4D1799E".to_string()
-        );
+        assert_eq!(h2, None);
         for error_types in [
             MbtType::FlatWithHash,
             MbtType::Normalized { hash_view: false },
@@ -164,18 +161,16 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(t2, t1);
-        assert_eq!(
-            h2.to_uppercase(),
-            "1578FDCA522831A6435F7795586C235B".to_string()
-        );
+        let expected_hash = Some("1578fdca522831a6435f7795586c235b".to_string());
+        assert_eq!(h2, expected_hash);
 
         let (t3, h3) = pool
             .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(t3, t1);
-        assert_eq!(h3.to_uppercase(), h2.to_uppercase());
+        assert_eq!(t3, t2);
+        assert_eq!(h3, None);
         for error_types in [
             MbtType::FlatWithHash,
             MbtType::Normalized { hash_view: true },
@@ -316,10 +311,8 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(t2, t1);
-        assert_eq!(
-            h2.to_uppercase(),
-            "1578FDCA522831A6435F7795586C235B".to_string()
-        );
+        let expected_hash = Some("1578fdca522831a6435f7795586c235b".to_string());
+        assert_eq!(h2, expected_hash);
 
         let (t3, h3) = pool
             .get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
@@ -327,7 +320,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(t3, t1);
-        assert_eq!(h3.to_uppercase(), h2.to_uppercase());
+        assert_eq!(h3, expected_hash);
 
         let (t3, h3) = pool
             .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
@@ -335,7 +328,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(t3, t1);
-        assert_eq!(h3.to_uppercase(), h2.to_uppercase());
+        assert_eq!(h3, expected_hash);
         // does not work as view does not exist
         assert!(
             pool.get_tile_and_hash(MbtType::Normalized { hash_view: true }, 0, 0, 0)

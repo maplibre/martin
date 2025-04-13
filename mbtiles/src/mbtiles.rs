@@ -167,16 +167,7 @@ impl Mbtiles {
         z: u8,
         x: u32,
         y: u32,
-    ) -> MbtResult<Option<(Vec<u8>, String)>> {
-        if mbt_type == MbtType::Flat {
-            // we need to register the md5 functions here as the connection might change
-            let mut handle_lock = conn.lock_handle().await?;
-            let handle = handle_lock.as_raw_handle().as_ptr();
-            // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
-            // The registered functions will be dropped when SQLX drops DB connection.
-            let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
-            register_md5_functions(&rc)?;
-        }
+    ) -> MbtResult<Option<(Vec<u8>, Option<String>)>> {
         let sql = Self::get_tile_and_hash_sql(mbt_type);
         let y = invert_y_value(z, y);
         let Some(row) = query(sql)
@@ -197,7 +188,7 @@ impl Mbtiles {
     fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
         match mbt_type {
             MbtType::Flat => {
-                "SELECT tile_data, md5_hex(tile_data) as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+                "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
             MbtType::FlatWithHash => {
                 "SELECT tile_data, tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
