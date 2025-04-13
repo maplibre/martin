@@ -1,6 +1,8 @@
 DROP FUNCTION IF EXISTS public.function_zxy_query;
 
-CREATE OR REPLACE FUNCTION public.function_zxy_query(z integer, x integer, y integer, query json) RETURNS bytea AS $$
+CREATE OR REPLACE FUNCTION public.function_zxy_query(
+    z integer, x integer, y integer, query json
+) RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN
