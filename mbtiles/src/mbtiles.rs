@@ -131,6 +131,7 @@ impl Mbtiles {
         Ok(())
     }
 
+    /// Get a tile from the database
     pub async fn get_tile<T>(
         &self,
         conn: &mut T,
