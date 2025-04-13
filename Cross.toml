@@ -6,7 +6,10 @@ pre-build = [
     "curl  https://fnm.vercel.app/install -o install.sh",
     "bash install.sh",
     ". /root/.bashrc",
-    # Download and install Node.js:
+    # download and install Node.js:
     "fnm install 22",
-    "node -v",
+    "fnm default 22",
+    # verify installation
+    "node --version",
+    "npm --version",
 ]
