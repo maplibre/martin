@@ -138,8 +138,6 @@ jobs:
         uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
-      - name: install unzip
-        run: sudo apt-get update && sudo apt-get install -y unzip
 
       - name: Build targets
         run: |
