@@ -2,10 +2,6 @@
 pre-build = [
     # install nodejs and npm to compile static web resources
     # note that architecture could be the same as the container, not $CROSS_DEB_ARCH
-    "apt install -qq -y --no-install-recommends unzip",
-    "curl  https://fnm.vercel.app/install -o install.sh",
-    "bash install.sh",
-    # Download and install Node.js:
-    "/root/.local/share/fnm/fnm install 22",
+    "apt install -y nodejs",
     "node -v",
 ]
