@@ -329,6 +329,10 @@ mod tests {
         assert_eq!(h3, expected_hash);
 
         // no map table
-        assert!(pool.get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0).await.is_err());
+        assert!(
+            pool.get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
+                .await
+                .is_err()
+        );
     }
 }
