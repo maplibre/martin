@@ -302,38 +302,33 @@ mod tests {
         agg_tiles_hash: D4E1030D57751A0B45A28A71267E46B8
         "#);
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
-        let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
+        let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert!(!t1.is_empty());
 
         let (t2, h2) = pool
-            .get_tile_and_hash(MbtType::FlatWithHash, 0, 0, 0)
+            .get_tile_and_hash(MbtType::FlatWithHash, 6, 38, 19)
             .await
             .unwrap()
             .unwrap();
         assert_eq!(t2, t1);
-        let expected_hash = Some("1578fdca522831a6435f7795586c235b".to_string());
+        let expected_hash = Some("80EE46337AC006B6BD14B4FA4D6E2EF9".to_string());
         assert_eq!(h2, expected_hash);
-
         let (t3, h3) = pool
-            .get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
+            .get_tile_and_hash(MbtType::Flat, 6, 38, 19)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(t3, t1);
+        assert_eq!(h3, None);
+        let (t3, h3) = pool
+            .get_tile_and_hash(MbtType::Normalized { hash_view: true }, 6, 38, 19)
             .await
             .unwrap()
             .unwrap();
         assert_eq!(t3, t1);
         assert_eq!(h3, expected_hash);
 
-        let (t3, h3) = pool
-            .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(t3, t1);
-        assert_eq!(h3, expected_hash);
-        // does not work as view does not exist
-        assert!(
-            pool.get_tile_and_hash(MbtType::Normalized { hash_view: true }, 0, 0, 0)
-                .await
-                .is_err()
-        );
+        // no map table
+        assert!(pool.get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0).await.is_err());
     }
 }

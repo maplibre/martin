@@ -190,11 +190,8 @@ impl Mbtiles {
             MbtType::Flat => {
                 "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::FlatWithHash => {
-                "SELECT tile_data, tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
-            }
-            MbtType::Normalized { hash_view: true } => {
-                "SELECT tile_data, tile_hash FROM tiles_with_hash where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+            MbtType::FlatWithHash | MbtType::Normalized { hash_view: true } => {
+                "SELECT tile_data, tile_hash from tiles_with_hash where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
             MbtType::Normalized { hash_view: false } => {
                 "SELECT images.tile_data, images.tile_id AS tile_hash FROM map JOIN images ON map.tile_id = images.tile_id  where map.zoom_level = ? AND map.tile_column = ? AND map.tile_row = ?"
