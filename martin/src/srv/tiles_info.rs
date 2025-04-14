@@ -181,6 +181,8 @@ pub mod tests {
                     ]))
                 ],
             },
+            on_invalid: None,
+            validation_level: None,
             data: Vec::default(),
         };
         let tj = merge_tilejson(&[Box::new(src1.clone())], url.clone());
@@ -208,6 +210,8 @@ pub mod tests {
                 ],
             },
             data: Vec::default(),
+            validation_level: None,
+            on_invalid: None,
         };
 
         let tj = merge_tilejson(&[Box::new(src1.clone()), Box::new(src2)], url.clone());

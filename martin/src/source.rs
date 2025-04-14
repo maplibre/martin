@@ -9,7 +9,10 @@ use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::MartinResult;
+use crate::{
+    MartinResult,
+    file_config::{OnInvalid, ValidationLevel},
+};
 
 pub type TileData = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
@@ -24,11 +27,10 @@ pub type TileCatalog = DashMap<String, CatalogSourceEntry>;
 
 impl TileSources {
     #[must_use]
-    pub fn new(sources: Vec<TileInfoSources>) -> Self {
+    pub fn new(sources: TileInfoSources) -> Self {
         Self(
             sources
                 .into_iter()
-                .flatten()
                 .map(|src| (src.get_id().to_string(), src))
                 .collect(),
         )
@@ -114,6 +116,12 @@ pub trait Source: Send + Debug {
     fn support_url_query(&self) -> bool {
         false
     }
+
+    fn get_validation_level(&self) -> Option<ValidationLevel>;
+
+    fn get_on_invalid(&self) -> Option<OnInvalid>;
+
+    async fn validate(&self, validation_level: ValidationLevel) -> MartinResult<()>;
 
     async fn get_tile(
         &self,

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
+use martin::file_config::{OnInvalid, ValidationLevel};
 use martin::srv::DynTileSource;
 use martin::{CatalogSourceEntry, MartinResult, Source, TileData, TileSources, UrlQuery};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
@@ -42,6 +43,18 @@ impl Source for NullSource {
         false
     }
 
+    fn get_validation_level(&self) -> Option<ValidationLevel> {
+        None
+    }
+
+    fn get_on_invalid(&self) -> Option<OnInvalid> {
+        None
+    }
+
+    async fn validate(&self, _validation_level: ValidationLevel) -> MartinResult<()> {
+        MartinResult::Ok(())
+    }
+
     async fn get_tile(
         &self,
         _xyz: TileCoord,
@@ -63,7 +76,7 @@ async fn process_tile(sources: &TileSources) {
 }
 
 fn bench_null_source(c: &mut Criterion) {
-    let sources = TileSources::new(vec![vec![Box::new(NullSource::new())]]);
+    let sources = TileSources::new(vec![Box::new(NullSource::new())]);
     c.bench_function("get_table_source_tile", |b| {
         b.to_async(FuturesExecutor).iter(|| process_tile(&sources));
     });
