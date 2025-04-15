@@ -103,5 +103,7 @@ fn webui() {
 
 fn main() {
     #[cfg(feature = "webui")]
-    webui();
+    if std::env::var_os("RUSTDOC").is_none() {
+        webui();
+    }
 }
