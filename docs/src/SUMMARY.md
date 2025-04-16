@@ -14,7 +14,7 @@
     - [Docker Compose](run/runtime/docker-compose.md)
     - [AWS Lambda](run/runtime/lambda.md)
   - [Reverse Proxys](run/reverse-proxy/reverse-proxy.md)
-    - [NGINX ](run/reverse-proxy/nginx.md)
+    - [NGINX](run/reverse-proxy/nginx.md)
     - [Apache](run/reverse-proxy/apache.md)
   - [Troubleshooting](run/troubleshooting.md)
 - [Configuration File](config/config-file.md)

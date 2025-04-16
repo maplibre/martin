@@ -7,7 +7,9 @@
     "MD041": false,
     "MD033": false,
     "MD045": false,
-    "MD001": false
+    "MD001": false,
+    // mdbook uses empty links as sections which are not yet written
+    "MD042": false
   },
   // globs expression. See https://github.com/DavidAnson/markdownlint-cli2#command-line
   "globs": [
