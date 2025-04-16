@@ -1,7 +1,7 @@
 # Working with MBTiles archives
 
-We offer the `mbtiles` utility to interact with the `*.mbtiles` files (see [this page](schema.md) for more information) from the command line.
-It allows users to [examine](meta.md), [copy](copy.md), [validate](validation.md) or [compare and apply diffs between them](diff.md).
+We offer the `mbtiles` utility to interact with the `*.mbtiles` files (see [this page](mbtiles-schema.md) for more information) from the command line.
+It allows users to [examine](mbtiles-meta.md), [copy](mbtiles-copy.md), [validate](mbtiles-validation.md) or [compare and apply diffs between them](mbtiles-diff.md).
 
 Use `mbtiles --help` to see a list of available commands, and `mbtiles <command> --help` to see help for a specific command.
 

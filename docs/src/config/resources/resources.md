@@ -1,1 +1,0 @@
-# Supporting Resources

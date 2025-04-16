@@ -1,6 +1,6 @@
 # Usage
 
-Martin requires at least one PostgreSQL [connection string](../config/tiles/pg-connections.md) or a [tile source file](../config/tiles/sources-files.md)
+Martin requires at least one PostgreSQL [connection string](sources-pg-connections.md) or a [tile source file](sources-files.md)
 as a command-line argument. A PG connection string can also be passed via the `DATABASE_URL` environment variable.
 
 ```bash

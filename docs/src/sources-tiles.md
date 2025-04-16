@@ -4,11 +4,11 @@ Martin does support these tile sources:
 
 - [MBTiles Sources](sources-files.md) Local Sqlite database containing pre-rendered tiles.
 - [PMTiles Sources](sources-files.md) Local or remote file with pre-rendered tiles in a pre-defined order.
-- [PostgreSQL Connections](pg-connections.md) via
-  - [Table Sources](pg-tables.md)
-  - [Function Sources](pg-functions.md)
+- [PostgreSQL Connections](sources-pg-connections.md) via
+  - [Table Sources](sources-pg-tables.md)
+  - [Function Sources](sources-pg-functions.md)
 
-The difference between tile archives (*[MBTiles/PMTiles](sources-files.md)*) and a database ([PG-Table](pg-tables.md)/[PG-Function](pg-functions.md)) is that
+The difference between tile archives (*[MBTiles/PMTiles](sources-files.md)*) and a database ([PG-Table](sources-pg-tables.md)/[PG-Function](sources-pg-functions.md)) is that
 - **database** are more flexible and may (depending on how you fill it) be updated in **real-time**.
 - **Tile archives** on the other hand may (depending on the data) be more **compact, memory efficient and exhibit better performance** for tile-serving.
 

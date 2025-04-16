@@ -18,7 +18,7 @@ You can use the `/catalog` api to see all the `<sprite_id>`s with their containe
 
 ##### Sprite PNG
 
-![sprite](sources-sprites.png)
+![sprite](images/sources-sprites.png)
 
 `GET /sprite/<sprite_id>.png` endpoint contains a single PNG sprite image that combines all sources images.
 Additionally, there is a high DPI version available at `GET /sprite/<sprite_id>@2x.png`.
@@ -74,7 +74,7 @@ martin --sprite /path/to/sprite_a --sprite /path/to/other/sprite_b
 ### Configuring with Config File
 
 A sprite directory can be configured from the config file with the `sprite` key, similar to
-how [MBTiles and PMTiles](../config-file.md) are configured.
+how [MBTiles and PMTiles](config-file.md) are configured.
 
 ```yaml
 # Sprite configuration

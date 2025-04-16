@@ -1,6 +1,6 @@
 ## Environment Variables
 
-You can also configure Martin using environment variables, but only if the configuration file is not used. See [configuration section](../config/config-file.md) on how to use environment variables with config files. See also [SSL configuration](../config/tiles/pg-connections.md#postgresql-ssl-connections) section below.
+You can also configure Martin using environment variables, but only if the configuration file is not used. See [configuration section](config-file.md) on how to use environment variables with config files. See also [SSL configuration](sources-pg-connections.md#postgresql-ssl-connections) section below.
 
 | Environment var <br/> Config File key    | Description                          | Example                                                                                                                                                                                                    |
 |------------------------------------------|--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -9,4 +9,4 @@ You can also configure Martin using environment variables, but only if the confi
 | `PGSSLCERT` <br/> `ssl_cert`             | A file with a client SSL certificate. [docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT)                                                                             | `./postgresql.crt`                   |
 | `PGSSLKEY` <br/> `ssl_key`               | A file with the key for the client SSL certificate. [docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY)                                                                | `./postgresql.key`                   |
 | `PGSSLROOTCERT` <br/> `ssl_root_cert`    | A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. [docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT) | `./root.crt`                         |
-| `AWS_LAMBDA_RUNTIME_API`                 | If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See [Running in AWS Lambda](runtime/lambda.md)                                                                 |                                      |
+| `AWS_LAMBDA_RUNTIME_API`                 | If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See [Running in AWS Lambda](run-with-lambda.md)                                                                 |                                      |

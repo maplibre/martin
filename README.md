@@ -18,18 +18,18 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
   * [PostGIS](https://github.com/postgis/postgis) databases, automatically discovering compatible tables and functions
   * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
   * [MBTile](https://github.com/mapbox/mbtiles-spec) files
-* [Combine](https://maplibre.org/martin/config/tiles/sources-composite.html) multiple tile sources into one
-* Generate [sprites](https://maplibre.org/martin/config/resources/sprites.html) and [font glyphs](https://maplibre.org/martin/config/resources/fonts.html)
-* Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [`martin-cp`](https://maplibre.org/martin/guides/martin-cp.html) tool
-* Examine, copy, validate, compare, and apply diffs between `MBTiles` files with [`mbtiles`](https://maplibre.org/martin/guides/mbtiles/mbtiles.html) tool
+* [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources into one
+* Generate [sprites](https://maplibre.org/martin/sources-sprites.html) and [font glyphs](https://maplibre.org/martin/sources-fonts.html)
+* Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
+* Examine, copy, validate, compare, and apply diffs between `MBTiles` files with [mbtiles](https://maplibre.org/martin/tools.html#mbtiles) tool
 
 ## Documentation
 
 * [Quick Start](https://maplibre.org/martin/quick-start.html)
 * [Installation](https://maplibre.org/martin/installation.html)
-* Running with [CLI](https://maplibre.org/martin/run/cli.html)
-  or [configuration file](https://maplibre.org/martin/config/config-file.html)
-* [Usage and API](https://maplibre.org/martin/endpoints.html)
+* Running with [CLI](https://maplibre.org/martin/run-with-cli.html)
+  or [configuration file](https://maplibre.org/martin/config-file.html)
+* [Usage and API](https://maplibre.org/martin/using.html)
 
 ## Getting Involved
 

@@ -61,7 +61,7 @@ curl http://127.0.0.1:3000/catalog
 
 ## Using from CLI
 
-A font file or directory can be configured from the [CLI](../../run/cli.md) with one or more `--font` parameters.
+A font file or directory can be configured from the [CLI](run-with-cli.md) with one or more `--font` parameters.
 
 ```bash
 martin --font /path/to/font/file.ttf --font /path/to/font_dir

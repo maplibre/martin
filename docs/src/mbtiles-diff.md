@@ -35,7 +35,7 @@ Apply the diff file generated with the `mbtiles diff` command above to an MBTile
 the `src_file.mbtiles` that has been previously downloaded to avoid copying/transmitting the entire modified dataset
 again. The `src_file.mbtiles` will modified in-place. It is also possible to apply the diff file while copying the
 source file to a new destination file, by using
-the [`mbtiles copy --apply-patch`](copy.md#mbtiles-copy---apply-patch) command.
+the [`mbtiles copy --apply-patch`](mbtiles-copy.md#mbtiles-copy---apply-patch) command.
 
 Note that the `agg_tiles_hash_after_apply` metadata value will be renamed to `agg_tiles_hash` when applying the diff.
 This is done to avoid confusion when applying the diff file to the original file, as the `agg_tiles_hash` value will be

@@ -21,4 +21,4 @@ chmod +x ./martin
 
 ### View the map
 
-See [quick start with QGIS](qgis.md) for instructions on how to view the map.
+See [quick start with QGIS](quick-start-qgis.md) for instructions on how to view the map.
