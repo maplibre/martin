@@ -102,6 +102,7 @@ fn webui() {
 }
 
 fn main() {
+    println!("cargo::rerun-if-env-changed=RUSTDOC");
     #[cfg(feature = "webui")]
     if std::env::var_os("RUSTDOC").is_none() {
         webui();
