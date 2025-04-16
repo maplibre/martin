@@ -9,7 +9,7 @@ mbtiles copy src_file.mbtiles dst_file.mbtiles \
         --min-zoom 0 --max-zoom 10
 ```
 
-This command can also be used to generate files of different [supported schema](sources-styles.md).
+This command can also be used to generate files pg-connections.md](mbtiles-schema.md).
 
 ```bash
 mbtiles copy normalized.mbtiles dst.mbtiles \
