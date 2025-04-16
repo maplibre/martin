@@ -4,7 +4,7 @@ Martin does support these tile sources:
 
 - [MBTiles Sources](sources-files.md) Local Sqlite database containing pre-rendered tiles.
 - [PMTiles Sources](sources-files.md) Local or remote file with pre-rendered tiles in a pre-defined order.
-- [PostgreSQL Connections](pg-connections.md) via 
+- [PostgreSQL Connections](pg-connections.md) via
   - [Table Sources](pg-tables.md)
   - [Function Sources](pg-functions.md)
 
@@ -14,7 +14,7 @@ The difference between tile archives (*[MBTiles/PMTiles](sources-files.md)*) and
 
 => For most usecases, you may want a mix of both. We support this via [Composite Sources](sources-composite.md)
 
-The difference between MBTiles and PMTiles is that 
+The difference between MBTiles and PMTiles is that
 - **MBTiles** require the entire archive to be on the same machine. **PMTiles** can utilise a remote HTTP-Range request supporting server or a local file.
 - Performance wise, **MBTiles** is slightly higher than **PMTiles**, but with caching this is negligible.
 - Disk size wise, **MBTiles** is slightly (10-15%) higher than **PMTiles**.
