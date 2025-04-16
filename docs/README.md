@@ -27,5 +27,5 @@ Next to showing you how the docs will look, this also runs a link checker to ens
 > [!NOTE]
 > Files may only be added, not renamed.
 > Renaming files would break existing, external links for example on stackoverflow or github-discussions.
-> 
+>
 > Removing them is allowed, if they are no longer relevant and no direct replacement exists.
