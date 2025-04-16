@@ -12,5 +12,3 @@ build-dir = "../target/book"
 curly-quotes = true
 git-repository-url = "https://github.com/maplibre/martin"
 edit-url-template = "https://github.com/maplibre/martin/edit/main/docs/{path}"
-
-[output.linkcheck]

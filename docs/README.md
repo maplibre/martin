@@ -7,7 +7,6 @@ This can be done by running the following commands:
 
 ```bash
 cargo install mdbook
-cargo install mdbook-linkcheck
 ```
 
 ## Development
