@@ -39,7 +39,7 @@ map.addLayer({
 });
 ```
 
-You can also combine multiple sources into one source with [Composite Sources](config-file.md). Each source in a
+You can also combine multiple sources into one source with [Composite Sources](sources-composite.md). Each source in a
 composite source can be accessed with its `{source_name}` as a `source-layer` property.
 
 ```js
