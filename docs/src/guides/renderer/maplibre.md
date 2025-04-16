@@ -5,7 +5,7 @@ website. MapLibre can accept [MVT vector tiles](https://github.com/mapbox/vector
 applies [a style](https://maplibre.org/maplibre-style-spec/) to them to draw a map using Web GL.
 
 You can add a layer to the map and specify Martin [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint as a
-vector source URL. You should also specify a `source-layer` property. For [Table Sources](sources-pg-tables.md) it
+vector source URL. You should also specify a `source-layer` property. For [Table Sources](../../config/tiles/pg-tables.md) it
 is `{table_name}` by default.
 
 ```js
@@ -39,7 +39,7 @@ map.addLayer({
 });
 ```
 
-You can also combine multiple sources into one source with [Composite Sources](sources-composite.md). Each source in a
+You can also combine multiple sources into one source with [Composite Sources](../../config/tiles/sources-composite.md). Each source in a
 composite source can be accessed with its `{source_name}` as a `source-layer` property.
 
 ```js

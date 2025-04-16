@@ -9,12 +9,12 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/{sourceID}`                            | [Source TileJSON](#source-tilejson)            |
 | `/{sourceID}/{z}/{x}/{y}`                | Map Tiles                                      |
 | `/{source1},…,{sourceN}`                 | [Composite Source TileJSON](#source-tilejson)  |
-| `/{source1},…,{sourceN}/{z}/{x}/{y}`     | [Composite Source Tiles](sources-composite.md) |
-| `/sprite/{spriteID}[@2x].{json,png}`     | [Sprite sources](sources-sprites.md)           |
-| `/sdf_sprite/{spriteID}[@2x].{json,png}` | [SDF Sprite sources](sources-sprites.md)       |
-| `/font/{font}/{start}-{end}`             | [Font source](sources-fonts.md)                |
-| `/font/{font1},…,{fontN}/{start}-{end}`  | [Composite Font source](sources-fonts.md)      |
-| `/style/{style}`                         | [Style source](sources-styles.md)              |
+| `/{source1},…,{sourceN}/{z}/{x}/{y}`     | [Composite Source Tiles](config/tiles/sources-composite.md) |
+| `/sprite/{spriteID}[@2x].{json,png}`     | [Sprite sources](config/resources/sources-sprites.md)           |
+| `/sdf_sprite/{spriteID}[@2x].{json,png}` | [SDF Sprite sources](config/resources/sources-sprites.md)       |
+| `/font/{font}/{start}-{end}`             | [Font source](config/resources/sources-fonts.md)                |
+| `/font/{font1},…,{fontN}/{start}-{end}`  | [Composite Font source](config/resources/sources-fonts.md)      |
+| `/style/{style}`                         | [Style source](config/resources/sources-styles.md)              |
 | `/health`                                | Martin server health check: returns 200 `OK`   |
 
 ### Duplicate Source ID

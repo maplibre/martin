@@ -9,7 +9,7 @@ mbtiles copy src_file.mbtiles dst_file.mbtiles \
         --min-zoom 0 --max-zoom 10
 ```
 
-This command can also be used to generate files of different [supported schema](mbtiles-schema.md).
+This command can also be used to generate files of different [supported schema](schema.md).
 
 ```bash
 mbtiles copy normalized.mbtiles dst.mbtiles \
@@ -18,7 +18,7 @@ mbtiles copy normalized.mbtiles dst.mbtiles \
 
 ## `mbtiles copy --diff-with-file`
 
-This option is identical to using [`mbtiles diff ...`](mbtiles-diff.md). The following commands two are equivalent:
+This option is identical to using [`mbtiles diff ...`](diff.md). The following commands two are equivalent:
 
 ```bash
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles

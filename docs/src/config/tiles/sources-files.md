@@ -8,5 +8,5 @@ the directory with `*.mbtiles` or `*.pmtiles` files. A path to PMTiles file may 
 martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/path/tiles.pmtiles
 ```
 
-You may also want to generate a [config file](config-file.md) using the `--save-config my-config.yaml`, and later edit
+You may also want to generate a [config file](../config-file.md) using the `--save-config my-config.yaml`, and later edit
 it and use it with `--config my-config.yaml` option.
