@@ -27,9 +27,9 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
 
 * [Quick Start](https://maplibre.org/martin/quick-start.html)
 * [Installation](https://maplibre.org/martin/installation.html)
-* Running with [CLI](https://maplibre.org/martin/cli.html)
-  or [configuration file](https://maplibre.org/martin/config-file.html)
-* [Usage and API](https://maplibre.org/martin/using.html)
+* Running with [CLI](https://maplibre.org/martin/run/cli.html)
+  or [configuration file](https://maplibre.org/martin/config/config-file.html)
+* [Usage and API](https://maplibre.org/martin/endpoints.html)
 
 ## Getting Involved
 
