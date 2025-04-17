@@ -26,6 +26,7 @@ Next to showing you how the docs will look, this also runs a link checker to ens
 
 > [!NOTE]
 > Files may only be added, not renamed.
-> Renaming files would break existing, external links for example on stackoverflow or github-discussions.
+> If you want to rename a file, make sure to [add a redirect to the new file in `output.html.redirect`](https://rust-lang.github.io/mdBook/format/configuration/renderers.html#outputhtmlredirect).
+> Renaming files would otherwise break existing, external links for example on stackoverflow or github-discussions.
 >
-> Removing them is allowed, if they are no longer relevant and no direct replacement exists.
+> Removing is bad for the same reasons and will be handled on a case-by-case basis.
