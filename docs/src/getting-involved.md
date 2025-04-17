@@ -84,7 +84,7 @@ Go to any part you're interested in of martin code and add a breakpoint.
 
 We add a breakpoint here in the [start of martin](https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10).
 
-```rust
+```rust,norun
 use clap::Parser;
 use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
