@@ -3,7 +3,7 @@
 ## Git setup
 
 The recommended setup for both core and casual contributors is to **always** create a fork
-of the primary repo under their own account. The local repo should have two remotes: `upstream` pointing to the primary repo, and `origin` pointing to the user's own fork. The `main` branch should track `upstream/main`, but all new work will be pushed to `origin` and PRs will be created from there.
+of the primary repo under their own account. The local repo should have two remotes: `upstream` pointing to the primary `maplibre/martin` repo, and `origin` pointing to the user's own fork. The `main` branch should track `upstream/main`, but all new work will be pushed to `origin` and PRs will be created from there.
 
 <details><summary>Rationale for this setup (click to expand)</summary>
 
