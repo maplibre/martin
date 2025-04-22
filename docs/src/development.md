@@ -20,6 +20,7 @@ who can contribute only from their own forks.
 
 There is little difference between creating pull requests from one's own fork and from the primary repo,
 and there are a few reasons why core contributors should **never** do it from the primary repo:
+
 * it ensures that casual contributors always run the same CI as core contributors. If contribution process breaks, it will affect everyone, and will get fixed faster.
 * it puts everyone on the same leveled playing field, reducing the "caste system" effect, making the project feel more welcoming to new contributors
 * it ensures that the primary repo only has maintained branches (e.g. `main` and `v1.x`),
