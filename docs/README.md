@@ -22,7 +22,7 @@ Next to showing you how the docs will look, this also runs a link checker to ens
 > [!TIP]
 > Make sure that all pages are linked from [`src/SUMMARY.md`](src/SUMMARY.md).
 > **Only** pages linked will be rendered.
-> See the mdbook documentation for more information.
+> See the [mdbook documentation](https://rust-lang.github.io/mdBook/) for more information.
 
 > [!NOTE]
 > Files may only be added, not renamed.
