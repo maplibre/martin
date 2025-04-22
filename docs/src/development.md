@@ -14,7 +14,7 @@ is necessary - core contributors have deeper knowledge of the code, share vision
 and trust each other.
 
 Core contributors have one more right that others do not -- they can create repository branches.
-Thus, they can contribute "locally" - by pushing proposed changed to the primary repository's work branches,
+Thus, they can contribute "locally" - by pushing proposed changes to the primary repository's work branches,
 and create "local" pull requests inside the same repo.  This is different from others,
 who can contribute only from their own forks.
 
