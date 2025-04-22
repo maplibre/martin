@@ -31,7 +31,7 @@ In the martin repository, we follow this and have a branch protection rule that 
 
 ```bash
 # clone the primary fork to your local machine, naming the remote "upstream"
-# make sure to replace the URL with the correct one 
+# make sure to replace the URL with the correct one
 git clone -o upstream https://github.com/maplibre/martin.git
 cd martin
 
@@ -43,7 +43,7 @@ For further setup instructions for ides, please see the [Getting Involved](getti
 
 <details><summary>If you have already cloned the repo locally, use this guide to update your setup (click to expand)</summary>
 
-If you already cloned the repo locally, you can update it to use the new setup. This assumes you have a local clone of the repo, the remote name is `origin`, and you have already forked the repo on GitHub. 
+If you already cloned the repo locally, you can update it to use the new setup. This assumes you have a local clone of the repo, the remote name is `origin`, and you have already forked the repo on GitHub.
 
 ```bash
 # Rename the existing remote to "upstream". Your "main" branch will now track "upstream/main"
@@ -76,7 +76,7 @@ git push -u origin my-new-feature
 
 # Click the link shown by `git push` in the terminal to create a pull request
 # from your fork using the GitHub web interface
-``` 
+```
 
 ## Installed tools and libraries
 
