@@ -84,7 +84,8 @@ Install a few required libs and tools:
 
 ```bash, ignore
 # For Ubuntu-based distros
-sudo apt install -y  build-essential pkg-config jq file gdal-bin
+sudo apt update
+sudo apt install -y build-essential pkg-config jq file gdal-bin
 ```
 
 ### docker
