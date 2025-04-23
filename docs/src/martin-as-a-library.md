@@ -6,7 +6,6 @@ Martin can be used as a standalone server, or as a library in your own Rust appl
 * tile sources
   * `mbtiles` - enable MBTile tile sources
   * `pmtiles` - enable PMTile tile sources
-  * `cog` - enable COG tile sources
   * `postgres` - enable PostgreSQL/PostGIS tile sources
 * supporting resources
   * `fonts` - enable font sources
