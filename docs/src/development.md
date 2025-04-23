@@ -46,6 +46,8 @@ For further setup instructions for IDEs, please see the [Getting Involved](getti
 If you already cloned the repo locally, you can update it to use the new setup. This assumes you have a local clone of the repo, the remote name is `origin`, and you have already forked the repo on GitHub.
 
 ```bash
+# Getting a quick glance about your remotes: git remote -v 
+git remote -v
 # Rename the existing remote to "upstream". Your "main" branch will now track "upstream/main"
 git remote rename origin upstream
 
