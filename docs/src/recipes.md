@@ -1,6 +1,6 @@
 # Hosted PostgreSQL
 
-Some providers of postgres databases require additional configuration to work with Martin.
+Some providers of PostgreSQL databases require additional configuration to work with Martin.
 We try to provide a guide for each provider, but we may not cover all of them.
 
 ## Using with DigitalOcean PostgreSQL
@@ -20,7 +20,7 @@ martin --ca-root-file ./ca-certificate.crt \
 
 ## Using with Heroku PostgreSQL
 
-You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
+You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with the PostGIS extension
 
 ```bash
 heroku pg:psql -a APP_NAME -c 'create extension postgis'

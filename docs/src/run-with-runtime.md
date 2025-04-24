@@ -1,4 +1,4 @@
-# Runtime-specific Guides
+# Hosting Environment–specific Guides
 
 To help with common runtimes, we have written the following guides:
 

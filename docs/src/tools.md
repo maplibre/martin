@@ -1,6 +1,6 @@
 # Provided Tools
 
-Next to the `martin` server, we provide a set of tools to help build and manage maps. These tools are designed to work seamlessly with the `martin` server and can be used to generate tiles, manage data, and perform various operations on maps.
+In addition to the `martin` tile server, we provide a set of tools to help build and manage maps. These tools are designed to work seamlessly with the `martin` server and can be used to generate tiles, manage data, and perform various operations on maps.
 
 ## CLI Tools
 

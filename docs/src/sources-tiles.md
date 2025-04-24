@@ -1,10 +1,10 @@
 # Tile Sources
 
-Martin does support these tile sources:
+Martin supports multiple tile sources
 
-- [MBTiles Sources](sources-files.md) Local Sqlite database containing pre-rendered tiles.
-- [PMTiles Sources](sources-files.md) Local or remote file with pre-rendered tiles in a pre-defined order.
-- [PostgreSQL Connections](pg-connections.md) via
+- [MBTiles Sources](sources-files.md) Local Sqlite database containing pre-generated vector or raster tiles.
+- [PMTiles Sources](sources-files.md) A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.
+- [PostgreSQL Connections](pg-connections.md) with
   - [Table Sources](sources-pg-tables.md)
   - [Function Sources](sources-pg-functions.md)
 
@@ -19,8 +19,8 @@ The difference between tile archives (*[MBTiles/PMTiles](sources-files.md)*) and
 The difference between MBTiles and PMTiles is that:
 
 - **MBTiles** require the entire archive to be on the same machine. **PMTiles** can utilise a remote HTTP-Range request supporting server or a local file.
-- Performance wise, **MBTiles** is slightly higher than **PMTiles**, but with caching this is negligible.
+- Performance wise, **MBTiles** is slightly faster than **PMTiles**, but with caching this is negligible.
 - Disk size wise, **MBTiles** is slightly (10-15%) higher than **PMTiles**.
 - **PMTiles** requires less memory in extreme cases as sqlite has a small in-memory cache.
 
-Given that these are tradeoffs, there is no clear winner. The choice depends on your specific usecase and requirements.
+The choice depends on your specific usecase and requirements.
