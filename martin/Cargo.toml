@@ -61,7 +61,7 @@ fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles"]
-cog = ["dep:tiff", "dep:png"]
+cog = ["dep:tiff", "dep:png", "dep:image", "dep:imageproc"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 bless-tests = []
@@ -81,6 +81,8 @@ enum-display.workspace = true
 env_logger.workspace = true
 futures.workspace = true
 itertools.workspace = true
+image = { workspace = true, optional = true }
+imageproc = { workspace = true, optional = true }
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
