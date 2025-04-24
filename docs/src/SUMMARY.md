@@ -13,7 +13,7 @@
     - [Docker](run-with-docker.md)
     - [Docker Compose](run-with-docker-compose.md)
     - [AWS Lambda](run-with-lambda.md)
-  - [Reverse Proxys](run-with-reverse-proxy.md)
+  - [Reverse Proxies](run-with-reverse-proxy.md)
     - [NGINX](run-with-nginx.md)
     - [Apache](run-with-apache.md)
   - [Troubleshooting](troubleshooting.md)
