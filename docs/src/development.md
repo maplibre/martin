@@ -62,7 +62,7 @@ git remote add origin https://github.com/nyurik/martin.git
 ```bash
 # switch to main branch (tracking upstream/main), and pull the latest changes
 git switch main
-git pull
+git fetch upstream
 
 # create a new branch for your work
 git switch -c my-new-feature
