@@ -16,7 +16,7 @@ The difference between tile archives (*[MBTiles/PMTiles](sources-files.md)*) and
 => For most usecases, you may want a mix of both. We support this via [Composite Sources](sources-composite.md)
 => For some usecases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the [`martin-cp`](martin-cp.md) utility to render all tiles into a tile archive. This can also be used to provide offline maps via [diffing and syncing `mbtiles`](mbtiles-diff.md)
 
-The difference between MBTiles and PMTiles is that
+The difference between MBTiles and PMTiles is that:
 
 - **MBTiles** require the entire archive to be on the same machine. **PMTiles** can utilise a remote HTTP-Range request supporting server or a local file.
 - Performance wise, **MBTiles** is slightly higher than **PMTiles**, but with caching this is negligible.
