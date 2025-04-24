@@ -9,7 +9,7 @@
 - [Running](run.md)
   - [Command Line Interface](run-with-cli.md)
   - [Environment Variables](env-vars.md)
-  - [Runtime-specific Guides](run-with-runtime.md)
+  - [Hosting Environment–specific Guides](run-with-runtime.md)
     - [Docker](run-with-docker.md)
     - [Docker Compose](run-with-docker-compose.md)
     - [AWS Lambda](run-with-lambda.md)
