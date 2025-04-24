@@ -5,6 +5,8 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::vec;
 
+use image::{ImageBuffer, Rgba};
+
 use async_trait::async_trait;
 use log::warn;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
@@ -59,6 +61,38 @@ impl CogSource {
             tileinfo,
         })
     }
+
+    pub fn sub_region(&self, zoom: u8, window: [f64; 4], output_size: u32) -> MartinResult<TileData> {
+        // 求出window的 pixel size, width height
+        // 求出覆盖到的tile indexs
+        // 遍历每一个tile，进行put_pixel
+        let resolution = self.meta.zoom_and_resolutions.get(&zoom).unwrap();
+        let window_width_pixel = ((window[2] - window[0]) / resolution[0]).ceil() as u32;
+        let window_height_pixel = ((window[3] - window[1]) / resolution[1]).ceil() as u32;
+
+        let cog_extent = self.meta.extent;
+        let cog_tile_size = self.meta.tile_size;
+        let across_down = self.meta.zoom_and_tile_across_down.get(&zoom).unwrap();
+
+        let tile_indexes: Vec<(u32, u32)> =
+            get_covered_tile_indexes(window, cog_extent, *across_down, cog_tile_size, resolution);
+
+        let mut output_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
+            ImageBuffer::new(window_width_pixel, window_height_pixel);
+
+        // let mut decoder =
+        //     Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
+        // decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
+        // for (x_idx, y_idx) in tile_indexes {}
+        //     let rgba_pixels = self.chunk_to_rgba(x_idx.y_idx).unwrap();
+        //      // Calculate tile geographic bounds (using top-left origin convention)
+        //      let tile_geo_min_x = cog_extent[0] + f64::from(col * cog_tile_size.0) * resolution[0];
+        //      let tile_geo_max_y = cog_extent[3] - f64::from(row * cog_tile_size.1) * resolution_y_abs;
+        //      let tile_geo_max_x = tile_geo_min_x + f64::from(tile_width) * resolution[0];
+        //      let tile_geo_min_y = tile_geo_max_y - f64::from(tile_height) * resolution_y_abs;
+        todo!()
+    }
+
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::too_many_lines)]
@@ -139,6 +173,82 @@ impl CogSource {
         }?;
         Ok(png_file_bytes)
     }
+}
+
+fn get_covered_tile_indexes(
+    window: [f64; 4],
+    cog_extent: [f64; 4],
+    across_down: (u32, u32),
+    cog_tile_size: (u32, u32),
+    resolution: &[f64; 3],
+) -> Vec<(u32, u32)> {
+    let epsilon = 1e-6;
+
+    let tile_span_x = f64::from(cog_tile_size.0) * resolution[0];
+    // resolution[1] is typically negative, use its absolute value for span calculation
+    let tile_span_y = f64::from(cog_tile_size.1) * resolution[1].abs();
+
+    let tile_matrix_min_x = cog_extent[0];
+    // Use max Y from extent as the top edge for row calculation
+    let tile_matrix_max_y = cog_extent[3];
+
+    let matrix_width = across_down.0;
+    let matrix_height = across_down.1;
+
+    // Calculate tile index ranges based on the provided formula
+    let tile_min_col_f = ((window[0] - tile_matrix_min_x) / tile_span_x + epsilon).floor();
+    let tile_max_col_f = ((window[2] - tile_matrix_min_x) / tile_span_x - epsilon).floor();
+    let tile_min_row_f = ((tile_matrix_max_y - window[3]) / tile_span_y + epsilon).floor();
+    let tile_max_row_f = ((tile_matrix_max_y - window[1]) / tile_span_y - epsilon).floor();
+
+    // Convert to integer type for clamping and iteration
+    let mut tile_min_col = tile_min_col_f as i64;
+    let mut tile_max_col = tile_max_col_f as i64;
+    let mut tile_min_row = tile_min_row_f as i64;
+    let mut tile_max_row = tile_max_row_f as i64;
+
+    // Clamp minimum values to 0
+    if tile_min_col < 0 {
+        tile_min_col = 0;
+    }
+    if tile_min_row < 0 {
+        tile_min_row = 0;
+    }
+
+    // Clamp maximum values to matrix dimensions - 1
+    let matrix_width_i64 = i64::from(matrix_width);
+    let matrix_height_i64 = i64::from(matrix_height);
+
+    if tile_max_col >= matrix_width_i64 {
+        tile_max_col = matrix_width_i64 - 1;
+    }
+    if tile_max_row >= matrix_height_i64 {
+        tile_max_row = matrix_height_i64 - 1;
+    }
+
+    // If the calculated range is invalid (max < min), return empty vector
+    if tile_max_col < tile_min_col || tile_max_row < tile_min_row {
+        return Vec::new();
+    }
+
+    // Convert to u32 for the final result type
+    let tile_min_col = tile_min_col as u32;
+    let tile_max_col = tile_max_col as u32;
+    let tile_min_row = tile_min_row as u32;
+    let tile_max_row = tile_max_row as u32;
+
+    let mut covered_tiles = Vec::new();
+    // Iterate through the valid tile range and collect the indexes
+    for row in tile_min_row..=tile_max_row {
+        for col in tile_min_col..=tile_max_col {
+            // Double check bounds (should be guaranteed by clamping, but safe)
+            if col < matrix_width && row < matrix_height {
+                covered_tiles.push((col, row));
+            }
+        }
+    }
+
+    covered_tiles
 }
 
 #[async_trait]
@@ -909,5 +1019,15 @@ mod tests {
               - 256
             "###);
         });
+    }
+
+    #[test]
+    fn can_trans_to_google() {
+        let path = PathBuf::from("../tests/fixtures/cog/google_compatible.tif");
+
+        let source = super::CogSource::new("test".to_string(), path);
+        let window = [1620847.0, 4276072.0, 1621379.0, 4276545.0];
+        
+        todo!()
     }
 }
