@@ -3,7 +3,6 @@
 The documentation of `maplibre/martin` is available at <https://maplibre.org/martin>.
 
 To build/develop this documentation locally, you can install `mdbook` and `mdbook-linkcheck`.
-This can be done by running the following commands:
 
 ```bash
 cargo install mdbook
