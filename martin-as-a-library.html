@@ -182,12 +182,25 @@
                         <h1 id="martin-as-a-library"><a class="header" href="#martin-as-a-library">Martin as a library</a></h1>
 <p>Martin can be used as a standalone server, or as a library in your own Rust application. When used as a library, you can use the following features:</p>
 <ul>
-<li><strong>postgres</strong> - enable PostgreSQL/PostGIS tile sources</li>
-<li><strong>pmtiles</strong> - enable PMTile tile sources</li>
-<li><strong>mbtiles</strong> - enable MBTile tile sources</li>
-<li><strong>fonts</strong> - enable font sources</li>
-<li><strong>sprites</strong> - enable sprite sources</li>
+<li><code>webui</code> - enable web UI</li>
+<li>tile sources
+<ul>
+<li><code>mbtiles</code> - enable MBTile tile sources</li>
+<li><code>pmtiles</code> - enable PMTile tile sources</li>
+<li><code>postgres</code> - enable PostgreSQL/PostGIS tile sources</li>
 </ul>
+</li>
+<li>supporting resources
+<ul>
+<li><code>fonts</code> - enable font sources</li>
+<li><code>sprites</code> - enable sprite sources</li>
+<li><code>styles</code> - enable style sources</li>
+</ul>
+</li>
+<li><code>lambda</code> - add specialised support for running in serverless functions</li>
+</ul>
+<p>If you are missing a part of Martin functionality in the <a href="https://docs.rs/martin">public <code>martin</code> API</a>, we would love to hear from you.
+Please open an issue on our GitHub repository or directly open a pull request.</p>
 
                     </main>
 

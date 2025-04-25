@@ -1922,22 +1922,82 @@ fail.</p>
 <p>The <code>mbtiles</code> tool will compute <code>agg_tiles_hash</code> value when copying or validating mbtiles files. Use <code>--agg-hash update</code>
 to force the value to be updated, even if it is incorrect or does not exist.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
-<p>Clone Martin, setting remote name to <code>upstream</code>. This way <code>main</code> branch will be updated automatically with the latest
-changes from the upstream repo.</p>
-<pre><code class="language-bash  ignore">git clone https://github.com/maplibre/martin.git -o upstream
+<h2 id="git-setup"><a class="header" href="#git-setup">Git setup</a></h2>
+<p>The recommended setup for both core and casual contributors is to <strong>always</strong> create a fork
+of the primary repo under their own account. The local repo should have two remotes: <code>upstream</code> pointing to the primary <code>maplibre/martin</code> repo, and <code>origin</code> pointing to the user’s own fork. The <code>main</code> branch should track <code>upstream/main</code>, but all new work will be pushed to <code>origin</code> and PRs will be created from there.</p>
+<details><summary>Rationale for this setup (click to expand)</summary>
+<p><small>This rationale was copied from <a href="https://gist.github.com/nyurik/4e299ad832fd2dd43d2b27191ed3ec30">a post</a> by Yuri</small></p>
+<p>Open source contribution is both a technical and a social phenomenon.
+Any FOSS project naturally has a “caste system” - a group
+of contributors with extensive rights vs everyone else. Some of this separation
+is necessary - core contributors have deeper knowledge of the code, share vision,
+and trust each other.</p>
+<p>Core contributors have one more right that others do not – they can create repository branches.
+Thus, they can contribute “locally” - by pushing proposed changes to the primary repository’s work branches,
+and create “local” pull requests inside the same repo.  This is different from others,
+who can contribute only from their own forks.</p>
+<p>There is little difference between creating pull requests from one’s own fork and from the primary repo,
+and there are a few reasons why core contributors should <strong>never</strong> do it from the primary repo:</p>
+<ul>
+<li>it ensures that casual contributors always run the same CI as core contributors. If contribution process breaks, it will affect everyone, and will get fixed faster.</li>
+<li>it puts everyone on the same leveled playing field, reducing the “caste system” effect, making the project feel more welcoming to new contributors</li>
+<li>it ensures that the primary repo only has maintained branches (e.g. <code>main</code> and <code>v1.x</code>),
+not a bunch of PR branches whose ownership and work status is unclear to everyone</li>
+</ul>
+<p>In the martin repository, we follow this and have a branch protection rule that prevents core contributors from creating pull requests from the primary repo.</p>
+</details>
+<pre><code class="language-bash"># clone the primary fork to your local machine, naming the remote "upstream"
+# make sure to replace the URL with the correct one
+git clone -o upstream https://github.com/maplibre/martin.git
 cd martin
+
+# add your own fork as a remote, naming it "origin"
+git remote add origin https://github.com/nyurik/martin.git
 </code></pre>
-<p>Fork Martin repo into your own GitHub account, and add your fork as a remote</p>
-<pre><code class="language-bash  ignore">git remote add origin  _URL_OF_YOUR_FORK_
+<p>For further setup instructions for IDEs, please see the <a href="getting-involved.html">Getting Involved</a> step after you have installed the necessary tools below.</p>
+<details><summary>If you have already cloned the repo locally, use this guide to update your setup (click to expand)</summary>
+<p>If you already cloned the repo locally, you can update it to use the new setup. This assumes you have a local clone of the repo, the remote name is <code>origin</code>, and you have already forked the repo on GitHub.</p>
+<pre><code class="language-bash"># Getting a quick glance about your remotes: git remote -v
+git remote -v
+# Rename the existing remote to "upstream". Your "main" branch will now track "upstream/main"
+git remote rename origin upstream
+
+# Add your own fork as a remote, naming it "origin" (adjust the URL)
+git remote add origin https://github.com/nyurik/martin.git
 </code></pre>
+</details>
+<h3 id="contributing-new-code"><a class="header" href="#contributing-new-code">Contributing New Code</a></h3>
+<pre><code class="language-bash"># switch to main branch (tracking upstream/main), and pull the latest changes
+git switch main
+git fetch upstream
+
+# create a new branch for your work
+git switch -c my-new-feature
+
+# edit files, and commit changes
+# '-a' will add all modified files
+# `-m` allows you to add a short commit message
+git commit -a -m "My new feature"
+
+# push the changes to your own fork
+# '-u' will track your local branch with the remote
+git push -u origin my-new-feature
+
+# Click the link shown by `git push` in the terminal to create a pull request
+# from your fork using the GitHub web interface
+</code></pre>
+<h2 id="installed-tools-and-libraries"><a class="header" href="#installed-tools-and-libraries">Installed tools and libraries</a></h2>
+<p>Install a few required libs and tools:</p>
+<pre><code class="language-bash  ignore"># For Ubuntu-based distros
+sudo apt update
+sudo apt install -y build-essential pkg-config jq file gdal-bin
+</code></pre>
+<h3 id="docker-1"><a class="header" href="#docker-1">docker</a></h3>
 <p>Install <a href="https://docs.docker.com/get-docker/">docker</a> and <a href="https://docs.docker.com/compose/">docker-compose</a></p>
 <pre><code class="language-bash  ignore"># Ubuntu-based distros have an older version that might also work:
 sudo apt install -y  docker.io docker-compose
 </code></pre>
-<p>Install a few required libs and tools:</p>
-<pre><code class="language-bash  ignore"># For Ubuntu-based distros
-sudo apt install -y  build-essential pkg-config jq file gdal-bin
-</code></pre>
+<h3 id="just"><a class="header" href="#just">just</a></h3>
 <p>Install <a href="https://github.com/casey/just#readme">Just</a> (improved makefile processor). Note that some Linux and Homebrew
 distros have outdated versions of Just, so you should install it from source:</p>
 <pre><code class="language-bash  ignore">cargo install just --locked
@@ -2040,12 +2100,25 @@ Example of this is <code>martin-tile-utils</code> which is used in <code>martin<
 <div style="break-before: page; page-break-before: always;"></div><h1 id="martin-as-a-library"><a class="header" href="#martin-as-a-library">Martin as a library</a></h1>
 <p>Martin can be used as a standalone server, or as a library in your own Rust application. When used as a library, you can use the following features:</p>
 <ul>
-<li><strong>postgres</strong> - enable PostgreSQL/PostGIS tile sources</li>
-<li><strong>pmtiles</strong> - enable PMTile tile sources</li>
-<li><strong>mbtiles</strong> - enable MBTile tile sources</li>
-<li><strong>fonts</strong> - enable font sources</li>
-<li><strong>sprites</strong> - enable sprite sources</li>
+<li><code>webui</code> - enable web UI</li>
+<li>tile sources
+<ul>
+<li><code>mbtiles</code> - enable MBTile tile sources</li>
+<li><code>pmtiles</code> - enable PMTile tile sources</li>
+<li><code>postgres</code> - enable PostgreSQL/PostGIS tile sources</li>
 </ul>
+</li>
+<li>supporting resources
+<ul>
+<li><code>fonts</code> - enable font sources</li>
+<li><code>sprites</code> - enable sprite sources</li>
+<li><code>styles</code> - enable style sources</li>
+</ul>
+</li>
+<li><code>lambda</code> - add specialised support for running in serverless functions</li>
+</ul>
+<p>If you are missing a part of Martin functionality in the <a href="https://docs.rs/martin">public <code>martin</code> API</a>, we would love to hear from you.
+Please open an issue on our GitHub repository or directly open a pull request.</p>
 
                     </main>
 
