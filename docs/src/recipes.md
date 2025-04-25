@@ -1,30 +1,29 @@
-## Recipes
+# Hosted PostgreSQL
 
-### Using with DigitalOcean PostgreSQL
+Some providers of PostgreSQL databases require additional configuration to work with Martin.
+We try to provide a guide for each provider, but we may not cover all of them.
 
-You can use Martin
-with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with
-PostGIS extension
+## Using with DigitalOcean PostgreSQL
 
-First, you need to download the CA certificate and get your cluster connection string from
-the [dashboard](https://cloud.digitalocean.com/databases). After that, you can use the connection string and the CA
-certificate to connect to the database
+You can use Martin with [Managed PostgreSQL from DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql/) with PostGIS extension
+
+First, you need to download the CA certificate and get your cluster connection string from the [dashboard](https://cloud.digitalocean.com/databases).
+After that, you can use the connection string and the CA certificate to connect to the database
 
 ```bash
 martin --ca-root-file ./ca-certificate.crt \
        postgresql://user:password@host:port/db?sslmode=require
 ```
 
-### Using with Heroku PostgreSQL
+## Using with Heroku PostgreSQL
 
-You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with PostGIS extension
+You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/postgres) with the PostGIS extension
 
 ```bash
 heroku pg:psql -a APP_NAME -c 'create extension postgis'
 ```
 
-Use the same environment variables as
-Heroku [suggests for psql](https://devcenter.heroku.com/articles/heroku-postgres-via-mtls#step-2-configure-environment-variables).
+Use the same environment variables as Heroku [suggests for psql](https://devcenter.heroku.com/articles/heroku-postgres-via-mtls#step-2-configure-environment-variables).
 
 ```bash
 export DATABASE_URL=$(heroku config:get DATABASE_URL -a APP_NAME)

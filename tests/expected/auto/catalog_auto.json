@@ -24,6 +24,17 @@
       ]
     }
   },
+  "styles": {
+    "maplibre_demo": {
+      "path": "tests/fixtures/styles/maplibre_demo.json"
+    },
+    "maptiler_basic": {
+      "path": "tests/fixtures/styles/src2/maptiler_basic.json"
+    },
+    "osm-liberty-lite": {
+      "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
+    }
+  },
   "tiles": {
     "-function.withweired---_-characters": {
       "content_type": "application/x-protobuf",
