@@ -62,13 +62,20 @@ impl CogSource {
         })
     }
 
-    pub fn sub_region(&self, zoom: u8, window: [f64; 4], output_size: u32) -> MartinResult<TileData> {
+    pub fn sub_region(
+        &self,
+        zoom: u8,
+        window: [f64; 4],
+        output_size: u32,
+    ) -> MartinResult<TileData> {
         // 求出window的 pixel size, width height
         // 求出覆盖到的tile indexs
         // 遍历每一个tile，进行put_pixel
         let resolution = self.meta.zoom_and_resolutions.get(&zoom).unwrap();
-        let window_width_pixel = ((window[2] - window[0]) / resolution[0]).ceil() as u32;
-        let window_height_pixel = ((window[3] - window[1]) / resolution[1]).ceil() as u32;
+        let res_x = resolution[0];
+        let res_y = resolution[1].abs();
+        let window_width_pixel = ((window[2] - window[0]) / res_x).ceil() as u32;
+        let window_height_pixel = ((window[3] - window[1]) / res_y).ceil() as u32;
 
         let cog_extent = self.meta.extent;
         let cog_tile_size = self.meta.tile_size;
@@ -1025,9 +1032,9 @@ mod tests {
     fn can_trans_to_google() {
         let path = PathBuf::from("../tests/fixtures/cog/google_compatible.tif");
 
-        let source = super::CogSource::new("test".to_string(), path);
+        let source = super::CogSource::new("test".to_string(), path).unwrap();
         let window = [1620847.0, 4276072.0, 1621379.0, 4276545.0];
-        
+        let result = source.sub_region(2, window, 512);
         todo!()
     }
 }
