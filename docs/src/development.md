@@ -6,6 +6,8 @@ The recommended setup for both core and casual contributors is to **always** cre
 of the primary repo under their own account. The local repo should have two remotes: `upstream` pointing to the primary `maplibre/martin` repo, and `origin` pointing to the user's own fork. The `main` branch should track `upstream/main`, but all new work will be pushed to `origin` and PRs will be created from there.
 
 <details><summary>Rationale for this setup (click to expand)</summary>
+	
+<small>This rationale was copied from [a post](https://gist.github.com/nyurik/4e299ad832fd2dd43d2b27191ed3ec30) by Yuri</small>
 
 Open source contribution is both a technical and a social phenomenon.
 Any FOSS project naturally has a "caste system" - a group
