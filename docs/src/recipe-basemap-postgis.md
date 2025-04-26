@@ -14,7 +14,7 @@ We expect you have the following already installed:
 There are multiple ways to generate a tile archive.
 For semi-static tile archives, we think using [Planetiler](https://github.com/onthegomap/planetiler/) to build MBtiles archives using  [OpenMapTiles](https://openmaptiles.org/) is a good starting point.
 
-<details><summary>🤔 <i>Why do I need a tool to convert OSM to mbtiles in the first place?</i> (click to expand)</summary> 
+<details><summary>🤔 <i>Why do I need a tool to convert OSM to mbtiles in the first place?</i> (click to expand)</summary>
 
 The reason you need a tool to build vector tilesets from OpenStreetMap is that the data in OpenStreetMap is
 
@@ -23,7 +23,7 @@ The reason you need a tool to build vector tilesets from OpenStreetMap is that t
 
 </details>
 
-<details><summary>🤔 <i>What is up with MBtiles and OpenMapTiles</i> (click to expand)</summary> 
+<details><summary>🤔 <i>What is up with MBtiles and OpenMapTiles</i> (click to expand)</summary>
 
 Good question.
 
@@ -60,5 +60,5 @@ TODO: command to run, available endpoints
 ## Using in Maputnik to style a map
 
 TODO: Open https://maplibre.org/maputnik/
-Select style 
+Select style
 underpin with screenshots or a gifcap
