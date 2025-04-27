@@ -64,19 +64,20 @@ impl CogSource {
 
     pub fn sub_region(
         &self,
+        decoder: &mut Decoder<File>,
         zoom: u8,
         window: [f64; 4],
         output_size: u32,
     ) -> MartinResult<TileData> {
-        // 求出window的 pixel size, width height
-        // 求出覆盖到的tile indexs
-        // 遍历每一个tile，进行put_pixel
+        let ifd = self.meta.zoom_and_ifd.get(&zoom).unwrap();
+
         let resolution = self.meta.zoom_and_resolutions.get(&zoom).unwrap();
         let res_x = resolution[0];
         let res_y = resolution[1].abs();
         let window_width_pixel = ((window[2] - window[0]) / res_x).ceil() as u32;
         let window_height_pixel = ((window[3] - window[1]) / res_y).ceil() as u32;
 
+        let cog_origin = self.meta.origin;
         let cog_extent = self.meta.extent;
         let cog_tile_size = self.meta.tile_size;
         let across_down = self.meta.zoom_and_tile_across_down.get(&zoom).unwrap();
@@ -87,17 +88,109 @@ impl CogSource {
         let mut output_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
             ImageBuffer::new(window_width_pixel, window_height_pixel);
 
-        // let mut decoder =
-        //     Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
-        // decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
-        // for (x_idx, y_idx) in tile_indexes {}
-        //     let rgba_pixels = self.chunk_to_rgba(x_idx.y_idx).unwrap();
-        //      // Calculate tile geographic bounds (using top-left origin convention)
-        //      let tile_geo_min_x = cog_extent[0] + f64::from(col * cog_tile_size.0) * resolution[0];
-        //      let tile_geo_max_y = cog_extent[3] - f64::from(row * cog_tile_size.1) * resolution_y_abs;
-        //      let tile_geo_max_x = tile_geo_min_x + f64::from(tile_width) * resolution[0];
-        //      let tile_geo_min_y = tile_geo_max_y - f64::from(tile_height) * resolution_y_abs;
-        todo!()
+        decoder.seek_to_image(*ifd);
+        for (col, row) in tile_indexes {
+            let tile_idx = get_tile_idx(
+                TileCoord {
+                    z: zoom,
+                    x: col,
+                    y: row,
+                },
+                across_down.0,
+                across_down.1,
+            )
+            .unwrap();
+            // 我可以求出这个tile的左上角地理坐标，那么我可以求出这个左上角坐标相当于 output_image里的像素坐标吗？ 然后根据这个offset把所有的像素逐一绘制到output_image里？
+            let origin_x = cog_origin[0];
+            let origin_y = cog_origin[1];
+            let tile_min_x = origin_x + f64::from(col * cog_tile_size.0) * res_x;
+            let tile_max_y = origin_y - f64::from(row * cog_tile_size.1) * res_y;
+
+            let offset_x_geo = tile_min_x - window[0];
+            let offset_y_geo = window[3] - tile_max_y; // Use window's max Y
+
+            let offset_x_pixel = (offset_x_geo / res_x).round() as i64;
+            let offset_y_pixel = (offset_y_geo / res_y).round() as i64;
+
+            let (data_width, data_height) = decoder.chunk_data_dimensions(tile_idx);
+            let decoded_result = decoder.read_chunk(tile_idx).unwrap();
+            let color_type = decoder.colortype().unwrap();
+            for y_tile in 0..data_height {
+                for x_tile in 0..data_width {
+                    let target_x = offset_x_pixel + i64::from(x_tile);
+                    let target_y = offset_y_pixel + i64::from(y_tile);
+                    match (color_type, &decoded_result) {
+                        (tiff::ColorType::RGB(_), DecodingResult::U8(data)) => {
+                            let idx = (y_tile * data_width + x_tile) * 3;
+                            let r = data[idx as usize];
+                            let g = data[idx as usize + 1];
+                            let b = data[idx as usize + 2];
+                            if target_x >= 0
+                                && target_y >= 0
+                                && (target_x as u32) < window_width_pixel
+                                && (target_y as u32) < window_height_pixel
+                            {
+                                output_image.put_pixel(
+                                    target_x as u32,
+                                    target_y as u32,
+                                    Rgba([r, g, b, 255]),
+                                );
+                            }
+                        }
+                        (tiff::ColorType::RGBA(_), DecodingResult::U8(data)) => {
+                            let idx = (y_tile * data_width + x_tile) * 4;
+                            let r = data[idx as usize];
+                            let g = data[idx as usize + 1];
+                            let b = data[idx as usize + 2];
+                            let a = data[idx as usize + 3];
+                            if target_x >= 0
+                                && target_y >= 0
+                                && (target_x as u32) < window_width_pixel
+                                && (target_y as u32) < window_height_pixel
+                            {
+                                output_image.put_pixel(
+                                    target_x as u32,
+                                    target_y as u32,
+                                    Rgba([r, g, b, a]),
+                                );
+                            }
+                        }
+                        // Handle other color types or decoding results if necessary, or log a warning/error
+                        _ => {
+                            // Currently unsupported color type or bit depth for sub_region rendering
+                            // Consider logging a warning or returning an error
+                        }
+                    };
+                }
+            }
+        }
+        // Resize the image to the requested output_size
+        let resized_image = image::imageops::resize(
+            &output_image,
+            output_size,
+            output_size,
+            image::imageops::FilterType::Nearest, //todo should be a configure option
+        );
+        // Encode the resized image to PNG format
+        let mut png_buffer = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(
+                BufWriter::new(&mut png_buffer),
+                output_size, // Use output_size for the encoder dimensions
+                output_size, // Use output_size for the encoder dimensions
+            );
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().map_err(|e| {
+                // Reusing existing CogError variants for PNG writing errors
+                CogError::WritePngHeaderFailed(self.path.clone(), e)
+            })?;
+            writer
+                .write_image_data(resized_image.as_raw()) // Write the resized image data
+                .map_err(|e| CogError::WriteToPngFailed(self.path.clone(), e))?;
+        }
+
+        Ok(png_buffer) // Return the encoded PNG bytes
     }
 
     #[allow(clippy::cast_sign_loss)]
@@ -759,7 +852,9 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
         .insert("custom_grid".to_string(), serde_json::json!(cog_info));
     tilejson
 }
-
+fn read_tile_to_rgba(decoder: &mut Decoder<File>, tile_idx: u32) -> Vec<u8> {
+    todo!()
+}
 #[cfg(test)]
 mod tests {
     use insta::{assert_yaml_snapshot, Settings};
@@ -1034,7 +1129,9 @@ mod tests {
 
         let source = super::CogSource::new("test".to_string(), path).unwrap();
         let window = [1620847.0, 4276072.0, 1621379.0, 4276545.0];
-        let result = source.sub_region(2, window, 512);
+        let tif_file = File::open("../tests/fixtures/cog/google_compatible.tif").unwrap();
+        let mut decoder = Decoder::new(tif_file).unwrap();
+        let result = source.sub_region(&mut decoder, 2, window, 512);
         todo!()
     }
 }
