@@ -10,14 +10,16 @@ use image::{ImageBuffer, Rgba};
 use async_trait::async_trait;
 use log::warn;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
+use regex::Regex;
 use serde::Serialize;
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
+use tiff::TiffResult;
 use tilejson::{tilejson, TileJSON};
 
 use super::CogError;
 use crate::file_config::{FileError, FileResult};
-use crate::{MartinResult, Source, TileData, UrlQuery};
+use crate::{utils, MartinResult, Source, TileData, UrlQuery};
 
 // about the model space of tiff image.
 // pixel scale, tie points and transformations
@@ -28,6 +30,7 @@ type ModelInfo = (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>);
 struct Meta {
     min_zoom: u8,
     max_zoom: u8,
+    google_zoom: Option<(u8, u8)>,
     origin: [f64; 3],
     extent: [f64; 4],
     zoom_and_resolutions: HashMap<u8, [f64; 3]>,
@@ -44,10 +47,11 @@ pub struct CogSource {
     meta: Meta,
     tilejson: TileJSON,
     tileinfo: TileInfo,
+    force_google: bool,
 }
 
 impl CogSource {
-    pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    pub fn new(id: String, path: PathBuf, force_google: bool) -> FileResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let meta = get_meta(&path)?;
 
@@ -59,6 +63,7 @@ impl CogSource {
             meta,
             tilejson,
             tileinfo,
+            force_google,
         })
     }
 
@@ -199,6 +204,27 @@ impl CogSource {
     pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
         if xyz.z < self.meta.min_zoom || xyz.z > self.meta.max_zoom {
             return Ok(Vec::new());
+        }
+
+        if self.force_google {
+            if let Some(google_zoom) = self.meta.google_zoom {
+                let google_min_zoom = google_zoom.0;
+                let internal_zoom = self.meta.min_zoom + (xyz.z - google_min_zoom) as u8;
+                if internal_zoom < self.meta.min_zoom || internal_zoom > self.meta.max_zoom {
+                    return Ok(Vec::new());
+                }
+                let bbox = martin_tile_utils::xyz_to_bbox(xyz.z, xyz.x, xyz.y, xyz.x, xyz.y);
+                let tif_file =
+                    File::open(&self.path).map_err(|e| FileError::IoError(e, self.path.clone()))?;
+                let mut decoder = Decoder::new(tif_file)
+                    .map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
+                decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
+
+                let png_bytes = self.sub_region(&mut decoder, internal_zoom, bbox, 512)?;
+                return Ok(png_bytes);
+            } else {
+                return Ok(Vec::new());
+            }
         }
         let tif_file =
             File::open(&self.path).map_err(|e| FileError::IoError(e, self.path.clone()))?;
@@ -530,6 +556,8 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
 
+    let gdal_metadata = decoder.get_tag_ascii_string(Tag::Unknown(42112));
+
     let model_info = get_model_infos(&mut decoder, path);
     verify_requirments(&mut decoder, &model_info, path)?;
     let tile_size = decoder.chunk_dimensions();
@@ -606,10 +634,15 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     if images_ifd.is_empty() {
         Err(CogError::NoImagesFound(path.clone()))?;
     }
+    let min_zoom = 0;
+    let max_zoom = images_ifd.len() as u8 - 1;
+
+    let google_zoom_range = to_google_zoom_range(min_zoom, max_zoom, gdal_metadata);
 
     Ok(Meta {
         min_zoom: 0,
-        max_zoom: images_ifd.len() as u8 - 1,
+        max_zoom,
+        google_zoom: google_zoom_range,
         zoom_and_resolutions: resolutions,
         tile_size,
         extent,
@@ -852,9 +885,42 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
         .insert("custom_grid".to_string(), serde_json::json!(cog_info));
     tilejson
 }
-fn read_tile_to_rgba(decoder: &mut Decoder<File>, tile_idx: u32) -> Vec<u8> {
-    todo!()
+
+fn to_google_zoom_range(
+    actual_min: u8,
+    actual_max: u8,
+    gdal_metadata: TiffResult<String>,
+) -> Option<(u8, u8)> {
+    let mut result = None;
+    if let Ok(gdal_metadata) = gdal_metadata {
+        let re_name = Regex::new(r#"<Item name="NAME" domain="TILING_SCHEME">([^<]+)</Item>"#);
+        let re_zoom =
+            Regex::new(r#"<Item name="ZOOM_LEVEL" domain="TILING_SCHEME">([^<]+)</Item>"#);
+
+        let mut tiling_schema = None;
+        if let Ok(re_name) = re_name {
+            if let Some(caps) = re_name.captures(&gdal_metadata) {
+                tiling_schema = Some(caps[1].to_string());
+            }
+        };
+
+        let mut zoom_level: Option<u8> = None;
+        if let Ok(re_zoom) = re_zoom {
+            if let Some(caps) = re_zoom.captures(&gdal_metadata) {
+                zoom_level = caps[1].parse().ok();
+            }
+        };
+
+        if let Some(zoom) = zoom_level {
+            if tiling_schema == Some("GoogleMapsCompatible".to_string()) {
+                let google_min = zoom - actual_max + actual_min;
+                result = Some((google_min, zoom));
+            }
+        }
+    }
+    result
 }
+
 #[cfg(test)]
 mod tests {
     use insta::{assert_yaml_snapshot, Settings};
@@ -1127,7 +1193,7 @@ mod tests {
     fn can_trans_to_google() {
         let path = PathBuf::from("../tests/fixtures/cog/google_compatible.tif");
 
-        let source = super::CogSource::new("test".to_string(), path).unwrap();
+        let source = super::CogSource::new("test".to_string(), path, true).unwrap();
         let window = [1620847.0, 4276072.0, 1621379.0, 4276545.0];
         let tif_file = File::open("../tests/fixtures/cog/google_compatible.tif").unwrap();
         let mut decoder = Decoder::new(tif_file).unwrap();

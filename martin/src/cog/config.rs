@@ -13,6 +13,8 @@ use crate::Source;
 pub struct CogConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
+
+    pub force_google: Option<bool>,
 }
 
 impl ConfigExtras for CogConfig {
@@ -23,7 +25,7 @@ impl ConfigExtras for CogConfig {
 
 impl SourceConfigExtras for CogConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
-        let cog = CogSource::new(id, path)?;
+        let cog = CogSource::new(id, path, self.force_google.unwrap_or(false))?;
         Ok(Box::new(cog))
     }
 
