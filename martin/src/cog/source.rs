@@ -86,6 +86,7 @@ impl CogSource {
         let cog_extent = self.meta.extent;
         let cog_tile_size = self.meta.tile_size;
         let across_down = self.meta.zoom_and_tile_across_down.get(&zoom).unwrap();
+        let no_data = self.meta.nodata;
 
         let tile_indexes: Vec<(u32, u32)> =
             get_covered_tile_indexes(window, cog_extent, *across_down, cog_tile_size, resolution);
@@ -105,7 +106,6 @@ impl CogSource {
                 across_down.1,
             )
             .unwrap();
-            // 我可以求出这个tile的左上角地理坐标，那么我可以求出这个左上角坐标相当于 output_image里的像素坐标吗？ 然后根据这个offset把所有的像素逐一绘制到output_image里？
             let origin_x = cog_origin[0];
             let origin_y = cog_origin[1];
             let tile_min_x = origin_x + f64::from(col * cog_tile_size.0) * res_x;
@@ -124,23 +124,32 @@ impl CogSource {
                 for x_tile in 0..data_width {
                     let target_x = offset_x_pixel + i64::from(x_tile);
                     let target_y = offset_y_pixel + i64::from(y_tile);
+
+                    if target_x < 0
+                        || target_y < 0
+                        || target_x >= window_width_pixel as i64
+                        || target_y >= window_height_pixel as i64
+                    {
+                        continue;
+                    }
+
                     match (color_type, &decoded_result) {
                         (tiff::ColorType::RGB(_), DecodingResult::U8(data)) => {
                             let idx = (y_tile * data_width + x_tile) * 3;
                             let r = data[idx as usize];
                             let g = data[idx as usize + 1];
                             let b = data[idx as usize + 2];
-                            if target_x >= 0
-                                && target_y >= 0
-                                && (target_x as u32) < window_width_pixel
-                                && (target_y as u32) < window_height_pixel
-                            {
-                                output_image.put_pixel(
-                                    target_x as u32,
-                                    target_y as u32,
-                                    Rgba([r, g, b, 255]),
-                                );
+                            if let Some(nodata) = no_data {
+                                if r == nodata as u8 || g == nodata as u8 || b == nodata as u8 {
+                                    continue;
+                                }
                             }
+
+                            output_image.put_pixel(
+                                target_x as u32,
+                                target_y as u32,
+                                Rgba([r, g, b, 255]),
+                            );
                         }
                         (tiff::ColorType::RGBA(_), DecodingResult::U8(data)) => {
                             let idx = (y_tile * data_width + x_tile) * 4;
@@ -148,17 +157,16 @@ impl CogSource {
                             let g = data[idx as usize + 1];
                             let b = data[idx as usize + 2];
                             let a = data[idx as usize + 3];
-                            if target_x >= 0
-                                && target_y >= 0
-                                && (target_x as u32) < window_width_pixel
-                                && (target_y as u32) < window_height_pixel
-                            {
-                                output_image.put_pixel(
-                                    target_x as u32,
-                                    target_y as u32,
-                                    Rgba([r, g, b, a]),
-                                );
+                            if let Some(nodata) = no_data {
+                                if r == nodata as u8 || g == nodata as u8 || b == nodata as u8 {
+                                    continue;
+                                }
                             }
+                            output_image.put_pixel(
+                                target_x as u32,
+                                target_y as u32,
+                                Rgba([r, g, b, a]),
+                            );
                         }
                         // Handle other color types or decoding results if necessary, or log a warning/error
                         _ => {
@@ -924,13 +932,15 @@ fn to_google_zoom_range(
 #[cfg(test)]
 mod tests {
     use insta::{Settings, assert_yaml_snapshot};
-    use martin_tile_utils::TileCoord;
+    use martin_tile_utils::{TileCoord, xyz_to_bbox};
     use rstest::rstest;
     use std::{fs::File, path::PathBuf};
     use tiff::decoder::Decoder;
 
     use crate::cog::source::{get_full_resolution, get_tile_idx};
     use approx::assert_abs_diff_eq;
+
+    use super::{Meta, get_covered_tile_indexes, get_meta};
 
     #[test]
     fn can_calc_tile_idx() {
@@ -1199,5 +1209,56 @@ mod tests {
         let mut decoder = Decoder::new(tif_file).unwrap();
         let result = source.sub_region(&mut decoder, 2, window, 512);
         todo!()
+    }
+
+    #[test]
+    fn can_get_covered_tiles() {
+        let path = PathBuf::from("../tests/fixtures/cog/google_compatible.tif");
+        let meta = get_meta(&path).unwrap();
+
+        let extent = meta.extent;
+        let tile_size = meta.tile_size;
+        for zoom in 0..=meta.max_zoom {
+            let (tile_across, tile_down) = meta.zoom_and_tile_across_down[&zoom];
+            let resolution = meta.zoom_and_resolutions[&zoom];
+
+            for across in 0..tile_across {
+                for down in 0..tile_down {
+                    let window = calculate_tile_window(&meta, zoom, across, down);
+
+                    let idx = get_covered_tile_indexes(
+                        window,
+                        extent,
+                        (tile_across, tile_down),
+                        tile_size,
+                        &resolution,
+                    );
+                    assert_eq!(1, idx.len());
+                    assert_eq!(across, idx[0].0);
+                    assert_eq!(down, idx[0].1);
+                }
+            }
+        }
+    }
+
+    // Helper function to calculate the geographic window of a tile
+    fn calculate_tile_window(meta: &Meta, zoom: u8, across: u32, down: u32) -> [f64; 4] {
+        let resolution = meta.zoom_and_resolutions[&zoom];
+        let tile_size = meta.tile_size;
+
+        let res_x = resolution[0];
+        // Resolution Y is typically negative
+        let res_y = resolution[1];
+
+        let tile_width_geo = f64::from(tile_size.0) * res_x;
+        let tile_height_geo = f64::from(tile_size.1) * res_y; // This will be negative
+
+        let min_x = meta.origin[0] + f64::from(across) * tile_width_geo;
+        let max_y = meta.origin[1] + f64::from(down) * tile_height_geo; // Top Y coordinate
+        let max_x = min_x + tile_width_geo;
+        let min_y = max_y + tile_height_geo; // Bottom Y coordinate
+
+        // The window represents [min_x, min_y, max_x, max_y]
+        [min_x, min_y, max_x, max_y]
     }
 }
