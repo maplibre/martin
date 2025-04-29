@@ -12,14 +12,14 @@ use log::warn;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
 use regex::Regex;
 use serde::Serialize;
+use tiff::TiffResult;
 use tiff::decoder::{ChunkType, Decoder, DecodingResult};
 use tiff::tags::Tag::{self, GdalNodata};
-use tiff::TiffResult;
-use tilejson::{tilejson, TileJSON};
+use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
 use crate::file_config::{FileError, FileResult};
-use crate::{utils, MartinResult, Source, TileData, UrlQuery};
+use crate::{MartinResult, Source, TileData, UrlQuery, utils};
 
 // about the model space of tiff image.
 // pixel scale, tie points and transformations
@@ -262,7 +262,7 @@ impl CogSource {
             tile_idx = idx;
         } else {
             return Ok(Vec::new());
-        };
+        }
         let decode_result = decoder
             .read_chunk(tile_idx)
             .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, *ifd, self.path.clone()))?;
@@ -923,7 +923,7 @@ fn to_google_zoom_range(
 
 #[cfg(test)]
 mod tests {
-    use insta::{assert_yaml_snapshot, Settings};
+    use insta::{Settings, assert_yaml_snapshot};
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
     use std::{fs::File, path::PathBuf};

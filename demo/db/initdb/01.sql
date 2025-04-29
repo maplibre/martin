@@ -3,28 +3,30 @@ create extension postgis;
 
 create table trips
 (
-  vendorid              numeric,
-  pickup_datetime       timestamp,
-  dropoff_datetime      timestamp,
-  passenger_count       numeric,
-  trip_distance         numeric,
-  ratecodeid            numeric,
-  store_and_fwd_flag    text,
-  pulocationid          numeric,
-  dolocationid          numeric,
-  payment_type          numeric,
-  fare_amount           numeric,
-  extra                 numeric,
-  mta_tax               numeric,
-  tip_amount            numeric,
-  tolls_amount          numeric,
-  improvement_surcharge numeric,
-  total_amount          numeric,
-  congestion_surcharge  numeric,
-  airport_fee           numeric
+    vendorid numeric,
+    pickup_datetime timestamp,
+    dropoff_datetime timestamp,
+    passenger_count numeric,
+    trip_distance numeric,
+    ratecodeid numeric,
+    store_and_fwd_flag text,
+    pulocationid numeric,
+    dolocationid numeric,
+    payment_type numeric,
+    fare_amount numeric,
+    extra numeric,
+    mta_tax numeric,
+    tip_amount numeric,
+    tolls_amount numeric,
+    improvement_surcharge numeric,
+    total_amount numeric,
+    congestion_surcharge numeric,
+    airport_fee numeric
 );
 
-create function tilebbox(z integer, x integer, y integer, srid integer DEFAULT 3857) returns geometry
+create function tilebbox(
+    z integer, x integer, y integer, srid integer default 3857
+) returns geometry
 immutable
 language plpgsql
 as $$
@@ -46,14 +48,15 @@ begin
     return ST_Transform(bbox, srid);
   end if;
 end;
-$$
-;
+$$;
 
-create or replace function get_trips(z integer, x integer, y integer, query_params json) returns bytea
-    stable
-    strict
-    parallel safe
-    language plpgsql
+create or replace function get_trips(
+    z integer, x integer, y integer, query_params json
+) returns bytea
+stable
+strict
+parallel safe
+language plpgsql
 as $$
 DECLARE
   bounds GEOMETRY(POLYGON, 3857) := TileBBox(z, x, y, 3857);
@@ -92,7 +95,6 @@ BEGIN
   RETURN res;
 
 END;
-$$
-;
+$$;
 
 alter function get_trips(integer, integer, integer, json) owner to postgres;

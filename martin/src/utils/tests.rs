@@ -39,29 +39,24 @@ impl Env<'_> for FauxEnv {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[test]
+fn test_get_env_str() {
+    let env = FauxEnv::default();
+    assert_eq!(env.get_env_str("FOO"), None);
 
-    #[test]
-    fn test_get_env_str() {
-        let env = FauxEnv::default();
-        assert_eq!(env.get_env_str("FOO"), None);
+    let env = FauxEnv(vec![("FOO", os("bar"))].into_iter().collect());
+    assert_eq!(env.get_env_str("FOO"), some("bar"));
+}
 
-        let env = FauxEnv(vec![("FOO", os("bar"))].into_iter().collect());
-        assert_eq!(env.get_env_str("FOO"), some("bar"));
-    }
+#[test]
+#[cfg(unix)]
+fn test_bad_os_str() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
 
-    #[test]
-    #[cfg(unix)]
-    fn test_bad_os_str() {
-        use std::ffi::OsStr;
-        use std::os::unix::ffi::OsStrExt;
-
-        let bad_utf8 = [0x66, 0x6f, 0x80, 0x6f];
-        let os_str = OsStr::from_bytes(&bad_utf8[..]);
-        let env = FauxEnv(vec![("BAD", os_str.to_owned())].into_iter().collect());
-        assert!(env.0.contains_key("BAD"));
-        assert_eq!(env.get_env_str("BAD"), None);
-    }
+    let bad_utf8 = [0x66, 0x6f, 0x80, 0x6f];
+    let os_str = OsStr::from_bytes(&bad_utf8[..]);
+    let env = FauxEnv(vec![("BAD", os_str.to_owned())].into_iter().collect());
+    assert!(env.0.contains_key("BAD"));
+    assert_eq!(env.get_env_str("BAD"), None);
 }

@@ -33,8 +33,8 @@ mbtiles *ARGS:
     cargo run -p mbtiles -- {{ARGS}}
 
 # Start release-compiled Martin server and a test database
-run-release *ARGS: start
-    cargo run -- {{ARGS}}
+run-release *ARGS="--webui enable-for-all": start
+    cargo run -p martin --release -- {{ARGS}}
 
 # Start Martin server and open a test page
 debug-page *ARGS: start
@@ -119,12 +119,12 @@ bench-server: start
 bench-http: (cargo-install "oha")
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
-    oha -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha -z 60s  http://localhost:3000/function_zxy_query/18/235085/122323
-    oha -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
-    oha -z 60s  http://localhost:3000/png/0/0/0
-    oha -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
-    oha -z 60s  http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/png/0/0/0
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Run all tests using a test database
 test: start (test-cargo "--all-targets") test-doc test-int
@@ -201,11 +201,11 @@ bless-tests:
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
     #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --unreferenced=auto -p mbtiles {{ARGS}}
+    cargo insta test --accept -p mbtiles {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --unreferenced=auto -p martin {{ARGS}}
+    cargo insta test --accept -p martin {{ARGS}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *ARGS: (cargo-install "cargo-insta")
@@ -223,8 +223,8 @@ package-deb: (cargo-install "cargo-deb")
 docs:
     cargo doc --no-deps --open
 
-# Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
-coverage FORMAT='html': (cargo-install "grcov")
+# Generate code coverage report
+coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
     #!/usr/bin/env bash
     set -euo pipefail
     if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
@@ -232,42 +232,14 @@ coverage FORMAT='html': (cargo-install "grcov")
         rustup component add llvm-tools-preview ;\
     fi
 
-    {{just_executable()}} clean
-    {{just_executable()}} start
+    source <(cargo llvm-cov show-env --export-prefix)
+    cargo llvm-cov clean --workspace
 
-    PROF_DIR=target/prof
-    mkdir -p "$PROF_DIR"
-    PROF_DIR=$(realpath "$PROF_DIR")
+    {{just_executable()}} test-cargo --all-targets
+    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    {{just_executable()}} test-int
 
-    OUTPUT_RESULTS_DIR=target/coverage/{{FORMAT}}
-    mkdir -p "$OUTPUT_RESULTS_DIR"
-
-    export CARGO_INCREMENTAL=0
-    export RUSTFLAGS=-Cinstrument-coverage
-    # Avoid problems with relative paths
-    export LLVM_PROFILE_FILE=$PROF_DIR/cargo-test-%p-%m.profraw
-    export MARTIN_PORT=3111
-
-    cargo test --all-targets
-    tests/test.sh
-
-    set -x
-    grcov --binary-path ./target/debug    \
-          -s .                            \
-          -t {{FORMAT}}                 \
-          --branch                        \
-          --ignore 'benches/*'            \
-          --ignore 'tests/*'              \
-          --ignore-not-existing           \
-          -o target/coverage/{{FORMAT}} \
-          --llvm                          \
-          "$PROF_DIR"
-    { set +x; } 2>/dev/null
-
-    # if this is html, open it in the browser
-    if [ "{{FORMAT}}" = "html" ]; then
-        open "$OUTPUT_RESULTS_DIR/index.html"
-    fi
+    cargo llvm-cov report {{ARGS}}
 
 # Build and run martin docker image
 docker-run *ARGS:
@@ -323,19 +295,13 @@ clippy-md:
     docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
-# Update all dependencies including the breaking ones
-update-breaking:
+# Update dependencies, including breaking changes
+update:
     cargo +nightly -Z unstable-options update --breaking
+    cargo update
 
 # A few useful tests to run locally to simulate CI
 ci-test: env-info restart fmt clippy check-doc test check
-
-# These steps automatically run before git push via a git hook
-git-pre-push:
-    # TODO: these should be deleted after a while
-    echo "Pre-commit is no longer required."
-    echo "Please remove the git hook by running    rm .git/hooks/pre-push"
-    exit 1
 
 # Get environment info
 [private]

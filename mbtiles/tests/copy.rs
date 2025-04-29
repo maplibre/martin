@@ -13,13 +13,13 @@ use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
-    apply_patch, init_mbtiles_schema, invert_y_value, CopyType, MbtResult, MbtTypeCli, Mbtiles,
-    MbtilesCopier, PatchTypeCli, UpdateZoomType,
+    CopyType, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
+    apply_patch, init_mbtiles_schema, invert_y_value,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
-use sqlx::{query, query_as, Executor as _, Row, SqliteConnection};
+use sqlx::{Executor as _, Row, SqliteConnection, query, query_as};
 use tokio::runtime::Handle;
 
 const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";
@@ -180,7 +180,11 @@ macro_rules! assert_dump {
         let mut settings = insta::Settings::clone_current();
         settings.set_snapshot_suffix(format!($($arg)*));
         let actual_value = &$actual_value;
-        settings.bind(|| insta::assert_toml_snapshot!(actual_value));
+        settings.bind(||
+            allow_duplicates! {
+                insta::assert_toml_snapshot!(actual_value)
+            }
+        );
     }};
 }
 
@@ -326,7 +330,7 @@ fn databases() -> Databases {
                 let (v2z_mbt, mut v2z_cn) =
                     new_file!(+GZIP_TILES, databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2z");
                 let dmp = dump(&mut v2z_cn).await.unwrap();
-                assert_dump!(&dmp, "{typ}__v2");
+                assert_dump!(&dmp, "{typ}__v2z");
                 let hash = v2z_mbt.open_and_validate(Off, Verify).await.unwrap();
                 allow_duplicates! {
                     assert_snapshot!(hash, @"A18D0C39730FB52E5A547F096F5C60E8");
@@ -447,9 +451,7 @@ async fn convert(
         copy => CopyType::Metadata,
         dst_type_cli => Some(dst_type),
     };
-    allow_duplicates! {
-        assert_dump!(dmp, "v1__meta__{to}");
-    }
+    assert_dump!(dmp, "v1__meta__{to}");
 
     let dmp = copy_dump! {
         path(&frm_mbt),
@@ -457,9 +459,7 @@ async fn convert(
         copy => CopyType::Tiles,
         dst_type_cli => Some(dst_type),
     };
-    allow_duplicates! {
-        assert_dump!(dmp, "v1__tiles__{to}");
-    }
+    assert_dump!(dmp, "v1__tiles__{to}");
 
     let z6only = copy_dump! {
         path(&frm_mbt),
@@ -467,9 +467,7 @@ async fn convert(
         dst_type_cli => Some(dst_type),
         zoom_levels => vec![6],
     };
-    allow_duplicates! {
-        assert_dump!(z6only, "v1__z6__{to}");
-    }
+    assert_dump!(z6only, "v1__z6__{to}");
 
     // Filter (0, 0, 2, 2) in mbtiles coordinates, which is (0, 2^5-1-2, 2, 2^5-1-0) = (0, 29, 2, 31) in XYZ coordinates, and slightly decrease it
     let mut bbox = xyz_to_bbox(5, 0, invert_y_value(5, 2), 2, invert_y_value(5, 0));
@@ -484,9 +482,7 @@ async fn convert(
         dst_type_cli => Some(dst_type),
         bbox => vec![bbox.into()],
     };
-    allow_duplicates! {
-        assert_dump!(dmp, "v1__bbox__{to}");
-    }
+    assert_dump!(dmp, "v1__bbox__{to}");
 
     pretty_assert_eq!(
         &z6only,
@@ -534,7 +530,9 @@ async fn diff_and_patch(
         shorten(a_type),
     );
 
-    eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
+    eprintln!(
+        "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
+    );
     let (dif_mbt, mut dif_cn) = open!(diff_and_patch, "{prefix}__{dif_db}");
     copy! {
         databases.path(a_db, a_type),
@@ -551,7 +549,9 @@ async fn diff_and_patch(
         let prefix = format!("{prefix}__to__{}", shorten(*dst_type));
         let expected_b = databases.dump(b_db, *dst_type);
 
-        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}");
+        eprintln!(
+            "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}"
+        );
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__1");
         copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
@@ -560,7 +560,9 @@ async fn diff_and_patch(
         let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
 
-        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it");
+        eprintln!(
+            "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it"
+        );
         let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__2");
         copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
@@ -597,7 +599,9 @@ async fn diff_and_patch_bsdiff(
         shorten(a_type),
     );
 
-    eprintln!("TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})");
+    eprintln!(
+        "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
+    );
     let (dif_mbt, mut dif_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{dif_db}");
     copy! {
         databases.path(a_db, a_type),
@@ -749,7 +753,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                         // if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
                         //     return format!("blob({})", from_utf8(&v).unwrap());
                         // }
-                        // if let Ok(v) = row.try_get::<i32, _>(idx) {
+                        // if let Ok(v) = row.try_get::<i64, _>(idx) {
                         //     return v.to_string();
                         // }
                         // if let Ok(v) = row.try_get::<f64, _>(idx) {
@@ -757,7 +761,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                         // }
                         // panic!("Unknown column type: {typ}");
                         (match typ.as_str() {
-                            "INTEGER" => row.get::<Option<i32>, _>(idx).map(|v| v.to_string()),
+                            "INTEGER" => row.get::<Option<i64>, _>(idx).map(|v| v.to_string()),
                             "REAL" => row.get::<Option<f64>, _>(idx).map(|v| v.to_string()),
                             "TEXT" => row
                                 .get::<Option<String>, _>(idx)

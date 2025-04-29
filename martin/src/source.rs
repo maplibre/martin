@@ -123,8 +123,8 @@ pub trait Source: Send + Debug {
 
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();
-        tj.minzoom.map_or(true, |minzoom| zoom >= minzoom)
-            && tj.maxzoom.map_or(true, |maxzoom| zoom <= maxzoom)
+        tj.minzoom.is_none_or(|minzoom| zoom >= minzoom)
+            && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
     }
 
     fn get_catalog_entry(&self) -> CatalogSourceEntry {
