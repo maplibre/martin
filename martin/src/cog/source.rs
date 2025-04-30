@@ -210,8 +210,6 @@ impl CogSource {
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::too_many_lines)]
     pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
-   
-
         if self.force_google {
             if let Some(google_zoom) = self.meta.google_zoom {
                 let google_min_zoom = google_zoom.0;
@@ -855,7 +853,7 @@ fn meta_to_tilejson(meta: &Meta) -> TileJSON {
         min_zoom = meta.min_zoom;
         max_zoom = meta.max_zoom;
     }
-  
+
     let tilejson = tilejson! {
         tiles: vec![],
         minzoom: min_zoom,
