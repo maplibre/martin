@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::vec;
 
@@ -934,7 +934,7 @@ mod tests {
     use insta::{Settings, assert_yaml_snapshot};
     use martin_tile_utils::{TileCoord, xyz_to_bbox};
     use rstest::rstest;
-    use std::{fs::File, path::PathBuf};
+    use std::{fs::File, io::Write, path::PathBuf};
     use tiff::decoder::Decoder;
 
     use crate::cog::source::{get_full_resolution, get_tile_idx};
@@ -1207,8 +1207,10 @@ mod tests {
         let window = [1620847.0, 4276072.0, 1621379.0, 4276545.0];
         let tif_file = File::open("../tests/fixtures/cog/google_compatible.tif").unwrap();
         let mut decoder = Decoder::new(tif_file).unwrap();
-        let result = source.sub_region(&mut decoder, 2, window, 512);
-        todo!()
+        let result = source.sub_region(&mut decoder, 2, window, 512).unwrap();
+        let expected_bytes =
+            std::fs::read("../tests/fixtures/cog/expected/sub_region.png").unwrap();
+        assert_eq!(result, expected_bytes);
     }
 
     #[test]
