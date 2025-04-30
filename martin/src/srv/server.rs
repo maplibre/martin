@@ -6,7 +6,7 @@ use std::time::Duration;
 use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::TrailingSlash;
+use actix_web::middleware::{Condition, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt;
@@ -162,9 +162,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
     let factory = move || {
-        let cors_middleware = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET"]);
+        let cors_middleware = config.cors.make_cors();
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
@@ -179,12 +177,17 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "styles")]
         let app = app.app_data(Data::new(state.styles.clone()));
 
-        app.app_data(Data::new(catalog.clone()))
-            .app_data(Data::new(config.clone()))
-            .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .wrap(middleware::Logger::default())
-            .configure(|c| router(c, &config))
+        let app = app
+            .app_data(Data::new(catalog.clone()))
+            .app_data(Data::new(config.clone()));
+
+        app.wrap(Condition::new(
+            cors_middleware.is_some(),
+            cors_middleware.unwrap(),
+        ))
+        .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
+        .wrap(middleware::Logger::default())
+        .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
