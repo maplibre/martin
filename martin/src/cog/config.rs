@@ -25,7 +25,7 @@ impl ConfigExtras for CogConfig {
 
 impl SourceConfigExtras for CogConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
-        let cog = CogSource::new(id, path, self.force_google.unwrap_or(false))?;
+        let cog = CogSource::new(id, path, self.force_google.unwrap_or(true))?;
         Ok(Box::new(cog))
     }
 
