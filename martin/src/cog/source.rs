@@ -217,7 +217,7 @@ impl CogSource {
                 if internal_zoom < self.meta.min_zoom || internal_zoom > self.meta.max_zoom {
                     return Ok(Vec::new());
                 }
-                let bbox = martin_tile_utils::xyz_to_bbox(xyz.z, xyz.x, xyz.y, xyz.x, xyz.y);
+                let bbox = martin_tile_utils::xyz_to_bbox_webmercator(xyz.z, xyz.x, xyz.y, xyz.x, xyz.y);
                 let tif_file =
                     File::open(&self.path).map_err(|e| FileError::IoError(e, self.path.clone()))?;
                 let mut decoder = Decoder::new(tif_file)
