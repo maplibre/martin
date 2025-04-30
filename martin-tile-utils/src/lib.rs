@@ -254,7 +254,6 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
     [min_lng, min_lat, max_lng, max_lat]
 }
 
-
 /// Convert min/max XYZ tile coordinates to a bounding box values.
 ///
 /// The result is `[min_lng, min_lat, max_lng, max_lat]`
@@ -262,7 +261,13 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
 /// # Panics
 /// Panics if `zoom` is greater than [`MAX_ZOOM`].
 #[must_use]
-pub fn xyz_to_bbox_webmercator(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> [f64; 4] {
+pub fn xyz_to_bbox_webmercator(
+    zoom: u8,
+    min_x: u32,
+    min_y: u32,
+    max_x: u32,
+    max_y: u32,
+) -> [f64; 4] {
     assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
 
     let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
@@ -270,9 +275,13 @@ pub fn xyz_to_bbox_webmercator(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max
     let left_down_bbox = tile_bbox(min_x, max_y, tile_length);
     let right_top_bbox = tile_bbox(max_x, min_y, tile_length);
 
-    [left_down_bbox[0], left_down_bbox[1], right_top_bbox[2], right_top_bbox[3]]
+    [
+        left_down_bbox[0],
+        left_down_bbox[1],
+        right_top_bbox[2],
+        right_top_bbox[3],
+    ]
 }
-
 
 #[allow(clippy::cast_lossless)]
 fn tile_bbox(x: u32, y: u32, tile_length: f64) -> [f64; 4] {
