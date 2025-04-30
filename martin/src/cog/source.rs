@@ -210,9 +210,7 @@ impl CogSource {
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::too_many_lines)]
     pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
-        if xyz.z < self.meta.min_zoom || xyz.z > self.meta.max_zoom {
-            return Ok(Vec::new());
-        }
+   
 
         if self.force_google {
             if let Some(google_zoom) = self.meta.google_zoom {
@@ -234,6 +232,11 @@ impl CogSource {
                 return Ok(Vec::new());
             }
         }
+
+        if xyz.z < self.meta.min_zoom || xyz.z > self.meta.max_zoom {
+            return Ok(Vec::new());
+        }
+
         let tif_file =
             File::open(&self.path).map_err(|e| FileError::IoError(e, self.path.clone()))?;
         let mut decoder =
@@ -843,54 +846,21 @@ fn get_origin(
 }
 
 fn meta_to_tilejson(meta: &Meta) -> TileJSON {
-    let mut tilejson = tilejson! {
-        tiles: vec![],
-        minzoom: meta.min_zoom,
-        maxzoom: meta.max_zoom
-    };
-
-    let mut cog_info = serde_json::Map::new();
-
-    cog_info.insert(
-        "minZoom".to_string(),
-        serde_json::Value::from(meta.min_zoom),
-    );
-
-    cog_info.insert(
-        "maxZoom".to_string(),
-        serde_json::Value::from(meta.max_zoom),
-    );
-
-    let mut resolutions_map = Vec::new();
-    for value in meta.zoom_and_resolutions.values() {
-        resolutions_map.push(value[0]);
+    let min_zoom;
+    let max_zoom;
+    if let Some(google_zoom) = meta.google_zoom {
+        min_zoom = google_zoom.0;
+        max_zoom = google_zoom.1;
+    } else {
+        min_zoom = meta.min_zoom;
+        max_zoom = meta.max_zoom;
     }
-
-    resolutions_map.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-
-    cog_info.insert(
-        "tileSize".to_string(),
-        serde_json::Value::from([meta.tile_size.0, meta.tile_size.1]),
-    );
-
-    cog_info.insert(
-        "resolutions".to_string(),
-        serde_json::Value::from(resolutions_map),
-    );
-
-    cog_info.insert(
-        "origin".to_string(),
-        serde_json::Value::from([meta.origin[0], meta.origin[1]]),
-    );
-
-    cog_info.insert(
-        "extent".to_string(),
-        serde_json::Value::from(meta.extent.to_vec()),
-    );
-
-    tilejson
-        .other
-        .insert("custom_grid".to_string(), serde_json::json!(cog_info));
+  
+    let tilejson = tilejson! {
+        tiles: vec![],
+        minzoom: min_zoom,
+        maxzoom:max_zoom,
+    };
     tilejson
 }
 
@@ -1147,6 +1117,7 @@ mod tests {
             insta::assert_yaml_snapshot!(meta,@r###"
             min_zoom: 0
             max_zoom: 3
+            google_zoom: ~
             origin:
               - 1620750.2508
               - 4277012.7153
