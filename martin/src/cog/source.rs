@@ -56,14 +56,17 @@ impl CogSource {
         let meta = get_meta(&path)?;
 
         let tilejson: TileJSON = meta_to_tilejson(&meta);
-
+        let mut google_compatible = false;
+        if force_google == true && meta.google_zoom.is_some() {
+            google_compatible = true;
+        }
         Ok(CogSource {
             id,
             path,
             meta,
             tilejson,
             tileinfo,
-            force_google,
+            force_google: google_compatible,
         })
     }
 
