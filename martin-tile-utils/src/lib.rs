@@ -251,7 +251,7 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
 
     let (min_lng, min_lat) = webmercator_to_wgs84(left_down_bbox[0], left_down_bbox[1]);
     let (max_lng, max_lat) = webmercator_to_wgs84(right_top_bbox[2], right_top_bbox[3]);
-    [min_lng, min_lat, max_lng, max_lat]
+    [left_down_bbox[0], left_down_bbox[1], right_top_bbox[2], right_top_bbox[3]]
 }
 
 #[allow(clippy::cast_lossless)]
