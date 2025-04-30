@@ -79,8 +79,8 @@ impl CogSource {
         let resolution = self.meta.zoom_and_resolutions.get(&zoom).unwrap();
         let res_x = resolution[0];
         let res_y = resolution[1].abs();
-        let window_width_pixel = ((window[2] - window[0]) / res_x).ceil() as u32;
-        let window_height_pixel = ((window[3] - window[1]) / res_y).ceil() as u32;
+        let window_width_pixel = ((window[2] - window[0]) / res_x).round() as u32;
+        let window_height_pixel = ((window[3] - window[1]) / res_y).round() as u32;
 
         let cog_origin = self.meta.origin;
         let cog_extent = self.meta.extent;
