@@ -50,7 +50,7 @@ cors:
   enable: true
   # sets the Access-Control-Allow-Origin header [default: *]
   # '*' will use the requests ORIGIN header
-  allowed_origins:
+  origin:
     - https://example.org
   # sets Access-Control-Max-Age Header. Remove to use default. [default: None]
   max_age: 3600
