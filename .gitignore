@@ -23,4 +23,3 @@ tmp/
 ####
 #### Above content must match .dockerignore ####
 ####
-.aider*
