@@ -75,5 +75,29 @@ mod tests {
                 ..Default::default()
             }
         );
+
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                cors:
+                    enable: true
+                    allowed_origins: ['https://example.com']
+                    max_age: 3600
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                cors: Some(CorsConfig {
+                    enable: true,
+                    allowed_origins: vec!["https://example.com".to_string()],
+                    max_age: Some(3600),
+                }),
+                ..Default::default()
+            }
+        );
     }
 }
