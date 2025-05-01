@@ -2,7 +2,6 @@ use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN};
 use actix_web::test::{TestRequest, call_service};
 use ctor::ctor;
 use indoc::indoc;
-use martin::srv::SrvConfig;
 
 pub mod utils;
 pub use utils::*;
