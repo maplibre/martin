@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct CorsConfig {
     pub enable: bool,
-    pub allowed_origins: Vec<String>,
+    pub origin: Vec<String>,
     pub max_age: Option<usize>,
 }
 
@@ -14,7 +14,7 @@ impl Default for CorsConfig {
     fn default() -> Self {
         Self {
             enable: true,
-            allowed_origins: vec!["*".to_string()],
+            origin: vec!["*".to_string()],
             max_age: None,
         }
     }
@@ -28,12 +28,12 @@ impl CorsConfig {
 
             // allow any origin by default
             // this will set `access-control-allow-origin` dynamically to the value of the `Origin` request header
-            if self.allowed_origins.contains(&"*".to_string()) {
+            if self.origin.contains(&"*".to_string()) {
                 cors = cors.allow_any_origin();
             }
             // if specific origins are provided, set them instead
             else {
-                for origin in &self.allowed_origins {
+                for origin in &self.origin {
                     cors = cors.allowed_origin(origin);
                 }
             }
@@ -63,7 +63,7 @@ mod tests {
         let middleware = config.make_cors_middleware();
         assert!(middleware.is_some());
         assert!(config.enable);
-        assert_eq!(config.allowed_origins, vec!["*"]);
+        assert_eq!(config.origin, vec!["*"]);
         assert_eq!(config.max_age, None);
     }
 
@@ -80,7 +80,8 @@ mod tests {
     fn test_cors_yaml_parsing() {
         let config: CorsConfig = serde_yaml::from_str(indoc! {"
             enable: true
-            allowed_origins: ['https://example.com']
+            origin:
+              - https://example.com
             max_age: 3600
         "})
         .unwrap();
@@ -88,7 +89,7 @@ mod tests {
             config,
             CorsConfig {
                 enable: true,
-                allowed_origins: vec!["https://example.com".to_string()],
+                origin: vec!["https://example.com".to_string()],
                 max_age: Some(3600),
             }
         );
@@ -106,13 +107,15 @@ mod tests {
         );
 
         let config: CorsConfig = serde_yaml::from_str(indoc! {"
-            allowed_origins: ['https://example1.com', 'https://example2.com']
+            origin:
+              - https://example1.com
+              - https://example2.com
         "})
         .unwrap();
         assert_eq!(
             config,
             CorsConfig {
-                allowed_origins: vec![
+                origin: vec![
                     "https://example1.com".to_string(),
                     "https://example2.com".to_string(),
                 ],

@@ -83,7 +83,8 @@ mod tests {
                 worker_processes: 8
                 cors:
                     enable: true
-                    allowed_origins: ['https://example.com']
+                    origin: 
+                      - https://example.com
                     max_age: 3600
             "})
             .unwrap(),
@@ -93,7 +94,7 @@ mod tests {
                 worker_processes: Some(8),
                 cors: Some(CorsConfig {
                     enable: true,
-                    allowed_origins: vec!["https://example.com".to_string()],
+                    origin: vec!["https://example.com".to_string()],
                     max_age: Some(3600),
                 }),
                 ..Default::default()

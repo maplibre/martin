@@ -24,7 +24,7 @@ martin  ... ... ...  --save-config config.yaml
 keep_alive: 75
 
 # The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
+listen_addresses: "0.0.0.0:3000"
 
 # Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
 # Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
@@ -44,19 +44,30 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
+# CORS configuration
+cors:
+  # enable/disable CORS [default: true]
+  enable: true
+  # sets the Access-Control-Allow-Origin header [default: *]
+  # '*' will use the requests ORIGIN header
+  allowed_origins:
+    - https://example.org
+  # sets Access-Control-Max-Age Header. Remove to use default. [default: None]
+  max_age: 3600
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string. You can use env vars too, for example:
   #   $DATABASE_URL
   #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
-  connection_string: 'postgresql://postgres@localhost:5432/db'
+  connection_string: "postgresql://postgres@localhost:5432/db"
 
   # Same as PGSSLCERT for psql
-  ssl_cert: './postgresql.crt'
+  ssl_cert: "./postgresql.crt"
   # Same as PGSSLKEY for psql
-  ssl_key: './postgresql.key'
+  ssl_key: "./postgresql.key"
   # Same as PGSSLROOTCERT for psql
-  ssl_root_cert: './root.crt'
+  ssl_root_cert: "./root.crt"
 
   #  If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
@@ -90,7 +101,7 @@ postgres:
     # E.g. `tables: false` enables just the functions auto-discovery.
     tables:
       # Optionally set how source ID should be generated based on the table's name, schema, and geometry column
-      source_id_format: 'table.{schema}.{table}.{column}'
+      source_id_format: "table.{schema}.{table}.{column}"
       # Add more schemas to the ones listed above
       from_schemas: my_other_schema
       # A table column to use as the feature ID
@@ -105,7 +116,7 @@ postgres:
       extent: 4096
     functions:
       # Optionally set how source ID should be generated based on the function's name and schema
-      source_id_format: '{schema}.{function}'
+      source_id_format: "{schema}.{function}"
 
   # Associative arrays of table sources
   tables:
@@ -138,7 +149,7 @@ postgres:
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+      bounds: [-180.0, -90.0, 180.0, 90.0]
 
       # Tile extent in tile coordinate space
       extent: 4096
@@ -175,7 +186,7 @@ postgres:
       # covered by all zoom levels. The bounds are represented in WGS:84
       # latitude and longitude values, in the order left, bottom, right, top.
       # Values may be integers or floating point numbers.
-      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+      bounds: [-180.0, -90.0, 180.0, 90.0]
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
@@ -213,8 +224,8 @@ cog:
     - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
-     cog-src1: /path/to/cog1.tif
-     cog-src2: /path/to/cog2.tif
+    cog-src1: /path/to/cog1.tif
+    cog-src2: /path/to/cog2.tif
 
 # Sprite configuration
 sprites:
@@ -234,19 +245,19 @@ fonts:
 # Publish MapLibre style files
 # In the future, the style files will be used for the server-side rendering as well
 styles:
-   paths:
-     # publish all *.json files in this directory
-     # The name of the file will be used as the style name
-     - /path/to/styles_dir
-     # publish a single file - here `maplibre_style` will be the style name
-     - /path/to/maplibre_style.json
-   sources:
-     # publish a JSON file found at this path as `some_style_name`
-     #
-     # Contrairy to paths, if directories are specified, Martin will print a warning and ignore them.
-     # To serve a style-directory, use the `paths` section above or name each style individually.
-     # This prevents footguns with names being unclear.
-     some_style_name: /path/to/this/style.json
-     #  Publish specific file as `other_style_name`
-     other_style_name: /path/to/other_style.json
+  paths:
+    # publish all *.json files in this directory
+    # The name of the file will be used as the style name
+    - /path/to/styles_dir
+    # publish a single file - here `maplibre_style` will be the style name
+    - /path/to/maplibre_style.json
+  sources:
+    # publish a JSON file found at this path as `some_style_name`
+    #
+    # Contrairy to paths, if directories are specified, Martin will print a warning and ignore them.
+    # To serve a style-directory, use the `paths` section above or name each style individually.
+    # This prevents footguns with names being unclear.
+    some_style_name: /path/to/this/style.json
+    #  Publish specific file as `other_style_name`
+    other_style_name: /path/to/other_style.json
 ```

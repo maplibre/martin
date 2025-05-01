@@ -91,7 +91,7 @@ async fn test_cors_specific_origin() {
     let app = create_app!(indoc! {"
         cors:
           enable: true
-          allowed_origins: ['https://example.com']
+          origin: ['https://example.com']
         mbtiles:
           sources:
             test: ../tests/fixtures/mbtiles/world_cities.mbtiles
