@@ -83,7 +83,7 @@ mod tests {
                 worker_processes: 8
                 cors:
                     enable: true
-                    origin: 
+                    origin:
                       - https://example.com
                     max_age: 3600
             "})
