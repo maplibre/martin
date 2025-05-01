@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::args::PreferredEncoding;
 
-use super::cors::CorsMode;
+use super::cors::CorsConfig;
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -17,7 +17,7 @@ pub struct SrvConfig {
     pub preferred_encoding: Option<PreferredEncoding>,
     #[cfg(feature = "webui")]
     pub web_ui: Option<crate::args::WebUiMode>,
-    pub cors: CorsMode,
+    pub cors: Option<CorsConfig>,
 }
 
 #[cfg(test)]

@@ -3,7 +3,6 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
-use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::{Condition, TrailingSlash};
@@ -162,7 +161,11 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
     let factory = move || {
-        let cors_middleware = config.cors.make_cors();
+        let cors_middleware = config
+            .clone()
+            .cors
+            .unwrap_or_default()
+            .make_cors_middleware();
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
@@ -183,7 +186,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         app.wrap(Condition::new(
             cors_middleware.is_some(),
-            cors_middleware.unwrap(),
+            cors_middleware.unwrap_or_default(),
         ))
         .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
         .wrap(middleware::Logger::default())
