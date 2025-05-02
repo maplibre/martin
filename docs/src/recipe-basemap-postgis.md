@@ -80,7 +80,7 @@ By default, we will share every servable postgres [table, view](sources-pg-table
 martin data/monaco.mbtiles postgres://postgres:mypass@localhost:5432/postgres
 ```
 
-You can now see the catalog of avaliable things here: [`http://localhost:3000/catalog`](http://localhost:3000/catalog)
+You can now see the catalog of available things here: [`http://localhost:3000/catalog`](http://localhost:3000/catalog)
 The tilejson endpoint of both tilesets is [`http://localhost:3000/monaco,where_yachts_can_be_looked_at`](http://localhost:3000/monaco,where_yachts_can_be_looked_at)
 
 ## Using in Maputnik to style a map
