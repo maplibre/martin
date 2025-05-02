@@ -21,7 +21,7 @@ It allows users to [examine](mbtiles-meta.md), [copy](mbtiles-copy.md), [validat
 
 See [this article](mbtiles.md) for more information.
 
-### Supporting crates
+## Supporting crates
 
 Next to these tools, we also have a set of supporting crates for supporting the `martin` server and its ecosystem.
 Example of this is `martin-tile-utils` which is used in `martin`, `mbtiles` and `martin-cp`.
