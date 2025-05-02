@@ -61,7 +61,7 @@ docker run --name some-postgis --env POSTGRES_PASSWORD=mypass --publish 5432:543
 
 ### Import Points into PostGIS
 
-Then you need to add geometrys to the posgis database.
+Then you need to add geometries to the PostGIS database.
 This is possible via multiple ways, such as [`osm2pgsql` for adding specific, updatable OSM data](https://osm2pgsql.org/) or in the programming language of your choice via postgres' various database connectors.
 
 ```bash
