@@ -2,6 +2,7 @@
 
 You commonly have some semi-proprietary datasource which you want to overlay onto another.
 This guide shows how to generate a basemap using [Planetiler](https://github.com/onthegomap/planetiler/) from [OSM](https://osm.org) and overlay custom points from a [PostGIS](https://postgis.net/) database.
+See here for a discussion on the [pros and cons of this/alternative data sources](sources-tiles.md).
 
 ## Prerequisites
 
@@ -44,21 +45,101 @@ Please refer to [Planetilers documentation](https://github.com/onthegomap/planet
 
 ```bash
 mkdir --parents data
-docker run --user=$UID -e JAVA_TOOL_OPTIONS="-Xmx1g" -v "$(pwd)/data":/data --interactive --tty --rm ghcr.io/onthegomap/planetiler:latest --download --minzoom=0 --maxzoom=14 --area=monaco --output monaco.mbtiles
+docker run --user=$UID -e JAVA_TOOL_OPTIONS="-Xmx1g" -v "$(pwd)/data":/data --rm ghcr.io/onthegomap/planetiler:latest --download --minzoom=0 --maxzoom=14 --tile_compression=none --area=monaco --output /data/monaco.mbtiles
 ```
 
 ## Loading data into a PostGIS database
 
 ### Run PostGIS
-TODO: command to run Postgis in docker
+
+First, you need a running [postGIS](https://postgis.net) instance.
+
+```bash
+docker run --name some-postgis --env POSTGRES_PASSWORD=mypass --publish 5432:5432 --detach postgis/postgis
+```
+
 ### Import Points into PostGIS
-TODO: sql insert statements in psql
+
+Then you need to add geometrys to the posgis database.
+This is possible via multiple ways, such as [`osm2pgsql` for adding specific, updatable OSM data](https://osm2pgsql.org/) or in the programming language of your choice via postgres' various database connectors.
+
+```bash
+docker exec some-postgis psql --dbname postgres --username postgres --command "CREATE TABLE where_yachts_can_be_looked_at (title TEXT NOT NULL, subtitle TEXT NOT NULL, location GEOMETRY(Point, 4326) NOT NULL);"
+docker exec some-postgis psql --dbname postgres --username postgres --command "INSERT INTO where_yachts_can_be_looked_at (title, subtitle, location) VALUES ('Port Hercules', 'Great view of superyachts docked in the iconic harbor.', ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"
+```
 
 ## Serving tiles with Martin
-TODO: command to run, available endpoints
+
+Now we will serve the content of [mbtiles](sources-files.md) and the [postgis database](pg-connections.md).
+
+If you want more precise options what things are published how, please see the [configuration file](config-file.md) or [cli documentation](run-with-cli.md).
+By default, we will share every servable postgres [table, view](sources-pg-tables.md) and [function](sources-pg-functions.md).
+
+```bash
+martin data/monaco.mbtiles postgres://postgres:mypass@localhost:5432/postgres
+```
+
+You can now see the catalog of avaliable things here: [`http://localhost:3000/catalog`](http://localhost:3000/catalog)
+The tilejson endoint of both tilesets is [`http://localhost:3000/monaco,where_yachts_can_be_looked_at`](http://localhost:3000/monaco,where_yachts_can_be_looked_at)
 
 ## Using in Maputnik to style a map
 
-TODO: Open https://maplibre.org/maputnik/
-Select style
-underpin with screenshots or a gifcap
+Due to CORS, we CANNOT use the website https://maplibre.org/maputnik/ without further setup.
+Once the tiles are deployed behind https, this can be used.
+
+To get a local version of maputnik, run
+
+```bash
+docker run -it --rm -p 8888:80 ghcr.io/maplibre/maputnik:main
+```
+
+Maputnik is now online, so lets load martins tiles into it.
+
+1. Visit [`http://localhost:8888`](http://localhost:8888)
+2. You first need a style:
+   - Click `Open`
+     ![where in the UI the "Open" button can be found](images/maputnik-open.png)
+   - Select a style you like (we are going to choose `Maptiler Basic`)
+     ![how to select a style](images/maputnik-select-style.png)
+3. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles we just published:
+   - Click `Data Sources`
+     ![how to change the datasource](images/maputnik-change-datasource.png)
+   - And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`:
+     ![how to add the tilejson](images/maputnik-add-tilejson.png)
+4. Now, lets zoom into monaco:
+   ![where monaco is on a map](images/maputnik-zoom-into-monaco.png)
+5. And finally, lets add a circle layer for our yachts:
+   - Click `Add Layer`
+     ![add a circle layer](images/maputnik-add-layer.png)
+   - Configure the layer as follows:
+     ![add a circle layer](images/maputnik-configure-layer.png)
+   - And style it as:
+     ![add a circle layer](images/maputnik-add-yachts-layer.png)
+     
+     <details><summary>json configuration (click to expand)</summary>
+     
+     ```json
+     {
+       "id": "where_yachts_can_be_looked_at",
+       "type": "circle",
+       "source": "openmaptiles",
+       "source-layer": "where_yachts_can_be_looked_at",
+       "paint": {
+         "circle-color": "rgba(255, 7, 103, 1)",
+         "circle-blur": 0.2,
+         "circle-radius": {
+           "stops": [
+             [13, 1],
+             [15, 300],
+             [20, 2000]
+           ]
+         },
+         "circle-opacity": {
+           "stops": [[13.5, 0], [14, 0.4]]
+         }
+       },
+       "minzoom": 13
+     }
+     ```
+     
+     </details>
