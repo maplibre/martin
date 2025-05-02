@@ -7,6 +7,7 @@ See here for a discussion on the [pros and cons of this/alternative data sources
 ## Prerequisites
 
 We expect you have the following already installed:
+
 - [Docker](https://docker.io)
 - [Martin binary](installation.md)
 
@@ -84,7 +85,7 @@ The tilejson endoint of both tilesets is [`http://localhost:3000/monaco,where_ya
 
 ## Using in Maputnik to style a map
 
-Due to CORS, we CANNOT use the website https://maplibre.org/maputnik/ without further setup.
+Due to CORS, we CANNOT use the website <https://maplibre.org/maputnik/> without further setup.
 Once the tiles are deployed behind https, this can be used.
 
 To get a local version of maputnik, run
