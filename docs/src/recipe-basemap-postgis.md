@@ -115,9 +115,9 @@ Maputnik is now online, so lets load martins tiles into it.
      ![add a circle layer](images/maputnik-configure-layer.png)
    - And style it as:
      ![add a circle layer](images/maputnik-add-yachts-layer.png)
-     
+
      <details><summary>json configuration (click to expand)</summary>
-     
+
      ```json
      {
        "id": "where_yachts_can_be_looked_at",
@@ -141,5 +141,5 @@ Maputnik is now online, so lets load martins tiles into it.
        "minzoom": 13
      }
      ```
-     
+
      </details>
