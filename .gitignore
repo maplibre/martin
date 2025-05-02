@@ -20,7 +20,7 @@ tmp/
 **/node_modules/
 **/dist/
 
+.aider*
 ####
 #### Above content must match .dockerignore ####
 ####
-.aider*
