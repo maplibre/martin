@@ -205,10 +205,5 @@ async fn test_cors_preflight_request_without_max_age() {
         response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
         "https://example.org"
     );
-    assert!(
-        response
-            .headers()
-            .get(ACCESS_CONTROL_MAX_AGE)
-            .is_none()
-    );
+    assert!(response.headers().get(ACCESS_CONTROL_MAX_AGE).is_none());
 }

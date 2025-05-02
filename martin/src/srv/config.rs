@@ -116,7 +116,7 @@ mod tests {
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
-                cors: 
+                cors:
                   origin:
                     - https://martin.maplibre.org
                     - https://example.org
