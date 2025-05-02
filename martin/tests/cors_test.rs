@@ -1,4 +1,6 @@
-use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN};
+use actix_http::Method;
+use actix_http::header::ACCESS_CONTROL_MAX_AGE;
+use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN};
 use actix_web::test::{TestRequest, call_service};
 use ctor::ctor;
 use indoc::indoc;
@@ -40,22 +42,18 @@ macro_rules! create_app {
     }};
 }
 
-fn test_get(path: &str) -> TestRequest {
-    TestRequest::get().uri(path)
-}
-
 #[actix_rt::test]
-async fn test_cors_disabled() {
+async fn test_cors_explicit_disabled() {
     let app = create_app!(indoc! {"
-        cors:
-          enable: false
+        cors: false
         mbtiles:
           sources:
             test: ../tests/fixtures/mbtiles/world_cities.mbtiles
     "});
 
-    let req = test_get("/health")
-        .insert_header((ORIGIN, "https://example.com"))
+    let req = TestRequest::get()
+        .uri("/health")
+        .insert_header((ORIGIN, "https://example.org"))
         .to_request();
     let response = call_service(&app, req).await;
     assert!(
@@ -67,21 +65,43 @@ async fn test_cors_disabled() {
 }
 
 #[actix_rt::test]
-async fn test_cors_default() {
+async fn test_cors_implicit_enabled() {
     let app = create_app!(indoc! {"
         mbtiles:
           sources:
             test: ../tests/fixtures/mbtiles/world_cities.mbtiles
     "});
 
-    let req = test_get("/health")
-        .insert_header((ORIGIN, "https://example.com"))
+    let req = TestRequest::get()
+        .uri("/health")
+        .insert_header((ORIGIN, "https://example.org"))
         .to_request();
 
     let response = call_service(&app, req).await;
     assert_eq!(
         response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
-        "https://example.com"
+        "https://example.org"
+    );
+}
+
+#[actix_rt::test]
+async fn test_cors_explicit_enabled() {
+    let app = create_app!(indoc! {"
+        cors: true
+        mbtiles:
+          sources:
+            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+    "});
+
+    let req = TestRequest::get()
+        .uri("/health")
+        .insert_header((ORIGIN, "https://example.org"))
+        .to_request();
+
+    let response = call_service(&app, req).await;
+    assert_eq!(
+        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
+        "https://example.org"
     );
 }
 
@@ -89,19 +109,106 @@ async fn test_cors_default() {
 async fn test_cors_specific_origin() {
     let app = create_app!(indoc! {"
         cors:
-          enable: true
-          origin: ['https://example.com']
+          origin:
+            - https://martin.maplibre.org
         mbtiles:
           sources:
             test: ../tests/fixtures/mbtiles/world_cities.mbtiles
     "});
 
-    let req = test_get("/health")
-        .insert_header((ORIGIN, "https://example.com"))
+    let req = TestRequest::get()
+        .uri("/health")
+        .insert_header((ORIGIN, "https://martin.maplibre.org"))
         .to_request();
     let response = call_service(&app, req).await;
     assert_eq!(
         response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
-        "https://example.com"
+        "https://martin.maplibre.org"
+    );
+}
+
+#[actix_rt::test]
+async fn test_cors_no_header_on_mismatch() {
+    let app = create_app!(indoc! {"
+        cors:
+          origin:
+            - https://example.org
+        mbtiles:
+          sources:
+            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+    "});
+
+    let req = TestRequest::get()
+        .uri("/health")
+        .insert_header((ORIGIN, "https://martin.maplibre.org"))
+        .to_request();
+    let response = call_service(&app, req).await;
+    assert!(
+        response
+            .headers()
+            .get(ACCESS_CONTROL_ALLOW_ORIGIN)
+            .is_none()
+    );
+}
+
+#[actix_rt::test]
+async fn test_cors_preflight_request_with_max_age() {
+    let app = create_app!(indoc! {"
+        cors:
+          origin:
+            - https://example.org
+          max_age: 3600
+        mbtiles:
+          sources:
+            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+    "});
+
+    let req = TestRequest::default()
+        .method(Method::OPTIONS)
+        .uri("/health")
+        .insert_header((ORIGIN, "https://example.org"))
+        .insert_header((ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+        .to_request();
+
+    let response = call_service(&app, req).await;
+    assert_eq!(
+        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
+        "https://example.org"
+    );
+    assert_eq!(
+        response.headers().get(ACCESS_CONTROL_MAX_AGE).unwrap(),
+        "3600"
+    );
+}
+
+#[actix_rt::test]
+async fn test_cors_preflight_request_without_max_age() {
+    let app = create_app!(indoc! {"
+        cors:
+          origin:
+            - https://example.org
+          max_age: null
+        mbtiles:
+          sources:
+            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+    "});
+
+    let req = TestRequest::default()
+        .method(Method::OPTIONS)
+        .uri("/health")
+        .insert_header((ORIGIN, "https://example.org"))
+        .insert_header((ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+        .to_request();
+
+    let response = call_service(&app, req).await;
+    assert_eq!(
+        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
+        "https://example.org"
+    );
+    assert!(
+        response
+            .headers()
+            .get(ACCESS_CONTROL_MAX_AGE)
+            .is_none()
     );
 }

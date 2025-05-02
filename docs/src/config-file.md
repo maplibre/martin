@@ -44,15 +44,15 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
-# CORS configuration
+# CORS Configuration
+# Can also be disabled via `cors: false`
 cors:
-  # enable/disable CORS [default: true]
-  enable: true
-  # sets the Access-Control-Allow-Origin header [default: *]
-  # '*' will use the requests ORIGIN header
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
   origin:
     - https://example.org
-  # sets Access-Control-Max-Age Header. Remove to use default. [default: None]
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
   max_age: 3600
 
 # Database configuration. This can also be a list of PG configs.

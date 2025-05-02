@@ -1,19 +1,29 @@
 use actix_http::Method;
 use serde::{Deserialize, Serialize};
 
-#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(default)]
-pub struct CorsConfig {
-    pub enable: bool,
-    pub origin: Vec<String>,
-    pub max_age: Option<usize>,
+#[serde(untagged)]
+pub enum CorsConfig {
+    Properties(CorsProperties),
+    SimpleFlag(bool),
 }
 
 impl Default for CorsConfig {
     fn default() -> Self {
+        Self::Properties(CorsProperties::default())
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(default)]
+pub struct CorsProperties {
+    pub origin: Vec<String>,
+    pub max_age: Option<usize>,
+}
+
+impl Default for CorsProperties {
+    fn default() -> Self {
         Self {
-            enable: true,
             origin: vec!["*".to_string()],
             max_age: None,
         }
@@ -22,32 +32,33 @@ impl Default for CorsConfig {
 
 impl CorsConfig {
     pub fn make_cors_middleware(&self) -> Option<actix_cors::Cors> {
-        if self.enable {
-            // start with the recommended restrictive library defaults
-            let mut cors = actix_cors::Cors::default();
-
-            // allow any origin by default
-            // this will set `access-control-allow-origin` dynamically to the value of the `Origin` request header
-            if self.origin.contains(&"*".to_string()) {
-                cors = cors.allow_any_origin();
-            }
-            // if specific origins are provided, set them instead
-            else {
-                for origin in &self.origin {
-                    cors = cors.allowed_origin(origin);
-                }
-            }
-
-            // only allow GET method by default
-            cors = cors.allowed_methods([Method::GET]);
-
-            // sets `Access-Control-Max-Age` if configured
-            cors = cors.max_age(self.max_age);
-
-            Some(cors)
-        } else {
-            None
+        match self {
+            CorsConfig::SimpleFlag(false) => None,
+            CorsConfig::SimpleFlag(true) => Some(Self::create_cors(&CorsProperties::default())),
+            CorsConfig::Properties(properties) => Some(Self::create_cors(properties)),
         }
+    }
+
+    fn create_cors(properties: &CorsProperties) -> actix_cors::Cors {
+        let mut cors = actix_cors::Cors::default();
+
+        // allow any origin by default
+        // this returns the value of the requests `ORIGIN` header in `Access-Control-Allow-Origin`
+        if properties.origin.contains(&"*".to_string()) {
+            cors = cors.allow_any_origin();
+        } else {
+            for origin in &properties.origin {
+                cors = cors.allowed_origin(origin);
+            }
+        }
+
+        // only allow GET method by default
+        cors = cors.allowed_methods([Method::GET]);
+
+        // sets `Access-Control-Max-Age` if configured
+        cors = cors.max_age(properties.max_age);
+
+        cors
     }
 }
 
@@ -62,65 +73,65 @@ mod tests {
         let config = CorsConfig::default();
         let middleware = config.make_cors_middleware();
         assert!(middleware.is_some());
-        assert!(config.enable);
-        assert_eq!(config.origin, vec!["*"]);
-        assert_eq!(config.max_age, None);
+
+        // Check if it's using the appropiate default properties
+        if let CorsConfig::Properties(properties) = config {
+            assert_eq!(properties.origin, vec!["*"]);
+            assert_eq!(properties.max_age, None);
+        } else {
+            panic!("Expected Properties variant for default config");
+        }
     }
 
     #[test]
     fn test_cors_middleware_disabled() {
-        let config = CorsConfig {
-            enable: false,
-            ..Default::default()
-        };
+        let config = CorsConfig::SimpleFlag(false);
         assert!(config.make_cors_middleware().is_none());
     }
 
     #[test]
     fn test_cors_yaml_parsing() {
+        // Test parsing a detailed configuration
         let config: CorsConfig = serde_yaml::from_str(indoc! {"
-            enable: true
             origin:
-              - https://example.com
+              - https://example.org
             max_age: 3600
         "})
         .unwrap();
-        assert_eq!(
-            config,
-            CorsConfig {
-                enable: true,
-                origin: vec!["https://example.com".to_string()],
-                max_age: Some(3600),
-            }
-        );
 
-        let config: CorsConfig = serde_yaml::from_str(indoc! {"
-            enable: false
-        "})
-        .unwrap();
-        assert_eq!(
-            config,
-            CorsConfig {
-                enable: false,
-                ..Default::default()
-            }
-        );
+        if let CorsConfig::Properties(settings) = config {
+            assert_eq!(settings.origin, vec!["https://example.org".to_string()]);
+            assert_eq!(settings.max_age, Some(3600));
+        } else {
+            panic!("Expected Settings variant for detailed config");
+        }
+
+        let config: CorsConfig = serde_yaml::from_str("false").unwrap();
+        assert!(matches!(config, CorsConfig::SimpleFlag(false)));
+
+        let config: CorsConfig = serde_yaml::from_str("true").unwrap();
+        assert!(matches!(config, CorsConfig::SimpleFlag(true)));
 
         let config: CorsConfig = serde_yaml::from_str(indoc! {"
             origin:
-              - https://example1.com
-              - https://example2.com
+              - https://example.org
+              - https://martin.maplibre.org
+            max_age: 3600
+
         "})
         .unwrap();
-        assert_eq!(
-            config,
-            CorsConfig {
-                origin: vec![
-                    "https://example1.com".to_string(),
-                    "https://example2.com".to_string(),
-                ],
-                ..Default::default()
-            }
-        );
+
+        if let CorsConfig::Properties(settings) = config {
+            assert_eq!(
+                settings.origin,
+                vec![
+                    "https://example.org".to_string(),
+                    "https://martin.maplibre.org".to_string(),
+                ]
+            );
+            assert_eq!(settings.max_age, Some(3600));
+        } else {
+            panic!("Expected Settings variant for detailed config");
+        }
     }
 }

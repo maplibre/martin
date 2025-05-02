@@ -25,7 +25,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::tests::some;
+    use crate::{srv::cors::CorsProperties, tests::some};
 
     #[test]
     fn parse_config() {
@@ -75,28 +75,64 @@ mod tests {
                 ..Default::default()
             }
         );
+    }
 
+    #[test]
+    fn parse_config_cors() {
         assert_eq!(
             serde_yaml::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
-                cors:
-                    enable: true
-                    origin:
-                      - https://example.com
-                    max_age: 3600
+                cors: false
             "})
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
-                cors: Some(CorsConfig {
-                    enable: true,
-                    origin: vec!["https://example.com".to_string()],
-                    max_age: Some(3600),
-                }),
+                cors: Some(CorsConfig::SimpleFlag(false)),
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                cors: true
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                cors: Some(CorsConfig::SimpleFlag(true)),
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                cors: 
+                  origin:
+                    - https://martin.maplibre.org
+                    - https://example.org
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                cors: Some(CorsConfig::Properties(CorsProperties {
+                    origin: vec![
+                        "https://martin.maplibre.org".to_string(),
+                        "https://example.org".to_string()
+                    ],
+                    max_age: None,
+                })),
                 ..Default::default()
             }
         );
