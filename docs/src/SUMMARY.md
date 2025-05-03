@@ -36,7 +36,7 @@
     - [deck.gl](using-with-deck-gl.md)
     - [Mapbox](using-with-mapbox.md)
     - [OpenLayers](using-with-openlayers.md)
-  - [Data source specific](using-with-data.md)
+  - [Tile source specific](using-with-data.md)
     - [Using Hosted PostgreSQL](recipes.md)
     - [Setting up a basemap and overlaying data](recipe-basemap-postgis.md)
   - [Bulk Tile Generation](martin-cp.md)
