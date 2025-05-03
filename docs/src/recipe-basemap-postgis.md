@@ -41,7 +41,8 @@ See [Shortbread](https://shortbread-tiles.org/) for a newer, but less mature alt
 
 </details>
 
-Below command downloads and a tile archive at `data/monaco.mbtiles` for monaco.
+Below command downloads a tile archive at `data/monaco.mbtiles` for monaco.
+
 Please refer to [Planetilers documentation](https://github.com/onthegomap/planetiler/) on different download options.
 
 ```bash
