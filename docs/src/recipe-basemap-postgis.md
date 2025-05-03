@@ -35,7 +35,7 @@ See our comparison [pmtiles vs. mbtiles](sources-tiles.md) for discussions on th
 But how does the data in the archive look like?
 This is where the vector tile schema comes in:
 [OpenMapTiles](https://openmaptiles.org/) defines which layers are included in the served data and how they are aggregated.
-[OpenMapTiles](https://openmaptiles.org/) does have an attribution requirement. You will need to add `© MapTiler` at the bottom of your map.
+[OpenMapTiles](https://openmaptiles.org/) does have an attribution requirement. You will need to have [`© OpenMapTiles`](https://openmaptiles.org/) at the bottom of your map.
 
 See [Shortbread](https://shortbread-tiles.org/) for a newer, but less mature alternative if you want to read more.
 
