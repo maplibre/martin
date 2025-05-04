@@ -36,9 +36,9 @@
     - [deck.gl](using-with-deck-gl.md)
     - [Mapbox](using-with-mapbox.md)
     - [OpenLayers](using-with-openlayers.md)
-  - [Data source specific](using-with-data.md)
+  - [Tile source specific](using-with-data.md)
     - [Using Hosted PostgreSQL](recipes.md)
-    - [Setting up a basemap and overlaying data]() <!-- markdownlint-disable-line MD042 -->
+    - [Setting up a basemap and overlaying data](recipe-basemap-postgis.md)
   - [Bulk Tile Generation](martin-cp.md)
   - [Working with MBTiles archives](mbtiles.md)
     - [MBTiles Schemas](mbtiles-schema.md)
