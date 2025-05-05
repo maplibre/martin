@@ -1,4 +1,4 @@
-# martin-observability-utils
+# martin-tracing-utils
 
 [![docs.rs docs](https://docs.rs/martin-observability-utils/badge.svg)](https://docs.rs/martin-observability-utils)
 [![](https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack)](https://slack.openstreetmap.us/)
@@ -6,7 +6,7 @@
 [![crates.io version](https://img.shields.io/crates/v/martin-observability-utils.svg)](https://crates.io/crates/martin-observability-utils)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin-observability-utils/actions)
 
-A library to help tile servers like [Martin](https://maplibre.org/martin) do observability.
+A library to help tile servers like [Martin](https://maplibre.org/martin) do tracing ("logging, but slightly fancier").
 
 ## License
 
