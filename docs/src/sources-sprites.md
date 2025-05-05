@@ -18,7 +18,7 @@ You can use the `/catalog` api to see all the `<sprite_id>`s with their containe
 
 ##### Sprite PNG
 
-![sprite](sources-sprites.png)
+![sprite](images/sources-sprites.png)
 
 `GET /sprite/<sprite_id>.png` endpoint contains a single PNG sprite image that combines all sources images.
 Additionally, there is a high DPI version available at `GET /sprite/<sprite_id>@2x.png`.

@@ -114,7 +114,7 @@ impl PgPool {
                 SslModeOverride::VerifyFull => {
                     info!("Using sslmode=verify-full to connect: {pg_cfg:?}");
                 }
-            };
+            }
             let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
             Manager::from_config(pg_cfg, connector, mgr_config)
         };

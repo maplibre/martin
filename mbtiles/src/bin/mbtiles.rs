@@ -26,27 +26,27 @@ pub struct Args {
 #[allow(clippy::doc_markdown)]
 #[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
-    /// Show MBTiles file summary statistics
+    /// Show `MBTiles` file summary statistics
     #[command(name = "summary", alias = "info")]
     Summary { file: PathBuf },
     /// Prints all values in the metadata table in a free-style, unstable YAML format
     #[command(name = "meta-all")]
     MetaAll {
-        /// MBTiles file to read from
+        /// `MBTiles` file to read from
         file: PathBuf,
     },
-    /// Gets a single value from the MBTiles metadata table.
+    /// Gets a single value from the `MBTiles` metadata table.
     #[command(name = "meta-get", alias = "get-meta")]
     MetaGetValue {
-        /// MBTiles file to read a value from
+        /// `MBTiles` file to read a value from
         file: PathBuf,
         /// Value to read
         key: String,
     },
-    /// Sets a single value in the MBTiles metadata table or deletes it if no value.
+    /// Sets a single value in the `MBTiles` metadata table or deletes it if no value.
     #[command(name = "meta-set", alias = "set-meta")]
     MetaSetValue {
-        /// MBTiles file to modify
+        /// `MBTiles` file to modify
         file: PathBuf,
         /// Key to set
         key: String,
@@ -62,7 +62,7 @@ enum Commands {
     /// Apply diff file generated from 'copy' command
     #[command(name = "apply-patch", alias = "apply-diff")]
     ApplyPatch {
-        /// MBTiles file to apply diff to
+        /// `MBTiles` file to apply diff to
         base_file: PathBuf,
         /// Diff file
         patch_file: PathBuf,
@@ -73,7 +73,7 @@ enum Commands {
     /// Update metadata to match the content of the file
     #[command(name = "meta-update", alias = "update-meta")]
     UpdateMetadata {
-        /// MBTiles file to validate
+        /// `MBTiles` file to validate
         file: PathBuf,
         /// Update the min and max zoom levels in the metadata table to match the tiles table.
         #[arg(long, value_enum, default_value_t=UpdateZoomType::default())]
@@ -82,7 +82,7 @@ enum Commands {
     /// Validate tile data if hash of tile data exists in file
     #[command(name = "validate", alias = "check", alias = "verify")]
     Validate {
-        /// MBTiles file to validate
+        /// `MBTiles` file to validate
         file: PathBuf,
         /// Value to specify the extent of the SQLite integrity check performed
         #[arg(long, value_enum, default_value_t=IntegrityCheckType::default())]
@@ -99,9 +99,9 @@ enum Commands {
 #[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
-    /// MBTiles file to read from
+    /// `MBTiles` file to read from
     src_file: PathBuf,
-    /// MBTiles file to write to
+    /// `MBTiles` file to write to
     dst_file: PathBuf,
     #[command(flatten)]
     pub options: SharedCopyOpts,
@@ -123,9 +123,9 @@ pub struct CopyArgs {
 #[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct DiffArgs {
-    /// First MBTiles file to compare
+    /// First `MBTiles` file to compare
     file1: PathBuf,
-    /// Second MBTiles file to compare
+    /// Second `MBTiles` file to compare
     file2: PathBuf,
     /// Output file to write the resulting difference to
     diff: PathBuf,
