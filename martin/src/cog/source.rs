@@ -11,7 +11,7 @@ use tracing::warn;
 
 use async_trait::async_trait;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
-use tilejson::{tilejson, TileJSON};
+use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
 use crate::file_config::{FileError, FileResult};
@@ -95,7 +95,7 @@ impl CogSource {
             tile_idx = idx;
         } else {
             return Ok(Vec::new());
-        };
+        }
         let decode_result = decoder
             .read_chunk(tile_idx)
             .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, *ifd, self.path.clone()))?;
@@ -273,7 +273,7 @@ fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), Co
             color_type,
             path.to_path_buf(),
         ))?;
-    };
+    }
     Ok(())
 }
 

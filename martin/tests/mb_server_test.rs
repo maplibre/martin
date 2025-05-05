@@ -1,5 +1,5 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
-use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
+use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::srv::SrvConfig;
@@ -51,6 +51,7 @@ async fn mbt_get_catalog() {
     assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       m_json:
         content_type: application/json
@@ -83,6 +84,7 @@ async fn mbt_get_catalog_gzip() {
     assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       m_json:
         content_type: application/json

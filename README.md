@@ -7,6 +7,7 @@
 [![crates.io version](https://img.shields.io/crates/v/martin.svg)](https://crates.io/crates/martin)
 [![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)](https://github.com/maplibre/martin/security)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
+[![Codecov](https://img.shields.io/codecov/c/github/maplibre/martin)](https://app.codecov.io/gh/maplibre/martin)
 
 Martin is a tile server and a set of tools able to generate vector tiles on the fly
 from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).

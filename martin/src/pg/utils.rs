@@ -5,7 +5,7 @@ use std::time::Duration;
 use deadpool_postgres::tokio_postgres::types::Json;
 use futures::pin_mut;
 use itertools::Itertools as _;
-use postgis::{ewkb, LineString, Point, Polygon};
+use postgis::{LineString, Point, Polygon, ewkb};
 use tilejson::{Bounds, TileJSON};
 use tokio::time::timeout;
 use tracing::{error, info, warn};
@@ -142,8 +142,10 @@ fn find_info_kv<'a, T>(
 
     match find_kv_ignore_case(map, key) {
         Ok(None) => {
-            warn!("Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
-                map.keys().map(String::as_str).join(", "));
+            warn!(
+                "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
+                map.keys().map(String::as_str).join(", ")
+            );
             None
         }
         Ok(Some(result)) => {
@@ -151,8 +153,10 @@ fn find_info_kv<'a, T>(
             Some((result.as_str(), map.get(result)?))
         }
         Err(multiple) => {
-            error!("Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
-            multiple.join(", "));
+            error!(
+                "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
+                multiple.join(", ")
+            );
             None
         }
     }

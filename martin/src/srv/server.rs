@@ -8,22 +8,22 @@ use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::Data;
-use actix_web::{middleware, route, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
+use crate::MartinError::BindingError;
+use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
 use crate::config::ServerState;
 use crate::source::TileCatalog;
-use crate::srv::config::{SrvConfig, KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT};
+use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
-use crate::MartinError::BindingError;
-use crate::MartinResult;
 
 #[cfg(feature = "webui")]
 mod webui {
@@ -48,6 +48,8 @@ pub struct Catalog {
     pub sprites: crate::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
     pub fonts: crate::fonts::FontCatalog,
+    #[cfg(feature = "styles")]
+    pub styles: crate::styles::StyleCatalog,
 }
 
 impl Catalog {
@@ -58,6 +60,8 @@ impl Catalog {
             sprites: state.sprites.get_catalog()?,
             #[cfg(feature = "fonts")]
             fonts: state.fonts.get_catalog(),
+            #[cfg(feature = "styles")]
+            styles: state.styles.get_catalog(),
         })
     }
 }
@@ -123,6 +127,9 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     #[cfg(feature = "fonts")]
     cfg.service(crate::srv::fonts::get_font);
 
+    #[cfg(feature = "styles")]
+    cfg.service(crate::srv::styles::get_style_json);
+
     #[cfg(feature = "webui")]
     {
         // TODO: this can probably be simplified with a wrapping middleware,
@@ -169,6 +176,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "fonts")]
         let app = app.app_data(Data::new(state.fonts.clone()));
 
+        #[cfg(feature = "styles")]
+        let app = app.app_data(Data::new(state.styles.clone()));
+
         app.app_data(Data::new(catalog.clone()))
             .app_data(Data::new(config.clone()))
             .wrap(cors_middleware)
@@ -202,8 +212,8 @@ pub mod tests {
     use tilejson::TileJSON;
 
     use super::*;
-    use crate::source::{Source, TileData, TileInfoSource};
     use crate::UrlQuery;
+    use crate::source::{Source, TileData, TileInfoSource};
 
     #[derive(Debug, Clone)]
     pub struct TestSource {

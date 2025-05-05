@@ -15,60 +15,94 @@
 --   input_names: a JSON array of input parameter names
 --   input_types: a JSON array of input parameter types
 WITH
-    --
-    inputs AS (
-        -- list of input parameters for each function, returned as a jsonb array [{name: type}, ...]
-        SELECT specific_name,
-               jsonb_agg(COALESCE(parameter_name::text, '_') ORDER BY ordinal_position) as input_names,
-               jsonb_agg(data_type::text ORDER BY ordinal_position)                     as input_types
-        FROM information_schema.parameters
-        WHERE parameter_mode = 'IN'
-          AND specific_schema NOT IN ('pg_catalog', 'information_schema')
-        GROUP BY specific_name),
-    --
-    outputs AS (
-        -- list of output parameters for each function, returned as a jsonb array [{name: type}, ...]
-        SELECT specific_name,
-               jsonb_agg(data_type::text ORDER BY ordinal_position)      as out_params,
-               jsonb_agg(parameter_name::text ORDER BY ordinal_position) as out_names
-        FROM information_schema.parameters
-        WHERE parameter_mode = 'OUT'
-          AND specific_schema NOT IN ('pg_catalog', 'information_schema')
-        GROUP BY specific_name),
-    --
-    comments AS (
-        -- list of all comments associated with the function
-        SELECT pg_namespace.nspname                    AS schema,
-               pg_proc.proname                         AS name,
-               obj_description(pg_proc.oid, 'pg_proc') AS description
-        FROM pg_proc
-                 JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid)
-SELECT routines.specific_schema AS schema,
-       routines.routine_name    AS name,
-       routines.data_type       AS output_type,
-       outputs.out_params       AS output_record_types,
-       out_names                AS output_record_names,
-       inputs.input_types       AS input_types,
-       inputs.input_names       AS input_names,
-       comments.description     AS description
+--
+inputs AS (
+    -- list of input parameters for each function, returned as a jsonb array [{name: type}, ...]
+    SELECT
+        specific_name,
+        jsonb_agg(
+            coalesce(parameter_name::text, '_')
+            ORDER BY ordinal_position
+        ) AS input_names,
+        jsonb_agg(
+            data_type::text
+            ORDER BY ordinal_position
+        ) AS input_types
+    FROM information_schema.parameters
+    WHERE
+        parameter_mode = 'IN'
+        AND specific_schema NOT IN ('pg_catalog', 'information_schema')
+    GROUP BY specific_name
+),
+
+--
+outputs AS (
+    -- list of output parameters for each function, returned as a jsonb array [{name: type}, ...]
+    SELECT
+        specific_name,
+        jsonb_agg(
+            data_type::text
+            ORDER BY ordinal_position
+        ) AS out_params,
+        jsonb_agg(
+            parameter_name::text
+            ORDER BY ordinal_position
+        ) AS out_names
+    FROM information_schema.parameters
+    WHERE
+        parameter_mode = 'OUT'
+        AND specific_schema NOT IN ('pg_catalog', 'information_schema')
+    GROUP BY specific_name
+),
+
+--
+comments AS (
+    -- list of all comments associated with the function
+    SELECT
+        pg_namespace.nspname AS schema, -- noqa: RF04
+        pg_proc.proname AS name, -- noqa: RF04
+        obj_description(pg_proc.oid, 'pg_proc') AS description
+    FROM pg_proc
+    INNER JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
+)
+
+SELECT
+    routines.specific_schema AS schema, -- noqa: RF04
+    routines.routine_name AS name, -- noqa: RF04
+    routines.data_type AS output_type,
+    outputs.out_params AS output_record_types,
+    outputs.out_names AS output_record_names,
+    inputs.input_types,
+    inputs.input_names,
+    comments.description
 FROM information_schema.routines
-         JOIN inputs ON routines.specific_name = inputs.specific_name
-         LEFT JOIN outputs ON routines.specific_name = outputs.specific_name
-         LEFT JOIN comments ON comments.schema = routines.specific_schema AND comments.name = routines.routine_name
-WHERE jsonb_array_length(input_names) IN (3, 4) -- 3 or 4 input parameters
-  AND lower(input_names ->> 0) IN ('z', 'zoom') -- the first int param is either z or zoom
-  AND input_types ->> 0 = 'integer'
-  AND lower(input_names ->> 1) = 'x'            -- the second int param is x
-  AND input_types ->> 1 = 'integer'
-  AND lower(input_names ->> 2) = 'y'            -- the third param is y
-  AND input_types ->> 2 = 'integer'
-  -- the 4th optional parameter can be any name, and must be either json or jsonb
-  AND (input_types ->> 3 = 'json' OR input_types ->> 3 = 'jsonb' OR (input_types ->> 3) IS NULL)
-  -- the output must be either a single bytea value or a table, with the table row being either [bytea] or [bytea, text]
-  AND (
-        (data_type = 'bytea' AND out_params IS NULL)
-        OR (data_type = 'bytea' AND out_params = '["bytea"]'::jsonb)
-        OR (data_type = 'record' AND out_params = '["bytea"]'::jsonb)
-        OR (data_type = 'record' AND out_params = '["bytea", "text"]'::jsonb)
+INNER JOIN inputs ON routines.specific_name = inputs.specific_name
+LEFT JOIN outputs ON routines.specific_name = outputs.specific_name
+LEFT JOIN
+    comments
+    ON
+        routines.specific_schema = comments.schema
+        AND routines.routine_name = comments.name
+WHERE
+    jsonb_array_length(inputs.input_names) IN (3, 4) -- 3 or 4 input parameters
+    -- the first int param is either z or zoom
+    AND lower(inputs.input_names ->> 0) IN ('z', 'zoom')
+    AND inputs.input_types ->> 0 = 'integer'
+    AND lower(inputs.input_names ->> 1) = 'x'            -- the second int param is x
+    AND inputs.input_types ->> 1 = 'integer'
+    AND lower(inputs.input_names ->> 2) = 'y'            -- the third param is y
+    AND inputs.input_types ->> 2 = 'integer'
+    -- the 4th optional parameter can be any name, and must be either json or jsonb
+    AND (
+        inputs.input_types ->> 3 = 'json'
+        OR inputs.input_types ->> 3 = 'jsonb'
+        OR (inputs.input_types ->> 3) IS NULL
+    )
+    -- the output must be either a single bytea value or a table, with the table row being either [bytea] or [bytea, text]
+    AND (
+        (routines.data_type = 'bytea' AND outputs.out_params IS NULL)
+        OR (routines.data_type = 'bytea' AND outputs.out_params = '["bytea"]'::jsonb)
+        OR (routines.data_type = 'record' AND outputs.out_params = '["bytea"]'::jsonb)
+        OR (routines.data_type = 'record' AND outputs.out_params = '["bytea", "text"]'::jsonb)
     )
 ORDER BY routines.specific_schema, routines.routine_name;

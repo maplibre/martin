@@ -1,7 +1,7 @@
 use clap::Parser;
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
-use martin::{read_config, Config, MartinResult};
+use martin::{Config, MartinResult, read_config};
 use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use tracing::{error, event_enabled, info};
 
