@@ -225,18 +225,25 @@ fn get_next_after_argument(argument: &str, args: &[String]) -> Option<String> {
 }
 /// Reads a key from a yaml file at a path
 ///
-/// All errors are ignored and return [`None`]
+/// Supports dot notation for nested keys.
+/// **ALL errors (including parsing and io) are ignored and return [`None`]**.
+/// It is assumed that the user will parse the yaml file themselves after setting up tracing via this library.
 #[must_use]
 fn read_path_in_file(path: &Path, key: &str) -> Option<String> {
+    let mut key_parts = key.split('.').collect::<Vec<&str>>();
+
     let mut config_file = Vec::new();
     let _ = File::open(path).ok()?.read_to_end(&mut config_file).ok()?;
-    let map: HashMap<String, serde_yaml::Value> = serde_yaml::from_slice(&config_file).ok()?;
-    if let Some(v) = map.get(key) {
-        if let Some(v) = v.as_str() {
-            return Some(v.to_string());
-        }
+    let mut map: HashMap<String, serde_yaml::Value> = serde_yaml::from_slice(&config_file).ok()?;
+    let final_key = key_parts.pop()?;
+    for traversion in key_parts {
+        let new_map = map.remove(traversion)?;
+        let new_map: HashMap<String, serde_yaml::Value> = serde_yaml::from_value(new_map).ok()?;
+        map = new_map;
     }
-    None
+
+    let v = map.remove(final_key)?;
+    Some(v.as_str()?.to_string())
 }
 
 #[cfg(test)]
@@ -280,16 +287,38 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("config.yaml");
 
-        let log_level = read_path_in_file(&config_path, "log_level");
-        assert_eq!(log_level, None);
+        let val = read_path_in_file(&config_path, "log_level");
+        assert_eq!(val, None);
 
         let mut file = File::create(&config_path).unwrap();
-        file.write_all("log_level: warn".as_bytes()).unwrap();
+        file.write_all(
+            r#"
+log_level: warn
+foo:
+  bar: baz"#
+                .as_bytes(),
+        )
+        .unwrap();
 
-        let log_level = read_path_in_file(&config_path, "key_not_found");
-        assert_eq!(log_level, None);
-        let log_level = read_path_in_file(&config_path, "log_level");
-        assert_eq!(log_level, Some("warn".to_string()));
+        let val = read_path_in_file(&config_path, "key_not_found");
+        assert_eq!(val, None);
+        let val = read_path_in_file(&config_path, "log_level");
+        assert_eq!(val, Some("warn".to_string()));
+        let val = read_path_in_file(&config_path, "foo.bar");
+        assert_eq!(val, Some("baz".to_string()));
+        let val = read_path_in_file(&config_path, "foo.key_not_found");
+        assert_eq!(val, None);
+
+        let mut file = File::create(&config_path).unwrap();
+        file.write_all(
+            r#"
+log_: : :level: warn # invalid yaml
+foo: bar"#
+                .as_bytes(),
+        )
+        .unwrap();
+        let val = read_path_in_file(&config_path, "foo");
+        assert_eq!(val, None);
     }
 
     #[test]
