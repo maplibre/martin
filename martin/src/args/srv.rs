@@ -1,6 +1,6 @@
 use crate::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use clap::ValueEnum;
-use martin_observability_utils::LogFormatOptions;
+use martin_tracing_utils::LogFormatOptions;
 use serde::{Deserialize, Serialize};
 
 #[allow(clippy::doc_markdown)]

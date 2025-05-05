@@ -1,5 +1,5 @@
 use crate::args::PreferredEncoding;
-use martin_observability_utils::LogFormatOptions;
+use martin_tracing_utils::LogFormatOptions;
 use serde::{Deserialize, Serialize};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;

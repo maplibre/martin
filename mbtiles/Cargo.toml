@@ -13,7 +13,7 @@ homepage = "https://maplibre.org/martin/tools.html#mbtiles"
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:martin-observability-utils", "dep:serde_yaml"]
+cli = ["dep:anyhow", "dep:clap", "dep:martin-tracing-utils", "dep:serde_yaml"]
 
 [dependencies]
 enum-display.workspace = true
@@ -21,7 +21,7 @@ flume.workspace = true
 futures.workspace = true
 itertools.workspace = true
 martin-tile-utils.workspace = true
-martin-observability-utils = { workspace = true, optional = true }
+martin-tracing-utils = { workspace = true, optional = true }
 md5.workspace = true
 num_cpus.workspace = true
 serde.workspace = true

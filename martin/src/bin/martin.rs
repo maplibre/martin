@@ -2,7 +2,7 @@ use clap::Parser;
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{Config, MartinResult, read_config};
-use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
+use martin_tracing_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use tracing::{error, event_enabled, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

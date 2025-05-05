@@ -1,10 +1,10 @@
 # martin-tracing-utils
 
-[![docs.rs docs](https://docs.rs/martin-observability-utils/badge.svg)](https://docs.rs/martin-observability-utils)
+[![docs.rs docs](https://docs.rs/martin-tracing-utils/badge.svg)](https://docs.rs/martin-tracing-utils)
 [![](https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
-[![crates.io version](https://img.shields.io/crates/v/martin-observability-utils.svg)](https://crates.io/crates/martin-observability-utils)
-[![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin-observability-utils/actions)
+[![crates.io version](https://img.shields.io/crates/v/martin-tracing-utils.svg)](https://crates.io/crates/martin-tracing-utils)
+[![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin-tracing-utils/actions)
 
 A library to help tile servers like [Martin](https://maplibre.org/martin) do tracing ("logging, but slightly fancier").
 

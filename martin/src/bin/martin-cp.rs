@@ -16,8 +16,8 @@ use martin::{
     Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, TileRect,
     append_rect, read_config,
 };
-use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use martin_tile_utils::{TileCoord, TileInfo, bbox_to_xyz};
+use martin_tracing_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{

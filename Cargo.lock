@@ -2727,8 +2727,8 @@ dependencies = [
  "itertools 0.14.0",
  "json-patch",
  "lambda-web",
- "martin-observability-utils",
  "martin-tile-utils",
+ "martin-tracing-utils",
  "mbtiles",
  "moka",
  "num_cpus",
@@ -2767,7 +2767,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "martin-observability-utils"
+name = "martin-tile-utils"
+version = "0.6.1"
+dependencies = [
+ "approx",
+ "brotli 7.0.0",
+ "flate2",
+ "rstest",
+]
+
+[[package]]
+name = "martin-tracing-utils"
 version = "0.1.0"
 dependencies = [
  "clap",
@@ -2777,16 +2787,6 @@ dependencies = [
  "tracing",
  "tracing-log",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "martin-tile-utils"
-version = "0.6.1"
-dependencies = [
- "approx",
- "brotli 7.0.0",
- "flate2",
- "rstest",
 ]
 
 [[package]]
@@ -2810,8 +2810,8 @@ dependencies = [
  "futures",
  "insta",
  "itertools 0.14.0",
- "martin-observability-utils",
  "martin-tile-utils",
+ "martin-tracing-utils",
  "md5",
  "num_cpus",
  "pretty_assertions",

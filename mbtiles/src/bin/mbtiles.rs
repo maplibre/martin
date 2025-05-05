@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use martin_observability_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
+use martin_tracing_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch,
