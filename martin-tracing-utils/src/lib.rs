@@ -292,10 +292,10 @@ mod tests {
 
         let mut file = File::create(&config_path).unwrap();
         file.write_all(
-            r#"
+            r"
 log_level: warn
 foo:
-  bar: baz"#
+  bar: baz"
                 .as_bytes(),
         )
         .unwrap();
@@ -311,9 +311,9 @@ foo:
 
         let mut file = File::create(&config_path).unwrap();
         file.write_all(
-            r#"
+            r"
 log_: : :level: warn # invalid yaml
-foo: bar"#
+foo: bar"
                 .as_bytes(),
         )
         .unwrap();
