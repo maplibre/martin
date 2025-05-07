@@ -57,6 +57,96 @@ cog:
      cog-src2: /path/to/cog2.tif
 ```
 
+## Tile Grid
+
+Generally `COG` file has a custom tile grid which is not aligned to the google 3857 which is default in almost any map client like MapLibre, OpenLayers, etc..
+
+To display the `COG` file the clients needs to know the custom `tile grid` of COG.
+
+To not break the compatiblity of TileJSON spec, martin choose to add a field in `TileJSON` to tell the custom tile grid.
+
+Lile we have a cog source named `rgb_u8`, we could see the custom filed in our `TileJson` by visit `http://your_host:your_port/rgb_u8`.
+
+```json
+{
+  "maxzoom": 3,
+  "minzoom": 0,
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/rgb_u8/{z}/{x}/{y}"
+  ],
+  "custom_grid": {   // the custom tile grid added here
+    "extent": [
+      1620750.2508,
+      4271892.7153,
+      1625870.2508,
+      4277012.7153
+    ],
+    "maxZoom": 3,
+    "minZoom": 0,
+    "origin": [
+      1620750.2508,
+      4277012.7153
+    ],
+    "resolutions": [
+      80,
+      40,
+      20,
+      10
+    ],
+    "tileSize": [
+      256,
+      256
+    ]
+  },
+}
+```
+
+A demo about how to load it with `openlayers`.
+
+```js
+import './style.css';
+import { Map, View } from 'ol';
+import TileLayer from 'ol/layer/Tile';
+import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ.js';
+
+
+import TileGrid from 'ol/tilegrid/TileGrid.js';
+
+var custom_grid = new TileGrid({
+  extent: [
+    1620750.2508,
+    4271892.7153,
+    1625870.2508,
+    4277012.7153],
+  resolutions: [
+    80,
+    40,
+    20,
+    10],
+  tileSize: [256, 256],
+  origin: [1620750.2508, 4277012.7153]
+});
+
+var source = new XYZ({
+  url: "http://10.1.155.35:3000/rgb_u8/{z}/{x}/{y}", tileGrid: custom_grid
+});
+
+const map = new Map({
+  target: 'map',
+  layers: [
+    new TileLayer({
+      source: source
+    }),
+  ],
+  view: new View({
+    center: [(1620750.2508 + 1625870.2508) / 2, (4271892.7153 + 4277012.7153) / 2],
+    zoom: 14
+  })
+});
+```
+
 ## About COG
 
 [COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file.
