@@ -76,13 +76,12 @@ clap.workspace = true
 dashmap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
-env_logger.workspace = true
 futures.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
-log.workspace = true
 martin-tile-utils.workspace = true
+martin-tracing-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
 num_cpus.workspace = true
@@ -110,6 +109,8 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
+tracing.workspace = true
+tracing-actix-web.workspace = true
 walkdir = { workspace = true, optional = true }
 
 [build-dependencies]
@@ -119,12 +120,12 @@ static-files = { workspace = true, optional = true }
 [dev-dependencies]
 anyhow.workspace = true
 criterion.workspace = true
-ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 pprof.workspace = true
 rstest.workspace = true
 testcontainers-modules.workspace = true
+tracing-test.workspace = true
 tempfile.workspace = true
 
 [lints]

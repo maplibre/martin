@@ -10,7 +10,6 @@ use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
 use clap::Parser;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
@@ -18,6 +17,7 @@ use martin::{
     append_rect, read_config,
 };
 use martin_tile_utils::{TileCoord, TileInfo, bbox_to_xyz};
+use martin_tracing_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
@@ -28,6 +28,7 @@ use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
 use tokio::try_join;
+use tracing::{debug, error, event_enabled, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_secs(60);
@@ -39,7 +40,7 @@ const BATCH_SIZE: usize = 1000;
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information."
 )]
 pub struct CopierArgs {
     #[command(flatten)]
@@ -49,6 +50,19 @@ pub struct CopierArgs {
     #[cfg(feature = "postgres")]
     #[command(flatten)]
     pub pg: Option<martin::args::PgArgs>,
+    /// How to format the logs. [DEFAULT: compact]
+    #[arg(long)]
+    // ! log_format is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
+    pub log_format: Option<LogFormatOptions>,
+    /// Set which logs martin outputs. [DEFAULT: martin-cp=info]
+    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
+    #[arg(long)]
+    // ! log_level is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
+    pub log_level: Option<String>,
 }
 
 #[serde_with::serde_as]
@@ -429,12 +443,21 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin_cp=info");
-    env_logger::Builder::from_env(env).init();
+    let log_filter = LogLevel::from_argument("--log-level")
+        .or_in_config_file("--config", "log_level")
+        .or_env_var("MARTIN_LOG_FORMAT")
+        .lossy_parse_to_filter_with_default("martin-cp=info");
+    let log_format = LogFormat::from_argument("--log-level")
+        .or_in_config_file("--config", "log_format")
+        .or_env_var("RUST_LOG")
+        .or_default(LogFormatOptions::Compact);
+    MartinObservability::from((log_filter, log_format))
+        .with_initialised_log_tracing()
+        .set_global_subscriber();
 
     if let Err(e) = start(CopierArgs::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
+        if event_enabled!(tracing::Level::ERROR) {
             error!("{e}");
         } else {
             eprintln!("{e}");

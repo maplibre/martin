@@ -7,11 +7,11 @@ use std::time::Instant;
 use enum_display::EnumDisplay;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt;
-use log::{debug, error, info};
 use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
 use sqlx::{Executor, Row, SqliteConnection, query};
+use tracing::{debug, error, info};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};

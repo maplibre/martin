@@ -1,9 +1,9 @@
 use dashmap::{DashMap, Entry};
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use tracing::{info, warn};
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::{ConfigExtras, FileConfigEnum, FileError, FileResult};

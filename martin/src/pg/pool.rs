@@ -1,7 +1,7 @@
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use log::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
+use tracing::{info, warn};
 
 use crate::pg::PgError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,

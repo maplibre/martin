@@ -3,7 +3,6 @@
 use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_body};
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::OptOneMany;
@@ -12,11 +11,6 @@ use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -41,6 +35,7 @@ fn test_get(path: &str) -> Request {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_catalog() {
     let app = create_app! { "
 postgres:
@@ -134,6 +129,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_ok() {
     let app = create_app! { "
 postgres:
@@ -169,6 +165,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_rewrite() {
     let app = create_app! { "
 postgres:
@@ -210,6 +207,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -300,6 +298,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_multiple_geom_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -390,6 +389,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 postgres:
@@ -498,6 +498,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_tiles() {
     let app = create_app! { "
 postgres:
@@ -530,6 +531,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_composite_source_ok() {
     let app = create_app! { "
 postgres:
@@ -619,6 +621,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_composite_source_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -709,6 +712,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_composite_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 postgres:
@@ -775,6 +779,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_null_functions() {
     let app = create_app! { "
 postgres:
@@ -795,6 +800,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_ok() {
     let app = create_app! { "
 postgres:
@@ -839,6 +845,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_ok_rewrite() {
     let app = create_app! { "
 postgres:
@@ -857,6 +864,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_ok_rewrite_all() {
     let app = create_app! { "
 postgres:
@@ -877,6 +885,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -889,6 +898,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_tile_minmax_zoom_ok() {
     let app = create_app! {"
 postgres:
@@ -947,6 +957,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_query_params_ok() {
     let app = create_app! { "
 postgres:
@@ -963,6 +974,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_health_returns_ok() {
     let app = create_app! { "
 postgres:
@@ -975,6 +987,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_tables_feature_id() {
     let cfg = mock_pgcfg(indoc! {"
 connection_string: $DATABASE_URL

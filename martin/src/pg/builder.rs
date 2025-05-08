@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use futures::future::join_all;
 use itertools::Itertools as _;
-use log::{debug, error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::OptBoolObj::{Bool, NoValue, Object};
 use crate::args::BoundsCalcType;

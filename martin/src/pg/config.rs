@@ -2,9 +2,9 @@ use std::ops::Add;
 use std::time::Duration;
 
 use futures::future::try_join;
-use log::warn;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
+use tracing::warn;
 
 use crate::MartinResult;
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};

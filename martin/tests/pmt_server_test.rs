@@ -1,6 +1,5 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::srv::SrvConfig;
@@ -9,11 +8,6 @@ use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -43,6 +37,7 @@ const CONFIG: &str = indoc! {"
     "};
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_catalog() {
     let path = "pmtiles: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
     let app = create_app! { path };
@@ -62,6 +57,7 @@ async fn pmt_get_catalog() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_catalog_gzip() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
@@ -81,6 +77,7 @@ async fn pmt_get_catalog_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_tilejson() {
     let app = create_app! { CONFIG };
     let req = test_get("/p_png").to_request();
@@ -94,6 +91,7 @@ async fn pmt_get_tilejson() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_tilejson_gzip() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
@@ -109,6 +107,7 @@ async fn pmt_get_tilejson_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_raster() {
     let app = create_app! { CONFIG };
     let req = test_get("/p_png/0/0/0").to_request();
@@ -122,6 +121,7 @@ async fn pmt_get_raster() {
 
 /// get a raster tile with accepted gzip enc, but should still be non-gzipped
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_raster_gzip() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");

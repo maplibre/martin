@@ -3,8 +3,8 @@ use actix_web::http::header::ContentType;
 use actix_web::middleware;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
-use log::error;
 use serde::Deserialize;
+use tracing::error;
 
 #[derive(Deserialize, Debug)]
 struct StyleRequest {

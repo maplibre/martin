@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use log::warn;
+use tracing::warn;
 
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
@@ -23,7 +23,7 @@ use crate::file_config::FileConfigEnum;
 #[command(
     about,
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information."
 )]
 pub struct Args {
     #[command(flatten)]

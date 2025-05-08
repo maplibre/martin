@@ -4,13 +4,13 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
 use spreet::{
     SpreetError, Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name,
 };
 use tokio::io::AsyncReadExt;
+use tracing::{info, warn};
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
 use crate::config::UnrecognizedValues;

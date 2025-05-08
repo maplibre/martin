@@ -1,6 +1,5 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::srv::SrvConfig;
@@ -9,11 +8,6 @@ use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -46,6 +40,7 @@ const CONFIG: &str = indoc! {"
     "};
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_catalog() {
     let app = create_app! { CONFIG };
 
@@ -77,6 +72,7 @@ async fn mbt_get_catalog() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_catalog_gzip() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
@@ -109,6 +105,7 @@ async fn mbt_get_catalog_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_tilejson() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_mvt").to_request();
@@ -292,6 +289,7 @@ async fn mbt_get_json() {
 
 /// get a JSON tile with accepted gzip
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_json_gzip() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");

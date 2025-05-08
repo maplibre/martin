@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["martin", "martin-tile-utils", "mbtiles"]
+members = ["martin", "martin-tracing-utils", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
 edition = "2024"
@@ -38,11 +38,9 @@ bit-set = "0.8"
 brotli = ">=5, <8"
 clap = { version = "4", features = ["derive", "unstable-markdown"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.4.2"
 dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 enum-display = "0.1"
-env_logger = "0.11"
 flate2 = "1"
 flume = "0.11"
 futures = "0.3"
@@ -51,8 +49,8 @@ insta = "1"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
-log = "0.4"
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.1" }
+martin-tracing-utils = { path = "./martin-tracing-utils", version = "0.1.0" }
 mbtiles = { path = "./mbtiles", version = "0.12.2" }
 md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
@@ -84,13 +82,18 @@ sqlite-hashes = { version = "0.9.1", default-features = false, features = ["md5"
 sqlx = { version = "0.8.5", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
-tempfile = "3.17.1"
+tempfile = "3.18.0"
 testcontainers-modules = { version = "0.11.6", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
+tracing = { version = "0.1.41", features = ["log"] }
+tracing-actix-web = { version = "0.7.16", features = ["uuid_v7"] }
+tracing-log = { version ="0.2.0", features = ["interest-cache"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
+tracing-test = { version = "0.2.5",features = ["no-env-filter"] }
 url = "2.5"
 walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }

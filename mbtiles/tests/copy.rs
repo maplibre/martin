@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::Mutex;
 
-use ctor::ctor;
 use insta::{allow_duplicates, assert_snapshot};
 use itertools::Itertools as _;
 use martin_tile_utils::xyz_to_bbox;
@@ -83,11 +82,6 @@ const METADATA_V2: &str = "
       , ('md-edit', 'value - v2')
       , ('md-new', 'value - new')
       ;";
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 fn path(mbt: &Mbtiles) -> PathBuf {
     PathBuf::from(mbt.filepath())
@@ -414,6 +408,7 @@ fn databases() -> Databases {
     })
 }
 
+#[tracing_test::traced_test]
 #[tokio::test]
 async fn update() -> MbtResult<()> {
     let (mbt, mut cn) = new_file_no_hash!(databases, Flat, METADATA_V1, TILES_V1, "update");
@@ -424,6 +419,7 @@ async fn update() -> MbtResult<()> {
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -508,6 +504,7 @@ async fn convert(
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -575,6 +572,7 @@ async fn diff_and_patch(
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -626,6 +624,7 @@ async fn diff_and_patch_bsdiff(
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -654,6 +653,7 @@ async fn patch_on_copy(
 }
 
 /// A simple tester to run specific values
+#[tracing_test::traced_test]
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_one() {

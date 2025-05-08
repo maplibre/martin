@@ -1,10 +1,10 @@
+use crate::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use clap::ValueEnum;
+use martin_tracing_utils::LogFormatOptions;
 use serde::{Deserialize, Serialize};
 
-use crate::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
-
 #[allow(clippy::doc_markdown)]
-#[derive(clap::Args, Debug, PartialEq, Default)]
+#[derive(clap::Args, PartialEq, Debug, Default)]
 #[command(about, version)]
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {KEEP_ALIVE_DEFAULT}]"), short, long)]
@@ -34,6 +34,19 @@ pub struct SrvArgs {
     #[arg(short = 'u', long = "webui")]
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
+    /// How to format the logs. [DEFAULT: compact]
+    #[arg(long)]
+    // ! log_format is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
+    pub log_format: Option<LogFormatOptions>,
+    /// Set which logs martin outputs. [DEFAULT: martin=info]
+    /// See [here](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax) for more information.
+    #[arg(long)]
+    // ! log_level is never actually used from here (instead done as the first thing in initialisation).
+    // ! We need tracing to raise errors/warnings during parsing configuration options.
+    // ! This is just for clap help generation !
+    pub log_level: Option<String>,
 }
 
 #[cfg(feature = "webui")]
