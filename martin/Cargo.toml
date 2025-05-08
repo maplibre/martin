@@ -5,6 +5,7 @@ authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAs
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
 categories = ["science::geo", "web-programming::http-server"]
+exclude = ["Cargo.lock"]
 default-run = "martin"
 edition.workspace = true
 license.workspace = true
