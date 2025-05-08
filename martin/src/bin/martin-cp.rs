@@ -56,7 +56,7 @@ pub struct CopierArgs {
 pub struct CopyArgs {
     /// Name of the source to copy from.
     #[arg(short, long)]
-    pub source: String,
+    pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
@@ -152,6 +152,26 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         config.save_to_file(file_name)?;
     } else {
         info!("Use --save-config to save or print configuration.");
+    }
+
+    source_count = sources.tiles.len();
+
+    match source_count {
+        0 => return Err(MartinError::NoSources),
+
+        1 => if copy_args.copy.is_none() {
+            // Get the only source name from the DashMap
+            if let Some((only_source, _)) = sources.tiles.iter().next() {
+                let only_source_name = only_source.key.clone();
+                info!("Only one source detected: {}", &only_source);
+                copy_args.copy.source = Some(only_source_name)
+            }
+        }
+
+        _ => if copy_args.copy.is_none() {
+            return Err("Multiple sources found. Please specify one using the --source option.".into())
+        }
+
     }
 
     run_tile_copy(copy_args.copy, sources).await
