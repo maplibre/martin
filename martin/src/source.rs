@@ -51,9 +51,7 @@ impl TileSources {
     }
 
     pub fn source_names(&self) -> Vec<String> {
-        self.0.iter()
-        .map(|entry| entry.key().clone())
-        .collect()
+        self.0.iter().map(|entry| entry.key().clone()).collect()
     }
 
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {

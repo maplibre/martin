@@ -257,7 +257,9 @@ enum MartinCpError {
     Mbt(#[from] MbtError),
     #[error("No sources found")]
     NoSources,
-    #[error("More than one source found, please specify source using --source. \nAvailable sources: {0}")]
+    #[error(
+        "More than one source found, please specify source using --source. \nAvailable sources: {0}"
+    )]
     MultipleSources(String),
 }
 
