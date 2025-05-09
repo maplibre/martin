@@ -122,7 +122,7 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
     }
 }
 
-async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
+async fn start(mut copy_args: CopierArgs) -> MartinCpResult<()> {
     info!("martin-cp tile copier v{VERSION}");
 
     let env = OsEnv::default();
@@ -154,24 +154,28 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         info!("Use --save-config to save or print configuration.");
     }
 
-    source_count = sources.tiles.len();
+    let source_count = sources.tiles.len();
 
     match source_count {
-        0 => return Err(MartinError::NoSources),
+        0 => return Err(MartinCpError::NoSources),
 
-        1 => if copy_args.copy.is_none() {
-            // Get the only source name from the DashMap
-            if let Some((only_source, _)) = sources.tiles.iter().next() {
-                let only_source_name = only_source.key.clone();
-                info!("Only one source detected: {}", &only_source);
-                copy_args.copy.source = Some(only_source_name)
+        1 => {
+            if copy_args.copy.source.is_none() {
+                // Get the only source name from the DashMap
+                if let Some(entry) = sources.tiles.iter().next() {
+                    let only_source_name = entry.key().clone();
+                    info!("Only one source detected: {}", &only_source_name);
+                    copy_args.copy.source = Some(only_source_name)
+                }
             }
         }
 
-        _ => if copy_args.copy.is_none() {
-            return Err("Multiple sources found. Please specify one using the --source option.".into())
+        _ => {
+            if copy_args.copy.source.is_none() {
+                let available_sources = sources.tiles.source_names().join(", ");
+                return Err(MartinCpError::MultipleSources(available_sources));
+            }
         }
-
     }
 
     run_tile_copy(copy_args.copy, sources).await
@@ -251,6 +255,10 @@ enum MartinCpError {
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
     Mbt(#[from] MbtError),
+    #[error("No sources found")]
+    NoSources,
+    #[error("More than one source found, please specify source using --source. \nAvailable sources: {0}")]
+    MultipleSources(String),
 }
 
 impl Display for Progress {
@@ -293,13 +301,18 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
-async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
+async fn run_tile_copy(mut args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
+    let source = args
+        .source
+        .take()
+        .expect("source must be Some by this point (logic bug if not)");
+
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
 
     let src = DynTileSource::new(
         &state.tiles,
-        args.source.as_str(),
+        &source,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
@@ -327,7 +340,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         "Copying {} {} tiles from {} to {}",
         progress.total,
         src.info,
-        args.source,
+        source,
         args.output_file.display()
     );
 
