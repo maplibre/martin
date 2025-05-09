@@ -42,6 +42,18 @@ impl TileSources {
             .collect()
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn iter(&self) -> dashmap::iter::Iter<'_, String, TileInfoSource> {
+        self.0.iter()
+    }
+
+    pub fn source_names(&self) -> Vec<String> {
+        self.0.iter().map(|entry| entry.key().clone()).collect()
+    }
+
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0
