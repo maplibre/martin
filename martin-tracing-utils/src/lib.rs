@@ -230,19 +230,19 @@ fn get_next_after_argument(argument: &str, args: &[String]) -> Option<String> {
 /// It is assumed that the user will parse the yaml file themselves after setting up tracing via this library.
 #[must_use]
 fn read_path_in_file(path: &Path, key: &str) -> Option<String> {
-    let mut key_parts = key.split('.').collect::<Vec<&str>>();
+    let mut traversial_path = key.split('.').collect::<Vec<&str>>();
 
     let mut config_file = Vec::new();
     let _ = File::open(path).ok()?.read_to_end(&mut config_file).ok()?;
     let mut map: HashMap<String, serde_yaml::Value> = serde_yaml::from_slice(&config_file).ok()?;
-    let final_key = key_parts.pop()?;
-    for traversion in key_parts {
-        let new_map = map.remove(traversion)?;
+    let final_step = traversial_path.pop()?;
+    for traversal_step in traversial_path {
+        let new_map = map.remove(traversal_step)?;
         let new_map: HashMap<String, serde_yaml::Value> = serde_yaml::from_value(new_map).ok()?;
         map = new_map;
     }
 
-    let v = map.remove(final_key)?;
+    let v = map.remove(final_step)?;
     Some(v.as_str()?.to_string())
 }
 
