@@ -64,13 +64,17 @@ pub struct MetaArgs {
 #[command()]
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
-    #[arg(short, long)]
+    #[arg(short = 's', long)]
     #[cfg(feature = "sprites")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
     #[cfg(feature = "fonts")]
     pub font: Vec<PathBuf>,
+    /// Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times.
+    #[arg(short = 'S', long)]
+    #[cfg(feature = "styles")]
+    pub style: Vec<PathBuf>,
 }
 
 impl Args {
@@ -121,6 +125,11 @@ impl Args {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
         }
 
+        #[cfg(feature = "styles")]
+        if !self.extras.style.is_empty() {
+            config.styles = FileConfigEnum::new(self.extras.style);
+        }
+
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfigEnum::new(self.extras.sprite);
@@ -149,7 +158,12 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     false
 }
 
-#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "cog",
+    feature = "styles"
+))]
 pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
@@ -186,7 +200,7 @@ mod tests {
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::args::PreferredEncoding;
-    use crate::test_utils::FauxEnv;
+    use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -206,7 +220,7 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use crate::test_utils::some;
+        use crate::tests::some;
         use crate::utils::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
@@ -317,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn cli_directories_propergate() {
+    fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
         let env = FauxEnv::default();

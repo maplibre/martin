@@ -396,7 +396,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
 
         if self.patch_type == BinDiffGz {
             new_tile = encode_gzip(&new_tile)?;
-        };
+        }
 
         Ok(ApplierAfter {
             coord: value.coord,

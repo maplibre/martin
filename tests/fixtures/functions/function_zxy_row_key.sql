@@ -1,7 +1,9 @@
 DROP FUNCTION IF EXISTS public.function_zxy_row_key;
 
-CREATE OR REPLACE FUNCTION public.function_zxy_row_key(z integer, x integer, y integer)
-RETURNS TABLE(mvt bytea, key text) AS $$
+CREATE OR REPLACE FUNCTION public.function_zxy_row_key(
+    z integer, x integer, y integer
+)
+RETURNS TABLE (mvt bytea, key text) AS $$
   SELECT mvt, md5(mvt) as key FROM (
       SELECT ST_AsMVT(tile, 'public.function_zxy_row_key', 4096, 'geom') as mvt FROM (
         SELECT
