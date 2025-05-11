@@ -1,9 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use itertools::Itertools;
 use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
@@ -42,6 +43,21 @@ impl TileSources {
             .collect()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn source_names(&self) -> Vec<String>{
+        self.0
+            .iter()
+            .map(|v | v.key().to_string())
+            .collect()
+    }
+ 
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0

@@ -56,7 +56,7 @@ pub struct CopierArgs {
 pub struct CopyArgs {
     /// Name of the source to copy from.
     #[arg(short, long)]
-    pub source: String,
+    pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
@@ -231,6 +231,12 @@ enum MartinCpError {
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
     Mbt(#[from] MbtError),
+    #[error("No sources found")]
+    NoSources,
+    #[error(
+        "More than one source found, please specify source using --source. \nAvailable sources: {0}"
+    )]
+    MultipleSources(String),
 }
 
 impl Display for Progress {
@@ -273,13 +279,28 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
-async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
+async fn run_tile_copy(mut args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
 
+    if state.tiles.is_empty() {
+        return Err(MartinCpError::NoSources);
+        }
+
+    if args.source.is_none() {
+        let source_names = state.tiles
+                                .source_names()
+                                .join(",");
+        if state.tiles.len() != 1 {
+            return Err(MartinCpError::MultipleSources(source_names));
+        }
+        args.source = Some(source_names) 
+        // Vec<String> with 1 string joined by ",", will remain the same string
+    }
+
     let src = DynTileSource::new(
         &state.tiles,
-        args.source.as_str(),
+        args.source.as_ref().unwrap(),
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
@@ -307,7 +328,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         "Copying {} {} tiles from {} to {}",
         progress.total,
         src.info,
-        args.source,
+        args.source.unwrap(),
         args.output_file.display()
     );
 
