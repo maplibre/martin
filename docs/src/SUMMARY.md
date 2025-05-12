@@ -28,7 +28,7 @@
     - [Sprites](sources-sprites.md)
     - [Styles](sources-styles.md)
     - [Fonts](sources-fonts.md)
-- [Avaliable API Endpoints](using.md)
+- [Available API Endpoints](using.md)
 - [Guides](using-guides.md)
   - [Map renderer specific](using-with-renderer.md)
     - [MapLibre](using-with-maplibre.md)
