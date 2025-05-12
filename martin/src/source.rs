@@ -1,5 +1,5 @@
-use std::{collections::HashMap, vec};
 use std::fmt::Debug;
+use std::{collections::HashMap, vec};
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
@@ -51,13 +51,10 @@ impl TileSources {
         self.0.len()
     }
 
-    pub fn source_names(&self) -> Vec<String>{
-        self.0
-            .iter()
-            .map(|v | v.key().to_string())
-            .collect()
+    pub fn source_names(&self) -> Vec<String> {
+        self.0.iter().map(|v| v.key().to_string()).collect()
     }
- 
+
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0

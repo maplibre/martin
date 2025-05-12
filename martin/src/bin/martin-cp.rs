@@ -285,16 +285,14 @@ async fn run_tile_copy(mut args: CopyArgs, state: ServerState) -> MartinCpResult
 
     if state.tiles.is_empty() {
         return Err(MartinCpError::NoSources);
-        }
+    }
 
     if args.source.is_none() {
-        let source_names = state.tiles
-                                .source_names()
-                                .join(",");
+        let source_names = state.tiles.source_names().join(",");
         if state.tiles.len() != 1 {
             return Err(MartinCpError::MultipleSources(source_names));
         }
-        args.source = Some(source_names) 
+        args.source = Some(source_names)
         // Vec<String> with 1 string joined by ",", will remain the same string
     }
 
