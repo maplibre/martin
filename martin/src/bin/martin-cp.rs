@@ -279,26 +279,27 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
-async fn run_tile_copy(mut args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
+async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
 
-    if state.tiles.is_empty() {
-        return Err(MartinCpError::NoSources);
-    }
-
-    if args.source.is_none() {
-        let source_names = state.tiles.source_names().join(",");
-        if state.tiles.len() != 1 {
-            return Err(MartinCpError::MultipleSources(source_names));
+    let source = if let Some(source) = &args.source {
+        source.to_string()
+    } else {
+        let sources = state.tiles.source_names();
+        if let Some(source) = sources.first() {
+            if sources.len() > 1 {
+                return Err(MartinCpError::MultipleSources(sources.join(", ")));
+            }
+            source.to_string()
+        } else {
+            return Err(MartinCpError::NoSources);
         }
-        args.source = Some(source_names)
-        // Vec<String> with 1 string joined by ",", will remain the same string
-    }
+    };
 
     let src = DynTileSource::new(
         &state.tiles,
-        args.source.as_ref().unwrap(),
+        &source,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
@@ -326,7 +327,7 @@ async fn run_tile_copy(mut args: CopyArgs, state: ServerState) -> MartinCpResult
         "Copying {} {} tiles from {} to {}",
         progress.total,
         src.info,
-        args.source.unwrap(),
+        source,
         args.output_file.display()
     );
 
