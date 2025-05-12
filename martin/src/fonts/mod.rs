@@ -12,6 +12,7 @@ use pbf_font_tools::protobuf::Message;
 use pbf_font_tools::{Fontstack, Glyphs, PbfFontError, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::OptOneMany;
 
@@ -108,7 +109,7 @@ pub struct FontSources {
     masks: Vec<BitSet>,
 }
 
-pub type FontCatalog = DashMap<String, CatalogFontEntry>;
+pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
