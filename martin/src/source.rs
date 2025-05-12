@@ -1,5 +1,5 @@
-use std::fmt::Debug;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
