@@ -1,10 +1,9 @@
 use std::fmt::Debug;
-use std::{collections::HashMap, vec};
+use std::collections::HashMap;
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use itertools::Itertools;
 use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
