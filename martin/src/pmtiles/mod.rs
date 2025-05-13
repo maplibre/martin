@@ -10,9 +10,10 @@ use async_trait::async_trait;
 use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
+use pmtiles::aws_sdk_s3::Client as S3Client;
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
-use pmtiles::{Compression, Directory, HttpBackend, MmapBackend, TileType};
+use pmtiles::{AwsS3Backend, Compression, Directory, HttpBackend, MmapBackend, TileType};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
@@ -143,15 +144,20 @@ impl SourceConfigExtras for PmtConfig {
     }
 
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
-        Ok(Box::new(
-            PmtHttpSource::new(
-                self.client.clone().unwrap(),
-                self.new_cached_source(),
-                id,
-                url,
-            )
-            .await?,
-        ))
+        match url.scheme() {
+            "s3" => Ok(Box::new(
+                PmtS3Source::new(self.new_cached_source(), id, url).await?,
+            )),
+            _ => Ok(Box::new(
+                PmtHttpSource::new(
+                    self.client.clone().unwrap(),
+                    self.new_cached_source(),
+                    id,
+                    url,
+                )
+                .await?,
+            )),
+        }
     }
 }
 
@@ -292,6 +298,37 @@ impl PmtHttpSource {
     pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
         let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
         let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+
+        Self::new_int(id, url, reader).await
+    }
+}
+
+impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadata);
+
+impl PmtS3Source {
+    pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+        // Construct AWS SDK client
+        // If one wishes to use anonymous requests, set the AWS_NO_CREDENTIALS=1 env variable.
+        let client = if std::env::var("AWS_NO_CREDENTIALS").unwrap_or_default() == "1" {
+            S3Client::new(&aws_config::from_env().no_credentials().load().await)
+        } else {
+            S3Client::new(&aws_config::load_from_env().await)
+        };
+
+        let bucket = url
+            .host_str()
+            .ok_or_else(|| {
+                FileError::S3SourceError(format!("failed to parse bucket name from {url}"))
+            })?
+            .to_string();
+
+        // Strip leading '/' from key
+        let key = url.path()[1..].to_string();
+
+        let reader =
+            AsyncPmTilesReader::new_with_cached_client_bucket_and_path(cache, client, bucket, key)
+                .await
+                .map_err(|e| FileError::PmtError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
