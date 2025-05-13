@@ -5,10 +5,7 @@ authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Utilities to help with map tile processing, such as type and compression detection. Used by the MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
 categories = ["science::geo", "parsing"]
-exclude = [
-    # Exclude the fixtures directory from the package - it's only used for tests.
-    "/fixtures",
-]
+exclude = ["/fixtures", "Cargo.lock"]
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
