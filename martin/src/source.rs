@@ -42,6 +42,7 @@ impl TileSources {
             .collect()
     }
 
+    #[must_use]
     pub fn source_names(&self) -> Vec<String> {
         self.0.iter().map(|v| v.key().to_string()).collect()
     }
