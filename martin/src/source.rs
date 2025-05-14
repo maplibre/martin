@@ -42,14 +42,6 @@ impl TileSources {
             .collect()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
     pub fn source_names(&self) -> Vec<String> {
         self.0.iter().map(|v| v.key().to_string()).collect()
     }
