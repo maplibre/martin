@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
@@ -7,6 +6,7 @@ use dashmap::DashMap;
 use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tilejson::TileJSON;
 
 use crate::MartinResult;
@@ -20,7 +20,7 @@ pub type TileInfoSources = Vec<TileInfoSource>;
 
 #[derive(Default, Clone)]
 pub struct TileSources(DashMap<String, TileInfoSource>);
-pub type TileCatalog = DashMap<String, CatalogSourceEntry>;
+pub type TileCatalog = HashMap<String, CatalogSourceEntry>;
 
 impl TileSources {
     #[must_use]
