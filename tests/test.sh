@@ -481,7 +481,7 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       "${CFG[@]}" --mbtiles-type flat --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
       --set-meta "generator=martin-cp v0.0.0" \
-      
+
 
   unset DATABASE_URL
 
