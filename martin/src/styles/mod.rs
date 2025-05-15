@@ -1,7 +1,7 @@
 use dashmap::{DashMap, Entry};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
@@ -13,7 +13,7 @@ pub struct CatalogStyleEntry {
     pub path: PathBuf,
 }
 
-pub type StyleCatalog = DashMap<String, CatalogStyleEntry>;
+pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct StyleConfig {
@@ -99,7 +99,7 @@ impl StyleSources {
     /// an external representation of the internal catalog
     #[must_use]
     pub fn get_catalog(&self) -> StyleCatalog {
-        let entries = StyleCatalog::new();
+        let mut entries = StyleCatalog::new();
         for source in &self.0 {
             entries.insert(
                 source.key().clone(),
