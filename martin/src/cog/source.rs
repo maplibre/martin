@@ -13,13 +13,16 @@ use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
+use super::model::{ModelInfo, get_model_infos};
 use crate::file_config::{FileError, FileResult};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
+#[allow(dead_code)] // the unused model would be use in next PRs
 #[derive(Clone, Debug)]
 struct Meta {
     min_zoom: u8,
     max_zoom: u8,
+    model: ModelInfo,
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
@@ -229,7 +232,11 @@ fn rgb_to_png(
     Ok(result_file_buffer)
 }
 
-fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
+fn verify_requirments(
+    decoder: &mut Decoder<File>,
+    model: &ModelInfo,
+    path: &Path,
+) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
     // see the requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
@@ -273,6 +280,31 @@ fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), Co
             path.to_path_buf(),
         ))?;
     }
+
+    match (&model.pixel_scale, &model.tie_points, &model.transformation) {
+        (Some(pixel_scale), Some(tie_points), _)
+             =>
+        {
+            if (pixel_scale[0] + pixel_scale[1]).abs() > 0.01{
+                Err(CogError::NonSquaredImage(path.to_path_buf(), pixel_scale[0], pixel_scale[1]))
+            }
+            else if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3, and the length of tie points should be a multiple of 6".to_string()))
+            }else{
+                Ok(())
+            }
+       }
+        (_, _, Some(matrix))
+        => {
+            if matrix.len() < 16 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
+        }else{
+                Ok(())
+        }
+        },
+            _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The model information is not found, either transformation (tag number 34264) or pixel scale(tag number 33550) && tie points(33922) should be inside ".to_string())),
+    }?;
+
     Ok(())
 }
 
@@ -282,8 +314,8 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let mut decoder = Decoder::new(tif_file)
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
-
-    verify_requirments(&mut decoder, path)?;
+    let model = get_model_infos(&mut decoder, path);
+    verify_requirments(&mut decoder, &model, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
 
@@ -316,6 +348,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     Ok(Meta {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
+        model,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
@@ -382,10 +415,12 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{fs::File, path::PathBuf};
 
+    use insta::assert_yaml_snapshot;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
+    use tiff::decoder::Decoder;
 
     use crate::cog::source::get_tile_idx;
 
@@ -457,5 +492,30 @@ mod tests {
         .unwrap();
         let expected = std::fs::read(expected_file_path).unwrap();
         assert_eq!(png_bytes, expected);
+    }
+
+    #[test]
+    fn can_get_model_infos() {
+        let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
+        let tif_file = File::open(&path).unwrap();
+        let mut decoder = Decoder::new(tif_file).unwrap();
+
+        let model = super::get_model_infos(&mut decoder, &path);
+        let (pixel_scale, tie_points, transformation) =
+            (model.pixel_scale, model.tie_points, model.transformation);
+        assert_yaml_snapshot!(pixel_scale, @r###"
+        - 10
+        - -10
+        - 0
+        "###);
+        assert_yaml_snapshot!(tie_points, @r###"
+        - 0
+        - 0
+        - 0
+        - 1620750.2508
+        - 4277012.7153
+        - 0
+        "###);
+        assert_yaml_snapshot!(transformation, @"~");
     }
 }
