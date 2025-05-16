@@ -285,10 +285,13 @@ fn verify_requirements(
         (Some(pixel_scale), Some(tie_points), _)
              =>
         {
-            if (pixel_scale[0] + pixel_scale[1]).abs() > 0.01{
+            if pixel_scale.len() != 3 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3".to_string()))
+            }
+            else if (pixel_scale[0].abs() - pixel_scale[1].abs()).abs() > 0.01{
                 Err(CogError::NonSquaredImage(path.to_path_buf(), pixel_scale[0], pixel_scale[1]))
             }
-            else if pixel_scale.len() != 3 || tie_points.len() % 6 != 0 {
+            else if tie_points.len() % 6 != 0 {
                 Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of pixel scale should be 3, and the length of tie points should be a multiple of 6".to_string()))
             }else{
                 Ok(())
