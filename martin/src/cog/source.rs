@@ -299,11 +299,11 @@ fn verify_requirements(
        }
         (_, _, Some(matrix))
         => {
-            if matrix.len() < 16 {
+            if matrix.len() != 16 {
                 Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
-        }else{
+            } else {
                 Ok(())
-        }
+            }
         },
             _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided".to_string())),
     }?;
