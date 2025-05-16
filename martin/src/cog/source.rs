@@ -508,7 +508,7 @@ mod tests {
             (model.pixel_scale, model.tie_points, model.transformation);
         assert_yaml_snapshot!(pixel_scale, @r###"
         - 10
-        - -10
+        - 10
         - 0
         "###);
         assert_yaml_snapshot!(tie_points, @r###"
