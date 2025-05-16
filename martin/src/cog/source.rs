@@ -232,7 +232,7 @@ fn rgb_to_png(
     Ok(result_file_buffer)
 }
 
-fn verify_requirments(
+fn verify_requirements(
     decoder: &mut Decoder<File>,
     model: &ModelInfo,
     path: &Path,
@@ -315,7 +315,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
     let model = get_model_infos(&mut decoder, path);
-    verify_requirments(&mut decoder, &model, path)?;
+    verify_requirements(&mut decoder, &model, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
 
