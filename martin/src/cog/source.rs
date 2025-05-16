@@ -17,7 +17,7 @@ use super::model::{ModelInfo, get_model_infos};
 use crate::file_config::{FileError, FileResult};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
-#[allow(dead_code)] // the unused model would be use in next PRs
+#[allow(dead_code)] // the unused model would be used in next PRs
 #[derive(Clone, Debug)]
 struct Meta {
     min_zoom: u8,
