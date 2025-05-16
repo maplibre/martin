@@ -60,7 +60,7 @@ pub struct ModelInfo {
 }
 
 pub fn get_model_infos(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
-    let mut pixel_scale = decoder
+    let pixel_scale = decoder
         .get_tag_f64_vec(Tag::ModelPixelScaleTag)
         .map_err(|e| {
             CogError::TagsNotFound(
@@ -71,9 +71,6 @@ pub fn get_model_infos(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
             )
         })
         .ok();
-    if let Some(pixel) = pixel_scale {
-        pixel_scale = Some(vec![pixel[0], pixel[1], pixel[2]]);
-    }
     let tie_points = decoder
         .get_tag_f64_vec(Tag::ModelTiepointTag)
         .map_err(|e| {
