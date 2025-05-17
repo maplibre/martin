@@ -1,3 +1,4 @@
+use crate::MartinResult;
 use actix_http::Method;
 use serde::{Deserialize, Serialize};
 
@@ -15,8 +16,8 @@ impl Default for CorsConfig {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(default)]
 pub struct CorsProperties {
+    #[serde(default)]
     pub origin: Vec<String>,
     pub max_age: Option<usize>,
 }
@@ -30,12 +31,30 @@ impl Default for CorsProperties {
     }
 }
 
+impl CorsProperties {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.origin.is_empty() {
+            Err(
+                "When configuring CORS properties, 'origin' must be explicitly specified (e.g., origin: ['*'] for allowing any origin)",
+            )
+        } else {
+            Ok(())
+        }
+    }
+}
+
 impl CorsConfig {
     pub fn make_cors_middleware(&self) -> Option<actix_cors::Cors> {
         match self {
             CorsConfig::SimpleFlag(false) => None,
             CorsConfig::SimpleFlag(true) => Some(Self::create_cors(&CorsProperties::default())),
-            CorsConfig::Properties(properties) => Some(Self::create_cors(properties)),
+            CorsConfig::Properties(properties) => match properties.validate() {
+                Ok(_) => Some(Self::create_cors(properties)),
+                Err(e) => {
+                    println!("yo");
+                    None
+                }
+            },
         }
     }
 
@@ -132,6 +151,37 @@ mod tests {
             assert_eq!(settings.max_age, Some(3600));
         } else {
             panic!("Expected Settings variant for detailed config");
+        }
+    }
+
+    #[test]
+    fn test_cors_validation() {
+        // Test parsing a config with only max_age (should fail validation)
+        let config: CorsConfig = serde_yaml::from_str(indoc! {"
+            max_age: 3600
+        "})
+        .unwrap();
+
+        if let CorsConfig::Properties(settings) = config {
+            // This should fail validation
+            assert!(settings.validate().is_err());
+        } else {
+            panic!("Expected Properties variant");
+        }
+
+        // Test parsing a complete config (should pass validation)
+        let config: CorsConfig = serde_yaml::from_str(indoc! {"
+            origin:
+              - https://example.org
+            max_age: 3600
+        "})
+        .unwrap();
+
+        if let CorsConfig::Properties(settings) = config {
+            // This should pass validation
+            assert!(settings.validate().is_ok());
+        } else {
+            panic!("Expected Properties variant");
         }
     }
 }
