@@ -244,6 +244,7 @@ jobs:
           file: .github/files/multi-platform.Dockerfile
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
 
