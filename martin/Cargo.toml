@@ -111,6 +111,7 @@ tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
+xxhash-rust.workspace = true
 
 [build-dependencies]
 walkdir = { workspace = true, optional = true }

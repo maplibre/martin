@@ -2,7 +2,7 @@ use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
-    AcceptEncoding, CONTENT_ENCODING, Encoding as HeaderEnc, Preference,
+    AcceptEncoding, Encoding as HeaderEnc, EntityTag, IfNoneMatch, Preference, CONTENT_ENCODING, ETAG
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -49,6 +49,7 @@ async fn get_tile(
         Some(path.z),
         req.query_string(),
         req.get_header::<AcceptEncoding>(),
+        req.get_header::<IfNoneMatch>(),
         srv_config.preferred_encoding,
         cache.as_ref().as_ref(),
     )?;
@@ -67,6 +68,7 @@ pub struct DynTileSource<'a> {
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,
     pub accept_enc: Option<AcceptEncoding>,
+    if_match: Option<IfNoneMatch>,
     pub preferred_enc: Option<PreferredEncoding>,
     pub cache: Option<&'a MainCache>,
 }
@@ -78,6 +80,7 @@ impl<'a> DynTileSource<'a> {
         zoom: Option<u8>,
         query: &'a str,
         accept_enc: Option<AcceptEncoding>,
+        if_match: Option<IfNoneMatch>,
         preferred_enc: Option<PreferredEncoding>,
         cache: Option<&'a MainCache>,
     ) -> ActixResult<Self> {
@@ -100,6 +103,7 @@ impl<'a> DynTileSource<'a> {
             query_str,
             query_obj,
             accept_enc,
+            if_match,
             preferred_enc,
             cache,
         })
@@ -107,17 +111,27 @@ impl<'a> DynTileSource<'a> {
 
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
         let tile = self.get_tile_content(xyz).await?;
-
-        Ok(if tile.data.is_empty() {
-            HttpResponse::NoContent().finish()
-        } else {
-            let mut response = HttpResponse::Ok();
-            response.content_type(tile.info.format.content_type());
-            if let Some(val) = tile.info.encoding.content_encoding() {
-                response.insert_header((CONTENT_ENCODING, val));
+        let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
+        let etag = EntityTag::new_strong(hash.to_string());
+        
+        if tile.data.is_empty() {
+            return Ok(HttpResponse::NoContent().finish())
+        }
+        if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_match {
+            for expected_etag in expected_etags {
+                if etag.strong_eq(expected_etag) {
+                    return Ok(HttpResponse::NotModified().finish());
+                }
             }
-            response.body(tile.data)
-        })
+        }
+        
+        let mut response = HttpResponse::Ok();
+        response.content_type(tile.info.format.content_type());
+        response.insert_header((ETAG, etag));
+        if let Some(val) = tile.info.encoding.content_encoding() {
+            response.insert_header((CONTENT_ENCODING, val));
+        }
+        Ok(response.body(tile.data))
     }
 
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
@@ -335,6 +349,7 @@ mod tests {
             None,
             "",
             accept_enc,
+            None,
             preferred_enc,
             None,
         )
