@@ -6,7 +6,7 @@ use super::CogError;
 
 /// These are tags to be used for defining the relationship between raster space and model space. See [ogc doc](https://docs.ogc.org/is/19-008r4/19-008r4.html#_coordinate_transformations) for more details.
 ///
-/// The three tags defined below may be used for defining the relationship between R and M, and the relationship may be diagrammed as:
+/// The the relationship may be diagrammed as:
 /// ```raw
 ///        ModelPixelScaleTag
 ///          ModelTiepointTag
@@ -15,14 +15,14 @@ use super::CogError;
 /// ```
 #[derive(Clone, Debug)]
 pub struct ModelInfo {
-    /// ModelPixelScaleTag, may be used to specify the size of raster pixel spacing in the model space units, when the raster space can be embedded in the model space coordinate reference system without rotation.
-    /// Consists of the following 3 values: `(ScaleX`, ScaleY, ScaleZ)`.
+    /// `ModelPixelScaleTag`, may be used to specify the size of raster pixel spacing in the model space units, when the raster space can be embedded in the model space coordinate reference system without rotation.
+    /// Consists of the following 3 values: `(ScaleX, ScaleY, ScaleZ)`.
     ///    
     /// ```raw
     /// ModelPixelScaleTag:
-    /// Tag = 33550 (830E.H)
-    /// Type = DOUBLE (IEEE Double precision)
-    /// N = 3
+    ///   Tag = 33550 (830E.H)
+    ///   Type = DOUBLE (IEEE Double precision)
+    ///   N = 3
     /// ```
     ///
     /// Example: `[10.0, 10.0, 0.0]`
@@ -50,8 +50,7 @@ pub struct ModelInfo {
     ///   N = 16
     /// ```
     ///
-    /// If specified, the tag has the following organization:
-    /// ModelTransformationTag = (a,b,c,d,e....m,n,o,p) where
+    /// If specified, the tag has the following organization: `ModelTransformationTag` = (a,b,c,d,e....m,n,o,p) where
     /// model                  image
     /// coords =     matrix  * coords
     /// |- -|     |-       -|  |- -|
@@ -66,43 +65,45 @@ pub struct ModelInfo {
     pub transformation: Option<Vec<f64>>,
 }
 
-pub fn get_model_infos(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
-    let pixel_scale = decoder
-        .get_tag_f64_vec(Tag::ModelPixelScaleTag)
-        .map_err(|e| {
-            CogError::TagsNotFound(
-                e,
-                vec![Tag::ModelPixelScaleTag.to_u16()],
-                0,
-                path.to_path_buf(),
-            )
-        })
-        .ok();
-    let tie_points = decoder
-        .get_tag_f64_vec(Tag::ModelTiepointTag)
-        .map_err(|e| {
-            CogError::TagsNotFound(
-                e,
-                vec![Tag::ModelTiepointTag.to_u16()],
-                0,
-                path.to_path_buf(),
-            )
-        })
-        .ok();
-    let transformation = decoder
-        .get_tag_f64_vec(Tag::ModelTransformationTag)
-        .map_err(|e| {
-            CogError::TagsNotFound(
-                e,
-                vec![Tag::ModelTransformationTag.to_u16()],
-                0,
-                path.to_path_buf(),
-            )
-        })
-        .ok();
-    ModelInfo {
-        pixel_scale,
-        tie_points,
-        transformation,
+impl ModelInfo {
+    pub fn decode(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
+        let pixel_scale = decoder
+            .get_tag_f64_vec(Tag::ModelPixelScaleTag)
+            .map_err(|e| {
+                CogError::TagsNotFound(
+                    e,
+                    vec![Tag::ModelPixelScaleTag.to_u16()],
+                    0,
+                    path.to_path_buf(),
+                )
+            })
+            .ok();
+        let tie_points = decoder
+            .get_tag_f64_vec(Tag::ModelTiepointTag)
+            .map_err(|e| {
+                CogError::TagsNotFound(
+                    e,
+                    vec![Tag::ModelTiepointTag.to_u16()],
+                    0,
+                    path.to_path_buf(),
+                )
+            })
+            .ok();
+        let transformation = decoder
+            .get_tag_f64_vec(Tag::ModelTransformationTag)
+            .map_err(|e| {
+                CogError::TagsNotFound(
+                    e,
+                    vec![Tag::ModelTransformationTag.to_u16()],
+                    0,
+                    path.to_path_buf(),
+                )
+            })
+            .ok();
+        ModelInfo {
+            pixel_scale,
+            tie_points,
+            transformation,
+        }
     }
 }

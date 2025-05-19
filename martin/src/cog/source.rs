@@ -13,7 +13,7 @@ use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
-use super::model::{ModelInfo, get_model_infos};
+use super::model::ModelInfo;
 use crate::file_config::{FileError, FileResult};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
@@ -317,7 +317,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let mut decoder = Decoder::new(tif_file)
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
-    let model = get_model_infos(&mut decoder, path);
+    let model = ModelInfo::decode(&mut decoder, path);
     verify_requirements(&mut decoder, &model, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
@@ -425,7 +425,7 @@ mod tests {
     use rstest::rstest;
     use tiff::decoder::Decoder;
 
-    use crate::cog::source::get_tile_idx;
+    use crate::cog::{model::ModelInfo, source::get_tile_idx};
 
     #[test]
     fn can_calc_tile_idx() {
@@ -503,7 +503,7 @@ mod tests {
         let tif_file = File::open(&path).unwrap();
         let mut decoder = Decoder::new(tif_file).unwrap();
 
-        let model = super::get_model_infos(&mut decoder, &path);
+        let model = ModelInfo::decode(&mut decoder, &path);
         let (pixel_scale, tie_points, transformation) =
             (model.pixel_scale, model.tie_points, model.transformation);
         assert_yaml_snapshot!(pixel_scale, @r###"
