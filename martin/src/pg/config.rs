@@ -53,7 +53,7 @@ pub struct PgConfig {
     /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
     /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
     ///
-    /// Can be either a positive integer or unlimited if ommited.
+    /// Can be either a positive integer or unlimited if omitted.
     pub max_feature_count: Option<usize>,
     /// Maximum Postgres connections pool size [DEFAULT: 20]
     pub pool_size: Option<usize>,
