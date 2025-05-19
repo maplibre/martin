@@ -18,7 +18,8 @@ pub struct SourceIDsRequest {
 
 #[route(
     "/{source_ids}",
-    method = "GET", method = "HEAD",
+    method = "GET",
+    method = "HEAD",
     wrap = "middleware::Compress::default()",
     wrap = "actix_middleware_etag::Etag::default()"
 )]

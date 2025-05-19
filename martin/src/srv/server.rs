@@ -103,7 +103,8 @@ async fn get_health() -> impl Responder {
 
 #[route(
     "/catalog",
-    method = "GET", method = "HEAD",
+    method = "GET",
+    method = "HEAD",
     wrap = "middleware::Compress::default()",
     wrap = "actix_middleware_etag::Etag::default()"
 )]
