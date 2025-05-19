@@ -88,7 +88,7 @@ macro_rules! get_auto_schemas {
 }
 
 impl PgBuilder {
-    /// Creates a new Builder from the [`PgConfig`] and a way to determinisically convert duplicate to unique names
+    /// Creates a new Builder from the [`PgConfig`] and a way to deterministically convert duplicate to unique names
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
         let pool = PgPool::new(config).await?;
 
