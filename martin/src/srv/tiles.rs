@@ -2,7 +2,8 @@ use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
-    AcceptEncoding, Encoding as HeaderEnc, EntityTag, IfNoneMatch, Preference, CONTENT_ENCODING, ETAG
+    AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
+    Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -48,8 +49,10 @@ async fn get_tile(
         &path.source_ids,
         Some(path.z),
         req.query_string(),
-        req.get_header::<AcceptEncoding>(),
-        req.get_header::<IfNoneMatch>(),
+        (
+            req.get_header::<AcceptEncoding>(),
+            req.get_header::<IfNoneMatch>(),
+        ),
         srv_config.preferred_encoding,
         cache.as_ref().as_ref(),
     )?;
@@ -68,7 +71,7 @@ pub struct DynTileSource<'a> {
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,
     pub accept_enc: Option<AcceptEncoding>,
-    if_match: Option<IfNoneMatch>,
+    pub if_none_match: Option<IfNoneMatch>,
     pub preferred_enc: Option<PreferredEncoding>,
     pub cache: Option<&'a MainCache>,
 }
@@ -79,8 +82,7 @@ impl<'a> DynTileSource<'a> {
         source_ids: &str,
         zoom: Option<u8>,
         query: &'a str,
-        accept_enc: Option<AcceptEncoding>,
-        if_match: Option<IfNoneMatch>,
+        (accept_enc, if_none_match): (Option<AcceptEncoding>, Option<IfNoneMatch>),
         preferred_enc: Option<PreferredEncoding>,
         cache: Option<&'a MainCache>,
     ) -> ActixResult<Self> {
@@ -103,7 +105,7 @@ impl<'a> DynTileSource<'a> {
             query_str,
             query_obj,
             accept_enc,
-            if_match,
+            if_none_match,
             preferred_enc,
             cache,
         })
@@ -113,18 +115,18 @@ impl<'a> DynTileSource<'a> {
         let tile = self.get_tile_content(xyz).await?;
         let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
         let etag = EntityTag::new_strong(hash.to_string());
-        
+
         if tile.data.is_empty() {
-            return Ok(HttpResponse::NoContent().finish())
+            return Ok(HttpResponse::NoContent().finish());
         }
-        if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_match {
+        if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_none_match {
             for expected_etag in expected_etags {
                 if etag.strong_eq(expected_etag) {
                     return Ok(HttpResponse::NotModified().finish());
                 }
             }
         }
-        
+
         let mut response = HttpResponse::Ok();
         response.content_type(tile.info.format.content_type());
         response.insert_header((ETAG, etag));
@@ -308,6 +310,7 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 
 #[cfg(test)]
 mod tests {
+    use actix_http::header::TryIntoHeaderValue;
     use rstest::rstest;
     use tilejson::tilejson;
 
@@ -348,8 +351,7 @@ mod tests {
             "test_source",
             None,
             "",
-            accept_enc,
-            None,
+            (accept_enc, None),
             preferred_enc,
             None,
         )
@@ -358,6 +360,41 @@ mod tests {
         let xyz = TileCoord { z: 0, x: 0, y: 0 };
         let tile = src.get_tile_content(xyz).await.unwrap();
         assert_eq!(tile.info.encoding, expected_enc);
+    }
+
+    #[actix_rt::test]
+    async fn test_etag() {
+        let source_id = "source1";
+        let source1 = TestSource {
+            id: source_id,
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+        };
+        let sources = TileSources::new(vec![vec![Box::new(source1)]]);
+        let xyz = TileCoord { z: 0, x: 0, y: 0 };
+
+        let src_without_etag =
+            DynTileSource::new(&sources, source_id, None, "", (None, None), None, None).unwrap();
+        let resp_without_etag = &src_without_etag.get_http_response(xyz).await.unwrap();
+        assert_eq!(resp_without_etag.status().as_u16(), 200);
+        let etag = resp_without_etag.headers().get(ETAG).unwrap();
+        let expected_etag =
+            EntityTag::new_strong("229249875805521414007261281044017345339".to_string());
+        assert_eq!(etag, expected_etag.clone().try_into_value().unwrap());
+
+        let match_header = IfNoneMatch::Items(vec![expected_etag]);
+        let src_with_etag = DynTileSource::new(
+            &sources,
+            source_id,
+            None,
+            "",
+            (None, Some(match_header)),
+            None,
+            None,
+        )
+        .unwrap();
+        let resp_with_etag = &src_with_etag.get_http_response(xyz).await.unwrap();
+        assert_eq!(resp_with_etag.status().as_u16(), 304);
     }
 
     #[actix_rt::test]
@@ -387,7 +424,8 @@ mod tests {
             ("empty,non-empty", vec![1_u8, 2, 3]),
             ("empty,non-empty,empty", vec![1_u8, 2, 3]),
         ] {
-            let src = DynTileSource::new(&sources, source_id, None, "", None, None, None).unwrap();
+            let src = DynTileSource::new(&sources, source_id, None, "", (None, None), None, None)
+                .unwrap();
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
