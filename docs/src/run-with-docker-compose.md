@@ -16,7 +16,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgis/postgis:17-3.5-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db
