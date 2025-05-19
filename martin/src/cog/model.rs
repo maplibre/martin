@@ -17,7 +17,7 @@ use super::CogError;
 pub struct ModelInfo {
     /// `ModelPixelScaleTag`, may be used to specify the size of raster pixel spacing in the model space units, when the raster space can be embedded in the model space coordinate reference system without rotation.
     /// Consists of the following 3 values: `(ScaleX, ScaleY, ScaleZ)`.
-    ///    
+    ///
     /// ```raw
     /// ModelPixelScaleTag:
     ///   Tag = 33550 (830E.H)
