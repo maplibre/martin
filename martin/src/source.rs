@@ -108,7 +108,7 @@ pub trait Source: Send + Debug {
 
     /// TileJSON of this [`Source`]
     ///
-    /// Will be communicated verbatim to the outside to give rendering engines information about the sources contents such as zoom levels, center points, ...
+    /// Will be communicated verbatim to the outside to give rendering engines information about the source's contents such as zoom levels, center points, ...
     fn get_tilejson(&self) -> &TileJSON;
 
     /// Information for serving the source such as which Mime-type to apply or how compression should work
