@@ -103,7 +103,7 @@ impl TileSources {
 
 #[async_trait]
 pub trait Source: Send + Debug {
-    /// ID, under which this [`Source`] is identified by if accessed externally
+    /// ID under which this [`Source`] is identified if accessed externally
     fn get_id(&self) -> &str;
 
     /// Tilejson of this [`Source`]
