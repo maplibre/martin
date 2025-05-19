@@ -24,7 +24,7 @@ jobs:
       AWS_REGION: eu-central-1
     steps:
       - name: Set up system dependencies
-        run: sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
