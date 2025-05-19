@@ -111,7 +111,7 @@ impl PgBuilder {
         self.auto_bounds
     }
 
-    /// ID, under which this [`PgBuilder`] is named if accessed externally
+    /// ID under which this [`PgBuilder`] is identified externally
     pub fn get_id(&self) -> &str {
         self.pool.get_id()
     }
