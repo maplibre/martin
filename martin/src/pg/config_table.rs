@@ -168,6 +168,8 @@ impl TableInfo {
     }
 
     /// Determine the SRID value to use for a table, or None if unknown, assuming self is a table info from the database
+    /// 
+    /// Tries to use `default_srid` if a spatial table has SRID 0.
     #[must_use]
     pub fn calc_srid(&self, new_id: &str, cfg_srid: i32, default_srid: Option<i32>) -> Option<i32> {
         match (self.srid, cfg_srid, default_srid) {

@@ -39,16 +39,32 @@ pub struct PgSslCerts {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgConfig {
+    /// Database connection string
     pub connection_string: Option<String>,
     #[serde(flatten)]
     pub ssl_certificates: PgSslCerts,
+    /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     pub default_srid: Option<i32>,
+    /// Specify how bounds should be computed for the spatial PG tables
     pub auto_bounds: Option<BoundsCalcType>,
+    /// Limit the number of geo features per tile.
+    ///
+    /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
+    /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
+    /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+    ///
+    /// Can be either a positive integer or unlimited if ommited.
     pub max_feature_count: Option<usize>,
+    /// Maximum Postgres connections pool size [DEFAULT: 20]
     pub pool_size: Option<usize>,
+    /// Enable/disable/configure automatic discovery of tables and functions.
+    /// 
+    /// You may set this to `OptBoolObj::Bool(false)` to disable.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PgCfgPublish>,
+    /// Associative arrays of table sources
     pub tables: Option<TableInfoSources>,
+    /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
 }
 
