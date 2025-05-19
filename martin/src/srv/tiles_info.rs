@@ -18,9 +18,9 @@ pub struct SourceIDsRequest {
 
 #[route(
     "/{source_ids}",
-    method = "GET",
-    method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    method = "GET", method = "HEAD",
+    wrap = "middleware::Compress::default()",
+    wrap = "actix_middleware_etag::Etag::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_source_info(

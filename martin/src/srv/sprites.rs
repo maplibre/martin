@@ -10,7 +10,10 @@ use crate::sprites::{SpriteError, SpriteSources};
 use crate::srv::SourceIDsRequest;
 use crate::srv::server::map_internal_error;
 
-#[route("/sprite/{source_ids}.png", method = "GET", method = "HEAD")]
+#[route("/sprite/{source_ids}.png", 
+    method = "GET", method = "HEAD",
+    wrap = "actix_middleware_etag::Etag::default()"
+)]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -21,7 +24,10 @@ async fn get_sprite_png(
         .body(sheet.encode_png().map_err(map_internal_error)?))
 }
 
-#[route("/sdf_sprite/{source_ids}.png", method = "GET", method = "HEAD")]
+#[route("/sdf_sprite/{source_ids}.png",
+    method = "GET", method = "HEAD",
+    wrap = "actix_middleware_etag::Etag::default()"
+)]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -34,9 +40,9 @@ async fn get_sprite_sdf_png(
 
 #[route(
     "/sprite/{source_ids}.json",
-    method = "GET",
-    method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    method = "GET", method = "HEAD",
+    wrap = "middleware::Compress::default()",
+    wrap = "actix_middleware_etag::Etag::default()"
 )]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
@@ -48,9 +54,9 @@ async fn get_sprite_json(
 
 #[route(
     "/sdf_sprite/{source_ids}.json",
-    method = "GET",
-    method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    method = "GET", method = "HEAD",
+    wrap = "middleware::Compress::default()",
+    wrap = "actix_middleware_etag::Etag::default()"
 )]
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,

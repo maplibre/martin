@@ -70,6 +70,7 @@ actix-http.workspace = true
 actix-rt.workspace = true
 actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
+actix-middleware-etag.workspace = true
 async-trait.workspace = true
 bit-set = { workspace = true, optional = true }
 clap.workspace = true

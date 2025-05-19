@@ -103,9 +103,9 @@ async fn get_health() -> impl Responder {
 
 #[route(
     "/catalog",
-    method = "GET",
-    method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    method = "GET", method = "HEAD",
+    wrap = "middleware::Compress::default()",
+    wrap = "actix_middleware_etag::Etag::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {

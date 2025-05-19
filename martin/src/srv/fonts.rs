@@ -18,7 +18,8 @@ struct FontRequest {
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
-    wrap = "middleware::Compress::default()"
+    wrap = "middleware::Compress::default()",
+    wrap = "actix_middleware_etag::Etag::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {

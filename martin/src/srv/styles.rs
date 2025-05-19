@@ -14,7 +14,8 @@ struct StyleRequest {
 #[route(
     "/style/{style_id}",
     method = "GET",
-    wrap = "middleware::Compress::default()"
+    wrap = "middleware::Compress::default()",
+    wrap = "actix_middleware_etag::Etag::default()"
 )]
 async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) -> HttpResponse {
     let style_id = &path.style_id;

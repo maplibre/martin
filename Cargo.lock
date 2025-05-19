@@ -84,6 +84,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-middleware-etag"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf947271526f363aba604e2a735fb2792f63768c6ebdd06a30bf6df74a5ba06c"
+dependencies = [
+ "actix-service",
+ "actix-web",
+ "base64 0.22.1",
+ "futures",
+ "str-buf",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "actix-router"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2771,6 +2785,7 @@ version = "0.16.0"
 dependencies = [
  "actix-cors",
  "actix-http",
+ "actix-middleware-etag",
  "actix-rt",
  "actix-web",
  "actix-web-static-files",
@@ -4877,6 +4892,12 @@ dependencies = [
  "mime_guess",
  "path-slash",
 ]
+
+[[package]]
+name = "str-buf"
+version = "3.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ceb97b7225c713c2fd4db0153cb6b3cab244eb37900c3f634ed4d43310d8c34"
 
 [[package]]
 name = "str_stack"
