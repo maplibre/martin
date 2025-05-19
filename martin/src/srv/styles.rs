@@ -6,6 +6,7 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
 use log::error;
 use serde::Deserialize;
+
 #[derive(Deserialize, Debug)]
 struct StyleRequest {
     style_id: String,
