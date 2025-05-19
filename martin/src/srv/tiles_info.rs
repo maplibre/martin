@@ -1,5 +1,6 @@
 use std::string::ToString;
 
+use actix_middleware_etag::Etag;
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::Uri;
 use actix_web::web::{Data, Path};
@@ -21,7 +22,7 @@ pub struct SourceIDsRequest {
     method = "GET",
     method = "HEAD",
     wrap = "middleware::Compress::default()",
-    wrap = "actix_middleware_etag::Etag::default()"
+    wrap = "Etag::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_source_info(

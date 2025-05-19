@@ -1,5 +1,6 @@
 use std::string::ToString;
 
+use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, middleware, route};
@@ -19,7 +20,7 @@ struct FontRequest {
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
     wrap = "middleware::Compress::default()",
-    wrap = "actix_middleware_etag::Etag::default()"
+    wrap = "Etag::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {

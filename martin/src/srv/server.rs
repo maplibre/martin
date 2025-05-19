@@ -24,6 +24,7 @@ use crate::source::TileCatalog;
 use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use actix_middleware_etag::Etag;
 
 #[cfg(feature = "webui")]
 mod webui {
@@ -106,7 +107,7 @@ async fn get_health() -> impl Responder {
     method = "GET",
     method = "HEAD",
     wrap = "middleware::Compress::default()",
-    wrap = "actix_middleware_etag::Etag::default()"
+    wrap = "Etag::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {

@@ -1,5 +1,6 @@
 use std::string::ToString;
 
+use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
 use actix_web::http::header::ContentType;
 use actix_web::web::{Data, Path};
@@ -14,7 +15,7 @@ use crate::srv::server::map_internal_error;
     "/sprite/{source_ids}.png",
     method = "GET",
     method = "HEAD",
-    wrap = "actix_middleware_etag::Etag::default()"
+    wrap = "Etag::default()"
 )]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
@@ -30,7 +31,7 @@ async fn get_sprite_png(
     "/sdf_sprite/{source_ids}.png",
     method = "GET",
     method = "HEAD",
-    wrap = "actix_middleware_etag::Etag::default()"
+    wrap = "Etag::default()"
 )]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
@@ -47,7 +48,7 @@ async fn get_sprite_sdf_png(
     method = "GET",
     method = "HEAD",
     wrap = "middleware::Compress::default()",
-    wrap = "actix_middleware_etag::Etag::default()"
+    wrap = "Etag::default()"
 )]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
@@ -62,7 +63,7 @@ async fn get_sprite_json(
     method = "GET",
     method = "HEAD",
     wrap = "middleware::Compress::default()",
-    wrap = "actix_middleware_etag::Etag::default()"
+    wrap = "Etag::default()"
 )]
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,
