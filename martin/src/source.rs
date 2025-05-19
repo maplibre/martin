@@ -107,7 +107,7 @@ pub trait Source: Send + Debug {
     fn get_id(&self) -> &str;
 
     /// Tilejson of this [`Source`]
-    /// 
+    ///
     /// Will be communicated verbatim to the outside to give rendering engines information about the sources contents such as zoom levels, center points, ...
     fn get_tilejson(&self) -> &TileJSON;
 

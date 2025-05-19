@@ -47,7 +47,7 @@ web_ui: disable
 # Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string.
-  # 
+  #
   # You can use environment variables too, for example:
   # connection_string: $DATABASE_URL
   # connection_string: ${DATABASE_URL:-postgresql://postgres@localhost/db}

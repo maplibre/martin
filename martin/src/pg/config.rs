@@ -58,7 +58,7 @@ pub struct PgConfig {
     /// Maximum Postgres connections pool size [DEFAULT: 20]
     pub pool_size: Option<usize>,
     /// Enable/disable/configure automatic discovery of tables and functions.
-    /// 
+    ///
     /// You may set this to `OptBoolObj::Bool(false)` to disable.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PgCfgPublish>,
