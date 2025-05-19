@@ -131,7 +131,7 @@ impl PgPool {
             .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
     }
 
-    /// Retrieves the ID this [`PgPool`] is named if accessed externally
+    /// ID under which this [`PgPool`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {
         &self.id
