@@ -15,7 +15,7 @@ use crate::srv::server::map_internal_error;
     "/sprite/{source_ids}.png",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag::default()"
+    wrap = "Etag"
 )]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
@@ -31,7 +31,7 @@ async fn get_sprite_png(
     "/sdf_sprite/{source_ids}.png",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag::default()"
+    wrap = "Etag"
 )]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
@@ -48,7 +48,7 @@ async fn get_sprite_sdf_png(
     method = "GET",
     method = "HEAD",
     wrap = "middleware::Compress::default()",
-    wrap = "Etag::default()"
+    wrap = "Etag"
 )]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
@@ -63,7 +63,7 @@ async fn get_sprite_json(
     method = "GET",
     method = "HEAD",
     wrap = "middleware::Compress::default()",
-    wrap = "Etag::default()"
+    wrap = "Etag"
 )]
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,
