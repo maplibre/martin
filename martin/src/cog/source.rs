@@ -447,7 +447,7 @@ fn get_origin(
         // The (I,J,K) of origin is (0,0,0), so:
         //
         //    x = I*a + J*b + K*c + 1*d => d => matrix[3]
-        //    y = I*e + J*f + k*g + 1*h => h => martrix[7]
+        //    y = I*e + J*f + k*g + 1*h => h => matrix[7]
         //    z = I*i + J*j + K*k + 1*l => l => matrix[11]
         (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
         _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
