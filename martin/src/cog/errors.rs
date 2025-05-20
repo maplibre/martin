@@ -52,4 +52,7 @@ pub enum CogError {
         "The pixel size of the image {0} is not squared, the x_scale is {1}, the y_scale is {2}"
     )]
     NonSquaredImage(PathBuf, f64, f64),
+
+    #[error("Get origin failed for {0}")]
+    GetOriginFailed(PathBuf),
 }

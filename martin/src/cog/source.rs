@@ -23,6 +23,7 @@ struct Meta {
     min_zoom: u8,
     max_zoom: u8,
     model: ModelInfo,
+    origin: [f64; 3],
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
@@ -318,6 +319,11 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
     let model = ModelInfo::decode(&mut decoder, path);
+    let origin = get_origin(
+        model.tie_points.as_deref(),
+        model.transformation.as_deref(),
+        path,
+    )?;
     verify_requirements(&mut decoder, &model, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
@@ -352,6 +358,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
         model,
+        origin,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
@@ -414,6 +421,38 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
         }
     }
     res
+}
+
+
+fn get_origin(
+    tie_points: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    // From geotiff spec: "This matrix tag should not be used if the ModelTiepointTag and the ModelPixelScaleTag are already defined"
+    // See more in https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+    match (tie_points, transformation) {
+        // From geotiff spec: "If possible, the first tiepoint placed in this tag shall be the one establishing the location of the point (0,0) in raster space" 
+        (Some(points), _) if points.len() == 6 => Ok([points[3], points[4], points[5]]),
+
+        // | X |   | a b 0 d | | I |
+        // | | |   |         | |   |
+        // | Y |   | e f 0 h | | J |
+        // |   | = |         | |   |
+        // | Z |   | 0 0 0 0 | | K |
+        // | | |   |         | |   |
+        // | 1 |   | 0 0 0 1 | | 1 |
+        // |- -|   |-       -| |- -|
+        // |- -|   |-       -| |- -|
+        //
+        // The (I,J,K) of origin is (0,0,0), so:
+        //  
+        //    x = I*a + J*b + K*c + 1*d => d => matrix[3]
+        //    y = I*e + J*f + k*g + 1*h => h => martrix[7]
+        //    z = I*i + J*j + K*k + 1*l => l => matrix[11]
+        (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
+        _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
+    }
 }
 
 #[cfg(test)]
@@ -520,5 +559,35 @@ mod tests {
         - 0
         "###);
         assert_yaml_snapshot!(transformation, @"~");
+    }
+    #[rstest]
+    #[case(
+        None,Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),
+        [1_620_750.250_8, 4_277_012.715_3, 0.0]
+    )]
+    #[case(
+        Some(vec![
+            0.0, 100.0, 0.0, 400_000.0, 100.0, 0.0, 0.0, 500_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 1.0,
+        ]),
+        None,
+        [400_000.0, 500_000.0, 0.0]
+    )]
+    fn can_get_origin(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] expected: [f64; 3],
+    ) {
+        use approx::assert_abs_diff_eq;
+
+        let origin = super::get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(origin[0], expected[0]);
+        assert_abs_diff_eq!(origin[1], expected[1]);
+        assert_abs_diff_eq!(origin[2], expected[2]);
     }
 }
