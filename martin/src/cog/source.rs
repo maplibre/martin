@@ -562,20 +562,19 @@ mod tests {
 
     #[rstest]
     #[case(
-        None,Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),
+        Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),None,
         [1_620_750.250_8, 4_277_012.715_3, 0.0]
     )]
     #[case(
-        Some(vec![
+        None,Some(vec![
             0.0, 100.0, 0.0, 400_000.0, 100.0, 0.0, 0.0, 500_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 1.0,
         ]),
-        None,
         [400_000.0, 500_000.0, 0.0]
     )]
     fn can_get_origin(
-        #[case] matrix: Option<Vec<f64>>,
         #[case] tie_point: Option<Vec<f64>>,
+        #[case] matrix: Option<Vec<f64>>,
         #[case] expected: [f64; 3],
     ) {
         use approx::assert_abs_diff_eq;
