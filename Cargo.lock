@@ -2767,7 +2767,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -2824,6 +2824,7 @@ dependencies = [
  "tokio-postgres-rustls",
  "url",
  "walkdir",
+ "xxhash-rust",
 ]
 
 [[package]]
