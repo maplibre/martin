@@ -434,16 +434,17 @@ fn get_origin(
         // From geotiff spec: "If possible, the first tiepoint placed in this tag shall be the one establishing the location of the point (0,0) in raster space"
         (Some(points), _) if points.len() >= 6 => Ok([points[3], points[4], points[5]]),
 
-        // | X |   | a b 0 d | | I |
-        // | | |   |         | |   |
-        // | Y |   | e f 0 h | | J |
-        // |   | = |         | |   |
-        // | Z |   | 0 0 0 0 | | K |
-        // | | |   |         | |   |
-        // | 1 |   | 0 0 0 1 | | 1 |
-        // |- -|   |-       -| |- -|
-        // |- -|   |-       -| |- -|
-        //
+        // coords =     matrix  * coords
+        // |- -|     |-       -|  |- -|
+        // | X |     | a b c d |  | I |
+        // | | |     |         |  |   |
+        // | Y |     | e f g h |  | J |
+        // |   |  =  |         |  |   |
+        // | Z |     | i j k l |  | K |
+        // | | |     |         |  |   |
+        // | 1 |     | m n o p |  | 1 |
+        // |- -|     |-       -|  |- -|
+        
         // The (I,J,K) of origin is (0,0,0), so:
         //
         //    x = I*a + J*b + K*c + 1*d => d => matrix[3]
