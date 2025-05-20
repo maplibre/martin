@@ -53,6 +53,8 @@ pub enum CogError {
     )]
     NonSquaredImage(PathBuf, f64, f64),
 
-    #[error("Get origin failed for {0}")]
+    #[error(
+        "Get origin failed for {0}: the length of ModelTiepointTag should be >= 6, or the length of ModelTransformationTag should be >= 12"
+    )]
     GetOriginFailed(PathBuf),
 }
