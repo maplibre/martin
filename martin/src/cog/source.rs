@@ -423,7 +423,6 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     res
 }
 
-
 fn get_origin(
     tie_points: Option<&[f64]>,
     transformation: Option<&[f64]>,
@@ -432,7 +431,7 @@ fn get_origin(
     // From geotiff spec: "This matrix tag should not be used if the ModelTiepointTag and the ModelPixelScaleTag are already defined"
     // See more in https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
     match (tie_points, transformation) {
-        // From geotiff spec: "If possible, the first tiepoint placed in this tag shall be the one establishing the location of the point (0,0) in raster space" 
+        // From geotiff spec: "If possible, the first tiepoint placed in this tag shall be the one establishing the location of the point (0,0) in raster space"
         (Some(points), _) if points.len() == 6 => Ok([points[3], points[4], points[5]]),
 
         // | X |   | a b 0 d | | I |
@@ -446,7 +445,7 @@ fn get_origin(
         // |- -|   |-       -| |- -|
         //
         // The (I,J,K) of origin is (0,0,0), so:
-        //  
+        //
         //    x = I*a + J*b + K*c + 1*d => d => matrix[3]
         //    y = I*e + J*f + k*g + 1*h => h => martrix[7]
         //    z = I*i + J*j + K*k + 1*l => l => matrix[11]
@@ -560,6 +559,7 @@ mod tests {
         "###);
         assert_yaml_snapshot!(transformation, @"~");
     }
+
     #[rstest]
     #[case(
         None,Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),
@@ -573,6 +573,7 @@ mod tests {
         None,
         [400_000.0, 500_000.0, 0.0]
     )]
+
     fn can_get_origin(
         #[case] matrix: Option<Vec<f64>>,
         #[case] tie_point: Option<Vec<f64>>,
