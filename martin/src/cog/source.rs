@@ -573,7 +573,6 @@ mod tests {
         None,
         [400_000.0, 500_000.0, 0.0]
     )]
-
     fn can_get_origin(
         #[case] matrix: Option<Vec<f64>>,
         #[case] tie_point: Option<Vec<f64>>,
