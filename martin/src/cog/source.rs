@@ -444,7 +444,7 @@ fn get_origin(
         // | | |     |         |  |   |
         // | 1 |     | m n o p |  | 1 |
         // |- -|     |-       -|  |- -|
-        
+
         // The (I,J,K) of origin is (0,0,0), so:
         //
         //    x = I*a + J*b + K*c + 1*d => d => matrix[3]
