@@ -49,10 +49,8 @@ async fn get_tile(
         &path.source_ids,
         Some(path.z),
         req.query_string(),
-        (
-            req.get_header::<AcceptEncoding>(),
-            req.get_header::<IfNoneMatch>(),
-        ),
+        req.get_header::<AcceptEncoding>(),
+        req.get_header::<IfNoneMatch>(),
         srv_config.preferred_encoding,
         cache.as_ref().as_ref(),
     )?;
@@ -77,12 +75,14 @@ pub struct DynTileSource<'a> {
 }
 
 impl<'a> DynTileSource<'a> {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         sources: &'a TileSources,
         source_ids: &str,
         zoom: Option<u8>,
         query: &'a str,
-        (accept_enc, if_none_match): (Option<AcceptEncoding>, Option<IfNoneMatch>),
+        accept_enc: Option<AcceptEncoding>,
+        if_none_match: Option<IfNoneMatch>,
         preferred_enc: Option<PreferredEncoding>,
         cache: Option<&'a MainCache>,
     ) -> ActixResult<Self> {
@@ -350,7 +350,8 @@ mod tests {
             "test_source",
             None,
             "",
-            (accept_enc, None),
+            accept_enc,
+            None,
             preferred_enc,
             None,
         )
@@ -361,8 +362,16 @@ mod tests {
         assert_eq!(tile.info.encoding, expected_enc);
     }
 
+    #[rstest]
+    #[case(200, None, Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
+    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("229249875805521414007261281044017345339".to_string())])), None)]
+    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_string())])), Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
     #[actix_rt::test]
-    async fn test_etag() {
+    async fn test_etag(
+        #[case] expected_status: u16,
+        #[case] if_none_match: Option<IfNoneMatch>,
+        #[case] expected_etag: Option<EntityTag>,
+    ) {
         let source_id = "source1";
         let source1 = TestSource {
             id: source_id,
@@ -370,30 +379,25 @@ mod tests {
             data: vec![1_u8, 2, 3],
         };
         let sources = TileSources::new(vec![vec![Box::new(source1)]]);
-        let xyz = TileCoord { z: 0, x: 0, y: 0 };
 
-        let src_without_etag =
-            DynTileSource::new(&sources, source_id, None, "", (None, None), None, None).unwrap();
-        let resp_without_etag = &src_without_etag.get_http_response(xyz).await.unwrap();
-        assert_eq!(resp_without_etag.status().as_u16(), 200);
-        let etag = resp_without_etag.headers().get(ETAG).unwrap();
-        let expected_etag =
-            EntityTag::new_strong("229249875805521414007261281044017345339".to_string());
-        assert_eq!(etag, expected_etag.clone().try_into_value().unwrap());
-
-        let match_header = IfNoneMatch::Items(vec![expected_etag]);
-        let src_with_etag = DynTileSource::new(
+        let src = DynTileSource::new(
             &sources,
             source_id,
             None,
             "",
-            (None, Some(match_header)),
+            None,
+            if_none_match,
             None,
             None,
         )
         .unwrap();
-        let resp_with_etag = &src_with_etag.get_http_response(xyz).await.unwrap();
-        assert_eq!(resp_with_etag.status().as_u16(), 304);
+        let resp = &src
+            .get_http_response(TileCoord { z: 0, x: 0, y: 0 })
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), expected_status);
+        let etag = resp.headers().get(ETAG);
+        assert_eq!(etag, expected_etag.map(|e| e.try_into_value().unwrap()).as_ref());
     }
 
     #[actix_rt::test]
@@ -423,8 +427,8 @@ mod tests {
             ("empty,non-empty", vec![1_u8, 2, 3]),
             ("empty,non-empty,empty", vec![1_u8, 2, 3]),
         ] {
-            let src = DynTileSource::new(&sources, source_id, None, "", (None, None), None, None)
-                .unwrap();
+            let src =
+                DynTileSource::new(&sources, source_id, None, "", None, None, None, None).unwrap();
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
