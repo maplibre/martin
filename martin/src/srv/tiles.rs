@@ -397,7 +397,10 @@ mod tests {
             .unwrap();
         assert_eq!(resp.status().as_u16(), expected_status);
         let etag = resp.headers().get(ETAG);
-        assert_eq!(etag, expected_etag.map(|e| e.try_into_value().unwrap()).as_ref());
+        assert_eq!(
+            etag,
+            expected_etag.map(|e| e.try_into_value().unwrap()).as_ref()
+        );
     }
 
     #[actix_rt::test]
