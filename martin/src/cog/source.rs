@@ -432,7 +432,7 @@ fn get_origin(
     // See more in https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
     match (tie_points, transformation) {
         // From geotiff spec: "If possible, the first tiepoint placed in this tag shall be the one establishing the location of the point (0,0) in raster space"
-        (Some(points), _) if points.len() == 6 => Ok([points[3], points[4], points[5]]),
+        (Some(points), _) if points.len() >= 6 => Ok([points[3], points[4], points[5]]),
 
         // | X |   | a b 0 d | | I |
         // | | |   |         | |   |
