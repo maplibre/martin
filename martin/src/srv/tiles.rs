@@ -113,16 +113,11 @@ impl<'a> DynTileSource<'a> {
 
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
         let tile = self.get_tile_content(xyz).await?;
-        let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
-        let etag = EntityTag::new_strong(hash.to_string());
-
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
         }
         let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
         let etag = EntityTag::new_strong(hash.to_string());
-            return Ok(HttpResponse::NoContent().finish());
-        }
         if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_none_match {
             for expected_etag in expected_etags {
                 if etag.strong_eq(expected_etag) {
