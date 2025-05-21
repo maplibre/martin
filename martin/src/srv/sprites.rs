@@ -4,7 +4,7 @@ use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
 use actix_web::http::header::ContentType;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, Result as ActixResult, middleware, route};
+use actix_web::{HttpResponse, Result as ActixResult, middleware::Compress, route};
 use spreet::Spritesheet;
 
 use crate::sprites::{SpriteError, SpriteSources};
@@ -47,7 +47,7 @@ async fn get_sprite_sdf_png(
     "/sprite/{source_ids}.json",
     method = "GET",
     method = "HEAD",
-    wrap = "middleware::Compress::default()",
+    wrap = "Compress::default()",
     wrap = "Etag"
 )]
 async fn get_sprite_json(
@@ -62,7 +62,7 @@ async fn get_sprite_json(
     "/sdf_sprite/{source_ids}.json",
     method = "GET",
     method = "HEAD",
-    wrap = "middleware::Compress::default()",
+    wrap = "Compress::default()",
     wrap = "Etag"
 )]
 async fn get_sprite_sdf_json(

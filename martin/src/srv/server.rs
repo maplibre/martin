@@ -6,9 +6,9 @@ use std::time::Duration;
 use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::TrailingSlash;
+use actix_web::middleware::{Compress, Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
-use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
+use actix_web::{App, HttpResponse, HttpServer, Responder, route, web};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
@@ -106,7 +106,7 @@ async fn get_health() -> impl Responder {
     "/catalog",
     method = "GET",
     method = "HEAD",
-    wrap = "middleware::Compress::default()",
+    wrap = "Compress::default()",
     wrap = "Etag"
 )]
 #[allow(clippy::unused_async)]
@@ -184,8 +184,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         app.app_data(Data::new(catalog.clone()))
             .app_data(Data::new(config.clone()))
             .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .wrap(middleware::Logger::default())
+            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+            .wrap(Logger::default())
             .configure(|c| router(c, &config))
     };
 

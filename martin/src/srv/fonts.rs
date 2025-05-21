@@ -3,7 +3,7 @@ use std::string::ToString;
 use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, Result as ActixResult, middleware, route};
+use actix_web::{HttpResponse, Result as ActixResult, middleware::Compress, route};
 use serde::Deserialize;
 
 use crate::fonts::{FontError, FontSources};
@@ -19,7 +19,7 @@ struct FontRequest {
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
-    wrap = "middleware::Compress::default()",
+    wrap = "Compress::default()",
     wrap = "Etag"
 )]
 #[allow(clippy::unused_async)]
