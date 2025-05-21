@@ -24,7 +24,6 @@ use crate::source::TileCatalog;
 use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
-use actix_middleware_etag::Etag;
 
 #[cfg(feature = "webui")]
 mod webui {
