@@ -187,7 +187,7 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     ranges
 }
 
-fn get_zooms(args: &CopyArgs) -> Cow<Vec<u8>> {
+fn get_zooms(args: &CopyArgs) -> Cow<[u8]> {
     if let Some(max_zoom) = args.max_zoom {
         let mut zooms_vec = Vec::new();
         let min_zoom = args.min_zoom.unwrap_or(0);
