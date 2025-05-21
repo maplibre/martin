@@ -28,12 +28,22 @@ pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 #[derive(Debug)]
 pub struct PgBuilder {
     pool: PgPool,
+    /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     default_srid: Option<i32>,
+    /// Specify how bounds should be computed for the spatial PG tables
     auto_bounds: BoundsCalcType,
+    /// Limit the number of geo features per tile.
+    ///
+    /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
+    /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
+    /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+    ///
+    /// Can be either a positive integer or unlimited if omitted.
     max_feature_count: Option<usize>,
     auto_functions: Option<PgBuilderFuncs>,
     auto_tables: Option<PgBuilderTables>,
     id_resolver: IdResolver,
+    /// Associative arrays of table sources
     tables: TableInfoSources,
     functions: FuncInfoSources,
 }
@@ -78,6 +88,7 @@ macro_rules! get_auto_schemas {
 }
 
 impl PgBuilder {
+    /// Creates a new Builder from the [`PgConfig`] and a way to deterministically convert duplicate to unique names
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
         let pool = PgPool::new(config).await?;
 
@@ -100,6 +111,7 @@ impl PgBuilder {
         self.auto_bounds
     }
 
+    /// ID under which this [`PgBuilder`] is identified externally
     pub fn get_id(&self) -> &str {
         self.pool.get_id()
     }
