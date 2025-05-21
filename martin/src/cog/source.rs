@@ -691,8 +691,59 @@ mod tests {
                 // Both are None, which is expected
             }
             _ => {
-                panic!("Origin {:?} does not match expected {:?}", origin, expected);
+                panic!("Origin {origin:?} does not match expected {expected:?}");
             }
         }
+    }
+
+    #[rstest]
+    #[case(
+        None,Some(vec![10.0,-10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512))
+    ]
+    #[case(
+        Some(vec![
+            10.0,0.0,0.0,1_620_750.250_8,
+            0.0,-10.0,0.0,4_277_012.715_3,
+            0.0,0.0,0.0,0.0,
+            0.0,0.0,0.0,1.0
+        ]),None,None,(512,512))
+    ]
+    fn can_get_extent(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] pixel_scale: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] (full_width_pixel, full_length_pixel): (u32, u32),
+    ) {
+        use approx::assert_abs_diff_eq;
+
+        use crate::cog::source::{get_extent, get_full_resolution, get_origin};
+
+        let origin = get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        let full_resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+
+        let full_width = full_resolution[0] * f64::from(full_width_pixel);
+        let full_length = full_resolution[1] * f64::from(full_length_pixel);
+
+        let extent = get_extent(
+            &origin,
+            matrix.as_deref(),
+            (full_width_pixel, full_length_pixel),
+            (full_width, full_length),
+        );
+
+        assert_abs_diff_eq!(extent[0], 1_620_750.250_8);
+        assert_abs_diff_eq!(extent[1], 4_271_892.715_3);
+        assert_abs_diff_eq!(extent[2], 1_625_870.250_8);
+        assert_abs_diff_eq!(extent[3], 4_277_012.715_3);
     }
 }
