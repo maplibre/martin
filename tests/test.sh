@@ -94,7 +94,7 @@ test_jsn() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  $CURL "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  $CURL  --dump-header  "$FILENAME.headers" "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
 }
 
 test_pbf() {
@@ -102,7 +102,7 @@ test_pbf() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
@@ -119,7 +119,7 @@ test_png() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
 
   if [[ $OSTYPE == linux* ]]; then
     file "$FILENAME" > "$FILENAME.txt"
@@ -136,7 +136,7 @@ test_font() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
 }
 
 # Delete a line from a file $1 that matches parameter $2
@@ -612,5 +612,10 @@ else
 fi
 
 rm -rf "$TEST_TEMP_DIR"
+
+# now we need to strip the date header as it is undeterministic
+find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/date: .+//" {} \;
+# this is defintively not an header
+find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/HTTP.+//" {} \;
 
 >&2 echo "All integration tests have passed"
