@@ -22,6 +22,7 @@ use crate::config::Config;
 ))]
 use crate::file_config::FileConfigEnum;
 
+/// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
     .header(AnsiColor::Blue.on_default().bold())
     .usage(AnsiColor::Blue.on_default().bold())

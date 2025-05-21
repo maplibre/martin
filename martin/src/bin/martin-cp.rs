@@ -37,6 +37,7 @@ const SAVE_EVERY: Duration = Duration::from_secs(60);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
+/// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
     .header(AnsiColor::Blue.on_default().bold())
     .usage(AnsiColor::Blue.on_default().bold())
