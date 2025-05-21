@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::args::PreferredEncoding;
 
+use super::cors::CorsConfig;
+
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
 
@@ -15,6 +17,7 @@ pub struct SrvConfig {
     pub preferred_encoding: Option<PreferredEncoding>,
     #[cfg(feature = "webui")]
     pub web_ui: Option<crate::args::WebUiMode>,
+    pub cors: Option<CorsConfig>,
 }
 
 #[cfg(test)]
@@ -22,7 +25,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::tests::some;
+    use crate::{srv::cors::CorsProperties, tests::some};
 
     #[test]
     fn parse_config() {
@@ -69,6 +72,67 @@ mod tests {
                 listen_addresses: some("0.0.0.0:3000"),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn parse_config_cors() {
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                cors: false
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                cors: Some(CorsConfig::SimpleFlag(false)),
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                cors: true
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                cors: Some(CorsConfig::SimpleFlag(true)),
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                worker_processes: 8
+                cors:
+                  origin:
+                    - https://martin.maplibre.org
+                    - https://example.org
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: some("0.0.0.0:3000"),
+                worker_processes: Some(8),
+                cors: Some(CorsConfig::Properties(CorsProperties {
+                    origin: vec![
+                        "https://martin.maplibre.org".to_string(),
+                        "https://example.org".to_string()
+                    ],
+                    max_age: None,
+                })),
                 ..Default::default()
             }
         );
