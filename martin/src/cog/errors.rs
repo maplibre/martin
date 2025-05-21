@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use png::EncodingError;
 use tiff::TiffError;
 
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum CogError {
     #[error("Couldn't decode {1} as tiff file: {0}")]
