@@ -25,6 +25,8 @@ struct Meta {
     model: ModelInfo,
     // The geo coords of pixel(0, 0, 0) ordering in [x, y, z]
     origin: [f64; 3],
+    // [minx, miny, maxx, maxy] in its model space coordinate system
+    extent: [f64; 4],
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
@@ -325,6 +327,27 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         model.transformation.as_deref(),
         path,
     )?;
+    let (full_width_pixel, full_length_pixel) = decoder.dimensions().map_err(|e| {
+        CogError::TagsNotFound(
+            e,
+            vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
+            0, // we are at ifd 0, the first image, haven't seek to others
+            path.clone(),
+        )
+    })?;
+    let full_resolution = get_full_resolution(
+        model.pixel_scale.as_deref(),
+        model.transformation.as_deref(),
+        path,
+    )?;
+    let full_width = full_resolution[0] * f64::from(full_width_pixel);
+    let full_length = full_resolution[1] * f64::from(full_length_pixel);
+    let extent = get_extent(
+        &origin,
+        model.transformation.as_deref(),
+        (full_width_pixel, full_length_pixel),
+        (full_width, full_length),
+    );
     verify_requirements(&mut decoder, &model, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
@@ -360,6 +383,7 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         max_zoom: images_ifd.len() as u8 - 1,
         model,
         origin,
+        extent,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
@@ -454,6 +478,75 @@ fn get_origin(
         (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
         _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
     }
+}
+
+fn get_full_resolution(
+    pixel_scale: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    match (pixel_scale, transformation) {
+        (Some(scale), _) => Ok([scale[0], scale[1], scale[2]]),
+        (_, Some(matrix)) => {
+            if matrix[1] == 0.0 && matrix[4] == 0.0 {
+                Ok([matrix[0], matrix[5], matrix[10]])
+            } else {
+                let x_res = (matrix[0] * matrix[0]) + (matrix[4] * matrix[4]);
+                let y_res = ((matrix[1] * matrix[1]) + (matrix[5] * matrix[5])).sqrt() * -1.0;
+                let z_res = matrix[10];
+                Ok([x_res, y_res, z_res])
+            }
+        }
+        (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
+    }
+}
+
+fn get_extent(
+    origin: &[f64; 3],
+    transformation: Option<&[f64]>,
+    (full_width_pixel, full_height_pixel): (u32, u32),
+    (full_width, full_height): (f64, f64),
+) -> [f64; 4] {
+    if let Some(matrix) = transformation {
+        let corners = [
+            [0, 0],
+            [0, full_height_pixel],
+            [full_width_pixel, 0],
+            [full_width_pixel, full_height_pixel],
+        ];
+        let transformed = corners.map(|pixel| {
+            let i = f64::from(pixel[0]);
+            let j = f64::from(pixel[1]);
+            let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
+            let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
+            (x, y)
+        });
+        let mut min_x = transformed[0].0;
+        let mut min_y = transformed[1].1;
+        let mut max_x = transformed[0].0;
+        let mut max_y = transformed[1].1;
+        for (x, y) in transformed {
+            if x <= min_x {
+                min_x = x;
+            }
+            if y <= min_y {
+                min_y = y;
+            }
+            if x >= max_x {
+                max_x = x;
+            }
+            if y >= max_y {
+                max_y = y;
+            }
+        }
+        return [min_x, min_y, max_x, max_y];
+    }
+    let x1 = origin[0];
+    let y1 = origin[1];
+    let x2 = x1 + full_width;
+    let y2 = y1 + full_height;
+
+    [x1.min(x2), y1.min(y2), x1.max(x2), y1.max(y2)]
 }
 
 #[cfg(test)]
