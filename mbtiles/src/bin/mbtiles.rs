@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use clap::builder::{Styles, styling::AnsiColor};
 use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{
@@ -8,12 +9,19 @@ use mbtiles::{
 };
 use tilejson::Bounds;
 
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(Parser, PartialEq, Debug)]
 #[command(
     version,
     name = "mbtiles",
     about = "A utility to work with .mbtiles file content",
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
 )]
 pub struct Args {
     /// Display detailed information

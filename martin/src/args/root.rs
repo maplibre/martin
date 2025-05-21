@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{
+    Parser,
+    builder::{Styles, styling::AnsiColor},
+};
 use log::warn;
 
 use crate::MartinError::ConfigAndConnectionsError;
@@ -19,11 +22,18 @@ use crate::config::Config;
 ))]
 use crate::file_config::FileConfigEnum;
 
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about,
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
 )]
 pub struct Args {
     #[command(flatten)]
