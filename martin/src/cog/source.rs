@@ -565,19 +565,20 @@ mod tests {
     #[rstest]
     #[case(
         Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),None,
-        [1_620_750.250_8, 4_277_012.715_3, 0.0]
+        Some([1_620_750.250_8, 4_277_012.715_3, 0.0])
     )]
     #[case(
         None,Some(vec![
             0.0, 100.0, 0.0, 400_000.0, 100.0, 0.0, 0.0, 500_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 1.0,
         ]),
-        [400_000.0, 500_000.0, 0.0]
+        Some([400_000.0, 500_000.0, 0.0])
     )]
+    #[case(None, None, None)]
     fn can_get_origin(
         #[case] tie_point: Option<Vec<f64>>,
         #[case] matrix: Option<Vec<f64>>,
-        #[case] expected: [f64; 3],
+        #[case] expected: Option<[f64; 3]>,
     ) {
         use approx::assert_abs_diff_eq;
 
@@ -586,9 +587,19 @@ mod tests {
             matrix.as_deref(),
             &PathBuf::from("not_exist.tif"),
         )
-        .unwrap();
-        assert_abs_diff_eq!(origin[0], expected[0]);
-        assert_abs_diff_eq!(origin[1], expected[1]);
-        assert_abs_diff_eq!(origin[2], expected[2]);
+        .ok();
+        match (origin, expected) {
+            (Some(o), Some(e)) => {
+                assert_abs_diff_eq!(o[0], e[0]);
+                assert_abs_diff_eq!(o[1], e[1]);
+                assert_abs_diff_eq!(o[2], e[2]);
+            }
+            (None, None) => {
+                // Both are None, which is expected
+            }
+            _ => {
+                panic!("Origin {:?} does not match expected {:?}", origin, expected);
+            }
+        }
     }
 }
