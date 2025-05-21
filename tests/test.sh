@@ -617,7 +617,9 @@ rm -rf "$TEST_TEMP_DIR"
 find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/date: .+//" {} \;
 # this is defintively not an header
 find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/HTTP.+//" {} \;
-# sorting is arbitrairy
-find . -type f -name "*.headers" -exec sh -c "awk '{gsub(/^[ \t]+/, \"\"); gsub(/[ \t]+$/, \"\"); if (length) print}' '$1' | sort > '$1.tmp' && mv '$1.tmp' '$1'" sh {} \;
+# sorting is arbitrairy => need to sort and remove empty lines
+find . -type f -name "*.headers" -exec sh -c '
+  awk '"'"'{gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, ""); if (length) print}'"'"' "$1" | sort > "$1.tmp" && mv "$1.tmp" "$1"
+' sh {} \;
 
 >&2 echo "All integration tests have passed"
