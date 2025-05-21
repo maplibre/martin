@@ -617,5 +617,7 @@ rm -rf "$TEST_TEMP_DIR"
 find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/date: .+//" {} \;
 # this is defintively not an header
 find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/HTTP.+//" {} \;
+# sorting is arbitrairy
+find -type f -name "*.headers" -exec sort -o {} {} \;
 
 >&2 echo "All integration tests have passed"

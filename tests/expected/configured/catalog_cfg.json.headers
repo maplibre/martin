@@ -1,7 +1,4 @@
-
-transfer-encoding: chunked
-content-type: application/json
-vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
 content-encoding: br
-
-
+content-type: application/json
+transfer-encoding: chunked
+vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers

@@ -1,7 +1,7 @@
 
+
+
 content-length: 758
 content-type: image/png
-vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
 etag: W/"2f6-PZaBSgIOiVTrPDnRiX0hYg=="
-
-
+vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
