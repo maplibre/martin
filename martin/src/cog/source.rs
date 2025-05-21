@@ -23,6 +23,7 @@ struct Meta {
     min_zoom: u8,
     max_zoom: u8,
     model: ModelInfo,
+    // The geo coords of pixel(0, 0, 0) ordering in [x, y, z]
     origin: [f64; 3],
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
