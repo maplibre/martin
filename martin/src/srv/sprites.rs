@@ -48,7 +48,7 @@ async fn get_sprite_sdf_png(
     method = "GET",
     method = "HEAD",
     wrap = "Etag",
-    wrap = "Compress::default()",
+    wrap = "Compress::default()"
 )]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
