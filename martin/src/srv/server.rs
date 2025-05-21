@@ -106,7 +106,6 @@ async fn get_health() -> impl Responder {
     "/catalog",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag",
     wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]

@@ -1,5 +1,4 @@
 content-encoding: br
 content-type: application/json
-etag: W/"6d0-8UEAA8bHB61Ye4Z3Y7cRmw=="
 transfer-encoding: chunked
 vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
