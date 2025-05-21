@@ -1,6 +1,3 @@
-
-
-
 content-encoding: br
 content-type: application/x-protobuf
 transfer-encoding: chunked
