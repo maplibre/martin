@@ -619,7 +619,7 @@ find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/date: .
 find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/HTTP.+//" {} \;
 # sorting is arbitrairy => need to sort and remove empty lines
 find . -type f -name "*.headers" -exec sh -c '
-  awk '"'"'{gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, ""); if (length) print}'"'"' "$1" | sort > "$1.tmp" && mv "$1.tmp" "$1"
+  tr -d "\r" < "$1" | awk '"'"'{gsub(/^[[:space:]]+/, ""); gsub(/[[:space:]]+$/, ""); if ($0 != "") print}'"'"' | sort > "$1.tmp" && mv "$1.tmp" "$1"
 ' sh {} \;
 
 >&2 echo "All integration tests have passed"
