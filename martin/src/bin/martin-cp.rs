@@ -295,6 +295,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         Some(parse_encoding(args.encoding.as_str())?),
         None,
         None,
+        None,
     )?;
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
