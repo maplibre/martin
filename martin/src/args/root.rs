@@ -149,8 +149,20 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     if s.starts_with("http") || s.starts_with("s3") {
         if let Ok(url) = url::Url::parse(s) {
             if ["http", "https", "s3"].contains(&url.scheme()) {
-                if let Some(ext) = url.path().rsplit('.').next() {
-                    return extension.contains(&ext);
+                // For S3 URLs, we need special handling as they might not have traditional file extensions
+                if url.scheme() == "s3" {
+                    // For S3 URLs, check if any extension is in the path
+                    return url.path()
+                        .split('/')
+                        .any(|segment| {
+                            segment.rsplit('.').next()
+                                .map_or(false, |ext| extension.contains(&ext))
+                        });
+                } else {
+                    // For HTTP URLs, use the original logic
+                    if let Some(ext) = url.path().rsplit('.').next() {
+                        return extension.contains(&ext);
+                    }
                 }
             }
         }
