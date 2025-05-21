@@ -15,8 +15,8 @@ struct StyleRequest {
 #[route(
     "/style/{style_id}",
     method = "GET",
-    wrap = "Compress::default()",
-    wrap = "Etag"
+    wrap = "Etag",
+    wrap = "Compress::default()"
 )]
 async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) -> HttpResponse {
     let style_id = &path.style_id;
