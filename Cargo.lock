@@ -836,6 +836,7 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+ "terminal_size",
 ]
 
 [[package]]
@@ -2767,7 +2768,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -2775,6 +2776,7 @@ dependencies = [
  "actix-web",
  "actix-web-static-files",
  "anyhow",
+ "approx",
  "async-trait",
  "bit-set",
  "clap",
@@ -2824,6 +2826,7 @@ dependencies = [
  "tokio-postgres-rustls",
  "url",
  "walkdir",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -5069,6 +5072,16 @@ dependencies = [
  "fastrand",
  "getrandom 0.3.2",
  "once_cell",
+ "rustix 1.0.5",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "terminal_size"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45c6481c4829e4cc63825e62c49186a34538b7b2750b73b266581ffb612fb5ed"
+dependencies = [
  "rustix 1.0.5",
  "windows-sys 0.59.0",
 ]

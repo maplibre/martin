@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.16.0"
+version = "0.17.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -111,6 +111,7 @@ tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
+xxhash-rust.workspace = true
 
 [build-dependencies]
 walkdir = { workspace = true, optional = true }
@@ -118,6 +119,7 @@ static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
+approx.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true

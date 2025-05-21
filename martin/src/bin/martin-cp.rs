@@ -7,7 +7,10 @@ use std::time::Duration;
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
 use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
-use clap::Parser;
+use clap::{
+    Parser,
+    builder::{Styles, styling::AnsiColor},
+};
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled};
@@ -34,12 +37,19 @@ const SAVE_EVERY: Duration = Duration::from_secs(60);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
 )]
 pub struct CopierArgs {
     #[command(flatten)]
@@ -303,6 +313,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
+        None,
         None,
         None,
     )?;
