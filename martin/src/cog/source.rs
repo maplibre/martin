@@ -598,7 +598,7 @@ mod tests {
                 // Both are None, which is expected
             }
             _ => {
-                panic!("Origin {:?} does not match expected {:?}", origin, expected);
+                panic!("Origin {origin:?} does not match expected {expected:?}");
             }
         }
     }
