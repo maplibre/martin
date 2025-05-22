@@ -20,7 +20,7 @@ By default, Martin will use default profile's credentials unless these [AWS envi
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_SESSION_TOKEN`
-- `AWS_PROFILE` (to specify profile instead of access key variables)
+- `AWS_PROFILE` - to specify profile instead of access key variables
 - `AWS_REGION` - if set, must match the region of the bucket in the S3 URI
 
 Note: `AWS_REGION` must match the region of the given bucket in the S3 URI.
