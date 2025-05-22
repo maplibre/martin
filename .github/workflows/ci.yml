@@ -335,6 +335,9 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
       PGPORT: 34837
+      # AWS variables for S3 access
+      AWS_REGION: eu-central-1
+      AWS_NO_CREDENTIALS: 1
     strategy:
       fail-fast: true
       matrix:
@@ -402,6 +405,8 @@ jobs:
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_NO_CREDENTIALS=1
           export MARTIN_BIN=target/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
@@ -428,6 +433,8 @@ jobs:
         run: |
           sudo dpkg -i target/debian-x86_64.deb
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_NO_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
@@ -553,6 +560,8 @@ jobs:
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_NO_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin
           export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
