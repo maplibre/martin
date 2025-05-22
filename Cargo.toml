@@ -37,7 +37,7 @@ async-trait = "0.1"
 aws-config = { version = "1.5.10", features = ["behavior-version-latest"] }
 bit-set = "0.8"
 brotli = ">=5, <9"
-clap = { version = "4", features = ["derive", "unstable-markdown"] }
+clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.4.2"
 dashmap = { version =  "6.1.0", features = ["serde", "inline", "rayon"] }
@@ -82,7 +82,7 @@ size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.9.1", default-features = false, features = ["md5", "aggregate", "hex"] }
-sqlx = { version = "0.8.5", features = ["sqlite", "runtime-tokio"] }
+sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.20.0"
