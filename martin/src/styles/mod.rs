@@ -63,12 +63,18 @@ impl StyleSources {
         for base_path in cfg.paths {
             let files = list_contained_files(&base_path, "json")?;
             if files.is_empty() {
-                warn!("No styles (.json files) found in path {base_path:?}");
+                warn!(
+                    "No styles (.json files) found in path {:?}",
+                    base_path.display()
+                );
                 continue;
             }
             for path in files {
                 let Some(name) = path.file_name() else {
-                    warn!("Ignoring style source with no name from {path:?}");
+                    warn!(
+                        "Ignoring style source with no name from {:?}",
+                        path.display()
+                    );
                     continue;
                 };
                 let style_id = name
