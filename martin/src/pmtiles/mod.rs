@@ -310,14 +310,14 @@ impl PmtS3Source {
         // Read environment variables once
         let use_no_credentials = std::env::var("AWS_NO_CREDENTIALS").unwrap_or_default() == "1";
         let use_path_style = std::env::var("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default() == "1";
-        
+
         // Configure AWS SDK
         let mut aws_config_builder = aws_config::from_env();
         if use_no_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
         }
         let aws_config = aws_config_builder.load().await;
-        
+
         // Configure and create S3 client
         let client = if use_path_style {
             // Create client with path style addressing
