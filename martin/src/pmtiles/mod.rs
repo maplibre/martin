@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::async_reader::AsyncPmTilesReader;
-use pmtiles::aws_sdk_s3::Client as S3Client;
+use pmtiles::aws_sdk_s3::{Client as S3Client, config::Builder as S3ConfigBuilder};
 use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
 use pmtiles::{AwsS3Backend, Compression, Directory, HttpBackend, MmapBackend, TileType};
@@ -307,12 +307,27 @@ impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadat
 
 impl PmtS3Source {
     pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
-        // Construct AWS SDK client
-        // If one wishes to use anonymous requests, set the AWS_NO_CREDENTIALS=1 env variable.
-        let client = if std::env::var("AWS_NO_CREDENTIALS").unwrap_or_default() == "1" {
-            S3Client::new(&aws_config::from_env().no_credentials().load().await)
+        // Read environment variables once
+        let use_no_credentials = std::env::var("AWS_NO_CREDENTIALS").unwrap_or_default() == "1";
+        let use_path_style = std::env::var("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default() == "1";
+
+        // Configure AWS SDK
+        let mut aws_config_builder = aws_config::from_env();
+        if use_no_credentials {
+            aws_config_builder = aws_config_builder.no_credentials();
+        }
+        let aws_config = aws_config_builder.load().await;
+
+        // Configure and create S3 client
+        let client = if use_path_style {
+            // Create client with path style addressing
+            let s3_config = S3ConfigBuilder::from(&aws_config)
+                .force_path_style(true)
+                .build();
+            S3Client::from_conf(s3_config)
         } else {
-            S3Client::new(&aws_config::load_from_env().await)
+            // Use standard client
+            S3Client::new(&aws_config)
         };
 
         let bucket = url
