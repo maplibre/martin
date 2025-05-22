@@ -486,6 +486,7 @@ fn get_full_resolution(
     path: &Path,
 ) -> Result<[f64; 3], CogError> {
     match (pixel_scale, transformation) {
+        // ModelPixelScaleTag = (ScaleX, ScaleY, ScaleZ)
         (Some(scale), _) => Ok([scale[0], scale[1], scale[2]]),
         (_, Some(matrix)) => {
             if matrix[1] == 0.0 && matrix[4] == 0.0 {
