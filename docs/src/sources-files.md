@@ -15,7 +15,7 @@ it and use it with `--config my-config.yaml` option.
 
 Martin supports authenticated S3 sources using environment variables.
 
-By default, the credentials try for default profile or environment variables. Environment variables that can to be set:
+By default, Martin will use default profile's credentials unless these [AWS environment variables](https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html) are set:
 
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
