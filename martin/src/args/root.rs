@@ -167,13 +167,12 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
                         segment
                             .rsplit('.')
                             .next()
-                            .map_or(false, |ext| extension.contains(&ext))
+                            .is_some_and(|ext| extension.contains(&ext))
                     });
-                } else {
-                    // For HTTP URLs, use the original logic
-                    if let Some(ext) = url.path().rsplit('.').next() {
-                        return extension.contains(&ext);
-                    }
+                }
+                // For HTTP URLs, use the original logic
+                if let Some(ext) = url.path().rsplit('.').next() {
+                    return extension.contains(&ext);
                 }
             }
         }
