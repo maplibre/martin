@@ -187,6 +187,24 @@ the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. A pat
 </code></pre>
 <p>You may also want to generate a <a href="config-file.html">config file</a> using the <code>--save-config my-config.yaml</code>, and later edit
 it and use it with <code>--config my-config.yaml</code> option.</p>
+<h2 id="pmtiles-s3"><a class="header" href="#pmtiles-s3">PMTiles S3</a></h2>
+<p>Martin supports authenticated S3 sources using environment variables.</p>
+<p>By default, Martin will use default profile’s credentials unless these <a href="https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html">AWS environment variables</a> are set:</p>
+<ul>
+<li><code>AWS_ACCESS_KEY_ID</code></li>
+<li><code>AWS_SECRET_ACCESS_KEY</code></li>
+<li><code>AWS_SESSION_TOKEN</code></li>
+<li><code>AWS_PROFILE</code> - to specify profile instead of access key variables</li>
+<li><code>AWS_REGION</code> - if set, must match the region of the bucket in the S3 URI</li>
+</ul>
+<h3 id="anonymous-credentials"><a class="header" href="#anonymous-credentials">Anonymous credentials</a></h3>
+<p>To send requests anonymously for publicly available buckets, set the environment variable <code>AWS_NO_CREDENTIALS=1</code>.
+Note that you still need to set <code>AWS_REGION</code> to the correct region.</p>
+<p>Example configuration:</p>
+<pre><code class="language-yaml">pmtiles:
+  sources:
+    tiles: s3://bucket/path/to/tiles.pmtiles
+</code></pre>
 
                     </main>
 
