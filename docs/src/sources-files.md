@@ -23,8 +23,6 @@ By default, Martin will use default profile's credentials unless these [AWS envi
 - `AWS_PROFILE` - to specify profile instead of access key variables
 - `AWS_REGION` - if set, must match the region of the bucket in the S3 URI
 
-For more information on AWS credentials, see [documentation](https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html).
-
 ### Anonymous credentials
 
 To send requests anonymously for publicly available buckets, set the environment variable `AWS_NO_CREDENTIALS=1`.
