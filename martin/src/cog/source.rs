@@ -492,7 +492,7 @@ fn get_full_resolution(
             if matrix[1] == 0.0 && matrix[4] == 0.0 {
                 Ok([matrix[0], matrix[5], matrix[10]])
             } else {
-                let x_res = (matrix[0] * matrix[0]) + (matrix[4] * matrix[4]);
+                let x_res = (matrix[0] * matrix[0]) + (matrix[4] * matrix[4]).sqrt();
                 let y_res = ((matrix[1] * matrix[1]) + (matrix[5] * matrix[5])).sqrt() * -1.0;
                 let z_res = matrix[10];
                 Ok([x_res, y_res, z_res])
