@@ -491,9 +491,7 @@ fn get_full_resolution(
         (_, Some(matrix)) => {
             let mut x_res =
                 (matrix[0] * matrix[0] + matrix[4] * matrix[4] + matrix[8] * matrix[8]).sqrt();
-            if matrix[0] < 0.0 {
-                x_res *= -1.0;
-            }
+            x_res = x_res.copysign(matrix[0]);
             let mut y_res =
                 (matrix[1] * matrix[1] + matrix[5] * matrix[5] + matrix[9] * matrix[9]).sqrt();
             println!("martix[5]: {}", matrix[5]);
@@ -501,9 +499,7 @@ fn get_full_resolution(
             y_res = y_res.copysign(-matrix[5]);
             let mut z_res =
                 (matrix[2] * matrix[2] + matrix[6] * matrix[6] + matrix[10] * matrix[10]).sqrt();
-            if matrix[10] < 0.0 {
-                z_res *= -1.0;
-            }
+            z_res = z_res.copysign(matrix[10]);
             Ok([x_res, y_res, z_res])
         }
         (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
