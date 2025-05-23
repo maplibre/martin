@@ -1,6 +1,7 @@
 use crate::styles::StyleSources;
+use actix_middleware_etag::Etag;
 use actix_web::http::header::ContentType;
-use actix_web::middleware;
+use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
 use log::error;
@@ -14,7 +15,8 @@ struct StyleRequest {
 #[route(
     "/style/{style_id}",
     method = "GET",
-    wrap = "middleware::Compress::default()"
+    wrap = "Etag",
+    wrap = "Compress::default()"
 )]
 async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) -> HttpResponse {
     let style_id = &path.style_id;

@@ -67,6 +67,7 @@ bless-tests = []
 [dependencies]
 actix-cors.workspace = true
 actix-http.workspace = true
+actix-middleware-etag.workspace = true
 actix-rt.workspace = true
 actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
