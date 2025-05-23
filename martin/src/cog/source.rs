@@ -757,4 +757,35 @@ mod tests {
         assert_abs_diff_eq!(extent[2], 1_625_870.250_8);
         assert_abs_diff_eq!(extent[3], 4_277_012.715_3);
     }
+
+    #[rstest]
+    #[case(
+        None,Some(vec![118.4505876 , 118.4505876, 0.0]),Some(vec![0.0,0.0,0.0,-5458203.076608,2729101.538304 ,0.0]), [118.4505876,118.4505876,0.0]
+    )]
+    fn can_get_full_resolution(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] pixel_scale: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] expected: [f64; 3],
+    ) {
+        use approx::assert_abs_diff_eq;
+
+        use crate::cog::source::{get_extent, get_full_resolution, get_origin};
+
+        let origin = get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        let full_resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(full_resolution[0], expected[0]);
+        assert_abs_diff_eq!(full_resolution[1], expected[1]);
+        assert_abs_diff_eq!(full_resolution[2], expected[2]);
+    }
 }
