@@ -23,6 +23,9 @@ pub struct TileCoord {
     pub y: u32,
 }
 
+pub type TileData = Vec<u8>;
+pub type Tile = (TileCoord, Option<TileData>);
+
 impl Display for TileCoord {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if f.alternate() {
