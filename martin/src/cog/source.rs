@@ -489,17 +489,33 @@ fn get_full_resolution(
         // ModelPixelScaleTag = (ScaleX, ScaleY, ScaleZ)
         (Some(scale), _) => Ok([scale[0], scale[1], scale[2]]),
         (_, Some(matrix)) => {
-            if matrix[1] == 0.0 && matrix[4] == 0.0 {
-                Ok([matrix[0], matrix[5], matrix[10]])
-            } else {
-                let x_res = (matrix[0] * matrix[0]) + (matrix[4] * matrix[4]).sqrt();
-                let y_res = ((matrix[1] * matrix[1]) + (matrix[5] * matrix[5])).sqrt() * -1.0;
-                let z_res = matrix[10];
-                Ok([x_res, y_res, z_res])
+            let mut x_res =
+                (matrix[0] * matrix[0] + matrix[4] * matrix[4] + matrix[8] * matrix[8]).sqrt();
+            if matrix[0] < 0.0 {
+                x_res *= -1.0;
             }
+            let mut y_res =
+                (matrix[1] * matrix[1] + matrix[5] * matrix[5] + matrix[9] * matrix[9]).sqrt();
+            println!("martix[5]: {}", matrix[5]);
+            // A positive y_res indicates that model space Y cordinates decrease as raster space J indices increase. This is the standard vertical relationship between raster space and model space
+            y_res = y_res.copysign(-matrix[5]);
+            let mut z_res =
+                (matrix[2] * matrix[2] + matrix[6] * matrix[6] + matrix[10] * matrix[10]).sqrt();
+            if matrix[10] < 0.0 {
+                z_res *= -1.0;
+            }
+            Ok([x_res, y_res, z_res])
         }
         (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
     }
+}
+
+fn raster2model(i: u32, j: u32, matrix: &[f64]) -> (f64, f64) {
+    let i = f64::from(i);
+    let j = f64::from(j);
+    let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
+    let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
+    (x, y)
 }
 
 fn get_extent(
@@ -515,13 +531,7 @@ fn get_extent(
             [full_width_pixel, 0],
             [full_width_pixel, full_height_pixel],
         ];
-        let transformed = corners.map(|pixel| {
-            let i = f64::from(pixel[0]);
-            let j = f64::from(pixel[1]);
-            let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
-            let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
-            (x, y)
-        });
+        let transformed = corners.map(|pixel| raster2model(pixel[0], pixel[1], matrix));
         let mut min_x = transformed[0].0;
         let mut min_y = transformed[1].1;
         let mut max_x = transformed[0].0;
