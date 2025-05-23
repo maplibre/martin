@@ -36,6 +36,37 @@ impl Display for TileCoord {
     }
 }
 
+impl TileCoord {
+    /// Checks provided coordinates for validity
+    /// before constructing [`TileCoord`] instance.
+    #[must_use]
+    pub fn checked(z: u8, x: u32, y: u32) -> Option<TileCoord> {
+        Self::are_valid(z, x, y).then_some(Self { z, x, y })
+    }
+
+    /// Checks provided coordinates for validity
+    /// before constructing [`TileCoord`] instance with inverted `y` value.
+    #[must_use]
+    pub fn checked_inverted(z: u8, x: u32, y: u32) -> Option<TileCoord> {
+        Self::are_valid(z, x, y).then_some(Self {
+            z,
+            x,
+            y: (1_u32 << z) - 1 - y,
+        })
+    }
+
+    /// Checks if provided tile coordinates are valid.
+    #[must_use]
+    pub fn are_valid(z: u8, x: u32, y: u32) -> bool {
+        if z > MAX_ZOOM {
+            return false;
+        }
+
+        let side_len = 1_u32 << z;
+        x < side_len && y < side_len
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
     Gif,
