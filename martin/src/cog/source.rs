@@ -484,10 +484,10 @@ fn get_full_resolution(
     pixel_scale: Option<&[f64]>,
     transformation: Option<&[f64]>,
     path: &Path,
-) -> Result<[f64; 3], CogError> {
+) -> Result<[f64; 2], CogError> {
     match (pixel_scale, transformation) {
         // ModelPixelScaleTag = (ScaleX, ScaleY, ScaleZ)
-        (Some(scale), _) => Ok([scale[0], scale[1], scale[2]]),
+        (Some(scale), _) => Ok([scale[0], scale[1]]),
         (_, Some(matrix)) => {
             let mut x_res =
                 (matrix[0] * matrix[0] + matrix[4] * matrix[4] + matrix[8] * matrix[8]).sqrt();
@@ -496,10 +496,7 @@ fn get_full_resolution(
                 (matrix[1] * matrix[1] + matrix[5] * matrix[5] + matrix[9] * matrix[9]).sqrt();
             // A positive y_res indicates that model space Y cordinates decrease as raster space J indices increase. This is the standard vertical relationship between raster space and model space
             y_res = y_res.copysign(-matrix[5]);
-            let mut z_res =
-                (matrix[2] * matrix[2] + matrix[6] * matrix[6] + matrix[10] * matrix[10]).sqrt();
-            z_res = z_res.copysign(matrix[10]);
-            Ok([x_res, y_res, z_res])
+            Ok([x_res, y_res]) // drop the z scale directly as we don't use it
         }
         (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
     }
@@ -755,7 +752,7 @@ mod tests {
 
     #[rstest]
     #[case(
-        None,Some(vec![118.4505876 , 118.4505876, 0.0]),[118.4505876,118.4505876,0.0]
+        None,Some(vec![118.4505876 , 118.4505876, 0.0]),[118.4505876,118.4505876, 0.0]
     )]
     fn can_get_full_resolution(
         #[case] matrix: Option<Vec<f64>>,
@@ -774,6 +771,5 @@ mod tests {
         .unwrap();
         assert_abs_diff_eq!(full_resolution[0], expected[0]);
         assert_abs_diff_eq!(full_resolution[1], expected[1]);
-        assert_abs_diff_eq!(full_resolution[2], expected[2]);
     }
 }
