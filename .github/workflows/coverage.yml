@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
+      AWS_NO_CREDENTIALS: 1
+      AWS_REGION: eu-central-1
     steps:
       - name: Set up system dependencies
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client

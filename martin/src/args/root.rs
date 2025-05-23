@@ -157,9 +157,17 @@ impl Args {
 
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
-    if s.starts_with("http") {
+    if s.starts_with("http") || s.starts_with("s3") {
         if let Ok(url) = url::Url::parse(s) {
-            if url.scheme() == "http" || url.scheme() == "https" {
+            if url.scheme() == "s3" {
+                return url.path().split('/').any(|segment| {
+                    segment
+                        .rsplit('.')
+                        .next()
+                        .is_some_and(|ext| extension.contains(&ext))
+                });
+            }
+            if ["http", "https"].contains(&url.scheme()) {
                 if let Some(ext) = url.path().rsplit('.').next() {
                     return extension.contains(&ext);
                 }
