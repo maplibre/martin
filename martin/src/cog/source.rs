@@ -524,28 +524,13 @@ fn get_extent(
             [full_width_pixel, full_height_pixel],
         ];
         let transformed = corners.map(|pixel| raster2model(pixel[0], pixel[1], matrix));
-        let mut min_x = transformed[0].0;
-        let mut min_y = transformed[1].1;
-        let mut max_x = transformed[0].0;
-        let mut max_y = transformed[1].1;
-        for (x, y) in transformed {
-            if x <= min_x {
-                min_x = x;
-            }
-            if y <= min_y {
-                min_y = y;
-            }
-            if x >= max_x {
-                max_x = x;
-            }
-            if y >= max_y {
-                max_y = y;
-            }
-        }
+        let max_x = transformed.iter().map(|(x,_)|*x).max_by(f64::total_cmp).expect("corners has >1 elements and thus has immer a max");
+        let min_x = transformed.iter().map(|(x,_)|*x).min_by(f64::total_cmp).expect("corners has >1 elements and thus has immer a min");
+        let max_y = transformed.iter().map(|(y,_)|*y).max_by(f64::total_cmp).expect("corners has >1 elements and thus has immer a max");
+        let min_y = transformed.iter().map(|(y,_)|*y).min_by(f64::total_cmp).expect("corners has >1 elements and thus has immer a min");
         return [min_x, min_y, max_x, max_y];
     }
-    let x1 = origin[0];
-    let y1 = origin[1];
+    let [x1,y1,_] = origin;
     let x2 = x1 + full_width;
     let y2 = y1 + full_height;
 
