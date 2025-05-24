@@ -67,8 +67,8 @@ impl DirectoryCache for PmtCache {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
     /// force path style URLs for S3 buckets
-      /// 
-      /// A path style URL is a URL that uses the bucket name as part of the path (`mys3.com/somebucket`) instead of the hostname (`somebucket.mys3.com`).
+    ///
+    /// A path style URL is a URL that uses the bucket name as part of the path (`mys3.com/somebucket`) instead of the hostname (`somebucket.mys3.com`).
     #[serde(default, alias = "aws_s3_force_path_style")]
     pub force_path_style: Option<bool>,
     /// send requests anonymously for publicly available buckets
