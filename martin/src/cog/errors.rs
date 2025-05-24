@@ -58,4 +58,10 @@ pub enum CogError {
         "Calculating the tile origin failed for {0}: the length of ModelTiepointTag should be >= 6, or the length of ModelTransformationTag should be >= 12"
     )]
     GetOriginFailed(PathBuf),
+
+    #[error("Get full resolution failed from file: {0}")]
+    GetFullResolutionFailed(PathBuf),
+
+    #[error("Get extent failed from file: {0}")]
+    GetExtentFailed(PathBuf),
 }
