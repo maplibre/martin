@@ -521,15 +521,22 @@ mod tests {
     #[test]
     fn test_tile_coord_zoom_range() {
         for z in 0..=MAX_ZOOM {
-          assert!(TileCoord { z, x: 0, y: 0 }.is_possible_on_zoom_level());
-          assert_eq!(
-              TileCoord::new_checked(z, 0, 0),
-              Some(TileCoord { z, x: 0, y: 0 })
-          );
+            assert!(TileCoord { z, x: 0, y: 0 }.is_possible_on_zoom_level());
+            assert_eq!(
+                TileCoord::new_checked(z, 0, 0),
+                Some(TileCoord { z, x: 0, y: 0 })
+            );
         }
-        assert!(!TileCoord { z: MAX_ZOOM +1, x: 0, y: 0 }.is_possible_on_zoom_level());
-        assert_eq!(TileCoord::new_checked(MAX_ZOOM +1, 0, 0), None);
-}
+        assert!(
+            !TileCoord {
+                z: MAX_ZOOM + 1,
+                x: 0,
+                y: 0
+            }
+            .is_possible_on_zoom_level()
+        );
+        assert_eq!(TileCoord::new_checked(MAX_ZOOM + 1, 0, 0), None);
+    }
     #[test]
     fn test_tile_coord_new_checked_xy_for_zoom() {
         assert!(TileCoord { z: 5, x: 0, y: 0 }.is_possible_on_zoom_level());
@@ -555,7 +562,11 @@ mod tests {
     fn test_tile_coord_new_unchecked() {
         assert_eq!(
             TileCoord::new_unchecked(u8::MAX, u32::MAX, u32::MAX),
-            TileCoord { z: u8::MAX, x: u32::MAX, y: u32::MAX }
+            TileCoord {
+                z: u8::MAX,
+                x: u32::MAX,
+                y: u32::MAX
+            }
         );
     }
 }
