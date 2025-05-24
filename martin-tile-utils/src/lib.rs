@@ -23,6 +23,9 @@ pub struct TileCoord {
     pub y: u32,
 }
 
+pub type TileData = Vec<u8>;
+pub type Tile = (TileCoord, Option<TileData>);
+
 impl Display for TileCoord {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if f.alternate() {
@@ -30,6 +33,36 @@ impl Display for TileCoord {
         } else {
             write!(f, "{},{},{}", self.z, self.x, self.y)
         }
+    }
+}
+
+impl TileCoord {
+    /// Checks provided coordinates for validity
+    /// before constructing [`TileCoord`] instance.
+    ///
+    /// Check [`Self::new_unchecked`] if you are sure that your inputs are possible.
+    #[must_use]
+    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<TileCoord> {
+        Self::is_possible_on_zoom_level(z, x, y).then_some(Self { z, x, y })
+    }
+
+    /// Constructs [`TileCoord`] instance from arguments without checking that the tiles can exist.
+    ///
+    /// Check [`Self::new_checked`] if you are unsure if your inputs are possible.
+    #[must_use]
+    pub fn new_unchecked(z: u8, x: u32, y: u32) -> TileCoord {
+        Self { z, x, y }
+    }
+
+    /// Checks that zoom `z` is plausibily small and `x`/`y` is possible on said zoom level
+    #[must_use]
+    pub fn is_possible_on_zoom_level(z: u8, x: u32, y: u32) -> bool {
+        if z > MAX_ZOOM {
+            return false;
+        }
+
+        let side_len = 1_u32 << z;
+        x < side_len && y < side_len
     }
 }
 
@@ -483,5 +516,51 @@ mod tests {
                 "Zoom level {z} should have precision {expected_precision}, but was {actual_precision}"
             );
         }
+    }
+
+    #[test]
+    fn test_tile_coord_zoom_range() {
+        for z in 0..=MAX_ZOOM {
+            assert!(TileCoord::is_possible_on_zoom_level(z, 0, 0));
+            assert_eq!(
+                TileCoord::new_checked(z, 0, 0),
+                Some(TileCoord { z, x: 0, y: 0 })
+            );
+        }
+        assert!(!TileCoord::is_possible_on_zoom_level(MAX_ZOOM + 1, 0, 0));
+        assert_eq!(TileCoord::new_checked(MAX_ZOOM + 1, 0, 0), None);
+    }
+
+    #[test]
+    fn test_tile_coord_new_checked_xy_for_zoom() {
+        assert!(TileCoord::is_possible_on_zoom_level(5, 0, 0));
+        assert_eq!(
+            TileCoord::new_checked(5, 0, 0),
+            Some(TileCoord { z: 5, x: 0, y: 0 })
+        );
+        assert!(TileCoord::is_possible_on_zoom_level(5, 31, 31));
+        assert_eq!(
+            TileCoord::new_checked(5, 31, 31),
+            Some(TileCoord { z: 5, x: 31, y: 31 })
+        );
+        assert!(!TileCoord::is_possible_on_zoom_level(5, 31, 32));
+        assert_eq!(TileCoord::new_checked(5, 31, 32), None);
+        assert!(!TileCoord::is_possible_on_zoom_level(5, 32, 31));
+        assert_eq!(TileCoord::new_checked(5, 32, 31), None);
+    }
+
+    #[test]
+    /// Any (u8, u32, u32) values can be put inside [`TileCoord`], of course, but some
+    /// functions may panic at runtime (e.g. [`mbtiles::invert_y_value`]) if they are impossible,
+    /// so let's not do that.
+    fn test_tile_coord_new_unchecked() {
+        assert_eq!(
+            TileCoord::new_unchecked(u8::MAX, u32::MAX, u32::MAX),
+            TileCoord {
+                z: u8::MAX,
+                x: u32::MAX,
+                y: u32::MAX
+            }
+        );
     }
 }
