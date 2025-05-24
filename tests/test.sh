@@ -477,13 +477,13 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --source geography-class-png --mbtiles-type normalized --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
       --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
-  test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
-      "${CFG[@]}" --mbtiles-type flat --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" \
-
 
   unset DATABASE_URL
+
+  test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
+      --mbtiles-type flat --concurrency 3 \
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0" \
 
 else
   echo "Skipping martin-cp tests"

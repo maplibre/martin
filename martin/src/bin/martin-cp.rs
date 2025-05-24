@@ -289,23 +289,26 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
-async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
-    let output_file = &args.output_file;
-    let concurrency = args.concurrency.unwrap_or(1);
-
-    let source = if let Some(source) = &args.source {
-        source.to_string()
+fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
+    if let Some(source) = &args.source {
+        Ok(source.to_string())
     } else {
         let sources = state.tiles.source_names();
         if let Some(source) = sources.first() {
             if sources.len() > 1 {
                 return Err(MartinCpError::MultipleSources(sources.join(", ")));
             }
-            source.to_string()
+            Ok(source.to_string())
         } else {
-            return Err(MartinCpError::NoSources);
+            Err(MartinCpError::NoSources)
         }
-    };
+    }
+}
+async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
+    let output_file = &args.output_file;
+    let concurrency = args.concurrency.unwrap_or(1);
+
+    let source = check_sources(&args, &state)?;
 
     let src = DynTileSource::new(
         &state.tiles,
