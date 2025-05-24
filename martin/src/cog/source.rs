@@ -528,22 +528,22 @@ fn get_extent(
             .iter()
             .map(|(x, _)| *x)
             .max_by(f64::total_cmp)
-            .expect("corners has >1 elements and thus has immer a max");
+            .expect("corners has >1 element => max exists");
         let min_x = transformed
             .iter()
             .map(|(x, _)| *x)
             .min_by(f64::total_cmp)
-            .expect("corners has >1 elements and thus has immer a min");
+            .expect("corners has >1 element => min exists");
         let max_y = transformed
             .iter()
-            .map(|(y, _)| *y)
+            .map(|(_, y)| *y)
             .max_by(f64::total_cmp)
-            .expect("corners has >1 elements and thus has immer a max");
+            .expect("corners has >1 element => max exists");
         let min_y = transformed
             .iter()
-            .map(|(y, _)| *y)
+            .map(|(_, y)| *y)
             .min_by(f64::total_cmp)
-            .expect("corners has >1 elements and thus has immer a min");
+            .expect("corners has >1 element => min exists");
         return [min_x, min_y, max_x, max_y];
     }
     let [x1, y1, _] = origin;
