@@ -68,6 +68,20 @@ impl Display for Mbtiles {
 }
 
 impl Mbtiles {
+    /// Creates a reference to an mbtiles file.
+    ///
+    /// This does not open the file, nor check if it exists.
+    /// For this, please use the [`Mbtiles::open`],  [`Mbtiles::open_or_new`] or [`Mbtiles::open_readonly`] method respectively.
+    ///
+    /// # Errors
+    /// Returns an error if the filepath contains unsupported characters.
+    ///
+    /// # Examples
+    /// ```
+    /// use mbtiles::Mbtiles;
+    ///
+    /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
+    /// ```
     pub fn new<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let path = filepath.as_ref();
         Ok(Self {
@@ -83,12 +97,34 @@ impl Mbtiles {
         })
     }
 
+    /// Opens the mbtiles file if it does exist.
+    ///
+    /// # Examples
+    /// ```
+    /// use mbtiles::Mbtiles;
+    ///
+    /// # async fn foo() {
+    /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
+    /// let conn = mbtiles.open().await.unwrap();
+    /// # }
+    /// ```
     pub async fn open(&self) -> MbtResult<SqliteConnection> {
         debug!("Opening w/ defaults {self}");
         let opt = SqliteConnectOptions::new().filename(self.filepath());
         Self::open_int(&opt).await
     }
 
+    /// Opens the mbtiles file or creates a new one if it doesn't exist.
+    ///
+    /// # Examples
+    /// ```
+    /// use mbtiles::Mbtiles;
+    ///
+    /// # async fn foo() {
+    /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
+    /// let conn = mbtiles.open_or_new().await.unwrap();
+    /// # }
+    /// ```
     pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
         debug!("Opening or creating {self}");
         let opt = SqliteConnectOptions::new()
@@ -97,6 +133,17 @@ impl Mbtiles {
         Self::open_int(&opt).await
     }
 
+    /// Opens an existing mbtiles file in readonly mode.
+    ///
+    /// # Examples
+    /// ```
+    /// use mbtiles::Mbtiles;
+    ///
+    /// # async fn foo() {
+    /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
+    /// let conn = mbtiles.open_readonly().await.unwrap();
+    /// # }
+    /// ```
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
         debug!("Opening as readonly {self}");
         let opt = SqliteConnectOptions::new()
@@ -111,11 +158,13 @@ impl Mbtiles {
         Ok(conn)
     }
 
+    /// The filepath of the mbtiles database
     #[must_use]
     pub fn filepath(&self) -> &str {
         &self.filepath
     }
 
+    /// The filename of the mbtiles database
     #[must_use]
     pub fn filename(&self) -> &str {
         &self.filename
@@ -138,9 +187,13 @@ impl Mbtiles {
     ///
     /// No particular order is guaranteed.
     ///
-    /// Note that returned [Stream] holds a mutable reference to the given
+    /// <div class="warning">
+    ///
+    /// **Note:** The returned [`Stream`] holds a mutable reference to the given
     /// connection, making it unusable for anything else until the stream
     /// is dropped.
+    ///
+    /// </div>
     pub fn stream_coords<'e, T>(
         &self,
         conn: &'e mut T,
@@ -181,9 +234,13 @@ impl Mbtiles {
     ///
     /// No particular order is guaranteed.
     ///
-    /// Note that returned [Stream] holds a mutable reference to the given
+    /// <div class="warning">
+    ///
+    /// **Note:** The returned [`Stream`] holds a mutable reference to the given
     /// connection, making it unusable for anything else until the stream
     /// is dropped.
+    ///
+    /// </div>
     pub fn stream_tiles<'e, T>(
         &self,
         conn: &'e mut T,
@@ -268,7 +325,7 @@ impl Mbtiles {
 
     /// sql query for getting tile and hash
     ///
-    /// For [`MbtType::Flat`] accessing it is not possible, we thus md5 hash the tile data.
+    /// For [`MbtType::Flat`] accessing the hash is not possible, so the SQL query explicitly returns `NULL as tile_hash`.
     fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
         match mbt_type {
             MbtType::Flat => {
@@ -283,6 +340,27 @@ impl Mbtiles {
         }
     }
 
+    /// Inserts the batch of tiles into the mbtiles database.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mbtiles::MbtType;
+    /// use mbtiles::CopyDuplicateMode;
+    /// use mbtiles::Mbtiles;
+    ///
+    /// # async fn insert_tiles_example() {
+    /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
+    /// let mut conn = mbtiles.open().await.unwrap();
+    ///
+    /// let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+    /// let batch = vec![
+    ///     (0, 0, 0, vec![0, 1, 2, 3]),
+    ///     (0, 1, 0, vec![4, 5, 6, 7]),
+    /// ];
+    /// mbtiles.insert_tiles(&mut conn, mbt_type, CopyDuplicateMode::Ignore, &batch).await.unwrap();
+    /// # }
+    /// ```
     pub async fn insert_tiles(
         &self,
         conn: &mut SqliteConnection,
