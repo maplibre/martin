@@ -141,7 +141,7 @@ impl Mbtiles {
     ///
     /// # async fn foo() {
     /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
-    /// let conn = mbtiles.open_or_new().await.unwrap();
+    /// let conn = mbtiles.open_readonly().await.unwrap();
     /// # }
     /// ```
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
