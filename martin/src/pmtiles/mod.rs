@@ -158,6 +158,7 @@ impl SourceConfigExtras for PmtConfig {
                     ["1", "true"].contains(
                         &std::env::var("AWS_S3_FORCE_PATH_STYLE")
                             .unwrap_or_default()
+                            .to_ascii_lowercase()
                             .as_str(),
                     )
                 });
@@ -165,6 +166,7 @@ impl SourceConfigExtras for PmtConfig {
                     ["1", "true"].contains(
                         &std::env::var("AWS_NO_CREDENTIALS")
                             .unwrap_or_default()
+                            .to_ascii_lowercase()
                             .as_str(),
                     )
                 });
