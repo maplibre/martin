@@ -70,9 +70,19 @@ async fn mbtiles_stream_tiles() {
         // counter test: mbtiles must contain all tiles
         let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
         for coord in coords {
-            assert!(mbtiles.contains(&mut conn, mbt_type, coord.z, coord.x, coord.y).await.unwrap());
+            assert!(
+                mbtiles
+                    .contains(&mut conn, mbt_type, coord.z, coord.x, coord.y)
+                    .await
+                    .unwrap()
+            );
         }
-        assert!(!mbtiles.contains(&mut conn, mbt_type, 0, 0, 0).await.unwrap())
+        assert!(
+            !mbtiles
+                .contains(&mut conn, mbt_type, 0, 0, 0)
+                .await
+                .unwrap()
+        );
     }
 
     {
@@ -92,6 +102,23 @@ async fn mbtiles_stream_tiles() {
                 (TileCoord { z: 2, x: 0, y: 3 }, None),
             ]
         );
+
+        // counter test: mbtiles must contain all tiles
+        let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+        for (coord, _) in tiles {
+            assert!(
+                mbtiles
+                    .contains(&mut conn, mbt_type, coord.z, coord.x, coord.y)
+                    .await
+                    .unwrap()
+            );
+        }
+        assert!(
+            !mbtiles
+                .contains(&mut conn, mbt_type, 0, 0, 0)
+                .await
+                .unwrap()
+        );
     }
 }
 
@@ -104,9 +131,24 @@ async fn mbtiles_stream_errors() {
     ])
     .await;
 
-    let mut stream = mbtiles.stream_coords(&mut conn);
-    match stream.next().await {
-        Some(Err(mbtiles::MbtError::InvalidTileIndex(_filename, _z, _x, _y))) => {}
-        _ => panic!("Unexpected value returned from stream!"),
+    {
+        let mut stream = mbtiles.stream_coords(&mut conn);
+        match stream.next().await {
+            Some(Err(mbtiles::MbtError::InvalidTileIndex(_filename, _z, _x, _y))) => {}
+            _ => panic!("Unexpected value returned from stream!"),
+        }
+    }
+
+    // counter test: mbtiles must contain all tiles
+    // the re-inverted y coordinate yielding 4 would be -1.
+    // This is impossible to achive without overflows.
+    let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+    for y in 0..=20 {
+        assert!(
+            !mbtiles
+                .contains(&mut conn, mbt_type, 2, y, 0)
+                .await
+                .unwrap()
+        );
     }
 }
