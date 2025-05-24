@@ -75,10 +75,12 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_invalid_type() {
+    async fn test_metadata_invalid() {
         let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
             .await
             .unwrap();
+        // invalid type
+        assert!(pool.detect_type().await.is_err());
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata,@r#"
         id: webp
@@ -103,6 +105,14 @@ mod tests {
           name: ne2sr
           format: webp
         "#);
+    }
+
+    #[tokio::test]
+    async fn test_invalid_type() {
+        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
+            .await
+            .unwrap();
+
         // invalid type => cannot hash properly, but can get tile
         assert!(pool.detect_type().await.is_err());
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
@@ -125,12 +135,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_normalized() {
+    async fn test_metadata_normalized() {
         let pool = MbtilesPool::open_readonly(
             "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
         )
         .await
         .unwrap();
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::Normalized { hash_view: false }
+        );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata,@r#"
         id: geography-class-png-no-bounds
@@ -148,10 +162,20 @@ mod tests {
           template: "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
           version: 1.0.0
         "#);
+    }
+    
+    #[tokio::test]
+    async fn test_normalized() {
+        let pool = MbtilesPool::open_readonly(
+            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
+        )
+        .await
+        .unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
         );
+
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert!(!t1.is_empty());
 
@@ -178,14 +202,14 @@ mod tests {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
     }
-
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     #[tokio::test]
-    async fn test_flat_with_hash() {
+    async fn test_metadata_flat_with_hash() {
         let pool =
             MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
                 .await
                 .unwrap();
+        assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata,@r#"
         id: zoomed_world_cities
@@ -301,6 +325,14 @@ mod tests {
                 layer: cities
         agg_tiles_hash: D4E1030D57751A0B45A28A71267E46B8
         "#);
+    }
+
+    #[tokio::test]
+    async fn test_flat_with_hash() {
+        let pool =
+            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
+                .await
+                .unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert!(!t1.is_empty());

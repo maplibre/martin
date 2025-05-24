@@ -317,49 +317,6 @@ impl Mbtiles {
         Ok(())
     }
 
-    /// Check if a tile exists in the database.
-    ///
-    /// This is a slight optimisation over [`Mbtiles::get_tile_and_hash`] or [`Mbtiles::get_tile`] and does only look up IF the tile exists, not the tile data.
-    ///
-    /// <div class="warning">
-    ///
-    /// **Note:**
-    /// You usually (unless the second query is unnecessary) want to retrieve the tile data if it exists instead.
-    /// Sqlite already checks for a tiles existence and retrieving it if it exists in [`Mbtiles::get_tile_and_hash`] or [`Mbtiles::get_tile`].
-    ///
-    /// </div>
-    ///
-    /// *Tipp:*
-    /// If you need even more performance in this specific operation, consider scanning over the entire table once via [`Mbtiles::stream_coords`] and building a bloom filter (f.ex. [`fastbloom`](https://docs.rs/fastbloom/)) as a fast path.
-    /// This only works if
-    /// - the database is static or
-    /// - you maintain the bloom filter on inserts and deletes to the database.
-    pub async fn contains(
-        &self,
-        conn: &mut SqliteConnection,
-        mbt_type: MbtType,
-        z: u8,
-        x: u32,
-        y: u32,
-    ) -> MbtResult<bool> {
-        let table = match mbt_type {
-            MbtType::Flat => "tiles",
-            MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { hash_view: _ } => "map",
-        };
-        let sql = format!(
-            "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
-        );
-        let y = invert_y_value(z, y);
-        let row = query(&sql)
-            .bind(z)
-            .bind(x)
-            .bind(y)
-            .fetch_optional(conn)
-            .await?;
-        Ok(row.is_some())
-    }
-
     fn get_insert_sql(
         src_type: MbtType,
         on_duplicate: CopyDuplicateMode,

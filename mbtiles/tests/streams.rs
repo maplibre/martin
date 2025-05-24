@@ -67,12 +67,6 @@ async fn mbtiles_stream_tiles() {
                 TileCoord { z: 2, x: 0, y: 3 },
             ]
         );
-        // counter test: mbtiles must contain all tiles
-        let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
-        for coord in coords {
-            assert!(mbtiles.contains(&mut conn, mbt_type, coord.z, coord.x, coord.y).await.unwrap());
-        }
-        assert!(!mbtiles.contains(&mut conn, mbt_type, 0, 0, 0).await.unwrap())
     }
 
     {
