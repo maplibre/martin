@@ -1,9 +1,12 @@
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
+use std::pin::Pin;
 
 use enum_display::EnumDisplay;
+use futures::Stream;
 use log::debug;
+use martin_tile_utils::{Tile, TileCoord};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};
 use sqlite_hashes::register_md5_functions;
@@ -129,6 +132,87 @@ impl Mbtiles {
             .execute(conn)
             .await?;
         Ok(())
+    }
+
+    /// Stream over coordinates of all tiles in the database.
+    ///
+    /// No particular order is guaranteed.
+    ///
+    /// Note that returned [Stream] holds a mutable reference to the given
+    /// connection, making it unusable for anything else until the stream
+    /// is dropped.
+    pub fn stream_coords<'e, T>(
+        &self,
+        conn: &'e mut T,
+    ) -> Pin<Box<dyn Stream<Item = MbtResult<TileCoord>> + Send + 'e>>
+    where
+        &'e mut T: SqliteExecutor<'e>,
+    {
+        use futures::StreamExt;
+
+        let query = query! {"SELECT zoom_level, tile_column, tile_row FROM tiles"};
+        let stream = query.fetch(conn);
+
+        // We only need `&self` for `self.filepath`, which in turn we only
+        // need to create proper `MbtError::InvalidTileIndex`es.
+        // Cloning the filepath allows us to drop [Mbtiles] instance while returned
+        // stream is still alive.
+        let filepath = self.filepath.clone();
+
+        Box::pin(stream.map(move |result| {
+            result.map_err(MbtError::from).and_then(|row| {
+                let z = row.zoom_level;
+                let x = row.tile_column;
+                let y = row.tile_row;
+                let coord = parse_tile_index(z, x, y).ok_or_else(|| {
+                    MbtError::InvalidTileIndex(
+                        filepath.to_string(),
+                        format!("{z:?}"),
+                        format!("{x:?}"),
+                        format!("{y:?}"),
+                    )
+                })?;
+                Ok(coord)
+            })
+        }))
+    }
+
+    /// Returns a stream over all tiles in the database.
+    ///
+    /// No particular order is guaranteed.
+    ///
+    /// Note that returned [Stream] holds a mutable reference to the given
+    /// connection, making it unusable for anything else until the stream
+    /// is dropped.
+    pub fn stream_tiles<'e, T>(
+        &self,
+        conn: &'e mut T,
+    ) -> Pin<Box<dyn Stream<Item = MbtResult<Tile>> + Send + 'e>>
+    where
+        &'e mut T: SqliteExecutor<'e>,
+    {
+        use futures::StreamExt;
+
+        let query = query! {"SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles"};
+        let stream = query.fetch(conn);
+        let filepath = self.filepath.clone();
+
+        Box::pin(stream.map(move |result| {
+            result.map_err(MbtError::from).and_then(|row| {
+                let z = row.zoom_level;
+                let x = row.tile_column;
+                let y = row.tile_row;
+                let coord = parse_tile_index(z, x, y).ok_or_else(|| {
+                    MbtError::InvalidTileIndex(
+                        filepath.to_string(),
+                        format!("{z:?}"),
+                        format!("{x:?}"),
+                        format!("{y:?}"),
+                    )
+                })?;
+                Ok((coord, row.tile_data))
+            })
+        }))
     }
 
     /// Get a tile from the database
@@ -281,6 +365,17 @@ pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     register_bsdiffraw_functions(&rc)?;
     register_gzip_functions(&rc)?;
     Ok(())
+}
+
+fn parse_tile_index(z: Option<i64>, x: Option<i64>, y: Option<i64>) -> Option<TileCoord> {
+    let z: u8 = z?.try_into().ok()?;
+    let x: u32 = x?.try_into().ok()?;
+    let y: u32 = y?.try_into().ok()?;
+
+    // Inverting `y` value can panic if it is greater than `(1 << z) - 1`,
+    // so we must ensure that it is vald first.
+    TileCoord::is_possible_on_zoom_level(z, x, y)
+        .then(|| TileCoord::new_unchecked(z, x, invert_y_value(z, y)))
 }
 
 #[cfg(test)]
