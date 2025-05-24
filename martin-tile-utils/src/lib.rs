@@ -520,11 +520,20 @@ mod tests {
 
     #[test]
     fn test_tile_coord_new_checked() {
-        assert_eq!(TileCoord::new_checked(30, 0, 0), Some(TileCoord { z: 30, x: 0, y: 0 }));
+        assert_eq!(
+            TileCoord::new_checked(30, 0, 0),
+            Some(TileCoord { z: 30, x: 0, y: 0 })
+        );
         assert_eq!(TileCoord::new_checked(31, 0, 0), None);
 
-        assert_eq!(TileCoord::new_checked(5, 0, 0), Some(TileCoord { z: 5, x: 0, y: 0 }));
-        assert_eq!(TileCoord::new_checked(5, 31, 31), Some(TileCoord { z: 5, x: 31, y: 31 }));
+        assert_eq!(
+            TileCoord::new_checked(5, 0, 0),
+            Some(TileCoord { z: 5, x: 0, y: 0 })
+        );
+        assert_eq!(
+            TileCoord::new_checked(5, 31, 31),
+            Some(TileCoord { z: 5, x: 31, y: 31 })
+        );
         assert_eq!(TileCoord::new_checked(5, 31, 32), None);
         assert_eq!(TileCoord::new_checked(5, 32, 31), None);
     }
@@ -535,6 +544,9 @@ mod tests {
         // Any (u8, u32, u32) values can be put inside [TileCoord], of course, but some
         // functions may panic at runtime (e.g. [mbtiles::invert_y_value]) if they are impossible,
         // so let's not do that.
-        assert_eq!(TileCoord::new_unchecked(3, 2, 1), TileCoord { z: 3, x: 2, y: 1 });
+        assert_eq!(
+            TileCoord::new_unchecked(3, 2, 1),
+            TileCoord { z: 3, x: 2, y: 1 }
+        );
     }
 }
