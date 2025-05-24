@@ -66,6 +66,14 @@ impl DirectoryCache for PmtCache {
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
+    /// force path style URLs for S3 buckets
+      /// 
+      /// A path style URL is a URL that uses the bucket name as part of the path (`mys3.com/somebucket`) instead of the hostname (`somebucket.mys3.com`).
+    #[serde(default, alias = "aws_s3_force_path_style")]
+    pub force_path_style: Option<bool>,
+    /// send requests anonymously for publicly available buckets
+    #[serde(default, alias = "aws_no_credentials")]
+    pub no_credentials: Option<bool>,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
@@ -145,9 +153,32 @@ impl SourceConfigExtras for PmtConfig {
 
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
         match url.scheme() {
-            "s3" => Ok(Box::new(
-                PmtS3Source::new(self.new_cached_source(), id, url).await?,
-            )),
+            "s3" => {
+                let force_path_style = self.force_path_style.unwrap_or_else(|| {
+                    ["1", "true"].contains(
+                        &std::env::var("AWS_S3_FORCE_PATH_STYLE")
+                            .unwrap_or_default()
+                            .as_str(),
+                    )
+                });
+                let no_credentials = self.no_credentials.unwrap_or_else(|| {
+                    ["1", "true"].contains(
+                        &std::env::var("AWS_NO_CREDENTIALS")
+                            .unwrap_or_default()
+                            .as_str(),
+                    )
+                });
+                Ok(Box::new(
+                    PmtS3Source::new(
+                        self.new_cached_source(),
+                        id,
+                        url,
+                        no_credentials,
+                        force_path_style,
+                    )
+                    .await?,
+                ))
+            }
             _ => Ok(Box::new(
                 PmtHttpSource::new(
                     self.client.clone().unwrap(),
@@ -306,15 +337,21 @@ impl PmtHttpSource {
 impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadata);
 
 impl PmtS3Source {
-    pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+    pub async fn new(
+        cache: PmtCache,
+        id: String,
+        url: Url,
+        no_credentials: bool,
+        force_path_style: bool,
+    ) -> FileResult<Self> {
         let mut aws_config_builder = aws_config::from_env();
-        if std::env::var("AWS_NO_CREDENTIALS").unwrap_or_default() == "1" {
+        if no_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
         }
         let aws_config = aws_config_builder.load().await;
 
         let s3_config = S3ConfigBuilder::from(&aws_config)
-            .force_path_style(std::env::var("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default() == "1")
+            .force_path_style(force_path_style)
             .build();
         let client = S3Client::from_conf(s3_config);
 
