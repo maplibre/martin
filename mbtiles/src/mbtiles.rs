@@ -325,7 +325,7 @@ impl Mbtiles {
 
     /// sql query for getting tile and hash
     ///
-    /// For [`MbtType::Flat`] accessing it is not possible, we thus return null.
+    /// For [`MbtType::Flat`] accessing the hash is not possible, so the SQL query explicitly returns `NULL as tile_hash`.
     fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
         match mbt_type {
             MbtType::Flat => {
