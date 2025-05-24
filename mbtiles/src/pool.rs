@@ -163,7 +163,7 @@ mod tests {
           version: 1.0.0
         "#);
     }
-    
+
     #[tokio::test]
     async fn test_normalized() {
         let pool = MbtilesPool::open_readonly(
