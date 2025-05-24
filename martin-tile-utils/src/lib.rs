@@ -39,25 +39,24 @@ impl Display for TileCoord {
 impl TileCoord {
     /// Checks provided coordinates for validity
     /// before constructing [`TileCoord`] instance.
+    ///
+    /// Check [`Self::new_unchecked`] if you are sure that your inputs are possible.
     #[must_use]
-    pub fn checked(z: u8, x: u32, y: u32) -> Option<TileCoord> {
-        Self::are_valid(z, x, y).then_some(Self { z, x, y })
+    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<TileCoord> {
+        Self::is_possible_on_zoom_level(z, x, y).then_some(Self { z, x, y })
     }
 
-    /// Checks provided coordinates for validity
-    /// before constructing [`TileCoord`] instance with inverted `y` value.
+    /// Constructs [`TileCoord`] instance from arguments without checking that the tiles can exist.
+    ///
+    /// Check [`Self::new_checked`] if you are unsure if your inputs are possible.
     #[must_use]
-    pub fn checked_inverted(z: u8, x: u32, y: u32) -> Option<TileCoord> {
-        Self::are_valid(z, x, y).then_some(Self {
-            z,
-            x,
-            y: (1_u32 << z) - 1 - y,
-        })
+    pub fn new_unchecked(z: u8, x: u32, y: u32) -> TileCoord {
+        Self { z, x, y }
     }
 
-    /// Checks if provided tile coordinates are valid.
+    /// Checks that zoom `z` is plausibily small and `x`/`y` is possible on said zoom level
     #[must_use]
-    pub fn are_valid(z: u8, x: u32, y: u32) -> bool {
+    pub fn is_possible_on_zoom_level(z: u8, x: u32, y: u32) -> bool {
         if z > MAX_ZOOM {
             return false;
         }

@@ -161,8 +161,17 @@ impl Mbtiles {
 
         Box::pin(stream.map(move |result| {
             result.map_err(MbtError::from).and_then(|row| {
-                let coord =
-                    validate_tile_index(row.zoom_level, row.tile_column, row.tile_row, &filepath)?;
+                let z = row.zoom_level;
+                let x = row.tile_column;
+                let y = row.tile_row;
+                let coord = parse_tile_index(z, x, y).ok_or_else(|| {
+                    MbtError::InvalidTileIndex(
+                        filepath.to_string(),
+                        format!("{z:?}"),
+                        format!("{x:?}"),
+                        format!("{y:?}"),
+                    )
+                })?;
                 Ok(coord)
             })
         }))
@@ -190,8 +199,17 @@ impl Mbtiles {
 
         Box::pin(stream.map(move |result| {
             result.map_err(MbtError::from).and_then(|row| {
-                let coord =
-                    validate_tile_index(row.zoom_level, row.tile_column, row.tile_row, &filepath)?;
+                let z = row.zoom_level;
+                let x = row.tile_column;
+                let y = row.tile_row;
+                let coord = parse_tile_index(z, x, y).ok_or_else(|| {
+                    MbtError::InvalidTileIndex(
+                        filepath.to_string(),
+                        format!("{z:?}"),
+                        format!("{x:?}"),
+                        format!("{y:?}"),
+                    )
+                })?;
                 Ok((coord, row.tile_data))
             })
         }))
@@ -353,23 +371,11 @@ fn parse_tile_index(z: Option<i64>, x: Option<i64>, y: Option<i64>) -> Option<Ti
     let z: u8 = z?.try_into().ok()?;
     let x: u32 = x?.try_into().ok()?;
     let y: u32 = y?.try_into().ok()?;
-    TileCoord::checked_inverted(z, x, y)
-}
 
-fn validate_tile_index(
-    z: Option<i64>,
-    x: Option<i64>,
-    y: Option<i64>,
-    filepath: &str,
-) -> MbtResult<TileCoord> {
-    parse_tile_index(z, x, y).ok_or_else(|| {
-        MbtError::InvalidTileIndex(
-            filepath.to_string(),
-            format!("{z:?}"),
-            format!("{x:?}"),
-            format!("{y:?}"),
-        )
-    })
+    // Inverting `y` value can panic if it is greater than `(1 << z) - 1`,
+    // so we must ensure that it is vald first.
+    TileCoord::is_possible_on_zoom_level(z, x, y)
+        .then(|| TileCoord::new_unchecked(z, x, invert_y_value(z, y)))
 }
 
 #[cfg(test)]
