@@ -519,34 +519,43 @@ mod tests {
     }
 
     #[test]
-    fn test_tile_coord_new_checked() {
-        assert_eq!(
-            TileCoord::new_checked(30, 0, 0),
-            Some(TileCoord { z: 30, x: 0, y: 0 })
-        );
-        assert_eq!(TileCoord::new_checked(31, 0, 0), None);
-
+    fn test_tile_coord_zoom_range() {
+        for z in 0..=MAX_ZOOM {
+          assert!(TileCoord { z, x: 0, y: 0 }.is_possible_on_zoom_level());
+          assert_eq!(
+              TileCoord::new_checked(z, 0, 0),
+              Some(TileCoord { z, x: 0, y: 0 })
+          );
+        }
+        assert!(!TileCoord { z: MAX_ZOOM +1, x: 0, y: 0 }.is_possible_on_zoom_level());
+        assert_eq!(TileCoord::new_checked(MAX_ZOOM +1, 0, 0), None);
+}
+    #[test]
+    fn test_tile_coord_new_checked_xy_for_zoom() {
+        assert!(TileCoord { z: 5, x: 0, y: 0 }.is_possible_on_zoom_level());
         assert_eq!(
             TileCoord::new_checked(5, 0, 0),
             Some(TileCoord { z: 5, x: 0, y: 0 })
         );
+        assert!(TileCoord { z: 5, x: 31, y: 31 }.is_possible_on_zoom_level());
         assert_eq!(
             TileCoord::new_checked(5, 31, 31),
             Some(TileCoord { z: 5, x: 31, y: 31 })
         );
+        assert!(!TileCoord { z: 5, x: 31, y: 32 }.is_possible_on_zoom_level());
         assert_eq!(TileCoord::new_checked(5, 31, 32), None);
+        assert!(!TileCoord { z: 5, x: 32, y: 31 }.is_possible_on_zoom_level());
         assert_eq!(TileCoord::new_checked(5, 32, 31), None);
     }
 
     #[test]
+    /// Any (u8, u32, u32) values can be put inside [`TileCoord`], of course, but some
+    /// functions may panic at runtime (e.g. [`mbtiles::invert_y_value`]) if they are impossible,
+    /// so let's not do that.
     fn test_tile_coord_new_unchecked() {
-        // For complete code coverage.
-        // Any (u8, u32, u32) values can be put inside [TileCoord], of course, but some
-        // functions may panic at runtime (e.g. [mbtiles::invert_y_value]) if they are impossible,
-        // so let's not do that.
         assert_eq!(
-            TileCoord::new_unchecked(3, 2, 1),
-            TileCoord { z: 3, x: 2, y: 1 }
+            TileCoord::new_unchecked(u8::MAX, u32::MAX, u32::MAX),
+            TileCoord { z: u8::MAX, x: u32::MAX, y: u32::MAX }
         );
     }
 }
