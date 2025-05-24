@@ -72,7 +72,7 @@ impl Mbtiles {
     ///
     /// This does not open the file, nor check if it exists.
     /// For this, please use the [`Mbtiles::open`],  [`Mbtiles::open_or_new`] or [`Mbtiles::open_readonly`] method respectively.
-    /// 
+    ///
     /// # Errors
     /// Returns an error if the filepath contains unsupported characters.
     ///
@@ -188,7 +188,7 @@ impl Mbtiles {
     /// No particular order is guaranteed.
     ///
     /// <div class="warning">
-    /// 
+    ///
     /// **Note:** The returned [`Stream`] holds a mutable reference to the given
     /// connection, making it unusable for anything else until the stream
     /// is dropped.
@@ -235,7 +235,7 @@ impl Mbtiles {
     /// No particular order is guaranteed.
     ///
     /// <div class="warning">
-    /// 
+    ///
     /// **Note:** The returned [`Stream`] holds a mutable reference to the given
     /// connection, making it unusable for anything else until the stream
     /// is dropped.
