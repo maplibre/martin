@@ -753,7 +753,7 @@ mod tests {
 
     #[rstest]
     #[case(
-        None,Some(vec![118.4505876 , 118.4505876, 0.0]),[118.4505876,118.4505876, 0.0]
+        None,Some(vec![118.450_587_6, 118.450_587_6, 0.0]), [118.450_587_6, 118.450_587_6, 0.0]
     )]
     fn can_get_full_resolution(
         #[case] matrix: Option<Vec<f64>>,
