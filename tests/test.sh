@@ -95,6 +95,7 @@ test_jsn() {
   echo "Testing $(basename "$FILENAME") from $URL"
   # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
   $CURL  --dump-header  "$FILENAME.headers" "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 }
 
 test_pbf() {
@@ -103,6 +104,7 @@ test_pbf() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
@@ -120,6 +122,7 @@ test_png() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     file "$FILENAME" > "$FILENAME.txt"
@@ -137,6 +140,7 @@ test_font() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 }
 
 # Delete a line from a file $1 that matches parameter $2
@@ -146,6 +150,21 @@ remove_line() {
   >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
   grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
   mv "${FILE}.tmp" "${FILE}"
+}
+
+# if we dump a headers file via curl, this is otherwise not reproducible
+clean_headers_dump() {
+  FILE="$1"
+  # now we need to strip the date header as it is undeterministic
+  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  # the http version is not an "header" that we want to assert
+  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  # need to remove entirely empty lines, \r\n and leading/trailing whitespace
+  # sorting is arbitrairy => sort here
+  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  mv "$FILE.tmp" "$FILE"
+  # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
+  sed --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
@@ -612,14 +631,5 @@ else
 fi
 
 rm -rf "$TEST_TEMP_DIR"
-
-# now we need to strip the date header as it is undeterministic
-find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/date: .+//" {} \;
-# this is defintively not an header
-find -type f -name "*.headers" -exec sed --regexp-extended --in-place "s/HTTP.+//" {} \;
-# sorting is arbitrairy => need to sort and remove empty lines
-find . -type f -name "*.headers" -exec sh -c '
-  tr -d "\r" < "$1" | awk '"'"'{gsub(/^[[:space:]]+/, ""); gsub(/[[:space:]]+$/, ""); if ($0 != "") print}'"'"' | sort > "$1.tmp" && mv "$1.tmp" "$1"
-' sh {} \;
 
 >&2 echo "All integration tests have passed"
