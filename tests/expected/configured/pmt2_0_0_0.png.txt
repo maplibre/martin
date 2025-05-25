@@ -1,1 +1,1 @@
-tests/output/configured/pmt2_0_0_0.png: RIFF (little-endian) data, Web/P image, with alpha, 511+1x511+1
+tests/output/configured/pmt2_0_0_0.png: RIFF (little-endian) data, Web/P image
