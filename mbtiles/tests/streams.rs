@@ -1,6 +1,6 @@
 use futures::{StreamExt, TryStreamExt};
 use martin_tile_utils::{Tile, TileCoord};
-use mbtiles::{Mbtiles, create_metadata_table};
+use mbtiles::{MbtError, Mbtiles, create_metadata_table};
 use sqlx::{Executor as _, SqliteConnection, query};
 
 fn coord_key(coord: &TileCoord) -> (u8, u32, u32) {
@@ -54,7 +54,7 @@ async fn mbtiles_stream_tiles() {
             .stream_coords(&mut conn)
             .try_collect()
             .await
-            .expect("Failed to colled tile coords");
+            .expect("Failed to collect tile coords");
 
         // Iteration order is not guaranteed.
         coords.sort_by_key(coord_key);
@@ -126,7 +126,7 @@ async fn mbtiles_stream_tiles() {
 async fn mbtiles_stream_errors() {
     let (mbtiles, mut conn) = new(&[
         // Note that `y`-coordinates are inverted.
-        // `4` is an invalid value for `x` at `z = 2`. Valid range is `0..=3`.
+        // `4` is an invalid value for `x` at `z = 2`. A valid range is `0..=3`.
         "2, 4, 0, NULL",
     ])
     .await;
@@ -134,14 +134,14 @@ async fn mbtiles_stream_errors() {
     {
         let mut stream = mbtiles.stream_coords(&mut conn);
         match stream.next().await {
-            Some(Err(mbtiles::MbtError::InvalidTileIndex(_filename, _z, _x, _y))) => {}
+            Some(Err(MbtError::InvalidTileIndex(..))) => {}
             _ => panic!("Unexpected value returned from stream!"),
         }
     }
 
-    // counter test: mbtiles must contain all tiles
+    // Counter test: mbtiles must contain all tiles
     // the re-inverted y coordinate yielding 4 would be -1.
-    // This is impossible to achive without overflows.
+    // This is impossible to achieve without overflows.
     let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
     for y in 0..=20 {
         assert!(
