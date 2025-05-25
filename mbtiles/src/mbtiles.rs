@@ -345,16 +345,15 @@ impl Mbtiles {
         let table = match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { hash_view: _ } => "map",
+            MbtType::Normalized { .. } => "map",
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
         );
-        let y = invert_y_value(z, y);
         let row = query(&sql)
             .bind(z)
             .bind(x)
-            .bind(y)
+            .bind(invert_y_value(z, y))
             .fetch_optional(conn)
             .await?;
         Ok(row.is_some())

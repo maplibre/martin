@@ -104,7 +104,7 @@ mod tests {
         // invalid type
         assert!(pool.detect_type().await.is_err());
         let metadata = pool.get_metadata().await.unwrap();
-        insta::assert_yaml_snapshot!(metadata,@r#"
+        insta::assert_yaml_snapshot!(metadata, @r#"
         id: webp
         tile_info:
           format: webp
@@ -185,7 +185,7 @@ mod tests {
             MbtType::Normalized { hash_view: false }
         );
         let metadata = pool.get_metadata().await.unwrap();
-        insta::assert_yaml_snapshot!(metadata,@r#"
+        insta::assert_yaml_snapshot!(metadata, @r#"
         id: geography-class-png-no-bounds
         tile_info:
           format: png
@@ -224,6 +224,7 @@ mod tests {
         }
         assert!(pool.contains(MbtType::FlatWithHash, 0, 0, 0).await.is_err());
     }
+
     #[tokio::test]
     async fn test_normalized() {
         let pool = MbtilesPool::open_readonly(
@@ -262,6 +263,7 @@ mod tests {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
     }
+
     #[expect(clippy::too_many_lines)]
     #[tokio::test]
     async fn test_metadata_flat_with_hash() {
@@ -271,7 +273,7 @@ mod tests {
                 .unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let metadata = pool.get_metadata().await.unwrap();
-        insta::assert_yaml_snapshot!(metadata,@r#"
+        insta::assert_yaml_snapshot!(metadata, @r#"
         id: zoomed_world_cities
         tile_info:
           format: mvt
