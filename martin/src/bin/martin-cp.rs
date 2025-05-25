@@ -64,9 +64,9 @@ pub struct CopierArgs {
 #[serde_with::serde_as]
 #[derive(clap::Args, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
 pub struct CopyArgs {
-    /// Name of the source to copy from.
+    /// Name of the source to copy from. Not required if there is only one source.
     #[arg(short, long)]
-    pub source: String,
+    pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
@@ -241,6 +241,12 @@ enum MartinCpError {
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
     Mbt(#[from] MbtError),
+    #[error("No sources found")]
+    NoSources,
+    #[error(
+        "More than one source found, please specify source using --source.\nAvailable sources: {0}"
+    )]
+    MultipleSources(String),
 }
 
 impl Display for Progress {
@@ -283,13 +289,30 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
+fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
+    if let Some(source) = &args.source {
+        Ok(source.to_string())
+    } else {
+        let sources = state.tiles.source_names();
+        if let Some(source) = sources.first() {
+            if sources.len() > 1 {
+                return Err(MartinCpError::MultipleSources(sources.join(", ")));
+            }
+            Ok(source.to_string())
+        } else {
+            Err(MartinCpError::NoSources)
+        }
+    }
+}
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
 
+    let source = check_sources(&args, &state)?;
+
     let src = DynTileSource::new(
         &state.tiles,
-        args.source.as_str(),
+        &source,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
@@ -318,7 +341,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         "Copying {} {} tiles from {} to {}",
         progress.total,
         src.info,
-        args.source,
+        source,
         args.output_file.display()
     );
 
