@@ -72,6 +72,7 @@ actix-rt.workspace = true
 actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
+aws-config.workspace = true
 bit-set = { workspace = true, optional = true }
 clap.workspace = true
 dashmap.workspace = true
