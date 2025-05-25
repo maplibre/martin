@@ -68,24 +68,11 @@ impl MbtilesPool {
             .get_tile_and_hash(&mut conn, mbt_type, z, x, y)
             .await
     }
-
     /// Check if a tile exists in the database.
     ///
-    /// This is a slight optimisation over [`Mbtiles::get_tile_and_hash`] or [`Mbtiles::get_tile`] and does only look up IF the tile exists, not the tile data.
-    ///
-    /// <div class="warning">
-    ///
-    /// **Note:**
-    /// You usually (unless the second query is unnecessary) want to retrieve the tile data if it exists instead.
-    /// Sqlite already checks for a tiles existence and retrieving it if it exists in [`MbtilesPool::get_tile_and_hash`] or [`MbtilesPool::get_tile`].
-    ///
-    /// </div>
-    ///
-    /// *Tipp:*
-    /// If you need even more performance in this specific operation, consider scanning over the entire table once via [`Mbtiles::stream_coords`] and building a bloom filter (f.ex. [`fastbloom`](https://docs.rs/fastbloom/)) as a fast path.
-    /// This only works if
-    /// - the database is static or
-    /// - you maintain the bloom filter on inserts and deletes to the database.
+    /// This method is slightly faster than [`Mbtiles::get_tile_and_hash`] and [`Mbtiles::get_tile`]
+    /// because it only checks if the tile exists but does not retrieve tile data.
+    /// Most of the time you would want to use the other two functions.
     pub async fn contains(&self, mbt_type: MbtType, z: u8, x: u32, y: u32) -> MbtResult<bool> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.contains(&mut conn, mbt_type, z, x, y).await
