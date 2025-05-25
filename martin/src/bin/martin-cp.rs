@@ -244,7 +244,7 @@ enum MartinCpError {
     #[error("No sources found")]
     NoSources,
     #[error(
-        "More than one source found, please specify source using --source. \nAvailable sources: {0}"
+        "More than one source found, please specify source using --source.\nAvailable sources: {0}"
     )]
     MultipleSources(String),
 }
