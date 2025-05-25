@@ -64,7 +64,7 @@ pub struct CopierArgs {
 #[serde_with::serde_as]
 #[derive(clap::Args, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
 pub struct CopyArgs {
-    /// Name of the source to copy from.
+    /// Name of the source to copy from. Not required if there is only one source.
     #[arg(short, long)]
     pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
