@@ -51,7 +51,7 @@ pub enum FileError {
 
     #[cfg(feature = "pmtiles")]
     #[error(r"PMTiles error {0:?} processing {1}")]
-    PmtError(pmtiles::PmtError, String),
+    PmtError(Box<pmtiles::PmtError>, String),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]

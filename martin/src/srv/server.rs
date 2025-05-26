@@ -81,7 +81,7 @@ async fn get_index_no_ui() -> &'static str {
     See documentation https://github.com/maplibre/martin"
 }
 
-/// Root path in case web front is disabled and the WebUI feature is enabled.
+/// Root path in case web front is disabled and the `webui` feature is enabled.
 #[cfg(feature = "webui")]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
