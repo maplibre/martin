@@ -59,7 +59,9 @@ pub enum CogError {
     )]
     GetOriginFailed(PathBuf),
 
-    #[error("Get full resolution failed from file: {0}")]
+    #[error(
+        "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or PixelSCaleTag is required"
+    )]
     GetFullResolutionFailed(PathBuf),
 
     #[error("Get extent failed from file: {0}")]
