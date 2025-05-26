@@ -60,7 +60,7 @@ pub enum CogError {
     GetOriginFailed(PathBuf),
 
     #[error(
-        "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or PixelSCaleTag is required"
+        "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or ModelPixelScaleTag is required"
     )]
     GetFullResolutionFailed(PathBuf),
 }
