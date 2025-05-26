@@ -13,7 +13,7 @@ See also [SSL configuration](pg-connections.md#postgresql-ssl-connections) secti
 | `PGSSLROOTCERT` <br/> `ssl_root_cert`    | `./root.crt`                                | A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. [docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT) |
 | `AWS_LAMBDA_RUNTIME_API` <br/> -         |                                             | If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See [Running in AWS Lambda](run-with-lambda.md)                                                                 |
 
-To [access PMTiles via S3](sources-files.md#serving-pmtiles-via-s3) also supports these configuration options:
+To [access PMTiles via S3](sources-files.md#serving-pmtiles-via-s3), we also support the following configuration options:
 
 | Environment var <br/> Config File key                      | Example                                    | Description                                                                                                                                                               |
 | ---------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
