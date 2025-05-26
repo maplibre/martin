@@ -8,7 +8,7 @@ set shell := ["bash", "-c"]
 PGPARAMS := ""
 PGPORT := "5411"
 
-export DATABASE_URL := "postgres://postgres:postgres@localhost:" + PGPORT + "/db" + (if PGPARAMS != "" { "?" + PGPARAMS } else { "" })
+export DATABASE_URL := ("postgres://postgres:postgres@localhost:" + PGPORT + "/db" + (if PGPARAMS != "" { "?" + PGPARAMS } else { "" }))
 export CARGO_TERM_COLOR := "always"
 
 # Set AWS variables for testing pmtiles from S3
@@ -22,7 +22,7 @@ export AWS_REGION := "eu-central-1"
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
 @_default:
-    {{just_executable()}} --list --unsorted
+    {{just_executable()}} --list
 
 # Start Martin server
 run *ARGS="--webui enable-for-all":
@@ -261,31 +261,45 @@ print-conn-str:
 # Run cargo fmt and cargo clippy
 lint: fmt clippy
 
-# Run cargo fmt
-fmt:
+# Test code formatting
+test-fmt:
     cargo fmt --all -- --check
+
+# Reformat all code `cargo fmt`. If nightly is available, use it for better results
+fmt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if rustup component list --toolchain nightly | grep rustfmt &> /dev/null; then
+        echo 'Reformatting Rust code using nightly Rust fmt to sort imports'
+        cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
+    else
+        echo 'Reformatting Rust with the stable cargo fmt.  Install nightly with `rustup install nightly` for better results'
+        cargo fmt --all
+    fi
 
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
     docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
+
+# Reformat all SQL files using docker
 fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
-# Run Nightly cargo fmt, ordering imports
-fmt2:
-    cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate
 
 # Run cargo check
 check:
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin-tile-utils
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p mbtiles
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p mbtiles --no-default-features
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features fonts
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features mbtiles
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features pmtiles
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features postgres
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features sprites
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export RUSTFLAGS='-D warnings'
+    cargo check --all-targets -p martin-tile-utils
+    cargo check --all-targets -p mbtiles
+    cargo check --all-targets -p mbtiles --no-default-features
+    cargo check --all-targets -p martin
+    cargo check --all-targets -p martin --no-default-features
+    cargo check --all-targets -p martin --no-default-features --features fonts
+    cargo check --all-targets -p martin --no-default-features --features mbtiles
+    cargo check --all-targets -p martin --no-default-features --features pmtiles
+    cargo check --all-targets -p martin --no-default-features --features postgres
+    cargo check --all-targets -p martin --no-default-features --features sprites
 
 # Verify doc build
 check-doc:
@@ -306,12 +320,11 @@ update:
     cargo update
 
 # A few useful tests to run locally to simulate CI
-ci-test: env-info restart fmt clippy check-doc test check
+ci-test: env-info restart test-fmt clippy check-doc test check
 
-# Get environment info
-[private]
+# Print environment info
 env-info:
-    @echo "OS is {{os()}}, arch is {{arch()}}"
+    @echo "Running on {{os()}} / {{arch()}}"
     {{just_executable()}} --version
     rustc --version
     cargo --version

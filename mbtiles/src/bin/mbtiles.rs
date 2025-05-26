@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use clap::builder::{Styles, styling::AnsiColor};
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand};
 use log::error;
 use mbtiles::{

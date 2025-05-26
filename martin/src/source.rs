@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
@@ -6,7 +7,6 @@ use dashmap::DashMap;
 use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tilejson::TileJSON;
 
 use crate::MartinResult;

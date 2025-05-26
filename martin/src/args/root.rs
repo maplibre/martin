@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 
-use clap::{
-    Parser,
-    builder::{Styles, styling::AnsiColor},
-};
+use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use log::warn;
 
 use crate::MartinError::ConfigAndConnectionsError;

@@ -7,10 +7,9 @@ use std::time::Duration;
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
 use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
-use clap::{
-    Parser,
-    builder::{Styles, styling::AnsiColor},
-};
+use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled};
