@@ -1,9 +1,8 @@
-use crate::styles::StyleSources;
 use actix_middleware_etag::Etag;
 use actix_web::http::header::ContentType;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, middleware, route};
+use actix_web::{HttpResponse, route};
 use log::error;
 use serde::Deserialize;
 
