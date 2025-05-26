@@ -154,22 +154,12 @@ impl SourceConfigExtras for PmtConfig {
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
         match url.scheme() {
             "s3" => {
-                let force_path_style = self.force_path_style.unwrap_or_else(|| {
-                    ["1", "true"].contains(
-                        &std::env::var("AWS_S3_FORCE_PATH_STYLE")
-                            .unwrap_or_default()
-                            .to_ascii_lowercase()
-                            .as_str(),
-                    )
-                });
-                let no_credentials = self.no_credentials.unwrap_or_else(|| {
-                    ["1", "true"].contains(
-                        &std::env::var("AWS_NO_CREDENTIALS")
-                            .unwrap_or_default()
-                            .to_ascii_lowercase()
-                            .as_str(),
-                    )
-                });
+                let force_path_style = self
+                    .force_path_style
+                    .unwrap_or_else(|| get_env_as_bool("AWS_S3_FORCE_PATH_STYLE"));
+                let no_credentials = self
+                    .no_credentials
+                    .unwrap_or_else(|| get_env_as_bool("AWS_NO_CREDENTIALS"));
                 Ok(Box::new(
                     PmtS3Source::new(
                         self.new_cached_source(),
@@ -398,4 +388,12 @@ impl PmtFileSource {
 
         Self::new_int(id, path, reader).await
     }
+}
+
+/// Interpret an environment variable as a [`bool`]
+/// 
+/// This ignores casing, but interprets bad utf8 encoding as `false`.
+fn get_env_as_bool(key: &'static str) -> bool {
+    let env_val = std::env::var_os(key).unwrap_or_default().to_ascii_lowercase();
+    [Some("1"), Some("true")].contains(&env_val.to_str())
 }
