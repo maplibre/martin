@@ -488,12 +488,11 @@ fn get_full_resolution(
     match (pixel_scale, transformation) {
         // ModelPixelScaleTag = (ScaleX, ScaleY, ScaleZ)
         (Some(scale), _) => Ok([scale[0], scale[1]]),
+        // here we adopted the 2-d matrix based on the geotiff spec, the z-zxis is dropped intentionally, see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
         (_, Some(matrix)) => {
-            let mut x_res =
-                (matrix[0] * matrix[0] + matrix[4] * matrix[4] + matrix[8] * matrix[8]).sqrt();
+            let mut x_res = (matrix[0] * matrix[0] + matrix[4] * matrix[4]).sqrt();
             x_res = x_res.copysign(matrix[0]);
-            let mut y_res =
-                (matrix[1] * matrix[1] + matrix[5] * matrix[5] + matrix[9] * matrix[9]).sqrt();
+            let mut y_res = (matrix[1] * matrix[1] + matrix[5] * matrix[5]).sqrt();
             // A positive y_res indicates that model space Y cordinates decrease as raster space J indices increase. This is the standard vertical relationship between raster space and model space
             y_res = y_res.copysign(-matrix[5]);
             Ok([x_res, y_res]) // drop the z scale directly as we don't use it
