@@ -488,7 +488,19 @@ fn get_full_resolution(
     match (pixel_scale, transformation) {
         // ModelPixelScaleTag = (ScaleX, ScaleY, ScaleZ)
         (Some(scale), _) => Ok([scale[0], scale[1]]),
-        // here we adopted the 2-d matrix based on the geotiff spec, the z-zxis is dropped intentionally, see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+        // here we adopted the 2-d matrix form based on the geotiff spec, the z-axis is dropped intentionally, see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+        // It looks like this:
+        /*
+           |- -|   |-       -| |- -|
+           | X |   | a b 0 d | | I |
+           | | |   |         | |   |
+           | Y |   | e f 0 h | | J |
+           |   | = |         | |   |
+           | Z |   | 0 0 0 0 | | K |
+           | | |   |         | |   |
+           | 1 |   | 0 0 0 1 | | 1 |
+           |- -|   |-       -| |- -|
+        */
         (_, Some(matrix)) => {
             let mut x_res = (matrix[0] * matrix[0] + matrix[4] * matrix[4]).sqrt();
             x_res = x_res.copysign(matrix[0]);
