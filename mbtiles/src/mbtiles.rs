@@ -395,6 +395,36 @@ impl Mbtiles {
         Ok(())
     }
 
+    /// Check if a tile exists in the database.
+    ///
+    /// This method is slightly faster than [`Mbtiles::get_tile_and_hash`] and [`Mbtiles::get_tile`]
+    /// because it only checks if the tile exists but does not retrieve tile data.
+    /// Most of the time you would want to use the other two functions.
+    pub async fn contains(
+        &self,
+        conn: &mut SqliteConnection,
+        mbt_type: MbtType,
+        z: u8,
+        x: u32,
+        y: u32,
+    ) -> MbtResult<bool> {
+        let table = match mbt_type {
+            MbtType::Flat => "tiles",
+            MbtType::FlatWithHash => "tiles_with_hash",
+            MbtType::Normalized { .. } => "map",
+        };
+        let sql = format!(
+            "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+        );
+        let row = query(&sql)
+            .bind(z)
+            .bind(x)
+            .bind(invert_y_value(z, y))
+            .fetch_optional(conn)
+            .await?;
+        Ok(row.is_some())
+    }
+
     fn get_insert_sql(
         src_type: MbtType,
         on_duplicate: CopyDuplicateMode,
