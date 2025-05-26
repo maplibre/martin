@@ -140,7 +140,6 @@ impl PgArgs {
         }
 
         for v in &[
-            "DANGER_ACCEPT_INVALID_CERTS",
             "DATABASE_URL",
             "DEFAULT_SRID",
             "PGSSLCERT",
@@ -283,7 +282,6 @@ mod tests {
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
                 ("DEFAULT_SRID", os("10")),
-                ("DANGER_ACCEPT_INVALID_CERTS", os("1")),
                 ("PGSSLROOTCERT", os("file")),
             ]
             .into_iter()
