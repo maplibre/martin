@@ -706,21 +706,33 @@ mod tests {
 
     #[rstest]
     #[case(
-        None,Some(vec![10.0, 10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512))
-    ]
+        None,Some(vec![10.0, 10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512),
+        [1_620_750.250_8, 4_271_892.715_3, 1_625_870.250_8, 4_277_012.715_3]
+    )]
     #[case(
         Some(vec![
             10.0,0.0,0.0,1_620_750.250_8,
             0.0,-10.0,0.0,4_277_012.715_3,
             0.0,0.0,0.0,0.0,
             0.0,0.0,0.0,1.0
-        ]),None,None,(512,512))
-    ]
+        ]),None,None,(512,512),
+        [1_620_750.250_8, 4_271_892.715_3, 1_625_870.250_8, 4_277_012.715_3]
+    )]
+    #[case(
+        Some(vec![
+            0.010005529647693, 0.0, 0.0, -7.58390693285438,
+            0.0, -0.00998618875544763, 0.0, 38.7503547383259,
+            0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ]), None, None, (598, 279),
+        [-7.5839069, 35.9642081, -1.6006002, 38.7503547]
+    )]
     fn can_get_extent(
         #[case] matrix: Option<Vec<f64>>,
         #[case] pixel_scale: Option<Vec<f64>>,
         #[case] tie_point: Option<Vec<f64>>,
         #[case] (full_width_pixel, full_length_pixel): (u32, u32),
+        #[case] expected_extent: [f64; 4],
     ) {
         use approx::assert_abs_diff_eq;
 
@@ -749,20 +761,29 @@ mod tests {
             (full_width, full_length),
         );
 
-        assert_abs_diff_eq!(extent[0], 1_620_750.250_8);
-        assert_abs_diff_eq!(extent[1], 4_271_892.715_3);
-        assert_abs_diff_eq!(extent[2], 1_625_870.250_8);
-        assert_abs_diff_eq!(extent[3], 4_277_012.715_3);
+        assert_abs_diff_eq!(extent[0], expected_extent[0], epsilon = 0.00001);
+        assert_abs_diff_eq!(extent[1], expected_extent[1], epsilon = 0.00001);
+        assert_abs_diff_eq!(extent[2], expected_extent[2], epsilon = 0.00001);
+        assert_abs_diff_eq!(extent[3], expected_extent[3], epsilon = 0.00001);
     }
 
     #[rstest]
     #[case(
-        None,Some(vec![118.450_587_6, 118.450_587_6, 0.0]), [118.450_587_6, 118.450_587_6, 0.0]
+        None,Some(vec![118.450_587_6, 118.450_587_6, 0.0]), [118.450_587_6, 118.450_587_6]
     )]
+    #[case(
+        None,Some(vec![100.00, -100.0]), [100.0, -100.0]
+    )]
+    #[
+        case(
+            Some(vec![
+                0.0100055296476933, 0.0, 0.0, -7.58390693285438, 0.0, -0.00998618875544763, 0.0, 38.7503547383259, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]),
+            None, [0.010005529647693, 0.009986188755448])
+    ]
     fn can_get_full_resolution(
         #[case] matrix: Option<Vec<f64>>,
         #[case] pixel_scale: Option<Vec<f64>>,
-        #[case] expected: [f64; 3],
+        #[case] expected: [f64; 2],
     ) {
         use approx::assert_abs_diff_eq;
 
@@ -774,7 +795,7 @@ mod tests {
             &PathBuf::from("not_exist.tif"),
         )
         .unwrap();
-        assert_abs_diff_eq!(full_resolution[0], expected[0]);
-        assert_abs_diff_eq!(full_resolution[1], expected[1]);
+        assert_abs_diff_eq!(full_resolution[0], expected[0], epsilon = 0.00001);
+        assert_abs_diff_eq!(full_resolution[1], expected[1], epsilon = 0.00001);
     }
 }
