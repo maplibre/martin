@@ -547,7 +547,7 @@ fn get_extent(
     }
     let [x1, y1, _] = origin;
     let x2 = x1 + full_width;
-    let y2 = y1 + full_height;
+    let y2 = y1 - full_height;
 
     [x1.min(x2), y1.min(y2), x1.max(x2), y1.max(y2)]
 }
@@ -701,7 +701,7 @@ mod tests {
 
     #[rstest]
     #[case(
-        None,Some(vec![10.0,-10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512))
+        None,Some(vec![10.0, 10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512))
     ]
     #[case(
         Some(vec![
