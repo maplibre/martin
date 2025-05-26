@@ -6,7 +6,7 @@ file as a reference
 ```yml
 services:
   martin:
-    image: ghcr.io/maplibre/martin:v0.13.0
+    image: ghcr.io/maplibre/martin:v0.16.0
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -16,7 +16,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgis/postgis:17-3.5-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db

@@ -13,13 +13,18 @@ use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
 
 use super::CogError;
+use super::model::ModelInfo;
 use crate::file_config::{FileError, FileResult};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
+#[allow(dead_code)] // the unused model would be used in next PRs
 #[derive(Clone, Debug)]
 struct Meta {
     min_zoom: u8,
     max_zoom: u8,
+    model: ModelInfo,
+    // The geo coords of pixel(0, 0, 0) ordering in [x, y, z]
+    origin: [f64; 3],
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
@@ -229,7 +234,11 @@ fn rgb_to_png(
     Ok(result_file_buffer)
 }
 
-fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), CogError> {
+fn verify_requirements(
+    decoder: &mut Decoder<File>,
+    model: &ModelInfo,
+    path: &Path,
+) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
     // see the requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
@@ -273,6 +282,34 @@ fn verify_requirments(decoder: &mut Decoder<File>, path: &Path) -> Result<(), Co
             path.to_path_buf(),
         ))?;
     }
+
+    match (&model.pixel_scale, &model.tie_points, &model.transformation) {
+        (Some(pixel_scale), Some(tie_points), _)
+             =>
+        {
+            if pixel_scale.len() != 3 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The count of pixel scale should be 3".to_string()))
+            }
+            else if (pixel_scale[0].abs() - pixel_scale[1].abs()).abs() > 0.01{
+                Err(CogError::NonSquaredImage(path.to_path_buf(), pixel_scale[0], pixel_scale[1]))
+            }
+            else if tie_points.len() % 6 != 0 {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The count of tie points should be a multiple of 6".to_string()))
+            }else{
+                Ok(())
+            }
+       }
+        (_, _, Some(matrix))
+        => {
+            if matrix.len() == 16 {
+                Ok(())
+            } else {
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
+            }
+        },
+            _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided".to_string())),
+    }?;
+
     Ok(())
 }
 
@@ -282,8 +319,13 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     let mut decoder = Decoder::new(tif_file)
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
-
-    verify_requirments(&mut decoder, path)?;
+    let model = ModelInfo::decode(&mut decoder, path);
+    let origin = get_origin(
+        model.tie_points.as_deref(),
+        model.transformation.as_deref(),
+        path,
+    )?;
+    verify_requirements(&mut decoder, &model, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
 
@@ -316,6 +358,8 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
     Ok(Meta {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
+        model,
+        origin,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
@@ -380,13 +424,49 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     res
 }
 
+fn get_origin(
+    tie_points: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    // From geotiff spec: "This matrix tag should not be used if the ModelTiepointTag and the ModelPixelScaleTag are already defined"
+    // See more in https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+    match (tie_points, transformation) {
+        // From geotiff spec: "If possible, the first tiepoint placed in this tag shall be the one establishing the location of the point (0,0) in raster space"
+        (Some(points), _) if points.len() >= 6 => Ok([points[3], points[4], points[5]]),
+
+        // coords =     matrix  * coords
+        // |- -|     |-       -|  |- -|
+        // | X |     | a b c d |  | I |
+        // | | |     |         |  |   |
+        // | Y |     | e f g h |  | J |
+        // |   |  =  |         |  |   |
+        // | Z |     | i j k l |  | K |
+        // | | |     |         |  |   |
+        // | 1 |     | m n o p |  | 1 |
+        // |- -|     |-       -|  |- -|
+
+        // The (I,J,K) of origin is (0,0,0), so:
+        //
+        //    x = I*a + J*b + K*c + 1*d => d => matrix[3]
+        //    y = I*e + J*f + k*g + 1*h => h => matrix[7]
+        //    z = I*i + J*j + K*k + 1*l => l => matrix[11]
+        (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
+        _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
     use std::path::PathBuf;
 
+    use insta::assert_yaml_snapshot;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
+    use tiff::decoder::Decoder;
 
+    use crate::cog::model::ModelInfo;
     use crate::cog::source::get_tile_idx;
 
     #[test]
@@ -457,5 +537,71 @@ mod tests {
         .unwrap();
         let expected = std::fs::read(expected_file_path).unwrap();
         assert_eq!(png_bytes, expected);
+    }
+
+    #[test]
+    fn can_get_model_infos() {
+        let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
+        let tif_file = File::open(&path).unwrap();
+        let mut decoder = Decoder::new(tif_file).unwrap();
+
+        let model = ModelInfo::decode(&mut decoder, &path);
+        let (pixel_scale, tie_points, transformation) =
+            (model.pixel_scale, model.tie_points, model.transformation);
+        assert_yaml_snapshot!(pixel_scale, @r###"
+        - 10
+        - 10
+        - 0
+        "###);
+        assert_yaml_snapshot!(tie_points, @r###"
+        - 0
+        - 0
+        - 0
+        - 1620750.2508
+        - 4277012.7153
+        - 0
+        "###);
+        assert_yaml_snapshot!(transformation, @"~");
+    }
+
+    #[rstest]
+    #[case(
+        Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),None,
+        Some([1_620_750.250_8, 4_277_012.715_3, 0.0])
+    )]
+    #[case(
+        None,Some(vec![
+            0.0, 100.0, 0.0, 400_000.0, 100.0, 0.0, 0.0, 500_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 1.0,
+        ]),
+        Some([400_000.0, 500_000.0, 0.0])
+    )]
+    #[case(None, None, None)]
+    fn can_get_origin(
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] expected: Option<[f64; 3]>,
+    ) {
+        use approx::assert_abs_diff_eq;
+
+        let origin = super::get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .ok();
+        match (origin, expected) {
+            (Some(o), Some(e)) => {
+                assert_abs_diff_eq!(o[0], e[0]);
+                assert_abs_diff_eq!(o[1], e[1]);
+                assert_abs_diff_eq!(o[2], e[2]);
+            }
+            (None, None) => {
+                // Both are None, which is expected
+            }
+            _ => {
+                panic!("Origin {origin:?} does not match expected {expected:?}");
+            }
+        }
     }
 }
