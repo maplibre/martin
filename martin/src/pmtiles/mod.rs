@@ -399,5 +399,5 @@ fn get_env_as_bool(key: &'static str) -> bool {
         .unwrap_or_default()
         .to_ascii_lowercase()
         .to_str()
-        .is_some_and(|val| matches!(val, "1" | "true"))
+        .is_some_and(|val| val == "1" || val == "true")
 }
