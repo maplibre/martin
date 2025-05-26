@@ -528,33 +528,26 @@ fn get_extent(
     (full_width, full_height): (f64, f64),
 ) -> [f64; 4] {
     if let Some(matrix) = transformation {
-        let corners = [
-            [0, 0],
-            [0, full_height_pixel],
-            [full_width_pixel, 0],
-            [full_width_pixel, full_height_pixel],
+        let corner_pixels = [
+            (0, 0),                                // Top-left
+            (0, full_height_pixel),                // Bottom-left
+            (full_width_pixel, 0),                 // Top-right
+            (full_width_pixel, full_height_pixel), // Bottom-right
         ];
-        let transformed = corners.map(|pixel| raster2model(pixel[0], pixel[1], matrix));
-        let max_x = transformed
-            .iter()
-            .map(|(x, _)| *x)
-            .max_by(f64::total_cmp)
-            .expect("corners has >1 element => max exists");
-        let min_x = transformed
-            .iter()
-            .map(|(x, _)| *x)
-            .min_by(f64::total_cmp)
-            .expect("corners has >1 element => min exists");
-        let max_y = transformed
-            .iter()
-            .map(|(_, y)| *y)
-            .max_by(f64::total_cmp)
-            .expect("corners has >1 element => max exists");
-        let min_y = transformed
-            .iter()
-            .map(|(_, y)| *y)
-            .min_by(f64::total_cmp)
-            .expect("corners has >1 element => min exists");
+
+        // Transform the first corner to initialize min/max values
+        let (mut min_x, mut min_y) = raster2model(corner_pixels[0].0, corner_pixels[0].1, matrix);
+        let mut max_x = min_x;
+        let mut max_y = min_y;
+
+        // Iterate over the rest of the corners
+        for &(i, j) in corner_pixels.iter().skip(1) {
+            let (x, y) = raster2model(i, j, matrix);
+            min_x = min_x.min(x);
+            min_y = min_y.min(y);
+            max_x = max_x.max(x);
+            max_y = max_y.max(y);
+        }
         return [min_x, min_y, max_x, max_y];
     }
     let [x1, y1, _] = origin;
