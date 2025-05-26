@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
@@ -6,7 +7,6 @@ use dashmap::DashMap;
 use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tilejson::TileJSON;
 
 use crate::MartinResult;
@@ -40,6 +40,11 @@ impl TileSources {
             .iter()
             .map(|v| (v.key().to_string(), v.get_catalog_entry()))
             .collect()
+    }
+
+    #[must_use]
+    pub fn source_names(&self) -> Vec<String> {
+        self.0.iter().map(|v| v.key().to_string()).collect()
     }
 
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
