@@ -52,7 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
-      - run: just fmt
+      - run: just test-fmt
       - run: just clippy
       - run: just check
       - run: just check-doc

@@ -458,14 +458,16 @@ fn get_origin(
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, path::PathBuf};
+    use std::fs::File;
+    use std::path::PathBuf;
 
     use insta::assert_yaml_snapshot;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
     use tiff::decoder::Decoder;
 
-    use crate::cog::{model::ModelInfo, source::get_tile_idx};
+    use crate::cog::model::ModelInfo;
+    use crate::cog::source::get_tile_idx;
 
     #[test]
     fn can_calc_tile_idx() {
