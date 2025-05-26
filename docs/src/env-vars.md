@@ -15,10 +15,12 @@ See also [SSL configuration](pg-connections.md#postgresql-ssl-connections) secti
 
 To [access PMTiles via S3](sources-files.md#serving-pmtiles-via-s3) also supports these configuration options:
 
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_SESSION_TOKEN`
-- `AWS_PROFILE`
-- `AWS_REGION`
-- `AWS_NO_CREDENTIALS`
-- `AWS_S3_FORCE_PATH_STYLE`
+| Environment var <br/> Config File key                      | Example                                    | Description                                                                                                                                                               |
+| ---------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AWS_ACCESS_KEY_ID` <br/> `-`                              | `AKIAEXAMPLE12345678`                      | AWS access key ID used for authenticating requests when using long-term or temporary credentials.                                                                         |
+| `AWS_SECRET_ACCESS_KEY` <br/> `-`                          | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` | AWS secret access key paired with the access key ID.                                                                                                                      |
+| `AWS_SESSION_TOKEN` <br/> `-`                              | `FwoGZXIvYXdzEF0aD...`                     | Session token used with temporary security credentials (e.g., from AWS STS). Required if you're using `AssumeRole`.                                                       |
+| `AWS_PROFILE` <br/> `-`                                    | `default`                                  | Specifies which named profile to use from the AWS credentials/config files.                                                                                               |
+| `AWS_REGION` <br/> `-`                                     | `us-west-2`                                | Sets the AWS region to send requests to, e.g., `us-east-1`, `eu-central-1`.                                                                                               |
+| `AWS_NO_CREDENTIALS` <br/> `pmtiles.no_credentials`        | `true`                                     | Disable credential loading and to send requests anonymously for publicly available buckets.                                                                               |
+| `AWS_S3_FORCE_PATH_STYLE` <br/> `pmtiles.force_path_style` | `true`                                     | Forces the AWS SDK to use path-style URLs for S3 like `s3.amazonaws.com/bucket/key`) instead of virtual-hosted style. Useful for local S3-compatible services like MinIO. |
