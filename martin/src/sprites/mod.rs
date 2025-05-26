@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::path::PathBuf;
 
@@ -56,7 +56,7 @@ pub struct CatalogSpriteEntry {
     pub images: Vec<String>,
 }
 
-pub type SpriteCatalog = DashMap<String, CatalogSpriteEntry>;
+pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SpriteConfig {
@@ -109,7 +109,7 @@ impl SpriteSources {
 
     pub fn get_catalog(&self) -> SpriteResult<SpriteCatalog> {
         // TODO: all sprite generation should be pre-cached
-        let entries = SpriteCatalog::new();
+        let mut entries = SpriteCatalog::new();
         for source in &self.0 {
             let paths = get_svg_input_paths(&source.path, true)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;

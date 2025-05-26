@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use log::warn;
 
 use crate::MartinError::ConfigAndConnectionsError;
@@ -19,11 +21,19 @@ use crate::config::Config;
 ))]
 use crate::file_config::FileConfigEnum;
 
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about,
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
 )]
 pub struct Args {
     #[command(flatten)]
@@ -146,9 +156,17 @@ impl Args {
 
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
-    if s.starts_with("http") {
+    if s.starts_with("http") || s.starts_with("s3") {
         if let Ok(url) = url::Url::parse(s) {
-            if url.scheme() == "http" || url.scheme() == "https" {
+            if url.scheme() == "s3" {
+                return url.path().split('/').any(|segment| {
+                    segment
+                        .rsplit('.')
+                        .next()
+                        .is_some_and(|ext| extension.contains(&ext))
+                });
+            }
+            if ["http", "https"].contains(&url.scheme()) {
                 if let Some(ext) = url.path().rsplit('.').next() {
                     return extension.contains(&ext);
                 }

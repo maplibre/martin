@@ -1,10 +1,10 @@
-use crate::styles::StyleSources;
 use actix_web::http::header::ContentType;
-use actix_web::middleware;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, route};
+use actix_web::{HttpResponse, middleware, route};
 use log::error;
 use serde::Deserialize;
+
+use crate::styles::StyleSources;
 
 #[derive(Deserialize, Debug)]
 struct StyleRequest {
@@ -33,7 +33,10 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
     match serde_json::from_str::<serde_json::Value>(&style_content) {
         Ok(value) => HttpResponse::Ok().json(value),
         Err(e) => {
-            error!("Failed to parse style JSON {e:?} for style {style_id} at {path:?}");
+            error!(
+                "Failed to parse style JSON {e:?} for style {style_id} at {:?}",
+                path.display()
+            );
 
             HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
