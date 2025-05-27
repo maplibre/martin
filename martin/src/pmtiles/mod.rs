@@ -159,13 +159,15 @@ impl SourceConfigExtras for PmtConfig {
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
         match url.scheme() {
             "s3" => {
-                let force_path_style = self.force_path_style.unwrap_or_else(||get_env_as_bool("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default());
-                let skip_credentials = self.skip_credentials.unwrap_or_else(||{
-                    get_env_as_bool("AWS_SKIP_CREDENTIALS").unwrap_or_else(||{
-                // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
-                    get_env_as_bool("AWS_NO_CREDENTIALS").unwrap_or_default()
+                let force_path_style = self.force_path_style.unwrap_or_else(|| {
+                    get_env_as_bool("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default()
+                });
+                let skip_credentials = self.skip_credentials.unwrap_or_else(|| {
+                    get_env_as_bool("AWS_SKIP_CREDENTIALS").unwrap_or_else(|| {
+                        // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
+                        get_env_as_bool("AWS_NO_CREDENTIALS").unwrap_or_default()
                     })
-                    });
+                });
                 Ok(Box::new(
                     PmtS3Source::new(
                         self.new_cached_source(),
