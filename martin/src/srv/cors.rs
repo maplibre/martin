@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{MartinError, MartinResult};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum CorsError {
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     NoOriginsConfigured,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum CorsConfig {
     Properties(CorsProperties),
@@ -23,7 +23,7 @@ impl Default for CorsConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct CorsProperties {
     #[serde(default)]
     pub origin: Vec<String>,
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_cors_middleware_disabled() {
         let config = CorsConfig::SimpleFlag(false);
-        assert!(config.make_cors_middleware().is_some_and(|m| m.is_none()));
+        assert!(config.make_cors_middleware().is_ok_and(|m| m.is_none()));
     }
 
     #[test]
@@ -208,10 +208,10 @@ mod tests {
             max_age: Some(3600),
         });
 
-        let properties = invalid_config.make_cors_middleware();
+        let properties = invalid_config.make_cors_middleware().unwrap_err();
         assert_eq!(
-            properties.validate(),
-            Err(MartinError::CorsError(CorsError::NoOriginsConfigured))
+            properties.to_string(),
+            "At least one 'origin' must be specified in the 'cors' configuration".to_string()
         );
     }
 
