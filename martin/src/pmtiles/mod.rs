@@ -160,6 +160,7 @@ impl SourceConfigExtras for PmtConfig {
                 let force_path_style = self
                     .force_path_style
                     .unwrap_or_else(|| get_env_as_bool("AWS_S3_FORCE_PATH_STYLE"));
+                // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
                 let require_credentials = self.require_credentials.unwrap_or_else(|| {
                     get_env_as_bool("AWS_REQUIRE_CREDENTIALS")
                         || !get_env_as_bool("AWS_NO_CREDENTIALS")
