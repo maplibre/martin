@@ -72,9 +72,11 @@ pub struct PmtConfig {
     /// A path style URL is a URL that uses the bucket name as part of the path like `mys3.com/somebucket` instead of the hostname `somebucket.mys3.com`.
     #[serde(default, alias = "aws_s3_force_path_style")]
     pub force_path_style: Option<bool>,
-    /// send requests anonymously for publicly available buckets
-    #[serde(default, alias = "aws_no_credentials")]
-    pub no_credentials: Option<bool>,
+    /// Require to load credentials for S3 buckets
+    ///
+    /// Set this to `false` to request anonymously for publicly available buckets.
+    #[serde(default = "true", alias = "aws_require_credentials")]
+    pub require_credentials: Option<bool>,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
@@ -158,15 +160,15 @@ impl SourceConfigExtras for PmtConfig {
                 let force_path_style = self
                     .force_path_style
                     .unwrap_or_else(|| get_env_as_bool("AWS_S3_FORCE_PATH_STYLE"));
-                let no_credentials = self
-                    .no_credentials
-                    .unwrap_or_else(|| get_env_as_bool("AWS_NO_CREDENTIALS"));
+                let require_credentials = self
+                    .require_credentials
+                    .unwrap_or_else(|| get_env_as_bool("AWS_REQUIRE_CREDENTIALS") || !get_env_as_bool("AWS_NO_CREDENTIALS"));
                 Ok(Box::new(
                     PmtS3Source::new(
                         self.new_cached_source(),
                         id,
                         url,
-                        no_credentials,
+                        require_credentials,
                         force_path_style,
                     )
                     .await?,
@@ -334,11 +336,11 @@ impl PmtS3Source {
         cache: PmtCache,
         id: String,
         url: Url,
-        no_credentials: bool,
+        require_credentials: bool,
         force_path_style: bool,
     ) -> FileResult<Self> {
         let mut aws_config_builder = aws_config::from_env();
-        if no_credentials {
+        if !require_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
         }
         let aws_config = aws_config_builder.load().await;

@@ -27,7 +27,8 @@ By default, Martin will use default profile's credentials unless these [AWS envi
 
 #### Anonymous credentials
 
-To send requests anonymously for publicly available buckets, set the environment variable `AWS_NO_CREDENTIALS=1` or configuration key `no_credentials: true` respectively.
+By default, martin does require credentials for S3 buckets.
+To send requests anonymously for publicly available buckets, set the environment variable `AWS_REQUIRE_CREDENTIALS=0` or configuration key `require_credentials: false` respectively.
 
 Note: you still need to set `AWS_REGION` to the correct region.
 
@@ -35,7 +36,7 @@ Example configuration:
 
 ```yaml
 pmtiles:
-  no_credentials: true
+  require_credentials: false
   sources:
     tiles: s3://bucket/path/to/tiles.pmtiles
 ```
