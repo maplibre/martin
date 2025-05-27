@@ -50,6 +50,7 @@ impl CorsProperties {
 }
 
 impl CorsConfig {
+    /// Checks that that if cors is configured explicitely (instead of via `true`/`false`), `origin` is configured
     pub fn validate(&self) -> MartinResult<()> {
         match self {
             CorsConfig::SimpleFlag(_) => Ok(()),
@@ -57,21 +58,20 @@ impl CorsConfig {
         }
     }
 
-    pub fn make_cors_middleware(&self) -> MartinResult<Option<actix_cors::Cors>> {
+    #[must_use]
+    /// Create [`actix_cors::Cors`] from the configuration
+    pub fn make_cors_middleware(&self) -> Option<actix_cors::Cors> {
         match self {
             CorsConfig::SimpleFlag(false) => {
                 info!("CORS is disabled");
-                Ok(None)
+                None
             }
             CorsConfig::SimpleFlag(true) => {
                 let properties = CorsProperties::default();
                 info!("Enabled CORS with defaults: {properties:?}");
-                Ok(Some(Self::create_cors(&properties)))
+                Some(Self::create_cors(&properties))
             }
-            CorsConfig::Properties(properties) => match properties.validate() {
-                Ok(()) => Ok(Some(Self::create_cors(properties))),
-                Err(e) => Err(MartinError::from(e)),
-            },
+            CorsConfig::Properties(properties) => Some(Self::create_cors(properties)),
         }
     }
 
@@ -108,7 +108,7 @@ mod tests {
     fn test_cors_config_default() {
         let config = CorsConfig::default();
         let middleware = config.make_cors_middleware();
-        assert!(middleware.is_ok_and(|x| x.is_some()));
+        assert!(middleware.is_some());
 
         // Check if it's using the appropiate default properties
         if let CorsConfig::Properties(properties) = config {
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_cors_middleware_disabled() {
         let config = CorsConfig::SimpleFlag(false);
-        assert!(config.make_cors_middleware().is_ok_and(|m| m.is_none()));
+        assert!(config.make_cors_middleware().is_none());
     }
 
     #[test]
@@ -202,20 +202,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cors_middleware_error_propagation() {
-        let invalid_config = CorsConfig::Properties(CorsProperties {
-            origin: vec![],
-            max_age: Some(3600),
-        });
-
-        let properties = invalid_config.make_cors_middleware().unwrap_err();
-        assert_eq!(
-            properties.to_string(),
-            "At least one 'origin' must be specified in the 'cors' configuration".to_string()
-        );
-    }
-
-    #[test]
     fn test_cors_with_valid_properties() {
         let properties = CorsProperties {
             origin: vec!["https://example.com".to_string()],
@@ -225,7 +211,7 @@ mod tests {
 
         let config = CorsConfig::Properties(properties);
         let middleware = config.make_cors_middleware();
-        assert!(middleware.unwrap().is_some());
+        assert!(middleware.is_some());
     }
 
     #[test]
@@ -235,6 +221,6 @@ mod tests {
         assert!(properties.validate().is_ok());
 
         let middleware = CorsConfig::Properties(properties).make_cors_middleware();
-        assert!(middleware.is_ok());
+        assert!(middleware.is_some());
     }
 }

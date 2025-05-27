@@ -164,9 +164,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     cors_config.validate()?;
 
     let factory = move || {
-        let cors_middleware = cors_config
-            .make_cors_middleware()
-            .expect("CORS configuration should have already been validated");
+        let cors_middleware = cors_config.make_cors_middleware();
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
