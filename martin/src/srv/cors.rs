@@ -64,15 +64,12 @@ impl CorsConfig {
                 Ok(None)
             }
             CorsConfig::SimpleFlag(true) => {
-                // log out the default properties / serializte to string
-                info!(
-                    "CORS is enabled with default properties: {:?}",
-                    CorsProperties::default()
-                );
-                Ok(Some(Self::create_cors(&CorsProperties::default())))
+                let properties = CorsProperties::default();
+                info!("Enabled CORS with defaults: {properties:?}");
+                Ok(Some(Self::create_cors(&properties)))
             }
             CorsConfig::Properties(properties) => match properties.validate() {
-                Ok(_) => Ok(Some(Self::create_cors(properties))),
+                Ok(()) => Ok(Some(Self::create_cors(properties))),
                 Err(e) => Err(MartinError::from(e)),
             },
         }
