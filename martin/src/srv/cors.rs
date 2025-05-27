@@ -142,10 +142,10 @@ mod tests {
         }
 
         let config: CorsConfig = serde_yaml::from_str("false").unwrap();
-        assert!(matches!(config, CorsConfig::SimpleFlag(false)));
+        assert_eq!(config, CorsConfig::SimpleFlag(false));
 
         let config: CorsConfig = serde_yaml::from_str("true").unwrap();
-        assert!(matches!(config, CorsConfig::SimpleFlag(true)));
+        assert_eq!(config, CorsConfig::SimpleFlag(true));
 
         let config: CorsConfig = serde_yaml::from_str(indoc! {"
             origin:
