@@ -111,7 +111,7 @@ pub trait Source: Send + Debug {
     /// ID under which this [`Source`] is identified if accessed externally
     fn get_id(&self) -> &str;
 
-    /// TileJSON of this [`Source`]
+    /// `TileJSON` of this [`Source`]
     ///
     /// Will be communicated verbatim to the outside to give rendering engines information about the source's contents such as zoom levels, center points, ...
     fn get_tilejson(&self) -> &TileJSON;
