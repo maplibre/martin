@@ -45,7 +45,8 @@ preferred_encoding: gzip
 web_ui: disable
 
 # CORS Configuration
-# Can also be disabled via `cors: false`
+# Defaults to `cors: true`, which allows all origins.
+# Can be completely disabled via `cors: false`
 cors:
   # Sets the `Access-Control-Allow-Origin` header [default: *]
   # '*' will use the requests `ORIGIN` header
