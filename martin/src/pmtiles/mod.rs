@@ -416,5 +416,5 @@ fn get_env_as_bool(key: &'static str) -> Option<bool> {
         .to_ascii_lowercase()
         .to_str()
         .unwrap_or_default();
-    val == "1" || val == "true"
+    Some(val == "1" || val == "true")
 }
