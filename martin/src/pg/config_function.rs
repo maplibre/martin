@@ -28,7 +28,7 @@ pub struct FunctionInfo {
     /// Values may be integers or floating point numbers.
     pub bounds: Option<Bounds>,
 
-    /// TileJSON provided by the SQL function comment. Not serialized.
+    /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]
     pub tilejson: Option<serde_json::Value>,
 

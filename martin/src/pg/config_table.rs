@@ -13,7 +13,7 @@ pub type TableInfoSources = InfoMap<TableInfo>;
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct TableInfo {
-    /// ID of the layer as specified in a tile (ST_AsMVT param)
+    /// ID of the layer as specified in a tile (`ST_AsMVT` parameter)
     pub layer_id: Option<String>,
 
     /// Table schema
@@ -32,7 +32,7 @@ pub struct TableInfo {
     #[serde(skip)]
     pub geometry_index: Option<bool>,
 
-    /// Flag indicating if table is actually a view (PostgreSQL relkind = 'v')
+    /// Flag indicating if table is actually a view (`PostgreSQL relkind = 'v'`)
     #[serde(skip)]
     pub is_view: Option<bool>,
 
@@ -73,7 +73,7 @@ pub struct TableInfo {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
-    /// TileJSON provider by the SQL comment. Shouldn't be serialized
+    /// `TileJSON` provider by the SQL comment. Shouldn't be serialized
     #[serde(skip)]
     pub tilejson: Option<serde_json::Value>,
 }
