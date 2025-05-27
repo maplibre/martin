@@ -160,9 +160,10 @@ impl SourceConfigExtras for PmtConfig {
                 let force_path_style = self
                     .force_path_style
                     .unwrap_or_else(|| get_env_as_bool("AWS_S3_FORCE_PATH_STYLE"));
-                let require_credentials = self
-                    .require_credentials
-                    .unwrap_or_else(|| get_env_as_bool("AWS_REQUIRE_CREDENTIALS") || !get_env_as_bool("AWS_NO_CREDENTIALS"));
+                let require_credentials = self.require_credentials.unwrap_or_else(|| {
+                    get_env_as_bool("AWS_REQUIRE_CREDENTIALS")
+                        || !get_env_as_bool("AWS_NO_CREDENTIALS")
+                });
                 Ok(Box::new(
                     PmtS3Source::new(
                         self.new_cached_source(),
