@@ -94,7 +94,8 @@ test_jsn() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  $CURL "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  $CURL  --dump-header  "$FILENAME.headers" "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 }
 
 test_pbf() {
@@ -102,7 +103,8 @@ test_pbf() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
@@ -119,7 +121,8 @@ test_png() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     file "$FILENAME" > "$FILENAME.txt"
@@ -136,7 +139,8 @@ test_font() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 }
 
 # Delete a line from a file $1 that matches parameter $2
@@ -146,6 +150,21 @@ remove_line() {
   >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
   grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
   mv "${FILE}.tmp" "${FILE}"
+}
+
+# if we dump a headers file via curl, this is otherwise not reproducible
+clean_headers_dump() {
+  FILE="$1"
+  # now we need to strip the date header as it is undeterministic
+  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  # the http version is not an "header" that we want to assert
+  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  # need to remove entirely empty lines, \r\n and leading/trailing whitespace
+  # sorting is arbitrairy => sort here
+  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  mv "$FILE.tmp" "$FILE"
+  # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
+  sed --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
