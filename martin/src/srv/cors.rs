@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn test_cors_middleware_disabled() {
         let config = CorsConfig::SimpleFlag(false);
-        assert_eq!(config.make_cors_middleware(), Ok(None));
+        assert!(config.make_cors_middleware().is_some_and(|m|m.is_none()));
     }
 
     #[test]
@@ -204,7 +204,7 @@ mod tests {
             max_age: Some(3600),
         });
 
-        let result = invalid_config.make_cors_middleware();
+        let properties = invalid_config.make_cors_middleware();
         assert_eq!(
             properties.validate(),
             Err(MartinError::CorsError(CorsError::NoOriginsConfigured))
