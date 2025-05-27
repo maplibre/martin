@@ -11,7 +11,7 @@ use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
-use log::error;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 
 use crate::MartinError::BindingError;
@@ -165,7 +165,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .clone()
             .cors
             .unwrap_or_default()
-            .make_cors_middleware();
+            .make_cors_middleware()
+            .expect("CORS configuration is invalid");
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))

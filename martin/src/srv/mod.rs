@@ -7,7 +7,7 @@ mod fonts;
 mod server;
 pub use server::{Catalog, RESERVED_KEYWORDS, new_server, router};
 
-mod cors;
+pub mod cors;
 
 mod tiles;
 pub use tiles::{DynTileSource, TileRequest};

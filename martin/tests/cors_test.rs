@@ -22,7 +22,8 @@ macro_rules! create_app {
             .clone()
             .cors
             .unwrap_or_default()
-            .make_cors_middleware();
+            .make_cors_middleware()
+            .unwrap();
 
         ::actix_web::test::init_service(
             ::actix_web::App::new()

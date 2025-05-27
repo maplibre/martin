@@ -1,6 +1,14 @@
-use crate::MartinResult;
 use actix_http::Method;
+use log::info;
 use serde::{Deserialize, Serialize};
+
+use crate::{MartinError, MartinResult};
+
+#[derive(thiserror::Error, Debug)]
+pub enum CorsError {
+    #[error("Invalid CORS configuration")]
+    PropertyValidationError(String),
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(untagged)]
@@ -32,11 +40,12 @@ impl Default for CorsProperties {
 }
 
 impl CorsProperties {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), CorsError> {
         if self.origin.is_empty() {
-            Err(
-                "When configuring CORS properties, 'origin' must be explicitly specified (e.g., origin: ['*'] for allowing any origin)",
-            )
+            Err(CorsError::PropertyValidationError(
+                "When configuring CORS properties, 'origin' must be explicitly specified"
+                    .to_string(),
+            ))
         } else {
             Ok(())
         }
@@ -44,16 +53,23 @@ impl CorsProperties {
 }
 
 impl CorsConfig {
-    pub fn make_cors_middleware(&self) -> Option<actix_cors::Cors> {
+    pub fn make_cors_middleware(&self) -> MartinResult<Option<actix_cors::Cors>> {
         match self {
-            CorsConfig::SimpleFlag(false) => None,
-            CorsConfig::SimpleFlag(true) => Some(Self::create_cors(&CorsProperties::default())),
+            CorsConfig::SimpleFlag(false) => {
+                info!("CORS is disabled");
+                Ok(None)
+            }
+            CorsConfig::SimpleFlag(true) => {
+                // log out the default properties / serializte to string
+                info!(
+                    "CORS is enabled with default properties: {:?}",
+                    CorsProperties::default()
+                );
+                Ok(Some(Self::create_cors(&CorsProperties::default())))
+            }
             CorsConfig::Properties(properties) => match properties.validate() {
-                Ok(_) => Some(Self::create_cors(properties)),
-                Err(e) => {
-                    println!("yo");
-                    None
-                }
+                Ok(_) => Ok(Some(Self::create_cors(properties))),
+                Err(e) => Err(MartinError::from(e)),
             },
         }
     }
@@ -91,7 +107,7 @@ mod tests {
     fn test_cors_config_default() {
         let config = CorsConfig::default();
         let middleware = config.make_cors_middleware();
-        assert!(middleware.is_some());
+        assert!(middleware.is_ok_and(|x| x.is_some()));
 
         // Check if it's using the appropiate default properties
         if let CorsConfig::Properties(properties) = config {
@@ -105,7 +121,7 @@ mod tests {
     #[test]
     fn test_cors_middleware_disabled() {
         let config = CorsConfig::SimpleFlag(false);
-        assert!(config.make_cors_middleware().is_none());
+        assert!(config.make_cors_middleware().is_ok_and(|x| x.is_none()));
     }
 
     #[test]
@@ -183,5 +199,78 @@ mod tests {
         } else {
             panic!("Expected Properties variant");
         }
+    }
+
+    #[test]
+    fn test_cors_validation_error_empty_origin() {
+        // Create a CorsProperties with empty origin (should fail validation)
+        let properties = CorsProperties {
+            origin: vec![],
+            max_age: Some(3600),
+        };
+
+        // Try to validate it - should return an error
+        let validation_result = properties.validate();
+        assert!(validation_result.is_err());
+
+        // Check that the error is the right type
+        match validation_result.unwrap_err() {
+            CorsError::PropertyValidationError(msg) => {
+                assert!(msg.contains("origin"));
+            }
+        }
+    }
+
+    #[test]
+    fn test_cors_middleware_error_propagation() {
+        // Create a config with empty origin (invalid)
+        let invalid_config = CorsConfig::Properties(CorsProperties {
+            origin: vec![],
+            max_age: Some(3600),
+        });
+
+        // The middleware creation should propagate the validation error
+        let result = invalid_config.make_cors_middleware();
+        assert!(result.is_err());
+
+        // Check that the error gets properly converted to a MartinError
+        match result.unwrap_err() {
+            MartinError::CorsError(CorsError::PropertyValidationError(msg)) => {
+                assert!(msg.contains("origin"));
+            }
+            _ => panic!("Expected CorsError variant"),
+        }
+    }
+
+    #[test]
+    fn test_cors_with_valid_properties() {
+        // Create a CorsProperties with a valid configuration
+        let properties = CorsProperties {
+            origin: vec!["https://example.com".to_string()],
+            max_age: Some(3600),
+        };
+
+        // Validate it - should succeed
+        assert!(properties.validate().is_ok());
+
+        // Try creating middleware
+        let config = CorsConfig::Properties(properties);
+        let middleware = config.make_cors_middleware();
+        assert!(middleware.is_ok());
+        assert!(middleware.unwrap().is_some());
+    }
+
+    #[test]
+    fn test_cors_with_wildcard_origin() {
+        // Create a CorsProperties with wildcard origin
+        let properties = CorsProperties::default();
+        assert_eq!(properties.origin, vec!["*".to_string()]);
+
+        // Validation should succeed with wildcard
+        assert!(properties.validate().is_ok());
+
+        // Creating middleware should succeed
+        let middleware = CorsConfig::Properties(properties).make_cors_middleware();
+        assert!(middleware.is_ok());
     }
 }
