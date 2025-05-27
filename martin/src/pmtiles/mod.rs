@@ -412,9 +412,6 @@ impl PmtFileSource {
 ///
 /// This ignores casing and treats bad utf8 encoding as `false`.
 fn get_env_as_bool(key: &'static str) -> Option<bool> {
-    let val = std::env::var_os(key)?
-        .to_ascii_lowercase()
-        .to_str()
-        .unwrap_or_default();
-    Some(val == "1" || val == "true")
+    let val = std::env::var_os(key)?.to_ascii_lowercase();
+    Some(val.to_str().is_some_and(|val| val == "1" || val == "true"))
 }
