@@ -185,10 +185,10 @@ pmtiles:
   #
   # A path style URL is a URL that uses the bucket name as part of the path like mys3.com/somebucket instead of the hostname somebucket.mys3.com
   force_path_style: false
-  # Require to load credentials for S3 buckets [default: true]
+  # Skip loading credentials for S3 buckets [default: false]
   #
-  # Set this to false to request anonymously for publicly available buckets.
-  require_credentials: true
+  # Set this to true to request anonymously for publicly available buckets.
+  skip_credentials: false
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path

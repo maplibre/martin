@@ -73,12 +73,12 @@ pub struct PmtConfig {
     /// If `None` (the default), this will look at `AWS_S3_FORCE_PATH_STYLE` or default to `false`.
     #[serde(default, alias = "aws_s3_force_path_style")]
     pub force_path_style: Option<bool>,
-    /// Require to load credentials for S3 buckets
+    /// Skip loading credentials for S3 buckets
     ///
-    /// Set this to `false` to request anonymously for publicly available buckets.
-    /// If `None` (the default), this will look at `AWS_REQUIRE_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `true`.
-    #[serde(default, alias = "aws_require_credentials")]
-    pub require_credentials: Option<bool>,
+    /// Set this to `true` to request anonymously for publicly available buckets.
+    /// If `None` (the default), this will look at `AWS_SKIP_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `false`.
+    #[serde(default, alias = "aws_skip_credentials")]
+    pub skip_credentials: Option<bool>,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
@@ -168,22 +168,22 @@ impl SourceConfigExtras for PmtConfig {
                     (None, None) => false,
                 };
                 // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
-                let require_credentials = match (
-                    self.require_credentials,
-                    get_env_as_bool("AWS_REQUIRE_CREDENTIALS"),
+                let skip_credentials = match (
+                    self.skip_credentials,
+                    get_env_as_bool("AWS_SKIP_CREDENTIALS"),
                     get_env_as_bool("AWS_NO_CREDENTIALS"),
                 ) {
-                    (Some(require_credentials), _, _) => require_credentials,
-                    (None, Some(require_credentials), _) => require_credentials,
-                    (None, None, Some(no_credentials)) => !no_credentials,
-                    (None, None, None) => true,
+                    (Some(skip_credentials), _, _) => skip_credentials,
+                    (None, Some(skip_credentials), _) => skip_credentials,
+                    (None, None, Some(no_credentials)) => no_credentials,
+                    (None, None, None) => false,
                 };
                 Ok(Box::new(
                     PmtS3Source::new(
                         self.new_cached_source(),
                         id,
                         url,
-                        require_credentials,
+                        skip_credentials,
                         force_path_style,
                     )
                     .await?,
@@ -351,11 +351,11 @@ impl PmtS3Source {
         cache: PmtCache,
         id: String,
         url: Url,
-        require_credentials: bool,
+        skip_credentials: bool,
         force_path_style: bool,
     ) -> FileResult<Self> {
         let mut aws_config_builder = aws_config::from_env();
-        if !require_credentials {
+        if skip_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
         }
         let aws_config = aws_config_builder.load().await;

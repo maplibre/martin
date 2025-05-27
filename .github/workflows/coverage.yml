@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
-      AWS_REQUIRE_CREDENTIALS: 0
+      AWS_SKIP_CREDENTIALS: 1
       AWS_REGION: eu-central-1
     steps:
       - name: Set up system dependencies
