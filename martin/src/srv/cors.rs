@@ -50,6 +50,13 @@ impl CorsProperties {
 }
 
 impl CorsConfig {
+    pub fn validate(&self) -> MartinResult<()> {
+        match self {
+            CorsConfig::SimpleFlag(_) => Ok(()),
+            CorsConfig::Properties(properties) => properties.validate().map_err(MartinError::from),
+        }
+    }
+
     pub fn make_cors_middleware(&self) -> MartinResult<Option<actix_cors::Cors>> {
         match self {
             CorsConfig::SimpleFlag(false) => {

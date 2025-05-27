@@ -160,13 +160,13 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .clone()
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
+    let cors_config = config.cors.clone().unwrap_or_default();
+    cors_config.validate()?;
+
     let factory = move || {
-        let cors_middleware = config
-            .clone()
-            .cors
-            .unwrap_or_default()
+        let cors_middleware = cors_config
             .make_cors_middleware()
-            .expect("CORS configuration is invalid");
+            .expect("CORS configuration should have already been validated");
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
