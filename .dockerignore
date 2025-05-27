@@ -17,6 +17,7 @@ demo/
 .DS_Store
 target/
 **/*.rs.bk
+.aider*
 .idea/
 .vscode/
 test_log*
@@ -32,7 +33,6 @@ tmp/
 **/node_modules/
 **/dist/
 
-.aider*
 ####
 #### Above content must match .gitignore ####
 ####
