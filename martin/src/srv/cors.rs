@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_cors_middleware_disabled() {
         let config = CorsConfig::SimpleFlag(false);
-        assert!(config.make_cors_middleware().is_ok_and(|x| x.is_none()));
+        assert_eq!(config.make_cors_middleware(), Ok(None));
     }
 
     #[test]
