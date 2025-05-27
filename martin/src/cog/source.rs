@@ -521,6 +521,10 @@ fn raster2model(i: u32, j: u32, matrix: &[f64]) -> (f64, f64) {
     (x, y)
 }
 
+/// Computes the bounding box (`[min_x, min_y, max_x, max_y]`) based on the transformation matrix, origin, width and hieght.
+///
+/// Applies a transformation matrix to corner pixels if provided;
+/// otherwise, computes extent from origin and raster size in model units.
 fn get_extent(
     origin: &[f64; 3],
     transformation: Option<&[f64]>,
