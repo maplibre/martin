@@ -70,12 +70,14 @@ pub struct PmtConfig {
     /// Force path style URLs for S3 buckets
     ///
     /// A path style URL is a URL that uses the bucket name as part of the path like `mys3.com/somebucket` instead of the hostname `somebucket.mys3.com`.
+    /// If `None` (the default), this will look at `AWS_S3_FORCE_PATH_STYLE` or default to `false`.
     #[serde(default, alias = "aws_s3_force_path_style")]
     pub force_path_style: Option<bool>,
     /// Require to load credentials for S3 buckets
     ///
     /// Set this to `false` to request anonymously for publicly available buckets.
-    #[serde(default = "true", alias = "aws_require_credentials")]
+    /// If `None` (the default), this will look at `AWS_REQUIRE_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `true`.
+    #[serde(default, alias = "aws_require_credentials")]
     pub require_credentials: Option<bool>,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
@@ -157,14 +159,18 @@ impl SourceConfigExtras for PmtConfig {
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
         match url.scheme() {
             "s3" => {
-                let force_path_style = self
-                    .force_path_style
-                    .unwrap_or_else(|| get_env_as_bool("AWS_S3_FORCE_PATH_STYLE"));
+                let force_path_style = match (self.force_path_style, get_env_as_bool("AWS_S3_FORCE_PATH_STYLE")){
+                    (Some(force_path_style), _) => force_path_style,
+                    (None, Some(force_path_style)) => force_path_style,
+                    (None, None) => false,
+                };
                 // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
-                let require_credentials = self.require_credentials.unwrap_or_else(|| {
-                    get_env_as_bool("AWS_REQUIRE_CREDENTIALS")
-                        || !get_env_as_bool("AWS_NO_CREDENTIALS")
-                });
+                let require_credentials = match (self.require_credentials, get_env_as_bool("AWS_REQUIRE_CREDENTIALS"), get_env_as_bool("AWS_NO_CREDENTIALS")) {
+                    (Some(require_credentials), _, _) => require_credentials,
+                    (None, Some(require_credentials), _) => require_credentials,
+                    (None, None, Some(no_credentials)) => !no_credentials,
+                    (None, None, None) => true,
+                };
                 Ok(Box::new(
                     PmtS3Source::new(
                         self.new_cached_source(),
@@ -397,11 +403,11 @@ impl PmtFileSource {
 
 /// Interpret an environment variable as a [`bool`]
 ///
-/// This ignores casing, but interprets bad utf8 encoding as `false`.
-fn get_env_as_bool(key: &'static str) -> bool {
-    std::env::var_os(key)
-        .unwrap_or_default()
+/// This ignores casing and treats bad utf8 encoding as `false`.
+fn get_env_as_bool(key: &'static str) -> Option<bool> {
+    let val = std::env::var_os(key)?
         .to_ascii_lowercase()
         .to_str()
-        .is_some_and(|val| val == "1" || val == "true")
+        .unwrap_or_default();
+    val == "1" || val == "true"
 }
