@@ -28,6 +28,7 @@ struct_field_names = "allow"
 [workspace.dependencies]
 actix-cors = "0.7"
 actix-http = "3"
+actix-middleware-etag = "0.4.4"
 actix-rt = "2"
 actix-web = "4"
 actix-web-static-files = "4"
