@@ -159,13 +159,20 @@ impl SourceConfigExtras for PmtConfig {
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
         match url.scheme() {
             "s3" => {
-                let force_path_style = match (self.force_path_style, get_env_as_bool("AWS_S3_FORCE_PATH_STYLE")){
+                let force_path_style = match (
+                    self.force_path_style,
+                    get_env_as_bool("AWS_S3_FORCE_PATH_STYLE"),
+                ) {
                     (Some(force_path_style), _) => force_path_style,
                     (None, Some(force_path_style)) => force_path_style,
                     (None, None) => false,
                 };
                 // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
-                let require_credentials = match (self.require_credentials, get_env_as_bool("AWS_REQUIRE_CREDENTIALS"), get_env_as_bool("AWS_NO_CREDENTIALS")) {
+                let require_credentials = match (
+                    self.require_credentials,
+                    get_env_as_bool("AWS_REQUIRE_CREDENTIALS"),
+                    get_env_as_bool("AWS_NO_CREDENTIALS"),
+                ) {
                     (Some(require_credentials), _, _) => require_credentials,
                     (None, Some(require_credentials), _) => require_credentials,
                     (None, None, Some(no_credentials)) => !no_credentials,
