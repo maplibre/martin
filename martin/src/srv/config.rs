@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::args::PreferredEncoding;
-
 use super::cors::CorsConfig;
+use crate::args::PreferredEncoding;
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -25,7 +24,8 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::{srv::cors::CorsProperties, tests::some};
+    use crate::srv::cors::CorsProperties;
+    use crate::tests::some;
 
     #[test]
     fn parse_config() {
