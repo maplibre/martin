@@ -6,7 +6,7 @@ use crate::{MartinError, MartinResult};
 
 #[derive(thiserror::Error, Debug)]
 pub enum CorsError {
-     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
+    #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     NoOriginsConfigured,
 }
 
@@ -204,8 +204,11 @@ mod tests {
             max_age: Some(3600),
         });
 
-        let result = invalid_config.make_cors_middleware();    
-        assert_eq!(properties.validate(), Err(MartinError::CorsError(CorsError::NoOriginsConfigured)));
+        let result = invalid_config.make_cors_middleware();
+        assert_eq!(
+            properties.validate(),
+            Err(MartinError::CorsError(CorsError::NoOriginsConfigured))
+        );
     }
 
     #[test]
