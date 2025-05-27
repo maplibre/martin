@@ -12,7 +12,7 @@ export DATABASE_URL := ("postgres://postgres:postgres@localhost:" + PGPORT + "/d
 export CARGO_TERM_COLOR := "always"
 
 # Set AWS variables for testing pmtiles from S3
-export AWS_NO_CREDENTIALS := "1"
+export AWS_REQUIRE_CREDENTIALS := "false"
 export AWS_REGION := "eu-central-1"
 
 #export RUST_LOG := "debug"
