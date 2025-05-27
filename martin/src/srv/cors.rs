@@ -6,8 +6,8 @@ use crate::{MartinError, MartinResult};
 
 #[derive(thiserror::Error, Debug)]
 pub enum CorsError {
-    #[error("Invalid CORS configuration")]
-    PropertyValidationError(String),
+     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
+    NoOriginsConfigured,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -42,10 +42,7 @@ impl Default for CorsProperties {
 impl CorsProperties {
     pub fn validate(&self) -> Result<(), CorsError> {
         if self.origin.is_empty() {
-            Err(CorsError::PropertyValidationError(
-                "When configuring CORS properties, 'origin' must be explicitly specified"
-                    .to_string(),
-            ))
+            Err(CorsError::NoOriginsConfigured)
         } else {
             Ok(())
         }
@@ -126,7 +123,6 @@ mod tests {
 
     #[test]
     fn test_cors_yaml_parsing() {
-        // Test parsing a detailed configuration
         let config: CorsConfig = serde_yaml::from_str(indoc! {"
             origin:
               - https://example.org
@@ -152,7 +148,6 @@ mod tests {
               - https://example.org
               - https://martin.maplibre.org
             max_age: 3600
-
         "})
         .unwrap();
 
@@ -172,104 +167,66 @@ mod tests {
 
     #[test]
     fn test_cors_validation() {
-        // Test parsing a config with only max_age (should fail validation)
-        let config: CorsConfig = serde_yaml::from_str(indoc! {"
-            max_age: 3600
-        "})
-        .unwrap();
-
+        let config: CorsConfig = serde_yaml::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
-            assert!(settings.validate().is_err());
+            assert_eq!(settings.validate(), Err(CorsError::NoOriginsConfigured));
         } else {
             panic!("Expected Properties variant");
         }
 
-        // Test parsing a complete config (should pass validation)
         let config: CorsConfig = serde_yaml::from_str(indoc! {"
             origin:
               - https://example.org
-            max_age: 3600
-        "})
+            max_age: 3600"})
         .unwrap();
 
-        if let CorsConfig::Properties(settings) = config {
-            // This should pass validation
-            assert!(settings.validate().is_ok());
-        } else {
+        let CorsConfig::Properties(settings) = config else {
             panic!("Expected Properties variant");
-        }
+        };
+        assert!(settings.validate().is_ok());
     }
 
     #[test]
     fn test_cors_validation_error_empty_origin() {
-        // Create a CorsProperties with empty origin (should fail validation)
         let properties = CorsProperties {
             origin: vec![],
             max_age: Some(3600),
         };
 
-        // Try to validate it - should return an error
-        let validation_result = properties.validate();
-        assert!(validation_result.is_err());
-
-        // Check that the error is the right type
-        match validation_result.unwrap_err() {
-            CorsError::PropertyValidationError(msg) => {
-                assert!(msg.contains("origin"));
-            }
-        }
+        assert_eq!(properties.validate(), Err(CorsError::NoOriginsConfigured));
     }
 
     #[test]
     fn test_cors_middleware_error_propagation() {
-        // Create a config with empty origin (invalid)
         let invalid_config = CorsConfig::Properties(CorsProperties {
             origin: vec![],
             max_age: Some(3600),
         });
 
-        // The middleware creation should propagate the validation error
-        let result = invalid_config.make_cors_middleware();
-        assert!(result.is_err());
-
-        // Check that the error gets properly converted to a MartinError
-        match result.unwrap_err() {
-            MartinError::CorsError(CorsError::PropertyValidationError(msg)) => {
-                assert!(msg.contains("origin"));
-            }
-            _ => panic!("Expected CorsError variant"),
-        }
+        let result = invalid_config.make_cors_middleware();    
+        assert_eq!(properties.validate(), Err(MartinError::CorsError(CorsError::NoOriginsConfigured)));
     }
 
     #[test]
     fn test_cors_with_valid_properties() {
-        // Create a CorsProperties with a valid configuration
         let properties = CorsProperties {
             origin: vec!["https://example.com".to_string()],
             max_age: Some(3600),
         };
-
-        // Validate it - should succeed
         assert!(properties.validate().is_ok());
 
-        // Try creating middleware
         let config = CorsConfig::Properties(properties);
         let middleware = config.make_cors_middleware();
-        assert!(middleware.is_ok());
         assert!(middleware.unwrap().is_some());
     }
 
     #[test]
     fn test_cors_with_wildcard_origin() {
-        // Create a CorsProperties with wildcard origin
         let properties = CorsProperties::default();
         assert_eq!(properties.origin, vec!["*".to_string()]);
-
-        // Validation should succeed with wildcard
         assert!(properties.validate().is_ok());
 
-        // Creating middleware should succeed
         let middleware = CorsConfig::Properties(properties).make_cors_middleware();
         assert!(middleware.is_ok());
     }
