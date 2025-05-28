@@ -128,6 +128,14 @@ mod tests {
     }
 
     #[test]
+    fn test_cors_properties_default_values() {
+        let default_props = CorsProperties::default();
+        assert_eq!(default_props.origin, vec!["*"]);
+        assert_eq!(default_props.max_age, None);
+        assert!(default_props.validate().is_ok());
+    }
+
+    #[test]
     fn test_cors_middleware_disabled() {
         let config = CorsConfig::SimpleFlag(false);
         assert!(config.make_cors_middleware().is_none());
