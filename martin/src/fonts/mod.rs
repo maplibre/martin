@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -108,7 +109,7 @@ pub struct FontSources {
     masks: Vec<BitSet>,
 }
 
-pub type FontCatalog = DashMap<String, CatalogFontEntry>;
+pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

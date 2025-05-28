@@ -78,7 +78,7 @@ fn webui() {
         &["dist", "node_modules"],
     );
 
-    println!("installing and building in {out_martin_ui_dir:?}");
+    println!("installing and building in {}", out_martin_ui_dir.display());
     static_files::NpmBuild::new(&out_martin_ui_dir)
         .install()
         .expect("npm install failed")
@@ -103,5 +103,7 @@ fn webui() {
 
 fn main() {
     #[cfg(feature = "webui")]
-    webui();
+    if option_env!("RUSTDOC").is_none() {
+        webui();
+    }
 }
