@@ -5,6 +5,7 @@
 .DS_Store
 target/
 **/*.rs.bk
+.aider*
 .idea/
 .vscode/
 test_log*
