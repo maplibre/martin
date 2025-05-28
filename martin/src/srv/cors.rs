@@ -19,7 +19,7 @@ pub enum CorsConfig {
 
 impl Default for CorsConfig {
     fn default() -> Self {
-        Self::Properties(CorsProperties::default())
+        Self::SimpleFlag(true)
     }
 }
 
