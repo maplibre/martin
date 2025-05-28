@@ -19,7 +19,7 @@ pub enum CorsConfig {
 
 impl Default for CorsConfig {
     fn default() -> Self {
-        Self::Properties(CorsProperties::default())
+        Self::SimpleFlag(true)
     }
 }
 
@@ -50,6 +50,20 @@ impl CorsProperties {
 }
 
 impl CorsConfig {
+    /// Log the current configuration
+    pub fn log_current_configuration(&self) {
+        match &self {
+            CorsConfig::SimpleFlag(false) => info!("CORS is disabled"),
+            CorsConfig::SimpleFlag(true) => info!(
+                "CORS enabled with defaults: {:?}",
+                CorsProperties::default()
+            ),
+            CorsConfig::Properties(props) => {
+                info!("CORS enabled with custom properties: {props:?}");
+            }
+        }
+    }
+
     /// Checks that that if cors is configured explicitely (instead of via `true`/`false`), `origin` is configured
     pub fn validate(&self) -> MartinResult<()> {
         match self {
@@ -62,13 +76,9 @@ impl CorsConfig {
     /// Create [`actix_cors::Cors`] from the configuration
     pub fn make_cors_middleware(&self) -> Option<actix_cors::Cors> {
         match self {
-            CorsConfig::SimpleFlag(false) => {
-                info!("CORS is disabled");
-                None
-            }
+            CorsConfig::SimpleFlag(false) => None,
             CorsConfig::SimpleFlag(true) => {
                 let properties = CorsProperties::default();
-                info!("Enabled CORS with defaults: {properties:?}");
                 Some(Self::create_cors(&properties))
             }
             CorsConfig::Properties(properties) => Some(Self::create_cors(properties)),
@@ -110,13 +120,20 @@ mod tests {
         let middleware = config.make_cors_middleware();
         assert!(middleware.is_some());
 
-        // Check if it's using the appropiate default properties
-        if let CorsConfig::Properties(properties) = config {
-            assert_eq!(properties.origin, vec!["*"]);
-            assert_eq!(properties.max_age, None);
+        // Check if it's using the default SimpleFlag(true)
+        if let CorsConfig::SimpleFlag(enabled) = config {
+            assert!(enabled);
         } else {
-            panic!("Expected Properties variant for default config");
+            panic!("Expected SimpleFlag variant for default config");
         }
+    }
+
+    #[test]
+    fn test_cors_properties_default_values() {
+        let default_props = CorsProperties::default();
+        assert_eq!(default_props.origin, vec!["*"]);
+        assert_eq!(default_props.max_age, None);
+        assert!(default_props.validate().is_ok());
     }
 
     #[test]
