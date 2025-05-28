@@ -261,7 +261,7 @@ fn get_meta(model: ModelInfo, decoder: &mut Decoder<File>, path: &Path) -> Resul
     }
     let min_zoom = 0;
     let max_zoom = (images.len() - 1) as u8;
-    let zoom_and_images: HashMap<u8, Image> = images
+    let images: HashMap<u8, Image> = images
         .iter()
         .map(|image| {
             let zoom = max_zoom.saturating_sub((image.ifd as u8) + 1);
@@ -271,10 +271,10 @@ fn get_meta(model: ModelInfo, decoder: &mut Decoder<File>, path: &Path) -> Resul
     Ok(Meta {
         min_zoom,
         max_zoom,
-        images: zoom_and_images,
         model,
         origin,
         extent,
+        images,
         nodata,
     })
 }

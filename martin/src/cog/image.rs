@@ -29,11 +29,8 @@ impl Image {
             .seek_to_image(self.ifd)
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd, path.to_path_buf()))?;
 
-        let across = self.across;
-        let down = self.down;
-
         let tile_idx;
-        if let Some(idx) = get_tile_idx(xyz, across, down) {
+        if let Some(idx) = self.get_tile_idx(xyz) {
             tile_idx = idx;
         } else {
             return Ok(Vec::new());
@@ -74,19 +71,20 @@ impl Image {
         }?;
         Ok(png_file_bytes)
     }
-}
-fn get_tile_idx(xyz: TileCoord, across: u32, down: u32) -> Option<u32> {
-    if xyz.y >= down || xyz.x >= across {
-        return None;
-    }
+    fn get_tile_idx(&self, xyz: TileCoord) -> Option<u32> {
+        let across = self.across;
+        let down = self.down;
+        if xyz.y >= down || xyz.x >= across {
+            return None;
+        }
 
-    let tile_idx = xyz.y * across + xyz.x;
-    if tile_idx >= across * down {
-        return None;
+        let tile_idx = xyz.y * across + xyz.x;
+        if tile_idx >= across * down {
+            return None;
+        }
+        Some(tile_idx)
     }
-    Some(tile_idx)
 }
-
 fn rgb_to_png(
     vec: Vec<u8>,
     (tile_width, tile_height): (u32, u32),
@@ -151,13 +149,20 @@ mod tests {
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
 
-    use crate::cog::image::get_tile_idx;
+    use crate::cog::image::Image;
+
     #[test]
     fn can_calc_tile_idx() {
-        assert_eq!(Some(0), get_tile_idx(TileCoord { z: 0, x: 0, y: 0 }, 3, 3));
-        assert_eq!(Some(8), get_tile_idx(TileCoord { z: 0, x: 2, y: 2 }, 3, 3));
-        assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 3, y: 0 }, 3, 3));
-        assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 1, y: 9 }, 3, 3));
+        let image = Image {
+            ifd: 0,
+            across: 3,
+            down: 3,
+            nodata: None,
+        };
+        assert_eq!(Some(0), image.get_tile_idx(TileCoord { z: 0, x: 0, y: 0 }));
+        assert_eq!(Some(8), image.get_tile_idx(TileCoord { z: 0, x: 2, y: 2 }));
+        assert_eq!(None, image.get_tile_idx(TileCoord { z: 0, x: 3, y: 0 }));
+        assert_eq!(None, image.get_tile_idx(TileCoord { z: 0, x: 1, y: 9 }));
     }
     #[rstest]
     // the right half should be transprent
