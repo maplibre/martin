@@ -4,6 +4,7 @@ pre-build = [
     # note that architecture could be the same as the container, not $CROSS_DEB_ARCH
     "curl -fsSL https://deb.nodesource.com/setup_22.x  -o install.sh",
     "bash install.sh",
+    "apt-get install -y nodejs",
     # verify installation
     "node --version",
     "npm --version",
