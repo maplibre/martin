@@ -1,0 +1,223 @@
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
+
+use martin_tile_utils::TileCoord;
+use tiff::decoder::{Decoder, DecodingResult};
+
+use super::CogError;
+use crate::{MartinResult, TileData};
+
+#[derive(Clone, Debug)]
+pub struct Image {
+    pub ifd: usize,
+    pub across: u32,
+    pub down: u32,
+    pub nodata: Option<f64>,
+}
+impl Image {
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::too_many_lines)]
+    pub fn get_tile(
+        &self,
+        decoder: &mut Decoder<File>,
+        xyz: TileCoord,
+        path: &Path,
+    ) -> MartinResult<TileData> {
+        decoder
+            .seek_to_image(self.ifd)
+            .map_err(|e| CogError::IfdSeekFailed(e, self.ifd, path.to_path_buf()))?;
+
+        let across = self.across;
+        let down = self.down;
+
+        let tile_idx;
+        if let Some(idx) = get_tile_idx(xyz, across, down) {
+            tile_idx = idx;
+        } else {
+            return Ok(Vec::new());
+        }
+        let decode_result = decoder
+            .read_chunk(tile_idx)
+            .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, self.ifd, path.to_path_buf()))?;
+        let color_type = decoder
+            .colortype()
+            .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
+
+        let (tile_width, tile_height) = decoder.chunk_dimensions();
+        let (data_width, data_height) = decoder.chunk_data_dimensions(tile_idx);
+
+        //do more research on the not u8 case, is this the right way to do it?
+        let png_file_bytes = match (decode_result, color_type) {
+            (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => rgb_to_png(
+                vec,
+                (tile_width, tile_height),
+                (data_width, data_height),
+                3,
+                self.nodata.map(|v| v as u8),
+                path,
+            ),
+            (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => rgb_to_png(
+                vec,
+                (tile_width, tile_height),
+                (data_width, data_height),
+                4,
+                self.nodata.map(|v| v as u8),
+                path,
+            ),
+            (_, _) => Err(CogError::NotSupportedColorTypeAndBitDepth(
+                color_type,
+                path.to_path_buf(),
+            )),
+            // do others in next PRs, a lot of disscussion would be needed
+        }?;
+        Ok(png_file_bytes)
+    }
+}
+fn get_tile_idx(xyz: TileCoord, across: u32, down: u32) -> Option<u32> {
+    if xyz.y >= down || xyz.x >= across {
+        return None;
+    }
+
+    let tile_idx = xyz.y * across + xyz.x;
+    if tile_idx >= across * down {
+        return None;
+    }
+    Some(tile_idx)
+}
+
+fn rgb_to_png(
+    vec: Vec<u8>,
+    (tile_width, tile_height): (u32, u32),
+    (data_width, data_height): (u32, u32),
+    chunk_components_count: u32,
+    nodata: Option<u8>,
+    path: &Path,
+) -> Result<Vec<u8>, CogError> {
+    let is_padded = data_width != tile_width || data_height != tile_height;
+    let need_add_alpha = chunk_components_count != 4;
+
+    let pixels = if nodata.is_some() || need_add_alpha || is_padded {
+        let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
+        for row in 0..data_height {
+            'outer: for col in 0..data_width {
+                let idx_chunk =
+                    row * data_width * chunk_components_count + col * chunk_components_count;
+                let idx_result = row * tile_width * 4 + col * 4;
+                for component_idx in 0..chunk_components_count {
+                    if nodata.eq(&Some(vec[(idx_chunk + component_idx) as usize])) {
+                        //This pixel is nodata, just make it transparent and skip it then
+                        let alpha_idx = (idx_result + 3) as usize;
+                        result_vec[alpha_idx] = 0;
+                        continue 'outer;
+                    }
+                    result_vec[(idx_result + component_idx) as usize] =
+                        vec[(idx_chunk + component_idx) as usize];
+                }
+                if need_add_alpha {
+                    let alpha_idx = (idx_result + 3) as usize;
+                    result_vec[alpha_idx] = 255;
+                }
+            }
+        }
+        result_vec
+    } else {
+        vec
+    };
+    let mut result_file_buffer = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(
+            BufWriter::new(&mut result_file_buffer),
+            tile_width,
+            tile_height,
+        );
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder
+            .write_header()
+            .map_err(|e| CogError::WritePngHeaderFailed(path.to_path_buf(), e))?;
+        writer
+            .write_image_data(&pixels)
+            .map_err(|e| CogError::WriteToPngFailed(path.to_path_buf(), e))?;
+    }
+    Ok(result_file_buffer)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use martin_tile_utils::TileCoord;
+    use rstest::rstest;
+
+    use crate::cog::image::get_tile_idx;
+    #[test]
+    fn can_calc_tile_idx() {
+        assert_eq!(Some(0), get_tile_idx(TileCoord { z: 0, x: 0, y: 0 }, 3, 3));
+        assert_eq!(Some(8), get_tile_idx(TileCoord { z: 0, x: 2, y: 2 }, 3, 3));
+        assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 3, y: 0 }, 3, 3));
+        assert_eq!(None, get_tile_idx(TileCoord { z: 0, x: 1, y: 9 }, 3, 3));
+    }
+    #[rstest]
+    // the right half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/right_padded.png",
+        (0,0,0,None),None,(128,256),(256,256)
+    )]
+    // the down half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/down_padded.png",
+        (0,0,0,None),None,(256,128),(256,256)
+    )]
+    // the up half should be half transprent and down half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
+        (0,0,0,Some(128)),None,(256,128),(256,256)
+    )]
+    // the left half should be half transprent and the right half should be transprent
+    #[case(
+        "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
+        (0,0,0,Some(128)),None,(128,256),(256,256)
+    )]
+    // should be all half transprent
+    #[case(
+        "../tests/fixtures/cog/expected/not_padded.png",
+        (0,0,0,Some(128)),None,(256,256),(256,256)
+    )]
+    // all padded and with a no_data whose value is 128, and all the component is 128
+    // so that should be all transprent
+    #[case(
+        "../tests/fixtures/cog/expected/all_transprent.png",
+        (128,128,128,Some(128)),Some(128),(128,128),(256,256)
+    )]
+    fn test_padded_cases(
+        #[case] expected_file_path: &str,
+        #[case] components: (u8, u8, u8, Option<u8>),
+        #[case] no_value: Option<u8>,
+        #[case] (data_width, data_height): (u32, u32),
+        #[case] (tile_width, tile_height): (u32, u32),
+    ) {
+        let mut pixels = Vec::new();
+        for _ in 0..(data_width * data_height) {
+            pixels.push(components.0);
+            pixels.push(components.1);
+            pixels.push(components.2);
+            if let Some(alpha) = components.3 {
+                pixels.push(alpha);
+            }
+        }
+        let componse_count = if components.3.is_some() { 4 } else { 3 };
+        let png_bytes = super::rgb_to_png(
+            pixels,
+            (tile_width, tile_height),
+            (data_width, data_height),
+            componse_count,
+            no_value,
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        let expected = std::fs::read(expected_file_path).unwrap();
+        assert_eq!(png_bytes, expected);
+    }
+}
