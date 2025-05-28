@@ -119,12 +119,11 @@ mod tests {
         let middleware = config.make_cors_middleware();
         assert!(middleware.is_some());
 
-        // Check if it's using the appropiate default properties
-        if let CorsConfig::Properties(properties) = config {
-            assert_eq!(properties.origin, vec!["*"]);
-            assert_eq!(properties.max_age, None);
+        // Check if it's using the default SimpleFlag(true)
+        if let CorsConfig::SimpleFlag(enabled) = config {
+            assert!(enabled);
         } else {
-            panic!("Expected Properties variant for default config");
+            panic!("Expected SimpleFlag variant for default config");
         }
     }
 
