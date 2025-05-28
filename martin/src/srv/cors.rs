@@ -50,7 +50,8 @@ impl CorsProperties {
 }
 
 impl CorsConfig {
-    pub fn log_config(&self) {
+    /// Log the current configuration
+    pub fn log_current_configuration(&self) {
         match &self {
             CorsConfig::SimpleFlag(false) => info!("CORS is disabled"),
             CorsConfig::SimpleFlag(true) => info!(

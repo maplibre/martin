@@ -162,7 +162,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
     let cors_config = config.cors.clone().unwrap_or_default();
     cors_config.validate()?;
-    cors_config.log_config();
+    cors_config.log_current_configuration();
 
     let factory = move || {
         let cors_middleware = cors_config.make_cors_middleware();
