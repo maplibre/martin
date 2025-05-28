@@ -50,6 +50,19 @@ impl CorsProperties {
 }
 
 impl CorsConfig {
+    pub fn log_config(&self) {
+        match &self {
+            CorsConfig::SimpleFlag(false) => info!("CORS is disabled"),
+            CorsConfig::SimpleFlag(true) => info!(
+                "CORS enabled with defaults: {:?}",
+                CorsProperties::default()
+            ),
+            CorsConfig::Properties(props) => {
+                info!("CORS enabled with custom properties: {props:?}");
+            }
+        }
+    }
+
     /// Checks that that if cors is configured explicitely (instead of via `true`/`false`), `origin` is configured
     pub fn validate(&self) -> MartinResult<()> {
         match self {
@@ -62,13 +75,9 @@ impl CorsConfig {
     /// Create [`actix_cors::Cors`] from the configuration
     pub fn make_cors_middleware(&self) -> Option<actix_cors::Cors> {
         match self {
-            CorsConfig::SimpleFlag(false) => {
-                info!("CORS is disabled");
-                None
-            }
+            CorsConfig::SimpleFlag(false) => None,
             CorsConfig::SimpleFlag(true) => {
                 let properties = CorsProperties::default();
-                info!("Enabled CORS with defaults: {properties:?}");
                 Some(Self::create_cors(&properties))
             }
             CorsConfig::Properties(properties) => Some(Self::create_cors(properties)),
