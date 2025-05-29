@@ -8,7 +8,7 @@ use tiff::decoder::{Decoder, DecodingResult};
 use super::CogError;
 use crate::{MartinResult, TileData};
 
-/// Image represents a single image in a COG file. A tiff file may contains many iamges.
+/// Image represents a single image in a COG file. A tiff file may contain many images.
 /// This type contains several useful information and method for taking tiles from the image.
 #[derive(Clone, Debug)]
 pub struct Image {
@@ -74,7 +74,7 @@ impl Image {
                 color_type,
                 path.to_path_buf(),
             )),
-            // do others in next PRs, a lot of disscussion would be needed
+            // do others in next PRs, a lot of discussion would be needed
         }?;
         Ok(png_file_bytes)
     }
@@ -172,35 +172,35 @@ mod tests {
         assert_eq!(None, image.get_tile_idx(TileCoord { z: 0, x: 1, y: 9 }));
     }
     #[rstest]
-    // the right half should be transprent
+    // the right half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/right_padded.png",
         (0,0,0,None),None,(128,256),(256,256)
     )]
-    // the down half should be transprent
+    // the down half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/down_padded.png",
         (0,0,0,None),None,(256,128),(256,256)
     )]
-    // the up half should be half transprent and down half should be transprent
+    // the up half should be half transparent and down half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
         (0,0,0,Some(128)),None,(256,128),(256,256)
     )]
-    // the left half should be half transprent and the right half should be transprent
+    // the left half should be half transparent and the right half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
         (0,0,0,Some(128)),None,(128,256),(256,256)
     )]
-    // should be all half transprent
+    // should be all half transparent
     #[case(
         "../tests/fixtures/cog/expected/not_padded.png",
         (0,0,0,Some(128)),None,(256,256),(256,256)
     )]
     // all padded and with a no_data whose value is 128, and all the component is 128
-    // so that should be all transprent
+    // so that should be all transparent
     #[case(
-        "../tests/fixtures/cog/expected/all_transprent.png",
+        "../tests/fixtures/cog/expected/all_transparent.png",
         (128,128,128,Some(128)),Some(128),(128,128),(256,256)
     )]
     fn test_padded_cases(
@@ -219,12 +219,12 @@ mod tests {
                 pixels.push(alpha);
             }
         }
-        let componse_count = if components.3.is_some() { 4 } else { 3 };
+        let components_count = if components.3.is_some() { 4 } else { 3 };
         let png_bytes = super::rgb_to_png(
             pixels,
             (tile_width, tile_height),
             (data_width, data_height),
-            componse_count,
+            components_count,
             no_value,
             &PathBuf::from("not_exist.tif"),
         )
