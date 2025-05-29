@@ -8,10 +8,17 @@ use tiff::decoder::{Decoder, DecodingResult};
 use super::CogError;
 use crate::{MartinResult, TileData};
 
+/// Image represents a single image in a COG file. A tiff file may contains many iamges.
+/// This type contains several useful information and method for taking tiles from the image.
 #[derive(Clone, Debug)]
 pub struct Image {
+    /// IFD(Image file directory) number.
+    /// An IFD contains information about the image, as well as pointers to the actual image data.
+    /// A tiff file may contains many IFDs, each IFD represents a single image.
     pub ifd: usize,
+    /// How many tiles in a row of this image
     pub across: u32,
+    // How many tiles in a column of this image
     pub down: u32,
 }
 impl Image {
