@@ -22,6 +22,16 @@ pub struct Image {
 }
 
 impl Image {
+    /// Retrieves a tile from the image, decodes it, and converts it to PNG format.
+    ///
+    /// # Arguments
+    /// * `decoder` - A mutable reference to a TIFF decoder.
+    /// * `xyz` - The tile coordinates (z, x, y).
+    /// * [nodata](https://gdal.org/en/stable/drivers/raster/gtiff.html#nodata-value) - An optional nodata value. Pixels with this value will be made transparent.
+    /// * `path` - The path to the TIFF file, used for error reporting.
+    ///
+    /// # Returns
+    /// A `MartinResult` containing the tile data as a `Vec<u8>` (PNG bytes) or an error.
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
     pub fn get_tile(
