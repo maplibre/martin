@@ -18,6 +18,7 @@ use crate::file_config::{FileError, FileResult};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)] // model and origin and extent would be used in future PRs 
 pub struct CogSource {
     id: String,
     path: PathBuf,
