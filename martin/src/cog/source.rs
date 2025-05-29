@@ -18,7 +18,9 @@ use crate::file_config::{FileError, FileResult};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
-struct Meta {
+pub struct CogSource {
+    id: String,
+    path: PathBuf,
     min_zoom: u8,
     max_zoom: u8,
     model: ModelInfo,
@@ -28,18 +30,12 @@ struct Meta {
     extent: [f64; 4],
     images: HashMap<u8, Image>,
     nodata: Option<f64>,
-}
-
-#[derive(Clone, Debug)]
-pub struct CogSource {
-    id: String,
-    path: PathBuf,
-    meta: Meta,
     tilejson: TileJSON,
     tileinfo: TileInfo,
 }
 
 impl CogSource {
+    #[allow(clippy::cast_possible_truncation)]
     pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
@@ -49,17 +45,88 @@ impl CogSource {
             .with_limits(tiff::decoder::Limits::unlimited());
         let model = ModelInfo::decode(&mut decoder, &path);
         verify_requirements(&mut decoder, &model, &path.clone())?;
+        let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
+            no_data.parse().ok()
+        } else {
+            None
+        };
+        let origin = get_origin(
+            model.tie_points.as_deref(),
+            model.transformation.as_deref(),
+            &path,
+        )?;
+        let (full_width_pixel, full_length_pixel) = dim_in_pixel(&mut decoder, &path, 0)?;
+        let (full_width, full_length) = dim_in_model(
+            &mut decoder,
+            &path,
+            0,
+            model.pixel_scale.as_deref(),
+            model.transformation.as_deref(),
+        )?;
+        let extent = get_extent(
+            &origin,
+            model.transformation.as_deref(),
+            (full_width_pixel, full_length_pixel),
+            (full_width, full_length),
+        );
+        let mut images = vec![];
 
-        let meta = get_meta(model.clone(), &mut decoder, &path)?;
+        let mut ifd_idx = 0;
+
+        loop {
+            let is_image = decoder
+                .get_tag_u32(Tag::NewSubfileType)
+                .map_or_else(|_| true, |v| v & 4 != 4); // see https://www.verypdf.com/document/tiff6/pg_0036.htm
+            if is_image {
+                //todo We should not ignore mask in the next PRs
+                let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, &path, ifd_idx)?;
+                let image = Image {
+                    ifd: ifd_idx,
+                    across: tiles_across,
+                    down: tiles_down,
+                };
+
+                images.push(image);
+            } else {
+                warn!(
+                    "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. The ifd number of this subfile is {}",
+                    path.display(),
+                    ifd_idx
+                );
+            }
+
+            ifd_idx += 1;
+
+            let next_res = decoder.seek_to_image(ifd_idx);
+            if next_res.is_err() {
+                //todo add warn!() here
+                break;
+            }
+        }
+        let min_zoom = 0;
+        let max_zoom = (images.len() - 1) as u8;
+        let images: HashMap<u8, Image> = images
+            .iter()
+            .map(|image| {
+                let zoom = max_zoom.saturating_sub(image.ifd as u8);
+                (zoom, image.clone())
+            })
+            .collect();
         let tilejson = tilejson! {
             tiles: vec![],
-            minzoom: meta.min_zoom,
-            maxzoom: meta.max_zoom
+            minzoom: min_zoom,
+            maxzoom: max_zoom
         };
         Ok(CogSource {
             id,
             path,
-            meta,
+            min_zoom,
+            max_zoom,
+            model,
+            origin,
+            extent,
+            images,
+            nodata,
             tilejson,
             tileinfo,
         })
@@ -68,7 +135,7 @@ impl CogSource {
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::too_many_lines)]
     pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
-        if xyz.z < self.meta.min_zoom || xyz.z > self.meta.max_zoom {
+        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
             return Ok(Vec::new());
         }
         let tif_file =
@@ -77,16 +144,11 @@ impl CogSource {
             Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
         decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
 
-        let image = self.meta.images.get(&(xyz.z)).ok_or_else(|| {
-            CogError::ZoomOutOfRange(
-                xyz.z,
-                self.path.clone(),
-                self.meta.min_zoom,
-                self.meta.max_zoom,
-            )
+        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
+            CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
         })?;
 
-        let bytes = image.get_tile(&mut decoder, xyz, self.meta.nodata, &self.path)?;
+        let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
         Ok(bytes)
     }
 }
@@ -195,86 +257,6 @@ fn verify_requirements(
     }?;
 
     Ok(())
-}
-
-#[allow(clippy::cast_possible_truncation)]
-fn get_meta(model: ModelInfo, decoder: &mut Decoder<File>, path: &Path) -> Result<Meta, FileError> {
-    let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
-        no_data.parse().ok()
-    } else {
-        None
-    };
-    let origin = get_origin(
-        model.tie_points.as_deref(),
-        model.transformation.as_deref(),
-        path,
-    )?;
-    let (full_width_pixel, full_length_pixel) = dim_in_pixel(decoder, path, 0)?;
-    let (full_width, full_length) = dim_in_model(
-        decoder,
-        path,
-        0,
-        model.pixel_scale.as_deref(),
-        model.transformation.as_deref(),
-    )?;
-    let extent = get_extent(
-        &origin,
-        model.transformation.as_deref(),
-        (full_width_pixel, full_length_pixel),
-        (full_width, full_length),
-    );
-    let mut images = vec![];
-
-    let mut ifd_idx = 0;
-
-    loop {
-        let is_image = decoder
-            .get_tag_u32(Tag::NewSubfileType)
-            .map_or_else(|_| true, |v| v & 4 != 4); // see https://www.verypdf.com/document/tiff6/pg_0036.htm
-        if is_image {
-            //todo We should not ignore mask in the next PRs
-            let (tiles_across, tiles_down) = get_grid_dims(decoder, path, ifd_idx)?;
-            let image = Image {
-                ifd: ifd_idx,
-                across: tiles_across,
-                down: tiles_down,
-            };
-
-            images.push(image);
-        } else {
-            warn!(
-                "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. The ifd number of this subfile is {}",
-                path.display(),
-                ifd_idx
-            );
-        }
-
-        ifd_idx += 1;
-
-        let next_res = decoder.seek_to_image(ifd_idx);
-        if next_res.is_err() {
-            //todo add warn!() here
-            break;
-        }
-    }
-    let min_zoom = 0;
-    let max_zoom = (images.len() - 1) as u8;
-    let images: HashMap<u8, Image> = images
-        .iter()
-        .map(|image| {
-            let zoom = max_zoom.saturating_sub(image.ifd as u8);
-            (zoom, image.clone())
-        })
-        .collect();
-    Ok(Meta {
-        min_zoom,
-        max_zoom,
-        model,
-        origin,
-        extent,
-        images,
-        nodata,
-    })
 }
 
 fn get_grid_dims(
