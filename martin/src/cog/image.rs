@@ -14,7 +14,6 @@ use crate::{MartinResult, TileData};
 pub struct Image {
     /// IFD(Image file directory) number.
     /// An IFD contains information about the image, as well as pointers to the actual image data.
-    /// A tiff file may contains many IFDs, each IFD represents a single image.
     pub ifd: usize,
     /// How many tiles in a row of this image
     pub across: u32,
