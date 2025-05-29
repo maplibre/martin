@@ -264,7 +264,7 @@ fn get_meta(model: ModelInfo, decoder: &mut Decoder<File>, path: &Path) -> Resul
     let images: HashMap<u8, Image> = images
         .iter()
         .map(|image| {
-            let zoom = max_zoom.saturating_sub((image.ifd as u8) + 1);
+            let zoom = max_zoom.saturating_sub(image.ifd as u8);
             (zoom, image.clone())
         })
         .collect();
