@@ -13,7 +13,6 @@ pub struct Image {
     pub ifd: usize,
     pub across: u32,
     pub down: u32,
-    pub nodata: Option<f64>,
 }
 impl Image {
     #[allow(clippy::cast_sign_loss)]
@@ -23,6 +22,7 @@ impl Image {
         &self,
         decoder: &mut Decoder<File>,
         xyz: TileCoord,
+        nodata: Option<f64>,
         path: &Path,
     ) -> MartinResult<TileData> {
         decoder
@@ -52,7 +52,7 @@ impl Image {
                 (tile_width, tile_height),
                 (data_width, data_height),
                 3,
-                self.nodata.map(|v| v as u8),
+                nodata.map(|v| v as u8),
                 path,
             ),
             (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => rgb_to_png(
@@ -60,7 +60,7 @@ impl Image {
                 (tile_width, tile_height),
                 (data_width, data_height),
                 4,
-                self.nodata.map(|v| v as u8),
+                nodata.map(|v| v as u8),
                 path,
             ),
             (_, _) => Err(CogError::NotSupportedColorTypeAndBitDepth(
@@ -157,7 +157,6 @@ mod tests {
             ifd: 0,
             across: 3,
             down: 3,
-            nodata: None,
         };
         assert_eq!(Some(0), image.get_tile_idx(TileCoord { z: 0, x: 0, y: 0 }));
         assert_eq!(Some(8), image.get_tile_idx(TileCoord { z: 0, x: 2, y: 2 }));

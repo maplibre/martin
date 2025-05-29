@@ -86,7 +86,7 @@ impl CogSource {
             )
         })?;
 
-        let bytes = image.get_tile(&mut decoder, xyz, &self.path)?;
+        let bytes = image.get_tile(&mut decoder, xyz, self.meta.nodata, &self.path)?;
         Ok(bytes)
     }
 }
@@ -238,7 +238,6 @@ fn get_meta(model: ModelInfo, decoder: &mut Decoder<File>, path: &Path) -> Resul
                 ifd: ifd_idx,
                 across: tiles_across,
                 down: tiles_down,
-                nodata,
             };
 
             images.push(image);
