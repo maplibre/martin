@@ -21,6 +21,7 @@ pub struct Image {
     // How many tiles in a column of this image
     pub down: u32,
 }
+
 impl Image {
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
@@ -91,6 +92,7 @@ impl Image {
         Some(tile_idx)
     }
 }
+
 fn rgb_to_png(
     vec: Vec<u8>,
     (tile_width, tile_height): (u32, u32),
