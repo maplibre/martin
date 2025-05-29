@@ -24,7 +24,6 @@ pub struct Image {
 impl Image {
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::too_many_lines)]
     pub fn get_tile(
         &self,
         decoder: &mut Decoder<File>,
