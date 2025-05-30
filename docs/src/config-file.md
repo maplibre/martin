@@ -194,6 +194,14 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
+  # Allows forcing path style URLs for S3 buckets [default: false]
+  #
+  # A path style URL is a URL that uses the bucket name as part of the path like mys3.com/somebucket instead of the hostname somebucket.mys3.com
+  force_path_style: false
+  # Skip loading credentials for S3 buckets [default: false]
+  #
+  # Set this to true to request anonymously for publicly available buckets.
+  skip_credentials: false
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path

@@ -67,6 +67,18 @@ impl DirectoryCache for PmtCache {
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
+    /// Force path style URLs for S3 buckets
+    ///
+    /// A path style URL is a URL that uses the bucket name as part of the path like `mys3.com/somebucket` instead of the hostname `somebucket.mys3.com`.
+    /// If `None` (the default), this will look at `AWS_S3_FORCE_PATH_STYLE` or default to `false`.
+    #[serde(default, alias = "aws_s3_force_path_style")]
+    pub force_path_style: Option<bool>,
+    /// Skip loading credentials for S3 buckets
+    ///
+    /// Set this to `true` to request anonymously for publicly available buckets.
+    /// If `None` (the default), this will look at `AWS_SKIP_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `false`.
+    #[serde(default, alias = "aws_skip_credentials")]
+    pub skip_credentials: Option<bool>,
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
@@ -146,9 +158,27 @@ impl SourceConfigExtras for PmtConfig {
 
     async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
         match url.scheme() {
-            "s3" => Ok(Box::new(
-                PmtS3Source::new(self.new_cached_source(), id, url).await?,
-            )),
+            "s3" => {
+                let force_path_style = self.force_path_style.unwrap_or_else(|| {
+                    get_env_as_bool("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default()
+                });
+                let skip_credentials = self.skip_credentials.unwrap_or_else(|| {
+                    get_env_as_bool("AWS_SKIP_CREDENTIALS").unwrap_or_else(|| {
+                        // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
+                        get_env_as_bool("AWS_NO_CREDENTIALS").unwrap_or_default()
+                    })
+                });
+                Ok(Box::new(
+                    PmtS3Source::new(
+                        self.new_cached_source(),
+                        id,
+                        url,
+                        skip_credentials,
+                        force_path_style,
+                    )
+                    .await?,
+                ))
+            }
             _ => Ok(Box::new(
                 PmtHttpSource::new(
                     self.client.clone().unwrap(),
@@ -307,15 +337,21 @@ impl PmtHttpSource {
 impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadata);
 
 impl PmtS3Source {
-    pub async fn new(cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+    pub async fn new(
+        cache: PmtCache,
+        id: String,
+        url: Url,
+        skip_credentials: bool,
+        force_path_style: bool,
+    ) -> FileResult<Self> {
         let mut aws_config_builder = aws_config::from_env();
-        if std::env::var("AWS_NO_CREDENTIALS").unwrap_or_default() == "1" {
+        if skip_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
         }
         let aws_config = aws_config_builder.load().await;
 
         let s3_config = S3ConfigBuilder::from(&aws_config)
-            .force_path_style(std::env::var("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default() == "1")
+            .force_path_style(force_path_style)
             .build();
         let client = S3Client::from_conf(s3_config);
 
@@ -360,4 +396,12 @@ impl PmtFileSource {
 
         Self::new_int(id, path, reader).await
     }
+}
+
+/// Interpret an environment variable as a [`bool`]
+///
+/// This ignores casing and treats bad utf8 encoding as `false`.
+fn get_env_as_bool(key: &'static str) -> Option<bool> {
+    let val = std::env::var_os(key)?.to_ascii_lowercase();
+    Some(val.to_str().is_some_and(|val| val == "1" || val == "true"))
 }
