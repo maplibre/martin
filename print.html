@@ -452,14 +452,28 @@ Options:
 Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
-<p>You can also configure Martin using environment variables, but only if the configuration file is not used. See <a href="config-file.html">configuration section</a> on how to use environment variables with config files. See also <a href="pg-connections.html#postgresql-ssl-connections">SSL configuration</a> section below.</p>
+<p>You can configure Martin using environment variables, but only if the configuration file is not used.
+The configuration file itself can use environment variables if needed.
+See <a href="config-file.html">configuration section</a> on how to use environment variables with config files.
+See also <a href="pg-connections.html#postgresql-ssl-connections">SSL configuration</a> section below.</p>
 <div class="table-wrapper"><table><thead><tr><th>Environment var <br/> Config File key</th><th>Example</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>DATABASE_URL</code> <br/> <code>connection_string</code></td><td><code>postgresql://</code><br/><code>postgres@localhost/db</code></td><td>Postgres database connection</td></tr>
 <tr><td><code>DEFAULT_SRID</code> <br/> <code>default_srid</code></td><td><code>4326</code></td><td>If a PostgreSQL table has a geometry column with SRID=0, use this value instead</td></tr>
 <tr><td><code>PGSSLCERT</code> <br/> <code>ssl_cert</code></td><td><code>./postgresql.crt</code></td><td>A file with a client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT">docs</a></td></tr>
 <tr><td><code>PGSSLKEY</code> <br/> <code>ssl_key</code></td><td><code>./postgresql.key</code></td><td>A file with the key for the client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY">docs</a></td></tr>
 <tr><td><code>PGSSLROOTCERT</code> <br/> <code>ssl_root_cert</code></td><td><code>./root.crt</code></td><td>A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT">docs</a></td></tr>
-<tr><td><code>AWS_LAMBDA_RUNTIME_API</code></td><td></td><td>If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See <a href="run-with-lambda.html">Running in AWS Lambda</a></td></tr>
+<tr><td><code>AWS_LAMBDA_RUNTIME_API</code> <br/> -</td><td></td><td>If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See <a href="run-with-lambda.html">Running in AWS Lambda</a></td></tr>
+</tbody></table>
+</div>
+<p>To <a href="sources-files.html#serving-pmtiles-via-s3">access PMTiles via S3</a>, we also support the following configuration options:</p>
+<div class="table-wrapper"><table><thead><tr><th>Environment var <br/> Config File key</th><th>Example</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>AWS_ACCESS_KEY_ID</code> <br/> -</td><td><code>AKIAEXAMPLE12345678</code></td><td>AWS access key ID used for authenticating requests when using long-term or temporary credentials.</td></tr>
+<tr><td><code>AWS_SECRET_ACCESS_KEY</code> <br/> -</td><td><code>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</code></td><td>AWS secret access key paired with the access key ID.</td></tr>
+<tr><td><code>AWS_SESSION_TOKEN</code> <br/> -</td><td><code>FwoGZXIvYXdzEF0aD...</code></td><td>Session token used with temporary security credentials (e.g., from AWS STS). Required if you’re using <code>AssumeRole</code>.</td></tr>
+<tr><td><code>AWS_PROFILE</code> <br/> -</td><td><code>default</code></td><td>Specifies which named profile to use from the AWS credentials/config files.</td></tr>
+<tr><td><code>AWS_REGION</code> <br/> -</td><td><code>us-west-2</code></td><td>Sets the AWS region to send requests to, e.g., <code>us-east-1</code>, <code>eu-central-1</code>.</td></tr>
+<tr><td><code>AWS_SKIP_CREDENTIALS</code> <br/> <code>pmtiles.skip_credentials</code></td><td><code>true</code></td><td>Disable credential loading and to send requests anonymously for publicly available buckets. Default: <code>true</code></td></tr>
+<tr><td><code>AWS_S3_FORCE_PATH_STYLE</code> <br/> <code>pmtiles.force_path_style</code></td><td><code>true</code></td><td>Forces the AWS SDK to use path-style URLs for S3 like <code>s3.amazonaws.com/bucket/key</code> instead of virtual-hosted style. Useful for local S3-compatible services like MinIO.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="hosting-environmentspecific-guides"><a class="header" href="#hosting-environmentspecific-guides">Hosting Environment–specific Guides</a></h1>
 <p>To help with common runtimes, we have written the following guides:</p>
@@ -1008,6 +1022,14 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
+  # Allows forcing path style URLs for S3 buckets [default: false]
+  #
+  # A path style URL is a URL that uses the bucket name as part of the path like mys3.com/somebucket instead of the hostname somebucket.mys3.com
+  force_path_style: false
+  # Skip loading credentials for S3 buckets [default: false]
+  #
+  # Set this to true to request anonymously for publicly available buckets.
+  skip_credentials: false
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
@@ -1114,7 +1136,8 @@ the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. A pat
 </code></pre>
 <p>You may also want to generate a <a href="config-file.html">config file</a> using the <code>--save-config my-config.yaml</code>, and later edit
 it and use it with <code>--config my-config.yaml</code> option.</p>
-<h2 id="pmtiles-s3"><a class="header" href="#pmtiles-s3">PMTiles S3</a></h2>
+<h3 id="serving-pmtiles-via-s3"><a class="header" href="#serving-pmtiles-via-s3">Serving PMTiles via S3</a></h3>
+<h4 id="authentication-with-aws-credentials"><a class="header" href="#authentication-with-aws-credentials">Authentication with AWS credentials</a></h4>
 <p>Martin supports authenticated S3 sources using environment variables.</p>
 <p>By default, Martin will use default profile’s credentials unless these <a href="https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html">AWS environment variables</a> are set:</p>
 <ul>
@@ -1124,11 +1147,23 @@ it and use it with <code>--config my-config.yaml</code> option.</p>
 <li><code>AWS_PROFILE</code> - to specify profile instead of access key variables</li>
 <li><code>AWS_REGION</code> - if set, must match the region of the bucket in the S3 URI</li>
 </ul>
-<h3 id="anonymous-credentials"><a class="header" href="#anonymous-credentials">Anonymous credentials</a></h3>
-<p>To send requests anonymously for publicly available buckets, set the environment variable <code>AWS_NO_CREDENTIALS=1</code>.
-Note that you still need to set <code>AWS_REGION</code> to the correct region.</p>
+<h4 id="anonymous-credentials"><a class="header" href="#anonymous-credentials">Anonymous credentials</a></h4>
+<p>By default, martin does require credentials for S3 buckets.
+To send requests anonymously for publicly available buckets, set the environment variable <code>AWS_SKIP_CREDENTIALS=1</code> or configuration key <code>skip_credentials: true</code> respectively.</p>
+<p>Note: you still need to set <code>AWS_REGION</code> to the correct region.</p>
 <p>Example configuration:</p>
 <pre><code class="language-yaml">pmtiles:
+  skip_credentials: false
+  sources:
+    tiles: s3://bucket/path/to/tiles.pmtiles
+</code></pre>
+<h4 id="url-styles"><a class="header" href="#url-styles">Url styles</a></h4>
+<p>We also support forcing path style URLs for S3 buckets via the environment variable <code>AWS_S3_FORCE_PATH_STYLE=1</code> or configuration key <code>force_path_style: true</code>.
+This allows you to use this functionality for <a href="https://min.io/"><code>MinIO</code></a> or similar s3-compatible instances which use path style URLs.
+A path style URL is a URL that uses the bucket name as part of the path (<code>mys3.com/somebucket</code>) instead of the hostname (<code>somebucket.mys3.com</code>).</p>
+<p>Example configuration:</p>
+<pre><code class="language-yaml">pmtiles:
+  force_path_style: true
   sources:
     tiles: s3://bucket/path/to/tiles.pmtiles
 </code></pre>
