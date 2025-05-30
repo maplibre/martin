@@ -102,44 +102,75 @@ impl Image {
     }
 }
 
+/// Converts a vector of RGB or RGBA bytes to PNG format, handling nodata values and padding if necessary.
+/// # Arguments
+///
+/// * `data` - A vector of pixel data in RGB or RGBA format.
+/// * `(tile_width, tile_height)` - The dimensions of the tile.
+/// * `(data_width, data_height)` - The dimensions of the chunk data decoded from this tile.
+/// * `components_count` - The number of components per pixel (3 for RGB, 4 for RGBA).
+/// * `nodata` - An optional nodata value. Pixels with this value will be made transparent.
+/// * `path` - The path to the TIFF file, used for error reporting.
+///
+/// # Returns
+///
+/// A `Result` containing the PNG bytes as a `Vec<u8>` or an error.
 fn rgb_to_png(
-    vec: Vec<u8>,
+    data: Vec<u8>,
     (tile_width, tile_height): (u32, u32),
     (data_width, data_height): (u32, u32),
-    chunk_components_count: u32,
+    components_count: u32,
     nodata: Option<u8>,
     path: &Path,
 ) -> Result<Vec<u8>, CogError> {
     let is_padded = data_width != tile_width || data_height != tile_height;
-    let need_add_alpha = chunk_components_count != 4;
-
+    let need_add_alpha = components_count != 4;
+    // 1. Check if the tile is padded, if so, we need to add padding part back
+    //  The decoded might be smaller than the tile size as tiff crate always cut off the padding part
+    //  So we need to add the padding part back if needed
+    // 2. Check if we need to add alpha channel, if the components count is not 4(rgba => 4 components, rgb => 3 components), we need to add an alpha channel
+    // 3. Check if nodata is provided, if so, we need to make the pixels with nodata value transparent
+    //    See https://gdal.org/en/stable/drivers/raster/gtiff.html#nodata-value
     let pixels = if nodata.is_some() || need_add_alpha || is_padded {
         let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
         for row in 0..data_height {
-            'outer: for col in 0..data_width {
-                let idx_chunk =
-                    row * data_width * chunk_components_count + col * chunk_components_count;
+            for col in 0..data_width {
+                let idx_chunk = row * data_width * components_count + col * components_count;
                 let idx_result = row * tile_width * 4 + col * 4;
-                for component_idx in 0..chunk_components_count {
-                    if nodata.eq(&Some(vec[(idx_chunk + component_idx) as usize])) {
-                        //This pixel is nodata, just make it transparent and skip it then
-                        let alpha_idx = (idx_result + 3) as usize;
-                        result_vec[alpha_idx] = 0;
-                        continue 'outer;
-                    }
-                    result_vec[(idx_result + component_idx) as usize] =
-                        vec[(idx_chunk + component_idx) as usize];
-                }
-                if need_add_alpha {
+                let r = data[(idx_chunk) as usize];
+                let g = data[(idx_chunk + 1) as usize];
+                let b = data[(idx_chunk + 2) as usize];
+
+                if nodata.eq(&Some(r)) || nodata.eq(&Some(g)) || nodata.eq(&Some(b)) {
                     let alpha_idx = (idx_result + 3) as usize;
-                    result_vec[alpha_idx] = 255;
+                    result_vec[alpha_idx] = 0;
+                    continue;
                 }
+                let alpha = if need_add_alpha {
+                    255
+                } else {
+                    data[(idx_chunk + 3) as usize]
+                };
+
+                result_vec[idx_result as usize] = r;
+                result_vec[(idx_result + 1) as usize] = g;
+                result_vec[(idx_result + 2) as usize] = b;
+                result_vec[(idx_result + 3) as usize] = alpha;
             }
         }
         result_vec
     } else {
-        vec
+        data
     };
+    Ok(encode_to_png(tile_width, tile_height, &pixels, path))?
+}
+
+fn encode_to_png(
+    tile_width: u32,
+    tile_height: u32,
+    pixels: &[u8],
+    path: &Path,
+) -> Result<Vec<u8>, CogError> {
     let mut result_file_buffer = Vec::new();
     {
         let mut encoder = png::Encoder::new(
@@ -153,7 +184,7 @@ fn rgb_to_png(
             .write_header()
             .map_err(|e| CogError::WritePngHeaderFailed(path.to_path_buf(), e))?;
         writer
-            .write_image_data(&pixels)
+            .write_image_data(pixels)
             .map_err(|e| CogError::WriteToPngFailed(path.to_path_buf(), e))?;
     }
     Ok(result_file_buffer)
