@@ -462,6 +462,7 @@ test_jsn style_maplibre_demo.1        style/maplibre.json
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
+test_jsn fontstacks   "font/{fontstack}/{range}"
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
