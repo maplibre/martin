@@ -5,7 +5,7 @@ set shell := ["bash", "-c"]
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
 @_default:
-    just --list --unsorted
+    just --list
 
 build:
     {{dockercompose}} build
