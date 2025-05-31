@@ -24,10 +24,6 @@ dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-co
 @_default:
     {{just_executable()}} --list
 
-# Start Martin server
-run *ARGS="--webui enable-for-all":
-    cargo run -p martin -- {{ARGS}}
-
 # Run benchmark tests
 bench:
     cargo bench --bench bench
@@ -118,23 +114,6 @@ clippy-md:
     docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
-# Start Martin server
-cp *ARGS:
-    cargo run --bin martin-cp -- {{ARGS}}
-
-# Start Martin server and open a test page
-debug-page *ARGS: start
-    open tests/debug.html  # run will not exit, so open debug page first
-    {{just_executable()}} run {{ARGS}}
-
-# Build and run martin docker image
-docker-run *ARGS:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ARGS}}
-
-# Build and open code documentation
-docs:
-    cargo doc --no-deps --open
-
 # Generate code coverage report
 coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
     #!/usr/bin/env bash
@@ -152,6 +131,23 @@ coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
     {{just_executable()}} test-int
 
     cargo llvm-cov report {{ARGS}}
+
+# Start Martin server
+cp *ARGS:
+    cargo run --bin martin-cp -- {{ARGS}}
+
+# Start Martin server and open a test page
+debug-page *ARGS: start
+    open tests/debug.html  # run will not exit, so open debug page first
+    {{just_executable()}} run {{ARGS}}
+
+# Build and run martin docker image
+docker-run *ARGS:
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ARGS}}
+
+# Build and open code documentation
+docs:
+    cargo doc --no-deps --open
 
 # Print environment info
 env-info:
@@ -198,10 +194,6 @@ lint: fmt clippy
 mbtiles *ARGS:
     cargo run -p mbtiles -- {{ARGS}}
 
-# Start release-compiled Martin server and a test database
-run-release *ARGS="--webui enable-for-all": start
-    cargo run -p martin --release -- {{ARGS}}
-
 # Build debian package
 package-deb: (cargo-install "cargo-deb")
     cargo deb -v -p martin --output target/debian/martin.deb
@@ -228,6 +220,14 @@ restart:
     # sometimes Just optimizes targets, so here we force stop & start by using external just executable
     {{just_executable()}} stop
     {{just_executable()}} start
+
+# Start Martin server
+run *ARGS="--webui enable-for-all":
+    cargo run -p martin -- {{ARGS}}
+
+# Start release-compiled Martin server and a test database
+run-release *ARGS="--webui enable-for-all": start
+    cargo run -p martin --release -- {{ARGS}}
 
 # Start a test database
 start: (docker-up "db") docker-is-ready
@@ -317,6 +317,21 @@ update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
 
+# Check if a certain Cargo command is installed, and install it if needed
+[private]
+cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
+    #!/usr/bin/env sh
+    set -eu
+    if ! command -v $COMMAND > /dev/null; then
+        if ! command -v cargo-binstall > /dev/null; then
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
+        else
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
+        fi
+    fi
+
 # Delete test output files
 [private]
 clean-test:
@@ -338,18 +353,3 @@ docker-up name: start-pmtiles-server
 # Install SQLX cli if not already installed.
 [private]
 install-sqlx: (cargo-install "cargo-sqlx" "sqlx-cli" "--no-default-features" "--features" "sqlite,native-tls")
-
-# Check if a certain Cargo command is installed, and install it if needed
-[private]
-cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
-    #!/usr/bin/env sh
-    set -eu
-    if ! command -v $COMMAND > /dev/null; then
-        if ! command -v cargo-binstall > /dev/null; then
-            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
-            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
-        else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
-        fi
-    fi
