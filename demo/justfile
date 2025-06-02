@@ -1,6 +1,6 @@
 #!/usr/bin/env just --justfile
 
-set shell := ["bash", "-c"]
+set shell := ['bash', '-c']
 
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
