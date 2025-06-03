@@ -88,14 +88,12 @@ impl Image {
         Ok(png_file_bytes)
     }
     fn get_tile_idx(&self, xyz: TileCoord) -> Option<u32> {
-        let across = self.across;
-        let down = self.down;
-        if xyz.y >= down || xyz.x >= across {
+        if xyz.y >= self.down || xyz.x >= self.across {
             return None;
         }
 
-        let tile_idx = xyz.y * across + xyz.x;
-        if tile_idx >= across * down {
+        let tile_idx = xyz.y * self.across + xyz.x;
+        if tile_idx >= self.across * self.down {
             return None;
         }
         Some(tile_idx)
