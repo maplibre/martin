@@ -12,9 +12,9 @@ use crate::{MartinResult, TileData};
 /// This type contains several useful information and methods for taking tiles from the image.
 #[derive(Clone, Debug)]
 pub struct Image {
-    /// IFD(Image file directory) number.
+    /// The Number of Image file directory, generally abbreviated as IFD.
     /// An IFD contains information about the image, as well as pointers to the actual image data.
-    pub ifd: usize,
+    pub image_file_directory: usize,
     /// Number of tiles in a row of this image
     pub across: u32,
     ///  Number of tiles in a column of this image
@@ -83,7 +83,7 @@ impl Image {
                 color_type,
                 path.to_path_buf(),
             )),
-            // do others in next PRs, a lot of discussion would be needed
+            //todo do others in next PRs, a lot of discussion would be needed
         }?;
         Ok(png_file_bytes)
     }
