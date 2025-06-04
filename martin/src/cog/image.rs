@@ -147,7 +147,7 @@ fn rgb_to_png(
                     // one of the components is nodata, so we set the alpha to 0 to make it transparent
                     continue;
                 }
-                
+
                 let alpha = if need_add_alpha {
                     255 // we need to add an alpha channel, so we set it to 255(not transparent)
                 } else {
