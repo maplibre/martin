@@ -289,6 +289,24 @@ fn dim_in_pixel(
 
     Ok((image_width, image_length))
 }
+
+/// Converts pixel dimensions to model space dimensions using resolution values
+///
+/// # Arguments
+///
+/// * `decoder` - TIFF decoder for reading image information
+/// * `path` - Image file path for error reporting
+/// * `image_ifd` - Image file directory index
+/// * `pixel_scale` - Optional pixel scale array [ScaleX, ScaleY, ScaleZ]
+/// * `transformation` - Optional 4x4 transformation matrix (16 elements)
+///
+/// # Returns
+///
+/// Tuple `(width, height)` in model coordinate system units
+///
+/// # Errors
+///
+/// Returns `FileError` if dimensions cannot be read or resolution calculation fails
 fn dim_in_model(
     decoder: &mut Decoder<File>,
     path: &Path,
