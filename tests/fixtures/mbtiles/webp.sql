@@ -4,13 +4,14 @@ CREATE TABLE metadata (
     name text,
     value text
 );
-INSERT INTO metadata VALUES('name','ne2sr');
-INSERT INTO metadata VALUES('format','webp');
-INSERT INTO metadata VALUES('type','baselayer');
-INSERT INTO metadata VALUES('bounds','-180,-85.05113,180,85.05113');
-INSERT INTO metadata VALUES('center','0,0,0');
-INSERT INTO metadata VALUES('minzoom','0');
-INSERT INTO metadata VALUES('maxzoom','0');
+INSERT INTO metadata VALUES
+('name','ne2sr'),
+('format','webp'),
+('type','baselayer'),
+('bounds','-180,-85.05113,180,85.05113'),
+('center','0,0,0'),
+('minzoom','0'),
+('maxzoom','0');
 CREATE TABLE IF NOT EXISTS "tiles"(
   zoom_level INT,
   tile_column INT,

@@ -1,13 +1,15 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
 CREATE TABLE metadata (name text, value text);
-INSERT INTO metadata VALUES('description','A modified version of major cities from Natural Earth data');
-INSERT INTO metadata VALUES('agg_tiles_hash_before_apply','84792BF4EE9AEDDC5B1A60E707011FEE');
-INSERT INTO metadata VALUES('agg_tiles_hash_after_apply','578FB5BD64746C39E3D344662947FD0D');
-INSERT INTO metadata VALUES('agg_tiles_hash','0A21AAF2C177B86DA3342A4F65794E49');
+INSERT INTO metadata VALUES
+('description','A modified version of major cities from Natural Earth data'),
+('agg_tiles_hash_before_apply','84792BF4EE9AEDDC5B1A60E707011FEE'),
+('agg_tiles_hash_after_apply','578FB5BD64746C39E3D344662947FD0D'),
+('agg_tiles_hash','0A21AAF2C177B86DA3342A4F65794E49');
 CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
-INSERT INTO tiles VALUES(0,0,0,NULL);
-INSERT INTO tiles VALUES(4,4,4,X'1f8b08000000000000ff33a83031020022bc70f804000000');
+INSERT INTO tiles VALUES
+(0,0,0,NULL),
+(4,4,4,X'1f8b08000000000000ff33a83031020022bc70f804000000');
 CREATE TABLE bsdiffrawgz (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
