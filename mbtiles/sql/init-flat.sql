@@ -1,8 +1,10 @@
 CREATE TABLE tiles (
-    zoom_level  INTEGER,
+    zoom_level INTEGER,
     tile_column INTEGER,
-    tile_row    INTEGER,
-    tile_data   BLOB);
+    tile_row INTEGER,
+    tile_data BLOB
+);
 
-CREATE UNIQUE INDEX tile_index on tiles (
-    zoom_level, tile_column, tile_row);
+CREATE UNIQUE INDEX tile_index ON tiles (
+    zoom_level, tile_column, tile_row
+);
