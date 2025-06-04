@@ -32,10 +32,6 @@ INSERT INTO metadata VALUES('minzoom','0');
 INSERT INTO metadata VALUES('maxzoom','1');
 INSERT INTO metadata VALUES('bounds','-81.639308,28.618110,-70.816397,38.362041');
 INSERT INTO metadata VALUES('center','-76.227852,33.490075,4');
-ANALYZE sqlite_schema;
-INSERT INTO sqlite_stat1 VALUES('metadata','name','9 1');
-INSERT INTO sqlite_stat1 VALUES('images','images_id','2 1');
-INSERT INTO sqlite_stat1 VALUES('map','map_index','2 1 1 1');
 CREATE VIEW tiles AS
     SELECT
         map.zoom_level AS zoom_level,

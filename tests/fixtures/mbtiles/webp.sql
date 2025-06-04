@@ -11,9 +11,6 @@ INSERT INTO metadata VALUES('bounds','-180,-85.05113,180,85.05113');
 INSERT INTO metadata VALUES('center','0,0,0');
 INSERT INTO metadata VALUES('minzoom','0');
 INSERT INTO metadata VALUES('maxzoom','0');
-ANALYZE sqlite_schema;
-INSERT INTO sqlite_stat1 VALUES('tiles',NULL,'5');
-INSERT INTO sqlite_stat1 VALUES('metadata','name','12 1');
 CREATE TABLE IF NOT EXISTS "tiles"(
   zoom_level INT,
   tile_column INT,
