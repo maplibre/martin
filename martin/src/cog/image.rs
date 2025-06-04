@@ -63,7 +63,7 @@ impl Image {
         let (tile_width, tile_height) = decoder.chunk_dimensions();
         let (data_width, data_height) = decoder.chunk_data_dimensions(tile_idx);
 
-        //do more research on the not u8 case, is this the right way to do it?
+        //FIXME: do more research on the not u8 case, is this the right way to do it?
         let png_file_bytes = match (decode_result, color_type) {
             (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => rgb_to_png(
                 vec,
