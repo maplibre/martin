@@ -142,15 +142,17 @@ fn rgb_to_png(
                 let g = data[(idx_chunk + 1) as usize];
                 let b = data[(idx_chunk + 2) as usize];
 
-                let is_nodata = nodata.eq(&Some(r)) || nodata.eq(&Some(g)) || nodata.eq(&Some(b));
-
-                let alpha = match (need_add_alpha, is_nodata) {
-                    // one of the components is nodata, so we make this pixel transparent
-                    (_, true) => 0,
-                    // The original data is rgb, not rgba. We need to add a alpha channel on it
-                    (true, false) => 255,
-                    // The original data is rgba, we need to copy the alpha value from it to result
-                    (false, false) => data[idx_chunk as usize + 3],
+                if nodata.eq(&Some(r)) || nodata.eq(&Some(g)) || nodata.eq(&Some(b)) {
+                    result_vec[(idx_result + 3) as usize] = 0;
+                    // one of the components is nodata, so we set the alpha to 0 to make it transparent
+                    continue;
+                }
+                
+                let alpha = if need_add_alpha {
+                    255 // we need to add an alpha channel, so we set it to 255(not transparent)
+                } else {
+                    // if it has alpha channel already, we need to copy the alpha value
+                    data[(idx_chunk + 3) as usize]
                 };
 
                 result_vec[idx_result as usize] = r;
