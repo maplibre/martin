@@ -137,19 +137,20 @@ fn rgb_to_png(
             for col in 0..data_width {
                 let idx_chunk = row * data_width * components_count + col * components_count;
                 let idx_result = row * tile_width * 4 + col * 4;
+
                 let r = data[(idx_chunk) as usize];
                 let g = data[(idx_chunk + 1) as usize];
                 let b = data[(idx_chunk + 2) as usize];
 
-                if nodata.eq(&Some(r)) || nodata.eq(&Some(g)) || nodata.eq(&Some(b)) {
-                    let alpha_idx = (idx_result + 3) as usize;
-                    result_vec[alpha_idx] = 0;
-                    continue;
-                }
-                let alpha = if need_add_alpha {
-                    255
-                } else {
-                    data[(idx_chunk + 3) as usize]
+                let is_nodata = nodata.eq(&Some(r)) || nodata.eq(&Some(g)) || nodata.eq(&Some(b));
+
+                let alpha = match (need_add_alpha, is_nodata) {
+                    // one of the components is nodata, so we make this pixel transparent
+                    (_, true) => 0,
+                    // The original data is rgb, not rgba. We need to add a alpha channel on it
+                    (true, false) => 255,
+                    // The original data is rgba, we need to copy the alpha value from it to result
+                    (false, false) => data[idx_chunk as usize + 3],
                 };
 
                 result_vec[idx_result as usize] = r;
