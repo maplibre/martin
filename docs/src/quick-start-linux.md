@@ -4,7 +4,7 @@
 mkdir martin
 cd martin
 
-# Download some sample data 
+# Download some sample data
 curl -L -O https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql
 
 # Check if sqlite is installed
