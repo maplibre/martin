@@ -82,7 +82,7 @@ impl CogSource {
                 //todo We should not ignore mask in the next PRs
                 let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, &path, ifd_idx)?;
                 let image = Image {
-                    ifd: ifd_idx,
+                    image_file_directory: ifd_idx,
                     across: tiles_across,
                     down: tiles_down,
                 };
@@ -109,7 +109,7 @@ impl CogSource {
         let images: HashMap<u8, Image> = images
             .iter()
             .map(|image| {
-                let zoom = max_zoom.saturating_sub(image.ifd as u8);
+                let zoom = max_zoom.saturating_sub(image.image_file_directory as u8);
                 (zoom, image.clone())
             })
             .collect();

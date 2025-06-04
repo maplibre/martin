@@ -42,8 +42,10 @@ impl Image {
         path: &Path,
     ) -> MartinResult<TileData> {
         decoder
-            .seek_to_image(self.ifd)
-            .map_err(|e| CogError::IfdSeekFailed(e, self.ifd, path.to_path_buf()))?;
+            .seek_to_image(self.image_file_directory)
+            .map_err(|e| {
+                CogError::IfdSeekFailed(e, self.image_file_directory, path.to_path_buf())
+            })?;
 
         let tile_idx;
         if let Some(idx) = self.get_tile_idx(xyz) {
@@ -51,9 +53,9 @@ impl Image {
         } else {
             return Ok(Vec::new());
         }
-        let decode_result = decoder
-            .read_chunk(tile_idx)
-            .map_err(|e| CogError::ReadChunkFailed(e, tile_idx, self.ifd, path.to_path_buf()))?;
+        let decode_result = decoder.read_chunk(tile_idx).map_err(|e| {
+            CogError::ReadChunkFailed(e, tile_idx, self.image_file_directory, path.to_path_buf())
+        })?;
         let color_type = decoder
             .colortype()
             .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
@@ -200,7 +202,7 @@ mod tests {
     #[test]
     fn can_calc_tile_idx() {
         let image = Image {
-            ifd: 0,
+            image_file_directory: 0,
             across: 3,
             down: 3,
         };
