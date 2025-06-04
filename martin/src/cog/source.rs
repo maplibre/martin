@@ -56,7 +56,7 @@ impl CogSource {
             model.transformation.as_deref(),
             &path,
         )?;
-        let (full_width_pixel, full_length_pixel) = dim_in_pixel(&mut decoder, &path, 0)?;
+        let (full_width_pixel, full_length_pixel) = dimensions(&mut decoder, &path, 0)?;
         let (full_width, full_length) = dim_in_model(
             &mut decoder,
             &path,
@@ -266,14 +266,14 @@ fn get_grid_dims(
     image_ifd: usize,
 ) -> Result<(u32, u32), FileError> {
     let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
-    let (image_width, image_length) = dim_in_pixel(decoder, path, image_ifd)?;
+    let (image_width, image_length) = dimensions(decoder, path, image_ifd)?;
     let tiles_across = image_width.div_ceil(tile_width);
     let tiles_down = image_length.div_ceil(tile_height);
 
     Ok((tiles_across, tiles_down))
 }
 
-fn dim_in_pixel(
+fn dimensions(
     decoder: &mut Decoder<File>,
     path: &Path,
     image_ifd: usize,
@@ -297,7 +297,7 @@ fn dim_in_pixel(
 /// * `decoder` - TIFF decoder for reading image information
 /// * `path` - Image file path for error reporting
 /// * `image_ifd` - Image file directory index
-/// * `pixel_scale` - Optional pixel scale array [ScaleX, ScaleY, ScaleZ]
+/// * `pixel_scale` - Optional pixel scale array [`ScaleX`, `ScaleY`, `ScaleZ`]
 /// * `transformation` - Optional 4x4 transformation matrix (16 elements)
 ///
 /// # Returns
@@ -314,7 +314,7 @@ fn dim_in_model(
     pixel_scale: Option<&[f64]>,
     transformation: Option<&[f64]>,
 ) -> Result<(f64, f64), FileError> {
-    let (image_width_pixel, image_length_pixel) = dim_in_pixel(decoder, path, image_ifd)?;
+    let (image_width_pixel, image_length_pixel) = dimensions(decoder, path, image_ifd)?;
 
     let full_resolution =
         get_full_resolution(pixel_scale, transformation, path).map_err(FileError::from)?;
