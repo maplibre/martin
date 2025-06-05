@@ -27,6 +27,12 @@ repos:
         args: [ --fix=lf ]
       - id: trailing-whitespace
 
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: forbid-tabs
+      - id: remove-tabs
+
   - repo: local
     hooks:
       - id: cargo-fmt
