@@ -95,9 +95,6 @@ impl Image {
         }
 
         let tile_idx = xyz.y * self.across + xyz.x;
-        if tile_idx >= self.across * self.down {
-            return None;
-        }
         Some(tile_idx)
     }
 }
