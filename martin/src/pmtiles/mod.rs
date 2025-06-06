@@ -9,12 +9,13 @@ use std::sync::atomic::Ordering::Relaxed;
 use async_trait::async_trait;
 use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
-use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::aws_sdk_s3::Client as S3Client;
 use pmtiles::aws_sdk_s3::config::Builder as S3ConfigBuilder;
-use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
-use pmtiles::{AwsS3Backend, Compression, Directory, HttpBackend, MmapBackend, TileType};
+use pmtiles::{
+    AsyncPmTilesReader, AwsS3Backend, Compression, DirCacheResult, Directory, DirectoryCache,
+    HttpBackend, MmapBackend, TileId, TileType,
+};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
@@ -42,7 +43,7 @@ impl PmtCache {
 }
 
 impl DirectoryCache for PmtCache {
-    async fn get_dir_entry(&self, offset: usize, tile_id: u64) -> DirCacheResult {
+    async fn get_dir_entry(&self, offset: usize, tile_id: TileId) -> DirCacheResult {
         if let Some(dir) = get_cached_value!(&self.cache, CacheValue::PmtDirectory, {
             CacheKey::PmtDirectory(self.id, offset)
         }) {
@@ -301,7 +302,11 @@ macro_rules! impl_pmtiles_source {
                 // TODO: optimize to return Bytes
                 if let Some(t) = self
                     .pmtiles
-                    .get_tile(xyz.z, u64::from(xyz.x), u64::from(xyz.y))
+                    .get_tile(
+                        pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y)
+                            // TBD: better error?
+                            .ok_or_else(||io::Error::other("Invalid tile coordinates"))?,
+                    )
                     .await?
                 {
                     Ok(t.to_vec())
