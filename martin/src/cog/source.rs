@@ -18,17 +18,16 @@ use crate::file_config::{FileError, FileResult};
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)] // model and origin and extent would be used in future PRs
 pub struct CogSource {
     id: String,
     path: PathBuf,
     min_zoom: u8,
     max_zoom: u8,
-    model: ModelInfo,
+    _model: ModelInfo,
     // The geo coords of pixel(0, 0, 0) ordering in [x, y, z]
-    origin: [f64; 3],
+    _origin: [f64; 3],
     // [minx, miny, maxx, maxy] in its model space coordinate system
-    extent: [f64; 4],
+    _extent: [f64; 4],
     images: HashMap<u8, Image>,
     nodata: Option<f64>,
     tilejson: TileJSON,
@@ -36,7 +35,7 @@ pub struct CogSource {
 }
 
 impl CogSource {
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
@@ -70,37 +69,29 @@ impl CogSource {
             (full_width_pixel, full_length_pixel),
             (full_width, full_length),
         );
-        let mut images = vec![];
 
-        let mut ifd_idx = 0;
+        let mut images = vec![];
+        let mut ifd_index = 0;
 
         loop {
             let is_image = decoder
                 .get_tag_u32(Tag::NewSubfileType)
                 .map_or_else(|_| true, |v| v & 4 != 4); // see https://www.verypdf.com/document/tiff6/pg_0036.htm
             if is_image {
-                //todo We should not ignore mask in the next PRs
-                let (tiles_across, tiles_down) = get_grid_dims(&mut decoder, &path, ifd_idx)?;
-                let image = Image {
-                    image_file_directory: ifd_idx,
-                    across: tiles_across,
-                    down: tiles_down,
-                };
-
-                images.push(image);
+                // TODO: We should not ignore mask in the next PRs
+                images.push(get_image(&mut decoder, &path, ifd_index)?);
             } else {
                 warn!(
-                    "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. The ifd number of this subfile is {}",
+                    "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. IFD={ifd_index}",
                     path.display(),
-                    ifd_idx
                 );
             }
 
-            ifd_idx += 1;
+            ifd_index += 1;
 
-            let next_res = decoder.seek_to_image(ifd_idx);
+            let next_res = decoder.seek_to_image(ifd_index);
             if next_res.is_err() {
-                //todo add warn!() here
+                // TODO: add warn!() here
                 break;
             }
         }
@@ -109,7 +100,10 @@ impl CogSource {
         let images: HashMap<u8, Image> = images
             .iter()
             .map(|image| {
-                let zoom = max_zoom.saturating_sub(image.image_file_directory as u8);
+                // FIXME: explain why it is OK to use IFD index as zoom level,
+                //        and why it would not exceed max_zoom.
+                //        This looks like a bug for some reason.
+                let zoom = max_zoom.saturating_sub(image.ifd_index() as u8);
                 (zoom, image.clone())
             })
             .collect();
@@ -123,18 +117,20 @@ impl CogSource {
             path,
             min_zoom,
             max_zoom,
-            model,
-            origin,
-            extent,
+            // FIXME: these are not yet used
+            _model: model,
+            _origin: origin,
+            _extent: extent,
             images,
             nodata,
             tilejson,
             tileinfo,
         })
     }
-    #[allow(clippy::cast_sign_loss)]
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::too_many_lines)]
+
+    #[expect(clippy::cast_sign_loss)]
+    #[expect(clippy::cast_possible_truncation)]
+    #[expect(clippy::too_many_lines)]
     pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
         if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
             return Ok(Vec::new());
@@ -260,17 +256,17 @@ fn verify_requirements(
     Ok(())
 }
 
-fn get_grid_dims(
+fn get_image(
     decoder: &mut Decoder<File>,
     path: &Path,
-    image_ifd: usize,
-) -> Result<(u32, u32), FileError> {
+    ifd_index: usize,
+) -> Result<Image, FileError> {
     let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
-    let (image_width, image_length) = dimensions_in_pixel(decoder, path, image_ifd)?;
+    let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
     let tiles_across = image_width.div_ceil(tile_width);
     let tiles_down = image_length.div_ceil(tile_height);
 
-    Ok((tiles_across, tiles_down))
+    Ok(Image::new(ifd_index, tiles_across, tiles_down))
 }
 
 /// Gets image pixel dimensions from TIFF decoder
@@ -279,7 +275,7 @@ fn get_grid_dims(
 ///
 /// * `decoder` - TIFF decoder for reading image information
 /// * `path` - Image file path for error reporting
-/// * `image_ifd` - Image file directory index
+/// * `ifd_index` - Image file directory index
 ///
 /// # Returns
 ///
@@ -291,13 +287,13 @@ fn get_grid_dims(
 fn dimensions_in_pixel(
     decoder: &mut Decoder<File>,
     path: &Path,
-    image_ifd: usize,
+    ifd_index: usize,
 ) -> Result<(u32, u32), FileError> {
     let (image_width, image_length) = decoder.dimensions().map_err(|e| {
         CogError::TagsNotFound(
             e,
             vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
-            image_ifd,
+            ifd_index,
             path.to_path_buf(),
         )
     })?;
@@ -311,7 +307,7 @@ fn dimensions_in_pixel(
 ///
 /// * `decoder` - TIFF decoder for reading image information
 /// * `path` - Image file path for error reporting
-/// * `image_ifd` - Image file directory index
+/// * `ifd_index` - Image file directory index
 /// * `pixel_scale` - Optional pixel scale array [`ScaleX`, `ScaleY`, `ScaleZ`]
 /// * `transformation` - Optional 4x4 transformation matrix (16 elements)
 ///
@@ -325,11 +321,11 @@ fn dimensions_in_pixel(
 fn dimensions_in_model(
     decoder: &mut Decoder<File>,
     path: &Path,
-    image_ifd: usize,
+    ifd_index: usize,
     pixel_scale: Option<&[f64]>,
     transformation: Option<&[f64]>,
 ) -> Result<(f64, f64), FileError> {
-    let (image_width_pixel, image_length_pixel) = dimensions_in_pixel(decoder, path, image_ifd)?;
+    let (image_width_pixel, image_length_pixel) = dimensions_in_pixel(decoder, path, ifd_index)?;
 
     let full_resolution =
         get_full_resolution(pixel_scale, transformation, path).map_err(FileError::from)?;
@@ -463,29 +459,28 @@ mod tests {
     use tiff::decoder::Decoder;
 
     use crate::cog::model::ModelInfo;
+
     #[test]
-    fn can_get_model_infos() {
+    fn can_get_model_info() {
         let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
         let tif_file = File::open(&path).unwrap();
         let mut decoder = Decoder::new(tif_file).unwrap();
-
         let model = ModelInfo::decode(&mut decoder, &path);
-        let (pixel_scale, tie_points, transformation) =
-            (model.pixel_scale, model.tie_points, model.transformation);
-        assert_yaml_snapshot!(pixel_scale, @r###"
+
+        assert_yaml_snapshot!(model.pixel_scale, @r"
         - 10
         - 10
         - 0
-        "###);
-        assert_yaml_snapshot!(tie_points, @r###"
+        ");
+        assert_yaml_snapshot!(model.tie_points, @r"
         - 0
         - 0
         - 0
         - 1620750.2508
         - 4277012.7153
         - 0
-        "###);
-        assert_yaml_snapshot!(transformation, @"~");
+        ");
+        assert_yaml_snapshot!(model.transformation, @"~");
     }
 
     #[rstest]

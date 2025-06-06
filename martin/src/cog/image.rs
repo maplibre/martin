@@ -9,19 +9,26 @@ use super::CogError;
 use crate::{MartinResult, TileData};
 
 /// Image represents a single image in a COG file. A tiff file may contain many images.
-/// This type contains several useful information and methods for taking tiles from the image.
+/// This struct contains information and methods for taking tiles from the image.
 #[derive(Clone, Debug)]
 pub struct Image {
-    /// The Number of Image file directory, generally abbreviated as IFD.
-    /// An IFD contains information about the image, as well as pointers to the actual image data.
-    pub image_file_directory: usize,
+    /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
+    ifd_index: usize,
     /// Number of tiles in a row of this image
-    pub across: u32,
+    tiles_across: u32,
     ///  Number of tiles in a column of this image
-    pub down: u32,
+    tiles_down: u32,
 }
 
 impl Image {
+    pub fn new(ifd_index: usize, tiles_across: u32, tiles_down: u32) -> Self {
+        Self {
+            ifd_index,
+            tiles_across,
+            tiles_down,
+        }
+    }
+
     /// Retrieves a tile from the image, decodes it, and converts it to PNG format.
     ///
     /// # Arguments
@@ -32,8 +39,7 @@ impl Image {
     ///
     /// # Returns
     /// A `MartinResult` containing the tile data as a `Vec<u8>` (PNG bytes) or an error.
-    #[allow(clippy::cast_sign_loss)]
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     pub fn get_tile(
         &self,
         decoder: &mut Decoder<File>,
@@ -42,19 +48,17 @@ impl Image {
         path: &Path,
     ) -> MartinResult<TileData> {
         decoder
-            .seek_to_image(self.image_file_directory)
-            .map_err(|e| {
-                CogError::IfdSeekFailed(e, self.image_file_directory, path.to_path_buf())
-            })?;
+            .seek_to_image(self.ifd_index)
+            .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index, path.to_path_buf()))?;
 
         let tile_idx;
-        if let Some(idx) = self.get_tile_idx(xyz) {
+        if let Some(idx) = self.get_tile_index(xyz) {
             tile_idx = idx;
         } else {
             return Ok(Vec::new());
         }
         let decode_result = decoder.read_chunk(tile_idx).map_err(|e| {
-            CogError::ReadChunkFailed(e, tile_idx, self.image_file_directory, path.to_path_buf())
+            CogError::ReadChunkFailed(e, tile_idx, self.ifd_index, path.to_path_buf())
         })?;
         let color_type = decoder
             .colortype()
@@ -89,12 +93,17 @@ impl Image {
         }?;
         Ok(png_file_bytes)
     }
-    fn get_tile_idx(&self, xyz: TileCoord) -> Option<u32> {
-        if xyz.y >= self.down || xyz.x >= self.across {
+
+    pub fn ifd_index(&self) -> usize {
+        self.ifd_index
+    }
+
+    fn get_tile_index(&self, xyz: TileCoord) -> Option<u32> {
+        if xyz.y >= self.tiles_down || xyz.x >= self.tiles_across {
             return None;
         }
 
-        let tile_idx = xyz.y * self.across + xyz.x;
+        let tile_idx = xyz.y * self.tiles_across + xyz.x;
         Some(tile_idx)
     }
 }
@@ -239,14 +248,20 @@ mod tests {
     #[test]
     fn can_calc_tile_idx() {
         let image = Image {
-            image_file_directory: 0,
-            across: 3,
-            down: 3,
+            ifd_index: 0,
+            tiles_across: 3,
+            tiles_down: 3,
         };
-        assert_eq!(Some(0), image.get_tile_idx(TileCoord { z: 0, x: 0, y: 0 }));
-        assert_eq!(Some(8), image.get_tile_idx(TileCoord { z: 0, x: 2, y: 2 }));
-        assert_eq!(None, image.get_tile_idx(TileCoord { z: 0, x: 3, y: 0 }));
-        assert_eq!(None, image.get_tile_idx(TileCoord { z: 0, x: 1, y: 9 }));
+        assert_eq!(
+            Some(0),
+            image.get_tile_index(TileCoord { z: 0, x: 0, y: 0 })
+        );
+        assert_eq!(
+            Some(8),
+            image.get_tile_index(TileCoord { z: 0, x: 2, y: 2 })
+        );
+        assert_eq!(None, image.get_tile_index(TileCoord { z: 0, x: 3, y: 0 }));
+        assert_eq!(None, image.get_tile_index(TileCoord { z: 0, x: 1, y: 9 }));
     }
     #[rstest]
     // the right half should be transparent

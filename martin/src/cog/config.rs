@@ -27,7 +27,7 @@ impl SourceConfigExtras for CogConfig {
         Ok(Box::new(cog))
     }
 
-    #[allow(clippy::no_effect_underscore_binding)]
+    #[expect(clippy::no_effect_underscore_binding)]
     async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
         unreachable!()
     }
