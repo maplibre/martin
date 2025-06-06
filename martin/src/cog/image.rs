@@ -134,38 +134,40 @@ fn rgb_to_png(
     let pixels = if nodata.is_some() || need_add_alpha || is_padded {
         let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
         for row in 0..data_height {
-            for col in 0..data_width {
+            'outer: for col in 0..data_width {
                 let idx_chunk = row * data_width * components_count + col * components_count;
                 let idx_result = row * tile_width * 4 + col * 4;
 
-                let r = data[(idx_chunk) as usize];
-                let g = data[(idx_chunk + 1) as usize];
-                let b = data[(idx_chunk + 2) as usize];
+                // Copy the components one by one
+                for component_idx in 0..components_count {
+                    // Before copying, check if this component == nodata. If so, do skip and it would be transparent.
+                    // FIXME: Should we copy the RGB values anyway and just set alpha to 0? The visual result actually is the same (transparent), but the component values would differ. But it might be a little slower as we don't skip the copy
+                    //      Source pixel: [4, 1, 2, 3]  nodata: Some(1)
+                    //      Do skip:
+                    //      result pixel: [4, 0, 0, 0]
+                    //      Do not skip:
+                    //      result pixel: [4, 1, 2, 0]
+                    //      So the visual result is the same, but the component values are different.
 
-                if nodata.eq(&Some(r)) || nodata.eq(&Some(g)) || nodata.eq(&Some(b)) {
-                    result_vec[(idx_result + 3) as usize] = 0;
-                    // one of the components is nodata, so we set the alpha to 0 to make it transparent
-                    continue;
+                    if nodata.eq(&Some(data[(idx_chunk + component_idx) as usize])) {
+                        continue 'outer;
+                    }
+                    // Copy this component to the result vector
+                    result_vec[(idx_result + component_idx) as usize] =
+                        data[(idx_chunk + component_idx) as usize];
                 }
-
-                let alpha = if need_add_alpha {
-                    255 // we need to add an alpha channel, so we set it to 255(not transparent)
-                } else {
-                    // if it has alpha channel already, we need to copy the alpha value
-                    data[(idx_chunk + 3) as usize]
-                };
-
-                result_vec[idx_result as usize] = r;
-                result_vec[(idx_result + 1) as usize] = g;
-                result_vec[(idx_result + 2) as usize] = b;
-                result_vec[(idx_result + 3) as usize] = alpha;
+                // If an alpha channel needs to be added, set it to 255 (opaque)
+                if need_add_alpha {
+                    let alpha_idx = (idx_result + 3) as usize;
+                    result_vec[alpha_idx] = 255;
+                }
             }
         }
         result_vec
     } else {
         data
     };
-    Ok(encode_to_png(tile_width, tile_height, &pixels, path))?
+    encode_to_png(tile_width, tile_height, &pixels, path)
 }
 
 fn encode_to_png(
