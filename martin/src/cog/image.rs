@@ -99,19 +99,18 @@ impl Image {
     }
 }
 
-/// Converts a vector of RGB or RGBA bytes to PNG format, handling nodata values and padding if necessary.
-/// # Arguments
+/// Converts RGB/RGBA tile data to PNG format.
 ///
-/// * `data` - A vector of pixel data in RGB or RGBA format.
-/// * `(tile_width, tile_height)` - The dimensions of the tile.
-/// * `(data_width, data_height)` - The dimensions of the chunk data decoded from this tile.
-/// * `components_count` - The number of components per pixel (3 for RGB, 4 for RGBA).
-/// * `nodata` - An optional nodata value. Pixels with this value will be made transparent.
-/// * `path` - The path to the TIFF file, used for error reporting.
+/// # Arguments
+/// * `data` - Raw pixel data from TIFF decoder
+/// * `tile_width`, `tile_height` - Expected tile dimensions
+/// * `data_width`, `data_height` - Actual data dimensions
+/// * `components_count` - Number of color components (3 for RGB, 4 for RGBA)
+/// * `nodata` - Optional nodata value to make transparent
+/// * `path` - File path for error reporting
 ///
 /// # Returns
-///
-/// A `Result` containing the PNG bytes as a `Vec<u8>` or an error.
+/// PNG-encoded tile data as bytes
 fn rgb_to_png(
     data: Vec<u8>,
     (tile_width, tile_height): (u32, u32),
@@ -120,6 +119,34 @@ fn rgb_to_png(
     nodata: Option<u8>,
     path: &Path,
 ) -> Result<Vec<u8>, CogError> {
+    let pixels = ensure_pixels_valid(
+        data,
+        (tile_width, tile_height),
+        (data_width, data_height),
+        components_count,
+        nodata,
+    );
+    encode_rgba_to_png(tile_width, tile_height, &pixels, path)
+}
+
+/// Ensures pixel data is valid for PNG encoding by handling padding, alpha channel, and nodata values.
+///
+/// # Arguments
+/// * `data` - Raw pixel data
+/// * `tile_width`, `tile_height` - Target tile dimensions
+/// * `data_width`, `data_height` - Source data dimensions
+/// * `components_count` - Number of color components per pixel
+/// * `nodata` - Optional value to treat as transparent
+///
+/// # Returns
+/// RGBA pixel data ready for PNG encoding
+fn ensure_pixels_valid(
+    data: Vec<u8>,
+    (tile_width, tile_height): (u32, u32),
+    (data_width, data_height): (u32, u32),
+    components_count: u32,
+    nodata: Option<u8>,
+) -> Vec<u8> {
     let is_padded = data_width != tile_width || data_height != tile_height;
     let need_add_alpha = components_count != 4;
     // 1. Check if the tile is padded, if so, we need to add padding part back
@@ -128,7 +155,7 @@ fn rgb_to_png(
     // 2. Check if we need to add alpha channel, if the components count is not 4(rgba => 4 components, rgb => 3 components), we need to add an alpha channel
     // 3. Check if nodata is provided, if so, we need to make the pixels with nodata value transparent
     //    See https://gdal.org/en/stable/drivers/raster/gtiff.html#nodata-value
-    let pixels = if nodata.is_some() || need_add_alpha || is_padded {
+    if nodata.is_some() || need_add_alpha || is_padded {
         let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
         for row in 0..data_height {
             'outer: for col in 0..data_width {
@@ -163,11 +190,19 @@ fn rgb_to_png(
         result_vec
     } else {
         data
-    };
-    encode_to_png(tile_width, tile_height, &pixels, path)
+    }
 }
 
-fn encode_to_png(
+/// Encodes RGBA pixel data to PNG format.
+///
+/// # Arguments
+/// * `tile_width`, `tile_height` - Image dimensions
+/// * `pixels` - RGBA pixel data
+/// * `path` - File path for error reporting
+///
+/// # Returns
+/// PNG-encoded image data as bytes
+fn encode_rgba_to_png(
     tile_width: u32,
     tile_height: u32,
     pixels: &[u8],
