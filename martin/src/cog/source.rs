@@ -56,8 +56,8 @@ impl CogSource {
             model.transformation.as_deref(),
             &path,
         )?;
-        let (full_width_pixel, full_length_pixel) = dimensions(&mut decoder, &path, 0)?;
-        let (full_width, full_length) = dim_in_model(
+        let (full_width_pixel, full_length_pixel) = dimensions_in_pixel(&mut decoder, &path, 0)?;
+        let (full_width, full_length) = dimensions_in_model(
             &mut decoder,
             &path,
             0,
@@ -266,14 +266,29 @@ fn get_grid_dims(
     image_ifd: usize,
 ) -> Result<(u32, u32), FileError> {
     let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
-    let (image_width, image_length) = dimensions(decoder, path, image_ifd)?;
+    let (image_width, image_length) = dimensions_in_pixel(decoder, path, image_ifd)?;
     let tiles_across = image_width.div_ceil(tile_width);
     let tiles_down = image_length.div_ceil(tile_height);
 
     Ok((tiles_across, tiles_down))
 }
 
-fn dimensions(
+/// Gets image pixel dimensions from TIFF decoder
+///
+/// # Arguments
+///
+/// * `decoder` - TIFF decoder for reading image information
+/// * `path` - Image file path for error reporting
+/// * `image_ifd` - Image file directory index
+///
+/// # Returns
+///
+/// Returns a tuple `(width, height)` containing image dimensions in pixels
+///
+/// # Errors
+///
+/// Returns `FileError` if image dimension tags cannot be read
+fn dimensions_in_pixel(
     decoder: &mut Decoder<File>,
     path: &Path,
     image_ifd: usize,
@@ -307,14 +322,14 @@ fn dimensions(
 /// # Errors
 ///
 /// Returns `FileError` if dimensions cannot be read or resolution calculation fails
-fn dim_in_model(
+fn dimensions_in_model(
     decoder: &mut Decoder<File>,
     path: &Path,
     image_ifd: usize,
     pixel_scale: Option<&[f64]>,
     transformation: Option<&[f64]>,
 ) -> Result<(f64, f64), FileError> {
-    let (image_width_pixel, image_length_pixel) = dimensions(decoder, path, image_ifd)?;
+    let (image_width_pixel, image_length_pixel) = dimensions_in_pixel(decoder, path, image_ifd)?;
 
     let full_resolution =
         get_full_resolution(pixel_scale, transformation, path).map_err(FileError::from)?;
