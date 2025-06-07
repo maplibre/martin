@@ -268,20 +268,6 @@ fn get_image(
 }
 
 /// Gets image pixel dimensions from TIFF decoder
-///
-/// # Arguments
-///
-/// * `decoder` - TIFF decoder for reading image information
-/// * `path` - Image file path for error reporting
-/// * `ifd_index` - Image file directory index
-///
-/// # Returns
-///
-/// Returns a tuple `(width, height)` containing image dimensions in pixels
-///
-/// # Errors
-///
-/// Returns `FileError` if image dimension tags cannot be read
 fn dimensions_in_pixel(
     decoder: &mut Decoder<File>,
     path: &Path,
@@ -300,22 +286,6 @@ fn dimensions_in_pixel(
 }
 
 /// Converts pixel dimensions to model space dimensions using resolution values
-///
-/// # Arguments
-///
-/// * `decoder` - TIFF decoder for reading image information
-/// * `path` - Image file path for error reporting
-/// * `ifd_index` - Image file directory index
-/// * `pixel_scale` - Optional pixel scale array [`ScaleX`, `ScaleY`, `ScaleZ`]
-/// * `transformation` - Optional 4x4 transformation matrix (16 elements)
-///
-/// # Returns
-///
-/// Tuple `(width, height)` in model coordinate system units
-///
-/// # Errors
-///
-/// Returns `FileError` if dimensions cannot be read or resolution calculation fails
 fn dimensions_in_model(
     decoder: &mut Decoder<File>,
     path: &Path,
@@ -408,9 +378,6 @@ fn raster2model(i: u32, j: u32, matrix: &[f64]) -> (f64, f64) {
 }
 
 /// Computes the bounding box (`[min_x, min_y, max_x, max_y]`) based on the transformation matrix, origin, width and hieght.
-///
-/// Applies a transformation matrix to corner pixels if provided;
-/// otherwise, computes extent from origin and raster size in model units.
 fn get_extent(
     origin: &[f64; 3],
     transformation: Option<&[f64]>,
