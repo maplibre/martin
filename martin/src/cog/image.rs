@@ -39,8 +39,8 @@ impl Image {
         path: &Path,
     ) -> MartinResult<TileData> {
         decoder
-            .seek_to_image(self.ifd_index)
-            .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index, path.to_path_buf()))?;
+            .seek_to_image(self.ifd_index())
+            .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
 
         let tile_idx;
         if let Some(idx) = self.get_tile_index(xyz) {
@@ -49,7 +49,7 @@ impl Image {
             return Ok(Vec::new());
         }
         let decode_result = decoder.read_chunk(tile_idx).map_err(|e| {
-            CogError::ReadChunkFailed(e, tile_idx, self.ifd_index, path.to_path_buf())
+            CogError::ReadChunkFailed(e, tile_idx, self.ifd_index(), path.to_path_buf())
         })?;
         let color_type = decoder
             .colortype()
