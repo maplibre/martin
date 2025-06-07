@@ -30,15 +30,6 @@ impl Image {
     }
 
     /// Retrieves a tile from the image, decodes it, and converts it to PNG format.
-    ///
-    /// # Arguments
-    /// * `decoder` - A mutable reference to a TIFF decoder.
-    /// * `xyz` - The tile coordinates (z, x, y).
-    /// * [nodata](https://gdal.org/en/stable/drivers/raster/gtiff.html#nodata-value) - An optional nodata value. Pixels with this value will be made transparent.
-    /// * `path` - The path to the TIFF file, used for error reporting.
-    ///
-    /// # Returns
-    /// A `MartinResult` containing the tile data as a `Vec<u8>` (PNG bytes) or an error.
     #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     pub fn get_tile(
         &self,
@@ -103,23 +94,11 @@ impl Image {
             return None;
         }
 
-        let tile_idx = xyz.y * self.tiles_across + xyz.x;
-        Some(tile_idx)
+        Some(xyz.y * self.tiles_across + xyz.x)
     }
 }
 
 /// Converts RGB/RGBA tile data to PNG format.
-///
-/// # Arguments
-/// * `data` - Raw pixel data from TIFF decoder
-/// * `tile_width`, `tile_height` - Expected tile dimensions
-/// * `data_width`, `data_height` - Actual data dimensions
-/// * `components_count` - Number of color components (3 for RGB, 4 for RGBA)
-/// * `nodata` - Optional nodata value to make transparent
-/// * `path` - File path for error reporting
-///
-/// # Returns
-/// PNG-encoded tile data as bytes
 fn rgb_to_png(
     data: Vec<u8>,
     (tile_width, tile_height): (u32, u32),
@@ -139,16 +118,6 @@ fn rgb_to_png(
 }
 
 /// Ensures pixel data is valid for PNG encoding by handling padding, alpha channel, and nodata values.
-///
-/// # Arguments
-/// * `data` - Raw pixel data
-/// * `tile_width`, `tile_height` - Target tile dimensions
-/// * `data_width`, `data_height` - Source data dimensions
-/// * `components_count` - Number of color components per pixel
-/// * `nodata` - Optional value to treat as transparent
-///
-/// # Returns
-/// RGBA pixel data ready for PNG encoding
 fn ensure_pixels_valid(
     data: Vec<u8>,
     (tile_width, tile_height): (u32, u32),
@@ -203,14 +172,6 @@ fn ensure_pixels_valid(
 }
 
 /// Encodes RGBA pixel data to PNG format.
-///
-/// # Arguments
-/// * `tile_width`, `tile_height` - Image dimensions
-/// * `pixels` - RGBA pixel data
-/// * `path` - File path for error reporting
-///
-/// # Returns
-/// PNG-encoded image data as bytes
 fn encode_rgba_to_png(
     tile_width: u32,
     tile_height: u32,
