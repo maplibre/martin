@@ -128,9 +128,6 @@ impl CogSource {
         })
     }
 
-    #[expect(clippy::cast_sign_loss)]
-    #[expect(clippy::cast_possible_truncation)]
-    #[expect(clippy::too_many_lines)]
     pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
         if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
             return Ok(Vec::new());
