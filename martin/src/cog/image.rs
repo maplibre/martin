@@ -21,7 +21,7 @@
 
 //! And the formula here:
 
-//! ```rust
+//! ```rust, ignore
 //! let images = vec![iamge 0, iamge 1, image 2, iamge 3, image 4];
 //! let minzoom = 0;
 //! let zoom_of_image = image_count -1  - idx_in_vec;
