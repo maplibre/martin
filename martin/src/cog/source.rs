@@ -98,14 +98,11 @@ impl CogSource {
         let min_zoom = 0;
         let max_zoom = (images.len() - 1) as u8;
         let images: HashMap<u8, Image> = images
-            .iter()
+            .into_iter()
             .enumerate()
             .map(|(idx, image)| {
-                // FIXME: explain why it is OK to use IFD index as zoom level,
-                //        and why it would not exceed max_zoom.
-                //        This looks like a bug for some reason.
                 let zoom = max_zoom.saturating_sub(idx as u8);
-                (zoom, image.clone())
+                (zoom, image)
             })
             .collect();
         let tilejson = tilejson! {
