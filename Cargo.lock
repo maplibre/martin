@@ -2118,9 +2118,9 @@ checksum = "b7ac824320a75a52197e8f2d787f6a38b6718bb6897a35142d749af3c0e8f4fe"
 
 [[package]]
 name = "flate2"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ced92e76e966ca2fd84c8f7aa01a4aea65b0eb6648d72f7c8f3e2764a67fece"
+checksum = "4a3d7db9596fecd151c5f638c0ee5d5bd487b6e0ea232e5dc96d5250f6f94b1d"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -5394,9 +5394,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-compressions"
-version = "0.3.4"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74bc4b93c179134d055c0e07171e755a1ac338a0e780added5aa72f6d88f7f39"
+checksum = "5c5e2f1b577d8755cbf708cf55ef7b3cf451be9577a286f1e7c40dc1bbe0c9b3"
 dependencies = [
  "bsdiff",
  "flate2",
@@ -5405,9 +5405,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-hashes"
-version = "0.10.2"
+version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e46771a6e7c04353fc993ebf4909a416d8460e2c3d77b93115e4c9cd7dc7ec91"
+checksum = "2da3a1f764fbdce918492858d08764a4231b8f39d4307c012b56742e2ba9a365"
 dependencies = [
  "digest",
  "hex",
