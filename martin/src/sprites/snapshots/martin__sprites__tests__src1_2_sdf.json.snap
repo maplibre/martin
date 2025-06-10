@@ -4,27 +4,24 @@ expression: sprites.get_index()
 ---
 {
   "another_bicycle": {
-    "height": 36,
+    "height": 30,
     "pixelRatio": 2,
-    "width": 36,
-    "x": 84,
-    "y": 0,
-    "sdf": true
+    "width": 30,
+    "x": 40,
+    "y": 32
   },
   "bear": {
-    "height": 38,
+    "height": 32,
     "pixelRatio": 2,
-    "width": 38,
-    "x": 46,
-    "y": 0,
-    "sdf": true
+    "width": 32,
+    "x": 40,
+    "y": 0
   },
   "sub/circle": {
-    "height": 46,
+    "height": 40,
     "pixelRatio": 2,
-    "width": 46,
+    "width": 40,
     "x": 0,
-    "y": 0,
-    "sdf": true
+    "y": 0
   }
 }
