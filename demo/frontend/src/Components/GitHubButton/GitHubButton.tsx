@@ -4,7 +4,7 @@ import Container from './Container';
 
 const GitHubButton = () => (
   <Container href='https://github.com/maplibre/martin' target='_blank'>
-    <span>View on Github</span>
+    <span>View on GitHub</span>
     <img src={octocat} alt='octocat' />
   </Container>
 );

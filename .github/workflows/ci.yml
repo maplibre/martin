@@ -5,10 +5,6 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - 'demo/**'
-      - 'docs/**'
   release:
     types: [ published ]
   workflow_dispatch:
@@ -28,7 +24,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:16-3.5
         ports:
           # will assign a random free host port
           - 5432/tcp
@@ -46,7 +42,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:16-3.4
+          postgis/postgis:16-3.5
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - uses: taiki-e/install-action@v2
@@ -56,7 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
-      - run: just fmt
+      - run: just test-fmt
       - run: just clippy
       - run: just check
       - run: just check-doc
@@ -76,6 +72,8 @@ jobs:
           cargo test --doc
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+          AWS_SKIP_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
 
   docker-build-test:
     name: Build and test docker images
@@ -89,7 +87,7 @@ jobs:
       # TODO:  aarch64-unknown-linux-gnu
     services:
       postgres:
-        image: postgis/postgis:15-3.3
+        image: postgis/postgis:16-3.5
         ports:
           - 5432/tcp
         options: >-
@@ -104,7 +102,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:15-3.3
+          postgis/postgis:16-3.5
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
@@ -126,6 +124,8 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         with:
           platforms: linux/amd64,linux/arm64
+      - name: Set up gdal-bin and sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         # https://github.com/docker/setup-buildx-action
@@ -153,7 +153,7 @@ jobs:
             mv target/$target/release/mbtiles target_releases/$target
           done
 
-      - name: Save build artifacts to build-${{ matrix.target }}
+      - name: Save cross-build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cross-build
@@ -185,9 +185,9 @@ jobs:
           PLATFORM=linux/arm64
           TAG=${{ github.repository }}:linux-arm64
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -206,12 +206,22 @@ jobs:
           PLATFORM=linux/amd64
           TAG=${{ github.repository }}:linux-amd64
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+
+      - name: Save test output (on error)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-test-output-docker
+          path: |
+            tests/output/*
+            target/test_logs/*
+          retention-days: 5
 
       - name: Login to GitHub Docker registry
         if: github.event_name != 'pull_request'
@@ -236,6 +246,7 @@ jobs:
           file: .github/files/multi-platform.Dockerfile
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
 
@@ -249,7 +260,8 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest  # M-series CPU
           - target: debian-x86_64
-            os: ubuntu-latest
+            os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
+            # TODO: update to ubuntu-latest again once debian 13 launches
           - target: x86_64-apple-darwin
             os: macos-13  # x64 CPU
           - target: x86_64-pc-windows-msvc
@@ -263,6 +275,8 @@ jobs:
       - name: Rust Versions
         run: rustc --version && cargo --version
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
@@ -314,6 +328,16 @@ jobs:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [ build ]
+    env:
+      # PG_* variables are used by psql
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGPORT: 34837
+      # AWS variables for S3 access
+      AWS_REGION: eu-central-1
+      AWS_SKIP_CREDENTIALS: 1
     strategy:
       fail-fast: true
       matrix:
@@ -327,10 +351,31 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
-      - name: Install and run Postgis
-        uses: nyurik/action-setup-postgis@v2
+      - name: Install and run Postgis (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'test', password: 'test', database: 'test' }
+        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 16, port: 34837, postgis_version: 3.5.2}
+      - name: Install and run Postgis (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          docker run -d \
+          -p 34837:5432 \
+          -e POSTGRES_DB=test \
+          -e POSTGRES_USER=postgres \
+          -e POSTGRES_PASSWORD=postgres \
+          -e PGDATABASE=test \
+          -e PGUSER=postgres \
+          -e PGPASSWORD=postgres \
+          --health-cmd="pg_isready" \
+          --health-interval=10s \
+          --health-timeout=5s \
+          --health-retries=5 \
+          postgis/postgis:16-3.5 \
+          postgres \
+          -c ssl=on \
+          -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem  \
+          -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
@@ -338,13 +383,15 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Init database
-        run: |
-          echo "DATABASE_URL=${{ steps.pg.outputs.connection-uri }}"
-          echo "Print the same in base64 to bypass Github's obfuscation (uses hardcoded password):"
-          echo "${{ steps.pg.outputs.connection-uri }}" | base64
-          tests/fixtures/initdb.sh
         env:
-          PGSERVICE: ${{ steps.pg.outputs.service-name }}
+          PGPORT: ${{ env.PGPORT }}
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+          else
+            export PGSERVICE="${{ steps.pg.outputs.service-name }}"
+          fi
+          tests/fixtures/initdb.sh
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
@@ -352,21 +399,29 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
+      - name: Set up gdal-bin and sqlite3-tools
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
           if [[ "${{ runner.os }}" != "Windows" ]]; then
             chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
           fi
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+          else
+            export DATABASE_URL="${{ steps.pg.outputs.connection-uri }}"
+          fi
           tests/test.sh
-        env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: diff --brief --recursive --new-file tests/output tests/expected
+        run: diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@v4
@@ -378,12 +433,14 @@ jobs:
         run: |
           sudo dpkg -i target/debian-x86_64.deb
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           tests/test.sh
         env:
-          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
@@ -406,11 +463,11 @@ jobs:
           - img_ver: 11-3.0-alpine
             args: postgres
             sslmode: disable
-          - img_ver: 14-3.3-alpine
+          - img_ver: 16-3.5-alpine
             args: postgres
             sslmode: disable
           # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 15-3.3
+          - img_ver: 16-3.5
             args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
             sslmode: require
           #
@@ -473,12 +530,16 @@ jobs:
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target_releases/
+      - name: Set up gdal-bin and sqlite3-tools
+        run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target_releases/martin
           export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
@@ -499,6 +560,8 @@ jobs:
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin
           export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
@@ -518,6 +581,8 @@ jobs:
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+          AWS_SKIP_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
@@ -643,18 +708,28 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
           files: 'target/files/*'
-          body_path: CHANGELOG.md
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+        # Create a personal access token
+        #     Gen:  https://github.com/settings/personal-access-tokens/new
+        #           Can also use "regenerate token" button in the expired token screen
+        #     Set:  https://github.com/maplibre/martin/settings/secrets/actions/GH_HOMEBREW_MARTIN_TOKEN
+        #     Docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token
+        #   Name: anything descriptive
+        #   One year long (sadly that's max)
+        #   Repository owner and repo: maplibre/homebrew-martin
+        #   Access Contents: Read and write
+        #   Access Metadata: Read-only
+        #   Access Pull requests: Read and write
       - name: Checkout maplibre/homebrew-martin
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/checkout@v4
         with:
           repository: maplibre/homebrew-martin
-          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}  # See instructions above
           path: target/homebrew
 
       - name: Create Homebrew formula
@@ -668,17 +743,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: peter-evans/create-pull-request@v7
         with:
-          # Create a personal access token
-          #     Gen:  https://github.com/settings/personal-access-tokens/new
-          #     Set:  https://github.com/maplibre/martin/settings/secrets/actions/GH_HOMEBREW_MARTIN_TOKEN
-          #     Docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token
-          #   Name: anything descriptive
-          #   One year long (sadly that's max)
-          #   Repository owner and repo: maplibre/homebrew-martin
-          #   Access Contents: Read and write
-          #   Access Metadata: Read-only
-          #   Access Pull requests: Read and write
-          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}  # See instructions above
           commit-message: 'Update to ${{ github.ref }}'
           title: 'Update to ${{ github.ref }}'
           body: 'Update to ${{ github.ref }}'

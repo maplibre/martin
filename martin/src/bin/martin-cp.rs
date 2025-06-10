@@ -6,23 +6,25 @@ use std::time::Duration;
 
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
-use actix_web::http::header::{AcceptEncoding, Header as _, ACCEPT_ENCODING};
+use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
 use clap::Parser;
-use futures::stream::{self, StreamExt};
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
+use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
-use martin::srv::{merge_tilejson, DynTileSource};
+use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
-    append_rect, read_config, Config, MartinError, MartinResult, ServerState, Source, TileData,
-    TileRect,
+    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, TileRect,
+    append_rect, read_config,
 };
-use martin_tile_utils::{bbox_to_xyz, TileCoord, TileInfo};
-use mbtiles::sqlx::SqliteConnection;
+use martin_tile_utils::{TileCoord, TileInfo, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
+use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
-    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtError, MbtType, MbtTypeCli,
-    Mbtiles,
+    CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
+    is_empty_database,
 };
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
@@ -34,12 +36,19 @@ const SAVE_EVERY: Duration = Duration::from_secs(60);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
 )]
 pub struct CopierArgs {
     #[command(flatten)]
@@ -54,13 +63,13 @@ pub struct CopierArgs {
 #[serde_with::serde_as]
 #[derive(clap::Args, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
 pub struct CopyArgs {
-    /// Name of the source to copy from.
+    /// Name of the source to copy from. Not required if there is only one source.
     #[arg(short, long)]
-    pub source: String,
+    pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
-    /// Output format of the new destination file. Ignored if the file exists. Defaults to 'normalized'.
+    /// Output format of the new destination file. Ignored if the file exists. [DEFAULT: normalized]
     #[arg(
         long = "mbtiles-type",
         alias = "dst-type",
@@ -72,6 +81,7 @@ pub struct CopyArgs {
     #[arg(long)]
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
+    ///
     /// If set to multiple values like `gzip,br`, martin-cp will use the first encoding,
     /// or re-encode if the tile is already encoded and that encoding is not listed.
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
@@ -103,7 +113,7 @@ pub struct CopyArgs {
     /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
     #[arg(long)]
     pub skip_agg_tiles_hash: bool,
-    /// Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times.
+    /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
 }
@@ -176,7 +186,7 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     ranges
 }
 
-fn get_zooms(args: &CopyArgs) -> Cow<Vec<u8>> {
+fn get_zooms(args: &CopyArgs) -> Cow<[u8]> {
     if let Some(max_zoom) = args.max_zoom {
         let mut zooms_vec = Vec::new();
         let min_zoom = args.min_zoom.unwrap_or(0);
@@ -230,6 +240,12 @@ enum MartinCpError {
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
     Mbt(#[from] MbtError),
+    #[error("No sources found")]
+    NoSources,
+    #[error(
+        "More than one source found, please specify source using --source.\nAvailable sources: {0}"
+    )]
+    MultipleSources(String),
 }
 
 impl Display for Progress {
@@ -272,16 +288,34 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
+fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
+    if let Some(source) = &args.source {
+        Ok(source.to_string())
+    } else {
+        let sources = state.tiles.source_names();
+        if let Some(source) = sources.first() {
+            if sources.len() > 1 {
+                return Err(MartinCpError::MultipleSources(sources.join(", ")));
+            }
+            Ok(source.to_string())
+        } else {
+            Err(MartinCpError::NoSources)
+        }
+    }
+}
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
 
+    let source = check_sources(&args, &state)?;
+
     let src = DynTileSource::new(
         &state.tiles,
-        args.source.as_str(),
+        &source,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
+        None,
         None,
         None,
     )?;
@@ -306,7 +340,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         "Copying {} {} tiles from {} to {}",
         progress.total,
         src.info,
-        args.source,
+        source,
         args.output_file.display()
     );
 
@@ -392,7 +426,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[&dyn Source],
+    sources: &[TileInfoSource],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {

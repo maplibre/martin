@@ -64,10 +64,10 @@ pub enum PgError {
     #[error("Error preparing a query for the tile '{1}' ({2}): {3} {0}")]
     PrepareQueryError(#[source] TokioPgError, String, String, String),
 
-    #[error(r#"Unable to get tile {2:#} from {1}: {0}"#)]
+    #[error(r"Unable to get tile {2:#} from {1}: {0}")]
     GetTileError(#[source] TokioPgError, String, TileCoord),
 
-    #[error(r#"Unable to get tile {2:#} with {json_query:?} params from {1}: {0}"#, json_query=query_to_json(.3.as_ref()))]
+    #[error(r"Unable to get tile {2:#} with {json_query:?} params from {1}: {0}", json_query=query_to_json(.3.as_ref()))]
     GetTileWithQueryError(#[source] TokioPgError, String, TileCoord, Option<UrlQuery>),
 
     #[error("Configuration error: {0}")]

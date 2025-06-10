@@ -44,7 +44,7 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a martin::pg::TableInfo 
 
 #[allow(dead_code)]
 #[must_use]
-pub fn source<'a>(mock: &'a MockSource, name: &str) -> &'a dyn Source {
+pub fn source(mock: &MockSource, name: &str) -> Box<dyn Source> {
     let (sources, _) = mock;
     sources.tiles.get_source(name).unwrap()
 }

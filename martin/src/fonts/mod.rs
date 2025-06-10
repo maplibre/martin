@@ -1,16 +1,16 @@
-use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use bit_set::BitSet;
+use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::protobuf::Message;
-use pbf_font_tools::{render_sdf_glyph, Fontstack, Glyphs, PbfFontError};
+use pbf_font_tools::{Fontstack, Glyphs, PbfFontError, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,9 @@ pub enum FontError {
     )]
     InvalidFontRangeEnd(u32),
 
-    #[error("Given font range {0}-{1} is invalid. It must be {CP_RANGE_SIZE} characters long (e.g. 0-255, 256-511, ...)")]
+    #[error(
+        "Given font range {0}-{1} is invalid. It must be {CP_RANGE_SIZE} characters long (e.g. 0-255, 256-511, ...)"
+    )]
     InvalidFontRange(u32, u32),
 
     #[error(transparent)]
@@ -103,11 +105,11 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 
 #[derive(Debug, Clone, Default)]
 pub struct FontSources {
-    fonts: HashMap<String, FontSource>,
+    fonts: DashMap<String, FontSource>,
     masks: Vec<BitSet>,
 }
 
-pub type FontCatalog = BTreeMap<String, CatalogFontEntry>;
+pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -125,7 +127,7 @@ impl FontSources {
             return Ok(Self::default());
         }
 
-        let mut fonts = HashMap::new();
+        let mut fonts = DashMap::new();
         let lib = Library::init()?;
 
         for path in config.iter() {
@@ -150,7 +152,7 @@ impl FontSources {
     pub fn get_catalog(&self) -> FontCatalog {
         self.fonts
             .iter()
-            .map(|(k, v)| (k.clone(), v.catalog_entry.clone()))
+            .map(|v| (v.key().clone(), v.catalog_entry.clone()))
             .sorted_by(|(a, _), (b, _)| a.cmp(b))
             .collect()
     }
@@ -242,7 +244,7 @@ pub struct FontSource {
 fn recurse_dirs(
     lib: &Library,
     path: PathBuf,
-    fonts: &mut HashMap<String, FontSource>,
+    fonts: &mut DashMap<String, FontSource>,
     is_top_level: bool,
 ) -> FontResult<()> {
     let start_count = fonts.len();
@@ -275,10 +277,10 @@ fn recurse_dirs(
 
 fn parse_font(
     lib: &Library,
-    fonts: &mut HashMap<String, FontSource>,
+    fonts: &mut DashMap<String, FontSource>,
     path: PathBuf,
 ) -> FontResult<()> {
-    static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+    static RE_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\s|/|,)+").unwrap());
 
     let mut face = lib.new_face(&path, 0)?;
     let num_faces = face.num_faces() as isize;
@@ -296,10 +298,7 @@ fn parse_font(
             name.push_str(style);
         }
         // Make sure font name has no slashes or commas, replacing them with spaces and de-duplicating spaces
-        name = RE_SPACES
-            .get_or_init(|| Regex::new(r"(\s|/|,)+").unwrap())
-            .replace_all(name.as_str(), " ")
-            .to_string();
+        name = RE_SPACES.replace_all(name.as_str(), " ").to_string();
 
         match fonts.entry(name) {
             Entry::Occupied(v) => {

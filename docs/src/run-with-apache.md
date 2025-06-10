@@ -36,11 +36,11 @@ sudo nano /etc/apache2/sites-available/mydomain.tld.conf
     ServerAdmin webmaster@localhost
     DocumentRoot /var/www/mydomain
     ProxyPreserveHost On
-    
+
     RewriteEngine on
     RewriteCond %{REQUEST_URI} ^/tiles/(.*)$
     RewriteRule ^/tiles/(.*)$ http://localhost:3000/tiles/$1 [P,L]
-    
+
     <IfModule mod_headers.c>
         RequestHeader set X-Forwarded-Proto "https"
     </IfModule>

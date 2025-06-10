@@ -6,14 +6,14 @@
       {
         "name": "is_valid",
         "ordinal": 0,
-        "type_info": "Int"
+        "type_info": "Integer"
       }
     ],
     "parameters": {
       "Right": 0
     },
     "nullable": [
-      null
+      false
     ]
   },
   "hash": "809e89c3b223e28c6716d405e13ba30fbf018805fe9ca2acd2b2e225183d1f13"

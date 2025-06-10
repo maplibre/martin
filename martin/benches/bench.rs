@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use martin::srv::DynTileSource;
 use martin::{CatalogSourceEntry, MartinResult, Source, TileData, TileSources, UrlQuery};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pprof::criterion::{Output, PProfProfiler};
-use tilejson::{tilejson, TileJSON};
+use tilejson::{TileJSON, tilejson};
 
 #[derive(Clone, Debug)]
 struct NullSource {
@@ -22,7 +22,7 @@ impl NullSource {
 
 #[async_trait]
 impl Source for NullSource {
-    fn get_id(&self) -> &str {
+    fn get_id(&self) -> &'static str {
         "null"
     }
 
@@ -56,7 +56,7 @@ impl Source for NullSource {
 }
 
 async fn process_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None).unwrap();
+    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None).unwrap();
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
         .unwrap();

@@ -8,14 +8,14 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::{copy_unrecognized_config, UnrecognizedValues};
+use crate::MartinResult;
+use crate::OptOneMany::{Many, One};
+use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
-use crate::MartinResult;
-use crate::OptOneMany::{Many, One};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -33,17 +33,24 @@ pub enum FileError {
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
+    #[cfg(any(feature = "webui", feature = "styles"))]
+    #[error("Walk directory error {0}: {1}")]
+    DirectoryWalking(walkdir::Error, PathBuf),
+
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
-    #[error(r#"Unable to acquire connection to file: {0}"#)]
+    #[error(r"Error occurred in processing S3 source uri: {0}")]
+    S3SourceError(String),
+
+    #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
     #[cfg(feature = "pmtiles")]
-    #[error(r#"PMTiles error {0} processing {1}"#)]
+    #[error(r"PMTiles error {0:?} processing {1}")]
     PmtError(pmtiles::PmtError, String),
 
     #[cfg(feature = "cog")]
@@ -74,13 +81,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -159,12 +166,12 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         Ok(Some(res))
     }
 
-    pub fn finalize(&self, prefix: &str) -> MartinResult<UnrecognizedValues> {
+    pub fn finalize(&self, prefix: &str) -> UnrecognizedValues {
         let mut res = UnrecognizedValues::new();
         if let Self::Config(cfg) = self {
             copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
         }
-        Ok(res)
+        res
     }
 }
 
@@ -309,7 +316,7 @@ async fn resolve_int<T: SourceConfigExtras>(
             let dir_files = if is_dir {
                 // directories will be kept in the config just in case there are new files
                 directories.push(path.clone());
-                dir_to_paths(&path, extension)?
+                collect_files_with_extension(&path, extension)?
             } else if path.is_file() {
                 vec![path]
             } else {
@@ -341,16 +348,24 @@ async fn resolve_int<T: SourceConfigExtras>(
     Ok(results)
 }
 
-fn dir_to_paths(path: &Path, extension: &[&str]) -> Result<Vec<PathBuf>, FileError> {
-    Ok(path
+/// Returns a vector of file paths matching any `allowed_extension` within the given directory.
+///
+/// # Errors
+///
+/// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
+fn collect_files_with_extension(
+    base_path: &Path,
+    allowed_extension: &[&str],
+) -> Result<Vec<PathBuf>, FileError> {
+    Ok(base_path
         .read_dir()
-        .map_err(|e| IoError(e, path.to_path_buf()))?
+        .map_err(|e| IoError(e, base_path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
             f.path()
                 .extension()
                 .filter(|actual_ext| {
-                    extension
+                    allowed_extension
                         .iter()
                         .any(|expected_ext| expected_ext == actual_ext)
                 })
@@ -379,7 +394,7 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         return Ok(None);
     }
     path.to_str()
-        .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
+        .filter(|v| v.starts_with("http://") || v.starts_with("https://") || v.starts_with("s3://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }

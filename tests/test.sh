@@ -27,6 +27,17 @@ TEST_TEMP_DIR="$(dirname "$0")/mbtiles_temp_files"
 rm -rf "$TEST_TEMP_DIR"
 mkdir -p "$TEST_TEMP_DIR"
 
+# Verify the tools used in the tests are available
+# todo add more verification for other tools like jq file curl sqlite3...
+if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+  if ! command -v ogrmerge.py > /dev/null; then
+  echo "gdal-bin is required for testing"
+  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
+  echo "see more at https://gdal.org/en/stable/download.html#binaries"
+  exit 1
+  fi
+fi
+
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
@@ -83,7 +94,8 @@ test_jsn() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  $CURL "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  $CURL  --dump-header  "$FILENAME.headers" "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 }
 
 test_pbf() {
@@ -91,11 +103,15 @@ test_pbf() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
-    ./tests/fixtures/vtzero-show "$FILENAME" > "$FILENAME.txt"
+    # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
+    ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
+    jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
+    mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
   fi
 }
 
@@ -105,7 +121,8 @@ test_png() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     file "$FILENAME" > "$FILENAME.txt"
@@ -122,7 +139,8 @@ test_font() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 }
 
 # Delete a line from a file $1 that matches parameter $2
@@ -134,11 +152,30 @@ remove_line() {
   mv "${FILE}.tmp" "${FILE}"
 }
 
+# if we dump a headers file via curl, this is otherwise not reproducible
+clean_headers_dump() {
+  FILE="$1"
+  # now we need to strip the date header as it is undeterministic
+  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  # the http version is not an "header" that we want to assert
+  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  # need to remove entirely empty lines, \r\n and leading/trailing whitespace
+  # sorting is arbitrairy => sort here
+  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  mv "$FILE.tmp" "$FILE"
+  # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
+  sed --in-place '1d' "$FILE"
+}
+
 test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
-  echo "Checking $LOG_FILE for expected text: '$EXPECTED_TEXT'"
-  grep -q "$EXPECTED_TEXT" "$LOG_FILE"
+  if ! grep -q "$EXPECTED_TEXT" "$LOG_FILE"; then
+    echo "ERROR: $LOG_FILE log file does not have: '$EXPECTED_TEXT'"
+    exit 1
+  else
+    >&2 echo "OK: $LOG_FILE contains expected text: '$EXPECTED_TEXT'"
+  fi
   remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
@@ -172,13 +209,34 @@ validate_log() {
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
   remove_line "$LOG_FILE" 'Source IDs must be unique'
-  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended 12.0.0'
+  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
+  remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
     echo "Log file $LOG_FILE has unexpected warnings or errors"
     exit 1
   fi
+}
+
+compare_sql_dbs() {
+  DB_FILE="$1"
+  EXPECTED_DB_FILE="$2"
+  LOG_FILE="$3"
+
+  if ! command -v sqldiff > /dev/null; then
+    echo "ERROR: sqldiff is required for testing, install it with   apt install sqlite3-tools"
+    exit 1
+  fi
+
+  >&2 echo "Comparing $DB_FILE with the expected $EXPECTED_DB_FILE"
+
+  sqldiff "$DB_FILE" "$EXPECTED_DB_FILE" 2>&1 | tee "$LOG_FILE" \
+    || {
+         echo "ERROR: sqldiff failed. To accept changes, run this command:"
+         echo "   cp $DB_FILE $EXPECTED_DB_FILE"
+         exit 1
+       }
 }
 
 echo "------------------------------------------------------------------------------------------------------------------------"
@@ -205,7 +263,8 @@ LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts)
+
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -272,6 +331,7 @@ test_pbf points3857_srid_0_0_0    points3857/0/0/0
 test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
+test_pbf s3_1_0_0    cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
 
 >&2 echo "***** Test server response for MbTiles source *****"
 test_jsn mb_jpg       geography-class-jpg
@@ -392,6 +452,12 @@ test_jsn sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.json
 test_png spr_cmp_2x    sprite/src1,mysrc@2x.png
 test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
 
+# Test styles
+test_jsn style_src2_maptiler_basic    style/maptiler_basic
+test_jsn style_src2_maptiler_basic.1  style/maptiler_basic.json
+test_jsn style_maplibre_demo          style/maplibre
+test_jsn style_maplibre_demo.1        style/maplibre.json
+
 # Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
@@ -434,6 +500,11 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
 
   unset DATABASE_URL
+
+  test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
+      --mbtiles-type flat --concurrency 3 \
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0" \
 
 else
   echo "Skipping martin-cp tests"
@@ -507,7 +578,29 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff4.txt"
 
+  # See if the stored bindiff file can also be applied to produce the same result
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    --apply-patch ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
+    "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff5.txt"
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches using .* threads...'
+
+  # Ensure that world_cities_modified and world_cities_modified3 are identical (regular diff is empty)
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
+    --diff-with-file "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_bindiff_modified2.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff6.txt"
+  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified2.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff7.txt"
+
   if command -v sqlite3 > /dev/null; then
+
+    compare_sql_dbs "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
+      ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
+      "$TEST_OUT_DIR/copy_bindiff_diff.txt"
+
     # Apply this diff to the original version of the file
     cp ./tests/fixtures/mbtiles/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"
 
@@ -534,6 +627,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     echo "##### sqlite3 is not installed, skipping apply test #####"
     # Copy expected output files as if they were generated by the test
     EXPECTED_DIR="$(dirname "$0")/expected/mbtiles"
+    cp "$EXPECTED_DIR/copy_bindiff_diff.txt" "$TEST_OUT_DIR/copy_bindiff_diff.txt"
     cp "$EXPECTED_DIR/copy_diff2.txt" "$TEST_OUT_DIR/copy_diff2.txt"
     cp "$EXPECTED_DIR/copy_apply.txt" "$TEST_OUT_DIR/copy_apply.txt"
   fi

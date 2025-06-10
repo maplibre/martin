@@ -63,7 +63,7 @@ impl Debug for MbtSource {
 
 impl MbtSource {
     async fn new(id: String, path: PathBuf) -> FileResult<Self> {
-        let mbt = MbtilesPool::new(&path)
+        let mbt = MbtilesPool::open_readonly(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| IoError(e, path.clone()))?;
@@ -115,10 +115,7 @@ impl Source for MbtSource {
         } else {
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z,
-                xyz.x,
-                xyz.y,
-                &self.id
+                xyz.z, xyz.x, xyz.y, &self.id
             );
             Ok(Vec::new())
         }
@@ -151,7 +148,7 @@ mod tests {
                   path: https://example.org/file4.ext
         "})
         .unwrap();
-        let res = cfg.finalize("").unwrap();
+        let res = cfg.finalize("");
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();

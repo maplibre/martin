@@ -1,26 +1,17 @@
 #!/usr/bin/env just --justfile
 
-set shell := ["bash", "-c"]
+set shell := ['bash', '-c']
 
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
 @_default:
-    just --list --unsorted
-
-clean:
-    rm -rf frontend/node_modules
-
-up:
-    {{dockercompose}} up
-
-up-build:
-    {{dockercompose}} up --build
+    just --list
 
 build:
     {{dockercompose}} build
 
-up-backend:
-    {{dockercompose}} up db tiles --detach
+clean:
+    rm -rf frontend/node_modules
 
 frontend *ARGS:
     {{dockercompose}} up frontend {{ARGS}}
@@ -28,3 +19,12 @@ frontend *ARGS:
 [no-exit-message]
 frontend-sh:
     {{dockercompose}} run --interactive --entrypoint sh frontend
+
+up:
+    {{dockercompose}} up
+
+up-backend:
+    {{dockercompose}} up db tiles --detach
+
+up-build:
+    {{dockercompose}} up --build

@@ -2,7 +2,7 @@ use clap::Parser;
 use log::{error, info, log_enabled};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
-use martin::{read_config, Config, MartinResult};
+use martin::{Config, MartinResult, read_config};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

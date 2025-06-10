@@ -5,7 +5,9 @@ use futures::future::join_all;
 use itertools::Itertools as _;
 use log::{debug, error, info, warn};
 
+use crate::OptBoolObj::{Bool, NoValue, Object};
 use crate::args::BoundsCalcType;
+use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::config::{PgConfig, PgInfo};
 use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
 use crate::pg::config_table::{TableInfo, TableInfoSources};
@@ -13,13 +15,11 @@ use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
-use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key, InfoMap};
-use crate::pg::PgError::InvalidTableExtent;
+use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
 use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
 use crate::utils::OptOneMany::NoVals;
-use crate::OptBoolObj::{Bool, NoValue, Object};
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
@@ -28,12 +28,22 @@ pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 #[derive(Debug)]
 pub struct PgBuilder {
     pool: PgPool,
+    /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     default_srid: Option<i32>,
+    /// Specify how bounds should be computed for the spatial PG tables
     auto_bounds: BoundsCalcType,
+    /// Limit the number of geo features per tile.
+    ///
+    /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
+    /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
+    /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+    ///
+    /// Can be either a positive integer or unlimited if omitted.
     max_feature_count: Option<usize>,
     auto_functions: Option<PgBuilderFuncs>,
     auto_tables: Option<PgBuilderTables>,
     id_resolver: IdResolver,
+    /// Associative arrays of table sources
     tables: TableInfoSources,
     functions: FuncInfoSources,
 }
@@ -78,6 +88,7 @@ macro_rules! get_auto_schemas {
 }
 
 impl PgBuilder {
+    /// Creates a new Builder from the [`PgConfig`] and a way to deterministically convert duplicate to unique names
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
         let pool = PgPool::new(config).await?;
 
@@ -100,6 +111,7 @@ impl PgBuilder {
         self.auto_bounds
     }
 
+    /// ID under which this [`PgBuilder`] is identified externally
     pub fn get_id(&self) -> &str {
         self.pool.get_id()
     }
@@ -206,7 +218,6 @@ impl PgBuilder {
             match src {
                 Err(v) => {
                     error!("Failed to create a source: {v}");
-                    continue;
                 }
                 Ok((id, pg_sql, src_inf)) => {
                     debug!("{id} query: {}", pg_sql.sql_query);
@@ -230,7 +241,10 @@ impl PgBuilder {
                 continue;
             };
             if db_funcs.is_empty() {
-                warn!("No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md", cfg_inf.schema);
+                warn!(
+                    "No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md",
+                    cfg_inf.schema
+                );
                 continue;
             }
             let func_name = &cfg_inf.function;
@@ -331,12 +345,17 @@ fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTabl
         } else {
             match find_kv_ignore_case(props, key) {
                 Ok(Some(result)) => {
-                    info!("For source {id}, id_column '{key}' was not found, but found '{result}' instead.");
+                    info!(
+                        "For source {id}, id_column '{key}' was not found, but found '{result}' instead."
+                    );
                     (result, props.get(result).unwrap())
                 }
                 Ok(None) => continue,
                 Err(multiple) => {
-                    error!("Unable to configure source {id} because id_column '{key}' has no exact match or more than one potential matches: {}", multiple.join(", "));
+                    error!(
+                        "Unable to configure source {id} because id_column '{key}' has no exact match or more than one potential matches: {}",
+                        multiple.join(", ")
+                    );
                     continue;
                 }
             }
@@ -344,7 +363,10 @@ fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTabl
         // ID column can be any integer type as defined in
         // https://github.com/postgis/postgis/blob/559c95d85564fb74fa9e3b7eafb74851810610da/postgis/mvt.c#L387C4-L387C66
         if typ != "int4" && typ != "int8" && typ != "int2" {
-            warn!("Unable to use column `{key}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.", inf.schema, inf.table);
+            warn!(
+                "Unable to use column `{key}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.",
+                inf.schema, inf.table
+            );
             continue;
         }
 

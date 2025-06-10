@@ -1,22 +1,39 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use log::warn;
 
+use crate::MartinError::ConfigAndConnectionsError;
+use crate::MartinResult;
+#[cfg(feature = "fonts")]
+use crate::OptOneMany;
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "sprites"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "sprites",
+    feature = "cog"
+))]
 use crate::file_config::FileConfigEnum;
-use crate::MartinError::ConfigAndConnectionsError;
-use crate::{MartinResult, OptOneMany};
+
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about,
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
 )]
 pub struct Args {
     #[command(flatten)]
@@ -49,7 +66,7 @@ pub struct MetaArgs {
     /// **Deprecated** Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
-    /// Connection strings, e.g. postgres://... or /path/to/files
+    /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
 }
 
@@ -57,11 +74,17 @@ pub struct MetaArgs {
 #[command()]
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
-    #[arg(short, long)]
+    #[arg(short = 's', long)]
+    #[cfg(feature = "sprites")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
+    #[cfg(feature = "fonts")]
     pub font: Vec<PathBuf>,
+    /// Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times.
+    #[arg(short = 'S', long)]
+    #[cfg(feature = "styles")]
+    pub style: Vec<PathBuf>,
 }
 
 impl Args {
@@ -112,11 +135,17 @@ impl Args {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
         }
 
+        #[cfg(feature = "styles")]
+        if !self.extras.style.is_empty() {
+            config.styles = FileConfigEnum::new(self.extras.style);
+        }
+
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfigEnum::new(self.extras.sprite);
         }
 
+        #[cfg(feature = "fonts")]
         if !self.extras.font.is_empty() {
             config.fonts = OptOneMany::new(self.extras.font);
         }
@@ -125,21 +154,34 @@ impl Args {
     }
 }
 
+/// Check if a string is a valid [`url::Url`] with a specified extension.
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
-    if s.starts_with("http") {
-        if let Ok(url) = url::Url::parse(s) {
-            if url.scheme() == "http" || url.scheme() == "https" {
-                if let Some(ext) = url.path().rsplit('.').next() {
-                    return extension.contains(&ext);
-                }
-            }
-        }
+    let Ok(url) = url::Url::parse(s) else {
+        return false;
+    };
+    match url.scheme() {
+        "s3" => url.path().split('/').any(|segment| {
+            segment
+                .rsplit('.')
+                .next()
+                .is_some_and(|ext| extension.contains(&ext))
+        }),
+        "http" | "https" => url
+            .path()
+            .rsplit('.')
+            .next()
+            .is_some_and(|ext| extension.contains(&ext)),
+        _ => false,
     }
-    false
 }
 
-#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "cog",
+    feature = "styles"
+))]
 pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
@@ -174,9 +216,9 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use super::*;
-    use crate::args::PreferredEncoding;
-    use crate::test_utils::FauxEnv;
     use crate::MartinError::UnrecognizableConnections;
+    use crate::args::PreferredEncoding;
+    use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -196,7 +238,7 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use crate::test_utils::some;
+        use crate::tests::some;
         use crate::utils::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
@@ -287,7 +329,8 @@ mod tests {
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
             "martin",
-            "../tests/fixtures/cog",
+            "../tests/fixtures/pmtiles/png.pmtiles",
+            "../tests/fixtures/mbtiles/json.mbtiles",
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
         ]);
@@ -297,12 +340,26 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/cog"
-        mbtiles: "../tests/fixtures/cog"
+        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
-          - "../tests/fixtures/cog"
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
+        "#);
+    }
+
+    #[test]
+    fn cli_directories_propagate() {
+        let args = Args::parse_from(["martin", "../tests/fixtures/"]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        pmtiles: "../tests/fixtures/"
+        mbtiles: "../tests/fixtures/"
+        cog: "../tests/fixtures/"
         "#);
     }
 }

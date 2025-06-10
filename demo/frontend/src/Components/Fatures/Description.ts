@@ -5,7 +5,7 @@ export default styled.div`
   margin-left: 150px;
 
   font-size: 40px;
-  
+
   @media (max-width: 500px) {
     margin-left: 20vw;
 

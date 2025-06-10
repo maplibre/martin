@@ -6,12 +6,12 @@
       {
         "name": "min_zoom",
         "ordinal": 0,
-        "type_info": "Int"
+        "type_info": "Integer"
       },
       {
         "name": "max_zoom",
         "ordinal": 1,
-        "type_info": "Int"
+        "type_info": "Integer"
       }
     ],
     "parameters": {

@@ -1,0 +1,160 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          640,
+          1468
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Chengdu",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          478,
+          632
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Bangkok",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          630,
+          59
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Singapore",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1200,
+          1986
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Beijing",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1100,
+          1042
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Hong Kong",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1430,
+          1497
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Shanghai",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1436,
+          1178
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Taipei",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1683,
+          1848
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Seoul",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1409,
+          673
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Manila",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2068,
+          1689
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Ōsaka",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2264,
+          1741
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "name": "Tokyo",
+        "source_mvt_layer": "cities"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

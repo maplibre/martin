@@ -34,7 +34,7 @@ export default createGlobalStyle`
     font-family: vremena, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    
+
     color: white;
 
     background-image: linear-gradient(to bottom,  #0e0e1e 50%, #1c1c30);

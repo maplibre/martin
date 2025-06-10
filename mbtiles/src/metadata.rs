@@ -6,13 +6,13 @@ use log::{info, warn};
 use martin_tile_utils::TileInfo;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use serde_json::{json, Value as JSONValue, Value};
-use sqlx::{query, SqliteExecutor};
-use tilejson::{tilejson, Bounds, Center, TileJSON};
+use serde_json::{Value as JSONValue, Value, json};
+use sqlx::{SqliteExecutor, query};
+use tilejson::{Bounds, Center, TileJSON, tilejson};
 
-use crate::errors::MbtResult;
 use crate::MbtError::InvalidZoomValue;
 use crate::Mbtiles;
+use crate::errors::MbtResult;
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -136,6 +136,14 @@ impl Mbtiles {
                         tj.other.insert(name, Value::String(value));
                     }
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
+                    "scheme" => {
+                        if value != "tms" {
+                            let file = &self.filename();
+                            warn!(
+                                "File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring."
+                            );
+                        }
+                    }
                     _ => {
                         let file = &self.filename();
                         info!("{file} has an unrecognized metadata value {name}={value}");
@@ -249,12 +257,18 @@ mod tests {
         let metadata = mbt.get_metadata(&mut conn).await?;
         let tj = metadata.tilejson;
 
-        assert_eq!(tj.description.unwrap(), "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ");
+        assert_eq!(
+            tj.description.unwrap(),
+            "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+        );
         assert!(tj.legend.unwrap().starts_with("<div style="));
         assert_eq!(tj.maxzoom.unwrap(), 1);
         assert_eq!(tj.minzoom.unwrap(), 0);
         assert_eq!(tj.name.unwrap(), "Geography Class");
-        assert_eq!(tj.template.unwrap(),"{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}");
+        assert_eq!(
+            tj.template.unwrap(),
+            "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
+        );
         assert_eq!(tj.version.unwrap(), "1.0.0");
         assert_eq!(metadata.id, "geography-class-jpg");
         assert_eq!(metadata.tile_info, Format::Jpeg.into());
