@@ -1,33 +1,3 @@
-//! ## The tilegrid in COG is highly cusotomized
-
-//! 1. A COG may have many image(also called `subfile`, see tiff spec 6.0) , many masks, and each indexed by IFD.
-//! 2. A COG must have at least one image.
-//! 3. The first ifd must be an image,eg ifd ==0, must be the full resolution one, eg, the one with the most high resolution one.
-//! 4. The masks(they have ifd either) is used to idenfiy which pixel is nodata. Currently we ignore them directly.
-
-//! 5. The tilegrid of COG is highly customized as the extent of your COG might not be just aligned with any well know tilegrid's tiles. The possibility is very very low. Unless you make it so.
-
-//! ### An example and formulations
-
-//! Say we have 5 images and 5 mask in one COG, then the customized tilegrid would be:
-
-//! |ifd|idx in our Vec of Image|resolution|zoom of custom tilegrid|
-//! |---|---------|--------|-------------------------|
-//! |0  |0|20|    4        |
-//! |2  |1|40|  3        |
-//! |4  |2|80|     2        |
-//! |6  |3|160|    1        |
-//! |8  |4|320|     0        |
-
-//! And the formula here:
-
-//! ```rust, ignore
-//! let images = vec![iamge 0, iamge 1, image 2, iamge 3, image 4];
-//! let minzoom = 0;
-//! let zoom_of_image = image_count -1  - idx_in_vec;
-//! let maxzoom = image_count - 1;
-//! ```
-
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
