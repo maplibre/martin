@@ -9,7 +9,11 @@ RUN rustup target add aarch64-unknown-linux-musl x86_64-unknown-linux-musl
 
 # (2) preparing recipe file
 FROM chef AS planner
-COPY . .
+# copies sorted by approx. change frequency
+COPY martin-tile-utils martin-tile-utils
+COPY mbtiles mbtiles
+COPY martin martin
+COPY Cargo.* .
 RUN cargo chef prepare --recipe-path recipe.json
 
 # (3) building project deps: need to specify all targets; zigbuild used
@@ -20,7 +24,12 @@ RUN cargo chef cook --recipe-path recipe.json --release --zigbuild \
     --target aarch64-unknown-linux-musl
 
 # (4) actuall project build for all targets
-COPY . .
+# copies sorted by approx. change frequency
+COPY logo.png .
+COPY martin-tile-utils martin-tile-utils
+COPY mbtiles mbtiles
+COPY martin martin
+COPY Cargo.* .
 RUN cargo zigbuild --release \
     --target aarch64-unknown-linux-musl \
     --target x86_64-unknown-linux-musl

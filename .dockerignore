@@ -8,7 +8,10 @@ justfile
 .dockerignore
 # Unneeded code
 **/tests
+**/benches
+**/fixtures
 demo/
+docs/
 
 ####
 #### This must match .gitignore ####
