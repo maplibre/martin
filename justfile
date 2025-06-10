@@ -1,3 +1,4 @@
+
 #!/usr/bin/env just --justfile
 
 set shell := ['bash', '-c']
@@ -55,8 +56,8 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
+# Run integration tests and save its output as the new expected output (ordering is important)
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
@@ -76,10 +77,6 @@ bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
-
-# Run test with bless-tests feature
-bless-tests:
-    cargo test -p martin --features bless-tests
 
 # Build and open mdbook documentation
 book:  (cargo-install 'mdbook')
@@ -325,175 +322,6 @@ test-ssl-cert: start-ssl-cert
     {{just_executable()}} clean-test
     {{just_executable()}} test-doc
     tests/test.sh
-
-<<<<<<< HEAD
-# Run all tests using the oldest supported version of the database
-test-legacy: start-legacy (test-cargo "--all-targets") test-doc test-int
-
-# Run Rust unit tests (cargo test)
-test-cargo *ARGS:
-    cargo test {{ARGS}}
-
-# Run Rust doc tests
-test-doc *ARGS:
-    cargo test --doc {{ARGS}}
-
-# Run integration tests
-test-int: clean-test install-sqlx
-    #!/usr/bin/env bash
-    set -euo pipefail
-    tests/test.sh
-    if [ "{{os()}}" != "linux" ]; then
-        echo "** Integration tests are only supported on Linux"
-        echo "** Skipping diffing with the expected output"
-    else
-        echo "** Comparing actual output with expected output..."
-        if ! diff --brief --recursive --new-file tests/output tests/expected; then
-            echo "** Expected output does not match actual output"
-            echo "** If this is expected, run 'just bless' to update expected output"
-            exit 1
-        else
-            echo "** Expected output matches actual output"
-        fi
-    fi
-
-# Run AWS Lambda smoke test against SAM local
-test-lambda:
-    tests/test-aws-lambda.sh
-
-# Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
-
-# Bless integration tests
-bless-int:
-    rm -rf tests/temp
-    tests/test.sh
-    rm -rf tests/expected && mv tests/output tests/expected
-
-# Run integration tests and save its output as the new expected output
-bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
-    #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --unreferenced=auto -p mbtiles {{ARGS}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-martin *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --unreferenced=auto -p martin {{ARGS}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-cp *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --bin martin-cp {{ARGS}}
-
-# Build and open mdbook documentation
-book: (cargo-install "mdbook")
-    mdbook serve docs --open --port 8321
-
-# Build debian package
-package-deb: (cargo-install "cargo-deb")
-    cargo deb -v -p martin --output target/debian/martin.deb
-
-# Build and open code documentation
-docs:
-    cargo doc --no-deps --open
-
-# Run code coverage on tests and save its output in the coverage directory. Parameter could be html or lcov.
-coverage FORMAT='html': (cargo-install "grcov")
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
-        echo "llvm-tools-preview could not be found. Installing..." ;\
-        rustup component add llvm-tools-preview ;\
-    fi
-
-    {{just_executable()}} clean
-    {{just_executable()}} start
-
-    PROF_DIR=target/prof
-    mkdir -p "$PROF_DIR"
-    PROF_DIR=$(realpath "$PROF_DIR")
-
-    OUTPUT_RESULTS_DIR=target/coverage/{{FORMAT}}
-    mkdir -p "$OUTPUT_RESULTS_DIR"
-
-    export CARGO_INCREMENTAL=0
-    export RUSTFLAGS=-Cinstrument-coverage
-    # Avoid problems with relative paths
-    export LLVM_PROFILE_FILE=$PROF_DIR/cargo-test-%p-%m.profraw
-    export MARTIN_PORT=3111
-
-    cargo test --all-targets
-    tests/test.sh
-
-    set -x
-    grcov --binary-path ./target/debug    \
-          -s .                            \
-          -t {{FORMAT}}                 \
-          --branch                        \
-          --ignore 'benches/*'            \
-          --ignore 'tests/*'              \
-          --ignore-not-existing           \
-          -o target/coverage/{{FORMAT}} \
-          --llvm                          \
-          "$PROF_DIR"
-    { set +x; } 2>/dev/null
-
-    # if this is html, open it in the browser
-    if [ "{{FORMAT}}" = "html" ]; then
-        open "$OUTPUT_RESULTS_DIR/index.html"
-    fi
-
-# Build and run martin docker image
-docker-run *ARGS:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ARGS}}
-
-# Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
-[no-exit-message]
-git *ARGS: start
-    git {{ARGS}}
-
-# Print the connection string for the test database
-print-conn-str:
-    @echo {{quote(DATABASE_URL)}}
-
-# Run cargo fmt and cargo clippy
-lint: fmt clippy
-
-# Run cargo fmt
-fmt:
-    cargo fmt --all -- --check
-
-# Reformat markdown files using markdownlint-cli2
-fmt-md:
-    docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
-
-# Run Nightly cargo fmt, ordering imports
-fmt2:
-    cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate
-
-# Run cargo check
-check:
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin-tile-utils
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p mbtiles
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p mbtiles --no-default-features
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features fonts
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features mbtiles
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features pmtiles
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features postgres
-    RUSTFLAGS='-D warnings' cargo check --all-targets -p martin --no-default-features --features sprites
-
-# Verify doc build
-check-doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
-
-# Run cargo clippy
-clippy:
-    cargo clippy --workspace --all-targets -- -D warnings
-
-# Validate markdown URLs with markdown-link-check
-clippy-md:
-    docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
-      'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
