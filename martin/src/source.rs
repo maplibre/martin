@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
@@ -6,7 +7,6 @@ use dashmap::DashMap;
 use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tilejson::TileJSON;
 
 use crate::MartinResult;
@@ -40,6 +40,11 @@ impl TileSources {
             .iter()
             .map(|v| (v.key().to_string(), v.get_catalog_entry()))
             .collect()
+    }
+
+    #[must_use]
+    pub fn source_names(&self) -> Vec<String> {
+        self.0.iter().map(|v| v.key().to_string()).collect()
     }
 
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
@@ -103,10 +108,15 @@ impl TileSources {
 
 #[async_trait]
 pub trait Source: Send + Debug {
+    /// ID under which this [`Source`] is identified if accessed externally
     fn get_id(&self) -> &str;
 
+    /// `TileJSON` of this [`Source`]
+    ///
+    /// Will be communicated verbatim to the outside to give rendering engines information about the source's contents such as zoom levels, center points, ...
     fn get_tilejson(&self) -> &TileJSON;
 
+    /// Information for serving the source such as which Mime-type to apply or how compression should work
     fn get_tile_info(&self) -> TileInfo;
 
     fn clone_source(&self) -> TileInfoSource;

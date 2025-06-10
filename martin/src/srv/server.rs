@@ -3,12 +3,11 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
-use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::TrailingSlash;
+use actix_web::middleware::{Compress, Condition, Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
-use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
+use actix_web::{App, HttpResponse, HttpServer, Responder, route, web};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
@@ -81,7 +80,7 @@ async fn get_index_no_ui() -> &'static str {
     See documentation https://github.com/maplibre/martin"
 }
 
-/// Root path in case web front is disabled and the WebUI feature is enabled.
+/// Root path in case web front is disabled and the `webui` feature is enabled.
 #[cfg(feature = "webui")]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
@@ -105,7 +104,7 @@ async fn get_health() -> impl Responder {
     "/catalog",
     method = "GET",
     method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
@@ -161,10 +160,12 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .clone()
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
+    let cors_config = config.cors.clone().unwrap_or_default();
+    cors_config.validate()?;
+    cors_config.log_current_configuration();
+
     let factory = move || {
-        let cors_middleware = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET"]);
+        let cors_middleware = cors_config.make_cors_middleware();
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
@@ -179,12 +180,17 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "styles")]
         let app = app.app_data(Data::new(state.styles.clone()));
 
-        app.app_data(Data::new(catalog.clone()))
-            .app_data(Data::new(config.clone()))
-            .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .wrap(middleware::Logger::default())
-            .configure(|c| router(c, &config))
+        let app = app
+            .app_data(Data::new(catalog.clone()))
+            .app_data(Data::new(config.clone()));
+
+        app.wrap(Condition::new(
+            cors_middleware.is_some(),
+            cors_middleware.unwrap_or_default(),
+        ))
+        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+        .wrap(Logger::default())
+        .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]

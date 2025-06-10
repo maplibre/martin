@@ -1,6 +1,8 @@
-use std::{fs::File, path::Path};
+use std::fs::File;
+use std::path::Path;
 
-use tiff::{decoder::Decoder, tags::Tag};
+use tiff::decoder::Decoder;
+use tiff::tags::Tag;
 
 use super::CogError;
 

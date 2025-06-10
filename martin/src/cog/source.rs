@@ -23,6 +23,10 @@ struct Meta {
     min_zoom: u8,
     max_zoom: u8,
     model: ModelInfo,
+    // The geo coords of pixel(0, 0, 0) ordering in [x, y, z]
+    origin: [f64; 3],
+    // [minx, miny, maxx, maxy] in its model space coordinate system
+    extent: [f64; 4],
     zoom_and_ifd: HashMap<u8, usize>,
     zoom_and_tile_across_down: HashMap<u8, (u32, u32)>,
     nodata: Option<f64>,
@@ -318,6 +322,32 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
         .with_limits(tiff::decoder::Limits::unlimited());
     let model = ModelInfo::decode(&mut decoder, path);
+    let origin = get_origin(
+        model.tie_points.as_deref(),
+        model.transformation.as_deref(),
+        path,
+    )?;
+    let (full_width_pixel, full_length_pixel) = decoder.dimensions().map_err(|e| {
+        CogError::TagsNotFound(
+            e,
+            vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
+            0, // we are at ifd 0, the first image, haven't seek to others
+            path.clone(),
+        )
+    })?;
+    let full_resolution = get_full_resolution(
+        model.pixel_scale.as_deref(),
+        model.transformation.as_deref(),
+        path,
+    )?;
+    let full_width = full_resolution[0] * f64::from(full_width_pixel);
+    let full_length = full_resolution[1] * f64::from(full_length_pixel);
+    let extent = get_extent(
+        &origin,
+        model.transformation.as_deref(),
+        (full_width_pixel, full_length_pixel),
+        (full_width, full_length),
+    );
     verify_requirements(&mut decoder, &model, path)?;
     let mut zoom_and_ifd: HashMap<u8, usize> = HashMap::new();
     let mut zoom_and_tile_across_down: HashMap<u8, (u32, u32)> = HashMap::new();
@@ -352,6 +382,8 @@ fn get_meta(path: &PathBuf) -> Result<Meta, FileError> {
         min_zoom: 0,
         max_zoom: images_ifd.len() as u8 - 1,
         model,
+        origin,
+        extent,
         zoom_and_ifd,
         zoom_and_tile_across_down,
         nodata,
@@ -416,16 +448,131 @@ fn get_images_ifd(decoder: &mut Decoder<File>, path: &Path) -> Vec<usize> {
     res
 }
 
+fn get_origin(
+    tie_points: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 3], CogError> {
+    // From geotiff spec: "This matrix tag should not be used if the ModelTiepointTag and the ModelPixelScaleTag are already defined"
+    // See more in https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+    match (tie_points, transformation) {
+        // From geotiff spec: "If possible, the first tiepoint placed in this tag shall be the one establishing the location of the point (0,0) in raster space"
+        (Some(points), _) if points.len() >= 6 => Ok([points[3], points[4], points[5]]),
+
+        // coords =     matrix  * coords
+        // |- -|     |-       -|  |- -|
+        // | X |     | a b c d |  | I |
+        // | | |     |         |  |   |
+        // | Y |     | e f g h |  | J |
+        // |   |  =  |         |  |   |
+        // | Z |     | i j k l |  | K |
+        // | | |     |         |  |   |
+        // | 1 |     | m n o p |  | 1 |
+        // |- -|     |-       -|  |- -|
+
+        // The (I,J,K) of origin is (0,0,0), so:
+        //
+        //    x = I*a + J*b + K*c + 1*d => d => matrix[3]
+        //    y = I*e + J*f + k*g + 1*h => h => matrix[7]
+        //    z = I*i + J*j + K*k + 1*l => l => matrix[11]
+        (_, Some(matrix)) if matrix.len() >= 12 => Ok([matrix[3], matrix[7], matrix[11]]),
+        _ => Err(CogError::GetOriginFailed(path.to_path_buf())),
+    }
+}
+
+fn get_full_resolution(
+    pixel_scale: Option<&[f64]>,
+    transformation: Option<&[f64]>,
+    path: &Path,
+) -> Result<[f64; 2], CogError> {
+    match (pixel_scale, transformation) {
+        // ModelPixelScaleTag = (ScaleX, ScaleY, ScaleZ)
+        (Some(scale), _) => Ok([scale[0], scale[1]]),
+        // here we adopted the 2-d matrix form based on the geotiff spec, the z-axis is dropped intentionally, see https://docs.ogc.org/is/19-008r4/19-008r4.html#_geotiff_tags_for_coordinate_transformations
+        // It looks like this:
+        /*
+           |- -|   |-       -| |- -|
+           | X |   | a b 0 d | | I |
+           | | |   |         | |   |
+           | Y |   | e f 0 h | | J |
+           |   | = |         | |   |
+           | Z |   | 0 0 0 0 | | K |
+           | | |   |         | |   |
+           | 1 |   | 0 0 0 1 | | 1 |
+           |- -|   |-       -| |- -|
+        */
+        (_, Some(matrix)) => {
+            let mut x_res = (matrix[0] * matrix[0] + matrix[4] * matrix[4]).sqrt();
+            x_res = x_res.copysign(matrix[0]);
+            let mut y_res = (matrix[1] * matrix[1] + matrix[5] * matrix[5]).sqrt();
+            // A positive y_res indicates that model space Y cordinates decrease as raster space J indices increase. This is the standard vertical relationship between raster space and model space
+            y_res = y_res.copysign(-matrix[5]);
+            Ok([x_res, y_res]) // drop the z scale directly as we don't use it
+        }
+        (None, None) => Err(CogError::GetFullResolutionFailed(path.to_path_buf())),
+    }
+}
+
+fn raster2model(i: u32, j: u32, matrix: &[f64]) -> (f64, f64) {
+    let i = f64::from(i);
+    let j = f64::from(j);
+    let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
+    let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
+    (x, y)
+}
+
+/// Computes the bounding box (`[min_x, min_y, max_x, max_y]`) based on the transformation matrix, origin, width and hieght.
+///
+/// Applies a transformation matrix to corner pixels if provided;
+/// otherwise, computes extent from origin and raster size in model units.
+fn get_extent(
+    origin: &[f64; 3],
+    transformation: Option<&[f64]>,
+    (full_width_pixel, full_height_pixel): (u32, u32),
+    (full_width, full_height): (f64, f64),
+) -> [f64; 4] {
+    if let Some(matrix) = transformation {
+        let corner_pixels = [
+            (0, 0),                                // Top-left
+            (0, full_height_pixel),                // Bottom-left
+            (full_width_pixel, 0),                 // Top-right
+            (full_width_pixel, full_height_pixel), // Bottom-right
+        ];
+
+        // Transform the first corner to initialize min/max values
+        let (mut min_x, mut min_y) = raster2model(corner_pixels[0].0, corner_pixels[0].1, matrix);
+        let mut max_x = min_x;
+        let mut max_y = min_y;
+
+        // Iterate over the rest of the corners
+        for &(i, j) in corner_pixels.iter().skip(1) {
+            let (x, y) = raster2model(i, j, matrix);
+            min_x = min_x.min(x);
+            min_y = min_y.min(y);
+            max_x = max_x.max(x);
+            max_y = max_y.max(y);
+        }
+        return [min_x, min_y, max_x, max_y];
+    }
+    let [x1, y1, _] = origin;
+    let x2 = x1 + full_width;
+    let y2 = y1 - full_height;
+
+    [x1.min(x2), y1.min(y2), x1.max(x2), y1.max(y2)]
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, path::PathBuf};
+    use std::fs::File;
+    use std::path::PathBuf;
 
     use insta::assert_yaml_snapshot;
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
     use tiff::decoder::Decoder;
 
-    use crate::cog::{model::ModelInfo, source::get_tile_idx};
+    use crate::cog::model::ModelInfo;
+    use crate::cog::source::get_tile_idx;
 
     #[test]
     fn can_calc_tile_idx() {
@@ -520,5 +667,141 @@ mod tests {
         - 0
         "###);
         assert_yaml_snapshot!(transformation, @"~");
+    }
+
+    #[rstest]
+    #[case(
+        Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),None,
+        Some([1_620_750.250_8, 4_277_012.715_3, 0.0])
+    )]
+    #[case(
+        None,Some(vec![
+            0.0, 100.0, 0.0, 400_000.0, 100.0, 0.0, 0.0, 500_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 1.0,
+        ]),
+        Some([400_000.0, 500_000.0, 0.0])
+    )]
+    #[case(None, None, None)]
+    fn can_get_origin(
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] expected: Option<[f64; 3]>,
+    ) {
+        use approx::assert_abs_diff_eq;
+
+        let origin = super::get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .ok();
+        match (origin, expected) {
+            (Some(o), Some(e)) => {
+                assert_abs_diff_eq!(o[0], e[0]);
+                assert_abs_diff_eq!(o[1], e[1]);
+                assert_abs_diff_eq!(o[2], e[2]);
+            }
+            (None, None) => {
+                // Both are None, which is expected
+            }
+            _ => {
+                panic!("Origin {origin:?} does not match expected {expected:?}");
+            }
+        }
+    }
+
+    #[rstest]
+    #[case(
+        None,Some(vec![10.0, 10.0,0.0]),Some(vec![0.0, 0.0, 0.0, 1_620_750.250_8, 4_277_012.715_3, 0.0]),(512,512),
+        [1_620_750.250_8, 4_271_892.715_3, 1_625_870.250_8, 4_277_012.715_3]
+    )]
+    #[case(
+        Some(vec![
+            10.0,0.0,0.0,1_620_750.250_8,
+            0.0,-10.0,0.0,4_277_012.715_3,
+            0.0,0.0,0.0,0.0,
+            0.0,0.0,0.0,1.0
+        ]),None,None,(512,512),
+        [1_620_750.250_8, 4_271_892.715_3, 1_625_870.250_8, 4_277_012.715_3]
+    )]
+    #[case(
+        Some(vec![
+            0.010_005_529_647_693, 0.0, 0.0, -7.583_906_932_854_38,
+            0.0, -0.009_986_188_755_447_6, 0.0, 38.750_354_738_325_9,
+            0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ]), None, None, (598, 279),
+        [-7.583_906_9, 35.964_208_1, -1.600_600_2, 38.750_354_7]
+    )]
+    fn can_get_extent(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] pixel_scale: Option<Vec<f64>>,
+        #[case] tie_point: Option<Vec<f64>>,
+        #[case] (full_width_pixel, full_length_pixel): (u32, u32),
+        #[case] expected_extent: [f64; 4],
+    ) {
+        use approx::assert_abs_diff_eq;
+
+        use crate::cog::source::{get_extent, get_full_resolution, get_origin};
+
+        let origin = get_origin(
+            tie_point.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        let full_resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+
+        let full_width = full_resolution[0] * f64::from(full_width_pixel);
+        let full_length = full_resolution[1] * f64::from(full_length_pixel);
+
+        let extent = get_extent(
+            &origin,
+            matrix.as_deref(),
+            (full_width_pixel, full_length_pixel),
+            (full_width, full_length),
+        );
+
+        assert_abs_diff_eq!(extent[0], expected_extent[0], epsilon = 0.00001);
+        assert_abs_diff_eq!(extent[1], expected_extent[1], epsilon = 0.00001);
+        assert_abs_diff_eq!(extent[2], expected_extent[2], epsilon = 0.00001);
+        assert_abs_diff_eq!(extent[3], expected_extent[3], epsilon = 0.00001);
+    }
+
+    #[rstest]
+    #[case(
+        None,Some(vec![118.450_587_6, 118.450_587_6, 0.0]), [118.450_587_6, 118.450_587_6]
+    )]
+    #[case(
+        None,Some(vec![100.00, -100.0]), [100.0, -100.0]
+    )]
+    #[
+        case(
+            Some(vec![
+                0.010_005_529_647_693_3, 0.0, 0.0, -7.583_906_932_854_38, 0.0, -0.009_986_188_755_447_63, 0.0, 38.750_354_738_325_9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]),
+            None, [0.010_005_529_647_693, 0.009_986_188_755_448])
+    ]
+    fn can_get_full_resolution(
+        #[case] matrix: Option<Vec<f64>>,
+        #[case] pixel_scale: Option<Vec<f64>>,
+        #[case] expected: [f64; 2],
+    ) {
+        use approx::assert_abs_diff_eq;
+
+        use crate::cog::source::get_full_resolution;
+
+        let full_resolution = get_full_resolution(
+            pixel_scale.as_deref(),
+            matrix.as_deref(),
+            &PathBuf::from("not_exist.tif"),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(full_resolution[0], expected[0], epsilon = 0.00001);
+        assert_abs_diff_eq!(full_resolution[1], expected[1], epsilon = 0.00001);
     }
 }

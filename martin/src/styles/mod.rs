@@ -1,9 +1,10 @@
-use dashmap::{DashMap, Entry};
-use log::{info, warn};
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+
+use dashmap::{DashMap, Entry};
+use log::{info, warn};
+use serde::{Deserialize, Serialize};
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::{ConfigExtras, FileConfigEnum, FileError, FileResult};
@@ -63,12 +64,18 @@ impl StyleSources {
         for base_path in cfg.paths {
             let files = list_contained_files(&base_path, "json")?;
             if files.is_empty() {
-                warn!("No styles (.json files) found in path {base_path:?}");
+                warn!(
+                    "No styles (.json files) found in path {:?}",
+                    base_path.display()
+                );
                 continue;
             }
             for path in files {
                 let Some(name) = path.file_name() else {
-                    warn!("Ignoring style source with no name from {path:?}");
+                    warn!(
+                        "Ignoring style source with no name from {:?}",
+                        path.display()
+                    );
                     continue;
                 };
                 let style_id = name
@@ -184,9 +191,8 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::file_config::FileConfigSrc;
-
     use super::*;
+    use crate::file_config::FileConfigSrc;
     #[test]
     fn test_add_single_source() {
         use std::fs::File;
