@@ -114,7 +114,7 @@ fn rgb_to_png(
         components_count,
         nodata,
     );
-    encode_rgba_to_png(tile_width, tile_height, &pixels, path)
+    encode_rgba_as_png(tile_width, tile_height, &pixels, path)
 }
 
 /// Ensures pixel data is valid for PNG encoding by handling padding, alpha channel, and nodata values.
@@ -126,42 +126,45 @@ fn ensure_pixels_valid(
     nodata: Option<u8>,
 ) -> Vec<u8> {
     let is_padded = data_width != tile_width || data_height != tile_height;
-    let need_add_alpha = components_count != 4;
-    // 1. Check if the tile is padded, if so, we need to add padding part back
-    //  The decoded might be smaller than the tile size as tiff crate always cut off the padding part
-    //  So we need to add the padding part back if needed
-    // 2. Check if we need to add alpha channel, if the components count is not 4(rgba => 4 components, rgb => 3 components), we need to add an alpha channel
-    // 3. Check if nodata is provided, if so, we need to make the pixels with nodata value transparent
+    // FIXME: why not `== 3`?
+    let add_alpha = components_count != 4;
+    // 1. Check if the tile is padded. If so, we need to add padding part back.
+    //    The decoded value might be smaller than the tile size.
+    //    TIFF crate always cut off the padding part, so we would need to add the padding part back.
+    // 2. If the components count is 3 (RGB), we need to add the alpha channel to convert it to RGBA.
+    // 3. Check if nodata is provided. We need to make the pixels with nodata value transparent
     //    See https://gdal.org/en/stable/drivers/raster/gtiff.html#nodata-value
-    if nodata.is_some() || need_add_alpha || is_padded {
+    if nodata.is_some() || add_alpha || is_padded {
         let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
         for row in 0..data_height {
             'outer: for col in 0..data_width {
                 let idx_chunk = row * data_width * components_count + col * components_count;
                 let idx_result = row * tile_width * 4 + col * 4;
 
-                // Copy the components one by one
+                // Copy component values one by one
                 for component_idx in 0..components_count {
-                    // Before copying, check if this component == nodata. If so, do skip and it would be transparent.
-                    // FIXME: Should we copy the RGB values anyway and just set alpha to 0? The visual result actually is the same (transparent), but the component values would differ. But it might be a little slower as we don't skip the copy
-                    //      Source pixel: [4, 1, 2, 3]  nodata: Some(1)
-                    //      Do skip:
-                    //      result pixel: [4, 0, 0, 0]
-                    //      Do not skip:
-                    //      result pixel: [4, 1, 2, 0]
-                    //      So the visual result is the same, but the component values are different.
+                    // Before copying, check if this component == nodata. If so, skip because it's transparent.
+                    // FIXME: Should we copy the RGB values anyway and just set alpha to 0?
+                    //        The visual result is the same (transparent), but the component values would differ.
+                    //        But it might be a little slower as we don't skip the copy.
+                    //   Source pixel: [4, 1, 2, 3]  nodata: Some(1)
+                    //   Skip:
+                    //   result pixel: [4, 0, 0, 0]
+                    //   Do not skip:
+                    //   result pixel: [4, 1, 2, 0]
+                    //   So the visual result is the same, but the component values are different.
 
-                    if nodata.eq(&Some(data[(idx_chunk + component_idx) as usize])) {
-                        continue 'outer;
+                    let value = data[(idx_chunk + component_idx) as usize];
+                    if let Some(v) = nodata {
+                        if value == v {
+                            continue 'outer;
+                        }
                     }
                     // Copy this component to the result vector
-                    result_vec[(idx_result + component_idx) as usize] =
-                        data[(idx_chunk + component_idx) as usize];
+                    result_vec[(idx_result + component_idx) as usize] = value;
                 }
-                // If an alpha channel needs to be added, set it to 255 (opaque)
-                if need_add_alpha {
-                    let alpha_idx = (idx_result + 3) as usize;
-                    result_vec[alpha_idx] = 255;
+                if add_alpha {
+                    result_vec[(idx_result + 3) as usize] = 255; // opaque
                 }
             }
         }
@@ -172,7 +175,7 @@ fn ensure_pixels_valid(
 }
 
 /// Encodes RGBA pixel data to PNG format.
-fn encode_rgba_to_png(
+fn encode_rgba_as_png(
     tile_width: u32,
     tile_height: u32,
     pixels: &[u8],
@@ -228,33 +231,33 @@ mod tests {
     // the right half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/right_padded.png",
-        (0,0,0,None),None,(128,256),(256,256)
+        (0, 0, 0, None), None, (128, 256), (256, 256)
     )]
     // the down half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/down_padded.png",
-        (0,0,0,None),None,(256,128),(256,256)
+        (0, 0, 0, None), None, (256, 128), (256, 256)
     )]
-    // the up half should be half transparent and down half should be transparent
+    // the up half should be half-transparent and down half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
-        (0,0,0,Some(128)),None,(256,128),(256,256)
+        (0, 0, 0, Some(128)), None, (256, 128), (256, 256)
     )]
-    // the left half should be half transparent and the right half should be transparent
+    // the left half should be half-transparent and the right half should be transparent
     #[case(
         "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
-        (0,0,0,Some(128)),None,(128,256),(256,256)
+        (0, 0, 0, Some(128)), None, (128, 256), (256, 256)
     )]
     // should be all half transparent
     #[case(
         "../tests/fixtures/cog/expected/not_padded.png",
-        (0,0,0,Some(128)),None,(256,256),(256,256)
+        (0, 0, 0, Some(128)), None, (256, 256), (256, 256)
     )]
     // all padded and with a no_data whose value is 128, and all the component is 128
     // so that should be all transparent
     #[case(
         "../tests/fixtures/cog/expected/all_transparent.png",
-        (128,128,128,Some(128)),Some(128),(128,128),(256,256)
+        (128, 128, 128, Some(128)), Some(128), (128, 128), (256, 256)
     )]
     fn test_padded_cases(
         #[case] expected_file_path: &str,

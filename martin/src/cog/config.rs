@@ -22,6 +22,10 @@ impl ConfigExtras for CogConfig {
 }
 
 impl SourceConfigExtras for CogConfig {
+    fn parse_urls() -> bool {
+        false
+    }
+
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
         let cog = CogSource::new(id, path)?;
         Ok(Box::new(cog))
@@ -29,9 +33,5 @@ impl SourceConfigExtras for CogConfig {
 
     async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
         unreachable!()
-    }
-
-    fn parse_urls() -> bool {
-        false
     }
 }

@@ -178,7 +178,7 @@ fn verify_requirements(
     path: &Path,
 ) -> Result<(), CogError> {
     let chunk_type = decoder.get_chunk_type();
-    // see the requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
+    // see requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if chunk_type != ChunkType::Tile {
         Err(CogError::NotSupportedChunkType(path.to_path_buf()))?;
     }
@@ -358,7 +358,7 @@ fn get_full_resolution(
             let mut x_res = (matrix[0] * matrix[0] + matrix[4] * matrix[4]).sqrt();
             x_res = x_res.copysign(matrix[0]);
             let mut y_res = (matrix[1] * matrix[1] + matrix[5] * matrix[5]).sqrt();
-            // A positive y_res indicates that model space Y cordinates decrease as raster space J indices increase. This is the standard vertical relationship between raster space and model space
+            // A positive y_res indicates that model space Y coordinates decrease as raster space J indices increase. This is the standard vertical relationship between raster space and model space
             y_res = y_res.copysign(-matrix[5]);
             Ok([x_res, y_res]) // drop the z scale directly as we don't use it
         }
@@ -374,7 +374,7 @@ fn raster2model(i: u32, j: u32, matrix: &[f64]) -> (f64, f64) {
     (x, y)
 }
 
-/// Computes the bounding box (`[min_x, min_y, max_x, max_y]`) based on the transformation matrix, origin, width and hieght.
+/// Computes the bounding box (`[min_x, min_y, max_x, max_y]`) based on the transformation matrix, origin, width, and height.
 fn get_extent(
     origin: &[f64; 3],
     transformation: Option<&[f64]>,
