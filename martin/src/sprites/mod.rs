@@ -282,12 +282,13 @@ mod tests {
         sources: impl Iterator<Item = &SpriteSource>,
         pixel_ratio: u8,
         filename: &str,
+        extension: &str,
     ) {
-        let sprites = get_spritesheet(sources, pixel_ratio, filename.ends_with("_sdf"))
+        let sprites = get_spritesheet(sources, pixel_ratio, filename == "_sdf")
             .await
             .unwrap();
-        insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
+        insta::assert_json_snapshot!(format!("{filename}{extension}.json"), sprites.get_index());
         let png = sprites.encode_png().unwrap();
-        insta::assert_binary_snapshot!(&format!("{filename}.png"), png);
+        insta::assert_binary_snapshot!(&format!("{filename}{extension}.png"), png);
     }
 }
