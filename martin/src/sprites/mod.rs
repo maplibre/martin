@@ -250,31 +250,29 @@ mod tests {
         let sprites = SpriteSources::resolve(&mut cfg).unwrap().0;
         assert_eq!(sprites.len(), 2);
 
-        //.sdf => generate sdf from png, add sdf == true
-        //- => does not generate sdf, omits sdf == true
-        for extension in ["_sdf", ""] {
+        for generate_sdf in [true, false] {
             let paths = sprites
                 .iter()
                 .map(|v| v.value().clone())
                 .collect::<Vec<_>>();
-            test_src(paths.iter(), 1, "all_1", extension).await;
-            test_src(paths.iter(), 2, "all_2", extension).await;
+            test_src(paths.iter(), 1, "all_1", generate_sdf).await;
+            test_src(paths.iter(), 2, "all_2", generate_sdf).await;
 
             let src1_path = sprites
                 .get("src1")
                 .into_iter()
                 .map(|v| v.value().clone())
                 .collect::<Vec<_>>();
-            test_src(src1_path.iter(), 1, "src1_1", extension).await;
-            test_src(src1_path.iter(), 2, "src1_2", extension).await;
+            test_src(src1_path.iter(), 1, "src1_1", generate_sdf).await;
+            test_src(src1_path.iter(), 2, "src1_2", generate_sdf).await;
 
             let src2_path = sprites
                 .get("src2")
                 .into_iter()
                 .map(|v| v.value().clone())
                 .collect::<Vec<_>>();
-            test_src(src2_path.iter(), 1, "src2_1", extension).await;
-            test_src(src2_path.iter(), 2, "src2_2", extension).await;
+            test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
+            test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }
     }
 
@@ -282,13 +280,14 @@ mod tests {
         sources: impl Iterator<Item = &SpriteSource>,
         pixel_ratio: u8,
         filename: &str,
-        extension: &str,
+        generate_sdf: bool,
     ) {
-        let sprites = get_spritesheet(sources, pixel_ratio, filename == "_sdf")
+        let sprites = get_spritesheet(sources, pixel_ratio, generate_sdf)
             .await
             .unwrap();
-        insta::assert_json_snapshot!(format!("{filename}{extension}.json"), sprites.get_index());
+        let filename = if generate_sdf { format!("{filename}_sdf") } else { filename.to_string() };
+        insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
         let png = sprites.encode_png().unwrap();
-        insta::assert_binary_snapshot!(&format!("{filename}{extension}.png"), png);
+        insta::assert_binary_snapshot!(&format!("{filename}.png"), png);
     }
 }
