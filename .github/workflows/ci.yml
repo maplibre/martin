@@ -78,6 +78,11 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      packages: write
+      contents: read
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
@@ -242,6 +247,8 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
+          provenance: mode=max
+          sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
           push: true
@@ -249,6 +256,15 @@ jobs:
           annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+      - name: Attest
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        id: attest
+        with:
+          images: ghcr.io/${{ github.repository }}
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
 
   build:
     name: Build ${{ matrix.target }}
