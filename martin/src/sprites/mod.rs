@@ -285,7 +285,11 @@ mod tests {
         let sprites = get_spritesheet(sources, pixel_ratio, generate_sdf)
             .await
             .unwrap();
-        let filename = if generate_sdf { format!("{filename}_sdf") } else { filename.to_string() };
+        let filename = if generate_sdf {
+            format!("{filename}_sdf")
+        } else {
+            filename.to_string()
+        };
         insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
         let png = sprites.encode_png().unwrap();
         insta::assert_binary_snapshot!(&format!("{filename}.png"), png);
