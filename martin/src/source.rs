@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
@@ -6,7 +7,6 @@ use dashmap::DashMap;
 use log::debug;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tilejson::TileJSON;
 
 use crate::MartinResult;
@@ -111,7 +111,7 @@ pub trait Source: Send + Debug {
     /// ID under which this [`Source`] is identified if accessed externally
     fn get_id(&self) -> &str;
 
-    /// TileJSON of this [`Source`]
+    /// `TileJSON` of this [`Source`]
     ///
     /// Will be communicated verbatim to the outside to give rendering engines information about the source's contents such as zoom levels, center points, ...
     fn get_tilejson(&self) -> &TileJSON;

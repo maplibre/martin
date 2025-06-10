@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 
-use clap::{
-    Parser,
-    builder::{Styles, styling::AnsiColor},
-};
+use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use log::warn;
 
 use crate::MartinError::ConfigAndConnectionsError;
@@ -155,26 +154,26 @@ impl Args {
     }
 }
 
+/// Check if a string is a valid [`url::Url`] with a specified extension.
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
-    if s.starts_with("http") || s.starts_with("s3") {
-        if let Ok(url) = url::Url::parse(s) {
-            if url.scheme() == "s3" {
-                return url.path().split('/').any(|segment| {
-                    segment
-                        .rsplit('.')
-                        .next()
-                        .is_some_and(|ext| extension.contains(&ext))
-                });
-            }
-            if ["http", "https"].contains(&url.scheme()) {
-                if let Some(ext) = url.path().rsplit('.').next() {
-                    return extension.contains(&ext);
-                }
-            }
-        }
+    let Ok(url) = url::Url::parse(s) else {
+        return false;
+    };
+    match url.scheme() {
+        "s3" => url.path().split('/').any(|segment| {
+            segment
+                .rsplit('.')
+                .next()
+                .is_some_and(|ext| extension.contains(&ext))
+        }),
+        "http" | "https" => url
+            .path()
+            .rsplit('.')
+            .next()
+            .is_some_and(|ext| extension.contains(&ext)),
+        _ => false,
     }
-    false
 }
 
 #[cfg(any(

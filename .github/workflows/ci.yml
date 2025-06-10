@@ -52,7 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
-      - run: just fmt
+      - run: just test-fmt
       - run: just clippy
       - run: just check
       - run: just check-doc
@@ -72,7 +72,7 @@ jobs:
           cargo test --doc
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
-          AWS_NO_CREDENTIALS: 1
+          AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
 
   docker-build-test:
@@ -170,6 +170,38 @@ jobs:
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        # https://github.com/docker/metadata-action
+        with:
+          images: ghcr.io/${{ github.repository }}
+          labels: |
+            org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
+            org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.documentation=https://maplibre.org/martin/
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.vendor=maplibre
+            org.opencontainers.image.licenses=Apache-2.0 OR MIT
+            org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.source=https://github.com/maplibre/martin
+          annotations: |
+            org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
+            org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.documentation=https://maplibre.org/martin/
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.vendor=maplibre
+            org.opencontainers.image.licenses=Apache-2.0 OR MIT
+            org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.source=https://github.com/maplibre/martin
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
       - name: Build linux/arm64 Docker image
         uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
@@ -178,6 +210,8 @@ jobs:
           file: .github/files/multi-platform.Dockerfile
           load: true
           tags: ${{ github.repository }}:linux-arm64
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/arm64
 
       - name: Test linux/arm64 Docker image
@@ -185,9 +219,9 @@ jobs:
           PLATFORM=linux/arm64
           TAG=${{ github.repository }}:linux-arm64
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_NO_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_NO_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_NO_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -200,15 +234,17 @@ jobs:
           file: .github/files/multi-platform.Dockerfile
           load: true
           tags: ${{ github.repository }}:linux-amd64
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64
       - name: Test linux/amd64 Docker image
         run: |
           PLATFORM=linux/amd64
           TAG=${{ github.repository }}:linux-amd64
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_NO_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_NO_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_NO_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -232,12 +268,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker meta
-        id: docker_meta
-        uses: docker/metadata-action@v5
-        # https://github.com/docker/metadata-action
-        with:
-          images: ghcr.io/${{ github.repository }}
       - name: Push the Docker image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
@@ -337,7 +367,7 @@ jobs:
       PGPORT: 34837
       # AWS variables for S3 access
       AWS_REGION: eu-central-1
-      AWS_NO_CREDENTIALS: 1
+      AWS_SKIP_CREDENTIALS: 1
     strategy:
       fail-fast: true
       matrix:
@@ -406,7 +436,7 @@ jobs:
         run: |
           export MARTIN_BUILD_ALL=-
           export AWS_REGION=eu-central-1
-          export AWS_NO_CREDENTIALS=1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
@@ -434,7 +464,7 @@ jobs:
           sudo dpkg -i target/debian-x86_64.deb
           export MARTIN_BUILD_ALL=-
           export AWS_REGION=eu-central-1
-          export AWS_NO_CREDENTIALS=1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
@@ -539,7 +569,7 @@ jobs:
           fi
           export MARTIN_BUILD_ALL=-
           export AWS_REGION=eu-central-1
-          export AWS_NO_CREDENTIALS=1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target_releases/martin
           export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
@@ -561,7 +591,7 @@ jobs:
           fi
           export MARTIN_BUILD_ALL=-
           export AWS_REGION=eu-central-1
-          export AWS_NO_CREDENTIALS=1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin
           export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
@@ -581,7 +611,7 @@ jobs:
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-          AWS_NO_CREDENTIALS: 1
+          AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
