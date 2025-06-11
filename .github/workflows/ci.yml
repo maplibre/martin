@@ -185,7 +185,7 @@ jobs:
         # https://github.com/docker/build-push-action
         with:
           provenance: mode=max
-          sbom: true
+          sbom: false # not currently supported by local registry
           context: .
           file: Dockerfile
           push: false
@@ -210,7 +210,7 @@ jobs:
         # https://github.com/docker/build-push-action
         with:
           provenance: mode=max
-          sbom: true
+          sbom: false # not currently supported by local registry
           context: .
           file: Dockerfile
           push: false
