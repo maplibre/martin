@@ -303,7 +303,6 @@ jobs:
         uses: actions/attest-build-provenance@v2
         id: attest
         with:
-          images: ghcr.io/${{ github.repository }}
           subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.docker_push.outputs.digest }}
           push-to-registry: true
