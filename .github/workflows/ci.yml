@@ -207,16 +207,25 @@ jobs:
             org.opencontainers.image.source=https://github.com/maplibre/martin
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+      # we want to test our docker images before we push them to the registry
+      # this is done by
+      # - building single-arch images
+      # - and  executing the test script against said docker container
+      #
+      # using single-arch images here is intentional, because multi-arch cannot be loaded => https://github.com/docker/buildx/blob/master/docs/reference/buildx_build.md#docker
+      # > The default image store in Docker Engine doesn't support loading multi-platform images.
+      # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Build linux/arm64 Docker image
         uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
+          provenance: mode=max
+          sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
+          push: false
           load: true
           tags: ${{ github.repository }}:linux-arm64
-          annotations: ${{ steps.docker_meta.outputs.annotations }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/arm64
 
       - name: Test linux/arm64 Docker image
@@ -235,12 +244,13 @@ jobs:
         uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
+          provenance: mode=max
+          sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
+          push: false
           load: true
           tags: ${{ github.repository }}:linux-amd64
-          annotations: ${{ steps.docker_meta.outputs.annotations }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64
       - name: Test linux/amd64 Docker image
         run: |
@@ -283,6 +293,7 @@ jobs:
           context: .
           file: .github/files/multi-platform.Dockerfile
           push: true
+          load: false
           tags: ${{ steps.docker_meta.outputs.tags }}
           annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
