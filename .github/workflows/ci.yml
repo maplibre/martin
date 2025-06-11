@@ -230,6 +230,8 @@ jobs:
           push: false
           load: true
           tags: ${{ github.repository }}:linux
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/arm64,linux/amd64
 
       - name: Test linux/arm64 Docker image
