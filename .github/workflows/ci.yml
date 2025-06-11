@@ -205,6 +205,8 @@ jobs:
             org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
             org.opencontainers.image.title=${{ github.event.repository.name }}
             org.opencontainers.image.source=https://github.com/maplibre/martin
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
       - name: Build linux/arm64 Docker image
         uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
