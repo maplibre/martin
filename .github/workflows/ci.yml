@@ -216,6 +216,7 @@ jobs:
         with:
           context: .
           file: .github/files/multi-platform.Dockerfile
+          push: false
           load: true
           tags: ${{ github.repository }}:linux-arm64
           platforms: linux/arm64
@@ -238,6 +239,7 @@ jobs:
         with:
           context: .
           file: .github/files/multi-platform.Dockerfile
+          push: false
           load: true
           tags: ${{ github.repository }}:linux-amd64
           platforms: linux/amd64
@@ -279,6 +281,7 @@ jobs:
           context: .
           file: .github/files/multi-platform.Dockerfile
           push: true
+          load: false
           tags: ${{ steps.docker_meta.outputs.tags }}
           annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
