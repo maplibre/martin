@@ -1,10 +1,10 @@
 ## COG Image Representation
 
 * COG file is an image container representing a tile grid
-* A COG may have multiple images, also called subfiles, each indexed with an Image File Directory number - `IFD`. (TODO: link to TIFF 6.0 spec)
+* A COG may have multiple images, also called subfiles, each indexed with an Image File Directory number - [`IFD`](https://download.osgeo.org/libtiff/doc/TIFF6.pdf#[{%22num%22:209,%22gen%22:0},{%22name%22:%22FitB%22}]#[{"num":76,"gen":0},{"name":"FitB"}])
 * A COG must have at least one image.
 * The first image (IFD=0) must be a full resolution image, e.g., the one with the highest resolution.
-* Each image may also have a mask, which is also indexed with an IFD. The mask is used to identify which pixel is nodata. We do not support masks yet. (TODO: link)
+* [Each image may also have a mask](https://docs.ogc.org/is/21-026/21-026.html#_requirement_reduced_resolution_subfiles), which is also indexed with an IFD. The mask is used to defines a transparency mask[https://www.verypdf.com/document/tiff6/pg_0036.htm]. We do not support masks yet. 
 * While uncommon, COG tile grid might be different from the common ones like Web Mercator.
 
 ### COG structure example
