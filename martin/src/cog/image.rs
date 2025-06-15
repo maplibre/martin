@@ -16,16 +16,23 @@ pub struct Image {
     ifd_index: usize,
     /// Number of tiles in a row of this image
     tiles_across: u32,
-    ///  Number of tiles in a column of this image
+    /// Number of tiles in a column of this image
     tiles_down: u32,
+    resolution: (f64, f64),
 }
 
 impl Image {
-    pub fn new(ifd_index: usize, tiles_across: u32, tiles_down: u32) -> Self {
+    pub fn new(
+        ifd_index: usize,
+        tiles_across: u32,
+        tiles_down: u32,
+        resolution: (f64, f64),
+    ) -> Self {
         Self {
             ifd_index,
             tiles_across,
             tiles_down,
+            resolution,
         }
     }
 
@@ -215,6 +222,7 @@ mod tests {
             ifd_index: 0,
             tiles_across: 3,
             tiles_down: 3,
+            resolution: (1.0, 1.0),
         };
         assert_eq!(
             Some(0),

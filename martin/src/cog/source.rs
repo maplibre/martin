@@ -79,7 +79,12 @@ impl CogSource {
                 .map_or_else(|_| true, |v| v & 4 != 4); // see https://www.verypdf.com/document/tiff6/pg_0036.htm
             if is_image {
                 // TODO: We should not ignore mask in the next PRs
-                images.push(get_image(&mut decoder, &path, ifd_index)?);
+                images.push(get_image(
+                    &mut decoder,
+                    &path,
+                    ifd_index,
+                    (full_width, full_length),
+                )?);
             } else {
                 warn!(
                     "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. IFD={ifd_index}",
@@ -255,13 +260,18 @@ fn get_image(
     decoder: &mut Decoder<File>,
     path: &Path,
     ifd_index: usize,
+    (width_in_model, length_in_model): (f64, f64),
 ) -> Result<Image, FileError> {
     let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
     let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
     let tiles_across = image_width.div_ceil(tile_width);
     let tiles_down = image_length.div_ceil(tile_height);
-
-    Ok(Image::new(ifd_index, tiles_across, tiles_down))
+    let resolution = (
+        // all the images share a same extent, so to get resolution of current image, we can use the full width and lenght to divide the image width and length
+        width_in_model / f64::from(image_width),
+        length_in_model / f64::from(image_length),
+    );
+    Ok(Image::new(ifd_index, tiles_across, tiles_down, resolution))
 }
 
 /// Gets image pixel dimensions from TIFF decoder
@@ -421,6 +431,8 @@ mod tests {
     use tiff::decoder::Decoder;
 
     use crate::cog::model::ModelInfo;
+    use crate::cog::source::CogSource;
+    use crate::Source;
 
     #[test]
     fn can_get_model_info() {
