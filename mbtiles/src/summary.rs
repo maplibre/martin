@@ -222,8 +222,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn summary() -> MbtResult<()> {
-        let mbt = Mbtiles::new("../tests/fixtures/mbtiles/world_cities.mbtiles")?;
+        let mbt = Mbtiles::new("file:world_cities?mode=memory&cache=shared")?;
         let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let res = mbt.summary(&mut conn).await?;
 
