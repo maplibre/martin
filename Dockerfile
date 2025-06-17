@@ -1,6 +1,6 @@
 # (1) this stage will be run always on current arch
 # zigbuild & Cargo targets added
-FROM --platform=$BUILDPLATFORM rust:alpine AS chef
+FROM --platform=$BUILDPLATFORM rust:1.87-alpine AS chef
 WORKDIR /app
 ENV PKGCONFIG_SYSROOTDIR=/
 RUN apk add --no-cache musl-dev nodejs npm openssl-dev zig
