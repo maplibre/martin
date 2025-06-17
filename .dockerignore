@@ -8,7 +8,6 @@ justfile
 .dockerignore
 # Unneeded code
 **/tests
-**/benches
 **/fixtures
 demo/
 docs/
