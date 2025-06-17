@@ -34,10 +34,10 @@ RUN cargo zigbuild --release \
     --target aarch64-unknown-linux-musl \
     --target x86_64-unknown-linux-musl
 # binary renamed to easier copy in runtime stage
-RUN mkdir /app/linux && \
+RUN mkdir --parents /app/linux/arm64 /app/linux/amd64 && \
     for bin in martin martin-cp mbtiles; do \
-        mv target/aarch64-unknown-linux-musl/release/$bin /app/linux/arm64; \
-        mv target/x86_64-unknown-linux-musl/release/$bin /app/linux/amd64; \
+        mv target/aarch64-unknown-linux-musl/release/$bin /app/linux/arm64/$bin; \
+        mv target/x86_64-unknown-linux-musl/release/$bin /app/linux/amd64/$bin; \
     done
 
 # (5) runtime image
