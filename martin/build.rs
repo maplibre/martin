@@ -19,7 +19,7 @@ fn webui() {
 
     // TODO: we may need to move index.html one level down per change_detection() docs
     static_files::NpmBuild::new(martin_ui_dir)
-        .node_modules_strategy(Default::default())
+        .node_modules_strategy(static_files::NodeModulesStrategy::MoveToOutDir)
         .install()
         .expect("npm install failed")
         .run("build")
