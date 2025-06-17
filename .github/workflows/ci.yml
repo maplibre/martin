@@ -268,8 +268,6 @@ jobs:
           annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
       - name: Attest
         if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v2
