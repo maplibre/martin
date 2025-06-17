@@ -122,6 +122,32 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
 
+<<<<<<< HEAD
+=======
+      # we want to test our docker images before we push them to the registry
+      # this is done by
+      # - building multi-arch images
+      # - executing the test script against each arch via docker
+      # - pushing them to the registry
+      #
+      # We need the containerd image store, as otherwise multi-arch cannot be loaded => https://github.com/docker/buildx/blob/master/docs/reference/buildx_build.md#docker
+      # > The default image store in Docker Engine doesn't support loading multi-platform images.
+      # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        # https://github.com/docker/setup-qemu-action
+        with:
+          platforms: linux/amd64,linux/arm64
+>>>>>>> main
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
@@ -172,6 +198,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/maplibre/martin
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+<<<<<<< HEAD
       # we want to test our docker images before we push them to the registry
       # this is done by
       # - building single-arch images
@@ -181,10 +208,14 @@ jobs:
       # > The default image store in Docker Engine doesn't support loading multi-platform images.
       # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Build linux/arm64 Docker image
+=======
+      - name: Build linux/arm64,linux/amd64 Docker image
+>>>>>>> main
         uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
           provenance: mode=max
+<<<<<<< HEAD
           sbom: false # not currently supported by local registry
           context: .
           file: Dockerfile
@@ -192,11 +223,22 @@ jobs:
           load: true
           tags: ${{ github.repository }}:linux-arm64
           platforms: linux/arm64
+=======
+          sbom: true
+          context: .
+          file: .github/files/multi-platform.Dockerfile
+          push: false
+          load: true
+          tags: ${{ github.repository }}:linux
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          platforms: linux/arm64,linux/amd64
+>>>>>>> main
 
       - name: Test linux/arm64 Docker image
         run: |
           PLATFORM=linux/arm64
-          TAG=${{ github.repository }}:linux-arm64
+          TAG=${{ github.repository }}:linux
           export MARTIN_BUILD_ALL=-
           export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
           export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
@@ -205,6 +247,7 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
+<<<<<<< HEAD
       - name: Build linux/amd64 Docker image
         uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
@@ -217,10 +260,12 @@ jobs:
           load: true
           tags: ${{ github.repository }}:linux-amd64
           platforms: linux/amd64
+=======
+>>>>>>> main
       - name: Test linux/amd64 Docker image
         run: |
           PLATFORM=linux/amd64
-          TAG=${{ github.repository }}:linux-amd64
+          TAG=${{ github.repository }}:linux
           export MARTIN_BUILD_ALL=-
           export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
           export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
@@ -258,12 +303,16 @@ jobs:
           context: .
           file: Dockerfile
           push: true
+          load: false
           tags: ${{ steps.docker_meta.outputs.tags }}
           annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+<<<<<<< HEAD
           cache-from: type=gha
           cache-to: type=gha,mode=min
+=======
+>>>>>>> main
       - name: Attest
         if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v2
