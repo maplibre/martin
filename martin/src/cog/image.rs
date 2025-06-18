@@ -14,6 +14,7 @@ use crate::{MartinResult, TileData};
 pub struct Image {
     /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
     ifd_index: usize,
+    extent: [f64; 4],
     /// Number of tiles in a row of this image
     tiles_across: u32,
     /// Number of tiles in a column of this image
@@ -27,6 +28,7 @@ pub struct Image {
 impl Image {
     pub fn new(
         ifd_index: usize,
+        extent: [f64; 4],
         tiles_across: u32,
         tiles_down: u32,
         tile_size: (u32, u32),
@@ -34,11 +36,97 @@ impl Image {
     ) -> Self {
         Self {
             ifd_index,
+            extent,
             tiles_across,
             tiles_down,
             tile_size,
             resolution,
         }
+    }
+
+    fn clip(
+        &self,
+        decoder: &mut Decoder<File>,
+        bbox: [f64; 4],
+        output_size: u32,
+        path: &Path,
+    ) -> MartinResult<TileData> {
+        decoder
+            .seek_to_image(self.ifd_index())
+            .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
+
+        todo!()
+    }
+
+    /// Calculates the tiles that intersect with the given window.
+    fn intersect_tiles(&self, window: [f64; 4]) -> Vec<(u32, u32)> {
+        let epsilon = 1e-6;
+
+        let tile_span_x = f64::from(self.tile_size.0) * self.resolution.0;
+        // resolution[1] is typically negative, use its absolute value for span calculation
+        let tile_span_y = f64::from(self.tile_size.1) * self.resolution.1.abs();
+
+        let tile_matrix_min_x = self.extent[0];
+        // Use max Y from extent as the top edge for row calculation
+        let tile_matrix_max_y = self.extent[3];
+
+        let matrix_width = self.tiles_across;
+        let matrix_height = self.tiles_down;
+
+        // Calculate tile index ranges based on the provided formula
+        let tile_min_col_f = ((window[0] - tile_matrix_min_x) / tile_span_x + epsilon).floor();
+        let tile_max_col_f = ((window[2] - tile_matrix_min_x) / tile_span_x - epsilon).floor();
+        let tile_min_row_f = ((tile_matrix_max_y - window[3]) / tile_span_y + epsilon).floor();
+        let tile_max_row_f = ((tile_matrix_max_y - window[1]) / tile_span_y - epsilon).floor();
+
+        // Convert to integer type for clamping and iteration
+        let mut tile_min_col = tile_min_col_f as i64;
+        let mut tile_max_col = tile_max_col_f as i64;
+        let mut tile_min_row = tile_min_row_f as i64;
+        let mut tile_max_row = tile_max_row_f as i64;
+
+        // Clamp minimum values to 0
+        if tile_min_col < 0 {
+            tile_min_col = 0;
+        }
+        if tile_min_row < 0 {
+            tile_min_row = 0;
+        }
+
+        // Clamp maximum values to matrix dimensions - 1
+        let matrix_width_i64 = i64::from(matrix_width);
+        let matrix_height_i64 = i64::from(matrix_height);
+
+        if tile_max_col >= matrix_width_i64 {
+            tile_max_col = matrix_width_i64 - 1;
+        }
+        if tile_max_row >= matrix_height_i64 {
+            tile_max_row = matrix_height_i64 - 1;
+        }
+
+        // If the calculated range is invalid (max < min), return empty vector
+        if tile_max_col < tile_min_col || tile_max_row < tile_min_row {
+            return Vec::new();
+        }
+
+        // Convert to u32 for the final result type
+        let tile_min_col = tile_min_col as u32;
+        let tile_max_col = tile_max_col as u32;
+        let tile_min_row = tile_min_row as u32;
+        let tile_max_row = tile_max_row as u32;
+
+        let mut covered_tiles = Vec::new();
+        // Iterate through the valid tile range and collect the indexes
+        for row in tile_min_row..=tile_max_row {
+            for col in tile_min_col..=tile_max_col {
+                // Double check bounds (should be guaranteed by clamping, but safe)
+                if col < matrix_width && row < matrix_height {
+                    covered_tiles.push((col, row));
+                }
+            }
+        }
+
+        covered_tiles
     }
 
     /// Retrieves a tile from the image, decodes it, and converts it to PNG format.
@@ -233,6 +321,7 @@ mod tests {
     fn can_calc_tile_idx() {
         let image = Image {
             ifd_index: 0,
+            extent: [0.0, 0.0, 0.0, 0.0],
             tiles_across: 3,
             tiles_down: 3,
             resolution: (1.0, 1.0),
