@@ -233,6 +233,15 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+      - run: |
+          img_id=$(docker create --platform linux/amd64  ${{ github.repository }}:linux)
+          mkdir --parents target_releases/x86_64-unknown-linux-musl
+          docker cp $img_id:/usr/local/bin/martin target_releases/x86_64-unknown-linux-musl/martin
+          docker rm $img_id
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-x86_64-unknown-linux-musl
+          path: target_releases/x86_64-unknown-linux-musl
 
       - name: Save test output (on error)
         if: failure()
@@ -338,19 +347,18 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
-    needs: [ build ]
+    needs: [ docker-build-test ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Download build artifact build-x86_64-unknown-linux-gnu
+      - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
-          name: build-x86_64-unknown-linux-gnu
-          path: target_release/x86_64-unknown-linux-gnu
+          name: build-x86_64-unknown-linux-musl
+          path: target_release/x86_64-unknown-linux-musl
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: target_release/x86_64-unknown-linux-gnu/martin
-
+          MARTIN_BIN: target_release/x86_64-unknown-linux-musl/martin
 
   test-multi-os:
     name: Test on ${{ matrix.os }}
