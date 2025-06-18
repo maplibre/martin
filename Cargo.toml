@@ -28,6 +28,7 @@ struct_field_names = "allow"
 [workspace.dependencies]
 actix-cors = "0.7"
 actix-http = "3"
+actix-middleware-etag = "0.4.4"
 actix-rt = "2"
 actix-web = "4"
 actix-web-static-files = "4"
@@ -59,16 +60,16 @@ md5 = "0.7.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 pbf_font_tools = { version = "2.5.1", features = ["freetype"] }
-pmtiles = { version = "0.11", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
+pmtiles = { version = "0.14", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
 png = "0.17.14"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
-pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
+pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.25"
-rustls = "0.23.27"
+rustls = "0.23.28"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
@@ -81,12 +82,12 @@ serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.11", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
-sqlite-hashes = { version = "0.10.0", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.20.0"
-testcontainers-modules = { version = "0.12.0", features = ["postgres"] }
+testcontainers-modules = { version = "0.12.1", features = ["postgres"] }
 thiserror = "2"
 tiff = "0.9.1"
 tilejson = "0.4"

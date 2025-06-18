@@ -1,126 +1,47 @@
 #!/usr/bin/env just --justfile
 
-set shell := ["bash", "-c"]
+set shell := ['bash', '-c']
 
-#export DATABASE_URL="postgres://postgres:postgres@localhost:5411/db"
+
+main_crate := 'martin'
+
+#export DATABASE_URL='postgres://postgres:postgres@localhost:5411/db'
 
 # Set additional database connection parameters, e.g.   just  PGPARAMS='keepalives=0&keepalives_idle=15'  psql
-PGPARAMS := ""
-PGPORT := "5411"
+PGPARAMS := ''
+PGPORT := '5411'
 
-export DATABASE_URL := ("postgres://postgres:postgres@localhost:" + PGPORT + "/db" + (if PGPARAMS != "" { "?" + PGPARAMS } else { "" }))
-export CARGO_TERM_COLOR := "always"
+export DATABASE_URL := ('postgres://postgres:postgres@localhost:' + PGPORT + '/db' + (if PGPARAMS != '' { '?' + PGPARAMS } else { '' }))
+export CARGO_TERM_COLOR := 'always'
 
 # Set AWS variables for testing pmtiles from S3
-export AWS_NO_CREDENTIALS := "1"
-export AWS_REGION := "eu-central-1"
+export AWS_SKIP_CREDENTIALS := '1'
+export AWS_REGION := 'eu-central-1'
 
-#export RUST_LOG := "debug"
-#export RUST_LOG := "sqlx::query=info,trace"
-#export RUST_BACKTRACE := "1"
+#export RUST_LOG := 'debug'
+#export RUST_LOG := 'sqlx::query=info,trace'
+#export RUST_BACKTRACE := '1'
 
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
+# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
+# Use `CI=true just ci-test` to run the same tests as in GitHub CI.
+# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+ci_mode := if env('CI', '') != '' {'1'} else {''}
+export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
+export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
+
 @_default:
     {{just_executable()}} --list
-
-# Start Martin server
-run *ARGS="--webui enable-for-all":
-    cargo run -p martin -- {{ARGS}}
-
-# Start Martin server
-cp *ARGS:
-    cargo run --bin martin-cp -- {{ARGS}}
-
-# Run mbtiles command
-mbtiles *ARGS:
-    cargo run -p mbtiles -- {{ARGS}}
-
-# Start release-compiled Martin server and a test database
-run-release *ARGS="--webui enable-for-all": start
-    cargo run -p martin --release -- {{ARGS}}
-
-# Start Martin server and open a test page
-debug-page *ARGS: start
-    open tests/debug.html  # run will not exit, so open debug page first
-    {{just_executable()}} run {{ARGS}}
-
-# Run PSQL utility against the test database
-psql *ARGS:
-    psql {{ARGS}} {{quote(DATABASE_URL)}}
-
-# Run pg_dump utility against the test database
-pg_dump *ARGS:
-    pg_dump {{ARGS}} {{quote(DATABASE_URL)}}
-
-# Perform  cargo clean  to delete all build files
-clean: clean-test stop && clean-martin-ui
-    cargo clean
-
-clean-martin-ui:
-    rm -rf martin/martin-ui/dist martin/martin-ui/node_modules
-    cargo clean -p static-files
-
-# Delete test output files
-[private]
-clean-test:
-    rm -rf tests/output
-
-# Start a test database
-start: (docker-up "db") docker-is-ready
-
-# Start an ssl-enabled test database
-start-ssl: (docker-up "db-ssl") docker-is-ready
-
-# Start an ssl-enabled test database that requires a client certificate
-start-ssl-cert: (docker-up "db-ssl-cert") docker-is-ready
-
-# Start a legacy test database
-start-legacy: (docker-up "db-legacy") docker-is-ready
-
-# Start a specific test database, e.g. db or db-legacy
-[private]
-docker-up name: start-pmtiles-server
-    {{dockercompose}} up -d {{name}}
-
-# Wait for the test database to be ready
-[private]
-docker-is-ready:
-    {{dockercompose}} run -T --rm db-is-ready
-
-alias _down := stop
-alias _stop-db := stop
-
-# Restart the test database
-restart:
-    # sometimes Just optimizes targets, so here we force stop & start by using external just executable
-    {{just_executable()}} stop
-    {{just_executable()}} start
-
-# Stop the test database
-stop:
-    {{dockercompose}} down --remove-orphans
-
-# Start test server for testing HTTP pmtiles
-start-pmtiles-server:
-    {{dockercompose}} up -d fileserver
 
 # Run benchmark tests
 bench:
     cargo bench --bench bench
     open target/criterion/report/index.html
 
-# Run benchmark tests showing a flamegraph
-flamegraph:
-    cargo bench --bench bench -- --profile-time=10
-    /opt/google/chrome/chrome "file://$PWD/target/criterion/get_table_source_tile/profile/flamegraph.svg"
-
-# Start release-compiled Martin server and a test database
-bench-server: start
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
-
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
-bench-http: (cargo-install "oha")
+bench-http:  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
     oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
@@ -130,41 +51,232 @@ bench-http: (cargo-install "oha")
     oha --latency-correction -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
     oha --latency-correction -z 60s         http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
-# Run all tests using a test database
-test: start (test-cargo "--all-targets") test-doc test-int
+# Start release-compiled Martin server and a test database
+bench-server: start
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Run all tests using an SSL connection to a test database. Expected output won't match.
-test-ssl: start-ssl (test-cargo "--all-targets") test-doc clean-test
+# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
+
+# Run integration tests and save its output as the new expected output
+bless-insta-cp *args:  (cargo-install 'cargo-insta')
+    cargo insta test --accept --bin martin-cp {{args}}
+
+# Run integration tests and save its output as the new expected output
+bless-insta-martin *args:  (cargo-install 'cargo-insta')
+    cargo insta test --accept -p martin {{args}}
+
+# Run integration tests and save its output as the new expected output
+bless-insta-mbtiles *args:  (cargo-install 'cargo-insta')
+    #rm -rf mbtiles/tests/snapshots
+    cargo insta test --accept -p mbtiles {{args}}
+
+# Bless integration tests
+bless-int:
+    rm -rf tests/temp
     tests/test.sh
+    rm -rf tests/expected && mv tests/output tests/expected
 
-# Run all tests using an SSL connection with client cert to a test database. Expected output won't match.
-test-ssl-cert: start-ssl-cert
+# Run test with bless-tests feature
+bless-tests:
+    cargo test -p martin --features bless-tests
+
+# Build and open mdbook documentation
+book:  (cargo-install 'mdbook')
+    mdbook serve docs --open --port 8321
+
+# Quick compile without building a binary
+check:
+    cargo check --all-targets -p martin-tile-utils
+    cargo check --all-targets -p mbtiles
+    cargo check --all-targets -p mbtiles --no-default-features
+    cargo check --all-targets -p martin
+    cargo check --all-targets -p martin --no-default-features
+    cargo check --all-targets -p martin --no-default-features --features fonts
+    cargo check --all-targets -p martin --no-default-features --features mbtiles
+    cargo check --all-targets -p martin --no-default-features --features pmtiles
+    cargo check --all-targets -p martin --no-default-features --features postgres
+    cargo check --all-targets -p martin --no-default-features --features sprites
+
+# Verify doc build
+check-doc:
+    cargo doc --no-deps --workspace
+
+# Run all tests as expected by CI
+ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
+
+# Perform  cargo clean  to delete all build files
+clean: clean-test stop && clean-martin-ui
+    cargo clean
+
+clean-martin-ui:
+    rm -rf martin/martin-ui/dist martin/martin-ui/node_modules
+    cargo clean -p static-files
+
+# Run cargo clippy to lint the code
+clippy *args:
+    cargo clippy --workspace --all-targets {{args}}
+
+# Validate markdown URLs with markdown-link-check
+clippy-md:
+    docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
+      'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
+
+# Generate code coverage report. Will install `cargo llvm-cov` if missing.
+coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean start
     #!/usr/bin/env bash
-    set -euxo pipefail
-    # copy client cert to the tests folder from the docker container
-    KEY_DIR=target/certs
-    mkdir -p $KEY_DIR
-    docker cp martin-db-ssl-cert-1:/etc/ssl/certs/ssl-cert-snakeoil.pem $KEY_DIR/ssl-cert-snakeoil.pem
-    docker cp martin-db-ssl-cert-1:/etc/ssl/private/ssl-cert-snakeoil.key $KEY_DIR/ssl-cert-snakeoil.key
-    #    export DATABASE_URL="$DATABASE_URL?sslmode=verify-full&sslrootcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslkey=$KEY_DIR/ssl-cert-snakeoil.key"
-    export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
-    export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
-    export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just_executable()}} test-cargo --all-targets
-    {{just_executable()}} clean-test
-    {{just_executable()}} test-doc
-    tests/test.sh
+    set -euo pipefail
+    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
+        echo "llvm-tools-preview could not be found. Installing..." ;\
+        rustup component add llvm-tools-preview ;\
+    fi
 
-# Run all tests using the oldest supported version of the database
-test-legacy: start-legacy (test-cargo "--all-targets") test-doc test-int
+    source <(cargo llvm-cov show-env --export-prefix)
+    cargo llvm-cov clean --workspace
+
+    {{just_executable()}} test-cargo --all-targets
+    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    {{just_executable()}} test-int
+
+    cargo llvm-cov report {{args}}
+
+# Start Martin server
+cp *args:
+    cargo run --bin martin-cp -- {{args}}
+
+# Start Martin server and open a test page
+debug-page *args: start
+    open tests/debug.html  # run will not exit, so open debug page first
+    {{just_executable()}} run {{args}}
+
+# Build and run martin docker image
+docker-run *args:
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{args}}
+
+# Build and open code documentation
+docs:
+    cargo doc --no-deps --open
+
+# Print environment info
+env-info:
+    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    {{just_executable()}} --version
+    rustc --version
+    cargo --version
+    rustup --version
+    @echo "RUSTFLAGS='$RUSTFLAGS'"
+    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+
+# Run benchmark tests showing a flamegraph
+flamegraph:
+    cargo bench --bench bench -- --profile-time=10
+    /opt/google/chrome/chrome "file://$PWD/target/criterion/get_table_source_tile/profile/flamegraph.svg"
+
+# Reformat all code `cargo fmt`. If nightly is available, use it for better results
+fmt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if rustup component list --toolchain nightly | grep rustfmt &> /dev/null; then
+        echo 'Reformatting Rust code using nightly Rust fmt to sort imports'
+        cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
+    else
+        echo 'Reformatting Rust with the stable cargo fmt.  Install nightly with `rustup install nightly` for better results'
+        cargo fmt --all
+    fi
+
+# Reformat markdown files using markdownlint-cli2
+fmt-md:
+    docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
+
+# Reformat all SQL files using docker
+fmt-sql:
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
+
+# Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
+[no-exit-message]
+git *args: start
+    git {{args}}
+
+# Run cargo fmt and cargo clippy
+lint: fmt clippy
+
+# Run mbtiles command
+mbtiles *args:
+    cargo run -p mbtiles -- {{args}}
+
+# Build debian package
+package-deb:  (cargo-install 'cargo-deb')
+    cargo deb -v -p martin --output target/debian/martin.deb
+
+# Run pg_dump utility against the test database
+pg_dump *args:
+    pg_dump {{args}} {{quote(DATABASE_URL)}}
+
+# Update sqlite database schema.
+prepare-sqlite: install-sqlx
+    mkdir -p mbtiles/.sqlx
+    cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
+
+# Print the connection string for the test database
+print-conn-str:
+    @echo {{quote(DATABASE_URL)}}
+
+# Run PSQL utility against the test database
+psql *args:
+    psql {{args}} {{quote(DATABASE_URL)}}
+
+# Restart the test database
+restart:
+    # sometimes Just optimizes targets, so here we force stop & start by using external just executable
+    {{just_executable()}} stop
+    {{just_executable()}} start
+
+# Start Martin server
+run *args='--webui enable-for-all':
+    cargo run -p martin -- {{args}}
+
+# Start release-compiled Martin server and a test database
+run-release *args='--webui enable-for-all': start
+    cargo run -p martin --release -- {{args}}
+
+# Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`
+semver *args:  (cargo-install 'cargo-semver-checks')
+    cargo semver-checks {{args}}
+
+# Start a test database
+start:  (docker-up 'db') docker-is-ready
+
+# Start a legacy test database
+start-legacy:  (docker-up 'db-legacy') docker-is-ready
+
+# Start test server for testing HTTP pmtiles
+start-pmtiles-server:
+    {{dockercompose}} up -d fileserver
+
+# Start an ssl-enabled test database
+start-ssl:  (docker-up 'db-ssl') docker-is-ready
+
+# Start an ssl-enabled test database that requires a client certificate
+start-ssl-cert:  (docker-up 'db-ssl-cert') docker-is-ready
+
+# Stop the test database
+stop:
+    {{dockercompose}} down --remove-orphans
+
+# Run all tests using a test database
+test: start (test-cargo '--all-targets') test-doc test-int
 
 # Run Rust unit tests (cargo test)
-test-cargo *ARGS:
-    cargo test {{ARGS}}
+test-cargo *args:
+    cargo test {{args}}
 
 # Run Rust doc tests
-test-doc *ARGS:
-    cargo test --doc {{ARGS}}
+test-doc *args:
+    cargo test --doc {{args}}
+
+# Test code formatting
+test-fmt:
+    cargo fmt --all -- --check
 
 # Run integration tests
 test-int: clean-test install-sqlx
@@ -189,167 +301,76 @@ test-int: clean-test install-sqlx
 test-lambda:
     tests/test-aws-lambda.sh
 
-# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
+# Run all tests using the oldest supported version of the database
+test-legacy: start-legacy (test-cargo '--all-targets') test-doc test-int
 
-# Bless integration tests
-bless-int:
-    rm -rf tests/temp
+# Run all tests using an SSL connection to a test database. Expected output won't match.
+test-ssl: start-ssl (test-cargo '--all-targets') test-doc clean-test
     tests/test.sh
-    rm -rf tests/expected && mv tests/output tests/expected
 
-# Run test with bless-tests feature
-bless-tests:
-    cargo test -p martin --features bless-tests
-
-# Run integration tests and save its output as the new expected output
-bless-insta-mbtiles *ARGS: (cargo-install "cargo-insta")
-    #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept -p mbtiles {{ARGS}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-martin *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept -p martin {{ARGS}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-cp *ARGS: (cargo-install "cargo-insta")
-    cargo insta test --accept --bin martin-cp {{ARGS}}
-
-# Build and open mdbook documentation
-book: (cargo-install "mdbook")
-    mdbook serve docs --open --port 8321
-
-# Build debian package
-package-deb: (cargo-install "cargo-deb")
-    cargo deb -v -p martin --output target/debian/martin.deb
-
-# Build and open code documentation
-docs:
-    cargo doc --no-deps --open
-
-# Generate code coverage report
-coverage *ARGS="--open": clean start (cargo-install "cargo-llvm-cov")
+# Run all tests using an SSL connection with client cert to a test database. Expected output won't match.
+test-ssl-cert: start-ssl-cert
     #!/usr/bin/env bash
-    set -euo pipefail
-    if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
-        echo "llvm-tools-preview could not be found. Installing..." ;\
-        rustup component add llvm-tools-preview ;\
-    fi
-
-    source <(cargo llvm-cov show-env --export-prefix)
-    cargo llvm-cov clean --workspace
-
+    set -euxo pipefail
+    # copy client cert to the tests folder from the docker container
+    KEY_DIR=target/certs
+    mkdir -p $KEY_DIR
+    docker cp martin-db-ssl-cert-1:/etc/ssl/certs/ssl-cert-snakeoil.pem $KEY_DIR/ssl-cert-snakeoil.pem
+    docker cp martin-db-ssl-cert-1:/etc/ssl/private/ssl-cert-snakeoil.key $KEY_DIR/ssl-cert-snakeoil.key
+    #    export DATABASE_URL="$DATABASE_URL?sslmode=verify-full&sslrootcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslcert=$KEY_DIR/ssl-cert-snakeoil.pem&sslkey=$KEY_DIR/ssl-cert-snakeoil.key"
+    export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
+    export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
+    export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
     {{just_executable()}} test-cargo --all-targets
-    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
-    {{just_executable()}} test-int
+    {{just_executable()}} clean-test
+    {{just_executable()}} test-doc
+    tests/test.sh
 
-    cargo llvm-cov report {{ARGS}}
-
-# Build and run martin docker image
-docker-run *ARGS:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{ARGS}}
-
-# Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
-[no-exit-message]
-git *ARGS: start
-    git {{ARGS}}
-
-# Print the connection string for the test database
-print-conn-str:
-    @echo {{quote(DATABASE_URL)}}
-
-# Run cargo fmt and cargo clippy
-lint: fmt clippy
-
-# Test code formatting
-test-fmt:
-    cargo fmt --all -- --check
-
-# Reformat all code `cargo fmt`. If nightly is available, use it for better results
-fmt:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if rustup component list --toolchain nightly | grep rustfmt &> /dev/null; then
-        echo 'Reformatting Rust code using nightly Rust fmt to sort imports'
-        cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
-    else
-        echo 'Reformatting Rust with the stable cargo fmt.  Install nightly with `rustup install nightly` for better results'
-        cargo fmt --all
-    fi
-
-# Reformat markdown files using markdownlint-cli2
-fmt-md:
-    docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
-
-# Reformat all SQL files using docker
-fmt-sql:
-    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
-
-# Run cargo check
-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    export RUSTFLAGS='-D warnings'
-    cargo check --all-targets -p martin-tile-utils
-    cargo check --all-targets -p mbtiles
-    cargo check --all-targets -p mbtiles --no-default-features
-    cargo check --all-targets -p martin
-    cargo check --all-targets -p martin --no-default-features
-    cargo check --all-targets -p martin --no-default-features --features fonts
-    cargo check --all-targets -p martin --no-default-features --features mbtiles
-    cargo check --all-targets -p martin --no-default-features --features pmtiles
-    cargo check --all-targets -p martin --no-default-features --features postgres
-    cargo check --all-targets -p martin --no-default-features --features sprites
-
-# Verify doc build
-check-doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
-
-# Run cargo clippy
-clippy:
-    cargo clippy --workspace --all-targets -- -D warnings
-
-# Validate markdown URLs with markdown-link-check
-clippy-md:
-    docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
-      'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
-
-# Update dependencies, including breaking changes
+# Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
 
-# A few useful tests to run locally to simulate CI
-ci-test: env-info restart test-fmt clippy check-doc test check
-
-# Print environment info
-env-info:
-    @echo "Running on {{os()}} / {{arch()}}"
-    {{just_executable()}} --version
-    rustc --version
-    cargo --version
-    rustup --version
-
-# Update sqlite database schema.
-prepare-sqlite: install-sqlx
-    mkdir -p mbtiles/.sqlx
-    cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
-
-# Install SQLX cli if not already installed.
+# Make sure the git repo has no uncommitted changes
 [private]
-install-sqlx: (cargo-install "cargo-sqlx" "sqlx-cli" "--no-default-features" "--features" "sqlite,native-tls")
+assert-git-is-clean:
+    @if [ -n "$(git status --untracked-files --porcelain)" ]; then \
+      >&2 echo "ERROR: git repo is no longer clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
+      >&2 echo "######### git status ##########" ;\
+      git status ;\
+      exit 1 ;\
+    fi
 
 # Check if a certain Cargo command is installed, and install it if needed
 [private]
-cargo-install $COMMAND $INSTALL_CMD="" *ARGS="":
-    #!/usr/bin/env sh
-    set -eu
+cargo-install $COMMAND $INSTALL_CMD='' *args='':
+    #!/usr/bin/env bash
+    set -euo pipefail
     if ! command -v $COMMAND > /dev/null; then
         if ! command -v cargo-binstall > /dev/null; then
-            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
-            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{ARGS}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         fi
     fi
+
+# Delete test output files
+[private]
+clean-test:
+    rm -rf tests/output
+
+# Wait for the test database to be ready
+[private]
+docker-is-ready:
+    {{dockercompose}} run -T --rm db-is-ready
+
+# Start a specific test database, e.g. db or db-legacy
+[private]
+docker-up name: start-pmtiles-server
+    {{dockercompose}} up -d {{name}}
+
+# Install SQLX cli if not already installed.
+[private]
+install-sqlx:  (cargo-install 'cargo-sqlx' 'sqlx-cli' '--no-default-features' '--features' 'sqlite,native-tls')

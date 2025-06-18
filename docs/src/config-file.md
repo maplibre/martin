@@ -44,6 +44,19 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
+# CORS Configuration
+#
+# Defaults to `cors: true`, which allows all origins.
+# Sending/Acting on CORS headers can be completely disabled via `cors: false`
+cors:
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
+  origin:
+    - https://example.org
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
+  max_age: 3600
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
   # Database connection string.
@@ -181,6 +194,14 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
+  # Allows forcing path style URLs for S3 buckets [default: false]
+  #
+  # A path style URL is a URL that uses the bucket name as part of the path like mys3.com/somebucket instead of the hostname somebucket.mys3.com
+  force_path_style: false
+  # Skip loading credentials for S3 buckets [default: false]
+  #
+  # Set this to true to request anonymously for publicly available buckets.
+  skip_credentials: false
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
