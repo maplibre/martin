@@ -233,11 +233,14 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+      # for the lambda test, we need a musl executable
+      # to not build it twice, we pull it here
       - run: |
           img_id=$(docker create --platform linux/amd64  ${{ github.repository }}:linux)
           mkdir --parents target_releases/x86_64-unknown-linux-musl
           docker cp $img_id:/usr/local/bin/martin target_releases/x86_64-unknown-linux-musl/martin
           docker rm $img_id
+      - name: Save build artifacts to build-x86_64-unknown-linux-musl
         uses: actions/upload-artifact@v4
         with:
           name: build-x86_64-unknown-linux-musl
@@ -347,6 +350,9 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
+    # for the test, we need a musl executable
+    # the regular build target builds a version with libc
+    # to not build it twice, we pull it from the docker build
     needs: [ docker-build-test ]
     steps:
       - name: Checkout sources
