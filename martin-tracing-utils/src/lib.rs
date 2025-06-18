@@ -131,7 +131,8 @@ impl LogFormat {
                     match LogFormatOptions::from_str(&v) {
                         Some(v) => self.0 = Some(v),
                         None => eprintln!(
-                            "Ignoring specified option {key}: {v} inside {path:?} as it is not a valid log format. Can be one of full, compact, bare, pretty, json"
+                            "Ignoring specified option {key}: {v} inside {} as it is not a valid log format. Can be one of full, compact, bare, pretty, json",
+                            path.display()
                         ),
                     }
                 }
