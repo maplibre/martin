@@ -1,6 +1,5 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
-.read mbtiles/sql/init-flat.sql
 CREATE TABLE metadata (name text, value text);
 INSERT INTO metadata VALUES
 ('name','Major cities from Natural Earth data'),
@@ -14,6 +13,7 @@ INSERT INTO metadata VALUES
 ('format','pbf'),
 ('json','{"vector_layers": [ { "id": "cities", "description": "", "minzoom": 0, "maxzoom": 6, "fields": {"name": "String"} } ],"tilestats": {"layerCount": 1,"layers": [{"layer": "cities","count": 68,"geometry": "Point","attributeCount": 1,"attributes": [{"attribute": "name","count": 68,"type": "string","values": ["Addis Ababa","Amsterdam","Athens","Atlanta","Auckland","Baghdad","Bangalore","Bangkok","Beijing","Berlin","Bogota","Buenos Aires","Cairo","Cape Town","Caracas","Casablanca","Chengdu","Chicago","Dakar","Denver","Dubai","Geneva","Hong Kong","Houston","Istanbul","Jakarta","Johannesburg","Kabul","Kiev","Kinshasa","Kolkata","Lagos","Lima","London","Los Angeles","Madrid","Manila","Melbourne","Mexico City","Miami","Monterrey","Moscow","Mumbai","Nairobi","New Delhi","New York","Paris","Rio de Janeiro","Riyadh","Rome","San Francisco","Santiago","Seoul","Shanghai","Singapore","Stockholm","Sydney","São Paulo","Taipei","Tashkent","Tehran","Tokyo","Toronto","Vancouver","Vienna","Washington, D.C.","Ürümqi","Ōsaka"]}]}]}}'),
 ('agg_tiles_hash','578FB5BD64746C39E3D344662947FD0D');
+CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
 INSERT INTO tiles VALUES
 (1,0,0,X'1f8b0800000000000203935ac458c1c4c5969c5992995aacd1a020c59297989baac4c6c5e293999ba8c4c5c5119c98579299989eafc4c7c5e3549a9a975face09859945aacc4c3c5157c7871be424062694ebe9200175f5066be424aaa8257625e6a6651be10af04a310130383122be71995152c502e2390fb4eed020f94cb04e4ced39ec00be53203b95bf4cf7140b92c40ee05830d1c00414de658a5000000'),
 (1,1,0,X'1f8b0800000000000203936a67aa60e2624bce2cc94c2dd668509062c94bcc4d55e2e6e20ccecc4b4f2cc82f4a55e2e2e2f0cecc2bce482c4e0449382716a42a84e497e7297172b1fb256616e527652af171f178e56724e6e5a516279516a583a4bc12b3138b4ac05a7c537392f24b8bf2529538b8d8822b53f2522b41a63a962667e724e6a508f148300a31313028b1707e53b116e205f31895583977b01e6184729980dc636caf78a06a99816abb78ada0922c40c95f9c9738a15c5620f78fea0c2628970dc83d627c840fca6507721f98024d82703980dc09767d7c00702b123c0a010000'),
@@ -212,4 +212,5 @@ INSERT INTO tiles VALUES
 (6,45,37,X'1f8b080000000000020393d2af60e2624bce2cc94c2dd668509062c94bcc4d55e2e6e2f44b2d577049cdc9c814e29560146262605062e55ca7374d07006fcd397d31000000'),
 (4,4,4,X'1f8b08000000000000ff33a83031020022bc70f804000000');
 CREATE UNIQUE INDEX name on metadata (name);
+CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);
 COMMIT;
