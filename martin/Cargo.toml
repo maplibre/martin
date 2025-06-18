@@ -116,7 +116,6 @@ walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [build-dependencies]
-walkdir = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 
 [dev-dependencies]
