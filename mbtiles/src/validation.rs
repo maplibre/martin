@@ -624,15 +624,24 @@ pub(crate) mod tests {
 
     #[actix_rt::test]
     async fn detect_type() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let res = mbt.detect_type(&mut conn).await?;
         assert_eq!(res, MbtType::Flat);
 
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let res = mbt.detect_type(&mut conn).await?;
         assert_eq!(res, MbtType::FlatWithHash);
 
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let res = mbt.detect_type(&mut conn).await?;
         assert_eq!(res, MbtType::Normalized { hash_view: false });
 
@@ -645,7 +654,10 @@ pub(crate) mod tests {
 
     #[actix_rt::test]
     async fn validate_valid_file() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
             .await?;
         Ok(())
@@ -653,8 +665,10 @@ pub(crate) mod tests {
 
     #[actix_rt::test]
     async fn validate_invalid_file() -> MbtResult<()> {
-        let (mut conn, mbt) =
-            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/files/invalid_zoomed_world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(AggHashMismatch(..))));
         Ok(())
