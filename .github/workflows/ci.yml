@@ -338,17 +338,18 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
-    needs: [ docker-build-test ]
+    needs: [ build ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Download build artifact cross-build
+      - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@v4
         with:
-          name: cross-build
+          name: build-x86_64-unknown-linux-gnu
+          path: target_release/x86_64-unknown-linux-gnu
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: x86_64-unknown-linux-musl/martin
+          MARTIN_BIN: x86_64-unknown-linux-gnu/martin
 
 
   test-multi-os:
