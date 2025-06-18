@@ -1,6 +1,6 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
-CREATE TABLE metadata (name text, value text);Add commentMore actions
+CREATE TABLE metadata (name text, value text);
 INSERT INTO metadata VALUES
 ('name','Major cities from Natural Earth data'),
 ('description','Major cities from Natural Earth data'),
