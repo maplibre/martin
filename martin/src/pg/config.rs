@@ -6,8 +6,9 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
+use crate::MartinResult;
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::{copy_unrecognized_config, UnrecognizedValues};
+use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::pg::builder::PgBuilder;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
@@ -15,7 +16,6 @@ use crate::pg::utils::on_slow;
 use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
-use crate::MartinResult;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -39,16 +39,32 @@ pub struct PgSslCerts {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgConfig {
+    /// Database connection string
     pub connection_string: Option<String>,
     #[serde(flatten)]
     pub ssl_certificates: PgSslCerts,
+    /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     pub default_srid: Option<i32>,
+    /// Specify how bounds should be computed for the spatial PG tables
     pub auto_bounds: Option<BoundsCalcType>,
+    /// Limit the number of geo features per tile.
+    ///
+    /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
+    /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
+    /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+    ///
+    /// Can be either a positive integer or unlimited if omitted.
     pub max_feature_count: Option<usize>,
+    /// Maximum Postgres connections pool size [DEFAULT: 20]
     pub pool_size: Option<usize>,
+    /// Enable/disable/configure automatic discovery of tables and functions.
+    ///
+    /// You may set this to `OptBoolObj::Bool(false)` to disable.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PgCfgPublish>,
+    /// Associative arrays of table sources
     pub tables: Option<TableInfoSources>,
+    /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
 }
 
@@ -139,9 +155,15 @@ impl PgConfig {
             DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)),
             || {
                 if pg.auto_bounds() == BoundsCalcType::Skip {
-                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.", pg.get_id());
+                    warn!(
+                        "Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.",
+                        pg.get_id()
+                    );
                 } else {
-                    warn!("Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.", pg.get_id());
+                    warn!(
+                        "Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.",
+                        pg.get_id()
+                    );
                 }
             },
         );
@@ -163,11 +185,11 @@ mod tests {
     use tilejson::Bounds;
 
     use super::*;
-    use crate::config::tests::assert_config;
     use crate::config::Config;
+    use crate::config::tests::assert_config;
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
-    use crate::test_utils::some;
+    use crate::tests::some;
     use crate::utils::OptOneMany::{Many, One};
 
     #[test]

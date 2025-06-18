@@ -44,11 +44,26 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
+# CORS Configuration
+#
+# Defaults to `cors: true`, which allows all origins.
+# Sending/Acting on CORS headers can be completely disabled via `cors: false`
+cors:
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
+  origin:
+    - https://example.org
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
+  max_age: 3600
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
-  # Database connection string. You can use env vars too, for example:
-  #   $DATABASE_URL
-  #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
+  # Database connection string.
+  #
+  # You can use environment variables too, for example:
+  # connection_string: $DATABASE_URL
+  # connection_string: ${DATABASE_URL:-postgresql://postgres@localhost/db}
   connection_string: 'postgresql://postgres@localhost:5432/db'
 
   # Same as PGSSLCERT for psql
@@ -71,11 +86,11 @@ postgres:
   # It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
   max_feature_count: null # either a positive integer, or null=unlimited (default)
 
-  # Control the automatic generation of bounds for spatial tables [default: quick]
+  # Specify how bounds should be computed for the spatial PG tables [default: quick]
   # 'calc' - compute table geometry bounds on startup.
   # 'quick' - same as 'calc', but the calculation will be aborted if it takes more than 5 seconds.
   # 'skip' - do not compute table geometry bounds on startup.
-  auto_bounds: skip
+  auto_bounds: quick
 
   # Enable automatic discovery of tables and functions.
   # You may set this to `false` to disable.
@@ -179,6 +194,14 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
+  # Allows forcing path style URLs for S3 buckets [default: false]
+  #
+  # A path style URL is a URL that uses the bucket name as part of the path like mys3.com/somebucket instead of the hostname somebucket.mys3.com
+  force_path_style: false
+  # Skip loading credentials for S3 buckets [default: false]
+  #
+  # Set this to true to request anonymously for publicly available buckets.
+  skip_credentials: false
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
@@ -209,8 +232,8 @@ cog:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
-    - /path/to/cogfile1.tif
-    - /path/to/cogfile2.tiff
+    - /path/to/cog_file1.tif
+    - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
@@ -230,4 +253,23 @@ fonts:
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   - /path/to/font/file.ttf
   - /path/to/font_dir
+
+# Publish MapLibre style files
+# In the future, the style files will be used for the server-side rendering as well
+styles:
+   paths:
+     # publish all *.json files in this directory
+     # The name of the file will be used as the style name
+     - /path/to/styles_dir
+     # publish a single file - here `maplibre_style` will be the style name
+     - /path/to/maplibre_style.json
+   sources:
+     # publish a JSON file found at this path as `some_style_name`
+     #
+     # Contrairy to paths, if directories are specified, Martin will print a warning and ignore them.
+     # To serve a style-directory, use the `paths` section above or name each style individually.
+     # This prevents footguns with names being unclear.
+     some_style_name: /path/to/this/style.json
+     #  Publish specific file as `other_style_name`
+     other_style_name: /path/to/other_style.json
 ```

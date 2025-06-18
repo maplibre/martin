@@ -3,7 +3,7 @@ use tilejson::{Bounds, TileJSON};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
-use crate::pg::utils::{patch_json, InfoMap};
+use crate::pg::utils::{InfoMap, patch_json};
 
 pub type FuncInfoSources = InfoMap<FunctionInfo>;
 
@@ -28,7 +28,7 @@ pub struct FunctionInfo {
     /// Values may be integers or floating point numbers.
     pub bounds: Option<Bounds>,
 
-    /// TileJSON provided by the SQL function comment. Not serialized.
+    /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]
     pub tilejson: Option<serde_json::Value>,
 

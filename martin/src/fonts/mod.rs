@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -9,7 +10,7 @@ use itertools::Itertools as _;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::protobuf::Message;
-use pbf_font_tools::{render_sdf_glyph, Fontstack, Glyphs, PbfFontError};
+use pbf_font_tools::{Fontstack, Glyphs, PbfFontError, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +46,9 @@ pub enum FontError {
     )]
     InvalidFontRangeEnd(u32),
 
-    #[error("Given font range {0}-{1} is invalid. It must be {CP_RANGE_SIZE} characters long (e.g. 0-255, 256-511, ...)")]
+    #[error(
+        "Given font range {0}-{1} is invalid. It must be {CP_RANGE_SIZE} characters long (e.g. 0-255, 256-511, ...)"
+    )]
     InvalidFontRange(u32, u32),
 
     #[error(transparent)]
@@ -106,7 +109,7 @@ pub struct FontSources {
     masks: Vec<BitSet>,
 }
 
-pub type FontCatalog = DashMap<String, CatalogFontEntry>;
+pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

@@ -1,0 +1,49 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "A18D0C39730FB52E5A547F096F5C60E8"  )',
+    '(  "md-edit", "value - v2"  )',
+    '(  "md-new", "value - new"  )',
+    '(  "md-same", "value - same"  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles'
+sql = '''
+CREATE TABLE tiles (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  3, 6, 7, blob(1F8B08000000000000FF2BCACF2F01005BF9F41604000000)  )',
+    '(  5, 0, 0, blob(1F8B08000000000000FF2B4ECC4D050044F150FC04000000)  )',
+    '(  5, 0, 1, blob(1F8B08000000000000FF03000000000000000000)  )',
+    '(  5, 1, 1, blob(1F8B08000000000000FF4B4DC92CD12D330200C489DF2607000000)  )',
+    '(  5, 1, 2, blob(1F8B08000000000000FFCBCB2FD14DCD2D28A9040086D4937609000000)  )',
+    '(  5, 1, 3, blob(1F8B08000000000000FF03000000000000000000)  )',
+    '(  5, 3, 7, blob(1F8B08000000000000FFCB4B2D07004544E36B03000000)  )',
+    '(  5, 3, 8, blob(1F8B08000000000000FFCB4B2D07004544E36B03000000)  )',
+    '(  6, 0, 3, blob(1F8B08000000000000FF2B4ECC4D050044F150FC04000000)  )',
+    '(  6, 0, 5, blob(1F8B08000000000000FF33D4CD4E4D2DD035D42DCA050026D508C30B000000)  )',
+    '(  6, 1, 4, blob(1F8B08000000000000FF4B4DC92CD12D334A04006367987408000000)  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles'

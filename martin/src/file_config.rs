@@ -8,14 +8,14 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::{copy_unrecognized_config, UnrecognizedValues};
+use crate::MartinResult;
+use crate::OptOneMany::{Many, One};
+use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
-use crate::MartinResult;
-use crate::OptOneMany::{Many, One};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -33,17 +33,24 @@ pub enum FileError {
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
+    #[cfg(any(feature = "webui", feature = "styles"))]
+    #[error("Walk directory error {0}: {1}")]
+    DirectoryWalking(walkdir::Error, PathBuf),
+
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
+    #[error(r"Error occurred in processing S3 source uri: {0}")]
+    S3SourceError(String),
+
     #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
     #[cfg(feature = "pmtiles")]
-    #[error(r"PMTiles error {0} processing {1}")]
+    #[error(r"PMTiles error {0:?} processing {1}")]
     PmtError(pmtiles::PmtError, String),
 
     #[cfg(feature = "cog")]
@@ -74,13 +81,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl std::future::Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -387,7 +394,7 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         return Ok(None);
     }
     path.to_str()
-        .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
+        .filter(|v| v.starts_with("http://") || v.starts_with("https://") || v.starts_with("s3://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }

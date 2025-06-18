@@ -1,8 +1,8 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![forbid(unsafe_code)]
 
 mod config;
-pub use config::{read_config, Config, ServerState};
+pub use config::{Config, ServerState, read_config};
 
 mod source;
 pub use source::{
@@ -11,8 +11,8 @@ pub use source::{
 
 mod utils;
 pub use utils::{
-    append_rect, IdResolver, MartinError, MartinResult, OptBoolObj, OptOneMany, TileRect,
-    NO_MAIN_CACHE,
+    IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, OptBoolObj, OptOneMany, TileRect,
+    append_rect,
 };
 
 pub mod args;
@@ -30,12 +30,14 @@ pub mod pmtiles;
 #[cfg(feature = "sprites")]
 pub mod sprites;
 pub mod srv;
+#[cfg(feature = "styles")]
+pub mod styles;
 
 #[cfg(test)]
-#[path = "utils/test_utils.rs"]
-mod test_utils;
+#[path = "utils/tests.rs"]
+mod tests;
 
-// test_utils is used from tests in other modules, and it uses this crate's object.
+// tests is used from tests in other modules, and it uses this crate's object.
 // Must make it accessible as carte::Env from both places when testing.
 #[cfg(test)]
 pub use crate::args::Env;
@@ -46,7 +48,7 @@ mod test_readme {
     macro_rules! external_doc_test {
         ($x:expr) => {
             #[doc = $x]
-            extern "C" {}
+            unsafe extern "C" {}
         };
     }
 

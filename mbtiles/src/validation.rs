@@ -3,24 +3,24 @@ use std::str::from_utf8;
 
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
-use martin_tile_utils::{Format, TileInfo, MAX_ZOOM};
+use martin_tile_utils::{Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{query, Row, SqliteConnection, SqliteExecutor};
+use sqlx::{Row, SqliteConnection, SqliteExecutor, query};
 use tilejson::TileJSON;
 
+use crate::MbtError::{
+    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
+    InvalidTileIndex,
+};
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
-use crate::MbtError::{
-    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
-    InvalidTileIndex,
-};
-use crate::{get_patch_type, invert_y_value, Mbtiles};
+use crate::{Mbtiles, get_patch_type, invert_y_value};
 
 /// Metadata key for the aggregate tiles hash value
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
@@ -34,8 +34,31 @@ pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
 pub enum MbtType {
+    /// Flat `MBTiles` file without any hash values
+    ///
+    /// The closest to the original `MBTiles` specification.
+    /// It stores all tiles in a single table.
+    /// This schema is the most efficient when the tileset contains no duplicate tiles.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#flat> for the concrete schema.
     Flat,
+    /// [`MbtType::Flat`] `MBTiles` file with hash values
+    ///
+    /// Similar to the [`MbtType::Flat`] schema, but also includes a `tile_hash` column that contains a hash value of the `tile_data` column.
+    /// Use this schema when the tileset has no duplicate tiles, but you still want to be able to validate the content of each tile individually.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#flat-with-hash> for the concrete schema.
     FlatWithHash,
+    /// Normalized `MBTiles` file
+    ///
+    /// The most efficient when the tileset contains duplicate tiles.
+    /// It stores all tile blobs in the `images` table, and stores the tile Z,X,Y coordinates in a `map` table.
+    /// The `map` table contains a `tile_id` column that is a foreign key to the `images` table.
+    /// The `tile_id` column is a hash of the `tile_data` column, making it possible to both validate each individual tile like in the [`MbtType::FlatWithHash`] schema, and also to optimize storage by storing each unique tile only once.
+    ///
+    /// The `hash_view` argument specifies whether to create/assume a `tiles_with_hash` view exists.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
     Normalized { hash_view: bool },
 }
 
@@ -75,6 +98,7 @@ pub enum AggHashType {
 }
 
 impl Mbtiles {
+    /// Open the mbtiles file and validate its integrity.
     pub async fn open_and_validate(
         &self,
         check_type: IntegrityCheckType,
@@ -88,6 +112,12 @@ impl Mbtiles {
         self.validate(&mut conn, check_type, agg_hash).await
     }
 
+    /// Validate the integrity of the mbtiles file by:
+    /// - sqlite internal integrity check
+    /// - tiles' table has the expected column, row, zoom, and data values
+    /// - each tile has the correct hash stored
+    ///
+    /// Depending on the `agg_hash` parameter, the function will either verify or update the aggregate tiles hash value.
     pub async fn validate<T>(
         &self,
         conn: &mut T,
@@ -124,7 +154,9 @@ impl Mbtiles {
         let mut tested_zoom = -1_i64;
 
         // First, pick any random tile
-        let query = query!("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1");
+        let query = query!(
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1"
+        );
         let row = query.fetch_optional(&mut *conn).await?;
         if let Some(r) = row {
             tile_info = self.parse_tile(r.zoom_level, r.tile_column, r.tile_row, r.tile_data);
@@ -161,17 +193,23 @@ impl Mbtiles {
                 }
                 (None, Some(fmt)) => {
                     if fmt.is_detectable() {
-                        warn!("Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}");
+                        warn!(
+                            "Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}"
+                        );
                     } else {
                         info!("Using '{fmt}' tile format from metadata table in file {file}");
                     }
                     tile_info = Some(fmt.into());
                 }
                 (Some(info), Some(fmt)) if info.format == fmt => {
-                    debug!("Detected tile format {info} matches metadata.format '{fmt}' in file {file}");
+                    debug!(
+                        "Detected tile format {info} matches metadata.format '{fmt}' in file {file}"
+                    );
                 }
                 (Some(info), _) => {
-                    warn!("Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}.");
+                    warn!(
+                        "Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
+                    );
                 }
             }
         }
@@ -189,6 +227,7 @@ impl Mbtiles {
         }
     }
 
+    /// Detects the format of a tile and returns its information if none of the values are `None`
     fn parse_tile(
         &self,
         z: Option<i64>,
@@ -217,6 +256,9 @@ impl Mbtiles {
         }
     }
 
+    /// Detect the type of the `MBTiles` file.
+    ///
+    /// See [`MbtType`] for more information.
     pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -410,7 +452,9 @@ LIMIT 1;"
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
         if old_hash.as_ref() == Some(&hash) {
-            info!("Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}");
+            info!(
+                "Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}"
+            );
         } else {
             if let Some(old_hash) = old_hash {
                 info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
@@ -493,14 +537,18 @@ LIMIT 1;"
                     self.filepath().to_string(),
                 ));
             }
-            warn!("File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}");
+            warn!(
+                "File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}"
+            );
         } else if info.agg_tiles_hash_before_apply.is_some()
             || info.agg_tiles_hash_after_apply.is_some()
         {
             if !force {
                 return Err(MbtError::DiffingDiffFile(self.filepath().to_string()));
             }
-            warn!("File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file.");
+            warn!(
+                "File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file."
+            );
         }
         Ok(())
     }
@@ -522,13 +570,16 @@ LIMIT 1;"
                     ));
                 }
                 warn!(
-                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool.");
+                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool."
+                );
             }
             _ => {
                 if !force {
                     return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_string()));
                 }
-                warn!("The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool.");
+                warn!(
+                    "The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool."
+                );
             }
         }
         Ok(())

@@ -5,10 +5,6 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - 'demo/**'
-      - 'docs/**'
   release:
     types: [ published ]
   workflow_dispatch:
@@ -56,7 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
-      - run: just fmt
+      - run: just test-fmt
       - run: just clippy
       - run: just check
       - run: just check-doc
@@ -76,10 +72,17 @@ jobs:
           cargo test --doc
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+          AWS_SKIP_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
 
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      packages: write
+      contents: read
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
@@ -121,13 +124,31 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
 
+      # we want to test our docker images before we push them to the registry
+      # this is done by
+      # - building multi-arch images
+      # - executing the test script against each arch via docker
+      # - pushing them to the registry
+      #
+      # We need the containerd image store, as otherwise multi-arch cannot be loaded => https://github.com/docker/buildx/blob/master/docs/reference/buildx_build.md#docker
+      # > The default image store in Docker Engine doesn't support loading multi-platform images.
+      # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         # https://github.com/docker/setup-qemu-action
         with:
           platforms: linux/amd64,linux/arm64
-      - name: Set up gdal-bin
-        run: sudo apt-get install -y gdal-bin
+      - name: Set up gdal-bin and sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         # https://github.com/docker/setup-buildx-action
@@ -172,45 +193,73 @@ jobs:
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
-      - name: Build linux/arm64 Docker image
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        # https://github.com/docker/metadata-action
+        with:
+          images: ghcr.io/${{ github.repository }}
+          labels: |
+            org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
+            org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.documentation=https://maplibre.org/martin/
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.vendor=maplibre
+            org.opencontainers.image.licenses=Apache-2.0 OR MIT
+            org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.source=https://github.com/maplibre/martin
+          annotations: |
+            org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
+            org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.documentation=https://maplibre.org/martin/
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.vendor=maplibre
+            org.opencontainers.image.licenses=Apache-2.0 OR MIT
+            org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.source=https://github.com/maplibre/martin
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+      - name: Build linux/arm64,linux/amd64 Docker image
         uses: docker/build-push-action@v6
         # https://github.com/docker/build-push-action
         with:
+          provenance: mode=max
+          sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
+          push: false
           load: true
-          tags: ${{ github.repository }}:linux-arm64
-          platforms: linux/arm64
+          tags: ${{ github.repository }}:linux
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          platforms: linux/arm64,linux/amd64
 
       - name: Test linux/arm64 Docker image
         run: |
           PLATFORM=linux/arm64
-          TAG=${{ github.repository }}:linux-arm64
+          TAG=${{ github.repository }}:linux
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
-      - name: Build linux/amd64 Docker image
-        uses: docker/build-push-action@v6
-        # https://github.com/docker/build-push-action
-        with:
-          context: .
-          file: .github/files/multi-platform.Dockerfile
-          load: true
-          tags: ${{ github.repository }}:linux-amd64
-          platforms: linux/amd64
       - name: Test linux/amd64 Docker image
         run: |
           PLATFORM=linux/amd64
-          TAG=${{ github.repository }}:linux-amd64
+          TAG=${{ github.repository }}:linux
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -234,22 +283,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker meta
-        id: docker_meta
-        uses: docker/metadata-action@v5
-        # https://github.com/docker/metadata-action
-        with:
-          images: ghcr.io/${{ github.repository }}
       - name: Push the Docker image
+        id: docker_push
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
+          provenance: mode=max
+          sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
           push: true
+          load: false
           tags: ${{ steps.docker_meta.outputs.tags }}
+          annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+      - name: Attest
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        id: attest
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.docker_push.outputs.digest }}
+          push-to-registry: true
 
   build:
     name: Build ${{ matrix.target }}
@@ -336,6 +392,9 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
       PGPORT: 34837
+      # AWS variables for S3 access
+      AWS_REGION: eu-central-1
+      AWS_SKIP_CREDENTIALS: 1
     strategy:
       fail-fast: true
       matrix:
@@ -397,12 +456,14 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Set up gdal-bin
+      - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y gdal-bin
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
@@ -429,6 +490,8 @@ jobs:
         run: |
           sudo dpkg -i target/debian-x86_64.deb
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
@@ -524,14 +587,16 @@ jobs:
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target_releases/
-      - name: Install gdal-bin
-        run: sudo apt-get install -y gdal-bin
+      - name: Set up gdal-bin and sqlite3-tools
+        run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target_releases/martin
           export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
@@ -552,6 +617,8 @@ jobs:
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BUILD_ALL=-
+          export AWS_REGION=eu-central-1
+          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin
           export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
@@ -571,6 +638,8 @@ jobs:
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+          AWS_SKIP_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@v4
