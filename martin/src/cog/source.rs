@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
-use martin_tile_utils::{Format, TileCoord, TileInfo};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
@@ -36,7 +37,7 @@ pub struct CogSource {
 
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
-    pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    pub fn new(id: String, path: PathBuf, auto_web: bool) -> FileResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| FileError::IoError(e, path.clone()))?;
@@ -100,20 +101,33 @@ impl CogSource {
                 break;
             }
         }
-        let min_zoom = 0;
-        let max_zoom = (images.len() - 1) as u8;
+
+        let images_len = images.len() as u8;
         let images: HashMap<u8, Image> = images
             .into_iter()
             .enumerate()
             .map(|(idx, image)| {
-                let zoom = max_zoom.saturating_sub(idx as u8);
+                let zoom = if auto_web {
+                    nearest_web_mercator_zoom(image.resolution(), image.tile_size())
+                } else {
+                    (images_len - 1).saturating_sub(idx as u8)
+                };
                 (zoom, image)
             })
             .collect();
+
+        let min_zoom = *images
+            .keys()
+            .min()
+            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+        let max_zoom = *images
+            .keys()
+            .max()
+            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
         let tilejson = tilejson! {
             tiles: vec![],
             minzoom: min_zoom,
-            maxzoom: max_zoom
+            maxzoom: max_zoom,
         };
         Ok(CogSource {
             id,
@@ -148,6 +162,21 @@ impl CogSource {
         let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
         Ok(bytes)
     }
+}
+
+/// find a zoom level of google web mercator that is closest to the given resolution
+fn nearest_web_mercator_zoom(resolution: (f64, f64), tile_size: (u32, u32)) -> u8 {
+    let tile_width_in_model = resolution.0 * f64::from(tile_size.0);
+    let mut nearest_zoom = 0u8;
+    let diff = (tile_width_in_model - EARTH_CIRCUMFERENCE / f64::from(1_u32 << 0)).abs();
+    for google_zoom in 0..30 {
+        let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << google_zoom);
+        let current_diff = (tile_width_in_model - tile_length).abs();
+        if current_diff < diff {
+            nearest_zoom = google_zoom;
+        }
+    }
+    nearest_zoom
 }
 
 #[async_trait]
@@ -271,7 +300,13 @@ fn get_image(
         width_in_model / f64::from(image_width),
         length_in_model / f64::from(image_length),
     );
-    Ok(Image::new(ifd_index, tiles_across, tiles_down, resolution))
+    Ok(Image::new(
+        ifd_index,
+        tiles_across,
+        tiles_down,
+        (tile_width, tile_height),
+        resolution,
+    ))
 }
 
 /// Gets image pixel dimensions from TIFF decoder
@@ -430,9 +465,9 @@ mod tests {
     use rstest::rstest;
     use tiff::decoder::Decoder;
 
+    use crate::Source;
     use crate::cog::model::ModelInfo;
     use crate::cog::source::CogSource;
-    use crate::Source;
 
     #[test]
     fn can_get_model_info() {

@@ -18,6 +18,9 @@ pub struct Image {
     tiles_across: u32,
     /// Number of tiles in a column of this image
     tiles_down: u32,
+    /// Tile size in pixels
+    tile_size: (u32, u32),
+    /// Resolution of the image in model units per pixel
     resolution: (f64, f64),
 }
 
@@ -26,12 +29,14 @@ impl Image {
         ifd_index: usize,
         tiles_across: u32,
         tiles_down: u32,
+        tile_size: (u32, u32),
         resolution: (f64, f64),
     ) -> Self {
         Self {
             ifd_index,
             tiles_across,
             tiles_down,
+            tile_size,
             resolution,
         }
     }
@@ -94,6 +99,14 @@ impl Image {
 
     pub fn ifd_index(&self) -> usize {
         self.ifd_index
+    }
+
+    pub fn resolution(&self) -> (f64, f64) {
+        self.resolution
+    }
+
+    pub fn tile_size(&self) -> (u32, u32) {
+        self.tile_size
     }
 
     fn get_tile_index(&self, xyz: TileCoord) -> Option<u32> {
@@ -223,6 +236,7 @@ mod tests {
             tiles_across: 3,
             tiles_down: 3,
             resolution: (1.0, 1.0),
+            tile_size: (256, 256),
         };
         assert_eq!(
             Some(0),
