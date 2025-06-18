@@ -271,7 +271,10 @@ FROM {schema}.{table};"),
             // ST_EstimatedExtent failed probably because there is no index or statistics or if it's a view
             // This can only happen once if we are in quick mode
             is_quick = false;
-            warn!("ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds", info.geometry_column);
+            warn!(
+                "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
+                info.geometry_column
+            );
         } else {
             return Ok(None);
         }
