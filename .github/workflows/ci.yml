@@ -349,7 +349,7 @@ jobs:
           path: target_release/x86_64-unknown-linux-gnu
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: x86_64-unknown-linux-gnu/martin
+          MARTIN_BIN: target_release/x86_64-unknown-linux-gnu/martin
 
 
   test-multi-os:
