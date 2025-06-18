@@ -245,15 +245,21 @@ mod tests {
     #[actix_rt::test]
     async fn mbtiles_meta() -> MbtResult<()> {
         let filepath = "../tests/fixtures/mbtiles/geography-class-jpg.mbtiles";
-        let mbt = Mbtiles::new(filepath)?;
-        assert_eq!(mbt.filepath(), filepath);
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        assert_eq!(mbt.filepath(), filepath); // huh, I wonder if this will work
         assert_eq!(mbt.filename(), "geography-class-jpg");
         Ok(())
     }
 
     #[actix_rt::test]
     async fn metadata_jpeg() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let metadata = mbt.get_metadata(&mut conn).await?;
         let tj = metadata.tilejson;
 
@@ -277,7 +283,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_mvt() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let metadata = mbt.get_metadata(&mut conn).await?;
         let tj = metadata.tilejson;
 
@@ -309,7 +318,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_get_key() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
+        let mbt = Mbtiles::new(":memory:")?;
+        let mut conn = mbt.open().await?;
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let res = mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap();
         assert_eq!(res, "-123.123590,-37.818085,174.763027,59.352706");
