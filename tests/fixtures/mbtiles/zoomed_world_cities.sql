@@ -1,5 +1,6 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
+.read mbtiles/sql/init-flat-with-hash.sql
 CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);
 INSERT INTO metadata VALUES('name','Major cities from Natural Earth data'),
 ('description','Major cities from Natural Earth data'),
@@ -12,8 +13,6 @@ INSERT INTO metadata VALUES('name','Major cities from Natural Earth data'),
 ('format','pbf'),
 ('json','{"vector_layers": [ { "id": "cities", "description": "", "minzoom": 0, "maxzoom": 6, "fields": {"name": "String"} } ],"tilestats": {"layerCount": 1,"layers": [{"layer": "cities","count": 68,"geometry": "Point","attributeCount": 1,"attributes": [{"attribute": "name","count": 68,"type": "string","values": ["Addis Ababa","Amsterdam","Athens","Atlanta","Auckland","Baghdad","Bangalore","Bangkok","Beijing","Berlin","Bogota","Buenos Aires","Cairo","Cape Town","Caracas","Casablanca","Chengdu","Chicago","Dakar","Denver","Dubai","Geneva","Hong Kong","Houston","Istanbul","Jakarta","Johannesburg","Kabul","Kiev","Kinshasa","Kolkata","Lagos","Lima","London","Los Angeles","Madrid","Manila","Melbourne","Mexico City","Miami","Monterrey","Moscow","Mumbai","Nairobi","New Delhi","New York","Paris","Rio de Janeiro","Riyadh","Rome","San Francisco","Santiago","Seoul","Shanghai","Singapore","Stockholm","Sydney","São Paulo","Taipei","Tashkent","Tehran","Tokyo","Toronto","Vancouver","Vienna","Washington, D.C.","Ürümqi","Ōsaka"]}]}]}}'),
 ('agg_tiles_hash','D4E1030D57751A0B45A28A71267E46B8');
-CREATE TABLE tiles_with_hash (zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob, tile_hash text,
-                PRIMARY KEY(zoom_level, tile_column, tile_row));
 INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES
 (6,10,38,X'1f8b08000000000002039332ac60e2624bce2cc94c2dd668509062c94bcc4d55e2e5e2f6c92f5670cc4b4fcd492d16e29560146262605062e55c63bf4a0500706addcd33000000','C7DEB11792E128C6D4561F0E6ABE4440'),
 (6,10,39,X'1f8b08000000000002039332ae60e2624bce2cc94c2dd668509062c94bcc4d55e2e7e20d4ecc53702b4acc4bce2c4ece17e29560146262605062e59cc2bf481f004d6b26c735000000','53B658F89AF42BD1D9C21C14BF006E04'),
@@ -87,5 +86,4 @@ INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_
 (6,57,24,X'1f8b080000000000020393d2af60e2624bce2cc94c2dd668509062c94bcc4d55e2e6e2f44dcd49ca2f2dca4b15e29560146262605062e5dc63b84d100008201c3031000000','5C5836EA30F813CA13F3C033F0A6932A'),
 (6,58,25,X'1f8b080000000000020393d2a960e2624bce2cc94c2dd668509062c94bcc4d55e2e0620bae4cc94bad14e29560146262605062e59c6071490a00789ab8c12e000000','8694D5D6A269DE7D2DB4B21107973E15'),
 (6,63,24,X'1f8b080000000000020393d2ab60e2624bce2cc94c2dd668509062c94bcc4d55e2e2e2702c4dcece49cc4b11e29560146262605062e5dcc2728c190014b89eac30000000','863100D73B385382DEAE9080E776D8A2');
-CREATE VIEW tiles AS SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;
 COMMIT;
