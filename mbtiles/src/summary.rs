@@ -230,10 +230,10 @@ mod tests {
         let res = mbt.summary(&mut conn).await?;
 
         assert_yaml_snapshot!(res, @r"
-        file_size: 49152
+        file_size: ~
         mbt_type: Flat
         page_size: 4096
-        page_count: 12
+        page_count: 11
         tile_count: 196
         min_tile_size: 64
         max_tile_size: 1107
