@@ -203,7 +203,7 @@ jobs:
           provenance: mode=max
           sbom: true
           context: .
-          file: Dockerfile
+          file: .github/files/multi-platform.Dockerfile
           push: false
           load: true
           tags: ${{ github.repository }}:linux
@@ -261,7 +261,7 @@ jobs:
           provenance: mode=max
           sbom: true
           context: .
-          file: Dockerfile
+          file: .github/files/multi-platform.Dockerfile
           push: true
           load: false
           tags: ${{ steps.docker_meta.outputs.tags }}
