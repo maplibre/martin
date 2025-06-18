@@ -15,6 +15,7 @@ pub struct Image {
     /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
     ifd_index: usize,
     extent: [f64; 4],
+    origin: [f64; 2],
     /// Number of tiles in a row of this image
     tiles_across: u32,
     /// Number of tiles in a column of this image
@@ -29,6 +30,7 @@ impl Image {
     pub fn new(
         ifd_index: usize,
         extent: [f64; 4],
+        origin: [f64; 2],
         tiles_across: u32,
         tiles_down: u32,
         tile_size: (u32, u32),
@@ -37,6 +39,7 @@ impl Image {
         Self {
             ifd_index,
             extent,
+            origin,
             tiles_across,
             tiles_down,
             tile_size,
@@ -54,7 +57,21 @@ impl Image {
         decoder
             .seek_to_image(self.ifd_index())
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
+        let intersetced_tiles = self.intersect_tiles(bbox);
+        let origin_x = self.origin[0];
+        let origin_y = self.origin[1];
+        for (col, row) in intersetced_tiles {
+            let idx = self
+                .get_tile_index(TileCoord {
+                    z: 0, // acutally get_tile_index does not use z, so we can use 0 here
+                    x: col,
+                    y: row,
+                })
+                .unwrap();
 
+            let tile_min_x = origin_x + f64::from(col * self.tile_size.0) * self.resolution.0;
+            let tile_max_y = origin_y - f64::from(row * self.tile_size.1) * self.resolution.1;
+        }
         todo!()
     }
 
