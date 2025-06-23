@@ -84,6 +84,7 @@ impl CogSource {
                     &mut decoder,
                     &path,
                     ifd_index,
+                    origin,
                     extent.clone(),
                     (full_width, full_length),
                 )?);
@@ -290,6 +291,7 @@ fn get_image(
     decoder: &mut Decoder<File>,
     path: &Path,
     ifd_index: usize,
+    origin: [f64; 3],
     extent: [f64; 4],
     (width_in_model, length_in_model): (f64, f64),
 ) -> Result<Image, FileError> {
@@ -305,6 +307,7 @@ fn get_image(
     Ok(Image::new(
         ifd_index,
         extent,
+        origin,
         tiles_across,
         tiles_down,
         (tile_width, tile_height),

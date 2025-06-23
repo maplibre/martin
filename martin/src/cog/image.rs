@@ -15,7 +15,7 @@ pub struct Image {
     /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
     ifd_index: usize,
     extent: [f64; 4],
-    origin: [f64; 2],
+    origin: [f64; 3],
     /// Number of tiles in a row of this image
     tiles_across: u32,
     /// Number of tiles in a column of this image
@@ -30,7 +30,7 @@ impl Image {
     pub fn new(
         ifd_index: usize,
         extent: [f64; 4],
-        origin: [f64; 2],
+        origin: [f64; 3],
         tiles_across: u32,
         tiles_down: u32,
         tile_size: (u32, u32),
@@ -338,6 +338,7 @@ mod tests {
     fn can_calc_tile_idx() {
         let image = Image {
             ifd_index: 0,
+            origin: [0.0, 0.0, 0.0],
             extent: [0.0, 0.0, 0.0, 0.0],
             tiles_across: 3,
             tiles_down: 3,
