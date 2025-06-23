@@ -58,6 +58,7 @@ impl Image {
         bbox: [f64; 4],
         output_size: u32,
         path: &Path,
+        nodata: Option<u8>,
     ) -> MartinResult<TileData> {
         decoder
             .seek_to_image(self.ifd_index())
@@ -65,6 +66,11 @@ impl Image {
         let intersetced_tiles = self.tiles_intersected(bbox);
         let origin_x = self.origin[0];
         let origin_y = self.origin[1];
+        let res_x = self.resolution.0;
+        let res_y = self.resolution.1.abs();
+        let window_width_pixel = ((bbox[2] - bbox[0]) / res_x).round() as u32;
+        let window_height_pixel = ((bbox[3] - bbox[1]) / res_y).round() as u32;
+        let mut target = vec![0; (window_width_pixel * window_height_pixel * 4) as usize];
         for (col, row) in intersetced_tiles {
             let idx = self
                 .get_tile_index(TileCoord {
@@ -76,6 +82,48 @@ impl Image {
 
             let tile_min_x = origin_x + f64::from(col * self.tile_size.0) * self.resolution.0;
             let tile_max_y = origin_y - f64::from(row * self.tile_size.1) * self.resolution.1;
+            let offset_x_geo = tile_min_x - bbox[0];
+            let offset_y_geo = bbox[3] - tile_max_y; // Use window's max Y
+
+            let offset_x_pixel = (offset_x_geo / res_x).round() as i64;
+            let offset_y_pixel = (offset_y_geo / res_y).round() as i64;
+            let decoded = decoder.read_chunk(idx).unwrap();
+            let (data_width, data_height) = decoder.chunk_data_dimensions(idx);
+            let color_type = decoder.colortype().unwrap();
+            let components_count = match color_type {
+                ColorType::RGB(_) => 3,
+                ColorType::RGBA(_) => 4,
+                _ => {
+                    todo!()
+                }
+            };
+            match (decoded, color_type) {
+                (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => draw_tile(
+                    vec,
+                    components_count,
+                    nodata,
+                    (data_width, data_height),
+                    (window_width_pixel, window_height_pixel),
+                    (offset_x_pixel, offset_y_pixel),
+                    &mut target,
+                ),
+                (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => draw_tile(
+                    vec,
+                    components_count,
+                    nodata,
+                    (data_width, data_height),
+                    (window_width_pixel, window_height_pixel),
+                    (offset_x_pixel, offset_y_pixel),
+                    &mut target,
+                ),
+                (_, _) => {
+                    return Err(CogError::NotSupportedColorTypeAndBitDepth(
+                        color_type,
+                        path.to_path_buf(),
+                    )
+                    .into());
+                } //todo do others in next PRs, a lot of discussion would be needed
+            };
         }
         todo!()
     }
@@ -313,14 +361,26 @@ fn draw_tile(
     nodata: Option<u8>,
     (data_width, data_height): (u32, u32),
     (target_width, target_height): (u32, u32),
-    (offset_x, offset_y): (u32, u32),
+    (offset_x, offset_y): (i64, i64),
     target: &mut Vec<u8>,
-) -> () {
+) {
     let add_alpha = components_count != 4;
     for row in 0..data_height {
         'outer: for col in 0..data_width {
             let idx_chunk = row * data_width * components_count + col * components_count;
-            let idx_result = (row + offset_y) * target_width * 4 + (col + offset_x) * 4;
+            // 计算目标位置
+            let target_row = row as i64 + offset_y;
+            let target_col = col as i64 + offset_x;
+            // 边界检查
+            if target_row < 0
+                || target_col < 0
+                || target_row >= target_height as i64
+                || target_col >= target_width as i64
+            {
+                continue 'outer;
+            }
+
+            let idx_result = target_row * target_width as i64 * 4 + target_col * 4;
             for component_idx in 0..components_count {
                 let value = data[(idx_chunk + component_idx) as usize];
                 if let Some(v) = nodata {
@@ -329,7 +389,7 @@ fn draw_tile(
                     }
                 }
                 // Copy this component to the result vector
-                target[(idx_result + component_idx) as usize] = value;
+                target[(idx_result + component_idx as i64) as usize] = value;
             }
             if add_alpha {
                 target[(idx_result + 3) as usize] = 255; // opaque
