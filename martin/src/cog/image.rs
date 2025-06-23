@@ -3,7 +3,10 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use martin_tile_utils::TileCoord;
-use tiff::decoder::{Decoder, DecodingResult};
+use tiff::{
+    ColorType,
+    decoder::{Decoder, DecodingResult},
+};
 
 use super::CogError;
 use crate::{MartinResult, TileData};
@@ -263,38 +266,15 @@ fn ensure_pixels_valid(
     //    See https://gdal.org/en/stable/drivers/raster/gtiff.html#nodata-value
     if nodata.is_some() || add_alpha || is_padded {
         let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
-        for row in 0..data_height {
-            'outer: for col in 0..data_width {
-                let idx_chunk = row * data_width * components_count + col * components_count;
-                let idx_result = row * tile_width * 4 + col * 4;
-
-                // Copy component values one by one
-                for component_idx in 0..components_count {
-                    // Before copying, check if this component == nodata. If so, skip because it's transparent.
-                    // FIXME: Should we copy the RGB values anyway and just set alpha to 0?
-                    //        The visual result is the same (transparent), but the component values would differ.
-                    //        But it might be a little slower as we don't skip the copy.
-                    //   Source pixel: [4, 1, 2, 3]  nodata: Some(1)
-                    //   Skip:
-                    //   result pixel: [4, 0, 0, 0]
-                    //   Do not skip:
-                    //   result pixel: [4, 1, 2, 0]
-                    //   So the visual result is the same, but the component values are different.
-
-                    let value = data[(idx_chunk + component_idx) as usize];
-                    if let Some(v) = nodata {
-                        if value == v {
-                            continue 'outer;
-                        }
-                    }
-                    // Copy this component to the result vector
-                    result_vec[(idx_result + component_idx) as usize] = value;
-                }
-                if add_alpha {
-                    result_vec[(idx_result + 3) as usize] = 255; // opaque
-                }
-            }
-        }
+        draw_tile(
+            data,
+            components_count,
+            nodata,
+            (data_width, data_height),
+            (tile_width, tile_height),
+            (0, 0),
+            &mut result_vec,
+        );
         result_vec
     } else {
         data
@@ -325,6 +305,37 @@ fn encode_rgba_as_png(
             .map_err(|e| CogError::WriteToPngFailed(path.to_path_buf(), e))?;
     }
     Ok(result_file_buffer)
+}
+
+fn draw_tile(
+    data: Vec<u8>,
+    components_count: u32,
+    nodata: Option<u8>,
+    (data_width, data_height): (u32, u32),
+    (target_width, target_height): (u32, u32),
+    (offset_x, offset_y): (u32, u32),
+    target: &mut Vec<u8>,
+) -> () {
+    let add_alpha = components_count != 4;
+    for row in 0..data_height {
+        'outer: for col in 0..data_width {
+            let idx_chunk = row * data_width * components_count + col * components_count;
+            let idx_result = (row + offset_y) * target_width * 4 + (col + offset_x) * 4;
+            for component_idx in 0..components_count {
+                let value = data[(idx_chunk + component_idx) as usize];
+                if let Some(v) = nodata {
+                    if value == v {
+                        continue 'outer;
+                    }
+                }
+                // Copy this component to the result vector
+                target[(idx_result + component_idx) as usize] = value;
+            }
+            if add_alpha {
+                target[(idx_result + 3) as usize] = 255; // opaque
+            }
+        }
+    }
 }
 
 #[cfg(test)]
