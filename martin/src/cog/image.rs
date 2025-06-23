@@ -59,7 +59,7 @@ impl Image {
         decoder
             .seek_to_image(self.ifd_index())
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
-        let intersetced_tiles = self.intersect_tiles(bbox);
+        let intersetced_tiles = self.tiles_intersected(bbox);
         let origin_x = self.origin[0];
         let origin_y = self.origin[1];
         for (col, row) in intersetced_tiles {
@@ -78,7 +78,7 @@ impl Image {
     }
 
     /// Calculates the tiles that intersect with the given window.
-    fn intersect_tiles(&self, window: [f64; 4]) -> Vec<(u32, u32)> {
+    fn tiles_intersected(&self, window: [f64; 4]) -> Vec<(u32, u32)> {
         let epsilon = 1e-6;
 
         let tile_span_x = f64::from(self.tile_size.0) * self.resolution.0;
