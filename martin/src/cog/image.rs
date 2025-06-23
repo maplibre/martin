@@ -125,6 +125,11 @@ impl Image {
                 } //todo do others in next PRs, a lot of discussion would be needed
             };
         }
+        
+    //    ImageBuffer<Rgba<u8>, Vec<u8>> =
+          //  ImageBuffer::from 
+        
+        
         todo!()
     }
 
