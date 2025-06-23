@@ -14,7 +14,9 @@ use crate::{MartinResult, TileData};
 pub struct Image {
     /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
     ifd_index: usize,
+    /// The extent of the image in model units, represented as [min_x, min_y, max_x, max_y].
     extent: [f64; 4],
+    /// The origin of the image in model units.
     origin: [f64; 3],
     /// Number of tiles in a row of this image
     tiles_across: u32,
