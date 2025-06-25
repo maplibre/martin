@@ -4,9 +4,8 @@ use std::path::Path;
 
 use image::{ImageBuffer, Rgba};
 use martin_tile_utils::TileCoord;
-use tiff::{
-    decoder::{Decoder, DecodingResult}, ColorType
-};
+use tiff::ColorType;
+use tiff::decoder::{self, Decoder, DecodingResult};
 
 use super::CogError;
 use crate::{MartinResult, TileData};
@@ -51,14 +50,26 @@ impl Image {
             resolution,
         }
     }
+    pub fn get_tile_webmercator(
+        &self,
+        decoder: &mut Decoder<File>,
+        xyz: TileCoord,
+        nodata: Option<f64>,
+        path: &Path,
+    ) -> MartinResult<TileData> {
+        let bbox = martin_tile_utils::xyz_to_bbox_webmercator(xyz.z, xyz.x, xyz.y, xyz.x, xyz.y);
+        let nodata_u8 = nodata.map(|v| v as u8);
+        let bytes = self.clip(decoder, bbox, 256, nodata_u8, path)?;
+        Ok(bytes)
+    }
 
     fn clip(
         &self,
         decoder: &mut Decoder<File>,
         bbox: [f64; 4],
         output_size: u32,
-        path: &Path,
         nodata: Option<u8>,
+        path: &Path,
     ) -> MartinResult<TileData> {
         decoder
             .seek_to_image(self.ifd_index())

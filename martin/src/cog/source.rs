@@ -7,7 +7,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileInfo};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileInfo, xyz_to_bbox};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
@@ -33,6 +33,7 @@ pub struct CogSource {
     nodata: Option<f64>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
+    web_friendly: bool,
 }
 
 impl CogSource {
@@ -144,6 +145,7 @@ impl CogSource {
             nodata,
             tilejson,
             tileinfo,
+            web_friendly: auto_web,
         })
     }
 
@@ -161,8 +163,14 @@ impl CogSource {
             CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
         })?;
 
-        let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
-        Ok(bytes)
+        if self.web_friendly {
+            // just clip the image to get the tile in web mercator
+            let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
+            Ok(bytes)
+        } else {
+            let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
+            Ok(bytes)
+        }
     }
 }
 
