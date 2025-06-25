@@ -2,10 +2,10 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
+use image::{ImageBuffer, Rgba};
 use martin_tile_utils::TileCoord;
 use tiff::{
-    ColorType,
-    decoder::{Decoder, DecodingResult},
+    decoder::{Decoder, DecodingResult}, ColorType
 };
 
 use super::CogError;
@@ -98,7 +98,7 @@ impl Image {
                 }
             };
             match (decoded, color_type) {
-                (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => draw_tile(
+                (DecodingResult::U8(vec), ColorType::RGB(_)) => draw_tile(
                     vec,
                     components_count,
                     nodata,
@@ -107,7 +107,7 @@ impl Image {
                     (offset_x_pixel, offset_y_pixel),
                     &mut target,
                 ),
-                (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => draw_tile(
+                (DecodingResult::U8(vec), ColorType::RGBA(_)) => draw_tile(
                     vec,
                     components_count,
                     nodata,
@@ -125,12 +125,17 @@ impl Image {
                 } //todo do others in next PRs, a lot of discussion would be needed
             };
         }
-        
-    //    ImageBuffer<Rgba<u8>, Vec<u8>> =
-          //  ImageBuffer::from 
-        
-        
-        todo!()
+
+        let result_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
+            ImageBuffer::from_raw(window_width_pixel, window_height_pixel, target).unwrap();
+        let resized = image::imageops::resize(
+            &result_image,
+            output_size,
+            output_size,
+            image::imageops::FilterType::Nearest,
+        );
+        let png = encode_rgba_as_png(output_size, output_size, resized.as_raw(), path)?;
+        Ok(png)
     }
 
     /// Calculates the tiles that intersect with the given window.
@@ -235,7 +240,7 @@ impl Image {
 
         //FIXME: do more research on the not u8 case, is this the right way to do it?
         let png_file_bytes = match (decode_result, color_type) {
-            (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => rgb_to_png(
+            (DecodingResult::U8(vec), ColorType::RGB(_)) => rgb_to_png(
                 vec,
                 (tile_width, tile_height),
                 (data_width, data_height),
@@ -243,7 +248,7 @@ impl Image {
                 nodata.map(|v| v as u8),
                 path,
             ),
-            (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => rgb_to_png(
+            (DecodingResult::U8(vec), ColorType::RGBA(_)) => rgb_to_png(
                 vec,
                 (tile_width, tile_height),
                 (data_width, data_height),
