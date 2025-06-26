@@ -274,7 +274,7 @@ mod tests {
         assert_eq!(tj.name.unwrap(), "Geography Class");
         assert_eq!(
             tj.template.unwrap(),
-            "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\\n\\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\\n<strong>{{admin}}</strong>\\n\\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
+            "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
         );
         assert_eq!(tj.version.unwrap(), "1.0.0");
         assert_eq!(metadata.id, ":memory:");
