@@ -4,6 +4,10 @@ CREATE TABLE points2
     geom GEOMETRY (POINT, 4326)
 );
 
+COMMENT ON TABLE points2 IS 'A table with points';
+COMMENT ON COLUMN points2.gid IS 'The primary key';
+COMMENT ON COLUMN points2.geom IS 'The geometry column';
+
 -- INSERT INTO points2
 -- SELECT generate_series(1, 3) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(18, 235085, 122323), 4326), 3))).geom;
