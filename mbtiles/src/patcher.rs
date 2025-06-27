@@ -184,7 +184,8 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await.unwrap();
+        .await
+        .unwrap();
 
         // Apply patch to the src data in in-memory DB
         let patch_file = PathBuf::from("file:flat_patch_file_mem?mode=memory&cache=shared");
@@ -206,7 +207,8 @@ mod tests {
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await.unwrap()
+                .await
+                .unwrap()
                 .is_none()
         );
     }
@@ -228,7 +230,8 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await.unwrap();
+        .await
+        .unwrap();
 
         // Apply patch to the src data in in-memory DB
         let patch_file = PathBuf::from("file:normalized_patch_file_mem?mode=memory&cache=shared");
@@ -252,7 +255,8 @@ mod tests {
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await.unwrap()
+                .await
+                .unwrap()
                 .is_none()
         );
     }

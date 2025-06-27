@@ -282,7 +282,8 @@ mod tests {
     #[expect(clippy::too_many_lines)]
     #[tokio::test]
     async fn test_metadata_flat_with_hash() {
-        let mbt = Mbtiles::new("file:test_metadata_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mbt =
+            Mbtiles::new("file:test_metadata_flat_with_hash?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
@@ -412,7 +413,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_flat_with_hash() {
-        let mbt = Mbtiles::new("file:test_contains_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mbt =
+            Mbtiles::new("file:test_contains_flat_with_hash?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();

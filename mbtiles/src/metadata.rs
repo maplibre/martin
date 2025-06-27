@@ -320,13 +320,28 @@ mod tests {
         let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-        let res = mbt.get_metadata_value(&mut conn, "bounds").await.unwrap().unwrap();
+        let res = mbt
+            .get_metadata_value(&mut conn, "bounds")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(res, "-123.123590,-37.818085,174.763027,59.352706");
-        let res = mbt.get_metadata_value(&mut conn, "name").await.unwrap().unwrap();
+        let res = mbt
+            .get_metadata_value(&mut conn, "name")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(res, "Major cities from Natural Earth data");
-        let res = mbt.get_metadata_value(&mut conn, "maxzoom").await.unwrap().unwrap();
+        let res = mbt
+            .get_metadata_value(&mut conn, "maxzoom")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(res, "6");
-        let res = mbt.get_metadata_value(&mut conn, "nonexistent_key").await.unwrap();
+        let res = mbt
+            .get_metadata_value(&mut conn, "nonexistent_key")
+            .await
+            .unwrap();
         assert_eq!(res, None);
         let res = mbt.get_metadata_value(&mut conn, "").await.unwrap();
         assert_eq!(res, None);
@@ -334,15 +349,22 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_set_key() {
-        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await.unwrap();
+        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared")
+            .await
+            .unwrap();
 
         conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
-            .await.unwrap();
+            .await
+            .unwrap();
 
         mbt.set_metadata_value(&mut conn, "bounds", "0.0, 0.0, 0.0, 0.0")
-            .await.unwrap();
+            .await
+            .unwrap();
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap().unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
             "0.0, 0.0, 0.0, 0.0"
         );
 
@@ -351,13 +373,22 @@ mod tests {
             "bounds",
             "-123.123590,-37.818085,174.763027,59.352706",
         )
-        .await.unwrap();
+        .await
+        .unwrap();
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap().unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
             "-123.123590,-37.818085,174.763027,59.352706"
         );
 
-        mbt.delete_metadata_value(&mut conn, "bounds").await.unwrap();
-        assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(), None);
+        mbt.delete_metadata_value(&mut conn, "bounds")
+            .await
+            .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
+            None
+        );
     }
 }

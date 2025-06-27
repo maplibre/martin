@@ -875,29 +875,31 @@ mod tests {
         };
         let mut dst_conn = opt.run().await.unwrap();
 
-        Mbtiles::new(src_filepath).unwrap()
+        Mbtiles::new(src_filepath)
+            .unwrap()
             .attach_to(&mut dst_conn, "testSrcDb")
-            .await.unwrap();
+            .await
+            .unwrap();
 
         assert_eq!(
-            Mbtiles::new(dst_filepath).unwrap()
+            Mbtiles::new(dst_filepath)
+                .unwrap()
                 .detect_type(&mut dst_conn)
-                .await.unwrap(),
+                .await
+                .unwrap(),
             expected_dst_type
         );
 
         assert!(
             dst_conn
                 .fetch_optional("SELECT * FROM testSrcDb.tiles EXCEPT SELECT * FROM tiles")
-                .await.unwrap()
+                .await
+                .unwrap()
                 .is_none()
         );
     }
 
-    async fn verify_copy_with_zoom_filter(
-        opt: MbtilesCopier,
-        expected_zoom_levels: u8,
-    ) {
+    async fn verify_copy_with_zoom_filter(opt: MbtilesCopier, expected_zoom_levels: u8) {
         let mut dst_conn = opt.run().await.unwrap();
 
         assert_eq!(
@@ -1068,7 +1070,8 @@ mod tests {
         assert!(
             dst_conn
                 .fetch_optional("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
-                .await.unwrap()
+                .await
+                .unwrap()
                 .is_some()
         );
 
@@ -1164,7 +1167,8 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await.unwrap();
+        .await
+        .unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_file.clone(),
@@ -1175,13 +1179,16 @@ mod tests {
         let mut dst_conn = opt.run().await.unwrap();
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
-        Mbtiles::new(src_file).unwrap()
+        Mbtiles::new(src_file)
+            .unwrap()
             .attach_to(&mut dst_conn, "testOtherDb")
-            .await.unwrap();
+            .await
+            .unwrap();
         assert!(
             dst_conn
                 .fetch_optional("SELECT * FROM testOtherDb.tiles EXCEPT SELECT * FROM tiles;")
-                .await.unwrap()
+                .await
+                .unwrap()
                 .is_none()
         );
     }
@@ -1213,7 +1220,8 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await.unwrap();
+        .await
+        .unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_file.clone(),
@@ -1224,12 +1232,16 @@ mod tests {
         let mut dst_conn = opt.run().await.unwrap();
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
-        Mbtiles::new(src_file).unwrap()
+        Mbtiles::new(src_file)
+            .unwrap()
             .attach_to(&mut dst_conn, "testSrcDb")
-            .await.unwrap();
-        Mbtiles::new(dst_file).unwrap()
+            .await
+            .unwrap();
+        Mbtiles::new(dst_file)
+            .unwrap()
             .attach_to(&mut dst_conn, "testOriginalDb")
-            .await.unwrap();
+            .await
+            .unwrap();
 
         // Create a temporary table with all the tiles in the original database and
         // all the tiles in the source database except for those that conflict with tiles in the original database
@@ -1252,7 +1264,8 @@ mod tests {
              SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
             )
             .fetch_optional(&mut dst_conn)
-            .await.unwrap()
+            .await
+            .unwrap()
             .is_none()
         );
     }
