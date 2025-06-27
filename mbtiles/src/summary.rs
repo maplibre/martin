@@ -193,15 +193,15 @@ mod tests {
 
     use insta::assert_yaml_snapshot;
 
-    use crate::{MbtResult, MbtType, Mbtiles, init_mbtiles_schema};
+    use crate::{MbtType, Mbtiles, init_mbtiles_schema};
 
     #[actix_rt::test]
-    async fn summary_empty_file() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:mbtiles_empty_summary?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn summary_empty_file() {
+        let mbt = Mbtiles::new("file:mbtiles_empty_summary?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
-        let res = mbt.summary(&mut conn).await?;
+        let res = mbt.summary(&mut conn).await.unwrap();
         assert_yaml_snapshot!(res, @r"
         file_size: ~
         mbt_type: Flat
@@ -216,18 +216,16 @@ mod tests {
         max_zoom: ~
         zoom_info: []
         ");
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn summary() -> MbtResult<()> {
-        let mbt = Mbtiles::new(":memory:")?;
-        let mut conn = mbt.open().await?;
+    async fn summary() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
-        let res = mbt.summary(&mut conn).await?;
+        let res = mbt.summary(&mut conn).await.unwrap();
 
         assert_yaml_snapshot!(res, @r"
         file_size: ~
@@ -317,7 +315,5 @@ mod tests {
               - 180.00000000000003
               - 61.60639637138628
         ");
-
-        Ok(())
     }
 }
