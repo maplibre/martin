@@ -211,6 +211,8 @@ validate_log() {
   remove_line "$LOG_FILE" 'Source IDs must be unique'
   remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
   remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
+  # If a table has comments, it will prompt a warning, but it is not a fatal error.
+  remove_line "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then

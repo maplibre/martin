@@ -4,10 +4,8 @@ CREATE TABLE points2
     geom GEOMETRY (POINT, 4326)
 );
 
-COMMENT ON TABLE points2 IS '{
-    "description": "description from SQL comment",
-    "attribution": "some attribution from SQL comment"
-}';
+-- this will not be used as tilejson since it is not valid tilejson
+COMMENT ON TABLE points2 IS 'A table with points';
 COMMENT ON COLUMN points2.gid IS 'The primary key';
 COMMENT ON COLUMN points2.geom IS 'The geometry column';
 
