@@ -917,7 +917,7 @@ mod tests {
         let src = PathBuf::from("file:src_copy_flat_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
         let dst = PathBuf::from("file:copy_flat_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, script, dst, None, Flat).await
+        verify_copy_all(src, script, dst, None, Flat).await;
     }
 
     #[actix_rt::test]
@@ -928,7 +928,7 @@ mod tests {
         let dst = PathBuf::from(
             "file:copy_flat_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
-        verify_copy_all(src, script, dst, FLAT, Flat).await
+        verify_copy_all(src, script, dst, FLAT, Flat).await;
     }
 
     #[actix_rt::test]
@@ -937,7 +937,7 @@ mod tests {
         let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
         let dst =
             PathBuf::from("file:copy_flat_from_normalized_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, script, dst, FLAT, Flat).await
+        verify_copy_all(src, script, dst, FLAT, Flat).await;
     }
 
     #[actix_rt::test]
@@ -945,7 +945,7 @@ mod tests {
         let src = PathBuf::from("file:src_copy_flat_with_hash_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let dst = PathBuf::from("file:copy_flat_with_hash_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, script, dst, None, FlatWithHash).await
+        verify_copy_all(src, script, dst, None, FlatWithHash).await;
     }
 
     #[actix_rt::test]
@@ -956,7 +956,7 @@ mod tests {
         let dst = PathBuf::from(
             "file:copy_flat_with_hash_from_flat_tables_mem_db?mode=memory&cache=shared",
         );
-        verify_copy_all(src, script, dst, FLAT_WITH_HASH, FlatWithHash).await
+        verify_copy_all(src, script, dst, FLAT_WITH_HASH, FlatWithHash).await;
     }
 
     #[actix_rt::test]
@@ -967,7 +967,7 @@ mod tests {
         let dst = PathBuf::from(
             "file:copy_flat_with_hash_from_normalized_tables_mem_db?mode=memory&cache=shared",
         );
-        verify_copy_all(src, script, dst, FLAT_WITH_HASH, FlatWithHash).await
+        verify_copy_all(src, script, dst, FLAT_WITH_HASH, FlatWithHash).await;
     }
 
     #[actix_rt::test]
@@ -975,7 +975,7 @@ mod tests {
         let src = PathBuf::from("file:src_norm_tables_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
         let dst = PathBuf::from("file:copy_normalized_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, script, dst, None, NORM_WITH_VIEW).await
+        verify_copy_all(src, script, dst, None, NORM_WITH_VIEW).await;
     }
 
     #[actix_rt::test]
@@ -984,7 +984,7 @@ mod tests {
         let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
         let dst =
             PathBuf::from("file:copy_normalized_from_flat_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await
+        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
     }
 
     #[actix_rt::test]
@@ -995,7 +995,7 @@ mod tests {
         let dst = PathBuf::from(
             "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
-        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await
+        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
     }
 
     #[actix_rt::test]
@@ -1014,7 +1014,7 @@ mod tests {
             max_zoom: Some(4),
             ..Default::default()
         };
-        verify_copy_with_zoom_filter(opt, 3).await
+        verify_copy_with_zoom_filter(opt, 3).await;
     }
 
     #[actix_rt::test]
@@ -1034,7 +1034,7 @@ mod tests {
             zoom_levels: vec![1, 6],
             ..Default::default()
         };
-        verify_copy_with_zoom_filter(opt, 2).await
+        verify_copy_with_zoom_filter(opt, 2).await;
     }
 
     #[actix_rt::test]
