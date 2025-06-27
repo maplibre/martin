@@ -278,8 +278,27 @@ test-doc *args:
 test-fmt:
     cargo fmt --all -- --check
 
+prepare-fixtures:
+    #!/bin/bash
+    set -euo pipefail
+
+    FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
+
+    for folder in "${FOLDERS[@]}"; do
+        echo "Processing folder: $folder"
+
+        for sql_file in "$folder"/*.sql; do
+            [ -e "$sql_file" ] || continue
+
+            mbtiles_file="${sql_file%.sql}.mbtiles"
+            echo "Creating: $mbtiles_file from $sql_file"
+            sqlite3 "$mbtiles_file" < "$sql_file"
+        done
+    done
+
+
 # Run integration tests
-test-int: clean-test install-sqlx
+test-int: clean-test install-sqlx prepare-fixtures
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
