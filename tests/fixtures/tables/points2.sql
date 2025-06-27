@@ -4,7 +4,10 @@ CREATE TABLE points2
     geom GEOMETRY (POINT, 4326)
 );
 
-COMMENT ON TABLE points2 IS 'A table with points';
+COMMENT ON TABLE points2 IS '{
+    "description": "description from SQL comment",
+    "attribution": "some attribution from SQL comment"
+}';
 COMMENT ON COLUMN points2.gid IS 'The primary key';
 COMMENT ON COLUMN points2.geom IS 'The geometry column';
 
