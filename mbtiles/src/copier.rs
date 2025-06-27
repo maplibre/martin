@@ -861,9 +861,9 @@ mod tests {
         dst_filepath: PathBuf,
         dst_type_cli: Option<MbtTypeCli>,
         expected_dst_type: MbtType,
-    ) -> MbtResult<()> {
-        let mbt = Mbtiles::new(&src_filepath)?;
-        let mut conn = mbt.open().await?;
+    ) {
+        let mbt = Mbtiles::new(&src_filepath).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string(script_filepath).unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
@@ -873,34 +873,32 @@ mod tests {
             dst_type_cli,
             ..Default::default()
         };
-        let mut dst_conn = opt.run().await?;
+        let mut dst_conn = opt.run().await.unwrap();
 
-        Mbtiles::new(src_filepath)?
+        Mbtiles::new(src_filepath).unwrap()
             .attach_to(&mut dst_conn, "testSrcDb")
-            .await?;
+            .await.unwrap();
 
         assert_eq!(
-            Mbtiles::new(dst_filepath)?
+            Mbtiles::new(dst_filepath).unwrap()
                 .detect_type(&mut dst_conn)
-                .await?,
+                .await.unwrap(),
             expected_dst_type
         );
 
         assert!(
             dst_conn
                 .fetch_optional("SELECT * FROM testSrcDb.tiles EXCEPT SELECT * FROM tiles")
-                .await?
+                .await.unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 
     async fn verify_copy_with_zoom_filter(
         opt: MbtilesCopier,
         expected_zoom_levels: u8,
-    ) -> MbtResult<()> {
-        let mut dst_conn = opt.run().await?;
+    ) {
+        let mut dst_conn = opt.run().await.unwrap();
 
         assert_eq!(
             get_one::<u8>(
@@ -910,12 +908,10 @@ mod tests {
             .await,
             expected_zoom_levels
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn copy_flat_tables() -> MbtResult<()> {
+    async fn copy_flat_tables() {
         let src = PathBuf::from("file:src_copy_flat_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
         let dst = PathBuf::from("file:copy_flat_tables_mem_db?mode=memory&cache=shared");
@@ -923,7 +919,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_flat_from_flat_with_hash_tables() -> MbtResult<()> {
+    async fn copy_flat_from_flat_with_hash_tables() {
         let src =
             PathBuf::from("file:src_copy_flat_from_flat_with_hash_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.sql");
@@ -934,7 +930,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_flat_from_normalized_tables() -> MbtResult<()> {
+    async fn copy_flat_from_normalized_tables() {
         let src = PathBuf::from("file:src_copy_flat_from_norm_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
         let dst =
@@ -943,7 +939,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_flat_with_hash_tables() -> MbtResult<()> {
+    async fn copy_flat_with_hash_tables() {
         let src = PathBuf::from("file:src_copy_flat_with_hash_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let dst = PathBuf::from("file:copy_flat_with_hash_tables_mem_db?mode=memory&cache=shared");
@@ -951,7 +947,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_flat_with_hash_from_flat_tables() -> MbtResult<()> {
+    async fn copy_flat_with_hash_from_flat_tables() {
         let src =
             PathBuf::from("file:src_copy_flat_with_hash_from_flat_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
@@ -962,7 +958,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_flat_with_hash_from_normalized_tables() -> MbtResult<()> {
+    async fn copy_flat_with_hash_from_normalized_tables() {
         let src =
             PathBuf::from("file:src_copy_flat_with_hash_from_norm_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
@@ -973,7 +969,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_normalized_tables() -> MbtResult<()> {
+    async fn copy_normalized_tables() {
         let src = PathBuf::from("file:src_norm_tables_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
         let dst = PathBuf::from("file:copy_normalized_tables_mem_db?mode=memory&cache=shared");
@@ -981,7 +977,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_normalized_from_flat_tables() -> MbtResult<()> {
+    async fn copy_normalized_from_flat_tables() {
         let src = PathBuf::from("file:src_norm_from_flat_tables_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
         let dst =
@@ -990,7 +986,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_normalized_from_flat_with_hash_tables() -> MbtResult<()> {
+    async fn copy_normalized_from_flat_with_hash_tables() {
         let src =
             PathBuf::from("file:src_norm_from_flat_with_hash_mem_db?mode=memory&cache=shared");
         let script = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.sql");
@@ -1001,11 +997,11 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_with_min_max_zoom() -> MbtResult<()> {
+    async fn copy_with_min_max_zoom() {
         let src_file =
             PathBuf::from("file:src_copy_with_min_max_zoom_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
@@ -1020,11 +1016,11 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_with_zoom_levels() -> MbtResult<()> {
+    async fn copy_with_zoom_levels() {
         let src_file =
             PathBuf::from("file:src_ccopy_with_zoom_levels_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
@@ -1040,11 +1036,11 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_with_diff_with_file() -> MbtResult<()> {
+    async fn copy_with_diff_with_file() {
         let src =
             PathBuf::from("file:src_copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
@@ -1053,8 +1049,8 @@ mod tests {
 
         let diff_file =
             PathBuf::from("file:diff_copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&diff_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&diff_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg-modified.sql")
                 .unwrap();
@@ -1067,12 +1063,12 @@ mod tests {
             force: true,
             ..Default::default()
         };
-        let mut dst_conn = opt.run().await?;
+        let mut dst_conn = opt.run().await.unwrap();
 
         assert!(
             dst_conn
                 .fetch_optional("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
-                .await?
+                .await.unwrap()
                 .is_some()
         );
 
@@ -1107,24 +1103,22 @@ mod tests {
             .await
             .is_some()
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn copy_to_existing_abort_mode() -> MbtResult<()> {
+    async fn copy_to_existing_abort_mode() {
         let src =
             PathBuf::from("file:src_copy_to_existing_abort_mode_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let dst =
             PathBuf::from("file:dst_copy_to_existing_abort_mode_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&dst)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&dst).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
@@ -1139,16 +1133,15 @@ mod tests {
             opt.run().await.unwrap_err(),
             MbtError::RusqliteError(..)
         ));
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn copy_to_existing_override_mode() -> MbtResult<()> {
+    async fn copy_to_existing_override_mode() {
         let src_file = PathBuf::from(
             "file:src_copy_to_existing_override_mode_mem_db?mode=memory&cache=shared",
         );
-        let mbt = Mbtiles::new(&src_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
@@ -1157,8 +1150,8 @@ mod tests {
         let dst_file = PathBuf::from(
             "file:dst_copy_to_existing_override_mode_mem_db?mode=memory&cache=shared",
         );
-        let mbt = Mbtiles::new(&dst_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&dst_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
@@ -1171,7 +1164,7 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await.unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_file.clone(),
@@ -1179,28 +1172,26 @@ mod tests {
             on_duplicate: Some(CopyDuplicateMode::Override),
             ..Default::default()
         };
-        let mut dst_conn = opt.run().await?;
+        let mut dst_conn = opt.run().await.unwrap();
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
-        Mbtiles::new(src_file)?
+        Mbtiles::new(src_file).unwrap()
             .attach_to(&mut dst_conn, "testOtherDb")
-            .await?;
+            .await.unwrap();
         assert!(
             dst_conn
                 .fetch_optional("SELECT * FROM testOtherDb.tiles EXCEPT SELECT * FROM tiles;")
-                .await?
+                .await.unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn copy_to_existing_ignore_mode() -> MbtResult<()> {
+    async fn copy_to_existing_ignore_mode() {
         let src_file =
             PathBuf::from("file:src_copy_to_existing_ignore_mode_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
@@ -1208,8 +1199,8 @@ mod tests {
         // Copy the dst file to an in-memory DB
         let dst_file =
             PathBuf::from("file:dst_copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&dst_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&dst_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
@@ -1222,7 +1213,7 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await.unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_file.clone(),
@@ -1230,15 +1221,15 @@ mod tests {
             on_duplicate: Some(CopyDuplicateMode::Ignore),
             ..Default::default()
         };
-        let mut dst_conn = opt.run().await?;
+        let mut dst_conn = opt.run().await.unwrap();
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
-        Mbtiles::new(src_file)?
+        Mbtiles::new(src_file).unwrap()
             .attach_to(&mut dst_conn, "testSrcDb")
-            .await?;
-        Mbtiles::new(dst_file)?
+            .await.unwrap();
+        Mbtiles::new(dst_file).unwrap()
             .attach_to(&mut dst_conn, "testOriginalDb")
-            .await?;
+            .await.unwrap();
 
         // Create a temporary table with all the tiles in the original database and
         // all the tiles in the source database except for those that conflict with tiles in the original database
@@ -1251,7 +1242,7 @@ mod tests {
                    FROM testOriginalDb.tiles as t1
                    FULL OUTER JOIN testSrcDb.tiles as t2
                        ON t1.zoom_level = t2.zoom_level AND t1.tile_column = t2.tile_column AND t1.tile_row = t2.tile_row")
-            .await?;
+            .await.unwrap();
 
         // Ensure all entries in expected_tiles are in tiles and vice versa
         assert!(
@@ -1261,10 +1252,8 @@ mod tests {
              SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
             )
             .fetch_optional(&mut dst_conn)
-            .await?
+            .await.unwrap()
             .is_none()
         );
-
-        Ok(())
     }
 }
