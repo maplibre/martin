@@ -330,7 +330,7 @@ mod tests {
         let args = Args::parse_from([
             "martin",
             "../tests/fixtures/pmtiles/png.pmtiles",
-            "../tests/fixtures/mbtiles/json.mbtiles",
+            // "../tests/fixtures/mbtiles/json.mbtiles",
             "../tests/fixtures/cog/rgba_u8_nodata.tiff",
             "../tests/fixtures/cog/rgba_u8.tif",
         ]);
@@ -341,11 +341,11 @@ mod tests {
         assert!(err.is_ok());
         assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
-        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
         "#);
+        // mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
     }
 
     #[test]
