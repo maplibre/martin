@@ -243,25 +243,24 @@ mod tests {
     use crate::mbtiles::tests::open;
 
     #[actix_rt::test]
-    async fn mbtiles_meta() -> MbtResult<()> {
-        let mbt = Mbtiles::new(":memory:")?;
-        let mut conn = mbt.open().await?;
+    async fn mbtiles_meta() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         assert_eq!(mbt.filepath(), ":memory:"); // huh, I wonder if this will work
         assert_eq!(mbt.filename(), ":memory:");
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_jpeg() -> MbtResult<()> {
-        let mbt = Mbtiles::new(":memory:")?;
-        let mut conn = mbt.open().await?;
+    async fn metadata_jpeg() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-        let metadata = mbt.get_metadata(&mut conn).await?;
+        let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
         assert_eq!(
@@ -279,16 +278,15 @@ mod tests {
         assert_eq!(tj.version.unwrap(), "1.0.0");
         assert_eq!(metadata.id, ":memory:");
         assert_eq!(metadata.tile_info, Format::Jpeg.into());
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_mvt() -> MbtResult<()> {
-        let mbt = Mbtiles::new(":memory:")?;
-        let mut conn = mbt.open().await?;
+    async fn metadata_mvt() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-        let metadata = mbt.get_metadata(&mut conn).await?;
+        let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
         assert_eq!(tj.maxzoom.unwrap(), 6);
@@ -314,40 +312,37 @@ mod tests {
             TileInfo::new(Format::Mvt, Encoding::Gzip)
         );
         assert_eq!(metadata.layer_type, Some("overlay".to_string()));
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_get_key() -> MbtResult<()> {
-        let mbt = Mbtiles::new(":memory:")?;
-        let mut conn = mbt.open().await?;
+    async fn metadata_get_key() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-
-        let res = mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap();
+        let res = mbt.get_metadata_value(&mut conn, "bounds").await.unwrap().unwrap();
         assert_eq!(res, "-123.123590,-37.818085,174.763027,59.352706");
-        let res = mbt.get_metadata_value(&mut conn, "name").await?.unwrap();
+        let res = mbt.get_metadata_value(&mut conn, "name").await.unwrap().unwrap();
         assert_eq!(res, "Major cities from Natural Earth data");
-        let res = mbt.get_metadata_value(&mut conn, "maxzoom").await?.unwrap();
+        let res = mbt.get_metadata_value(&mut conn, "maxzoom").await.unwrap().unwrap();
         assert_eq!(res, "6");
-        let res = mbt.get_metadata_value(&mut conn, "nonexistent_key").await?;
+        let res = mbt.get_metadata_value(&mut conn, "nonexistent_key").await.unwrap();
         assert_eq!(res, None);
-        let res = mbt.get_metadata_value(&mut conn, "").await?;
+        let res = mbt.get_metadata_value(&mut conn, "").await.unwrap();
         assert_eq!(res, None);
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_set_key() -> MbtResult<()> {
-        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await?;
+    async fn metadata_set_key() {
+        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await.unwrap();
 
         conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
-            .await?;
+            .await.unwrap();
 
         mbt.set_metadata_value(&mut conn, "bounds", "0.0, 0.0, 0.0, 0.0")
-            .await?;
+            .await.unwrap();
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap().unwrap(),
             "0.0, 0.0, 0.0, 0.0"
         );
 
@@ -356,15 +351,13 @@ mod tests {
             "bounds",
             "-123.123590,-37.818085,174.763027,59.352706",
         )
-        .await?;
+        .await.unwrap();
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap().unwrap(),
             "-123.123590,-37.818085,174.763027,59.352706"
         );
 
-        mbt.delete_metadata_value(&mut conn, "bounds").await?;
-        assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await?, None);
-
-        Ok(())
+        mbt.delete_metadata_value(&mut conn, "bounds").await.unwrap();
+        assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(), None);
     }
 }
