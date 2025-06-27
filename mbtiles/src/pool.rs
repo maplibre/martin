@@ -84,9 +84,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_metadata_invalid() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_metadata_invalid?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_metadata_invalid() {
+        let mbt = Mbtiles::new("file:test_metadata_invalid?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/webp.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let pool =
@@ -119,13 +119,12 @@ mod tests {
           name: ne2sr
           format: webp
         "#);
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_contains_invalid() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_contains_invalid?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_contains_invalid() {
+        let mbt = Mbtiles::new("file:test_contains_invalid?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/webp.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let pool =
@@ -142,13 +141,12 @@ mod tests {
         ] {
             assert!(pool.contains(error_mbt_type, 0, 0, 0).await.is_err());
         }
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_invalid_type() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_invalid_type?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_invalid_type() {
+        let mbt = Mbtiles::new("file:test_invalid_type?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/webp.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let pool = MbtilesPool::open_readonly("file:test_invalid_type?mode=memory&cache=shared")
@@ -174,13 +172,12 @@ mod tests {
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_metadata_normalized() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_metadata_normalized?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_metadata_normalized() {
+        let mbt = Mbtiles::new("file:test_metadata_normalized?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql")
                 .unwrap();
@@ -210,13 +207,12 @@ mod tests {
           template: "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
           version: 1.0.0
         "#);
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_contains_normalized() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_contains_normalized?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_contains_normalized() {
+        let mbt = Mbtiles::new("file:test_contains_normalized?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql")
                 .unwrap();
@@ -238,13 +234,12 @@ mod tests {
             assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
         }
         assert!(pool.contains(MbtType::FlatWithHash, 0, 0, 0).await.is_err());
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_normalized() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_normalized?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_normalized() {
+        let mbt = Mbtiles::new("file:test_normalized?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql")
                 .unwrap();
@@ -282,14 +277,13 @@ mod tests {
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
-        Ok(())
     }
 
     #[expect(clippy::too_many_lines)]
     #[tokio::test]
-    async fn test_metadata_flat_with_hash() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_metadata_flat_with_hash?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_metadata_flat_with_hash() {
+        let mbt = Mbtiles::new("file:test_metadata_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
@@ -414,13 +408,12 @@ mod tests {
                 layer: cities
         agg_tiles_hash: D4E1030D57751A0B45A28A71267E46B8
         "#);
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_contains_flat_with_hash() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_contains_flat_with_hash?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_contains_flat_with_hash() {
+        let mbt = Mbtiles::new("file:test_contains_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
@@ -439,13 +432,12 @@ mod tests {
         ] {
             assert!(pool.contains(error_mbt_type, 6, 38, 19).await.is_err());
         }
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_flat_with_hash() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:test_flat_with_hash?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn test_flat_with_hash() {
+        let mbt = Mbtiles::new("file:test_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
@@ -485,6 +477,5 @@ mod tests {
                 .await
                 .is_err()
         );
-        Ok(())
     }
 }
