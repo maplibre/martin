@@ -169,11 +169,11 @@ mod tests {
     use crate::MbtilesCopier;
 
     #[actix_rt::test]
-    async fn apply_flat_patch_file() -> MbtResult<()> {
+    async fn apply_flat_patch_file() {
         // Copy the src file to an in-memory DB
         let src_file = PathBuf::from("file:flat_src_file_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let src = PathBuf::from("file:apply_flat_patch_file?mode=memory&cache=shared");
@@ -184,41 +184,39 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await.unwrap();
 
         // Apply patch to the src data in in-memory DB
         let patch_file = PathBuf::from("file:flat_patch_file_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&patch_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&patch_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_diff.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-        apply_patch(src, patch_file, true).await?;
+        apply_patch(src, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
-        let mbt = Mbtiles::new("file:flat_attached_mem_db?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new("file:flat_attached_mem_db?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-        mbt.attach_to(&mut src_conn, "testOtherDb").await?;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await?
+                .await.unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn apply_normalized_patch_file() -> MbtResult<()> {
+    async fn apply_normalized_patch_file() {
         // Copy the src file to an in-memory DB
         let src_file = PathBuf::from("file:normalized_src_file_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&src_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
@@ -230,34 +228,32 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await.unwrap();
 
         // Apply patch to the src data in in-memory DB
         let patch_file = PathBuf::from("file:normalized_patch_file_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&patch_file)?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new(&patch_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg-diff.sql")
                 .unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-        apply_patch(src, patch_file, true).await?;
+        apply_patch(src, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
-        let mbt = Mbtiles::new("file:normalized_attached_mem_db?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+        let mbt = Mbtiles::new("file:normalized_attached_mem_db?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
         let script =
             std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg-modified.sql")
                 .unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
-        mbt.attach_to(&mut src_conn, "testOtherDb").await?;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await?
+                .await.unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 }
