@@ -305,7 +305,7 @@ macro_rules! impl_pmtiles_source {
                     .get_tile(
                         pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y)
                             // TBD: better error?
-                            .ok_or_else(||io::Error::other("Invalid tile coordinates"))?,
+                            .ok_or_else(|| io::Error::other("Invalid tile coordinates"))?,
                     )
                     .await?
                 {

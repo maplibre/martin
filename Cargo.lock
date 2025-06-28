@@ -4059,7 +4059,9 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.15.0"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47a6cf8a4df593fba37df4e058f57ef0634304d1a8d6b5bf75922c1d1a5b520b"
 dependencies = [
  "async-compression",
  "aws-sdk-s3",
