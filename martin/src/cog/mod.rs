@@ -1,5 +1,8 @@
+#![doc = include_str!("README.md")]
+
 mod config;
 mod errors;
+mod image;
 mod model;
 mod source;
 

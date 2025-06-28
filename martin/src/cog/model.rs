@@ -6,9 +6,10 @@ use tiff::tags::Tag;
 
 use super::CogError;
 
-/// These are tags to be used for defining the relationship between raster space and model space. See [ogc doc](https://docs.ogc.org/is/19-008r4/19-008r4.html#_coordinate_transformations) for more details.
+/// These tags define the relationship between raster space and model space.
+/// See [ogc doc](https://docs.ogc.org/is/19-008r4/19-008r4.html#_coordinate_transformations) for details.
 ///
-/// The the relationship may be diagrammed as:
+/// The relationship may be diagrammed as:
 /// ```raw
 ///        ModelPixelScaleTag
 ///          ModelTiepointTag
@@ -17,7 +18,7 @@ use super::CogError;
 /// ```
 #[derive(Clone, Debug)]
 pub struct ModelInfo {
-    /// `ModelPixelScaleTag`, may be used to specify the size of raster pixel spacing in the model space units, when the raster space can be embedded in the model space coordinate reference system without rotation.
+    /// `ModelPixelScaleTag` may be used to specify the size of raster pixel spacing in the model space units, when the raster space can be embedded in the model space coordinate reference system without rotation.
     /// Consists of the following 3 values: `(ScaleX, ScaleY, ScaleZ)`.
     ///
     /// ```raw
@@ -37,7 +38,7 @@ pub struct ModelInfo {
     /// ModelTiepointTag:
     ///   Tag = 33922 (8482.H)
     ///   Type = DOUBLE (IEEE Double precision)
-    ///   N = 6*K, K = number of tiepoints
+    ///   N = 6*K, K = number of tie-points
     ///   Alias: GeoreferenceTag
     /// ```
     ///
