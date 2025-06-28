@@ -4,7 +4,8 @@ CREATE TABLE points2
     geom GEOMETRY (POINT, 4326)
 );
 
--- this will not be used as tilejson since it is not valid tilejson
+-- if below were valid tilejson, we would serve it as such
+-- for this test case, this is intentionally not the case
 COMMENT ON TABLE points2 IS 'A table with points';
 COMMENT ON COLUMN points2.gid IS 'The primary key';
 COMMENT ON COLUMN points2.geom IS 'The geometry column';
