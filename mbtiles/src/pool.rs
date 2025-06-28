@@ -85,14 +85,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_metadata_invalid() {
-        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
-            .await
-            .unwrap();
+        let mbt = Mbtiles::new("file:test_metadata_invalid?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/webp.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool =
+            MbtilesPool::open_readonly("file:test_metadata_invalid?mode=memory&cache=shared")
+                .await
+                .unwrap();
         // invalid type
         assert!(pool.detect_type().await.is_err());
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
-        id: webp
+        id: "file:test_metadata_invalid?mode=memory&cache=shared"
         tile_info:
           format: webp
           encoding: ""
@@ -118,9 +123,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_invalid() {
-        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
-            .await
-            .unwrap();
+        let mbt = Mbtiles::new("file:test_contains_invalid?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/webp.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool =
+            MbtilesPool::open_readonly("file:test_contains_invalid?mode=memory&cache=shared")
+                .await
+                .unwrap();
         assert!(pool.detect_type().await.is_err());
 
         assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
@@ -135,7 +145,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_type() {
-        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
+        let mbt = Mbtiles::new("file:test_invalid_type?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/webp.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool = MbtilesPool::open_readonly("file:test_invalid_type?mode=memory&cache=shared")
             .await
             .unwrap();
 
@@ -162,18 +176,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_metadata_normalized() {
-        let pool = MbtilesPool::open_readonly(
-            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
-        )
-        .await
-        .unwrap();
+        let mbt = Mbtiles::new("file:test_metadata_normalized?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script =
+            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql")
+                .unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool =
+            MbtilesPool::open_readonly("file:test_metadata_normalized?mode=memory&cache=shared")
+                .await
+                .unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
         );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
-        id: geography-class-png-no-bounds
+        id: "file:test_metadata_normalized?mode=memory&cache=shared"
         tile_info:
           format: png
           encoding: ""
@@ -192,11 +211,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_normalized() {
-        let pool = MbtilesPool::open_readonly(
-            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
-        )
-        .await
-        .unwrap();
+        let mbt = Mbtiles::new("file:test_contains_normalized?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script =
+            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql")
+                .unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool =
+            MbtilesPool::open_readonly("file:test_contains_normalized?mode=memory&cache=shared")
+                .await
+                .unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
@@ -214,11 +238,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_normalized() {
-        let pool = MbtilesPool::open_readonly(
-            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
-        )
-        .await
-        .unwrap();
+        let mbt = Mbtiles::new("file:test_normalized?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script =
+            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql")
+                .unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool = MbtilesPool::open_readonly("file:test_normalized?mode=memory&cache=shared")
+            .await
+            .unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
@@ -254,14 +282,21 @@ mod tests {
     #[expect(clippy::too_many_lines)]
     #[tokio::test]
     async fn test_metadata_flat_with_hash() {
-        let pool =
-            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
-                .await
-                .unwrap();
+        let mbt =
+            Mbtiles::new("file:test_metadata_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script =
+            std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool = MbtilesPool::open_readonly(
+            "file:test_metadata_flat_with_hash?mode=memory&cache=shared",
+        )
+        .await
+        .unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
-        id: zoomed_world_cities
+        id: "file:test_metadata_flat_with_hash?mode=memory&cache=shared"
         tile_info:
           format: mvt
           encoding: gzip
@@ -378,10 +413,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_flat_with_hash() {
-        let pool =
-            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
-                .await
-                .unwrap();
+        let mbt =
+            Mbtiles::new("file:test_contains_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script =
+            std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool = MbtilesPool::open_readonly(
+            "file:test_contains_flat_with_hash?mode=memory&cache=shared",
+        )
+        .await
+        .unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         for working_mbt_type in [MbtType::FlatWithHash, MbtType::Flat] {
             assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
@@ -396,10 +438,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_flat_with_hash() {
-        let pool =
-            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
-                .await
-                .unwrap();
+        let mbt = Mbtiles::new("file:test_flat_with_hash?mode=memory&cache=shared").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let script =
+            std::fs::read_to_string("../tests/fixtures/mbtiles/zoomed_world_cities.sql").unwrap();
+        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        let pool = MbtilesPool::open_readonly("file:test_flat_with_hash?mode=memory&cache=shared")
+            .await
+            .unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert!(!t1.is_empty());

@@ -5,7 +5,13 @@ mkdir martin
 cd martin
 
 # Download some sample data
-curl -L -O https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles
+curl -L -O https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql
+
+# Check if sqlite is installed
+sqlite3 --version
+
+# Initialize a database
+sqlite3 world_cities.mbtiles < world_cities.sql
 
 # Download the latest version of Martin binary, extract it, and make it executable
 curl -L -O https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
