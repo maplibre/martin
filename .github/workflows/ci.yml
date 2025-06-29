@@ -253,7 +253,7 @@ jobs:
           name: failed-test-output-docker
           path: |
             tests/output/*
-            target/test_logs/*
+            target_releases/test_logs/*
           retention-days: 5
 
       - name: Login to GitHub Docker registry
@@ -326,9 +326,9 @@ jobs:
           set -x
           sudo apt-get install -y dpkg dpkg-dev liblzma-dev
           cargo install cargo-deb --locked
-          cargo deb -v -p martin --output target/debian/debian-x86_64.deb
+          cargo deb -v -p martin --output target_releases/debian/debian-x86_64.deb
           mkdir -p target_releases
-          mv target/debian/debian-x86_64.deb target_releases/
+          mv target_releases/debian/debian-x86_64.deb target_releases/
       - name: Build
         if: matrix.target != 'debian-x86_64'
         run: |
@@ -338,9 +338,9 @@ jobs:
           cargo build --release --target ${{ matrix.target }} --package mbtiles
           cargo build --release --target ${{ matrix.target }} --package martin
           mkdir -p target_releases
-          mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
-          mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
-          mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
+          mv target_releases/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
+          mv target_releases/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
+          mv target_releases/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v4
         with:
@@ -361,10 +361,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-x86_64-unknown-linux-musl
-          path: target/x86_64-unknown-linux-musl
+          path: target_releases/x86_64-unknown-linux-musl
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: target/x86_64-unknown-linux-musl/martin
+          MARTIN_BIN: target_releases/x86_64-unknown-linux-musl/martin
 
   test-multi-os:
     name: Test on ${{ matrix.os }}
@@ -490,7 +490,7 @@ jobs:
           name: failed-test-output-${{ runner.os }}
           path: |
             tests/output/*
-            target/test_logs/*
+            target_releases/test_logs/*
           retention-days: 5
 
   test-with-svc:
@@ -564,9 +564,9 @@ jobs:
         if: matrix.sslmode == 'verify-ca' || matrix.sslmode == 'verify-full'
         run: |
           set -x
-          mkdir -p target/certs
-          docker cp ${{ job.services.postgres.id }}:/etc/ssl/certs/ssl-cert-snakeoil.pem target/certs/server.crt
-          docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
+          mkdir -p target_releases/certs
+          docker cp ${{ job.services.postgres.id }}:/etc/ssl/certs/ssl-cert-snakeoil.pem target_releases/certs/server.crt
+          docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target_releases/certs/server.key
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@v4
         with:
@@ -577,7 +577,7 @@ jobs:
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
-            export PGSSLROOTCERT=target/certs/server.crt
+            export PGSSLROOTCERT=target_releases/certs/server.crt
           fi
           export MARTIN_BUILD_ALL=-
           export AWS_REGION=eu-central-1
@@ -599,7 +599,7 @@ jobs:
         run: |
           sudo dpkg -i target_releases/debian-x86_64.deb
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
-            export PGSSLROOTCERT=target/certs/server.crt
+            export PGSSLROOTCERT=target_releases/certs/server.crt
           fi
           export MARTIN_BUILD_ALL=-
           export AWS_REGION=eu-central-1
@@ -632,7 +632,7 @@ jobs:
           name: test-output
           path: |
             tests/output/*
-            target/test_logs/*
+            target_releases/test_logs/*
           retention-days: 5
 
   package:
@@ -646,33 +646,35 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-aarch64-apple-darwin
-          path: target/aarch64-apple-darwin
+          path: target_releases/aarch64-apple-darwin
       - name: Download build artifact build-x86_64-apple-darwin
         uses: actions/download-artifact@v4
         with:
           name: build-x86_64-apple-darwin
-          path: target/x86_64-apple-darwin
+          path: target_releases/x86_64-apple-darwin
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@v4
         with:
           name: build-x86_64-unknown-linux-gnu
-          path: target/x86_64-unknown-linux-gnu
+          path: target_releases/x86_64-unknown-linux-gnu
       - name: Download build artifact build-x86_64-pc-windows-msvc
         uses: actions/download-artifact@v4
         with:
           name: build-x86_64-pc-windows-msvc
-          path: target/x86_64-pc-windows-msvc
+          path: target_releases/x86_64-pc-windows-msvc
       - name: Download build artifact build-debian-x86_64
         uses: actions/download-artifact@v4
         with:
           name: build-debian-x86_64
-          path: target/debian-x86_64
+          path: target_releases/debian-x86_64
 
+      # when uploading artefacts, we need them all in the same directory grouped by architecture
+      # moving to a different subdirectory ("files") is to allow uploading them in one step
       - name: Package
         run: |
           set -x
 
-          cd target
+          cd target_releases
           mkdir files
 
           for target in aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
@@ -704,7 +706,7 @@ jobs:
           # Extract Github release version only without the "v" prefix
           MARTIN_VERSION=$(echo "${{ github.ref }}" | sed -e 's/refs\/tags\/v//')
 
-          mkdir -p target/homebrew
+          mkdir -p target_releases/homebrew
           cd target
 
           cat << EOF > homebrew_config.yaml
@@ -719,13 +721,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: homebrew-config
-          path: target/homebrew_config.yaml
+          path: target_releases/homebrew_config.yaml
 
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: 'target/files/*'
+          files: 'target_releases/files/*'
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -747,14 +749,14 @@ jobs:
         with:
           repository: maplibre/homebrew-martin
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}  # See instructions above
-          path: target/homebrew
+          path: target_releases/homebrew
 
       - name: Create Homebrew formula
         uses: cuchi/jinja2-action@master
         with:
           template: .github/files/homebrew.martin.rb.j2
-          output_file: target/homebrew/martin.rb
-          data_file: target/homebrew_config.yaml
+          output_file: target_releases/homebrew/martin.rb
+          data_file: target_releases/homebrew_config.yaml
 
       - name: Create a PR for maplibre/homebrew-martin
         if: startsWith(github.ref, 'refs/tags/')
@@ -771,7 +773,7 @@ jobs:
           assignees: 'nyurik'
           draft: false
           delete-branch: true
-          path: target/homebrew
+          path: target_releases/homebrew
 
   # This final step is needed to mark the whole workflow as successful
   # Don't change its name - it is used by the merge protection rules
