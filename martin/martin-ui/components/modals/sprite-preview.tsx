@@ -1,21 +1,12 @@
 "use client";
 
+import { Download } from "lucide-react";
 import type React from "react";
 import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download } from "lucide-react";
 
-interface Sprite {
-	name: string;
-	id: string;
-}
-
-interface SpriteCollection {
-	name: string;
-	description: string;
-	sprites: Sprite[];
-}
+import type { SpriteCollection } from "../catalogs/sprite";
 
 interface SpritePreviewModalProps {
 	sprite: SpriteCollection | null;

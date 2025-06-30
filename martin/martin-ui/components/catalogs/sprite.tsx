@@ -22,7 +22,7 @@ interface Sprite {
 	id: string;
 }
 
-interface SpriteCollection {
+export interface SpriteCollection {
 	name: string;
 	description: string;
 	resolution: string;
@@ -296,6 +296,7 @@ export function SpriteCatalog({
 			<SpritePreviewModal
 				sprite={selectedSprite}
 				onCloseAction={onSpriteCloseAction}
+				onDownloadAction={onSpriteSelectAction}
 				isLoading={isLoadingSprites}
 			/>
 

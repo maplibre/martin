@@ -14,7 +14,7 @@ import { useAsyncOperation } from "@/hooks/use-async-operation";
 import { useToast } from "@/hooks/use-toast";
 
 // Simulate API functions that can fail
-const fetchAnalytics = async (): Promise<any> => {
+const fetchAnalytics = async (): Promise<unknown> => {
 	await new Promise<void>((resolve) => setTimeout(resolve, 1000));
 
 	// Simulate random failures
@@ -62,7 +62,7 @@ const fetchAnalytics = async (): Promise<any> => {
 	};
 };
 
-const fetchDataSources = async (): Promise<any[]> => {
+const fetchDataSources = async (): Promise<unknown[]> => {
 	await new Promise<void>((resolve) => setTimeout(resolve, 1200));
 
 	if (Math.random() < 0.15) {
@@ -216,7 +216,7 @@ export default function MartinTileserverDashboard() {
 	}, [searchQuery]);
 
 	// Handle sprite selection
- 	const handleSpriteSelect = (sprite: any) => {
+ 	const handleSpriteSelect = (sprite: unknown) => {
  		setSelectedSprite(sprite);
  	};
 
@@ -232,9 +232,7 @@ export default function MartinTileserverDashboard() {
 		}, 500);
 	};
 
- 	const handleDownloadOpen = (sprite: any) => {
- 		setDownloadSprite(sprite);
- 	};
+ 	// Removed unused handleDownloadOpen
 
 	const handleDownloadClose = () => {
 		setDownloadSprite(null);
