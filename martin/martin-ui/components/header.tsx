@@ -13,7 +13,7 @@ export function Header() {
 					<div className="flex items-center space-x-4">
 						<div className="flex items-center">
 							<Image
-								src="/_/assets/logo.png"
+								src="/icon.png"
 								alt="Logo of the Martin Tileserver"
 								title="Martin Tile Server"
 								height={9 * 10}
