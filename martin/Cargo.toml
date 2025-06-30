@@ -62,7 +62,6 @@ cog = ["dep:tiff", "dep:png"]
 styles = ["dep:walkdir", "tokio/fs"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
-bless-tests = []
 
 [dependencies]
 actix-cors.workspace = true
