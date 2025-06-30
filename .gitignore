@@ -4,6 +4,8 @@
 
 **/*.rs.bk
 **/dist/
+**/.next
+**/.out
 **/node_modules/
 *.profraw
 .DS_Store
