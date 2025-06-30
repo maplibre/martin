@@ -14,7 +14,7 @@ interface SpriteCollection {
 
 interface SpriteDownloadModalProps {
 	sprite: SpriteCollection | null;
-	onClose: () => void;
+	onCloseAction: () => void;
 }
 
 interface SpriteFormat {
@@ -27,7 +27,7 @@ interface SpriteFormat {
 
 export function SpriteDownloadModal({
 	sprite,
-	onClose,
+	onCloseAction,
 }: SpriteDownloadModalProps) {
 	const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 	const { toast } = useToast();
@@ -68,7 +68,7 @@ export function SpriteDownloadModal({
 
 	const handleBackdropClick = (e: React.MouseEvent) => {
 		if (e.target === e.currentTarget) {
-			onClose();
+			onCloseAction();
 		}
 	};
 
@@ -88,7 +88,7 @@ export function SpriteDownloadModal({
 			setTimeout(() => {
 				setCopiedUrl(null);
 			}, 2000);
-		} catch (error) {
+		} catch {
 			toast({
 				variant: "destructive",
 				title: "Copy Failed",
@@ -115,7 +115,7 @@ export function SpriteDownloadModal({
 								Choose your preferred sprite format
 							</p>
 						</div>
-						<Button variant="ghost" size="sm" onClick={onClose}>
+						<Button variant="ghost" size="sm" onClick={onCloseAction}>
 							<X className="h-4 w-4" />
 						</Button>
 					</div>
@@ -299,7 +299,7 @@ export function SpriteDownloadModal({
 								URLs are copied to your clipboard and ready to use in your
 								mapping application.
 							</p>
-							<Button onClick={onClose}>Done</Button>
+							<Button onClick={onCloseAction}>Done</Button>
 						</div>
 					</div>
 				</div>

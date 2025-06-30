@@ -2,6 +2,10 @@
 
 import { Download, Eye, ImageIcon, Search } from "lucide-react";
 import { ErrorState } from "@/components/error/error-state";
+import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
+import { LoadingSpinner } from "@/components/loading/loading-spinner";
+import { SpriteDownloadModal } from "@/components/modals/sprite-download";
+import { SpritePreviewModal } from "@/components/modals/sprite-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,10 +16,6 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { LoadingSpinner } from "@/components/loading/loading-spinner";
-import { SpriteDownloadModal } from "@/components/modals/sprite-download";
-import { SpritePreviewModal } from "@/components/modals/sprite-preview";
 
 interface Sprite {
 	name: string;
@@ -34,14 +34,13 @@ interface SpriteCollection {
 
 interface SpriteCatalogProps {
 	selectedSprite: SpriteCollection | null;
-	onSpriteSelect: (sprite: SpriteCollection) => void;
-	onSpriteClose: () => void;
+	onSpriteSelectAction: (sprite: SpriteCollection) => void;
+	onSpriteCloseAction: () => void;
 	downloadSprite: SpriteCollection | null;
-	onDownloadOpen: (sprite: SpriteCollection) => void;
-	onDownloadClose: () => void;
+	onDownloadCloseAction: () => void;
 	isLoading?: boolean;
 	isLoadingSprites?: boolean;
-	error?: Error | null;
+	error?: string | Error | null;
 	onRetry?: () => void;
 	isRetrying?: boolean;
 }
@@ -161,11 +160,10 @@ const spriteCollections: SpriteCollection[] = [
 
 export function SpriteCatalog({
 	selectedSprite,
-	onSpriteSelect,
-	onSpriteClose,
+	onSpriteSelectAction,
+	onSpriteCloseAction,
 	downloadSprite,
-	onDownloadOpen,
-	onDownloadClose,
+	onDownloadCloseAction,
 	isLoading = false,
 	isLoadingSprites = false,
 	error = null,
@@ -195,8 +193,8 @@ export function SpriteCatalog({
 		);
 	}
 
-	const handleSpriteSelect = async (sprite: SpriteCollection) => {
-		onSpriteSelect(sprite);
+	const handleSpriteSelect = (sprite: SpriteCollection) => {
+		onSpriteSelectAction(sprite);
 	};
 
 	return (
@@ -216,7 +214,7 @@ export function SpriteCatalog({
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-					{spriteCollections.map((sprite, index) => (
+					{spriteCollections.map((sprite: SpriteCollection, index: number) => (
 						<Card key={index} className="hover:shadow-lg transition-shadow">
 							<CardHeader>
 								<div className="flex items-center justify-between">
@@ -234,7 +232,7 @@ export function SpriteCatalog({
 										<p className="text-sm font-medium mb-2">Icon Preview:</p>
 										<div className="grid grid-cols-8 gap-2">
 											{Array.from({ length: Math.min(16, sprite.icons) }).map(
-												(_, i) => (
+												(_: unknown, i: number) => (
 													<div
 														key={i}
 														className="w-6 h-6 bg-purple-200 rounded flex items-center justify-center"
@@ -266,14 +264,15 @@ export function SpriteCatalog({
 									</div>
 									<div className="flex space-x-2">
 										<Button
-											size="sm"
 											variant="outline"
+											size="sm"
 											className="flex-1 bg-transparent"
 										>
 											<Download className="w-4 h-4 mr-2" />
 											Download
 										</Button>
 										<Button
+											variant="default"
 											size="sm"
 											className="flex-1 bg-purple-600 hover:bg-purple-700"
 											onClick={() => handleSpriteSelect(sprite)}
@@ -296,11 +295,11 @@ export function SpriteCatalog({
 
 			<SpritePreviewModal
 				sprite={selectedSprite}
-				onClose={onSpriteClose}
+				onCloseAction={onSpriteCloseAction}
 				isLoading={isLoadingSprites}
 			/>
 
-			<SpriteDownloadModal sprite={downloadSprite} onClose={onDownloadClose} />
+			<SpriteDownloadModal sprite={downloadSprite} onCloseAction={onDownloadCloseAction} />
 		</>
 	);
 }

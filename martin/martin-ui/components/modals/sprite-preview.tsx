@@ -1,10 +1,10 @@
 "use client";
 
-import { Download } from "lucide-react";
 import type React from "react";
+import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LoadingSpinner } from "@/components/loading/loading-spinner";
+import { Download } from "lucide-react";
 
 interface Sprite {
 	name: string;
@@ -19,22 +19,22 @@ interface SpriteCollection {
 
 interface SpritePreviewModalProps {
 	sprite: SpriteCollection | null;
-	onClose: () => void;
-	onDownload: (sprite: SpriteCollection) => void;
+	onCloseAction: () => void;
+	onDownloadAction: (sprite: SpriteCollection) => void;
 	isLoading?: boolean;
 }
 
 export function SpritePreviewModal({
 	sprite,
-	onClose,
-	onDownload,
+	onDownloadAction,
+	onCloseAction,
 	isLoading = false,
 }: SpritePreviewModalProps) {
 	if (!sprite) return null;
 
 	const handleBackdropClick = (e: React.MouseEvent) => {
 		if (e.target === e.currentTarget) {
-			onClose();
+			onCloseAction();
 		}
 	};
 
@@ -54,7 +54,7 @@ export function SpritePreviewModal({
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={() => onDownload(sprite)}
+								onClick={() => onDownloadAction(sprite)}
 								disabled={isLoading}
 							>
 								<Download className="h-4 w-4 mr-2" />
@@ -63,7 +63,7 @@ export function SpritePreviewModal({
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={onClose}
+								onClick={onCloseAction}
 								disabled={isLoading}
 							>
 								Close

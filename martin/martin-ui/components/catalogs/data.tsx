@@ -37,7 +37,7 @@ interface DataSource {
 interface DataCatalogProps {
 	dataSources: DataSource[];
 	searchQuery: string;
-	onSearchChange: (query: string) => void;
+	onSearchChangeAction: (query: string) => void;
 	isLoading?: boolean;
 	isSearching?: boolean;
 	error?: Error | null;
@@ -50,7 +50,7 @@ interface DataCatalogProps {
 export function DataCatalog({
 	dataSources,
 	searchQuery,
-	onSearchChange,
+	onSearchChangeAction,
 	isLoading = false,
 	isSearching = false,
 	error = null,
@@ -119,7 +119,7 @@ export function DataCatalog({
 					<Input
 						placeholder="Search data sources..."
 						value={searchQuery}
-						onChange={(e) => onSearchChange(e.target.value)}
+						onChange={(e) => onSearchChangeAction(e.target.value)}
 						className="pl-10 w-64"
 					/>
 					{isSearching && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Info, Map } from "lucide-react";
+import { BookOpen, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
