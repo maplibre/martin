@@ -59,7 +59,7 @@ repos:
         # 2. SQLite dialect for .sql files in specific directories
       - id: sqlfluff-fix
       # LT01: Layout spacing adds space between x and 'blob' breaking the blobs
-        args: [--dialect=sqlite, "--exclude-rules=LT01,LT05,LT12"]
+        args: [--dialect=sqlite, "--exclude-rules=LT01,LT05"]
         files: ^tests/fixtures/(mbtiles|files)/.*\.sql$
 
 # TODO: Add NPM hooks for formatting and linting
