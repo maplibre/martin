@@ -864,7 +864,7 @@ mod tests {
     ) {
         let mbt = Mbtiles::new(&src_filepath).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_filepath.clone(),
@@ -1004,7 +1004,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
             src_file,
@@ -1023,7 +1023,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
             src_file,
@@ -1043,7 +1043,7 @@ mod tests {
         let mbt = Mbtiles::new(&src).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let dst = PathBuf::from("file:copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
 
@@ -1052,7 +1052,7 @@ mod tests {
         let mbt = Mbtiles::new(&diff_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
             src_file: src.clone(),
@@ -1111,14 +1111,14 @@ mod tests {
         let mbt = Mbtiles::new(&src).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let dst =
             PathBuf::from("file:dst_copy_to_existing_abort_mode_mem_db?mode=memory&cache=shared");
         let mbt = Mbtiles::new(&dst).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
             src_file: src.clone(),
@@ -1141,7 +1141,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         // Copy the dst file to an in-memory DB
         let dst_file = PathBuf::from(
@@ -1150,7 +1150,7 @@ mod tests {
         let mbt = Mbtiles::new(&dst_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let dst =
             PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
@@ -1194,7 +1194,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         // Copy the dst file to an in-memory DB
         let dst_file =
@@ -1202,7 +1202,7 @@ mod tests {
         let mbt = Mbtiles::new(&dst_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let dst =
             PathBuf::from("file:copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");

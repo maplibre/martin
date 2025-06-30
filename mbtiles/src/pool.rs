@@ -88,7 +88,7 @@ mod tests {
         let mbt = Mbtiles::new("file:test_metadata_invalid?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool =
             MbtilesPool::open_readonly("file:test_metadata_invalid?mode=memory&cache=shared")
                 .await
@@ -126,7 +126,7 @@ mod tests {
         let mbt = Mbtiles::new("file:test_contains_invalid?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool =
             MbtilesPool::open_readonly("file:test_contains_invalid?mode=memory&cache=shared")
                 .await
@@ -148,7 +148,7 @@ mod tests {
         let mbt = Mbtiles::new("file:test_invalid_type?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool = MbtilesPool::open_readonly("file:test_invalid_type?mode=memory&cache=shared")
             .await
             .unwrap();
@@ -179,7 +179,7 @@ mod tests {
         let mbt = Mbtiles::new("file:test_metadata_normalized?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool =
             MbtilesPool::open_readonly("file:test_metadata_normalized?mode=memory&cache=shared")
                 .await
@@ -212,7 +212,7 @@ mod tests {
         let mbt = Mbtiles::new("file:test_contains_normalized?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool =
             MbtilesPool::open_readonly("file:test_contains_normalized?mode=memory&cache=shared")
                 .await
@@ -237,7 +237,7 @@ mod tests {
         let mbt = Mbtiles::new("file:test_normalized?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool = MbtilesPool::open_readonly("file:test_normalized?mode=memory&cache=shared")
             .await
             .unwrap();
@@ -280,7 +280,7 @@ mod tests {
             Mbtiles::new("file:test_metadata_flat_with_hash?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool = MbtilesPool::open_readonly(
             "file:test_metadata_flat_with_hash?mode=memory&cache=shared",
         )
@@ -410,7 +410,7 @@ mod tests {
             Mbtiles::new("file:test_contains_flat_with_hash?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool = MbtilesPool::open_readonly(
             "file:test_contains_flat_with_hash?mode=memory&cache=shared",
         )
@@ -433,7 +433,7 @@ mod tests {
         let mbt = Mbtiles::new("file:test_flat_with_hash?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let pool = MbtilesPool::open_readonly("file:test_flat_with_hash?mode=memory&cache=shared")
             .await
             .unwrap();

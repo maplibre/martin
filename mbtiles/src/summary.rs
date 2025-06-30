@@ -223,7 +223,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
 
         let res = mbt.summary(&mut conn).await.unwrap();
 

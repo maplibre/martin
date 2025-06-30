@@ -175,7 +175,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let src = PathBuf::from("file:apply_flat_patch_file?mode=memory&cache=shared");
 
         let mut src_conn = MbtilesCopier {
@@ -192,14 +192,14 @@ mod tests {
         let mbt = Mbtiles::new(&patch_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         apply_patch(src, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
         let mbt = Mbtiles::new("file:flat_attached_mem_db?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 
         assert!(
@@ -218,7 +218,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
         let mut src_conn = MbtilesCopier {
@@ -235,14 +235,14 @@ mod tests {
         let mbt = Mbtiles::new(&patch_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-diff.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         apply_patch(src, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
         let mbt = Mbtiles::new("file:normalized_attached_mem_db?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 
         assert!(

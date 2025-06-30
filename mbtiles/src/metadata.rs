@@ -247,7 +247,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         assert_eq!(mbt.filepath(), ":memory:"); // huh, I wonder if this will work
         assert_eq!(mbt.filename(), ":memory:");
     }
@@ -257,7 +257,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -283,7 +283,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -317,7 +317,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let res = mbt
             .get_metadata_value(&mut conn, "bounds")
             .await

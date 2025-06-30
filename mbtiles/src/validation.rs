@@ -627,21 +627,21 @@ pub(crate) mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Flat);
 
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::FlatWithHash);
 
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Normalized { hash_view: false });
 
@@ -655,7 +655,7 @@ pub(crate) mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
             .await
             .unwrap();
@@ -666,7 +666,7 @@ pub(crate) mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/files/invalid_zoomed_world_cities.sql");
-        sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(AggHashMismatch(..))));
     }
