@@ -198,7 +198,8 @@ export default function MartinTileserverDashboard() {
 		stylesOperation.execute();
 		fontsOperation.execute();
 		spritesOperation.execute();
-	}, [analyticsOperation, dataSourcesOperation, stylesOperation, fontsOperation, spritesOperation]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// Handle search with error simulation
 	useEffect(() => {
