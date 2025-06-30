@@ -857,14 +857,13 @@ mod tests {
 
     async fn verify_copy_all(
         src_filepath: PathBuf,
-        script_filepath: PathBuf,
+        script: &str,
         dst_filepath: PathBuf,
         dst_type_cli: Option<MbtTypeCli>,
         expected_dst_type: MbtType,
     ) {
         let mbt = Mbtiles::new(&src_filepath).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string(script_filepath).unwrap();
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
@@ -915,7 +914,7 @@ mod tests {
     #[actix_rt::test]
     async fn copy_flat_tables() {
         let src = PathBuf::from("file:src_copy_flat_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let dst = PathBuf::from("file:copy_flat_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, script, dst, None, Flat).await;
     }
@@ -924,7 +923,7 @@ mod tests {
     async fn copy_flat_from_flat_with_hash_tables() {
         let src =
             PathBuf::from("file:src_copy_flat_from_flat_with_hash_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let dst = PathBuf::from(
             "file:copy_flat_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
@@ -934,7 +933,7 @@ mod tests {
     #[actix_rt::test]
     async fn copy_flat_from_normalized_tables() {
         let src = PathBuf::from("file:src_copy_flat_from_norm_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
         let dst =
             PathBuf::from("file:copy_flat_from_normalized_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, script, dst, FLAT, Flat).await;
@@ -943,7 +942,7 @@ mod tests {
     #[actix_rt::test]
     async fn copy_flat_with_hash_tables() {
         let src = PathBuf::from("file:src_copy_flat_with_hash_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let dst = PathBuf::from("file:copy_flat_with_hash_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, script, dst, None, FlatWithHash).await;
     }
@@ -952,7 +951,7 @@ mod tests {
     async fn copy_flat_with_hash_from_flat_tables() {
         let src =
             PathBuf::from("file:src_copy_flat_with_hash_from_flat_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let dst = PathBuf::from(
             "file:copy_flat_with_hash_from_flat_tables_mem_db?mode=memory&cache=shared",
         );
@@ -963,7 +962,7 @@ mod tests {
     async fn copy_flat_with_hash_from_normalized_tables() {
         let src =
             PathBuf::from("file:src_copy_flat_with_hash_from_norm_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
         let dst = PathBuf::from(
             "file:copy_flat_with_hash_from_normalized_tables_mem_db?mode=memory&cache=shared",
         );
@@ -973,7 +972,7 @@ mod tests {
     #[actix_rt::test]
     async fn copy_normalized_tables() {
         let src = PathBuf::from("file:src_norm_tables_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
         let dst = PathBuf::from("file:copy_normalized_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, script, dst, None, NORM_WITH_VIEW).await;
     }
@@ -981,7 +980,7 @@ mod tests {
     #[actix_rt::test]
     async fn copy_normalized_from_flat_tables() {
         let src = PathBuf::from("file:src_norm_from_flat_tables_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/world_cities.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let dst =
             PathBuf::from("file:copy_normalized_from_flat_tables_mem_db?mode=memory&cache=shared");
         verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
@@ -991,7 +990,7 @@ mod tests {
     async fn copy_normalized_from_flat_with_hash_tables() {
         let src =
             PathBuf::from("file:src_norm_from_flat_with_hash_mem_db?mode=memory&cache=shared");
-        let script = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let dst = PathBuf::from(
             "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
@@ -1004,7 +1003,7 @@ mod tests {
             PathBuf::from("file:src_copy_with_min_max_zoom_mem?mode=memory&cache=shared");
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
@@ -1023,7 +1022,7 @@ mod tests {
             PathBuf::from("file:src_ccopy_with_zoom_levels_mem?mode=memory&cache=shared");
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
@@ -1044,7 +1043,7 @@ mod tests {
         let mbt = Mbtiles::new(&src).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let dst = PathBuf::from("file:copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
@@ -1054,8 +1053,7 @@ mod tests {
         let mbt = Mbtiles::new(&diff_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg-modified.sql")
-                .unwrap();
+            include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
@@ -1115,14 +1113,14 @@ mod tests {
         let mbt = Mbtiles::new(&src).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let dst =
             PathBuf::from("file:dst_copy_to_existing_abort_mode_mem_db?mode=memory&cache=shared");
         let mbt = Mbtiles::new(&dst).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let opt = MbtilesCopier {
@@ -1146,7 +1144,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         // Copy the dst file to an in-memory DB
@@ -1155,7 +1153,7 @@ mod tests {
         );
         let mbt = Mbtiles::new(&dst_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let dst =
@@ -1200,7 +1198,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         // Copy the dst file to an in-memory DB
@@ -1208,7 +1206,7 @@ mod tests {
             PathBuf::from("file:dst_copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
         let mbt = Mbtiles::new(&dst_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let dst =

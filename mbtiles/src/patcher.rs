@@ -174,7 +174,7 @@ mod tests {
         let src_file = PathBuf::from("file:flat_src_file_mem?mode=memory&cache=shared");
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let src = PathBuf::from("file:apply_flat_patch_file?mode=memory&cache=shared");
 
@@ -192,7 +192,7 @@ mod tests {
         let mbt = Mbtiles::new(&patch_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_diff.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         apply_patch(src, patch_file, true).await.unwrap();
 
@@ -200,7 +200,7 @@ mod tests {
         let mbt = Mbtiles::new("file:flat_attached_mem_db?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities_modified.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 
@@ -220,7 +220,7 @@ mod tests {
         let mbt = Mbtiles::new(&src_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
@@ -238,8 +238,7 @@ mod tests {
         let mbt = Mbtiles::new(&patch_file).unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg-diff.sql")
-                .unwrap();
+            include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-diff.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         apply_patch(src, patch_file, true).await.unwrap();
 
@@ -247,8 +246,7 @@ mod tests {
         let mbt = Mbtiles::new("file:normalized_attached_mem_db?mode=memory&cache=shared").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg-modified.sql")
-                .unwrap();
+            include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 

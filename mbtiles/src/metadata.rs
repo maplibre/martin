@@ -247,7 +247,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         assert_eq!(mbt.filepath(), ":memory:"); // huh, I wonder if this will work
         assert_eq!(mbt.filename(), ":memory:");
@@ -258,7 +258,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
         let script =
-            std::fs::read_to_string("../tests/fixtures/mbtiles/geography-class-jpg.sql").unwrap();
+            include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
@@ -284,7 +284,7 @@ mod tests {
     async fn metadata_mvt() {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
@@ -318,7 +318,7 @@ mod tests {
     async fn metadata_get_key() {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
         let res = mbt
             .get_metadata_value(&mut conn, "bounds")

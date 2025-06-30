@@ -222,7 +222,7 @@ mod tests {
     async fn summary() {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
-        let script = std::fs::read_to_string("../tests/fixtures/mbtiles/world_cities.sql").unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         sqlx::raw_sql(&script).execute(&mut conn).await.unwrap();
 
         let res = mbt.summary(&mut conn).await.unwrap();
