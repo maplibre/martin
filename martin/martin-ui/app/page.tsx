@@ -257,7 +257,7 @@ export default function MartinTileserverDashboard() {
 				}, 3000);
 			}}
 		>
-			<div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
+			<div className="min-h-screen bg-background">
 				<Header />
 
 				<div className="container mx-auto px-6 py-8">

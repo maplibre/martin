@@ -1,5 +1,6 @@
 import { Download, Eye, Search, Type } from "lucide-react";
 import { ErrorState } from "@/components/error/error-state";
+import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,16 +11,15 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface Font {
 	name: string;
 	family: string;
-	weight: string;
+	weight: number;
 	format: string;
-	size: string;
-	usage: string;
-	preview: string;
+	sizeInBytes: number;
+	usagePerDay: number;
 }
 
 interface FontCatalogProps {
@@ -33,56 +33,50 @@ const fonts: Font[] = [
 	{
 		name: "Roboto Regular",
 		family: "Roboto",
-		weight: "400",
+		weight: 400,
 		format: "TTF",
-		size: "156 KB",
-		usage: "12,450 requests/day",
-		preview: "The quick brown fox jumps over the lazy dog",
+		sizeInBytes: 156 * 1024,
+		usagePerDay: 12450,
 	},
 	{
 		name: "Roboto Bold",
 		family: "Roboto",
-		weight: "700",
+		weight: 700,
 		format: "TTF",
-		size: "164 KB",
-		usage: "8,230 requests/day",
-		preview: "The quick brown fox jumps over the lazy dog",
+		sizeInBytes: 164 * 1024,
+		usagePerDay: 8230,
 	},
 	{
 		name: "Open Sans Regular",
 		family: "Open Sans",
-		weight: "400",
+		weight: 400,
 		format: "WOFF2",
-		size: "142 KB",
-		usage: "15,680 requests/day",
-		preview: "The quick brown fox jumps over the lazy dog",
+		sizeInBytes: 142 * 1024,
+		usagePerDay: 15680,
 	},
 	{
 		name: "Noto Sans CJK",
 		family: "Noto Sans",
-		weight: "400",
+		weight: 400,
 		format: "OTF",
-		size: "2.1 MB",
-		usage: "3,420 requests/day",
-		preview: "漢字 ひらがな カタカナ 한글 中文",
+		sizeInBytes: 2.1 * 1024 * 1024,
+		usagePerDay: 3420,
 	},
 	{
 		name: "Source Code Pro",
 		family: "Source Code Pro",
-		weight: "400",
+		weight: 400,
 		format: "TTF",
-		size: "198 KB",
-		usage: "1,890 requests/day",
-		preview: "function() { return 'Hello World'; }",
+		sizeInBytes: 198 * 1024,
+		usagePerDay: 1890,
 	},
 	{
 		name: "Inter Medium",
 		family: "Inter",
-		weight: "500",
+		weight: 500,
 		format: "WOFF2",
-		size: "178 KB",
-		usage: "9,340 requests/day",
-		preview: "The quick brown fox jumps over the lazy dog",
+		sizeInBytes: 178 * 1024,
+		usagePerDay: 9340,
 	},
 ];
 
@@ -119,7 +113,7 @@ export function FontCatalog({
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<div>
-					<h2 className="text-2xl font-bold text-gray-900">Font Catalog</h2>
+					<h2 className="text-2xl font-bold text-foreground">Font Catalog</h2>
 					<p className="text-muted-foreground">
 						Manage and preview all available font assets
 					</p>
@@ -153,17 +147,17 @@ export function FontCatalog({
 										className="text-base"
 										style={{ fontFamily: font.family, fontWeight: font.weight }}
 									>
-										{font.preview}
+									  The quick brown fox jumps over the lazy dog
 									</p>
 								</div>
 								<div className="space-y-2 text-sm text-muted-foreground">
 									<div className="flex justify-between">
 										<span>File Size:</span>
-										<span>{font.size}</span>
+										<span>{font.sizeInBytes} bytes</span>
 									</div>
 									<div className="flex justify-between">
 										<span>Usage:</span>
-										<span>{font.usage}</span>
+										<span>{font.usagePerDay} requests/day</span>
 									</div>
 								</div>
 								<div className="flex space-x-2">
@@ -175,19 +169,27 @@ export function FontCatalog({
 										<Download className="w-4 h-4 mr-2" />
 										Download
 									</Button>
-									<Button
-										size="sm"
-										className="flex-1 bg-purple-600 hover:bg-purple-700"
-									>
+									<Tooltip>
+                    <TooltipTrigger className="flex-1 flex">
+     									<Button
+      										size="sm"
+      										className="flex-1 grow bg-primary hover:bg-purple-700"
+      										disabled
+     									>
 										<Eye className="w-4 h-4 mr-2" />
 										Details
 									</Button>
+                    </TooltipTrigger>
+  									<TooltipContent>
+                      <p>Not currently implemented in the frontend</p>
+                    </TooltipContent>
+                  </Tooltip>
 								</div>
 							</div>
 						</CardContent>
 					</Card>
 				))}
 			</div>
-		</div>
-	);
+	</div>
+	)
 }

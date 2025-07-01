@@ -4,6 +4,7 @@ import { Roboto } from "next/font/google";
 import type React from "react";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Roboto({ subsets: ["latin"] });
 
@@ -25,8 +26,8 @@ export default function RootLayout({
 					defaultTheme="system"
 					enableSystem
 					disableTransitionOnChange
-				>
-     			{children}
+				><TooltipProvider>
+     			{children}</TooltipProvider>
   			</ThemeProvider>
 			</body>
 		</html>

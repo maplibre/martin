@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface Style {
 	name: string;
@@ -126,7 +127,7 @@ export function StylesCatalog({
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<div>
-					<h2 className="text-2xl font-bold text-gray-900">Styles Catalog</h2>
+					<h2 className="text-2xl font-bold text-foreground">Styles Catalog</h2>
 					<p className="text-muted-foreground">
 						Browse and preview all available map styles and themes
 					</p>
@@ -206,13 +207,23 @@ export function StylesCatalog({
 										<Download className="w-4 h-4 mr-2" />
 										Download
 									</Button>
-									<Button
-										size="sm"
-										className="flex-1 bg-purple-600 hover:bg-purple-700"
-									>
-										<Eye className="w-4 h-4 mr-2" />
-										Preview
-									</Button>
+									
+									<Tooltip>
+                    <TooltipTrigger className="flex flex-1">
+   									<Button
+    										size="sm"
+    										className="flex-1 bg-primary hover:bg-purple-700"
+    										disabled
+    										title="Not currently implemented in the frontend"
+   									>
+														<Eye className="w-4 h-4 mr-2" />
+Preview
+   									</Button>
+    								</TooltipTrigger>
+  									<TooltipContent>
+                      <p>Not currently implemented in the frontend</p>
+                    </TooltipContent>
+                  </Tooltip>
 								</div>
 							</div>
 						</CardContent>

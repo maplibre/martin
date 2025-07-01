@@ -10,6 +10,9 @@ import {
 	Search,
 	Type,
 } from "lucide-react";
+import { ErrorState, InlineErrorState } from "@/components/error/error-state";
+import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
+import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,9 +23,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ErrorState, InlineErrorState } from "@/components/error/error-state";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { LoadingSpinner } from "@/components/loading/loading-spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface DataSource {
 	id: string;
@@ -107,7 +108,7 @@ export function DataCatalog({
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<div>
-					<h2 className="text-2xl font-bold text-gray-900">
+					<h2 className="text-2xl font-bold text-foreground">
 						Data Sources Catalog
 					</h2>
 					<p className="text-muted-foreground">
@@ -120,7 +121,7 @@ export function DataCatalog({
 						placeholder="Search data sources..."
 						value={searchQuery}
 						onChange={(e) => onSearchChangeAction(e.target.value)}
-						className="pl-10 w-64"
+						className="pl-10 w-64 bg-card"
 					/>
 					{isSearching && (
 						<div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -175,21 +176,38 @@ export function DataCatalog({
 									</div>
 								</div>
 								<div className="flex space-x-2 mt-4">
-									<Button
-										size="sm"
-										variant="outline"
-										className="flex-1 bg-transparent"
-									>
-										<Eye className="w-4 h-4 mr-2" />
-										Inspect
-									</Button>
-									<Button
-										size="sm"
-										className="flex-1 bg-purple-600 hover:bg-purple-700"
-									>
-										<Palette className="w-4 h-4 mr-2" />
-										Style
-									</Button>
+  								<Tooltip>
+                    <TooltipTrigger className="flex flex-1">
+     									<Button
+      										size="sm"
+      										variant="outline"
+      										className="flex-1 bg-transparent"
+      										disabled
+     									>
+      										<Eye className="w-4 h-4 mr-2" />
+      										Inspect
+     									</Button>
+                    </TooltipTrigger>
+  									<TooltipContent>
+                      <p>Not currently implemented in the frontend</p>
+                    </TooltipContent>
+                  </Tooltip>
+  								<Tooltip>
+                    <TooltipTrigger className="flex flex-1">
+   									<Button
+    										size="sm"
+    										className="flex-1 bg-primary hover:bg-purple-700"
+    										disabled
+    										title="Not currently implemented in the frontend"
+   									>
+    										<Palette className="w-4 h-4 mr-2" />
+    										Style
+   									</Button>
+    								</TooltipTrigger>
+  									<TooltipContent>
+                      <p>Not currently implemented in the frontend</p>
+                    </TooltipContent>
+                  </Tooltip>
 								</div>
 							</CardContent>
 						</Card>

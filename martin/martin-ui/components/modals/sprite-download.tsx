@@ -176,7 +176,7 @@ export function SpriteDownloadModal({
 
 						{/* Usage Recommendation */}
 						<div className="p-4 bg-gray-50 rounded-lg border">
-							<h4 className="font-medium mb-2 text-gray-900">
+							<h4 className="font-medium mb-2 text-foreground">
 								💡 Recommendation
 							</h4>
 							<p className="text-sm text-gray-700">

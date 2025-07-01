@@ -94,7 +94,7 @@ export function SpritePreviewModal({
 										className="flex flex-col items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors"
 									>
 										<div className="w-12 h-12 bg-purple-200 rounded flex items-center justify-center mb-2">
-											<div className="w-8 h-8 bg-purple-600 rounded-sm"></div>
+											<div className="w-8 h-8 bg-primary rounded-sm"></div>
 										</div>
 										<span className="text-xs text-center font-medium break-words">
 											{spriteItem.name}

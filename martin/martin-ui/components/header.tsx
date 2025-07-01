@@ -8,7 +8,7 @@ import { ThemeSwitcher } from "./theme-switcher";
 
 export function Header() {
 	return (
-		<header className="border-b bg-background backdrop-blur-sm sticky top-0 z-50">
+		<header className="border-b bg-card/90 backdrop-blur-3xl backdrop-brightness-50 sticky top-0 z-50">
 			<div className="container mx-auto px-6">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center space-x-4">
@@ -19,12 +19,13 @@ export function Header() {
 								title="Martin Tile Server"
 								height={9 * 10}
 								width={32 * 10}
+								priority
 							/>
 						</div>
 						<Badge
 							variant="secondary"
 						>
-							v0.18.0
+							{process.env.NEXT_PUBLIC_VERSION}
 						</Badge>
 					</div>
 					<div className="flex items-center space-x-6">

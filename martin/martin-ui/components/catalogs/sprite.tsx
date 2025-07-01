@@ -25,9 +25,8 @@ interface Sprite {
 export interface SpriteCollection {
 	name: string;
 	description: string;
-	resolution: string;
 	icons: number;
-	size: string;
+	sizeInBytes: number;
 	usage: string;
 	sprites: Sprite[];
 }
@@ -49,9 +48,8 @@ const spriteCollections: SpriteCollection[] = [
 	{
 		name: "POI Icons",
 		description: "Point of interest markers and symbols",
-		resolution: "2x",
 		icons: 156,
-		size: "2.3 MB",
+		sizeInBytes: 2.3 * 1024 * 1024,
 		usage: "45,230 requests/day",
 		sprites: [
 			{ name: "restaurant", id: "restaurant-icon" },
@@ -71,9 +69,8 @@ const spriteCollections: SpriteCollection[] = [
 	{
 		name: "Transportation",
 		description: "Transit and transportation related icons",
-		resolution: "1x, 2x",
 		icons: 89,
-		size: "1.8 MB",
+		sizeInBytes: 1.8 * 1024 * 1024,
 		usage: "32,180 requests/day",
 		sprites: [
 			{ name: "bus-stop", id: "bus-stop-icon" },
@@ -89,9 +86,8 @@ const spriteCollections: SpriteCollection[] = [
 	{
 		name: "Amenities",
 		description: "Public amenities and services",
-		resolution: "2x",
 		icons: 124,
-		size: "2.1 MB",
+		sizeInBytes: 2.1 * 1024 * 1024,
 		usage: "28,450 requests/day",
 		sprites: [
 			{ name: "wifi", id: "wifi-icon" },
@@ -107,9 +103,8 @@ const spriteCollections: SpriteCollection[] = [
 	{
 		name: "Recreation",
 		description: "Parks, sports, and recreational facilities",
-		resolution: "1x, 2x",
 		icons: 67,
-		size: "1.4 MB",
+		sizeInBytes: 1.4 * 1024 * 1024,
 		usage: "18,920 requests/day",
 		sprites: [
 			{ name: "park", id: "park-icon" },
@@ -125,9 +120,8 @@ const spriteCollections: SpriteCollection[] = [
 	{
 		name: "Shopping",
 		description: "Retail and commercial establishments",
-		resolution: "2x",
 		icons: 78,
-		size: "1.6 MB",
+		sizeInBytes: 1.6 * 1024 * 1024,
 		usage: "22,340 requests/day",
 		sprites: [
 			{ name: "shopping-mall", id: "shopping-mall-icon" },
@@ -143,9 +137,8 @@ const spriteCollections: SpriteCollection[] = [
 	{
 		name: "Custom Markers",
 		description: "Custom branded location markers",
-		resolution: "1x, 2x, 3x",
 		icons: 24,
-		size: "890 KB",
+		sizeInBytes: 890 * 1024,
 		usage: "12,670 requests/day",
 		sprites: [
 			{ name: "brand-a-marker", id: "brand-a-marker-icon" },
@@ -202,7 +195,7 @@ export function SpriteCatalog({
 			<div className="space-y-6">
 				<div className="flex items-center justify-between">
 					<div>
-						<h2 className="text-2xl font-bold text-gray-900">Sprite Catalog</h2>
+						<h2 className="text-2xl font-bold text-foreground">Sprite Catalog</h2>
 						<p className="text-muted-foreground">
 							Manage and preview all available sprite sheets and icons
 						</p>
@@ -222,7 +215,7 @@ export function SpriteCatalog({
 										<ImageIcon className="w-5 h-5 text-purple-600" />
 										<CardTitle className="text-lg">{sprite.name}</CardTitle>
 									</div>
-									<Badge variant="secondary">{sprite.resolution}</Badge>
+									<Badge variant="secondary">1x, 2x</Badge>
 								</div>
 								<CardDescription>{sprite.description}</CardDescription>
 							</CardHeader>
@@ -237,7 +230,7 @@ export function SpriteCatalog({
 														key={i}
 														className="w-6 h-6 bg-purple-200 rounded flex items-center justify-center"
 													>
-														<div className="w-4 h-4 bg-purple-600 rounded-sm"></div>
+														<div className="w-4 h-4 bg-primary rounded-sm"></div>
 													</div>
 												),
 											)}
@@ -255,7 +248,7 @@ export function SpriteCatalog({
 										</div>
 										<div className="flex justify-between">
 											<span>File Size:</span>
-											<span>{sprite.size}</span>
+											<span>{sprite.sizeInBytes} bytes</span>
 										</div>
 										<div className="flex justify-between">
 											<span>Usage:</span>
@@ -274,7 +267,7 @@ export function SpriteCatalog({
 										<Button
 											variant="default"
 											size="sm"
-											className="flex-1 bg-purple-600 hover:bg-purple-700"
+											className="flex-1 bg-primary hover:bg-purple-700"
 											onClick={() => handleSpriteSelect(sprite)}
 											disabled={isLoadingSprites}
 										>
