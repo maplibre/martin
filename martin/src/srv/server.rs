@@ -158,6 +158,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .const_labels(
             config
                 .observability
+                .as_ref()
                 .unwrap_or_default()
                 .additional_metric_labels
                 .clone(),
