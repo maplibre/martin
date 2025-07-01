@@ -17,7 +17,7 @@ interface Font {
 	name: string;
 	family: string;
 	weight: number;
-	format: string;
+	format: "otf" | "ttf" | "ttc";
 	sizeInBytes: number;
 	usagePerDay: number;
 }
@@ -34,7 +34,7 @@ const fonts: Font[] = [
 		name: "Roboto Regular",
 		family: "Roboto",
 		weight: 400,
-		format: "TTF",
+		format: "ttf",
 		sizeInBytes: 156 * 1024,
 		usagePerDay: 12450,
 	},
@@ -42,7 +42,7 @@ const fonts: Font[] = [
 		name: "Roboto Bold",
 		family: "Roboto",
 		weight: 700,
-		format: "TTF",
+		format: "ttf",
 		sizeInBytes: 164 * 1024,
 		usagePerDay: 8230,
 	},
@@ -50,7 +50,7 @@ const fonts: Font[] = [
 		name: "Open Sans Regular",
 		family: "Open Sans",
 		weight: 400,
-		format: "WOFF2",
+		format: "ttc",
 		sizeInBytes: 142 * 1024,
 		usagePerDay: 15680,
 	},
@@ -58,7 +58,7 @@ const fonts: Font[] = [
 		name: "Noto Sans CJK",
 		family: "Noto Sans",
 		weight: 400,
-		format: "OTF",
+		format: "otf",
 		sizeInBytes: 2.1 * 1024 * 1024,
 		usagePerDay: 3420,
 	},
@@ -66,7 +66,7 @@ const fonts: Font[] = [
 		name: "Source Code Pro",
 		family: "Source Code Pro",
 		weight: 400,
-		format: "TTF",
+		format: "ttf",
 		sizeInBytes: 198 * 1024,
 		usagePerDay: 1890,
 	},
@@ -74,7 +74,7 @@ const fonts: Font[] = [
 		name: "Inter Medium",
 		family: "Inter",
 		weight: 500,
-		format: "WOFF2",
+		format: "ttc",
 		sizeInBytes: 178 * 1024,
 		usagePerDay: 9340,
 	},
@@ -130,10 +130,10 @@ export function FontCatalog({
 						<CardHeader>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center space-x-2">
-									<Type className="w-5 h-5 text-purple-600" />
+									<Type className="w-5 h-5 text-primary" />
 									<CardTitle className="text-lg">{font.name}</CardTitle>
 								</div>
-								<Badge variant="secondary">{font.format}</Badge>
+								<Badge variant="secondary" className="uppercase">{font.format}</Badge>
 							</div>
 							<CardDescription>
 								Family: {font.family} • Weight: {font.weight}
@@ -141,10 +141,10 @@ export function FontCatalog({
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-4">
-								<div className="p-3 bg-gray-50 rounded-lg">
-									<p className="text-sm font-medium mb-2">Preview:</p>
+								<div className="p-3 bg-gray-50 text-gray-900 rounded-lg">
+									<p className="text-sm font-medium mb-2 text-gray-900">Preview:</p>
 									<p
-										className="text-base"
+										className="text-base text-gray-900"
 										style={{ fontFamily: font.family, fontWeight: font.weight }}
 									>
 									  The quick brown fox jumps over the lazy dog

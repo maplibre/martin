@@ -8,25 +8,30 @@ import { ThemeSwitcher } from "./theme-switcher";
 
 export function Header() {
 	return (
-		<header className="border-b bg-card/90 backdrop-blur-3xl backdrop-brightness-50 sticky top-0 z-50">
+		<header className="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50">
 			<div className="container mx-auto px-6">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center space-x-4">
 						<div className="flex items-center">
-							<Image
-								src="/icon.png"
-								alt="Logo of the Martin Tileserver"
-								title="Martin Tile Server"
-								height={9 * 10}
-								width={32 * 10}
-								priority
-							/>
+							<Link href="/" >
+								<Image
+									src="/icon.png"
+									alt="Logo of the Martin Tileserver"
+									title="Martin Tile Server"
+									height={9 * 10}
+									width={32 * 10}
+									priority
+								/>
+							</Link>
 						</div>
-						<Badge
-							variant="secondary"
-						>
-							{process.env.NEXT_PUBLIC_VERSION}
-						</Badge>
+						<Link href={`https://github.com/maplibre/martin/releases/tag/${process.env.NEXT_PUBLIC_VERSION}`} className="group" >
+							<Badge
+  							variant="default"
+                className="group-hover:bg-primary/80"
+  						>
+  							{process.env.NEXT_PUBLIC_VERSION}
+  						</Badge>
+						</Link>
 					</div>
 					<div className="flex items-center space-x-6">
 						<Link

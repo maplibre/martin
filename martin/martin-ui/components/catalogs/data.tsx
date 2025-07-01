@@ -92,15 +92,15 @@ export function DataCatalog({
 	const getIcon = (type: string) => {
 		switch (type) {
 			case "Vector Tiles":
-				return <Layers className="w-5 h-5 text-purple-600" />;
+				return <Layers className="w-5 h-5 text-primary" />;
 			case "Raster Tiles":
-				return <ImageIcon className="w-5 h-5 text-purple-600" />;
+				return <ImageIcon className="w-5 h-5 text-primary" />;
 			case "Sprites":
-				return <Globe className="w-5 h-5 text-purple-600" />;
+				return <Globe className="w-5 h-5 text-primary" />;
 			case "Fonts":
-				return <Type className="w-5 h-5 text-purple-600" />;
+				return <Type className="w-5 h-5 text-primary" />;
 			default:
-				return <Database className="w-5 h-5 text-purple-600" />;
+				return <Database className="w-5 h-5 text-primary" />;
 		}
 	};
 

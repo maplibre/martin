@@ -51,8 +51,8 @@ function DefaultErrorFallback({ error, retry }: { error?: Error; retry: () => vo
     <Card className="w-full max-w-md mx-auto mt-8">
       <CardHeader>
         <div className="flex items-center space-x-2">
-          <AlertTriangle className="h-5 w-5 text-red-500" />
-          <CardTitle className="text-red-700">Something went wrong</CardTitle>
+          <AlertTriangle className="h-5 w-5 text-destructive" />
+          <CardTitle className="text-destructive">Something went wrong</CardTitle>
         </div>
         <CardDescription>
           An unexpected error occurred. Please try again or contact support if the problem persists.
@@ -60,8 +60,8 @@ function DefaultErrorFallback({ error, retry }: { error?: Error; retry: () => vo
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
-          <div className="p-3 bg-red-50 rounded-md">
-            <p className="text-sm text-red-700 font-mono">{error.message}</p>
+          <div className="p-3 bg-destructive rounded-md">
+            <p className="text-sm text-destructive-foreground font-mono">{error.message}</p>
           </div>
         )}
         <Button onClick={retry} className="w-full">

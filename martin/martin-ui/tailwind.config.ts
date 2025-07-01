@@ -20,6 +20,7 @@ const config: Config = {
     },
     extend: {
       colors: {
+        navbar: "var(--navbar)",
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",

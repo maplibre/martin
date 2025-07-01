@@ -1,5 +1,6 @@
 import { Brush, Download, Eye, Map, Search } from "lucide-react";
 import { ErrorState } from "@/components/error/error-state";
+import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,6 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface Style {
@@ -144,7 +144,7 @@ export function StylesCatalog({
 						<CardHeader>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center space-x-2">
-									<Brush className="w-5 h-5 text-purple-600" />
+									<Brush className="w-5 h-5 text-primary" />
 									<CardTitle className="text-lg">{style.name}</CardTitle>
 								</div>
 								<Badge variant="secondary">{style.type}</Badge>
@@ -153,19 +153,16 @@ export function StylesCatalog({
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-4">
-								<div className="p-3 bg-gray-50 rounded-lg">
-									<p className="text-sm font-medium mb-2">Style Preview:</p>
-									<div className="aspect-video bg-gradient-to-br from-gray-200 to-gray-300 rounded flex items-center justify-center relative overflow-hidden">
-										<div className="absolute inset-0 opacity-20">
-											<div
-												className="w-full h-full bg-gradient-to-r"
-												style={{
-													background: `linear-gradient(45deg, ${style.colors.join(", ")})`,
-												}}
-											></div>
-										</div>
-										<Map className="w-8 h-8 text-gray-600 z-10" />
+								<div className="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden">
+									<div className="absolute inset-0 opacity-20">
+										<div
+											className="w-full h-full bg-gradient-to-r"
+											style={{
+												background: `linear-gradient(45deg, ${style.colors.join(", ")})`,
+											}}
+										></div>
 									</div>
+									<Map className="w-8 h-8 text-gray-600 z-10" />
 								</div>
 								<div className="space-y-2 text-sm text-muted-foreground">
 									<div className="flex justify-between">
@@ -207,23 +204,23 @@ export function StylesCatalog({
 										<Download className="w-4 h-4 mr-2" />
 										Download
 									</Button>
-									
+
 									<Tooltip>
-                    <TooltipTrigger className="flex flex-1">
-   									<Button
-    										size="sm"
-    										className="flex-1 bg-primary hover:bg-purple-700"
-    										disabled
-    										title="Not currently implemented in the frontend"
-   									>
-														<Eye className="w-4 h-4 mr-2" />
-Preview
-   									</Button>
-    								</TooltipTrigger>
-  									<TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
+										<TooltipTrigger className="flex flex-1">
+											<Button
+												size="sm"
+												className="flex-1 bg-primary hover:bg-purple-700"
+												disabled
+												title="Not currently implemented in the frontend"
+											>
+												<Eye className="w-4 h-4 mr-2" />
+												Preview
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Not currently implemented in the frontend</p>
+										</TooltipContent>
+									</Tooltip>
 								</div>
 							</div>
 						</CardContent>

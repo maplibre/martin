@@ -81,7 +81,7 @@ export function AnalyticsSection({
 						<CardTitle className="text-sm font-medium">
 							Requests/Second
 						</CardTitle>
-						<Activity className="h-4 w-4 text-purple-600" />
+						<Activity className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">
@@ -93,7 +93,7 @@ export function AnalyticsSection({
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
-						<Server className="h-4 w-4 text-purple-600" />
+						<Server className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">
@@ -107,7 +107,7 @@ export function AnalyticsSection({
 						<CardTitle className="text-sm font-medium">
 							Cache Hit Rate
 						</CardTitle>
-						<Zap className="h-4 w-4 text-purple-600" />
+						<Zap className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">
@@ -123,7 +123,7 @@ export function AnalyticsSection({
 						<CardTitle className="text-sm font-medium">
 							Active Sources
 						</CardTitle>
-						<Database className="h-4 w-4 text-purple-600" />
+						<Database className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">
@@ -140,7 +140,7 @@ export function AnalyticsSection({
 					<CardHeader>
 						<CardTitle>Server Performance</CardTitle>
 						<CardDescription>
-							Requests per second and memory usage over time
+							Requests per second usage over time
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
@@ -148,11 +148,11 @@ export function AnalyticsSection({
 							config={{
 								requests: {
 									label: "Requests/s",
-									color: "hsl(var(--chart-1))",
+									color: "var(--chart-1)",
 								},
 								memory: {
 									label: "Memory %",
-									color: "hsl(var(--chart-2))",
+									color: "var(--chart-2)",
 								},
 							}}
 							className="h-[200px]"
@@ -189,7 +189,7 @@ export function AnalyticsSection({
 							config={{
 								requests: {
 									label: "Requests",
-									color: "hsl(var(--chart-1))",
+									color: "var(--chart-1)",
 								},
 							}}
 							className="h-[200px]"

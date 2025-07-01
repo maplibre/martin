@@ -27,13 +27,13 @@ export function ErrorState({
     switch (variant) {
       case "network":
         return {
-          icon: <WifiOff className="h-8 w-8 text-red-500" />,
+          icon: <WifiOff className="h-8 w-8 text-destructive-foreground" />,
           defaultTitle: "Network Error",
           defaultDescription: "Unable to connect to the server. Please check your internet connection.",
         }
       case "server":
         return {
-          icon: <AlertTriangle className="h-8 w-8 text-red-500" />,
+          icon: <AlertTriangle className="h-8 w-8 text-destructive-foreground" />,
           defaultTitle: "Server Error",
           defaultDescription: "The server encountered an error. Please try again later.",
         }
@@ -45,7 +45,7 @@ export function ErrorState({
         }
       default:
         return {
-          icon: <AlertTriangle className="h-8 w-8 text-red-500" />,
+          icon: <AlertTriangle className="h-8 w-8 text-destructive-foreground" />,
           defaultTitle: "Something went wrong",
           defaultDescription: "An unexpected error occurred. Please try again.",
         }
@@ -64,8 +64,8 @@ export function ErrorState({
       </CardHeader>
       <CardContent className="space-y-4">
         {showDetails && errorMessage && (
-          <div className="p-3 bg-red-50 rounded-md border border-red-200">
-            <p className="text-sm text-red-700 font-mono break-words">{errorMessage}</p>
+          <div className="p-3 bg-destructive rounded-md border border-red-200">
+            <p className="text-sm text-destructive-foreground font-mono break-words">{errorMessage}</p>
           </div>
         )}
         {onRetry && (
@@ -93,19 +93,19 @@ export function InlineErrorState({
   const getIcon = () => {
     switch (variant) {
       case "network":
-        return <WifiOff className="h-4 w-4 text-red-500" />
+        return <WifiOff className="h-4 w-4 text-destructive-foreground" />
       case "server":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />
+        return <AlertTriangle className="h-4 w-4 text-destructive-foreground" />
       default:
-        return <AlertTriangle className="h-4 w-4 text-red-500" />
+        return <AlertTriangle className="h-4 w-4 text-destructive-foreground" />
     }
   }
 
   return (
-    <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-md">
+    <div className="flex items-center justify-between p-3 bg-destructive border border-red-200 rounded-md">
       <div className="flex items-center space-x-2">
         {getIcon()}
-        <span className="text-sm text-red-700">{message}</span>
+        <span className="text-sm destructive-foreground">{message}</span>
       </div>
       {onRetry && (
         <Button size="sm" variant="outline" onClick={onRetry} disabled={isRetrying}>

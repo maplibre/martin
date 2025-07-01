@@ -212,7 +212,7 @@ export function SpriteCatalog({
 							<CardHeader>
 								<div className="flex items-center justify-between">
 									<div className="flex items-center space-x-2">
-										<ImageIcon className="w-5 h-5 text-purple-600" />
+										<ImageIcon className="w-5 h-5 text-primary" />
 										<CardTitle className="text-lg">{sprite.name}</CardTitle>
 									</div>
 									<Badge variant="secondary">1x, 2x</Badge>
