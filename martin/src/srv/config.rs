@@ -28,7 +28,6 @@ pub struct ObservabilityConfig {
     pub additional_metric_labels: HashMap<String, String>,
 }
 
-
 #[cfg(test)]
 mod tests {
     use indoc::indoc;

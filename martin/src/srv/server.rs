@@ -152,11 +152,16 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
-  
     let prometheus = PrometheusMetricsBuilder::new("martin")
         .endpoint("/metrics")
         .mask_unmatched_patterns("UNKNOWN") // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
-        .const_labels(config.observability.unwrap_or_default().additional_metric_labels.clone())
+        .const_labels(
+            config
+                .observability
+                .unwrap_or_default()
+                .additional_metric_labels
+                .clone(),
+        )
         .build()?;
     let catalog = Catalog::new(&state)?;
 
