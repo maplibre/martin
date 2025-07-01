@@ -177,7 +177,7 @@ export function DataCatalog({
 								</div>
 								<div className="flex space-x-2 mt-4">
   								<Tooltip>
-                    <TooltipTrigger className="flex flex-1">
+                    <TooltipTrigger className="flex flex-1" asChild>
      									<Button
       										size="sm"
       										variant="outline"
@@ -193,7 +193,7 @@ export function DataCatalog({
                     </TooltipContent>
                   </Tooltip>
   								<Tooltip>
-                    <TooltipTrigger className="flex flex-1">
+                    <TooltipTrigger className="flex flex-1" asChild>
    									<Button
     										size="sm"
     										className="flex-1 bg-primary hover:bg-purple-700"

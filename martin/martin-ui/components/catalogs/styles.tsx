@@ -206,7 +206,7 @@ export function StylesCatalog({
 									</Button>
 
 									<Tooltip>
-										<TooltipTrigger className="flex flex-1">
+										<TooltipTrigger className="flex flex-1" asChild>
 											<Button
 												size="sm"
 												className="flex-1 bg-primary hover:bg-purple-700"

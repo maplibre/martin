@@ -170,7 +170,7 @@ export function FontCatalog({
 										Download
 									</Button>
 									<Tooltip>
-                    <TooltipTrigger className="flex-1 flex">
+                    <TooltipTrigger className="flex-1 flex" asChild>
      									<Button
       										size="sm"
       										className="flex-1 grow bg-primary hover:bg-purple-700"
