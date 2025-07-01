@@ -18,9 +18,11 @@ pub struct SrvConfig {
     #[cfg(feature = "webui")]
     pub web_ui: Option<crate::args::WebUiMode>,
     pub cors: Option<CorsConfig>,
+    /// More advanced monitoring montoring options
     pub observability: Option<ObservabilityConfig>,
 }
 
+/// More advanced monitoring montoring options
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct ObservabilityConfig {
     /// Additional metric labels to be added to every metric reported under `/metrics`
