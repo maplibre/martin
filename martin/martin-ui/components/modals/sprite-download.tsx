@@ -1,11 +1,11 @@
 "use client";
 
-import { Check, Copy, X } from "lucide-react";
+import { Copy, CopyCheck } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface SpriteCollection {
@@ -14,7 +14,7 @@ interface SpriteCollection {
 }
 
 interface SpriteDownloadModalProps {
-	sprite: SpriteCollection | null;
+	sprite: SpriteCollection;
 	onCloseAction: () => void;
 }
 
@@ -30,10 +30,10 @@ export function SpriteDownloadModal({
 	sprite,
 	onCloseAction,
 }: SpriteDownloadModalProps) {
+  const open = !!sprite;
 	const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 	const { toast } = useToast();
-
-	const open = !!sprite;
+	if (!open) return null;
 
 	// Generate sprite format URLs (these would be real URLs in production)
 	const spriteFormats: SpriteFormat[] = sprite
@@ -101,24 +101,14 @@ export function SpriteDownloadModal({
 
 	return (
 		<Dialog open={open} onOpenChange={(v: boolean) => !v && onCloseAction()}>
-			<DialogContent className="max-w-2xl w-full max-h-[80vh] overflow-auto p-0">
-				{sprite ? (
-					<div className="p-6">
-						{/* Header */}
-						<div className="flex items-center justify-between mb-6">
-							<div>
-								<h3 className="text-2xl font-bold">Download {sprite.name}</h3>
-								<p className="text-muted-foreground">
-									Choose your preferred sprite format
-								</p>
-							</div>
-							<Button variant="ghost" size="sm" onClick={onCloseAction}>
-								<X className="h-4 w-4" />
-							</Button>
-						</div>
-
-						{/* Format Explanation */}
-						<div className="mb-8 space-y-6">
+  		<DialogHeader>
+  			<h3 className="text-2xl font-bold">Download {sprite.name}</h3>
+  			<p className="text-muted-foreground">
+  				Choose your preferred sprite format
+  			</p>
+  		</DialogHeader>
+		<DialogContent className="max-w-2xl w-full max-h-[80vh] overflow-auto p-0">
+				<div className="mb-8 space-y-6">
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 								{/* PNG Format */}
 								<div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
@@ -171,19 +161,6 @@ export function SpriteDownloadModal({
 								</div>
 							</div>
 
-							{/* Usage Recommendation */}
-							<div className="p-4 bg-gray-50 rounded-lg border">
-								<h4 className="font-medium mb-2 text-foreground">
-									💡 Recommendation
-								</h4>
-								<p className="text-sm text-gray-700">
-									Use <strong>PNG</strong> for maximum compatibility and
-									detailed graphics. Choose <strong>SDF</strong> for modern
-									applications that need scalable icons and dynamic styling.
-								</p>
-							</div>
-						</div>
-
 						{/* Download Options */}
 						<div className="space-y-6">
 							{/* PNG Downloads */}
@@ -222,7 +199,7 @@ export function SpriteDownloadModal({
 											>
 												{copiedUrl === format.url ? (
 													<>
-														<Check className="h-4 w-4 mr-2 text-green-600" />
+														<CopyCheck className="h-4 w-4 mr-2 text-green-600" />
 														Copied
 													</>
 												) : (
@@ -273,7 +250,7 @@ export function SpriteDownloadModal({
 											>
 												{copiedUrl === format.url ? (
 													<>
-														<Check className="h-4 w-4 mr-2 text-green-600" />
+														<CopyCheck className="h-4 w-4 mr-2 text-green-600" />
 														Copied
 													</>
 												) : (
@@ -300,7 +277,6 @@ export function SpriteDownloadModal({
 							</div>
 						</div>
 					</div>
-				) : null}
 			</DialogContent>
 		</Dialog>
 	);

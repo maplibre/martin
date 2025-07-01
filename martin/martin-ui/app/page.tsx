@@ -147,6 +147,11 @@ export default function MartinTileserverDashboard() {
 	const [isSearching, setIsSearching] = useState(false);
 	const [searchError, setSearchError] = useState<Error | null>(null);
 
+	// Handler for sprite download
+	const handleSpriteDownload = (sprite: Sprite) => {
+		setDownloadSprite(sprite);
+	};
+
 	const { toast } = useToast();
 
 	// Analytics operation
@@ -326,6 +331,7 @@ export default function MartinTileserverDashboard() {
 								onSpriteCloseAction={handleSpriteClose}
 								downloadSprite={downloadSprite}
 								onDownloadCloseAction={handleDownloadClose}
+								onSpriteDownloadAction={handleSpriteDownload}
 								isLoading={spritesOperation.isLoading}
 								error={spritesOperation.error}
 								onRetry={spritesOperation.retry}

@@ -32,11 +32,6 @@ export interface SpriteCollection {
 }
 
 interface SpriteCatalogProps {
-	selectedSprite: SpriteCollection | null;
-	onSpriteSelectAction: (sprite: SpriteCollection) => void;
-	onSpriteCloseAction: () => void;
-	downloadSprite: SpriteCollection | null;
-	onDownloadCloseAction: () => void;
 	isLoading?: boolean;
 	isLoadingSprites?: boolean;
 	error?: string | Error | null;
@@ -151,18 +146,18 @@ const spriteCollections: SpriteCollection[] = [
 	},
 ];
 
+import { useState } from "react";
+
 export function SpriteCatalog({
-	selectedSprite,
-	onSpriteSelectAction,
-	onSpriteCloseAction,
-	downloadSprite,
-	onDownloadCloseAction,
 	isLoading = false,
 	isLoadingSprites = false,
 	error = null,
 	onRetry,
 	isRetrying = false,
 }: SpriteCatalogProps) {
+	const [selectedSprite, setSelectedSprite] = useState<SpriteCollection | null>(null);
+	const [downloadSprite, setDownloadSprite] = useState<SpriteCollection | null>(null);
+
 	if (isLoading) {
 		return (
 			<CatalogSkeleton
@@ -187,7 +182,19 @@ export function SpriteCatalog({
 	}
 
 	const handleSpriteSelect = (sprite: SpriteCollection) => {
-		onSpriteSelectAction(sprite);
+		setSelectedSprite(sprite);
+	};
+
+	const handleSpriteClose = () => {
+		setSelectedSprite(null);
+	};
+
+	const handleSpriteDownload = (sprite: SpriteCollection) => {
+		setDownloadSprite(sprite);
+	};
+
+	const handleDownloadClose = () => {
+		setDownloadSprite(null);
 	};
 
 	return (
@@ -260,6 +267,7 @@ export function SpriteCatalog({
 											variant="outline"
 											size="sm"
 											className="flex-1 bg-transparent"
+											onClick={() => handleSpriteDownload(sprite)}
 										>
 											<Download className="w-4 h-4 mr-2" />
 											Download
@@ -288,12 +296,12 @@ export function SpriteCatalog({
 
 			<SpritePreviewModal
 				sprite={selectedSprite}
-				onCloseAction={onSpriteCloseAction}
-				onDownloadAction={onSpriteSelectAction}
+				onCloseAction={handleSpriteClose}
+				onDownloadAction={handleSpriteDownload}
 				isLoading={isLoadingSprites}
 			/>
 
-			<SpriteDownloadModal sprite={downloadSprite} onCloseAction={onDownloadCloseAction} />
+			<SpriteDownloadModal sprite={downloadSprite} onCloseAction={handleDownloadClose} />
 		</>
 	);
 }
