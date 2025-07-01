@@ -4,10 +4,11 @@ import { BookOpen, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { ThemeSwitcher } from "./theme-switcher";
 
 export function Header() {
 	return (
-		<header className="border-b bg-[#1b1c30] backdrop-blur-sm sticky top-0 z-50">
+		<header className="border-b bg-background backdrop-blur-sm sticky top-0 z-50">
 			<div className="container mx-auto px-6">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center space-x-4">
@@ -22,7 +23,6 @@ export function Header() {
 						</div>
 						<Badge
 							variant="secondary"
-							className="bg-purple-100 text-purple-700"
 						>
 							v0.18.0
 						</Badge>
@@ -30,7 +30,7 @@ export function Header() {
 					<div className="flex items-center space-x-6">
 						<Link
 							href="https://maplibre.org/martin/"
-							className="flex items-center gap-2 text-gray-200 hover:text-white hover:bg-gray-800 px-3 py-2 rounded-md transition-all"
+							className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
 							target="_blank"
 							rel="noopener noreferrer"
 						>
@@ -39,13 +39,14 @@ export function Header() {
 						</Link>
 						<Link
 							href="https://maplibre.org"
-							className="flex items-center gap-2 text-gray-200 hover:text-white hover:bg-gray-800 px-3 py-2 rounded-md transition-all"
+							className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
 							target="_blank"
 							rel="noopener noreferrer"
 						>
 							<Info size={18} />
 							<span>About us</span>
 						</Link>
+						<ThemeSwitcher />
 					</div>
 				</div>
 			</div>
