@@ -21,7 +21,7 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/components/ui/chart";
-import { AnalyticsSkeleton } from "./loading/analytics-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AnalyticsSectionProps {
 	serverMetrics: {
@@ -52,10 +52,6 @@ export function AnalyticsSection({
 	onRetry,
 	isRetrying = false,
 }: AnalyticsSectionProps) {
-	if (isLoading) {
-		return <AnalyticsSkeleton />;
-	}
-
 	if (error) {
 		return (
 			<div className="mb-8">
@@ -84,10 +80,21 @@ export function AnalyticsSection({
 						<Activity className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">
-							{serverMetrics.requestsPerSecond.toLocaleString()}
-						</div>
-						<p className="text-xs text-muted-foreground">+12% from last hour</p>
+						{isLoading ? (
+							<>
+								<Skeleton className="h-8 w-16 mb-2" />
+								<Skeleton className="h-3 w-32" />
+							</>
+						) : (
+							<>
+								<div className="text-2xl font-bold">
+									{serverMetrics.requestsPerSecond.toLocaleString()}
+								</div>
+								<p className="text-xs text-muted-foreground">
+									+12% from last hour
+								</p>
+							</>
+						)}
 					</CardContent>
 				</Card>
 				<Card>
@@ -96,10 +103,21 @@ export function AnalyticsSection({
 						<Server className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">
-							{serverMetrics.memoryUsage}%
-						</div>
-						<p className="text-xs text-muted-foreground">4.2 GB of 6 GB used</p>
+						{isLoading ? (
+							<>
+								<Skeleton className="h-8 w-16 mb-2" />
+								<Skeleton className="h-3 w-32" />
+							</>
+						) : (
+							<>
+								<div className="text-2xl font-bold">
+									{serverMetrics.memoryUsage}%
+								</div>
+								<p className="text-xs text-muted-foreground">
+									4.2 GB of 6 GB used
+								</p>
+							</>
+						)}
 					</CardContent>
 				</Card>
 				<Card>
@@ -110,12 +128,21 @@ export function AnalyticsSection({
 						<Zap className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">
-							{serverMetrics.cacheHitRate}%
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Excellent performance
-						</p>
+						{isLoading ? (
+							<>
+								<Skeleton className="h-8 w-16 mb-2" />
+								<Skeleton className="h-3 w-32" />
+							</>
+						) : (
+							<>
+								<div className="text-2xl font-bold">
+									{serverMetrics.cacheHitRate}%
+								</div>
+								<p className="text-xs text-muted-foreground">
+									Excellent performance
+								</p>
+							</>
+						)}
 					</CardContent>
 				</Card>
 				<Card>
@@ -126,82 +153,21 @@ export function AnalyticsSection({
 						<Database className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">
-							{serverMetrics.activeSources}
-						</div>
-						<p className="text-xs text-muted-foreground">All sources healthy</p>
-					</CardContent>
-				</Card>
-			</div>
-
-			{/* Analytics Charts */}
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<Card>
-					<CardHeader>
-						<CardTitle>Server Performance</CardTitle>
-						<CardDescription>
-							Requests per second usage over time
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer
-							config={{
-								requests: {
-									label: "Requests/s",
-									color: "var(--chart-1)",
-								},
-								memory: {
-									label: "Memory %",
-									color: "var(--chart-2)",
-								},
-							}}
-							className="h-[200px]"
-						>
-							<LineChart data={usageData}>
-								<CartesianGrid strokeDasharray="3 3" />
-								<XAxis dataKey="time" />
-								<YAxis />
-								<ChartTooltip content={<ChartTooltipContent />} />
-								<Line
-									type="monotone"
-									dataKey="requests"
-									stroke="var(--color-requests)"
-									strokeWidth={2}
-								/>
-								<Line
-									type="monotone"
-									dataKey="memory"
-									stroke="var(--color-memory)"
-									strokeWidth={2}
-								/>
-							</LineChart>
-						</ChartContainer>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader>
-						<CardTitle>Tile Source Usage</CardTitle>
-						<CardDescription>Request volume by data source</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer
-							config={{
-								requests: {
-									label: "Requests",
-									color: "var(--chart-1)",
-								},
-							}}
-							className="h-[200px]"
-						>
-							<BarChart data={tileSourcesData} layout="horizontal">
-								<CartesianGrid strokeDasharray="3 3" />
-								<XAxis type="number" />
-								<YAxis dataKey="name" type="category" width={120} />
-								<ChartTooltip content={<ChartTooltipContent />} />
-								<Bar dataKey="requests" fill="var(--color-requests)" />
-							</BarChart>
-						</ChartContainer>
+						{isLoading ? (
+							<>
+								<Skeleton className="h-8 w-16 mb-2" />
+								<Skeleton className="h-3 w-32" />
+							</>
+						) : (
+							<>
+								<div className="text-2xl font-bold">
+									{serverMetrics.activeSources}
+								</div>
+								<p className="text-xs text-muted-foreground">
+									All sources healthy
+								</p>
+							</>
+						)}
 					</CardContent>
 				</Card>
 			</div>
