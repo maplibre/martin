@@ -11,8 +11,8 @@ interface AsyncOperationState<T> {
 	retryCount: number;
 }
 
-interface AsyncOperationOptions {
-	onSuccess?: (data: any) => void;
+interface AsyncOperationOptions<T> {
+	onSuccess?: (data: T) => void;
 	onError?: (error: Error) => void;
 	showErrorToast?: boolean;
 	showSuccessToast?: boolean;
@@ -22,7 +22,7 @@ interface AsyncOperationOptions {
 
 export function useAsyncOperation<T>(
 	asyncFunction: () => Promise<T>,
-	options: AsyncOperationOptions = {},
+	options: AsyncOperationOptions<T> = {},
 ) {
 	const {
 		onSuccess,

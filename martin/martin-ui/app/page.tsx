@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type ErrorInfo, useEffect, useState } from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import { DataCatalog } from "@/components/catalogs/data";
 import { FontCatalog } from "@/components/catalogs/font";
@@ -12,9 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/toaster";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
 import { useToast } from "@/hooks/use-toast";
+import type { AnalyticsData, DataSource, Sprite } from "@/lib/types";
 
 // Simulate API functions that can fail
-const fetchAnalytics = async (): Promise<unknown> => {
+const fetchAnalytics = async (): Promise<AnalyticsData> => {
 	await new Promise<void>((resolve) => setTimeout(resolve, 1000));
 
 	// Simulate random failures
@@ -62,7 +63,7 @@ const fetchAnalytics = async (): Promise<unknown> => {
 	};
 };
 
-const fetchDataSources = async (): Promise<unknown[]> => {
+const fetchDataSources = async (): Promise<DataSource[]> => {
 	await new Promise<void>((resolve) => setTimeout(resolve, 1200));
 
 	if (Math.random() < 0.15) {
@@ -141,34 +142,34 @@ const fetchSprites = async (): Promise<boolean> => {
 
 export default function MartinTileserverDashboard() {
 	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedSprite, setSelectedSprite] = useState(null);
-	const [downloadSprite, setDownloadSprite] = useState(null);
+	const [selectedSprite, setSelectedSprite] = useState<Sprite | null>(null);
+	const [downloadSprite, setDownloadSprite] = useState<Sprite | null>(null);
 	const [isSearching, setIsSearching] = useState(false);
 	const [searchError, setSearchError] = useState<Error | null>(null);
 
 	const { toast } = useToast();
 
 	// Analytics operation
-	const analyticsOperation = useAsyncOperation(
-		() => fetchAnalytics(),
+	const analyticsOperation = useAsyncOperation<AnalyticsData>(fetchAnalytics, {
+		showErrorToast: false, // We handle errors in the component
+		onError: (error) => {
+			console.error("Analytics fetch failed:", error);
+		},
+	});
+
+	// Data sources operation
+	const dataSourcesOperation = useAsyncOperation<DataSource[]>(
+		fetchDataSources,
 		{
-			showErrorToast: false, // We handle errors in the component
+			showErrorToast: false,
 			onError: (error) => {
-				console.error("Analytics fetch failed:", error);
+				console.error("Data sources fetch failed:", error);
 			},
 		},
 	);
 
-	// Data sources operation
-	const dataSourcesOperation = useAsyncOperation(fetchDataSources, {
-		showErrorToast: false,
-		onError: (error) => {
-			console.error("Data sources fetch failed:", error);
-		},
-	});
-
 	// Styles operation
-	const stylesOperation = useAsyncOperation(fetchStyles, {
+	const stylesOperation = useAsyncOperation<boolean>(fetchStyles, {
 		showErrorToast: false,
 		onError: (error) => {
 			console.error("Styles fetch failed:", error);
@@ -176,7 +177,7 @@ export default function MartinTileserverDashboard() {
 	});
 
 	// Fonts operation
-	const fontsOperation = useAsyncOperation(fetchFonts, {
+	const fontsOperation = useAsyncOperation<boolean>(fetchFonts, {
 		showErrorToast: false,
 		onError: (error) => {
 			console.error("Fonts fetch failed:", error);
@@ -184,7 +185,7 @@ export default function MartinTileserverDashboard() {
 	});
 
 	// Sprites operation
-	const spritesOperation = useAsyncOperation(fetchSprites, {
+	const spritesOperation = useAsyncOperation<boolean>(fetchSprites, {
 		showErrorToast: false,
 		onError: (error) => {
 			console.error("Sprites fetch failed:", error);
@@ -217,9 +218,9 @@ export default function MartinTileserverDashboard() {
 	}, [searchQuery]);
 
 	// Handle sprite selection
- 	const handleSpriteSelect = (sprite: unknown) => {
- 		setSelectedSprite(sprite);
- 	};
+	const handleSpriteSelect = (sprite: Sprite) => {
+		setSelectedSprite(sprite);
+	};
 
 	const handleSpriteClose = () => {
 		setSelectedSprite(null);
@@ -233,7 +234,7 @@ export default function MartinTileserverDashboard() {
 		}, 500);
 	};
 
- 	// Removed unused handleDownloadOpen
+	// Removed unused handleDownloadOpen
 
 	const handleDownloadClose = () => {
 		setDownloadSprite(null);
@@ -241,23 +242,23 @@ export default function MartinTileserverDashboard() {
 
 	return (
 		<ErrorBoundary
-			      onError={(error: unknown, errorInfo: unknown) => {
-			        console.error("Application error:", error, errorInfo);
-			        toast({
-			          variant: "destructive",
-			          title: "Application Error",
-			          description:
-			            "An unexpected error occurred. The page will reload automatically.",
-			        });
+			onError={(error: Error, errorInfo: ErrorInfo) => {
+				console.error("Application error:", error, errorInfo);
+				toast({
+					variant: "destructive",
+					title: "Application Error",
+					description:
+						"An unexpected error occurred. The page will reload automatically.",
+				});
 
-			        // Auto-reload after 3 seconds
-			        setTimeout(() => {
-			          window.location.reload();
-			        }, 3000);
-			      }}
+				// Auto-reload after 3 seconds
+				setTimeout(() => {
+					window.location.reload();
+				}, 3000);
+			}}
 		>
 			<div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
-				        <Header />
+				<Header />
 
 				<div className="container mx-auto px-6 py-8">
 					<AnalyticsSection
@@ -319,17 +320,17 @@ export default function MartinTileserverDashboard() {
 						</TabsContent>
 
 						<TabsContent value="sprites">
-							              <SpriteCatalog
-							                selectedSprite={selectedSprite}
-							                onSpriteSelectAction={handleSpriteSelect}
-							                onSpriteCloseAction={handleSpriteClose}
-							                downloadSprite={downloadSprite}
-							                onDownloadCloseAction={handleDownloadClose}
-							                isLoading={spritesOperation.isLoading}
-							                error={spritesOperation.error}
-							                onRetry={spritesOperation.retry}
-							                isRetrying={spritesOperation.isRetrying}
-							              />
+							<SpriteCatalog
+								selectedSprite={selectedSprite}
+								onSpriteSelectAction={handleSpriteSelect}
+								onSpriteCloseAction={handleSpriteClose}
+								downloadSprite={downloadSprite}
+								onDownloadCloseAction={handleDownloadClose}
+								isLoading={spritesOperation.isLoading}
+								error={spritesOperation.error}
+								onRetry={spritesOperation.retry}
+								isRetrying={spritesOperation.isRetrying}
+							/>
 						</TabsContent>
 					</Tabs>
 				</div>
