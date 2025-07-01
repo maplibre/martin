@@ -190,3 +190,9 @@ cog:
 fonts:
   - tests/fixtures/fonts/overpass-mono-regular.ttf
   - tests/fixtures/fonts
+
+styles:
+  sources:
+    maplibre: tests/fixtures/styles/maplibre_demo.json
+  paths:
+    - tests/fixtures/styles/src2

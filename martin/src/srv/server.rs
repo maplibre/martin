@@ -3,12 +3,11 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
-use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::TrailingSlash;
+use actix_web::middleware::{Compress, Condition, Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
-use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
+use actix_web::{App, HttpResponse, HttpServer, Responder, route, web};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
@@ -49,6 +48,8 @@ pub struct Catalog {
     pub sprites: crate::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
     pub fonts: crate::fonts::FontCatalog,
+    #[cfg(feature = "styles")]
+    pub styles: crate::styles::StyleCatalog,
 }
 
 impl Catalog {
@@ -59,6 +60,8 @@ impl Catalog {
             sprites: state.sprites.get_catalog()?,
             #[cfg(feature = "fonts")]
             fonts: state.fonts.get_catalog(),
+            #[cfg(feature = "styles")]
+            styles: state.styles.get_catalog(),
         })
     }
 }
@@ -78,7 +81,7 @@ async fn get_index_no_ui() -> &'static str {
     See documentation https://github.com/maplibre/martin"
 }
 
-/// Root path in case web front is disabled and the WebUI feature is enabled.
+/// Root path in case web front is disabled and the `webui` feature is enabled.
 #[cfg(feature = "webui")]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
@@ -102,7 +105,7 @@ async fn get_health() -> impl Responder {
     "/catalog",
     method = "GET",
     method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
@@ -123,6 +126,9 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
 
     #[cfg(feature = "fonts")]
     cfg.service(crate::srv::fonts::get_font);
+
+    #[cfg(feature = "styles")]
+    cfg.service(crate::srv::styles::get_style_json);
 
     #[cfg(feature = "webui")]
     {
@@ -146,10 +152,11 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+  
     let prometheus = PrometheusMetricsBuilder::new("martin")
         .endpoint("/metrics")
         .mask_unmatched_patterns("UNKNOWN") // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
-        .const_labels(config.additional_metric_labels.clone())
+        .const_labels(config.observability.unwrap_or_default().additional_metric_labels.clone())
         .build()?;
     let catalog = Catalog::new(&state)?;
 
@@ -160,10 +167,12 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .clone()
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
+    let cors_config = config.cors.clone().unwrap_or_default();
+    cors_config.validate()?;
+    cors_config.log_current_configuration();
+
     let factory = move || {
-        let cors_middleware = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET"]);
+        let cors_middleware = cors_config.make_cors_middleware();
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
@@ -175,13 +184,21 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "fonts")]
         let app = app.app_data(Data::new(state.fonts.clone()));
 
-        app.app_data(Data::new(catalog.clone()))
-            .app_data(Data::new(config.clone()))
-            .wrap(prometheus.clone())
-            .wrap(middleware::Logger::default())
-            .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .configure(|c| router(c, &config))
+        #[cfg(feature = "styles")]
+        let app = app.app_data(Data::new(state.styles.clone()));
+
+        let app = app
+            .app_data(Data::new(catalog.clone()))
+            .app_data(Data::new(config.clone()));
+
+        app.wrap(Condition::new(
+            cors_middleware.is_some(),
+            cors_middleware.unwrap_or_default(),
+        ))
+        .wrap(prometheus.clone())
+        .wrap(Logger::default())
+        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+        .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]

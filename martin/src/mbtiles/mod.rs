@@ -63,7 +63,7 @@ impl Debug for MbtSource {
 
 impl MbtSource {
     async fn new(id: String, path: PathBuf) -> FileResult<Self> {
-        let mbt = MbtilesPool::new(&path)
+        let mbt = MbtilesPool::open_readonly(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| IoError(e, path.clone()))?;

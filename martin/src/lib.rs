@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![forbid(unsafe_code)]
 
 mod config;
@@ -30,6 +30,8 @@ pub mod pmtiles;
 #[cfg(feature = "sprites")]
 pub mod sprites;
 pub mod srv;
+#[cfg(feature = "styles")]
+pub mod styles;
 
 #[cfg(test)]
 #[path = "utils/tests.rs"]

@@ -1,16 +1,23 @@
 use std::string::ToString;
 
+use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
 use actix_web::http::header::ContentType;
+use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, Result as ActixResult, middleware, route};
+use actix_web::{HttpResponse, Result as ActixResult, route};
 use spreet::Spritesheet;
 
 use crate::sprites::{SpriteError, SpriteSources};
 use crate::srv::SourceIDsRequest;
 use crate::srv::server::map_internal_error;
 
-#[route("/sprite/{source_ids}.png", method = "GET", method = "HEAD")]
+#[route(
+    "/sprite/{source_ids}.png",
+    method = "GET",
+    method = "HEAD",
+    wrap = "Etag"
+)]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -21,7 +28,12 @@ async fn get_sprite_png(
         .body(sheet.encode_png().map_err(map_internal_error)?))
 }
 
-#[route("/sdf_sprite/{source_ids}.png", method = "GET", method = "HEAD")]
+#[route(
+    "/sdf_sprite/{source_ids}.png",
+    method = "GET",
+    method = "HEAD",
+    wrap = "Etag"
+)]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -36,7 +48,8 @@ async fn get_sprite_sdf_png(
     "/sprite/{source_ids}.json",
     method = "GET",
     method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    wrap = "Etag",
+    wrap = "Compress::default()"
 )]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
@@ -50,7 +63,8 @@ async fn get_sprite_json(
     "/sdf_sprite/{source_ids}.json",
     method = "GET",
     method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    wrap = "Etag",
+    wrap = "Compress::default()"
 )]
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,

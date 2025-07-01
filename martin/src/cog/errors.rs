@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use png::EncodingError;
 use tiff::TiffError;
 
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum CogError {
     #[error("Couldn't decode {1} as tiff file: {0}")]
@@ -44,4 +45,22 @@ pub enum CogError {
 
     #[error("Striped tiff file is not supported, the tiff file is {0}")]
     NotSupportedChunkType(PathBuf),
+
+    #[error("Coord transformation in {0} is invalid: {1}")]
+    InvalidGeoInformation(PathBuf, String),
+
+    #[error(
+        "The pixel size of the image {0} is not squared, the x_scale is {1}, the y_scale is {2}"
+    )]
+    NonSquaredImage(PathBuf, f64, f64),
+
+    #[error(
+        "Calculating the tile origin failed for {0}: the length of ModelTiepointTag should be >= 6, or the length of ModelTransformationTag should be >= 12"
+    )]
+    GetOriginFailed(PathBuf),
+
+    #[error(
+        "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or ModelPixelScaleTag is required"
+    )]
+    GetFullResolutionFailed(PathBuf),
 }
