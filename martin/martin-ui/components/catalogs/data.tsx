@@ -198,8 +198,7 @@ export function DataCatalog({
     										size="sm"
     										className="flex-1 bg-primary hover:bg-purple-700"
     										disabled
-    										title="Not currently implemented in the frontend"
-   									>
+    								>
     										<Palette className="w-4 h-4 mr-2" />
     										Style
    									</Button>
