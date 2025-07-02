@@ -17,18 +17,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-interface Sprite {
-	name: string;
-	id: string;
-}
-
 export interface SpriteCollection {
 	name: string;
 	description: string;
-	icons: number;
 	sizeInBytes: number;
-	usage: string;
-	sprites: Sprite[];
+	requestsPerDay: number;
+	sprites: string[];
 }
 
 interface SpriteCatalogProps {
@@ -43,105 +37,99 @@ const spriteCollections: SpriteCollection[] = [
 	{
 		name: "POI Icons",
 		description: "Point of interest markers and symbols",
-		icons: 156,
-		sizeInBytes: 2.3 * 1024 * 1024,
-		usage: "45,230 requests/day",
+		sizeInBytes: 23 * 1024 * 1024,
+		requestsPerDay: 45230,
 		sprites: [
-			{ name: "restaurant", id: "restaurant-icon" },
-			{ name: "hotel", id: "hotel-icon" },
-			{ name: "gas-station", id: "gas-station-icon" },
-			{ name: "hospital", id: "hospital-icon" },
-			{ name: "bank", id: "bank-icon" },
-			{ name: "atm", id: "atm-icon" },
-			{ name: "pharmacy", id: "pharmacy-icon" },
-			{ name: "school", id: "school-icon" },
-			{ name: "library", id: "library-icon" },
-			{ name: "post-office", id: "post-office-icon" },
-			{ name: "police", id: "police-icon" },
-			{ name: "fire-station", id: "fire-station-icon" },
+			"restaurant-icon",
+			"hotel-icon",
+			"gas-station-icon",
+			"hospital-icon",
+			"bank-icon",
+			"atm-icon",
+			"pharmacy-icon",
+			"school-icon",
+			"library-icon",
+			"post-office-icon",
+			"police-icon",
+			"fire-station-icon",
 		],
 	},
 	{
 		name: "Transportation",
 		description: "Transit and transportation related icons",
-		icons: 89,
-		sizeInBytes: 1.8 * 1024 * 1024,
-		usage: "32,180 requests/day",
+		sizeInBytes: 18 * 1024 * 1024,
+		requestsPerDay: 32180,
 		sprites: [
-			{ name: "bus-stop", id: "bus-stop-icon" },
-			{ name: "train-station", id: "train-station-icon" },
-			{ name: "airport", id: "airport-icon" },
-			{ name: "parking", id: "parking-icon" },
-			{ name: "subway", id: "subway-icon" },
-			{ name: "taxi", id: "taxi-icon" },
-			{ name: "bicycle", id: "bicycle-icon" },
-			{ name: "car-rental", id: "car-rental-icon" },
+			"bus-stop-icon",
+			"train-station-icon",
+			"airport-icon",
+			"parking-icon",
+			"subway-icon",
+			"taxi-icon",
+			"bicycle-icon",
+			"car-rental-icon",
 		],
 	},
 	{
 		name: "Amenities",
 		description: "Public amenities and services",
-		icons: 124,
-		sizeInBytes: 2.1 * 1024 * 1024,
-		usage: "28,450 requests/day",
+		sizeInBytes: 21 * 1024 * 1024,
+		requestsPerDay: 28450,
 		sprites: [
-			{ name: "wifi", id: "wifi-icon" },
-			{ name: "restroom", id: "restroom-icon" },
-			{ name: "information", id: "information-icon" },
-			{ name: "wheelchair", id: "wheelchair-icon" },
-			{ name: "elevator", id: "elevator-icon" },
-			{ name: "stairs", id: "stairs-icon" },
-			{ name: "drinking-water", id: "drinking-water-icon" },
-			{ name: "phone", id: "phone-icon" },
+			"wifi-icon",
+			"restroom-icon",
+			"information-icon",
+			"wheelchair-icon",
+			"elevator-icon",
+			"stairs-icon",
+			"drinking-water-icon",
+			"phone-icon",
 		],
 	},
 	{
 		name: "Recreation",
 		description: "Parks, sports, and recreational facilities",
-		icons: 67,
-		sizeInBytes: 1.4 * 1024 * 1024,
-		usage: "18,920 requests/day",
+		sizeInBytes: 14 * 1024 * 1024,
+		requestsPerDay: 18920,
 		sprites: [
-			{ name: "park", id: "park-icon" },
-			{ name: "playground", id: "playground-icon" },
-			{ name: "stadium", id: "stadium-icon" },
-			{ name: "beach", id: "beach-icon" },
-			{ name: "swimming", id: "swimming-icon" },
-			{ name: "tennis", id: "tennis-icon" },
-			{ name: "golf", id: "golf-icon" },
-			{ name: "hiking", id: "hiking-icon" },
+			"park-icon",
+			"playground-icon",
+			"stadium-icon",
+			"beach-icon",
+			"swimming-icon",
+			"tennis-icon",
+			"golf-icon",
+			"hiking-icon",
 		],
 	},
 	{
 		name: "Shopping",
 		description: "Retail and commercial establishments",
-		icons: 78,
-		sizeInBytes: 1.6 * 1024 * 1024,
-		usage: "22,340 requests/day",
+		sizeInBytes: 16 * 1024 * 1024,
+		requestsPerDay: 22340,
 		sprites: [
-			{ name: "shopping-mall", id: "shopping-mall-icon" },
-			{ name: "grocery-store", id: "grocery-store-icon" },
-			{ name: "clothing-store", id: "clothing-store-icon" },
-			{ name: "electronics", id: "electronics-icon" },
-			{ name: "bookstore", id: "bookstore-icon" },
-			{ name: "flower-shop", id: "flower-shop-icon" },
-			{ name: "jewelry", id: "jewelry-icon" },
-			{ name: "bakery", id: "bakery-icon" },
+			"shopping-mall-icon",
+			"grocery-store-icon",
+			"clothing-store-icon",
+			"electronics-icon",
+			"bookstore-icon",
+			"flower-shop-icon",
+			"jewelry-icon",
+			"bakery-icon",
 		],
 	},
 	{
 		name: "Custom Markers",
 		description: "Custom branded location markers",
-		icons: 24,
 		sizeInBytes: 890 * 1024,
-		usage: "12,670 requests/day",
+		requestsPerDay: 12670,
 		sprites: [
-			{ name: "brand-a-marker", id: "brand-a-marker-icon" },
-			{ name: "brand-b-marker", id: "brand-b-marker-icon" },
-			{ name: "special-event", id: "special-event-icon" },
-			{ name: "promotion", id: "promotion-icon" },
-			{ name: "new-location", id: "new-location-icon" },
-			{ name: "featured", id: "featured-icon" },
+			"brand-a-marker-icon",
+			"brand-b-marker-icon",
+			"special-event-icon",
+			"promotion-icon",
+			"new-location-icon",
+			"featured-icon",
 		],
 	},
 ];
@@ -228,22 +216,22 @@ export function SpriteCatalog({
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-4">
-									<div className="p-3 bg-gray-50 rounded-lg">
+									<div className="p-3 bg-gray-50 rounded-lg text-gray-900">
 										<p className="text-sm font-medium mb-2">Icon Preview:</p>
 										<div className="grid grid-cols-8 gap-2">
-											{Array.from({ length: Math.min(16, sprite.icons) }).map(
-												(_: unknown, i: number) => (
+											{sprite.sprites.slice(0,16).map(
+												(spriteID) => (
 													<div
-														key={i}
+														key={spriteID}
 														className="w-6 h-6 bg-purple-200 rounded flex items-center justify-center"
 													>
 														<div className="w-4 h-4 bg-primary rounded-sm"></div>
 													</div>
 												),
 											)}
-											{sprite.icons > 16 && (
+											{sprite.sprites.length > 16 && (
 												<div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">
-													+{sprite.icons - 16}
+													+{sprite.sprites.length - 16}
 												</div>
 											)}
 										</div>
@@ -251,7 +239,7 @@ export function SpriteCatalog({
 									<div className="space-y-2 text-sm text-muted-foreground">
 										<div className="flex justify-between">
 											<span>Icons:</span>
-											<span>{sprite.icons}</span>
+											<span>{sprite.sprites.length}</span>
 										</div>
 										<div className="flex justify-between">
 											<span>File Size:</span>
@@ -259,7 +247,7 @@ export function SpriteCatalog({
 										</div>
 										<div className="flex justify-between">
 											<span>Usage:</span>
-											<span>{sprite.usage}</span>
+											<span>{sprite.requestsPerDay} requests/day</span>
 										</div>
 									</div>
 									<div className="flex space-x-2">
@@ -275,7 +263,7 @@ export function SpriteCatalog({
 										<Button
 											variant="default"
 											size="sm"
-											className="flex-1 bg-primary hover:bg-purple-700"
+											className="flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
 											onClick={() => handleSpriteSelect(sprite)}
 											disabled={isLoadingSprites}
 										>

@@ -84,16 +84,16 @@ export function SpritePreviewModal({
 									Sprite Preview ({sprite.sprites.length} icons)
 								</h4>
 								<div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 max-h-96 overflow-y-auto">
-									{sprite.sprites.map((spriteItem, index) => (
+									{sprite.sprites.map((spriteItem) => (
 										<div
-											key={index}
+											key={spriteItem}
 											className="flex flex-col items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors"
 										>
 											<div className="w-12 h-12 bg-purple-200 rounded flex items-center justify-center mb-2">
 												<div className="w-8 h-8 bg-primary rounded-sm"></div>
 											</div>
 											<span className="text-xs text-center font-medium break-words">
-												{spriteItem.name}
+												{spriteItem}
 											</span>
 										</div>
 									))}
