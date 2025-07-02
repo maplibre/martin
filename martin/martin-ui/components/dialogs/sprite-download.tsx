@@ -3,13 +3,15 @@
 import { Copy, CopyCheck } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import type { SpriteCollection } from "@/components/catalogs/sprite";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import type { SpriteCollection } from "@/lib/types";
+import { formatFileSize } from "@/lib/utils";
 
-interface SpriteDownloadModalProps {
+interface SpriteDownloadDialogProps {
+	name: string;
 	sprite: SpriteCollection;
 	onCloseAction: () => void;
 }
@@ -20,16 +22,17 @@ interface SpriteFormat {
 	type: "spritesheet" | "json";
 	url: string;
 	description: string;
+	size?: number;
 }
 
-export function SpriteDownloadModal({
+export function SpriteDownloadDialog({
+	name,
 	sprite,
 	onCloseAction,
-}: SpriteDownloadModalProps) {
-	const open = !!sprite;
+}: SpriteDownloadDialogProps) {
 	const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 	const { toast } = useToast();
-	if (!open) return null;
+	if (!sprite) return null;
 
 	// Generate sprite format URLs (these would be real URLs in production)
 	const spriteFormats: SpriteFormat[] = sprite
@@ -38,29 +41,33 @@ export function SpriteDownloadModal({
 					label: "PNG Spritesheet",
 					format: "png",
 					type: "spritesheet",
-					url: `/sprites/${sprite.name.toLowerCase().replace(/\s+/g, "-")}.png`,
+					url: `/sprites/${name}.png`,
 					description: "Combined image file with all sprites",
+					size: sprite.sizeInBytes,
 				},
 				{
 					label: "PNG JSON",
 					format: "png",
 					type: "json",
-					url: `/sprites/${sprite.name.toLowerCase().replace(/\s+/g, "-")}.json`,
+					url: `/sprites/${name}.json`,
 					description: "Metadata with sprite coordinates and properties",
+					size: Math.floor(sprite.sizeInBytes ? sprite.sizeInBytes / 3 : 0),
 				},
 				{
 					label: "SDF Spritesheet",
 					format: "sdf",
 					type: "spritesheet",
-					url: `/sprites/${sprite.name.toLowerCase().replace(/\s+/g, "-")}-sdf.png`,
+					url: `/sprites/${name}-sdf.png`,
 					description: "SDF-encoded image for scalable rendering",
+					size: Math.floor(sprite.sizeInBytes ? sprite.sizeInBytes * 0.8 : 0),
 				},
 				{
 					label: "SDF JSON",
 					format: "sdf",
 					type: "json",
-					url: `/sprites/${sprite.name.toLowerCase().replace(/\s+/g, "-")}-sdf.json`,
+					url: `/sprites/${name}-sdf.json`,
 					description: "SDF metadata with rendering parameters",
+					size: Math.floor(sprite.sizeInBytes ? sprite.sizeInBytes / 4 : 0),
 				},
 			]
 		: [];
@@ -94,9 +101,12 @@ export function SpriteDownloadModal({
 	const sdfFormats = spriteFormats.filter((f) => f.format === "sdf");
 
 	return (
-		<Dialog open={open} onOpenChange={(v: boolean) => !v && onCloseAction()}>
+		<Dialog
+			open={!!sprite}
+			onOpenChange={(v: boolean) => !v && onCloseAction()}
+		>
 			<DialogHeader>
-				<h3 className="text-2xl font-bold">Download {sprite.name}</h3>
+				<h3 className="text-2xl font-bold">Download {name}</h3>
 				<p className="text-muted-foreground">
 					Choose your preferred sprite format
 				</p>
@@ -181,6 +191,7 @@ export function SpriteDownloadModal({
 											</div>
 											<p className="text-sm text-muted-foreground">
 												{format.description}
+												{format.size ? ` (${formatFileSize(format.size)})` : ""}
 											</p>
 										</div>
 										<Button
@@ -232,6 +243,7 @@ export function SpriteDownloadModal({
 											</div>
 											<p className="text-sm text-muted-foreground">
 												{format.description}
+												{format.size ? ` (${formatFileSize(format.size)})` : ""}
 											</p>
 										</div>
 										<Button

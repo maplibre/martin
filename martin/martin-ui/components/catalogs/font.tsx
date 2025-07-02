@@ -17,7 +17,7 @@ import type{ Font } from "@/lib/types";
 
 
 interface FontCatalogProps {
-	fonts: Font[] | null;
+	fonts: { [name: string]: Font } | null;
 	searchQuery?: string;
 	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;
@@ -30,7 +30,7 @@ export function FontCatalog({
 	fonts,
 	searchQuery = "",
 	onSearchChangeAction = () => {},
-	isLoading = false,
+	isLoading,
 	error = null,
 	onRetry,
 	isRetrying = false,
@@ -39,7 +39,7 @@ export function FontCatalog({
 		return (
 			<CatalogSkeleton
 				title="Font Catalog"
-				description="Manage and preview all available font assets"
+				description="Preview all available font assets"
 			/>
 		);
 	}
@@ -58,11 +58,11 @@ export function FontCatalog({
 		);
 	}
 
-	const filteredFonts = (fonts||[]).filter(
-		(font) =>
-			font.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+	const filteredFonts = Object.entries(fonts||{}).filter(
+		([name, font]) =>
+			name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			font.family.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			font.format.toLowerCase().includes(searchQuery.toLowerCase()),
+			font.style.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
 	return (
@@ -71,7 +71,7 @@ export function FontCatalog({
 				<div>
 					<h2 className="text-2xl font-bold text-foreground">Font Catalog</h2>
 					<p className="text-muted-foreground">
-						Manage and preview all available font assets
+						Preview all available font assets
 					</p>
 				</div>
 				<div className="relative">
@@ -86,20 +86,22 @@ export function FontCatalog({
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				{filteredFonts.map((font, index) => (
-					<Card key={index} className="hover:shadow-lg transition-shadow">
+				{filteredFonts.map(([name, font]) => (
+					<Card key={name} className="hover:shadow-lg transition-shadow">
 						<CardHeader>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center space-x-2">
 									<Type className="w-5 h-5 text-primary" />
-									<CardTitle className="text-lg">{font.name}</CardTitle>
+									<CardTitle className="text-lg">{name}</CardTitle>
 								</div>
+								{font.format &&
 								<Badge variant="secondary" className="uppercase">
 									{font.format}
 								</Badge>
+								}
 							</div>
 							<CardDescription>
-								Family: {font.family} • Weight: {font.weight}
+								Family: {font.family} • Style: {font.style}
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -110,19 +112,15 @@ export function FontCatalog({
 									</p>
 									<p
 										className="text-base text-gray-900"
-										style={{ fontFamily: font.family, fontWeight: font.weight }}
+										style={{ fontFamily: font.family, fontWeight: 500 }}
 									>
 										The quick brown fox jumps over the lazy dog
 									</p>
 								</div>
 								<div className="space-y-2 text-sm text-muted-foreground">
 									<div className="flex justify-between">
-										<span>File Size:</span>
-										<span>{font.sizeInBytes} bytes</span>
-									</div>
-									<div className="flex justify-between">
-										<span>Usage:</span>
-										<span>{font.usagePerDay} requests/day</span>
+										<span>Glyph count:</span>
+										<span>{font.glyphs}</span>
 									</div>
 								</div>
 								<div className="flex space-x-2">

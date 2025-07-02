@@ -1,42 +1,16 @@
 import { Activity, Database, Server, Zap } from "lucide-react";
-import {
-	Bar,
-	BarChart,
-	CartesianGrid,
-	Line,
-	LineChart,
-	XAxis,
-	YAxis,
-} from "recharts";
 import { ErrorState } from "@/components/error/error-state";
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import {
-	ChartContainer,
-	ChartTooltip,
-	ChartTooltipContent,
-} from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnalyticsData } from "@/lib/types";
 
 interface AnalyticsSectionProps {
-	serverMetrics: {
-		requestsPerSecond: number;
-		memoryUsage: number;
-		cacheHitRate: number;
-		activeSources: number;
-	};
-	usageData: Array<{ time: string; requests: number; memory: number }>;
-	tileSourcesData: Array<{
-		name: string;
-		requests: number;
-		type: string;
-		status: string;
-	}>;
+	analytics: AnalyticsData | null;
 	isLoading?: boolean;
 	error?: Error | null;
 	onRetry?: () => void;
@@ -44,10 +18,8 @@ interface AnalyticsSectionProps {
 }
 
 export function AnalyticsSection({
-	serverMetrics,
-	usageData,
-	tileSourcesData,
-	isLoading = false,
+	analytics,
+	isLoading,
 	error = null,
 	onRetry,
 	isRetrying = false,
@@ -80,7 +52,7 @@ export function AnalyticsSection({
 						<Activity className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						{isLoading ? (
+						{isLoading || !analytics ? (
 							<>
 								<Skeleton className="h-8 w-16 mb-2" />
 								<Skeleton className="h-3 w-32" />
@@ -88,7 +60,7 @@ export function AnalyticsSection({
 						) : (
 							<>
 								<div className="text-2xl font-bold">
-									{serverMetrics.requestsPerSecond.toLocaleString()}
+									{analytics.requestsPerSecond.toLocaleString()}
 								</div>
 								<p className="text-xs text-muted-foreground">
 									+12% from last hour
@@ -103,7 +75,7 @@ export function AnalyticsSection({
 						<Server className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						{isLoading ? (
+						{isLoading || !analytics ? (
 							<>
 								<Skeleton className="h-8 w-16 mb-2" />
 								<Skeleton className="h-3 w-32" />
@@ -111,7 +83,7 @@ export function AnalyticsSection({
 						) : (
 							<>
 								<div className="text-2xl font-bold">
-									{serverMetrics.memoryUsage}%
+									{analytics.memoryUsage}%
 								</div>
 								<p className="text-xs text-muted-foreground">
 									4.2 GB of 6 GB used
@@ -128,7 +100,7 @@ export function AnalyticsSection({
 						<Zap className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						{isLoading ? (
+						{isLoading || !analytics ? (
 							<>
 								<Skeleton className="h-8 w-16 mb-2" />
 								<Skeleton className="h-3 w-32" />
@@ -136,7 +108,7 @@ export function AnalyticsSection({
 						) : (
 							<>
 								<div className="text-2xl font-bold">
-									{serverMetrics.cacheHitRate}%
+									{analytics.cacheHitRate}%
 								</div>
 								<p className="text-xs text-muted-foreground">
 									Excellent performance
@@ -153,7 +125,7 @@ export function AnalyticsSection({
 						<Database className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						{isLoading ? (
+						{isLoading  || !analytics? (
 							<>
 								<Skeleton className="h-8 w-16 mb-2" />
 								<Skeleton className="h-3 w-32" />
@@ -161,7 +133,7 @@ export function AnalyticsSection({
 						) : (
 							<>
 								<div className="text-2xl font-bold">
-									{serverMetrics.activeSources}
+									{analytics.activeSources}
 								</div>
 								<p className="text-xs text-muted-foreground">
 									All sources healthy

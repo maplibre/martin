@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import type { Style } from "@/lib/types";
 
 interface StylesCatalogProps {
-	styles: Style[] | null;
+	styles: {[name: string]: Style}|null;
 	searchQuery?: string;
 	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;
@@ -29,7 +29,7 @@ export function StylesCatalog({
 	styles,
 	searchQuery = "",
 	onSearchChangeAction = () => {},
-	isLoading = false,
+	isLoading,
 	error = null,
 	onRetry,
 	isRetrying = false,
@@ -57,9 +57,9 @@ export function StylesCatalog({
 		);
 	}
 
-	const filteredStyles = (styles ||[]).filter(
-		(style) =>
-			style.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+	const filteredStyles = Object.entries(styles ||{}).filter(
+		([name,style]) =>
+			name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			style.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			style.type.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
@@ -85,13 +85,13 @@ export function StylesCatalog({
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				{filteredStyles.map((style, index) => (
-					<Card key={index} className="hover:shadow-lg transition-shadow">
+				{filteredStyles.map(([name,style]) => (
+					<Card key={name} className="hover:shadow-lg transition-shadow">
 						<CardHeader>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center space-x-2">
 									<Brush className="w-5 h-5 text-primary" />
-									<CardTitle className="text-lg">{style.name}</CardTitle>
+									<CardTitle className="text-lg">{name}</CardTitle>
 								</div>
 								<Badge variant="secondary">{style.type}</Badge>
 							</div>

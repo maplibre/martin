@@ -7,27 +7,28 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { SpriteCollection } from "@/lib/types";
+import { formatFileSize } from "@/lib/utils";
 
-import type { SpriteCollection } from "../catalogs/sprite";
-
-interface SpritePreviewModalProps {
+interface SpritePreviewDialogProps {
+	name: string;
 	sprite: SpriteCollection | null;
 	onCloseAction: () => void;
 	onDownloadAction: (sprite: SpriteCollection) => void;
 	isLoading?: boolean;
 }
 
-export function SpritePreviewModal({
+export function SpritePreviewDialog({
+	name,
 	sprite,
 	onDownloadAction,
 	onCloseAction,
-	isLoading = false,
-}: SpritePreviewModalProps) {
+	isLoading,
+}: SpritePreviewDialogProps) {
 	const open = !!sprite;
 
 	return (
@@ -36,8 +37,7 @@ export function SpritePreviewModal({
 				{sprite && (
 					<div className="p-6">
 						<DialogHeader>
-							<DialogTitle className="text-2xl">{sprite.name}</DialogTitle>
-							<DialogDescription>{sprite.description}</DialogDescription>
+							<DialogTitle className="text-2xl">{name}</DialogTitle>
 						</DialogHeader>
 						<div className="flex items-center justify-end mb-4 gap-2">
 							<Button
@@ -81,10 +81,15 @@ export function SpritePreviewModal({
 						) : (
 							<div>
 								<h4 className="font-medium mb-4">
-									Sprite Preview ({sprite.sprites.length} icons)
+									Sprite Preview ({sprite.images.length} icons)
+									{sprite.sizeInBytes && (
+										<span className="ml-2 text-sm text-muted-foreground">
+											({formatFileSize(sprite.sizeInBytes)})
+										</span>
+									)}
 								</h4>
 								<div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 max-h-96 overflow-y-auto">
-									{sprite.sprites.map((spriteItem) => (
+									{sprite.images.map((spriteItem) => (
 										<div
 											key={spriteItem}
 											className="flex flex-col items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors"

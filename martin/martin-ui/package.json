@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
@@ -49,7 +50,6 @@
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.59.0",
     "react-resizable-panels": "^3.0.3",
-    "recharts": "^3.0.2",
     "sonner": "^2.0.5",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",

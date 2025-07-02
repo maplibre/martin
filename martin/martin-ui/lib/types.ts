@@ -1,52 +1,18 @@
-// lib/types.ts
-
-/**
- * Represents the server metrics for the analytics section.
- */
-export interface ServerMetrics {
-	requestsPerSecond: number;
-	memoryUsage: number;
-	cacheHitRate: number;
-	activeSources: number;
-}
-
-/**
- * A single data point for usage statistics over time.
- */
-export interface UsageDataPoint {
-	time: string;
-	requests: number;
-	memory: number;
-}
-
 export interface Font {
-	name: string;
+	// the group of fonts that are used in the application
+   // Example
+   // - "Roboto Medium" has the family of Roboto
+   // - "Roboto Condensed Medium Italic" has family "Roboto Condensed"
 	family: string;
-	weight: number;
-	format: "otf" | "ttf" | "ttc";
-	sizeInBytes: number;
-	usagePerDay: number;
-}
-/**
- * Represents a tile source with its usage data.
- */
-export interface TileSourceData {
-	name: string;
-	requests: number;
-	type: "vector" | "raster" | "sprite" | "font";
-	status: "active" | "inactive";
+	// if the style is Medium, Bold, Italic, Bold Italic, ..
+  style: string;
+  format?: "otf" | "ttf" | "ttc"; // todo: make this provided as required upstream
+  start: number; // todo: what is this?
+  end: number; // todo: what is this?
+	glyphs: number;
 }
 
-/**
- * The complete analytics data structure.
- */
-export interface AnalyticsData {
-	serverMetrics: ServerMetrics;
-	usageData: UsageDataPoint[];
-	tileSourcesData: TileSourceData[];
-}
 export interface Style {
-	name: string;
 	description: string;
 	type: "vector" | "raster" | "hybrid";
 	version: string;
@@ -58,14 +24,14 @@ export interface Style {
 /**
  * Represents a data source in the data catalog.
  */
-export interface DataSource {
-	id: string;
-	name: string;
-	type: "vector" | "raster";
+export interface TileSource {
+	content_type: string;
+	content_encoding?: string;
+	name?: string;
 	description: string;
-	layers: number;
-	lastUpdatedAt: Date;
-	sizeBytes: number;
+	attribution?: string;
+	layers?: number; // todo: make this provided as required upstream
+	lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
 /**
@@ -73,9 +39,16 @@ export interface DataSource {
  * This is a placeholder type and might need to be adjusted based on the actual sprite data.
  */
  export interface SpriteCollection {
-	name: string;
-	description: string;
-	sizeInBytes: number;
-	requestsPerDay: number;
-	sprites: string[];
+	sizeInBytes?: number;
+	images: string[];
+ }
+
+ /**
+  * Usage and performance metrics
+  */
+ export interface AnalyticsData {
+	requestsPerSecond: number;
+	memoryUsage: number;
+	cacheHitRate: number;
+	activeSources: number;
  }
