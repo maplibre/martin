@@ -4,6 +4,11 @@ import { Moon, Sun, SunMoon } from "lucide-react";
 import { useTheme } from "next-themes";
 import * as React from "react";
 import { Button } from "./ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 const themeOrder = ["light", "dark", "system"] as const;
 
@@ -38,14 +43,20 @@ export function ThemeSwitcher() {
 	};
 
 	return (
-		<Button
-			variant="outline"
-			size="icon"
-			onClick={() => setTheme(getNextTheme())}
-			aria-label={getLabel()}
-			title={getLabel()}
-		>
-			{getIcon()}
-		</Button>
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					variant="outline"
+					size="icon"
+					onClick={() => setTheme(getNextTheme())}
+					aria-label={getLabel()}
+				>
+					{getIcon()}
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>
+				<p>{getLabel()}</p>
+			</TooltipContent>
+		</Tooltip>
 	);
 }

@@ -4,6 +4,7 @@ import { BookOpen, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { ThemeSwitcher } from "./theme-switcher";
 
 export function Header() {
@@ -37,24 +38,49 @@ export function Header() {
   						</Badge>
 					</div>
 					<div className="flex items-center space-x-6">
-						<Link
-							href="https://maplibre.org/martin/"
-							className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<BookOpen size={18} />
-							<span>Documentation</span>
-						</Link>
-						<Link
-							href="https://maplibre.org"
-							className="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<Info size={18} />
-							<span>About us</span>
-						</Link>
+						<HoverCard>
+							<HoverCardTrigger asChild>
+								<Link
+									href="https://maplibre.org/martin/"
+									className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<BookOpen size={18} />
+									<span>Documentation</span>
+								</Link>
+							</HoverCardTrigger>
+							<HoverCardContent className="w-80">
+								<div className="space-y-2">
+									<h4 className="text-sm font-semibold">Martin Documentation</h4>
+									<p className="text-sm">
+										Access comprehensive guides and documentation for the Martin tile server.
+									</p>
+								</div>
+							</HoverCardContent>
+						</HoverCard>
+						<HoverCard>
+							<HoverCardTrigger asChild>
+								<Link
+									href="https://maplibre.org"
+									className="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<Info size={18} />
+									<span>About us</span>
+								</Link>
+							</HoverCardTrigger>
+							<HoverCardContent className="w-80">
+								<div className="space-y-2">
+									<h4 className="text-sm font-semibold">About MapLibre</h4>
+									<p className="text-sm">
+										Learn about MapLibre,<br/>
+										the open-source collective behind this project.
+									</p>
+								</div>
+							</HoverCardContent>
+						</HoverCard>
 						<ThemeSwitcher />
 					</div>
 				</div>
