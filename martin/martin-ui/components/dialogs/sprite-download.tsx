@@ -5,10 +5,11 @@ import type React from "react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { SpriteCollection } from "@/lib/types";
 import { formatFileSize } from "@/lib/utils";
+import Link from "next/link";
 
 interface SpriteDownloadDialogProps {
 	name: string;
@@ -18,11 +19,8 @@ interface SpriteDownloadDialogProps {
 
 interface SpriteFormat {
 	label: string;
-	format: "png" | "sdf";
-	type: "spritesheet" | "json";
 	url: string;
 	description: string;
-	size?: number;
 }
 
 export function SpriteDownloadDialog({
@@ -34,43 +32,42 @@ export function SpriteDownloadDialog({
 	const { toast } = useToast();
 	if (!sprite) return null;
 
-	// Generate sprite format URLs (these would be real URLs in production)
-	const spriteFormats: SpriteFormat[] = sprite
-		? [
-				{
-					label: "PNG Spritesheet",
-					format: "png",
-					type: "spritesheet",
-					url: `/sprites/${name}.png`,
-					description: "Combined image file with all sprites",
-					size: sprite.sizeInBytes,
-				},
-				{
-					label: "PNG JSON",
-					format: "png",
-					type: "json",
-					url: `/sprites/${name}.json`,
-					description: "Metadata with sprite coordinates and properties",
-					size: Math.floor(sprite.sizeInBytes ? sprite.sizeInBytes / 3 : 0),
-				},
-				{
-					label: "SDF Spritesheet",
-					format: "sdf",
-					type: "spritesheet",
-					url: `/sprites/${name}-sdf.png`,
-					description: "SDF-encoded image for scalable rendering",
-					size: Math.floor(sprite.sizeInBytes ? sprite.sizeInBytes * 0.8 : 0),
-				},
-				{
-					label: "SDF JSON",
-					format: "sdf",
-					type: "json",
-					url: `/sprites/${name}-sdf.json`,
-					description: "SDF metadata with rendering parameters",
-					size: Math.floor(sprite.sizeInBytes ? sprite.sizeInBytes / 4 : 0),
-				},
-			]
-		: [];
+	// Generate sprite format URLs
+  const pngFormats: SpriteFormat[] = [
+    {
+      label: "PNG JSON",
+      url: `/sprites/${name}.json`,
+      description: "Sprite coordinates and metadata",
+    },
+    {
+      label: "PNG Spritesheet",
+      url: `/sprite/${name}.png`,
+      description: "Standard sprite format with full color support",
+    },
+    {
+      label: "High DPI PNG Spritesheet",
+      url: `/sprite/${name}@2x.png`,
+      description: "High resolution sprites for retina displays",
+    }
+  ];
+  
+  const sdfFormats: SpriteFormat[] = [
+    {
+      label: "SDF Spritesheet",
+      url: `/sdf_sprite/${name}.png`,
+      description: "For runtime coloring with single color",
+    },
+    {
+      label: "SDF JSON",
+      url: `/sdf_sprite/${name}.json`,
+      description: "SDF sprite coordinates and metadata",
+    },
+    {
+      label: "High DPI SDF Spritesheet",
+      url: `/sdf_sprite/${name}@2x.png`,
+      description: "High resolution sprites for retina displays",
+    },
+  ];
 
 	const handleCopyUrl = async (url: string, label: string) => {
 		try {
@@ -81,7 +78,7 @@ export function SpriteDownloadDialog({
 			setCopiedUrl(url);
 			toast({
 				title: "URL Copied",
-				description: `${label} URL copied to clipboard`,
+				description: `URL of ${label} copied to clipboard`,
 			});
 
 			// Reset copied state after 2 seconds
@@ -97,22 +94,16 @@ export function SpriteDownloadDialog({
 		}
 	};
 
-	const pngFormats = spriteFormats.filter((f) => f.format === "png");
-	const sdfFormats = spriteFormats.filter((f) => f.format === "sdf");
-
 	return (
 		<Dialog
 			open={!!sprite}
 			onOpenChange={(v: boolean) => !v && onCloseAction()}
 		>
-			<DialogHeader>
-				<h3 className="text-2xl font-bold">Download {name}</h3>
-				<p className="text-muted-foreground">
-					Choose your preferred sprite format
-				</p>
-			</DialogHeader>
-			<DialogContent className="max-w-2xl w-full max-h-[80vh] overflow-auto p-0">
-				<div className="mb-8 space-y-6">
+			<DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-auto">
+				<DialogHeader>
+					<DialogTitle className="text-2xl">Download <span className="font-mono">{name}</span></DialogTitle>
+				</DialogHeader>
+				<div className="space-y-6">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						{/* PNG Format */}
 						<div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
@@ -126,14 +117,13 @@ export function SpriteDownloadDialog({
 								<h4 className="font-semibold text-blue-900">Standard Format</h4>
 							</div>
 							<p className="text-sm text-blue-800 mb-4">
-								Traditional raster sprites with full color support. Best for
-								detailed icons and complex graphics.
+								Standard sprite format with multiple colors and transparency.
 							</p>
-							<ul className="text-xs text-blue-700 space-y-1">
-								<li>• Full color and transparency support</li>
-								<li>• Works with all mapping libraries</li>
-								<li>• Fixed resolution (may blur when scaled)</li>
-								<li>• Larger file sizes</li>
+							<ul className="text-xs text-blue-700 space-y-1  list-disc ps-4">
+								<li>Full color support</li>
+								<li>No runtime recoloring</li>
+								<li>Compatible with all mapping libraries</li>
+								<li>Fixed resolution</li>
 							</ul>
 						</div>
 
@@ -151,14 +141,13 @@ export function SpriteDownloadDialog({
 								</h4>
 							</div>
 							<p className="text-sm text-purple-800 mb-4">
-								Advanced format for scalable, high-quality rendering at any zoom
-								level. Perfect for modern mapping applications.
+								For dynamic coloring at runtime.
 							</p>
-							<ul className="text-xs text-purple-700 space-y-1">
-								<li>• Infinite scalability without blur</li>
-								<li>• Smaller file sizes</li>
-								<li>• Runtime color customization</li>
-								<li>• Requires SDF-compatible renderer</li>
+							<ul className="text-xs text-purple-700 space-y-1 list-disc ps-4">
+								<li>Single color per sprite; Layer multiple SDFs for multi-color icons</li>
+								<li>Customizable color via <span className="bg-purple-200 font-semibold font-monospace text-purple-950 p-0.5 rounded-sm">icon-color</span> property</li>
+								<li>Supported by MapLibre and Mapbox</li>
+								<li><Link href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf" className="text-purple-950 hover:underline">SVG-Like</Link> zooming</li>
 							</ul>
 						</div>
 					</div>
@@ -174,7 +163,7 @@ export function SpriteDownloadDialog({
 								>
 									PNG
 								</Badge>
-								Standard Format Downloads
+								Standard Sprites
 							</h4>
 							<div className="space-y-3">
 								{pngFormats.map((format) => (
@@ -183,15 +172,11 @@ export function SpriteDownloadDialog({
 										className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
 									>
 										<div className="flex-1">
-											<div className="flex items-center mb-1">
-												<span className="font-medium">{format.label}</span>
-												<Badge variant="outline" className="ml-2 text-xs">
-													{format.type}
-												</Badge>
+											<div className="flex items-center mb-1 font-medium">
+												{format.label}
 											</div>
 											<p className="text-sm text-muted-foreground">
 												{format.description}
-												{format.size ? ` (${formatFileSize(format.size)})` : ""}
 											</p>
 										</div>
 										<Button
@@ -226,7 +211,7 @@ export function SpriteDownloadDialog({
 								>
 									SDF
 								</Badge>
-								Signed Distance Field Downloads
+								Runtime Colorable Sprites
 							</h4>
 							<div className="space-y-3">
 								{sdfFormats.map((format) => (
@@ -235,15 +220,9 @@ export function SpriteDownloadDialog({
 										className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
 									>
 										<div className="flex-1">
-											<div className="flex items-center mb-1">
-												<span className="font-medium">{format.label}</span>
-												<Badge variant="outline" className="ml-2 text-xs">
-													{format.type}
-												</Badge>
-											</div>
+											<div className="flex items-center mb-1 font-medium">{format.label}</div>
 											<p className="text-sm text-muted-foreground">
 												{format.description}
-												{format.size ? ` (${formatFileSize(format.size)})` : ""}
 											</p>
 										</div>
 										<Button
@@ -267,17 +246,6 @@ export function SpriteDownloadDialog({
 									</div>
 								))}
 							</div>
-						</div>
-					</div>
-
-					{/* Footer */}
-					<div className="mt-8 pt-4 border-t">
-						<div className="flex items-center justify-between">
-							<p className="text-sm text-muted-foreground">
-								URLs are copied to your clipboard and ready to use in your
-								mapping application.
-							</p>
-							<Button onClick={onCloseAction}>Done</Button>
 						</div>
 					</div>
 				</div>
