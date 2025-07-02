@@ -1,3 +1,10 @@
+export interface CatalogSchema {
+  tiles: { [tile_id: string]: TileSource };
+  sprites: {[sprite_collection_id: string]: SpriteCollection};
+  fonts: { [name: string]: Font };
+  styles: {[name: string]: Style};
+}
+
 export interface Font {
 	// the group of fonts that are used in the application
    // Example

@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AsyncOperationState<T> {
-	data: T | null;
+	data?: T;
 	isLoading: boolean;
 	error: Error | null;
 	isRetrying: boolean;
@@ -35,7 +35,7 @@ export function useAsyncOperation<T>(
 
 	const { toast } = useToast();
 	const [state, setState] = useState<AsyncOperationState<T>>({
-		data: null,
+		data: undefined,
 		isLoading: false,
 		error: null,
 		isRetrying: false,
@@ -119,14 +119,14 @@ export function useAsyncOperation<T>(
 
 		try {
 			await execute(true);
-		} catch (error) {
+		} catch {
 			// Error is already handled in execute
 		}
 	}, [execute, state.retryCount, maxRetries, toast]);
 
 	const reset = useCallback(() => {
 		setState({
-			data: null,
+			data: undefined,
 			isLoading: false,
 			error: null,
 			isRetrying: false,

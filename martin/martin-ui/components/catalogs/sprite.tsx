@@ -20,9 +20,9 @@ import type { SpriteCollection } from "@/lib/types";
 import { formatFileSize } from "@/lib/utils";
 
 interface SpriteCatalogProps {
-	spriteCollections: {
+	spriteCollections?: {
 		[sprite_collection_id: string]: SpriteCollection;
-	} | null;
+	};
 	searchQuery?: string;
 	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;

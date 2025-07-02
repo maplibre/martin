@@ -17,7 +17,7 @@ import type{ Font } from "@/lib/types";
 
 
 interface FontCatalogProps {
-	fonts: { [name: string]: Font } | null;
+	fonts?: { [name: string]: Font };
 	searchQuery?: string;
 	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;

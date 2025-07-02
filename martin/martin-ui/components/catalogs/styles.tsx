@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import type { Style } from "@/lib/types";
 
 interface StylesCatalogProps {
-	styles: {[name: string]: Style}|null;
+	styles?: {[name: string]: Style};
 	searchQuery?: string;
 	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;

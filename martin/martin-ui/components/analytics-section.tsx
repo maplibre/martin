@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsData } from "@/lib/types";
 
 interface AnalyticsSectionProps {
-	analytics: AnalyticsData | null;
+	analytics?: AnalyticsData;
 	isLoading?: boolean;
 	error?: Error | null;
 	onRetry?: () => void;

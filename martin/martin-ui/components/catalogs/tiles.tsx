@@ -24,7 +24,7 @@ import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface TilesCatalogProps {
-	tileSources: { [tile_id: string]: TileSource } | null;
+	tileSources?: { [tile_id: string]: TileSource };
 	searchQuery: string;
 	onSearchChangeAction: (query: string) => void;
 	isLoading?: boolean;
