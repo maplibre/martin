@@ -17,27 +17,29 @@ export interface Font {
   start: number; // todo: what is this?
   end: number; // todo: what is this?
 	glyphs: number;
+	lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
 export interface Style {
-	description: string;
-	type: "vector" | "raster" | "hybrid";
-	version: string;
-	usage: string;
-	layers: number;
-	colors: string[];
-	lastModified: string;
+  path: string;
+	type?: "vector" | "raster" | "hybrid"; // todo: make this provided as required upstream
+	versionHash?: string; // todo: make this provided as required upstream
+	layerCount?: number; // todo: make this provided as required upstream
+	colors?: string[]; // todo: make this provided as required upstream
+	lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 /**
  * Represents a data source in the data catalog.
  */
 export interface TileSource {
+  // application/x-protobuf, image/... 
 	content_type: string;
+	// for example gzip
 	content_encoding?: string;
 	name?: string;
-	description: string;
+	description?: string;
 	attribution?: string;
-	layers?: number; // todo: make this provided as required upstream
+	layerCount?: number; // todo: make this provided as required upstream
 	lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
@@ -46,8 +48,9 @@ export interface TileSource {
  * This is a placeholder type and might need to be adjusted based on the actual sprite data.
  */
  export interface SpriteCollection {
-	sizeInBytes?: number;
 	images: string[];
+	sizeInBytes?: number; // todo: make this provided as required upstream
+	lastModifiedAt?: Date; // todo: make this provided as required upstream
  }
 
  /**

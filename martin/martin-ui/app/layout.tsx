@@ -6,7 +6,7 @@ import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const inter = Roboto({ subsets: ["latin"] });
+const roboto = Roboto({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
 	title: "Martin Tileserver Dashboard",
@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en">
-			<body className={inter.className}>
+			<body className={roboto.className}>
   			<ThemeProvider
 					attribute="class"
 					defaultTheme="system"

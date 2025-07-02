@@ -11,12 +11,12 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import type { Style } from "@/lib/types";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import type { Style } from "@/lib/types";
 
 interface StylesCatalogProps {
-	styles?: {[name: string]: Style};
+	styles?: { [name: string]: Style };
 	searchQuery?: string;
 	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;
@@ -57,11 +57,11 @@ export function StylesCatalog({
 		);
 	}
 
-	const filteredStyles = Object.entries(styles ||{}).filter(
-		([name,style]) =>
+	const filteredStyles = Object.entries(styles || {}).filter(
+		([name, style]) =>
 			name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			style.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			style.type.toLowerCase().includes(searchQuery.toLowerCase()),
+			style.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			style.type?.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
 	return (
@@ -85,7 +85,7 @@ export function StylesCatalog({
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				{filteredStyles.map(([name,style]) => (
+				{filteredStyles.map(([name, style]) => (
 					<Card key={name} className="hover:shadow-lg transition-shadow">
 						<CardHeader>
 							<div className="flex items-center justify-between">
@@ -95,7 +95,7 @@ export function StylesCatalog({
 								</div>
 								<Badge variant="secondary">{style.type}</Badge>
 							</div>
-							<CardDescription>{style.description}</CardDescription>
+							<CardDescription>{style.path}</CardDescription>
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-4">
@@ -104,31 +104,29 @@ export function StylesCatalog({
 										<div
 											className="w-full h-full bg-gradient-to-r"
 											style={{
-												background: `linear-gradient(45deg, ${style.colors.join(", ")})`,
+												background: "linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0)",
 											}}
 										></div>
 									</div>
 									<Map className="w-8 h-8 text-gray-600 z-10" />
 								</div>
 								<div className="space-y-2 text-sm text-muted-foreground">
-									<div className="flex justify-between">
-										<span>Version:</span>
-										<span>{style.version}</span>
-									</div>
-									<div className="flex justify-between">
-										<span>Layers:</span>
-										<span>{style.layers}</span>
-									</div>
-									<div className="flex justify-between">
-										<span>Usage:</span>
-										<span>{style.usage}</span>
-									</div>
+									{style.versionHash && (
+										<div className="flex justify-between">
+											<span>Version:</span>
+											<span>{style.versionHash}</span>
+										</div>
+									)}
+                  {style.layerCount && <div className="flex justify-between">
+                    <span>Layers:</span>
+                    <span>{style.layerCount}</span>
+                  </div>}
 									<div className="flex justify-between">
 										<span>Modified:</span>
-										<span>{style.lastModified}</span>
+										<span>{style.lastModifiedAt?.toLocaleString()}</span>
 									</div>
 								</div>
-								<div>
+								{style.colors && <div>
 									<p className="text-sm font-medium mb-2">Color Palette:</p>
 									<div className="flex space-x-1">
 										{style.colors.map((color, i) => (
@@ -140,7 +138,7 @@ export function StylesCatalog({
 											></div>
 										))}
 									</div>
-								</div>
+								</div>}
 								<div className="flex space-x-2">
 									<Button
 										size="sm"

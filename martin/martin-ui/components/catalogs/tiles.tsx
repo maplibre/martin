@@ -113,18 +113,22 @@ export function TilesCatalog({
 								<div className="flex items-center justify-between">
 									<div className="flex items-center space-x-2">
 										{getIcon(source.content_type)}
-										<CardTitle className="text-lg">{source.name}</CardTitle>
+										<CardTitle className="text-lg">{name}</CardTitle>
 									</div>
 									<Badge variant="secondary">{source.content_type}</Badge>
 								</div>
-								<CardDescription>{source.description}</CardDescription>
+								{(source.description || source.name) && <CardDescription>
+								{source.name}
+								{(source.description && source.name) && <br />}
+								{source.description}
+								</CardDescription>}
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-2 text-sm text-muted-foreground">
-									{source.layers && (
+									{source.layerCount && (
 										<div className="flex justify-between">
 											<span>Layers:</span>
-											<span>{source.layers}</span>
+											<span>{source.layerCount}</span>
 										</div>
 									)}
 								</div>
