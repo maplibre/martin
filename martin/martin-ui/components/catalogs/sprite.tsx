@@ -97,7 +97,7 @@ export function SpriteCatalog({
 
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{filteredSpriteCollections.map(([name, sprite]) => (
-						<Card key={name} className="hover:shadow-lg transition-shadow">
+						<Card key={name} className="hover:shadow-lg transition-shadow flex flex-col">
 							<CardHeader>
 								<div className="flex items-center justify-between">
 									<div className="flex items-center space-x-2">
@@ -110,15 +110,15 @@ export function SpriteCatalog({
 									{sprite.images.length} total icons
 								</CardDescription>
 							</CardHeader>
-							<CardContent>
-								<div className="space-y-4">
+							<CardContent className="flex flex-col p-6 justify-between flex-grow grow-1">
+								<div>
 									<div className="p-3 bg-gray-50 rounded-lg text-gray-900">
 										<p className="text-sm font-medium mb-2">Icon Preview:</p>
 										<div className="grid grid-cols-8 gap-2">
 											{sprite.images.slice(0, 16).map((spriteID) => (
-												<div
+											 <div
 													key={spriteID}
-													className="w-6 h-6 bg-purple-200 rounded flex items-center justify-center"
+													className="w-6 h-6 animate-pulse bg-purple-200 rounded flex items-center justify-center"
 												>
 													<div className="w-4 h-4 bg-primary rounded-sm"></div>
 												</div>
@@ -130,35 +130,35 @@ export function SpriteCatalog({
 											)}
 										</div>
 									</div>
-									<div className="space-y-2 text-sm text-muted-foreground">
-										{sprite.sizeInBytes && (
+									{sprite.sizeInBytes && (
+										<div className="space-y-2 text-sm text-muted-foreground mt-4">
 											<div className="flex justify-between">
 												<span>File Size:</span>
 												<span>{formatFileSize(sprite.sizeInBytes)}</span>
 											</div>
-										)}
-									</div>
-									<div className="flex space-x-2">
-										<Button
-											variant="outline"
-											size="sm"
-											className="flex-1 bg-transparent"
-											onClick={() => setDownloadSprite(name)}
-										>
-											<Download className="w-4 h-4 mr-2" />
-											Download
-										</Button>
-										<Button
-											variant="default"
-											size="sm"
-											className="flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
-											onClick={() => setSelectedSprite(name)}
-											disabled={isLoadingSprites}
-										>
-											<Eye className="w-4 h-4 mr-2" />
-											Preview
-										</Button>
-									</div>
+										</div>
+									)}
+								</div>
+								<div className="flex space-x-2 mt-4">
+									<Button
+										variant="outline"
+										size="sm"
+										className="flex-1 bg-transparent"
+										onClick={() => setDownloadSprite(name)}
+									>
+										<Download className="w-4 h-4 mr-2" />
+										Download
+									</Button>
+									<Button
+										variant="default"
+										size="sm"
+										className="flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
+										onClick={() => setSelectedSprite(name)}
+										disabled={isLoadingSprites}
+									>
+										<Eye className="w-4 h-4 mr-2" />
+										Preview
+									</Button>
 								</div>
 							</CardContent>
 						</Card>
