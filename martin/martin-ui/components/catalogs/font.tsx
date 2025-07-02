@@ -110,12 +110,19 @@ export function FontCatalog({
 									<p className="text-sm font-medium mb-2 text-gray-900">
 										Preview:
 									</p>
+									<Tooltip>
+									<TooltipTrigger>
 									<p
-										className="text-base text-gray-900"
+										className="text-base text-gray-900 blur-sm animate-pulse"
 										style={{ fontFamily: font.family, fontWeight: 500 }}
 									>
 										The quick brown fox jumps over the lazy dog
 									</p>
+									</TooltipTrigger>
+									<TooltipContent>
+									<p>Not currently implemented in the frontend</p>
+									</TooltipContent>
+									</Tooltip>
 								</div>
 								<div className="space-y-2 text-sm text-muted-foreground">
 									<div className="flex justify-between">
