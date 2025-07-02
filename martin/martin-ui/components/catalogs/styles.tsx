@@ -99,17 +99,27 @@ export function StylesCatalog({
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-4">
-								<div className="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden">
-									<div className="absolute inset-0 opacity-20">
+								<Tooltip>
+									<TooltipTrigger asChild>
 										<div
-											className="w-full h-full bg-gradient-to-r"
-											style={{
-												background: "linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0)",
-											}}
-										></div>
-									</div>
-									<Map className="w-8 h-8 text-gray-600 z-10" />
-								</div>
+											className="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden cursor-help"
+											aria-label="Map style preview"
+										>
+											<div className="absolute inset-0 opacity-20">
+												<div
+													className="w-full h-full bg-gradient-to-r"
+													style={{
+														background: "linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0)",
+													}}
+												></div>
+											</div>
+											<Map className="w-8 h-8 text-gray-600 z-10" />
+										</div>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p>Not currently implemented in the frontend</p>
+									</TooltipContent>
+								</Tooltip>
 								<div className="space-y-2 text-sm text-muted-foreground">
 									{style.versionHash && (
 										<div className="flex justify-between">
