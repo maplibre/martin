@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 
 interface DataSource {
 	id: string;
@@ -177,31 +178,29 @@ export function DataCatalog({
 								</div>
 								<div className="flex space-x-2 mt-4">
   								<Tooltip>
-                    <TooltipTrigger className="flex flex-1" asChild>
-     									<Button
+                    <TooltipTrigger className="flex flex-1">
+     									<DisabledNonInteractiveButton
       										size="sm"
       										variant="outline"
       										className="flex-1 bg-transparent"
-      										disabled
      									>
       										<Eye className="w-4 h-4 mr-2" />
       										Inspect
-     									</Button>
+     									</DisabledNonInteractiveButton>
                     </TooltipTrigger>
   									<TooltipContent>
                       <p>Not currently implemented in the frontend</p>
                     </TooltipContent>
                   </Tooltip>
   								<Tooltip>
-                    <TooltipTrigger className="flex flex-1" asChild>
-   									<Button
+                    <TooltipTrigger className="flex flex-1">
+   									<DisabledNonInteractiveButton
     										size="sm"
-    										className="flex-1 bg-primary hover:bg-purple-700"
-    										disabled
+    										className="flex-1"
     								>
     										<Palette className="w-4 h-4 mr-2" />
     										Style
-   									</Button>
+   									</DisabledNonInteractiveButton>
     								</TooltipTrigger>
   									<TooltipContent>
                       <p>Not currently implemented in the frontend</p>

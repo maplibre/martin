@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 
 interface Font {
 	name: string;
@@ -170,15 +171,15 @@ export function FontCatalog({
 										Download
 									</Button>
 									<Tooltip>
-                    <TooltipTrigger className="flex-1 flex" asChild>
-     									<Button
+                    <TooltipTrigger className="flex-1 flex">
+     									<DisabledNonInteractiveButton
       										size="sm"
-      										className="flex-1 grow bg-primary hover:bg-purple-700"
+      										className="flex-1 grow"
       										disabled
      									>
 										<Eye className="w-4 h-4 mr-2" />
 										Details
-									</Button>
+									</DisabledNonInteractiveButton>
                     </TooltipTrigger>
   									<TooltipContent>
                       <p>Not currently implemented in the frontend</p>

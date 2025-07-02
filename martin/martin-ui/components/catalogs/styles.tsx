@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 
 interface Style {
 	name: string;
@@ -206,15 +207,14 @@ export function StylesCatalog({
 									</Button>
 
 									<Tooltip>
-										<TooltipTrigger className="flex flex-1" asChild>
-											<Button
+										<TooltipTrigger className="flex flex-1">
+											<DisabledNonInteractiveButton
 												size="sm"
-												className="flex-1 bg-primary hover:bg-purple-700"
-												disabled
+												className="flex-1"
 											>
 												<Eye className="w-4 h-4 mr-2" />
 												Preview
-											</Button>
+											</DisabledNonInteractiveButton>
 										</TooltipTrigger>
 										<TooltipContent>
 											<p>Not currently implemented in the frontend</p>
