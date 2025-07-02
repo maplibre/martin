@@ -10,11 +10,9 @@ import {
 	Search,
 	Type,
 } from "lucide-react";
-import { ErrorState, InlineErrorState } from "@/components/error/error-state";
+import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -23,29 +21,17 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
-
-interface DataSource {
-	id: string;
-	name: string;
-	type: string;
-	description: string;
-	layers: number;
-	lastUpdated: string;
-	size: string;
-}
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import type{ DataSource } from "@/lib/types";
 
 interface DataCatalogProps {
 	dataSources: DataSource[];
 	searchQuery: string;
 	onSearchChangeAction: (query: string) => void;
 	isLoading?: boolean;
-	isSearching?: boolean;
 	error?: Error | null;
-	searchError?: Error | null;
 	onRetry?: () => void;
-	onRetrySearch?: () => void;
 	isRetrying?: boolean;
 }
 
@@ -54,11 +40,8 @@ export function DataCatalog({
 	searchQuery,
 	onSearchChangeAction,
 	isLoading = false,
-	isSearching = false,
 	error = null,
-	searchError = null,
 	onRetry,
-	onRetrySearch,
 	isRetrying = false,
 }: DataCatalogProps) {
 	if (isLoading) {
@@ -124,30 +107,10 @@ export function DataCatalog({
 						onChange={(e) => onSearchChangeAction(e.target.value)}
 						className="pl-10 w-64 bg-card"
 					/>
-					{isSearching && (
-						<div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-							<LoadingSpinner size="sm" />
-						</div>
-					)}
 				</div>
 			</div>
 
-			{searchError && (
-				<InlineErrorState
-					message="Search failed. Please try again."
-					onRetry={onRetrySearch}
-					variant="network"
-				/>
-			)}
-
-			{isSearching ? (
-				<div className="flex items-center justify-center py-12">
-					<div className="text-center">
-						<LoadingSpinner size="lg" className="mx-auto mb-4" />
-						<p className="text-muted-foreground">Searching data sources...</p>
-					</div>
-				</div>
-			) : (
+			<div>
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{filteredDataSources.map((source) => (
 						<Card key={source.id} className="hover:shadow-lg transition-shadow">
@@ -169,60 +132,57 @@ export function DataCatalog({
 									</div>
 									<div className="flex justify-between">
 										<span>Size:</span>
-										<span>{source.size}</span>
+										<span>{source.sizeBytes} bytes</span>
 									</div>
 									<div className="flex justify-between">
 										<span>Updated:</span>
-										<span>{source.lastUpdated}</span>
+										<span>{source.lastUpdatedAt.toLocaleDateString()}</span>
 									</div>
 								</div>
 								<div className="flex space-x-2 mt-4">
-  								<Tooltip>
-                    <TooltipTrigger className="flex flex-1">
-     									<DisabledNonInteractiveButton
-      										size="sm"
-      										variant="outline"
-      										className="flex-1 bg-transparent"
-     									>
-      										<Eye className="w-4 h-4 mr-2" />
-      										Inspect
-     									</DisabledNonInteractiveButton>
-                    </TooltipTrigger>
-  									<TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
-  								<Tooltip>
-                    <TooltipTrigger className="flex flex-1">
-   									<DisabledNonInteractiveButton
-    										size="sm"
-    										className="flex-1"
-    								>
-    										<Palette className="w-4 h-4 mr-2" />
-    										Style
-   									</DisabledNonInteractiveButton>
-    								</TooltipTrigger>
-  									<TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
+									<Tooltip>
+										<TooltipTrigger className="flex flex-1">
+											<DisabledNonInteractiveButton
+												size="sm"
+												variant="outline"
+												className="flex-1 bg-transparent"
+											>
+												<Eye className="w-4 h-4 mr-2" />
+												Inspect
+											</DisabledNonInteractiveButton>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Not currently implemented in the frontend</p>
+										</TooltipContent>
+									</Tooltip>
+									<Tooltip>
+										<TooltipTrigger className="flex flex-1">
+											<DisabledNonInteractiveButton
+												size="sm"
+												className="flex-1"
+											>
+												<Palette className="w-4 h-4 mr-2" />
+												Style
+											</DisabledNonInteractiveButton>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Not currently implemented in the frontend</p>
+										</TooltipContent>
+									</Tooltip>
 								</div>
 							</CardContent>
 						</Card>
 					))}
 				</div>
-			)}
+			</div>
 
-			{!isSearching &&
-				filteredDataSources.length === 0 &&
-				searchQuery &&
-				!searchError && (
-					<div className="text-center py-12">
-						<p className="text-muted-foreground">
-							No data sources found matching "{searchQuery}"
-						</p>
-					</div>
-				)}
+			{filteredDataSources.length === 0 && searchQuery && (
+				<div className="text-center py-12">
+					<p className="text-muted-foreground">
+						No data sources found matching "{searchQuery}"
+					</p>
+				</div>
+			)}
 		</div>
 	);
 }

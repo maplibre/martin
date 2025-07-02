@@ -11,91 +11,24 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
-
-interface Style {
-	name: string;
-	description: string;
-	type: string;
-	version: string;
-	usage: string;
-	layers: number;
-	colors: string[];
-	lastModified: string;
-}
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import type { Style } from "@/lib/types";
 
 interface StylesCatalogProps {
+	styles: Style[] | null;
+	searchQuery?: string;
+	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;
 	error?: Error | null;
 	onRetry?: () => void;
 	isRetrying?: boolean;
 }
 
-const styles: Style[] = [
-	{
-		name: "OSM Bright",
-		description: "Clean and bright OpenStreetMap styling",
-		type: "Vector",
-		version: "1.2.0",
-		usage: "45,230 requests/day",
-		layers: 12,
-		colors: ["#ffffff", "#f8f8f8", "#e8e8e8", "#4a90e2"],
-		lastModified: "2 days ago",
-	},
-	{
-		name: "Dark Theme",
-		description: "Modern dark theme for night viewing",
-		type: "Vector",
-		version: "2.1.0",
-		usage: "32,180 requests/day",
-		layers: 15,
-		colors: ["#1a1a1a", "#2d2d2d", "#404040", "#8b5cf6"],
-		lastModified: "1 week ago",
-	},
-	{
-		name: "Satellite Hybrid",
-		description: "Satellite imagery with vector overlays",
-		type: "Hybrid",
-		version: "1.0.3",
-		usage: "28,450 requests/day",
-		layers: 8,
-		colors: ["#2c5234", "#4a7c59", "#8fbc8f", "#ffffff"],
-		lastModified: "3 days ago",
-	},
-	{
-		name: "Terrain",
-		description: "Topographic style with elevation contours",
-		type: "Vector",
-		version: "1.5.2",
-		usage: "18,920 requests/day",
-		layers: 18,
-		colors: ["#f4f1de", "#e07a5f", "#3d405b", "#81b29a"],
-		lastModified: "5 days ago",
-	},
-	{
-		name: "Minimal",
-		description: "Clean minimal style for data visualization",
-		type: "Vector",
-		version: "1.0.0",
-		usage: "22,340 requests/day",
-		layers: 6,
-		colors: ["#ffffff", "#f5f5f5", "#cccccc", "#666666"],
-		lastModified: "1 day ago",
-	},
-	{
-		name: "Retro",
-		description: "Vintage-inspired map styling",
-		type: "Vector",
-		version: "1.3.1",
-		usage: "12,670 requests/day",
-		layers: 14,
-		colors: ["#f7e7ce", "#d4a574", "#8b4513", "#2f4f4f"],
-		lastModified: "1 week ago",
-	},
-];
-
 export function StylesCatalog({
+	styles,
+	searchQuery = "",
+	onSearchChangeAction = () => {},
 	isLoading = false,
 	error = null,
 	onRetry,
@@ -124,6 +57,13 @@ export function StylesCatalog({
 		);
 	}
 
+	const filteredStyles = (styles ||[]).filter(
+		(style) =>
+			style.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			style.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			style.type.toLowerCase().includes(searchQuery.toLowerCase()),
+	);
+
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
@@ -135,12 +75,17 @@ export function StylesCatalog({
 				</div>
 				<div className="relative">
 					<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-					<Input placeholder="Search styles..." className="pl-10 w-64" />
+					<Input
+						placeholder="Search styles..."
+						className="pl-10 w-64 bg-card"
+						value={searchQuery}
+						onChange={(e) => onSearchChangeAction(e.target.value)}
+					/>
 				</div>
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				{styles.map((style, index) => (
+				{filteredStyles.map((style, index) => (
 					<Card key={index} className="hover:shadow-lg transition-shadow">
 						<CardHeader>
 							<div className="flex items-center justify-between">
@@ -226,6 +171,14 @@ export function StylesCatalog({
 					</Card>
 				))}
 			</div>
+
+			{filteredStyles.length === 0 && searchQuery && (
+				<div className="text-center py-12">
+					<p className="text-muted-foreground">
+						No styles found matching "{searchQuery}"
+					</p>
+				</div>
+			)}
 		</div>
 	);
 }

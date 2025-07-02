@@ -3,7 +3,6 @@
 import { Download, Eye, ImageIcon, Search } from "lucide-react";
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { SpriteDownloadModal } from "@/components/modals/sprite-download";
 import { SpritePreviewModal } from "@/components/modals/sprite-preview";
 import { Badge } from "@/components/ui/badge";
@@ -16,127 +15,25 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-
-export interface SpriteCollection {
-	name: string;
-	description: string;
-	sizeInBytes: number;
-	requestsPerDay: number;
-	sprites: string[];
-}
+import { useState } from "react";
+import type { SpriteCollection } from "@/lib/types";
 
 interface SpriteCatalogProps {
+	spriteCollections: SpriteCollection[] | null;
+	searchQuery?: string;
+	onSearchChangeAction?: (query: string) => void;
 	isLoading?: boolean;
-	isLoadingSprites?: boolean;
+	isLoadingSprites?: boolean; // Only used for preview, not for searching
 	error?: string | Error | null;
 	onRetry?: () => void;
 	isRetrying?: boolean;
 }
 
-const spriteCollections: SpriteCollection[] = [
-	{
-		name: "POI Icons",
-		description: "Point of interest markers and symbols",
-		sizeInBytes: 23 * 1024 * 1024,
-		requestsPerDay: 45230,
-		sprites: [
-			"restaurant-icon",
-			"hotel-icon",
-			"gas-station-icon",
-			"hospital-icon",
-			"bank-icon",
-			"atm-icon",
-			"pharmacy-icon",
-			"school-icon",
-			"library-icon",
-			"post-office-icon",
-			"police-icon",
-			"fire-station-icon",
-		],
-	},
-	{
-		name: "Transportation",
-		description: "Transit and transportation related icons",
-		sizeInBytes: 18 * 1024 * 1024,
-		requestsPerDay: 32180,
-		sprites: [
-			"bus-stop-icon",
-			"train-station-icon",
-			"airport-icon",
-			"parking-icon",
-			"subway-icon",
-			"taxi-icon",
-			"bicycle-icon",
-			"car-rental-icon",
-		],
-	},
-	{
-		name: "Amenities",
-		description: "Public amenities and services",
-		sizeInBytes: 21 * 1024 * 1024,
-		requestsPerDay: 28450,
-		sprites: [
-			"wifi-icon",
-			"restroom-icon",
-			"information-icon",
-			"wheelchair-icon",
-			"elevator-icon",
-			"stairs-icon",
-			"drinking-water-icon",
-			"phone-icon",
-		],
-	},
-	{
-		name: "Recreation",
-		description: "Parks, sports, and recreational facilities",
-		sizeInBytes: 14 * 1024 * 1024,
-		requestsPerDay: 18920,
-		sprites: [
-			"park-icon",
-			"playground-icon",
-			"stadium-icon",
-			"beach-icon",
-			"swimming-icon",
-			"tennis-icon",
-			"golf-icon",
-			"hiking-icon",
-		],
-	},
-	{
-		name: "Shopping",
-		description: "Retail and commercial establishments",
-		sizeInBytes: 16 * 1024 * 1024,
-		requestsPerDay: 22340,
-		sprites: [
-			"shopping-mall-icon",
-			"grocery-store-icon",
-			"clothing-store-icon",
-			"electronics-icon",
-			"bookstore-icon",
-			"flower-shop-icon",
-			"jewelry-icon",
-			"bakery-icon",
-		],
-	},
-	{
-		name: "Custom Markers",
-		description: "Custom branded location markers",
-		sizeInBytes: 890 * 1024,
-		requestsPerDay: 12670,
-		sprites: [
-			"brand-a-marker-icon",
-			"brand-b-marker-icon",
-			"special-event-icon",
-			"promotion-icon",
-			"new-location-icon",
-			"featured-icon",
-		],
-	},
-];
-
-import { useState } from "react";
 
 export function SpriteCatalog({
+	spriteCollections,
+	searchQuery = "",
+	onSearchChangeAction = () => {},
 	isLoading = false,
 	isLoadingSprites = false,
 	error = null,
@@ -145,7 +42,7 @@ export function SpriteCatalog({
 }: SpriteCatalogProps) {
 	const [selectedSprite, setSelectedSprite] = useState<SpriteCollection | null>(null);
 	const [downloadSprite, setDownloadSprite] = useState<SpriteCollection | null>(null);
-
+	
 	if (isLoading) {
 		return (
 			<CatalogSkeleton
@@ -185,6 +82,12 @@ export function SpriteCatalog({
 		setDownloadSprite(null);
 	};
 
+	const filteredSpriteCollections = (spriteCollections||[]).filter(
+		(sprite) =>
+			sprite.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			sprite.description.toLowerCase().includes(searchQuery.toLowerCase())
+	);
+
 	return (
 		<>
 			<div className="space-y-6">
@@ -197,12 +100,17 @@ export function SpriteCatalog({
 					</div>
 					<div className="relative">
 						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-						<Input placeholder="Search sprites..." className="pl-10 w-64" />
+						<Input
+							placeholder="Search sprites..."
+							className="pl-10 w-64 bg-card"
+							value={searchQuery}
+							onChange={(e) => onSearchChangeAction(e.target.value)}
+						/>
 					</div>
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-					{spriteCollections.map((sprite: SpriteCollection, index: number) => (
+					{filteredSpriteCollections.map((sprite: SpriteCollection, index: number) => (
 						<Card key={index} className="hover:shadow-lg transition-shadow">
 							<CardHeader>
 								<div className="flex items-center justify-between">
@@ -267,11 +175,7 @@ export function SpriteCatalog({
 											onClick={() => handleSpriteSelect(sprite)}
 											disabled={isLoadingSprites}
 										>
-											{isLoadingSprites ? (
-												<LoadingSpinner size="sm" className="mr-2" />
-											) : (
-												<Eye className="w-4 h-4 mr-2" />
-											)}
+											<Eye className="w-4 h-4 mr-2" />
 											Preview
 										</Button>
 									</div>
@@ -280,6 +184,14 @@ export function SpriteCatalog({
 						</Card>
 					))}
 				</div>
+
+				{filteredSpriteCollections.length === 0 && searchQuery && (
+					<div className="text-center py-12">
+						<p className="text-muted-foreground">
+							No sprite collections found matching "{searchQuery}"
+						</p>
+					</div>
+				)}
 			</div>
 
 			<SpritePreviewModal
@@ -289,7 +201,7 @@ export function SpriteCatalog({
 				isLoading={isLoadingSprites}
 			/>
 
-			<SpriteDownloadModal sprite={downloadSprite} onCloseAction={handleDownloadClose} />
+			{downloadSprite&&<SpriteDownloadModal sprite={downloadSprite} onCloseAction={handleDownloadClose} />}
 		</>
 	);
 }

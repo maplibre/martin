@@ -19,6 +19,14 @@ export interface UsageDataPoint {
 	memory: number;
 }
 
+export interface Font {
+	name: string;
+	family: string;
+	weight: number;
+	format: "otf" | "ttf" | "ttc";
+	sizeInBytes: number;
+	usagePerDay: number;
+}
 /**
  * Represents a tile source with its usage data.
  */
@@ -37,28 +45,37 @@ export interface AnalyticsData {
 	usageData: UsageDataPoint[];
 	tileSourcesData: TileSourceData[];
 }
-
+export interface Style {
+	name: string;
+	description: string;
+	type: "vector" | "raster" | "hybrid";
+	version: string;
+	usage: string;
+	layers: number;
+	colors: string[];
+	lastModified: string;
+}
 /**
  * Represents a data source in the data catalog.
  */
 export interface DataSource {
 	id: string;
 	name: string;
-	type: string;
+	type: "vector" | "raster";
 	description: string;
 	layers: number;
-	lastUpdated: string;
-	size: string;
+	lastUpdatedAt: Date;
+	sizeBytes: number;
 }
 
 /**
  * Represents a sprite, which can be selected or downloaded.
  * This is a placeholder type and might need to be adjusted based on the actual sprite data.
  */
-export interface Sprite {
-	id: string;
+ export interface SpriteCollection {
 	name: string;
-	url: string;
-	width: number;
-	height: number;
-}
+	description: string;
+	sizeInBytes: number;
+	requestsPerDay: number;
+	sprites: string[];
+ }
