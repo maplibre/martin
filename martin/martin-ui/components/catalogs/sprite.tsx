@@ -16,6 +16,11 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { SpriteCollection } from "@/lib/types";
 import { formatFileSize } from "@/lib/utils";
 
@@ -97,7 +102,10 @@ export function SpriteCatalog({
 
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{filteredSpriteCollections.map(([name, sprite]) => (
-						<Card key={name} className="hover:shadow-lg transition-shadow flex flex-col">
+						<Card
+							key={name}
+							className="hover:shadow-lg transition-shadow flex flex-col"
+						>
 							<CardHeader>
 								<div className="flex items-center justify-between">
 									<div className="flex items-center space-x-2">
@@ -116,12 +124,19 @@ export function SpriteCatalog({
 										<p className="text-sm font-medium mb-2">Icon Preview:</p>
 										<div className="grid grid-cols-8 gap-2">
 											{sprite.images.slice(0, 16).map((spriteID) => (
-											 <div
-													key={spriteID}
-													className="w-6 h-6 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-												>
-													<div className="w-4 h-4 bg-primary rounded-sm"></div>
-												</div>
+												<Tooltip key={spriteID}>
+													<TooltipTrigger>
+														<div className="w-6 h-6 animate-pulse bg-purple-200 rounded flex items-center justify-center">
+															<div className="w-4 h-4 bg-primary rounded-sm"></div>
+														</div>
+													</TooltipTrigger>
+													<TooltipContent>
+														<p>
+															Sprite preview not currently implemented in the
+															frontend
+														</p>
+													</TooltipContent>
+												</Tooltip>
 											))}
 											{sprite.images.length > 16 && (
 												<div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">
