@@ -1,15 +1,19 @@
 "use client";
 
 import { Copy, CopyCheck } from "lucide-react";
+import Link from "next/link";
 import type React from "react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { SpriteCollection } from "@/lib/types";
-import { formatFileSize } from "@/lib/utils";
-import Link from "next/link";
 
 interface SpriteDownloadDialogProps {
 	name: string;
@@ -33,41 +37,41 @@ export function SpriteDownloadDialog({
 	if (!sprite) return null;
 
 	// Generate sprite format URLs
-  const pngFormats: SpriteFormat[] = [
-    {
-      label: "PNG JSON",
-      url: `/sprites/${name}.json`,
-      description: "Sprite coordinates and metadata",
-    },
-    {
-      label: "PNG Spritesheet",
-      url: `/sprite/${name}.png`,
-      description: "Standard sprite format with full color support",
-    },
-    {
-      label: "High DPI PNG Spritesheet",
-      url: `/sprite/${name}@2x.png`,
-      description: "High resolution sprites for retina displays",
-    }
-  ];
-  
-  const sdfFormats: SpriteFormat[] = [
-    {
-      label: "SDF Spritesheet",
-      url: `/sdf_sprite/${name}.png`,
-      description: "For runtime coloring with single color",
-    },
-    {
-      label: "SDF JSON",
-      url: `/sdf_sprite/${name}.json`,
-      description: "SDF sprite coordinates and metadata",
-    },
-    {
-      label: "High DPI SDF Spritesheet",
-      url: `/sdf_sprite/${name}@2x.png`,
-      description: "High resolution sprites for retina displays",
-    },
-  ];
+	const pngFormats: SpriteFormat[] = [
+		{
+			label: "PNG JSON",
+			url: `/sprites/${name}.json`,
+			description: "Sprite coordinates and metadata",
+		},
+		{
+			label: "PNG Spritesheet",
+			url: `/sprite/${name}.png`,
+			description: "Standard sprite format with full color support",
+		},
+		{
+			label: "High DPI PNG Spritesheet",
+			url: `/sprite/${name}@2x.png`,
+			description: "High resolution sprites for retina displays",
+		},
+	];
+
+	const sdfFormats: SpriteFormat[] = [
+		{
+			label: "SDF Spritesheet",
+			url: `/sdf_sprite/${name}.png`,
+			description: "For runtime coloring with single color",
+		},
+		{
+			label: "SDF JSON",
+			url: `/sdf_sprite/${name}.json`,
+			description: "SDF sprite coordinates and metadata",
+		},
+		{
+			label: "High DPI SDF Spritesheet",
+			url: `/sdf_sprite/${name}@2x.png`,
+			description: "High resolution sprites for retina displays",
+		},
+	];
 
 	const handleCopyUrl = async (url: string, label: string) => {
 		try {
@@ -101,7 +105,9 @@ export function SpriteDownloadDialog({
 		>
 			<DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-auto">
 				<DialogHeader>
-					<DialogTitle className="text-2xl">Download <span className="font-mono">{name}</span></DialogTitle>
+					<DialogTitle className="text-2xl">
+						Download <code className="font-mono">{name}</code>
+					</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-6">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -119,7 +125,7 @@ export function SpriteDownloadDialog({
 							<p className="text-sm text-blue-800 mb-4">
 								Standard sprite format with multiple colors and transparency.
 							</p>
-							<ul className="text-xs text-blue-700 space-y-1  list-disc ps-4">
+							<ul className="text-xs text-blue-700 my-6 ml-6 list-disc [&>li]:mt-2">
 								<li>Full color support</li>
 								<li>No runtime recoloring</li>
 								<li>Compatible with all mapping libraries</li>
@@ -143,11 +149,27 @@ export function SpriteDownloadDialog({
 							<p className="text-sm text-purple-800 mb-4">
 								For dynamic coloring at runtime.
 							</p>
-							<ul className="text-xs text-purple-700 space-y-1 list-disc ps-4">
-								<li>Single color per sprite; Layer multiple SDFs for multi-color icons</li>
-								<li>Customizable color via <span className="bg-purple-200 font-semibold font-monospace text-purple-950 p-0.5 rounded-sm">icon-color</span> property</li>
+							<ul className="text-xs text-purple-700  my-6 ml-6 list-disc [&>li]:mt-2">
+								<li>
+									Single color per sprite - Layer multiple SDFs for multi-color icons
+								</li>
+								<li>
+									Customizable color via{" "}
+									<code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-0.5 rounded-sm">
+										icon-color
+									</code>{" "}
+									property
+								</li>
 								<li>Supported by MapLibre and Mapbox</li>
-								<li><Link href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf" className="text-purple-950 hover:underline">SVG-Like</Link> zooming</li>
+								<li>
+									<Link
+										href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf"
+										className="text-purple-950 hover:underline"
+									>
+										SVG-Like
+									</Link>{" "}
+									zooming
+								</li>
 							</ul>
 						</div>
 					</div>
@@ -220,7 +242,9 @@ export function SpriteDownloadDialog({
 										className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
 									>
 										<div className="flex-1">
-											<div className="flex items-center mb-1 font-medium">{format.label}</div>
+											<div className="flex items-center mb-1 font-medium">
+												{format.label}
+											</div>
 											<p className="text-sm text-muted-foreground">
 												{format.description}
 											</p>
