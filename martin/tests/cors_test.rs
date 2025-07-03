@@ -48,7 +48,7 @@ async fn test_cors_explicit_disabled() {
         cors: false
         mbtiles:
           sources:
-            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+            test: ../tests/fixtures/mbtiles/world_cities.sql
     "});
 
     let req = TestRequest::get()
@@ -69,7 +69,7 @@ async fn test_cors_implicit_enabled() {
     let app = create_app!(indoc! {"
         mbtiles:
           sources:
-            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+            test: ../tests/fixtures/mbtiles/world_cities.sql
     "});
 
     let req = TestRequest::get()
@@ -90,7 +90,7 @@ async fn test_cors_explicit_enabled() {
         cors: true
         mbtiles:
           sources:
-            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+            test: ../tests/fixtures/mbtiles/world_cities.sql
     "});
 
     let req = TestRequest::get()
@@ -113,7 +113,7 @@ async fn test_cors_specific_origin() {
             - https://martin.maplibre.org
         mbtiles:
           sources:
-            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+            test: ../tests/fixtures/mbtiles/world_cities.sql
     "});
 
     let req = TestRequest::get()
@@ -135,7 +135,7 @@ async fn test_cors_no_header_on_mismatch() {
             - https://example.org
         mbtiles:
           sources:
-            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+            test: ../tests/fixtures/mbtiles/world_cities.sql
     "});
 
     let req = TestRequest::get()
@@ -160,7 +160,7 @@ async fn test_cors_preflight_request_with_max_age() {
           max_age: 3600
         mbtiles:
           sources:
-            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+            test: ../tests/fixtures/mbtiles/world_cities.sql
     "});
 
     let req = TestRequest::default()
@@ -190,7 +190,7 @@ async fn test_cors_preflight_request_without_max_age() {
           max_age: null
         mbtiles:
           sources:
-            test: ../tests/fixtures/mbtiles/world_cities.mbtiles
+            test: ../tests/fixtures/mbtiles/world_cities.sql
     "});
 
     let req = TestRequest::default()
