@@ -1,4 +1,4 @@
-import { Brush, Download, Eye, Map, Search } from "lucide-react";
+import { Brush, Eye, Map, Search } from "lucide-react";
 import Link from "next/link";
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import type { Style } from "@/lib/types";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { CopyLinkButton } from "../ui/copy-link-button";
 
 interface StylesCatalogProps {
   styles?: { [name: string]: Style };
@@ -32,7 +33,7 @@ export function StylesCatalog({
   if (isLoading) {
     return (
       <CatalogSkeleton
-        description="Browse and preview all available map styles and themes"
+        description="Preview all available map styles and themes"
         title="Styles Catalog"
       />
     );
@@ -95,10 +96,10 @@ export function StylesCatalog({
             <CardContent>
               <div className="space-y-4">
                 <Tooltip>
-                  <TooltipTrigger asChild>
+                  <TooltipTrigger asChild  className="cursor-help">
                     <div
                       aria-label="Map style preview"
-                      className="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden cursor-help"
+                      className="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
                     >
                       <div className="absolute inset-0 opacity-20">
                         <div
@@ -129,10 +130,12 @@ export function StylesCatalog({
                       <span>{style.layerCount}</span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span>Modified:</span>
-                    <span>{style.lastModifiedAt?.toLocaleString()}</span>
-                  </div>
+                  {style.lastModifiedAt && (
+                    <div className="flex justify-between">
+                      <span>Modified:</span>
+                      <span>{style.lastModifiedAt?.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
                 {style.colors && (
                   <div>
@@ -150,10 +153,13 @@ export function StylesCatalog({
                   </div>
                 )}
                 <div className="flex space-x-2">
-                  <Button className="flex-1 bg-transparent" size="sm" variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </Button>
+                  <CopyLinkButton
+                    className="flex-1 bg-transparent"
+                    size="sm"
+                    variant="outline"
+                    link={`/style/${name}`}
+                    toastMessage="Style link copied!"
+                  />
 
                   <Tooltip>
                     <TooltipTrigger className="flex flex-1">

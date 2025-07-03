@@ -74,7 +74,7 @@ export function SpritePreviewDialog({
                 <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 max-h-96 overflow-y-auto">
                   {sprite.images.map((spriteItem) => (
                     <Tooltip>
-                      <TooltipTrigger className="flex flex-grow">
+                      <TooltipTrigger className="flex flex-grow cursor-help">
                         <div
                           className="flex flex-col items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors"
                           key={spriteItem}

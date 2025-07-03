@@ -17,7 +17,7 @@ exports[`TilesCatalog Component matches snapshot for loaded state with mock data
         <p
           class="text-muted-foreground"
         >
-          Explore all available tile sources, sprites, and fonts
+          Explore all available tile sources
         </p>
       </div>
       <div
@@ -379,7 +379,7 @@ exports[`TilesCatalog Component matches snapshot for loading state 1`] = `
     <div
       data-testid="skeleton-description"
     >
-      Explore all available tile sources, sprites, and fonts
+      Explore all available tile sources
     </div>
   </div>
 </DocumentFragment>

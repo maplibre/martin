@@ -34,7 +34,7 @@ export function TilesCatalog({
   if (isLoading) {
     return (
       <CatalogSkeleton
-        description="Explore all available tile sources, sprites, and fonts"
+        description="Explore all available tile sources"
         title="Tiles Sources Catalog"
       />
     );
@@ -77,7 +77,7 @@ export function TilesCatalog({
         <div>
           <h2 className="text-2xl font-bold text-foreground">Tiles Sources Catalog</h2>
           <p className="text-muted-foreground">
-            Explore all available tile sources, sprites, and fonts
+            Explore all available tile sources
           </p>
         </div>
         <div className="relative">
@@ -122,7 +122,7 @@ export function TilesCatalog({
                 </div>
                 <div className="flex space-x-2 mt-4">
                   <Tooltip>
-                    <TooltipTrigger className="flex flex-1">
+                    <TooltipTrigger className="flex flex-1 cursor-help">
                       <DisabledNonInteractiveButton
                         className="flex-1 bg-transparent"
                         size="sm"
@@ -137,7 +137,7 @@ export function TilesCatalog({
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
-                    <TooltipTrigger className="flex flex-1">
+                    <TooltipTrigger className="flex flex-1 cursor-help">
                       <DisabledNonInteractiveButton className="flex-1" size="sm">
                         <Palette className="w-4 h-4 mr-2" />
                         Style

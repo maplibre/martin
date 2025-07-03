@@ -17,7 +17,7 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
         <p
           class="text-muted-foreground"
         >
-          Browse and preview all available map styles and themes
+          Preview all available map styles and themes
         </p>
       </div>
       <div
@@ -499,7 +499,7 @@ exports[`StylesCatalog Component matches snapshot for loading state 1`] = `
     <div
       data-testid="skeleton-description"
     >
-      Browse and preview all available map styles and themes
+      Preview all available map styles and themes
     </div>
   </div>
 </DocumentFragment>

@@ -1,4 +1,4 @@
-import { Download, Eye, Search, Type } from "lucide-react";
+import { Eye, Search, Type } from "lucide-react";
 import Link from "next/link";
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import type { Font } from "@/lib/types";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { CopyLinkButton } from "../ui/copy-link-button";
+import { useToast } from "../ui/use-toast";
 
 interface FontCatalogProps {
   fonts?: { [name: string]: Font };
@@ -29,6 +31,7 @@ export function FontCatalog({
   onRetry,
   isRetrying = false,
 }: FontCatalogProps) {
+  const { toast } = useToast();
   if (isLoading) {
     return <CatalogSkeleton description="Preview all available font assets" title="Font Catalog" />;
   }
@@ -96,7 +99,7 @@ export function FontCatalog({
                 <div className="p-3 bg-gray-50 text-gray-900 rounded-lg">
                   <p className="text-sm font-medium mb-2 text-gray-900">Preview:</p>
                   <Tooltip>
-                    <TooltipTrigger>
+                    <TooltipTrigger className="cursor-help">
                       <p
                         className="text-base text-gray-900 blur-sm animate-pulse"
                         style={{ fontFamily: font.family, fontWeight: 500 }}
@@ -116,12 +119,15 @@ export function FontCatalog({
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <Button className="flex-1 bg-transparent" size="sm" variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </Button>
+                  <CopyLinkButton
+                    className="flex-1 bg-transparent"
+                    size="sm"
+                    variant="outline"
+                    link={`/font/${name}/{range}`}
+                    toastMessage="Font link copied!"
+                  />
                   <Tooltip>
-                    <TooltipTrigger className="flex-1 flex">
+                    <TooltipTrigger className="flex-1 flex cursor-help">
                       <DisabledNonInteractiveButton className="flex-1 grow" disabled size="sm">
                         <Eye className="w-4 h-4 mr-2" />
                         Details

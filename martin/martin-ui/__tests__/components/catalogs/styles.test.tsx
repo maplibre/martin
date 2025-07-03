@@ -135,7 +135,7 @@ describe("StylesCatalog Component", () => {
     expect(screen.getByTestId("catalog-skeleton")).toBeInTheDocument();
     expect(screen.getByTestId("skeleton-title").textContent).toBe("Styles Catalog");
     expect(screen.getByTestId("skeleton-description").textContent).toBe(
-      "Browse and preview all available map styles and themes",
+      "Preview all available map styles and themes",
     );
   });
 
