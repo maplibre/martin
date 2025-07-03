@@ -19,11 +19,16 @@ import type {
 
 // Simulate API functions that can fail
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
-	await new Promise<void>((resolve) => setTimeout(resolve, 400));
-
-	// Simulate random failures
-	if (Math.random() < 0.2) {
-		throw new Error(`Failed to fetch analytics`);
+  // below API is a prometheus metrics endpoint and does not return json
+  await new Promise<void>((resolve) => setTimeout(resolve, 60 * 60 * 1000));
+	// the metrics api does not currently support gzip compression
+  const res = await fetch("/metrics", {
+		headers: {
+			"Accept-Encoding": "identity",
+		},
+	});
+	if (!res.ok) {
+		throw new Error(`Failed to fetch analytics: ${res.statusText}`);
 	}
 
 	return {
@@ -35,217 +40,11 @@ const fetchAnalytics = async (): Promise<AnalyticsData> => {
 };
 
 const fetchCatalog = async (): Promise<CatalogSchema> => {
-	await new Promise<void>((resolve) => setTimeout(resolve, 200));
-
-	return {
-		tiles: {
-			"osm-bright": {
-				name: "OSM Bright",
-				content_type: "application/x-protobuf",
-				content_encoding: "gzip",
-				description: "OpenStreetMap data with bright styling",
-				layerCount: 12,
-				lastModifiedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-			},
-			sattelite: {
-				name: "Satellite Imagery",
-				content_type: "image/png",
-				description: "High-resolution satellite imagery",
-				layerCount: 1,
-				lastModifiedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-			},
-			terrain: {
-				name: "Terrain Contours",
-				content_type: "application/x-protobuf",
-				content_encoding: "zlib",
-				description: "Elevation contours and terrain features",
-				layerCount: 8,
-				lastModifiedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-			},
-			pois: {
-				name: "POIs",
-				content_type: "application/x-protobuf",
-				description: "Point of interest icons and markers",
-				layerCount: 1,
-			},
-		},
-		styles: {
-			"osm-bright": {
-				path: "/styles/osm-bright/style.json",
-				type: "vector",
-				layerCount: 12,
-				colors: ["#ffffff", "#f8f8f8", "#e8e8e8", "#4a90e2"],
-				lastModifiedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-			},
-			dark: {
-				path: "/styles/dark/style.json",
-				type: "vector",
-				layerCount: 15,
-				colors: ["#1a1a1a", "#2d2d2d", "#404040", "#8b5cf6"],
-				lastModifiedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-			},
-			"satelite-hybrid": {
-				path: "/styles/satelite-hybrid/style.json",
-				type: "hybrid",
-				layerCount: 8,
-				colors: ["#2c5234", "#4a7c59", "#8fbc8f", "#ffffff"],
-				lastModifiedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-			},
-			terrain: {
-				path: "/styles/terrain.json",
-				type: "vector",
-				layerCount: 18,
-				colors: ["#f4f1de", "#e07a5f", "#3d405b", "#81b29a"],
-				lastModifiedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-			},
-			minimal: {
-				path: "/styles/minimal/style.json",
-				type: "vector",
-				layerCount: 6,
-				colors: ["#ffffff", "#f5f5f5", "#cccccc", "#666666"],
-				lastModifiedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-			},
-			retro: {
-				path: "/retro.json",
-				type: "vector",
-				layerCount: 14,
-				colors: ["#f7e7ce", "#d4a574", "#8b4513", "#2f4f4f"],
-				lastModifiedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-			},
-		},
-		fonts: {
-			"Roboto Regular": {
-				family: "Roboto",
-				style: "Regular",
-				format: "ttf",
-				glyphs: 156 * 1024,
-				start: 0,
-				end: 65535,
-			},
-			"Roboto Bold": {
-				family: "Roboto",
-				style: "Bold",
-				format: "ttf",
-				glyphs: 164 * 1024,
-				start: 0,
-				end: 65535,
-			},
-			"Open Sans Regular": {
-				family: "Open Sans",
-				style: "Regular",
-				format: "ttc",
-				glyphs: 142 * 1024,
-				start: 0,
-				end: 65535,
-			},
-			"Noto Sans CJK": {
-				family: "Noto Sans",
-				style: "Regular",
-				format: "otf",
-				glyphs: 2.1 * 1024 * 1024,
-				start: 0,
-				end: 65535,
-			},
-			"Source Code Pro": {
-				family: "Source Code Pro",
-				style: "Monospace",
-				format: "ttf",
-				glyphs: 198 * 1024,
-				start: 0,
-				end: 65535,
-			},
-			"Inter Medium": {
-				family: "Inter",
-				style: "Medium",
-				format: "ttc",
-				glyphs: 178 * 1024,
-				start: 0,
-				end: 65535,
-			},
-		},
-		sprites: {
-			pois: {
-				sizeInBytes: 230 * 1024,
-				images: [
-					"restaurant-icon",
-					"hotel-icon",
-					"gas-station-icon",
-					"hospital-icon",
-					"bank-icon",
-					"atm-icon",
-					"pharmacy-icon",
-					"school-icon",
-					"library-icon",
-					"post-office-icon",
-					"police-icon",
-					"fire-station-icon",
-				],
-			},
-			transportation: {
-				sizeInBytes: 180 * 1024,
-				images: [
-					"bus-stop-icon",
-					"train-station-icon",
-					"airport-icon",
-					"parking-icon",
-					"subway-icon",
-					"taxi-icon",
-					"bicycle-icon",
-					"car-rental-icon",
-				],
-			},
-			amenities: {
-				sizeInBytes: 210 * 1024,
-				images: [
-					"wifi-icon",
-					"restroom-icon",
-					"information-icon",
-					"wheelchair-icon",
-					"elevator-icon",
-					"stairs-icon",
-					"drinking-water-icon",
-					"phone-icon",
-				],
-			},
-			recreation: {
-				sizeInBytes: 140 * 1024,
-				images: [
-					"park-icon",
-					"playground-icon",
-					"stadium-icon",
-					"beach-icon",
-					"swimming-icon",
-					"tennis-icon",
-					"golf-icon",
-					"hiking-icon",
-				],
-			},
-			shopping: {
-				sizeInBytes: 160 * 1024,
-				images: [
-					"shopping-mall-icon",
-					"grocery-store-icon",
-					"clothing-store-icon",
-					"electronics-icon",
-					"bookstore-icon",
-					"flower-shop-icon",
-					"jewelry-icon",
-					"bakery-icon",
-				],
-			},
-			customMarkers: {
-				sizeInBytes: 89 * 1024,
-				images: [
-					"brand-a-marker-icon",
-					"brand-b-marker-icon",
-					"special-event-icon",
-					"promotion-icon",
-					"new-location-icon",
-					"featured-icon",
-				],
-			},
-		},
-	};
+	const res = await fetch("/catalog");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch catalog: ${res.statusText}`);
+	}
+	return res.json();
 };
 
 export default function MartinTileserverDashboard() {
