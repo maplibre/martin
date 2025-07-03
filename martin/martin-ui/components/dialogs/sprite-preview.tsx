@@ -49,7 +49,7 @@ export function SpritePreviewDialog({
                 </Button>
               </DialogTitle>
               <DialogDescription>
-                Preview the selected sprite and download options.
+                Preview the selected sprite.
               </DialogDescription>
             </DialogHeader>
             {isLoading ? (
@@ -71,7 +71,7 @@ export function SpritePreviewDialog({
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 overflow-y-auto">
                   {sprite.images.map((spriteItem) => (
                     <Tooltip>
                       <TooltipTrigger className="flex flex-grow cursor-help">
@@ -79,10 +79,10 @@ export function SpritePreviewDialog({
                           className="flex flex-col items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors"
                           key={spriteItem}
                         >
-                          <div className="w-12 h-12  animate-pulse bg-purple-200 rounded flex items-center justify-center mb-2">
-                            <div className="w-8 h-8 bg-primary rounded-sm"></div>
+                          <div className="w-14 h-14 animate-pulse bg-purple-200 rounded flex items-center justify-center mb-2">
+                            <div className="w-10 h-10 bg-primary rounded-sm animate-ping"></div>
                           </div>
-                          <span className="text-xs text-center font-medium break-words">
+                          <span className="text-xs w-16 text-center text-balance font-medium break-words">
                             {spriteItem}
                           </span>
                         </div>
