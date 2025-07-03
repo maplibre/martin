@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { useRetry } from "../../hooks/use-retry";
 
 // Mock useToast to avoid side effects and track calls
@@ -12,9 +12,7 @@ describe("useRetry", () => {
   it("should succeed on first attempt", async () => {
     const asyncFn = jest.fn().mockResolvedValue("success");
     const onSuccess = jest.fn();
-    const { result } = renderHook(() =>
-      useRetry(asyncFn, { onSuccess, maxAttempts: 3 })
-    );
+    const { result } = renderHook(() => useRetry(asyncFn, { maxAttempts: 3, onSuccess }));
 
     let value: string | null = null;
     await act(async () => {
@@ -35,9 +33,7 @@ describe("useRetry", () => {
       .mockResolvedValueOnce("final success");
     const onError = jest.fn();
     const onSuccess = jest.fn();
-    const { result } = renderHook(() =>
-      useRetry(asyncFn, { onError, onSuccess, maxAttempts: 2 })
-    );
+    const { result } = renderHook(() => useRetry(asyncFn, { maxAttempts: 2, onError, onSuccess }));
 
     let value: string | null = null;
     await act(async () => {
@@ -57,7 +53,7 @@ describe("useRetry", () => {
     const onError = jest.fn();
     const onMaxAttemptsReached = jest.fn();
     const { result } = renderHook(() =>
-      useRetry(asyncFn, { onError, onMaxAttemptsReached, maxAttempts: 2 })
+      useRetry(asyncFn, { maxAttempts: 2, onError, onMaxAttemptsReached }),
     );
 
     let value: string | null = null;
@@ -75,9 +71,7 @@ describe("useRetry", () => {
 
   it("should reset state when reset is called", async () => {
     const asyncFn = jest.fn().mockRejectedValue(new Error("fail always"));
-    const { result } = renderHook(() =>
-      useRetry(asyncFn, { maxAttempts: 1 })
-    );
+    const { result } = renderHook(() => useRetry(asyncFn, { maxAttempts: 1 }));
 
     await act(async () => {
       await result.current.retry();

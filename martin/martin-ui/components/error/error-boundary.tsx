@@ -1,48 +1,48 @@
-"use client"
+"use client";
 
-import React from "react"
-import { AlertTriangle, RefreshCw } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ErrorBoundaryState {
-  hasError: boolean
-  error?: Error
-  errorInfo?: React.ErrorInfo
+  hasError: boolean;
+  error?: Error;
+  errorInfo?: React.ErrorInfo;
 }
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode
-  fallback?: React.ComponentType<{ error?: Error; retry: () => void }>
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void
+  children: React.ReactNode;
+  fallback?: React.ComponentType<{ error?: Error; retry: () => void }>;
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
-    super(props)
-    this.state = { hasError: false }
+    super(props);
+    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error }
+    return { error, hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({ error, errorInfo })
-    this.props.onError?.(error, errorInfo)
+    this.setState({ error, errorInfo });
+    this.props.onError?.(error, errorInfo);
   }
 
   retry = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
-  }
+    this.setState({ error: undefined, errorInfo: undefined, hasError: false });
+  };
 
   render() {
     if (this.state.hasError) {
-      const FallbackComponent = this.props.fallback || DefaultErrorFallback
-      return <FallbackComponent error={this.state.error} retry={this.retry} />
+      const FallbackComponent = this.props.fallback || DefaultErrorFallback;
+      return <FallbackComponent error={this.state.error} retry={this.retry} />;
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
@@ -64,13 +64,13 @@ function DefaultErrorFallback({ error, retry }: { error?: Error; retry: () => vo
             <p className="text-sm text-destructive-foreground font-mono">{error.message}</p>
           </div>
         )}
-        <Button onClick={retry} className="w-full">
+        <Button className="w-full" onClick={retry}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Try Again
         </Button>
       </CardContent>
     </Card>
-  )
+  );
 }
 
-export { ErrorBoundary }
+export { ErrorBoundary };

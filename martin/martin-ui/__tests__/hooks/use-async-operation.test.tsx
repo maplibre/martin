@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { useAsyncOperation } from "../../hooks/use-async-operation";
 
 // Mock useToast to avoid side effects and track calls
@@ -12,9 +12,7 @@ describe("useAsyncOperation", () => {
   it("should execute and succeed", async () => {
     const asyncFn = jest.fn().mockResolvedValue("data");
     const onSuccess = jest.fn();
-    const { result } = renderHook(() =>
-      useAsyncOperation(asyncFn, { onSuccess, maxRetries: 2 })
-    );
+    const { result } = renderHook(() => useAsyncOperation(asyncFn, { maxRetries: 2, onSuccess }));
 
     let value: string | undefined;
     await act(async () => {
@@ -33,9 +31,7 @@ describe("useAsyncOperation", () => {
   it("should handle error and call onError", async () => {
     const asyncFn = jest.fn().mockRejectedValue(new Error("fail"));
     const onError = jest.fn();
-    const { result } = renderHook(() =>
-      useAsyncOperation(asyncFn, { onError, maxRetries: 2 })
-    );
+    const { result } = renderHook(() => useAsyncOperation(asyncFn, { maxRetries: 2, onError }));
 
     await act(async () => {
       try {
@@ -60,7 +56,7 @@ describe("useAsyncOperation", () => {
     const onSuccess = jest.fn();
     const onError = jest.fn();
     const { result } = renderHook(() =>
-      useAsyncOperation(asyncFn, { onSuccess, onError, maxRetries: 2 })
+      useAsyncOperation(asyncFn, { maxRetries: 2, onError, onSuccess }),
     );
 
     // First call fails
@@ -87,9 +83,7 @@ describe("useAsyncOperation", () => {
 
   it("should not retry more than maxRetries", async () => {
     const asyncFn = jest.fn().mockRejectedValue(new Error("fail"));
-    const { result } = renderHook(() =>
-      useAsyncOperation(asyncFn, { maxRetries: 2 })
-    );
+    const { result } = renderHook(() => useAsyncOperation(asyncFn, { maxRetries: 2 }));
 
     // First call fails
     await act(async () => {
@@ -118,9 +112,7 @@ describe("useAsyncOperation", () => {
 
   it("should reset state", async () => {
     const asyncFn = jest.fn().mockRejectedValue(new Error("fail"));
-    const { result } = renderHook(() =>
-      useAsyncOperation(asyncFn, { maxRetries: 1 })
-    );
+    const { result } = renderHook(() => useAsyncOperation(asyncFn, { maxRetries: 1 }));
 
     await act(async () => {
       try {

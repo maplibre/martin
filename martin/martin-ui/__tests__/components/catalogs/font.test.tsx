@@ -5,13 +5,7 @@ import type { Font } from "@/lib/types";
 
 // Mock all dependencies
 jest.mock("@/components/error/error-state", () => ({
-  ErrorState: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => (
+  ErrorState: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="error-state">
       <div data-testid="error-title">{title}</div>
       <div data-testid="error-description">{description}</div>
@@ -20,13 +14,7 @@ jest.mock("@/components/error/error-state", () => ({
 }));
 
 jest.mock("@/components/loading/catalog-skeleton", () => ({
-  CatalogSkeleton: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => (
+  CatalogSkeleton: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="catalog-skeleton">
       <div data-testid="skeleton-title">{title}</div>
       <div data-testid="skeleton-description">{description}</div>
@@ -36,21 +24,15 @@ jest.mock("@/components/loading/catalog-skeleton", () => ({
 
 // Mock UI components to avoid tooltip provider issues
 jest.mock("@/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   TooltipContent: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="tooltip-content">{children}</div>
   ),
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/ui/button", () => ({
-  Button: ({ children, ...props }: any) => (
-    <button {...props}>{children}</button>
-  ),
+  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
 }));
 
 jest.mock("@/components/ui/badge", () => ({
@@ -72,6 +54,11 @@ jest.mock("@/components/ui/card", () => ({
       {children}
     </div>
   ),
+  CardDescription: ({ children, ...props }: any) => (
+    <div data-testid="card-description" {...props}>
+      {children}
+    </div>
+  ),
   CardHeader: ({ children, ...props }: any) => (
     <div data-testid="card-header" {...props}>
       {children}
@@ -79,11 +66,6 @@ jest.mock("@/components/ui/card", () => ({
   ),
   CardTitle: ({ children, ...props }: any) => (
     <div data-testid="card-title" {...props}>
-      {children}
-    </div>
-  ),
-  CardDescription: ({ children, ...props }: any) => (
-    <div data-testid="card-description" {...props}>
       {children}
     </div>
   ),
@@ -106,43 +88,43 @@ jest.mock("lucide-react", () => ({
 
 describe("FontCatalog Component", () => {
   const mockFonts: { [name: string]: Font } = {
-    "Roboto Medium": {
-      family: "Roboto",
-      style: "Medium",
-      format: "ttf",
-      start: 0,
-      end: 255,
-      glyphs: 350,
-      lastModifiedAt: new Date("2023-01-01"),
-    },
-    "Open Sans Regular": {
-      family: "Open Sans",
-      style: "Regular",
-      format: "otf",
-      start: 0,
-      end: 255,
-      glyphs: 420,
-      lastModifiedAt: new Date("2023-02-15"),
-    },
     "Noto Sans Bold": {
-      family: "Noto Sans",
-      style: "Bold",
-      format: "ttf",
-      start: 0,
       end: 255,
+      family: "Noto Sans",
+      format: "ttf",
       glyphs: 380,
       lastModifiedAt: new Date("2023-03-20"),
+      start: 0,
+      style: "Bold",
+    },
+    "Open Sans Regular": {
+      end: 255,
+      family: "Open Sans",
+      format: "otf",
+      glyphs: 420,
+      lastModifiedAt: new Date("2023-02-15"),
+      start: 0,
+      style: "Regular",
+    },
+    "Roboto Medium": {
+      end: 255,
+      family: "Roboto",
+      format: "ttf",
+      glyphs: 350,
+      lastModifiedAt: new Date("2023-01-01"),
+      start: 0,
+      style: "Medium",
     },
   };
 
   const defaultProps = {
-    fonts: mockFonts,
-    searchQuery: "",
-    onSearchChangeAction: jest.fn(),
-    isLoading: false,
     error: null,
-    onRetry: jest.fn(),
+    fonts: mockFonts,
+    isLoading: false,
     isRetrying: false,
+    onRetry: jest.fn(),
+    onSearchChangeAction: jest.fn(),
+    searchQuery: "",
   };
 
   it("matches snapshot for loading state", () => {
@@ -160,7 +142,7 @@ describe("FontCatalog Component", () => {
     expect(screen.getByTestId("catalog-skeleton")).toBeInTheDocument();
     expect(screen.getByTestId("skeleton-title").textContent).toBe("Font Catalog");
     expect(screen.getByTestId("skeleton-description").textContent).toBe(
-      "Preview all available font assets"
+      "Preview all available font assets",
     );
   });
 
@@ -168,9 +150,7 @@ describe("FontCatalog Component", () => {
     const error = new Error("Test error");
     render(<FontCatalog {...defaultProps} error={error} />);
     expect(screen.getByTestId("error-state")).toBeInTheDocument();
-    expect(screen.getByTestId("error-title").textContent).toBe(
-      "Failed to Load Fonts"
-    );
+    expect(screen.getByTestId("error-title").textContent).toBe("Failed to Load Fonts");
   });
 
   it("renders font catalog correctly", () => {
@@ -239,9 +219,7 @@ describe("FontCatalog Component", () => {
 
   it("shows no results message when search has no matches", () => {
     render(<FontCatalog {...defaultProps} searchQuery="nonexistent" />);
-    expect(
-      screen.getByText(/No fonts found matching "nonexistent"/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No fonts found matching "nonexistent"/i)).toBeInTheDocument();
 
     // Should not render any cards
     const headers = screen.queryAllByTestId("card-header");
@@ -253,9 +231,7 @@ describe("FontCatalog Component", () => {
     const searchInput = screen.getByPlaceholderText("Search fonts...");
 
     fireEvent.change(searchInput, { target: { value: "new search" } });
-    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith(
-      "new search"
-    );
+    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith("new search");
   });
 
   it("renders download and details buttons for each font", () => {

@@ -16,9 +16,9 @@ describe("SpritePreviewDialog Component", () => {
 
   const mockProps = {
     name: "test-sprite",
-    sprite: mockSprite,
     onCloseAction: jest.fn(),
     onDownloadAction: jest.fn(),
+    sprite: mockSprite,
   };
 
   beforeEach(() => {
@@ -89,7 +89,9 @@ describe("SpritePreviewDialog Component", () => {
     await user.hover(spriteItem.closest("button") || spriteItem);
 
     // Now the tooltip content should appear (may be multiple tooltips)
-    const tooltips = await screen.findAllByText("Sprite preview not currently implemented in the frontend");
+    const tooltips = await screen.findAllByText(
+      "Sprite preview not currently implemented in the frontend",
+    );
     expect(tooltips.length).toBeGreaterThan(0);
   });
 });

@@ -1,38 +1,48 @@
-import React from "react";
-import { render, screen, fireEvent } from "../utils/test-utils";
+import type React from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import type { AnalyticsData } from "@/lib/types";
+import { fireEvent, render, screen } from "../utils/test-utils";
 
 // Mock icons and UI components to avoid unnecessary complexity in snapshots
 jest.mock("lucide-react", () => ({
   Activity: () => <div data-testid="icon-activity" />,
+  Database: () => <div data-testid="icon-database" />,
   Server: () => <div data-testid="icon-server" />,
   Zap: () => <div data-testid="icon-zap" />,
-  Database: () => <div data-testid="icon-database" />,
 }));
 jest.mock("@/components/ui/card", () => ({
   Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
-  CardHeader: ({ children }: { children: React.ReactNode }) => <div data-testid="card-header">{children}</div>,
-  CardTitle: ({ children }: { children: React.ReactNode }) => <div data-testid="card-title">{children}</div>,
-  CardContent: ({ children }: { children: React.ReactNode }) => <div data-testid="card-content">{children}</div>,
+  CardContent: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="card-content">{children}</div>
+  ),
+  CardHeader: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="card-header">{children}</div>
+  ),
+  CardTitle: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="card-title">{children}</div>
+  ),
 }));
 jest.mock("@/components/ui/skeleton", () => ({
-  Skeleton: ({ className }: { className?: string }) => <div data-testid="skeleton" className={className} />,
+  Skeleton: ({ className }: { className?: string }) => (
+    <div className={className} data-testid="skeleton" />
+  ),
 }));
 jest.mock("@/components/error/error-state", () => ({
   ErrorState: (props: any) => (
     <div data-testid="error-state">
       {props.title} - {props.description} - {props.error?.message || props.error}
-      <button onClick={props.onRetry} disabled={props.isRetrying}>Retry</button>
+      <button disabled={props.isRetrying} onClick={props.onRetry}>
+        Retry
+      </button>
     </div>
   ),
 }));
 
 const analytics: AnalyticsData = {
-  requestsPerSecond: 42,
-  memoryUsage: 70,
-  cacheHitRate: 95,
   activeSources: 8,
+  cacheHitRate: 95,
+  memoryUsage: 70,
+  requestsPerSecond: 42,
 };
 
 describe("AnalyticsSection", () => {
@@ -54,7 +64,7 @@ describe("AnalyticsSection", () => {
   it("renders error state and calls onRetry", () => {
     const onRetry = jest.fn();
     const error = new Error("Test error");
-    render(<AnalyticsSection error={error} onRetry={onRetry} isRetrying={false} />);
+    render(<AnalyticsSection error={error} isRetrying={false} onRetry={onRetry} />);
     expect(screen.getByTestId("error-state")).toHaveTextContent("Test error");
     fireEvent.click(screen.getByText("Retry"));
     expect(onRetry).toHaveBeenCalled();
@@ -63,7 +73,7 @@ describe("AnalyticsSection", () => {
   it("renders retrying state (button disabled)", () => {
     const onRetry = jest.fn();
     const error = new Error("Retry error");
-    render(<AnalyticsSection error={error} onRetry={onRetry} isRetrying={true} />);
+    render(<AnalyticsSection error={error} isRetrying={true} onRetry={onRetry} />);
     expect(screen.getByText("Retry")).toBeDisabled();
   });
 });

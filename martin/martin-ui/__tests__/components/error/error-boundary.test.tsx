@@ -1,5 +1,5 @@
-import React from "react";
 import { fireEvent, screen } from "@testing-library/react";
+import React from "react";
 import { ErrorBoundary } from "@/components/error/error-boundary";
 import { render } from "../../utils/test-utils";
 
@@ -27,7 +27,7 @@ describe("ErrorBoundary", () => {
     const { container } = render(
       <ErrorBoundary>
         <div>Safe content</div>
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(container).toMatchSnapshot();
     expect(screen.getByText("Safe content")).toBeInTheDocument();
@@ -37,14 +37,14 @@ describe("ErrorBoundary", () => {
     const { container } = render(
       <ErrorBoundary>
         <ProblemChild shouldThrow />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(container).toMatchSnapshot();
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "An unexpected error occurred. Please try again or contact support if the problem persists."
-      )
+        "An unexpected error occurred. Please try again or contact support if the problem persists.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText("Test error thrown!")).toBeInTheDocument();
     expect(screen.getByText("Try Again")).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe("ErrorBoundary", () => {
     render(
       <ErrorBoundary onError={onError}>
         <ProblemChild shouldThrow />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
@@ -74,7 +74,7 @@ describe("ErrorBoundary", () => {
     const { container } = render(
       <ErrorBoundary fallback={CustomFallback}>
         <ProblemChild shouldThrow />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(container).toMatchSnapshot();
     expect(screen.getByText("Custom fallback!")).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe("ErrorBoundary", () => {
     const { container, rerender } = render(
       <ErrorBoundary key={key}>
         <ProblemChild shouldThrow />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     // Should show error fallback
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("ErrorBoundary", () => {
     rerender(
       <ErrorBoundary key={key}>
         <ProblemChild shouldThrow={false} />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
 
     expect(container).toMatchSnapshot();
@@ -122,7 +122,7 @@ describe("ErrorBoundary", () => {
     const { container, rerender } = render(
       <ErrorBoundary fallback={CustomFallback} key={key}>
         <ProblemChild shouldThrow />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByText("Custom fallback!")).toBeInTheDocument();
 
@@ -134,7 +134,7 @@ describe("ErrorBoundary", () => {
     rerender(
       <ErrorBoundary fallback={CustomFallback} key={key}>
         <ProblemChild shouldThrow={false} />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
 
     expect(container).toMatchSnapshot();

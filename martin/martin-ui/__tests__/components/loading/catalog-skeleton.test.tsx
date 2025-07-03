@@ -6,10 +6,7 @@ import { render } from "../../utils/test-utils";
 describe("CatalogSkeleton Component", () => {
   it("renders correctly with default item count", () => {
     const { container } = render(
-      <CatalogSkeleton
-        title="Test Catalog"
-        description="Test description"
-      />
+      <CatalogSkeleton description="Test description" title="Test Catalog" />,
     );
     expect(container).toMatchSnapshot();
 
@@ -25,10 +22,10 @@ describe("CatalogSkeleton Component", () => {
   it("renders with custom item count", () => {
     const { container } = render(
       <CatalogSkeleton
-        title="Custom Count Catalog"
         description="Custom item count"
         itemCount={3}
-      />
+        title="Custom Count Catalog"
+      />,
     );
     expect(container).toMatchSnapshot();
 
@@ -39,11 +36,7 @@ describe("CatalogSkeleton Component", () => {
 
   it("renders with large item count", () => {
     const { container } = render(
-      <CatalogSkeleton
-        title="Large Catalog"
-        description="Many items"
-        itemCount={12}
-      />
+      <CatalogSkeleton description="Many items" itemCount={12} title="Large Catalog" />,
     );
     expect(container).toMatchSnapshot();
 

@@ -1,10 +1,10 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface CatalogSkeletonProps {
-  title: string
-  description: string
-  itemCount?: number
+  title: string;
+  description: string;
+  itemCount?: number;
 }
 
 export function CatalogSkeleton({ title, description, itemCount = 6 }: CatalogSkeletonProps) {
@@ -20,7 +20,7 @@ export function CatalogSkeleton({ title, description, itemCount = 6 }: CatalogSk
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: itemCount }).map((_, i) => (
-          <Card key={i} className="hover:shadow-lg transition-shadow">
+          <Card className="hover:shadow-lg transition-shadow" key={i}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -58,5 +58,5 @@ export function CatalogSkeleton({ title, description, itemCount = 6 }: CatalogSk
         ))}
       </div>
     </div>
-  )
+  );
 }

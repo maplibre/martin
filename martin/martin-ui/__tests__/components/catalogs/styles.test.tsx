@@ -5,13 +5,7 @@ import type { Style } from "@/lib/types";
 
 // Mock all dependencies
 jest.mock("@/components/error/error-state", () => ({
-  ErrorState: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => (
+  ErrorState: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="error-state">
       <div data-testid="error-title">{title}</div>
       <div data-testid="error-description">{description}</div>
@@ -20,13 +14,7 @@ jest.mock("@/components/error/error-state", () => ({
 }));
 
 jest.mock("@/components/loading/catalog-skeleton", () => ({
-  CatalogSkeleton: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => (
+  CatalogSkeleton: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="catalog-skeleton">
       <div data-testid="skeleton-title">{title}</div>
       <div data-testid="skeleton-description">{description}</div>
@@ -36,21 +24,17 @@ jest.mock("@/components/loading/catalog-skeleton", () => ({
 
 // Mock UI components to avoid tooltip provider issues
 jest.mock("@/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
+  Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="tooltip-content">{children}</div>
   ),
   TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="tooltip-trigger">{children}</div>
   ),
-  TooltipContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="tooltip-content">{children}</div>
-  ),
 }));
 
 jest.mock("@/components/ui/button", () => ({
-  Button: ({ children, ...props }: any) => (
-    <button {...props}>{children}</button>
-  ),
+  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
 }));
 
 jest.mock("@/components/ui/badge", () => ({
@@ -72,6 +56,11 @@ jest.mock("@/components/ui/card", () => ({
       {children}
     </div>
   ),
+  CardDescription: ({ children, ...props }: any) => (
+    <div data-testid="card-description" {...props}>
+      {children}
+    </div>
+  ),
   CardHeader: ({ children, ...props }: any) => (
     <div data-testid="card-header" {...props}>
       {children}
@@ -79,11 +68,6 @@ jest.mock("@/components/ui/card", () => ({
   ),
   CardTitle: ({ children, ...props }: any) => (
     <div data-testid="card-title" {...props}>
-      {children}
-    </div>
-  ),
-  CardDescription: ({ children, ...props }: any) => (
-    <div data-testid="card-description" {...props}>
       {children}
     </div>
   ),
@@ -108,32 +92,32 @@ jest.mock("lucide-react", () => ({
 describe("StylesCatalog Component", () => {
   const mockStyles: { [name: string]: Style } = {
     "Basic Style": {
-      path: "/styles/basic.json",
-      type: "vector",
-      layerCount: 10,
       colors: ["#FF5733", "#33FF57", "#3357FF", "#F3FF33"],
       lastModifiedAt: new Date("2023-01-15"),
+      layerCount: 10,
+      path: "/styles/basic.json",
+      type: "vector",
+    },
+    "Hybrid Style": {
+      lastModifiedAt: new Date("2023-03-25"),
+      layerCount: 15,
+      path: "/styles/hybrid.json",
+      type: "hybrid",
+      versionHash: "abc123",
     },
     "Satellite Style": {
       path: "/styles/satellite.json",
     },
-    "Hybrid Style": {
-      path: "/styles/hybrid.json",
-      type: "hybrid",
-      versionHash: "abc123",
-      layerCount: 15,
-      lastModifiedAt: new Date("2023-03-25"),
-    },
   };
 
   const defaultProps = {
-    styles: mockStyles,
-    searchQuery: "",
-    onSearchChangeAction: jest.fn(),
-    isLoading: false,
     error: null,
-    onRetry: jest.fn(),
+    isLoading: false,
     isRetrying: false,
+    onRetry: jest.fn(),
+    onSearchChangeAction: jest.fn(),
+    searchQuery: "",
+    styles: mockStyles,
   };
 
   it("matches snapshot for loading state", () => {
@@ -151,7 +135,7 @@ describe("StylesCatalog Component", () => {
     expect(screen.getByTestId("catalog-skeleton")).toBeInTheDocument();
     expect(screen.getByTestId("skeleton-title").textContent).toBe("Styles Catalog");
     expect(screen.getByTestId("skeleton-description").textContent).toBe(
-      "Browse and preview all available map styles and themes"
+      "Browse and preview all available map styles and themes",
     );
   });
 
@@ -159,9 +143,7 @@ describe("StylesCatalog Component", () => {
     const error = new Error("Test error");
     render(<StylesCatalog {...defaultProps} error={error} />);
     expect(screen.getByTestId("error-state")).toBeInTheDocument();
-    expect(screen.getByTestId("error-title").textContent).toBe(
-      "Failed to Load Styles"
-    );
+    expect(screen.getByTestId("error-title").textContent).toBe("Failed to Load Styles");
   });
 
   it("renders styles catalog correctly", () => {
@@ -231,9 +213,7 @@ describe("StylesCatalog Component", () => {
 
   it("shows no results message when search has no matches", () => {
     render(<StylesCatalog {...defaultProps} searchQuery="nonexistent" />);
-    expect(
-      screen.getByText(/No styles found matching "nonexistent"/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No styles found matching "nonexistent"/i)).toBeInTheDocument();
 
     // Should not render any cards
     const headers = screen.queryAllByTestId("card-header");
@@ -245,9 +225,7 @@ describe("StylesCatalog Component", () => {
     const searchInput = screen.getByPlaceholderText("Search styles...");
 
     fireEvent.change(searchInput, { target: { value: "new search" } });
-    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith(
-      "new search"
-    );
+    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith("new search");
   });
 
   it("displays color palettes when available", () => {

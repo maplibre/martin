@@ -1,18 +1,4 @@
 {
-  "name": "martin-ui",
-  "version": "0.2.0",
-  "private": true,
-  "scripts": {
-    "build": "next build",
-    "dev": "next dev",
-    "lint": "next lint",
-    "start": "next start",
-    "type-check": "tsc --noEmit",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:update-snapshots": "jest --updateSnapshot"
-  },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
     "@radix-ui/react-alert-dialog": "1.1.14",
@@ -60,7 +46,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "^15.3.4",
+    "@biomejs/biome": "2.0.6",
     "@swc/core": "^1.12.9",
     "@swc/jest": "^0.2.38",
     "@testing-library/jest-dom": "^6.6.3",
@@ -70,18 +56,28 @@
     "@types/node": "^24.0.7",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "eslint": "^9.30.0",
-    "eslint-config-next": "^15.3.4",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.0.3",
     "jest-environment-jsdom": "^30.0.2",
     "jest-transform-stub": "^2.0.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.35.1"
+    "typescript": "^5.8.3"
   },
-  "packageManager": "pnpm@9.7.0+sha512.dc09430156b427f5ecfc79888899e1c39d2d690f004be70e05230b72cb173d96839587545d09429b55ac3c429c801b4dc3c0e002f653830a420fa2dd4e3cf9cf"
+  "name": "martin-ui",
+  "packageManager": "pnpm@9.7.0+sha512.dc09430156b427f5ecfc79888899e1c39d2d690f004be70e05230b72cb173d96839587545d09429b55ac3c429c801b4dc3c0e002f653830a420fa2dd4e3cf9cf",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "format": "biome check --write",
+    "lint": "biome lint --write",
+    "start": "next start",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:update-snapshots": "jest --updateSnapshot",
+    "test:watch": "jest --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "version": "0.2.0"
 }

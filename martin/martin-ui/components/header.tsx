@@ -8,83 +8,84 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ThemeSwitcher } from "./theme-switcher";
 
 export function Header() {
-	return (
-		<header className="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50">
-			<div className="container mx-auto px-6">
-				<div className="flex h-20 items-center justify-between">
-					<div className="flex items-center space-x-4">
-						<div className="items-center flex">
-							<Link href="/" className="hidden lg:flex" >
-								<Image
-									src="/icon.png"
-									alt="Logo of the Martin Tileserver"
-									title="Martin Tile Server"
-									height={9 * 10 - 20}
-									width={32 * 10 - 30}
-									priority
-								/>
-							</Link>
-							<h1 className="text-3xl font-bold leading-relaxed md:block lg:hidden hidden">MARTIN</h1>
-						</div>
-							<Badge
-  							variant="default"
-                className="hover:bg-purple-700 hidden md:block"
-                asChild
-  						>
-                <Link href={`https://github.com/maplibre/martin/releases/tag/${process.env.NEXT_PUBLIC_VERSION}`} className="p-1" >
-
-       							{process.env.NEXT_PUBLIC_VERSION}
+  return (
+    <header className="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50">
+      <div className="container mx-auto px-6">
+        <div className="flex h-20 items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="items-center flex">
+              <Link className="hidden lg:flex" href="/">
+                <Image
+                  alt="Logo of the Martin Tileserver"
+                  height={9 * 10 - 20}
+                  priority
+                  src="/icon.png"
+                  title="Martin Tile Server"
+                  width={32 * 10 - 30}
+                />
+              </Link>
+              <h1 className="text-3xl font-bold leading-relaxed md:block lg:hidden hidden">
+                MARTIN
+              </h1>
+            </div>
+            <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
+              <Link
+                className="p-1"
+                href={`https://github.com/maplibre/martin/releases/tag/${process.env.NEXT_PUBLIC_VERSION}`}
+              >
+                {process.env.NEXT_PUBLIC_VERSION}
+              </Link>
+            </Badge>
+          </div>
+          <div className="flex items-center space-x-6">
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Link
+                  className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+                  href="https://maplibre.org/martin/"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <BookOpen size={18} />
+                  <span>Documentation</span>
                 </Link>
-  						</Badge>
-					</div>
-					<div className="flex items-center space-x-6">
-						<HoverCard>
-							<HoverCardTrigger asChild>
-								<Link
-									href="https://maplibre.org/martin/"
-									className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<BookOpen size={18} />
-									<span>Documentation</span>
-								</Link>
-							</HoverCardTrigger>
-							<HoverCardContent className="w-80">
-								<div className="space-y-2">
-									<h4 className="text-sm font-semibold">Martin Documentation</h4>
-									<p className="text-sm">
-										Access comprehensive guides and documentation for the Martin tile server.
-									</p>
-								</div>
-							</HoverCardContent>
-						</HoverCard>
-						<HoverCard>
-							<HoverCardTrigger asChild>
-								<Link
-									href="https://maplibre.org"
-									className="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<Info size={18} />
-									<span>About us</span>
-								</Link>
-							</HoverCardTrigger>
-							<HoverCardContent className="w-80">
-								<div className="space-y-2">
-									<h4 className="text-sm font-semibold">About MapLibre</h4>
-									<p className="text-sm">
-										Learn about MapLibre,<br/>
-										the open-source collective behind this project.
-									</p>
-								</div>
-							</HoverCardContent>
-						</HoverCard>
-						<ThemeSwitcher />
-					</div>
-				</div>
-			</div>
-		</header>
-	);
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Martin Documentation</h4>
+                  <p className="text-sm">
+                    Access comprehensive guides and documentation for the Martin tile server.
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Link
+                  className="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+                  href="https://maplibre.org"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <Info size={18} />
+                  <span>About us</span>
+                </Link>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">About MapLibre</h4>
+                  <p className="text-sm">
+                    Learn about MapLibre,
+                    <br />
+                    the open-source collective behind this project.
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+            <ThemeSwitcher />
+          </div>
+        </div>
+      </div>
+    </header>
+  );
 }

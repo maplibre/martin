@@ -14,7 +14,9 @@ jest.mock("@/components/catalogs/sprite", () => {
       return (
         <div data-testid="catalog-skeleton">
           <div data-testid="skeleton-title">Sprite Catalog</div>
-          <div data-testid="skeleton-description">Preview all available sprite sheets and icons</div>
+          <div data-testid="skeleton-description">
+            Preview all available sprite sheets and icons
+          </div>
         </div>
       );
     }
@@ -29,8 +31,9 @@ jest.mock("@/components/catalogs/sprite", () => {
     }
 
     // Filter collections based on search
-    const filteredCollections = Object.entries(spriteCollections || {})
-      .filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filteredCollections = Object.entries(spriteCollections || {}).filter(([name]) =>
+      name.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
 
     return (
       <div>
@@ -38,29 +41,27 @@ jest.mock("@/components/catalogs/sprite", () => {
         <div className="relative">
           <div data-testid="search-icon">Search</div>
           <input
+            onChange={(e) => onSearchChangeAction(e.target.value)}
             placeholder="Search sprites..."
             value={searchQuery}
-            onChange={(e) => onSearchChangeAction(e.target.value)}
           />
         </div>
 
         <div className="grid">
           {filteredCollections.map(([name, sprite]: [string, any]) => (
-            <div key={name} data-testid="card-header">
+            <div data-testid="card-header" key={name}>
               <div data-testid="card-title">{name}</div>
               <div data-testid="card-description">{sprite.images.length} total icons</div>
               <div data-testid="card-content">
                 <div>{sprite.sizeInBytes / 1000} KB</div>
                 <button
-                  onClick={() => props.onPreviewClick && props.onPreviewClick(name)}
                   disabled={props.isLoadingSprites}
+                  onClick={() => props.onPreviewClick && props.onPreviewClick(name)}
                 >
                   <div data-testid="eye-icon">Eye</div>
                   Preview
                 </button>
-                <button
-                  onClick={() => props.onDownloadClick && props.onDownloadClick(name)}
-                >
+                <button onClick={() => props.onDownloadClick && props.onDownloadClick(name)}>
                   <div data-testid="download-icon">Download</div>
                   Download
                 </button>
@@ -78,7 +79,7 @@ jest.mock("@/components/catalogs/sprite", () => {
 
   return {
     ...originalModule,
-    SpriteCatalog: MockSpriteCatalog
+    SpriteCatalog: MockSpriteCatalog,
   };
 });
 
@@ -88,13 +89,7 @@ const setDownloadSpriteMock = jest.fn();
 
 // Mock all dependencies
 jest.mock("@/components/error/error-state", () => ({
-  ErrorState: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => (
+  ErrorState: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="error-state">
       <div data-testid="error-title">{title}</div>
       <div data-testid="error-description">{description}</div>
@@ -103,13 +98,7 @@ jest.mock("@/components/error/error-state", () => ({
 }));
 
 jest.mock("@/components/loading/catalog-skeleton", () => ({
-  CatalogSkeleton: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => (
+  CatalogSkeleton: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="catalog-skeleton">
       <div data-testid="skeleton-title">{title}</div>
       <div data-testid="skeleton-description">{description}</div>
@@ -163,15 +152,11 @@ jest.mock("@/components/dialogs/sprite-download", () => ({
 
 // Mock UI components to avoid tooltip provider issues
 jest.mock("@/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   TooltipContent: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="tooltip-content">{children}</div>
   ),
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/ui/button", () => ({
@@ -201,6 +186,11 @@ jest.mock("@/components/ui/card", () => ({
       {children}
     </div>
   ),
+  CardDescription: ({ children, ...props }: any) => (
+    <div data-testid="card-description" {...props}>
+      {children}
+    </div>
+  ),
   CardHeader: ({ children, ...props }: any) => (
     <div data-testid="card-header" {...props}>
       {children}
@@ -208,11 +198,6 @@ jest.mock("@/components/ui/card", () => ({
   ),
   CardTitle: ({ children, ...props }: any) => (
     <div data-testid="card-title" {...props}>
-      {children}
-    </div>
-  ),
-  CardDescription: ({ children, ...props }: any) => (
-    <div data-testid="card-description" {...props}>
       {children}
     </div>
   ),
@@ -234,30 +219,30 @@ describe("SpriteCatalog Component", () => {
   const mockSpriteCollections: { [name: string]: SpriteCollection } = {
     "map-icons": {
       images: ["pin", "marker", "building", "park", "poi"],
-      sizeInBytes: 25000,
       lastModifiedAt: new Date("2023-01-10"),
+      sizeInBytes: 25000,
+    },
+    transportation: {
+      images: ["car", "bus", "train", "bicycle", "walk", "plane", "ferry"],
+      lastModifiedAt: new Date("2023-03-20"),
+      sizeInBytes: 30000,
     },
     "ui-elements": {
       images: ["arrow", "plus", "minus", "close", "menu", "search", "filter", "settings"],
-      sizeInBytes: 35000,
       lastModifiedAt: new Date("2023-02-15"),
-    },
-    "transportation": {
-      images: ["car", "bus", "train", "bicycle", "walk", "plane", "ferry"],
-      sizeInBytes: 30000,
-      lastModifiedAt: new Date("2023-03-20"),
+      sizeInBytes: 35000,
     },
   };
 
   const defaultProps = {
-    spriteCollections: mockSpriteCollections,
-    searchQuery: "",
-    onSearchChangeAction: jest.fn(),
-    isLoading: false,
     error: null,
-    onPreviewClick: jest.fn(),
-    onDownloadClick: jest.fn(),
+    isLoading: false,
     isLoadingSprites: false,
+    onDownloadClick: jest.fn(),
+    onPreviewClick: jest.fn(),
+    onSearchChangeAction: jest.fn(),
+    searchQuery: "",
+    spriteCollections: mockSpriteCollections,
   };
 
   it("matches snapshot for loading state", () => {
@@ -279,7 +264,7 @@ describe("SpriteCatalog Component", () => {
     expect(screen.getByTestId("catalog-skeleton")).toBeInTheDocument();
     expect(screen.getByTestId("skeleton-title").textContent).toBe("Sprite Catalog");
     expect(screen.getByTestId("skeleton-description").textContent).toBe(
-      "Preview all available sprite sheets and icons"
+      "Preview all available sprite sheets and icons",
     );
   });
 
@@ -287,9 +272,7 @@ describe("SpriteCatalog Component", () => {
     const error = new Error("Test error");
     render(<SpriteCatalog {...defaultProps} error={error} />);
     expect(screen.getByTestId("error-state")).toBeInTheDocument();
-    expect(screen.getByTestId("error-title").textContent).toBe(
-      "Failed to Load Sprites"
-    );
+    expect(screen.getByTestId("error-title").textContent).toBe("Failed to Load Sprites");
   });
 
   it("renders sprite collections correctly", () => {
@@ -330,7 +313,7 @@ describe("SpriteCatalog Component", () => {
   it("shows no results message when search has no matches", () => {
     render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
     expect(
-      screen.getByText(/No sprite collections found matching "nonexistent"/i)
+      screen.getByText(/No sprite collections found matching "nonexistent"/i),
     ).toBeInTheDocument();
 
     // Should not render any cards
@@ -362,9 +345,7 @@ describe("SpriteCatalog Component", () => {
     const searchInput = screen.getByPlaceholderText("Search sprites...");
 
     fireEvent.change(searchInput, { target: { value: "new search" } });
-    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith(
-      "new search"
-    );
+    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith("new search");
   });
 
   it("renders download and preview buttons for each sprite collection", () => {
@@ -406,8 +387,8 @@ describe("SpriteCatalog Component", () => {
 
     // All preview buttons should be disabled
     const previewButtons = screen.getAllByText("Preview");
-    previewButtons.forEach(button => {
-      expect(button.closest('button')).toBeDisabled();
+    previewButtons.forEach((button) => {
+      expect(button.closest("button")).toBeDisabled();
     });
   });
 });

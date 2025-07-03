@@ -13,21 +13,21 @@ describe("formatFileSize", () => {
     expect(formatFileSize(NaN)).toBe("Unknown size");
     expect(formatFileSize(-1)).toBe("Unknown size");
   });
-  
-    it("formats bytes correctly for typical values", () => {
-      expect(formatFileSize(1)).toBe("1 Bytes");
-      expect(formatFileSize(512)).toBe("512 Bytes");
-      expect(formatFileSize(1024)).toBe("1 KiB");
-      expect(formatFileSize(1536)).toBe("1.5 KiB");
-      expect(formatFileSize(1048576)).toBe("1 MiB");
-      expect(formatFileSize(1073741824)).toBe("1 GiB");
-      expect(formatFileSize(1099511627776)).toBe("1 TiB");
-    });
-    
-      it("formats bytes correctly if passed nonsenical floats", () => {
-        expect(formatFileSize(1.2345)).toBe("1 Bytes");
-        expect(formatFileSize(1512.345)).toBe("1.48 KiB");
-      });
+
+  it("formats bytes correctly for typical values", () => {
+    expect(formatFileSize(1)).toBe("1 Bytes");
+    expect(formatFileSize(512)).toBe("512 Bytes");
+    expect(formatFileSize(1024)).toBe("1 KiB");
+    expect(formatFileSize(1536)).toBe("1.5 KiB");
+    expect(formatFileSize(1048576)).toBe("1 MiB");
+    expect(formatFileSize(1073741824)).toBe("1 GiB");
+    expect(formatFileSize(1099511627776)).toBe("1 TiB");
+  });
+
+  it("formats bytes correctly if passed nonsenical floats", () => {
+    expect(formatFileSize(1.2345)).toBe("1 Bytes");
+    expect(formatFileSize(1512.345)).toBe("1.48 KiB");
+  });
 
   it("formats with two decimal places for non-integer values", () => {
     expect(formatFileSize(1234)).toBe("1.21 KiB");

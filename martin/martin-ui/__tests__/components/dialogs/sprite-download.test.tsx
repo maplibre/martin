@@ -26,8 +26,8 @@ describe("SpriteDownloadDialog Component", () => {
 
   const mockProps = {
     name: "test-sprite",
-    sprite: mockSprite,
     onCloseAction: jest.fn(),
+    sprite: mockSprite,
   };
 
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe("SpriteDownloadDialog Component", () => {
     expect(screen.getAllByText("PNG").length).toBeGreaterThan(0);
     expect(screen.getByText("Standard Format")).toBeInTheDocument();
     expect(
-      screen.getByText("Standard sprite format with multiple colors and transparency.")
+      screen.getByText("Standard sprite format with multiple colors and transparency."),
     ).toBeInTheDocument();
   });
 
@@ -73,7 +73,6 @@ describe("SpriteDownloadDialog Component", () => {
     expect(screen.getByText("SDF JSON")).toBeInTheDocument();
     expect(screen.getByText("High DPI SDF Spritesheet")).toBeInTheDocument();
   });
-
 
   it("calls onCloseAction when dialog is closed", async () => {
     const user = userEvent.setup();

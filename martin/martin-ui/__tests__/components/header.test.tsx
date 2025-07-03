@@ -4,22 +4,22 @@ import { Header } from "@/components/header";
 import { render } from "../utils/test-utils";
 
 jest.mock("@/components/theme-switcher", () => ({
-  ThemeSwitcher: () => <div data-testid="theme-switcher">Theme Switcher Mock</div>
+  ThemeSwitcher: () => <div data-testid="theme-switcher">Theme Switcher Mock</div>,
 }));
 jest.mock("next/image", () => ({
   __esModule: true,
   default: (props: any) => {
     // Convert boolean props to strings to avoid React DOM warnings
-    const imgProps = {...props};
-    if (typeof imgProps.priority === 'boolean') {
+    const imgProps = { ...props };
+    if (typeof imgProps.priority === "boolean") {
       imgProps.priority = imgProps.priority.toString();
     }
     return <img {...imgProps} />;
-  }
+  },
 }));
 
 // Set environment variable used in Header
-process.env.NEXT_PUBLIC_VERSION = 'v0.0.0-test';
+process.env.NEXT_PUBLIC_VERSION = "v0.0.0-test";
 
 describe("Header Component", () => {
   beforeEach(() => {

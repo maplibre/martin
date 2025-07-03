@@ -1,8 +1,7 @@
-import type { Config } from "tailwindcss"
-import TWAnimate from "tailwindcss-animate"
+import type { Config } from "tailwindcss";
+import TWAnimate from "tailwindcss-animate";
 
 const config: Config = {
-  darkMode: ["class"],
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -10,6 +9,8 @@ const config: Config = {
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: ["class"],
+  plugins: [TWAnimate],
   prefix: "",
   theme: {
     container: {
@@ -17,41 +18,22 @@ const config: Config = {
       padding: "2rem",
       screens: {
         "2xl": "1400px",
-        "lg": "1200px",
+        lg: "1200px",
       },
     },
     extend: {
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
       colors: {
-        navbar: "var(--navbar)",
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
-        },
-        secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
-        },
-        destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
-        },
-        muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
-        },
         accent: {
           DEFAULT: "var(--accent)",
           foreground: "var(--accent-foreground)",
         },
-        popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
-        },
+        background: "var(--background)",
+        border: "var(--border)",
         card: {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
@@ -63,15 +45,33 @@ const config: Config = {
           "4": "#ddd6fe",
           "5": "#ede9fe",
         },
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        destructive: {
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
+        },
+        foreground: "var(--foreground)",
+        input: "var(--input)",
+        muted: {
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
+        },
+        navbar: "var(--navbar)",
+        popover: {
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
+        },
+        primary: {
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
+        },
+        ring: "var(--ring)",
+        secondary: {
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
+        },
       },
     },
   },
-  plugins: [TWAnimate],
-} satisfies Config
+} satisfies Config;
 
-export default config
+export default config;
