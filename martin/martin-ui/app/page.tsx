@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { type ErrorInfo, useCallback, useEffect, useState } from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import { FontCatalog } from "@/components/catalogs/font";
@@ -55,6 +56,14 @@ const fetchCatalog = async (): Promise<CatalogSchema> => {
 export default function MartinTileserverDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.set("tab", value);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
 
   const handleAnalyticsError = useCallback((error: Error) => {
     console.error("Analytics fetch failed:", error);
@@ -109,7 +118,11 @@ export default function MartinTileserverDashboard() {
             isLoading={analyticsOperation.isLoading}
           />
 
-          <Tabs className="space-y-6" defaultValue="tiles">
+          <Tabs
+            className="space-y-6"
+            onValueChange={handleTabChange}
+            value={searchParams.get("tab") || "tiles"}
+          >
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="tiles">Data Catalog</TabsTrigger>
               <TabsTrigger value="styles">Styles Catalog</TabsTrigger>
