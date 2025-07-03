@@ -75,8 +75,14 @@ jobs:
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
   musl-build:
-    name: Build static (musl) versions of the binarys
+    name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-musl
+          - target: x86_64-unknown-linux-musl
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -102,22 +108,20 @@ jobs:
         with:
           use-installer: true
 
-      - name: Build targets
+      - name: Build ${{ matrix.target }}
         run: |
-          for target in "aarch64-unknown-linux-musl" "x86_64-unknown-linux-musl"; do
-            echo -e "\n----------------------------------------------"
-            echo "Building $target"
-            # See https://github.com/cross-rs/cross/issues/1526
-            # TODO: Remove this once a version after cross 0.2.5 is released
-            export CROSS_BUILD_OPTS="--output=type=docker"
-            export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-            cross build --release --target $target --workspace
-            mkdir -p target_releases/$target
-            mv target/$target/release/martin target_releases/$target
-            mv target/$target/release/martin-cp target_releases/$target
-            mv target/$target/release/mbtiles target_releases/$target
-          done
-
+          # See https://github.com/cross-rs/cross/issues/1526
+          # TODO: Remove this once a version after cross 0.2.5 is released
+          export CROSS_BUILD_OPTS="--output=type=docker"
+          export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
+          cross build --release --target ${{ matrix.target }} --workspace
+      
+      - name: Move the artefacts to the expected place
+        run: |
+          mkdir -p target_releases/${{ matrix.target }}
+          mv target/${{ matrix.target }}/release/martin target_releases/${{ matrix.target }}
+          mv target/${{ matrix.target }}/release/martin-cp target_releases/${{ matrix.target }}
+          mv target/${{ matrix.target }}/release/mbtiles target_releases/${{ matrix.target }}
       - name: Save cross-build artifacts
         uses: actions/upload-artifact@v4
         with:
