@@ -63,3 +63,15 @@ export function aggregateEndpointGroups(
   }
   return result;
 }
+
+export const ENDPOINT_GROUPS = {
+  fonts: ["/font/{fontstack}/{start}-{end}"],
+  sprites: [
+    "/sprite/{source_ids}.json",
+    "/sprite/{source_ids}.png",
+    "/sdf_sprite/{source_ids}.json",
+    "/sdf_sprite/{source_ids}.png",
+  ],
+  styles: ["/style/{style_id}"],
+  tiles: ["/{source_ids}/{z}/{x}/{y}"],
+} as Record<string, string[]>;

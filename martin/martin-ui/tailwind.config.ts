@@ -1,7 +1,6 @@
-import type { Config } from "tailwindcss";
 import TWAnimate from "tailwindcss-animate";
 
-const config: Config = {
+const config = {
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -72,6 +71,6 @@ const config: Config = {
       },
     },
   },
-} satisfies Config;
+};
 
 export default config;

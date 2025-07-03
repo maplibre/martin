@@ -12,22 +12,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/toaster";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
 import { useToast } from "@/hooks/use-toast";
-import { aggregateEndpointGroups, parsePrometheusMetrics } from "@/lib/prometheus";
+import { aggregateEndpointGroups, ENDPOINT_GROUPS, parsePrometheusMetrics } from "@/lib/prometheus";
 import type { AnalyticsData, CatalogSchema } from "@/lib/types";
-
-const ENDPOINT_GROUPS = {
-  fonts: ["/font/{fontstack}/{start}-{end}"],
-  sprites: [
-    "/sprite/{source_ids}.json",
-    "/sprite/{source_ids}.png",
-    "/sdf_sprite/{source_ids}.json",
-    "/sdf_sprite/{source_ids}.png",
-  ],
-  styles: ["/style/{style_id}"],
-  tiles: ["/{source_ids}/{z}/{x}/{y}"],
-};
+import { getMartinMockAnalytics, getMartinMockCatalog } from "@/lib/mockResponses";
 
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
+  if (process.env.NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API === "true") {
+    return getMartinMockAnalytics();
+  }
+
   const res = await fetch("/_/metrics", {
     headers: {
       "Accept-Encoding": "identity",
@@ -48,6 +41,10 @@ const fetchAnalytics = async (): Promise<AnalyticsData> => {
 };
 
 const fetchCatalog = async (): Promise<CatalogSchema> => {
+  if (process.env.NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API === "true") {
+    return getMartinMockCatalog();
+  }
+
   const res = await fetch("/catalog");
   if (!res.ok) {
     throw new Error(`Failed to fetch catalog: ${res.statusText}`);
