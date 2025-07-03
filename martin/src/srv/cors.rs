@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn test_cors_with_valid_properties() {
         let properties = CorsProperties {
-            origin: vec!["https://example.com".to_string()],
+            origin: vec!["https://example.org".to_string()],
             max_age: Some(3600),
         };
         assert!(properties.validate().is_ok());
