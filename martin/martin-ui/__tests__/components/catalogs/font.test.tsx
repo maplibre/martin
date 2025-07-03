@@ -32,7 +32,13 @@ jest.mock("@/components/ui/tooltip", () => ({
 }));
 
 jest.mock("@/components/ui/button", () => ({
-  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+  Button: ({ asChild, children, ...props }: any) => <button {...props}>{children}</button>,
+}));
+
+jest.mock("@/components/ui/copy-link-button", () => ({
+  CopyLinkButton: ({ toastMessage, children, ...props }: any) => (
+    <button data-testid="copy-link-button" {...props}>{children ?? "Copy Link"}</button>
+  ),
 }));
 
 jest.mock("@/components/ui/badge", () => ({
