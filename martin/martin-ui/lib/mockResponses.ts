@@ -1,4 +1,3 @@
-import { aggregateEndpointGroups, ENDPOINT_GROUPS, parsePrometheusMetrics } from "./prometheus";
 import type { AnalyticsData, CatalogSchema } from "./types";
 
 /**

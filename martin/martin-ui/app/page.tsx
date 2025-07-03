@@ -12,9 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/toaster";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
 import { useToast } from "@/hooks/use-toast";
+import { getMartinMockAnalytics, getMartinMockCatalog } from "@/lib/mockResponses";
 import { aggregateEndpointGroups, ENDPOINT_GROUPS, parsePrometheusMetrics } from "@/lib/prometheus";
 import type { AnalyticsData, CatalogSchema } from "@/lib/types";
-import { getMartinMockAnalytics, getMartinMockCatalog } from "@/lib/mockResponses";
 
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
   if (process.env.NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API === "true") {

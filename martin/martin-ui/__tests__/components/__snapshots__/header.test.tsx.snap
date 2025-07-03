@@ -19,28 +19,25 @@ exports[`Header Component renders correctly 1`] = `
         <div
           class="flex items-center space-x-4"
         >
-          <div
-            class="items-center flex"
+          <a
+            class="items-center flex space-x-3"
+            href="/"
           >
-            <a
-              class="hidden lg:flex"
-              href="/"
-            >
-              <img
-                alt="Logo of the Martin Tileserver"
-                height="70"
-                priority="true"
-                src="/icon.png"
-                title="Martin Tile Server"
-                width="290"
-              />
-            </a>
+            <img
+              alt="Martin Logo"
+              class="-mt-5 -rotate-6"
+              height="48"
+              priority="true"
+              src="/logo_martin.svg"
+              title="Martin Tile Server"
+              width="96"
+            />
             <h1
-              class="text-3xl font-bold leading-relaxed md:block lg:hidden hidden"
+              class="text-3xl font-bold leading-relaxed text-foreground select-none"
             >
               MARTIN
             </h1>
-          </div>
+          </a>
           <a
             class="items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90 hover:bg-purple-700 hidden md:block p-1"
             data-slot="badge"

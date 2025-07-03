@@ -109,7 +109,7 @@ export function useAsyncOperation<T>(
 
         const backoffDelay = initialBackoffDelay ** (attempt - 1);
         const jitter = backoffDelay * 0.2 * Math.random();
-        console.log(`retrying in ${backoffDelay}ms with jitter ${jitter}ms`)
+        console.log(`retrying in ${backoffDelay}ms with jitter ${jitter}ms`);
         await sleep(backoffDelay + jitter);
       }
     }
