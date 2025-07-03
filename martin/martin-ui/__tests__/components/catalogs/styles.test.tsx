@@ -250,12 +250,12 @@ describe("StylesCatalog Component", () => {
     expect(mapIcons.length).toBe(3);
   });
 
-  it("renders download and preview buttons for each style", () => {
+  it("renders copy link and preview buttons for each style", () => {
     render(<StylesCatalog {...defaultProps} />);
 
-    // We should have 3 download buttons (one for each style)
-    const downloadIcons = screen.getAllByTestId("download-icon");
-    expect(downloadIcons.length).toBe(3);
+    // We should have 3 copy link buttons (one for each style)
+    const copyLinkButtons = screen.getAllByTestId("copy-link-button");
+    expect(copyLinkButtons.length).toBe(3);
 
     // We should have 3 eye icons for preview (one for each style)
     const eyeIcons = screen.getAllByTestId("eye-icon");

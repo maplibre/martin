@@ -129,7 +129,6 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                 class="flex-1 bg-transparent"
                 data-testid="copy-link-button"
                 link="/font/Noto Sans Bold/{range}"
-                toastmessage="Font link copied!"
                 variant="outline"
               >
                 Copy Link
@@ -251,7 +250,6 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                 class="flex-1 bg-transparent"
                 data-testid="copy-link-button"
                 link="/font/Open Sans Regular/{range}"
-                toastmessage="Font link copied!"
                 variant="outline"
               >
                 Copy Link
@@ -373,7 +371,6 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                 class="flex-1 bg-transparent"
                 data-testid="copy-link-button"
                 link="/font/Roboto Medium/{range}"
-                toastmessage="Font link copied!"
                 variant="outline"
               >
                 Copy Link

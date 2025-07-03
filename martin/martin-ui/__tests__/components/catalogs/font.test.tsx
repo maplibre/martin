@@ -243,9 +243,9 @@ describe("FontCatalog Component", () => {
   it("renders download and details buttons for each font", () => {
     render(<FontCatalog {...defaultProps} />);
 
-    // We should have 3 download buttons (one for each font)
-    const downloadIcons = screen.getAllByTestId("download-icon");
-    expect(downloadIcons.length).toBe(3);
+    // We should have 3 copy link buttons (one for each font)
+    const copyLinkButtons = screen.getAllByTestId("copy-link-button");
+    expect(copyLinkButtons.length).toBe(3);
 
     // We should have 3 eye icons for details (one for each font)
     const eyeIcons = screen.getAllByTestId("eye-icon");

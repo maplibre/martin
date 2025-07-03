@@ -17,7 +17,7 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
         <p
           class="text-muted-foreground"
         >
-          Preview all available map styles and themes
+          Browse and preview all available map styles and themes
         </p>
       </div>
       <div
@@ -87,7 +87,7 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
               >
                 <div
                   aria-label="Map style preview"
-                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden cursor-help"
+                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
                 >
                   <div
                     class="absolute inset-0 opacity-20"
@@ -172,14 +172,11 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
             >
               <button
                 class="flex-1 bg-transparent"
+                data-testid="copy-link-button"
+                link="/style/Basic Style"
                 variant="outline"
               >
-                <div
-                  data-testid="download-icon"
-                >
-                  Download
-                </div>
-                Download
+                Copy Link
               </button>
               <div>
                 <div
@@ -258,7 +255,7 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
               >
                 <div
                   aria-label="Map style preview"
-                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden cursor-help"
+                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
                 >
                   <div
                     class="absolute inset-0 opacity-20"
@@ -322,14 +319,11 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
             >
               <button
                 class="flex-1 bg-transparent"
+                data-testid="copy-link-button"
+                link="/style/Hybrid Style"
                 variant="outline"
               >
-                <div
-                  data-testid="download-icon"
-                >
-                  Download
-                </div>
-                Download
+                Copy Link
               </button>
               <div>
                 <div
@@ -402,7 +396,7 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
               >
                 <div
                   aria-label="Map style preview"
-                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden cursor-help"
+                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
                 >
                   <div
                     class="absolute inset-0 opacity-20"
@@ -429,29 +423,17 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
             </div>
             <div
               class="space-y-2 text-sm text-muted-foreground"
-            >
-              <div
-                class="flex justify-between"
-              >
-                <span>
-                  Modified:
-                </span>
-                <span />
-              </div>
-            </div>
+            />
             <div
               class="flex space-x-2"
             >
               <button
                 class="flex-1 bg-transparent"
+                data-testid="copy-link-button"
+                link="/style/Satellite Style"
                 variant="outline"
               >
-                <div
-                  data-testid="download-icon"
-                >
-                  Download
-                </div>
-                Download
+                Copy Link
               </button>
               <div>
                 <div
