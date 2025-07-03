@@ -231,11 +231,6 @@ jest.mock("lucide-react", () => ({
 }));
 
 describe("SpriteCatalog Component", () => {
-  // Reset mocks between tests
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   const mockSpriteCollections: { [name: string]: SpriteCollection } = {
     "map-icons": {
       images: ["pin", "marker", "building", "park", "poi"],
@@ -259,11 +254,25 @@ describe("SpriteCatalog Component", () => {
     searchQuery: "",
     onSearchChangeAction: jest.fn(),
     isLoading: false,
-    isLoadingSprites: false,
     error: null,
-    onRetry: jest.fn(),
-    isRetrying: false,
+    onPreviewClick: jest.fn(),
+    onDownloadClick: jest.fn(),
+    isLoadingSprites: false,
   };
+
+  it("matches snapshot for loading state", () => {
+    const { asFragment } = render(<SpriteCatalog {...defaultProps} isLoading={true} />);
+    expect(asFragment()).toMatchSnapshot();
+  });
+
+  it("matches snapshot for loaded state with mock data", () => {
+    const { asFragment } = render(<SpriteCatalog {...defaultProps} />);
+    expect(asFragment()).toMatchSnapshot();
+  });
+  // Reset mocks between tests
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it("renders loading skeleton when isLoading is true", () => {
     render(<SpriteCatalog {...defaultProps} isLoading={true} />);
@@ -327,6 +336,25 @@ describe("SpriteCatalog Component", () => {
     // Should not render any cards
     const headers = screen.queryAllByTestId("card-header");
     expect(headers.length).toBe(0);
+  });
+
+  it("filters sprite collections as the user types in the search input", () => {
+    const { rerender } = render(<SpriteCatalog {...defaultProps} />);
+    const searchInput = screen.getByPlaceholderText("Search sprites...");
+
+    // Simulate typing "ui" into the search box
+    fireEvent.change(searchInput, { target: { value: "ui" } });
+
+    // We rerender to simulate the parent updating searchQuery in response to user input,
+    // ensuring the test reflects how the component would behave in a real app.
+    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith("ui");
+    rerender(<SpriteCatalog {...defaultProps} searchQuery="ui" />);
+
+    // Verifying only the filtered result is present ensures the UI reflects the search state,
+    // not just the handler call.
+    expect(screen.getByText("ui-elements")).toBeInTheDocument();
+    expect(screen.queryByText("map-icons")).not.toBeInTheDocument();
+    expect(screen.queryByText("transportation")).not.toBeInTheDocument();
   });
 
   it("calls onSearchChangeAction when search input changes", () => {

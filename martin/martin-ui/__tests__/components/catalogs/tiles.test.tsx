@@ -142,6 +142,16 @@ describe("TilesCatalog Component", () => {
 		isRetrying: false,
 	};
 
+	it("matches snapshot for loading state", () => {
+		const { asFragment } = render(<TilesCatalog {...defaultProps} isLoading={true} />);
+		expect(asFragment()).toMatchSnapshot();
+	});
+
+	it("matches snapshot for loaded state with mock data", () => {
+		const { asFragment } = render(<TilesCatalog {...defaultProps} />);
+		expect(asFragment()).toMatchSnapshot();
+	});
+
 	it("renders loading skeleton when isLoading is true", () => {
 		render(<TilesCatalog {...defaultProps} isLoading={true} />);
 		expect(screen.getByTestId("catalog-skeleton")).toBeInTheDocument();

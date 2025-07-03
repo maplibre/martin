@@ -1,0 +1,158 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`SpriteCatalog Component matches snapshot for loaded state with mock data 1`] = `
+<DocumentFragment>
+  <div>
+    <h2>
+      Sprite Catalog
+    </h2>
+    <div
+      class="relative"
+    >
+      <div
+        data-testid="search-icon"
+      >
+        Search
+      </div>
+      <input
+        placeholder="Search sprites..."
+        value=""
+      />
+    </div>
+    <div
+      class="grid"
+    >
+      <div
+        data-testid="card-header"
+      >
+        <div
+          data-testid="card-title"
+        >
+          map-icons
+        </div>
+        <div
+          data-testid="card-description"
+        >
+          5 total icons
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div>
+            25 KB
+          </div>
+          <button>
+            <div
+              data-testid="eye-icon"
+            >
+              Eye
+            </div>
+            Preview
+          </button>
+          <button>
+            <div
+              data-testid="download-icon"
+            >
+              Download
+            </div>
+            Download
+          </button>
+        </div>
+      </div>
+      <div
+        data-testid="card-header"
+      >
+        <div
+          data-testid="card-title"
+        >
+          ui-elements
+        </div>
+        <div
+          data-testid="card-description"
+        >
+          8 total icons
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div>
+            35 KB
+          </div>
+          <button>
+            <div
+              data-testid="eye-icon"
+            >
+              Eye
+            </div>
+            Preview
+          </button>
+          <button>
+            <div
+              data-testid="download-icon"
+            >
+              Download
+            </div>
+            Download
+          </button>
+        </div>
+      </div>
+      <div
+        data-testid="card-header"
+      >
+        <div
+          data-testid="card-title"
+        >
+          transportation
+        </div>
+        <div
+          data-testid="card-description"
+        >
+          7 total icons
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div>
+            30 KB
+          </div>
+          <button>
+            <div
+              data-testid="eye-icon"
+            >
+              Eye
+            </div>
+            Preview
+          </button>
+          <button>
+            <div
+              data-testid="download-icon"
+            >
+              Download
+            </div>
+            Download
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`SpriteCatalog Component matches snapshot for loading state 1`] = `
+<DocumentFragment>
+  <div
+    data-testid="catalog-skeleton"
+  >
+    <div
+      data-testid="skeleton-title"
+    >
+      Sprite Catalog
+    </div>
+    <div
+      data-testid="skeleton-description"
+    >
+      Preview all available sprite sheets and icons
+    </div>
+  </div>
+</DocumentFragment>
+`;
