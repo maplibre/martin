@@ -55,7 +55,7 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
+# Run integration tests and save its output as the new expected output (ordering is important)
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-frontend bless-int
 
 # Run integration tests and save its output as the new expected output
@@ -80,10 +80,6 @@ bless-int:
 # Bless the frontend tests
 bless-frontend:
     npm run test:update-snapshots
-
-# Run test with bless-tests feature
-bless-tests:
-    cargo test -p martin --features bless-tests
 
 # Build and open mdbook documentation
 book:  (cargo-install 'mdbook')
