@@ -211,7 +211,7 @@ To send requests anonymously for publicly available buckets, set the environment
 <h4 id="url-styles"><a class="header" href="#url-styles">Url styles</a></h4>
 <p>We also support forcing path style URLs for S3 buckets via the environment variable <code>AWS_S3_FORCE_PATH_STYLE=1</code> or configuration key <code>force_path_style: true</code>.
 This allows you to use this functionality for <a href="https://min.io/"><code>MinIO</code></a> or similar s3-compatible instances which use path style URLs.
-A path style URL is a URL that uses the bucket name as part of the path (<code>mys3.com/somebucket</code>) instead of the hostname (<code>somebucket.mys3.com</code>).</p>
+A path style URL is a URL that uses the bucket name as part of the path (<code>example.org/some_bucket</code>) instead of the hostname (<code>some_bucket.example.org</code>).</p>
 <p>Example configuration:</p>
 <pre><code class="language-yaml">pmtiles:
   force_path_style: true
