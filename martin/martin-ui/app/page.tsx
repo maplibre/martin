@@ -12,14 +12,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/toaster";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
 import { useToast } from "@/hooks/use-toast";
+import { aggregateEndpointGroups, parsePrometheusMetrics } from "@/lib/prometheus";
 import type { AnalyticsData, CatalogSchema } from "@/lib/types";
 
-// Simulate API functions that can fail
+const ENDPOINT_GROUPS = {
+  fonts: ["/font/{fontstack}/{start}-{end}"],
+  sprites: [
+    "/sprite/{source_ids}.json",
+    "/sprite/{source_ids}.png",
+    "/sdf_sprite/{source_ids}.json",
+    "/sdf_sprite/{source_ids}.png",
+  ],
+  styles: ["/style/{style_id}"],
+  tiles: ["/{source_ids}/{z}/{x}/{y}"],
+};
+
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
-  // below API is a prometheus metrics endpoint and does not return json
-  await new Promise<void>((resolve) => setTimeout(resolve, 60 * 60 * 1000));
-  // the metrics api does not currently support gzip compression
-  const res = await fetch("/metrics", {
+  const res = await fetch("/_/metrics", {
     headers: {
       "Accept-Encoding": "identity",
     },
@@ -27,12 +36,14 @@ const fetchAnalytics = async (): Promise<AnalyticsData> => {
   if (!res.ok) {
     throw new Error(`Failed to fetch analytics: ${res.statusText}`);
   }
-
+  const text = await res.text();
+  const { sum, count } = parsePrometheusMetrics(text);
+  const groupResults = aggregateEndpointGroups(sum, count, ENDPOINT_GROUPS);
   return {
-    activeSources: 23,
-    cacheHitRate: 94.2,
-    memoryUsage: 68,
-    requestsPerSecond: 1247,
+    fonts: groupResults.fonts,
+    sprites: groupResults.sprites,
+    styles: groupResults.styles,
+    tiles: groupResults.tiles,
   };
 };
 

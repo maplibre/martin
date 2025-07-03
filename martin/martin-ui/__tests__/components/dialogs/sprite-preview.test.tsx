@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
-import { render, screen } from "../../utils/test-utils";
+import { render, screen } from "../../test-utils";
 
 // Mock LoadingSpinner component
 jest.mock("@/components/loading/loading-spinner", () => ({

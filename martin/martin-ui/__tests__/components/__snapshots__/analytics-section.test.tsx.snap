@@ -22,10 +22,10 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             data-testid="card-title"
           >
-            Requests/Second
+            Sprites
           </div>
           <div
-            data-testid="icon-activity"
+            data-testid="icon-image"
           />
         </div>
         <div
@@ -34,12 +34,14 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             class="text-2xl font-bold"
           >
-            42
+            11
+             ms
           </div>
           <p
             class="text-xs text-muted-foreground"
           >
-            +12% from last hour
+            1,000
+             requests
           </p>
         </div>
       </div>
@@ -52,10 +54,10 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             data-testid="card-title"
           >
-            Memory Usage
+            Tiles
           </div>
           <div
-            data-testid="icon-server"
+            data-testid="icon-layers"
           />
         </div>
         <div
@@ -64,13 +66,14 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             class="text-2xl font-bold"
           >
-            70
-            %
+            25
+             ms
           </div>
           <p
             class="text-xs text-muted-foreground"
           >
-            4.2 GB of 6 GB used
+            50,000
+             requests
           </p>
         </div>
       </div>
@@ -83,10 +86,10 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             data-testid="card-title"
           >
-            Cache Hit Rate
+            Fonts
           </div>
           <div
-            data-testid="icon-zap"
+            data-testid="icon-type"
           />
         </div>
         <div
@@ -95,13 +98,14 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             class="text-2xl font-bold"
           >
-            95
-            %
+            5
+             ms
           </div>
           <p
             class="text-xs text-muted-foreground"
           >
-            Excellent performance
+            500
+             requests
           </p>
         </div>
       </div>
@@ -114,10 +118,10 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             data-testid="card-title"
           >
-            Active Sources
+            Styles
           </div>
           <div
-            data-testid="icon-database"
+            data-testid="icon-palette"
           />
         </div>
         <div
@@ -126,12 +130,14 @@ exports[`AnalyticsSection renders analytics data 1`] = `
           <div
             class="text-2xl font-bold"
           >
-            8
+            2
+             ms
           </div>
           <p
             class="text-xs text-muted-foreground"
           >
-            All sources healthy
+            200
+             requests
           </p>
         </div>
       </div>
@@ -162,17 +168,17 @@ exports[`AnalyticsSection renders loading state (skeletons) 1`] = `
           <div
             data-testid="card-title"
           >
-            Requests/Second
+            Sprites
           </div>
           <div
-            data-testid="icon-activity"
+            data-testid="icon-image"
           />
         </div>
         <div
           data-testid="card-content"
         >
           <div
-            class="h-8 w-16 mb-2"
+            class="h-8 w-24 mb-2"
             data-testid="skeleton"
           />
           <div
@@ -190,17 +196,17 @@ exports[`AnalyticsSection renders loading state (skeletons) 1`] = `
           <div
             data-testid="card-title"
           >
-            Memory Usage
+            Tiles
           </div>
           <div
-            data-testid="icon-server"
+            data-testid="icon-layers"
           />
         </div>
         <div
           data-testid="card-content"
         >
           <div
-            class="h-8 w-16 mb-2"
+            class="h-8 w-24 mb-2"
             data-testid="skeleton"
           />
           <div
@@ -218,17 +224,17 @@ exports[`AnalyticsSection renders loading state (skeletons) 1`] = `
           <div
             data-testid="card-title"
           >
-            Cache Hit Rate
+            Fonts
           </div>
           <div
-            data-testid="icon-zap"
+            data-testid="icon-type"
           />
         </div>
         <div
           data-testid="card-content"
         >
           <div
-            class="h-8 w-16 mb-2"
+            class="h-8 w-24 mb-2"
             data-testid="skeleton"
           />
           <div
@@ -246,17 +252,17 @@ exports[`AnalyticsSection renders loading state (skeletons) 1`] = `
           <div
             data-testid="card-title"
           >
-            Active Sources
+            Styles
           </div>
           <div
-            data-testid="icon-database"
+            data-testid="icon-palette"
           />
         </div>
         <div
           data-testid="card-content"
         >
           <div
-            class="h-8 w-16 mb-2"
+            class="h-8 w-24 mb-2"
             data-testid="skeleton"
           />
           <div

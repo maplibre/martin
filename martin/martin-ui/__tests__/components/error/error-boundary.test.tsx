@@ -1,7 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import React from "react";
 import { ErrorBoundary } from "@/components/error/error-boundary";
-import { render } from "../../utils/test-utils";
+import { render } from "../../test-utils";
 
 // Silence React error boundary logs for cleaner test output
 let consoleErrorSpy: jest.SpyInstance;

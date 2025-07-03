@@ -1,13 +1,13 @@
-martin - ui / jest.config.ts;
-
-import type { Config } from "@jest/types";
-import nextJest from "next/jest";
+import nextJest from "next/jest.js";
 
 const createJestConfig = nextJest({
   dir: "./",
 });
 
-const customJestConfig: Config.InitialOptions = {
+/**
+ * @type customJestConfig Config.InitialOptions
+ */
+const customJestConfig = {
   collectCoverage: true,
   collectCoverageFrom: [
     "**/*.{js,jsx,ts,tsx}",
@@ -34,7 +34,7 @@ const customJestConfig: Config.InitialOptions = {
   testEnvironment: "jest-environment-jsdom",
   testMatch: ["**/__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)"],
   transform: {
-    "^.+\\.(js|jsx|ts|tsx)$": ["@swc/jest"],
+    '^.+\\.(t|j)sx?$': '@swc/jest',
   },
   transformIgnorePatterns: ["/node_modules/", "^.+\\.module\\.(css|sass|scss)$"],
 };

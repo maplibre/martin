@@ -1,14 +1,14 @@
 import type React from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import type { AnalyticsData } from "@/lib/types";
-import { fireEvent, render, screen } from "../utils/test-utils";
+import { fireEvent, render, screen } from "../test-utils";
 
 // Mock icons and UI components to avoid unnecessary complexity in snapshots
 jest.mock("lucide-react", () => ({
-  Activity: () => <div data-testid="icon-activity" />,
-  Database: () => <div data-testid="icon-database" />,
-  Server: () => <div data-testid="icon-server" />,
-  Zap: () => <div data-testid="icon-zap" />,
+  Image: () => <div data-testid="icon-image" />,
+  Layers: () => <div data-testid="icon-layers" />,
+  Palette: () => <div data-testid="icon-palette" />,
+  Type: () => <div data-testid="icon-type" />,
 }));
 jest.mock("@/components/ui/card", () => ({
   Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
@@ -39,10 +39,22 @@ jest.mock("@/components/error/error-state", () => ({
 }));
 
 const analytics: AnalyticsData = {
-  activeSources: 8,
-  cacheHitRate: 95,
-  memoryUsage: 70,
-  requestsPerSecond: 42,
+  sprites: {
+    averageRequestDurationMs: 10.5,
+    requestCount: 1000,
+  },
+  tiles: {
+    averageRequestDurationMs: 25.2,
+    requestCount: 50000,
+  },
+  fonts: {
+    averageRequestDurationMs: 5.1,
+    requestCount: 500,
+  },
+  styles: {
+    averageRequestDurationMs: 2.3,
+    requestCount: 200,
+  },
 };
 
 describe("AnalyticsSection", () => {
@@ -55,10 +67,14 @@ describe("AnalyticsSection", () => {
   it("renders analytics data", () => {
     const { container } = render(<AnalyticsSection analytics={analytics} />);
     expect(container).toMatchSnapshot();
-    expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByText("70%")).toBeInTheDocument();
-    expect(screen.getByText("95%")).toBeInTheDocument();
-    expect(screen.getByText("8")).toBeInTheDocument();
+    expect(screen.getByText("11 ms")).toBeInTheDocument();
+    expect(screen.getByText("1,000 requests")).toBeInTheDocument();
+    expect(screen.getByText("25 ms")).toBeInTheDocument();
+    expect(screen.getByText("50,000 requests")).toBeInTheDocument();
+    expect(screen.getByText("5 ms")).toBeInTheDocument();
+    expect(screen.getByText("500 requests")).toBeInTheDocument();
+    expect(screen.getByText("2 ms")).toBeInTheDocument();
+    expect(screen.getByText("200 requests")).toBeInTheDocument();
   });
 
   it("renders error state and calls onRetry", () => {

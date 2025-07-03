@@ -1,6 +1,6 @@
 import React from "react";
 import { LoadingSpinner } from "@/components/loading/loading-spinner";
-import { render } from "../../utils/test-utils";
+import { render } from "../../test-utils";
 
 describe("LoadingSpinner Component", () => {
   it("renders correctly with default size", () => {

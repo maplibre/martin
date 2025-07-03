@@ -69,7 +69,7 @@ You can also update specific snapshots in watch mode by pressing `u`.
 
 For components that use context providers, hooks, or have complex dependencies:
 
-1. Use the custom render method from `__tests__/utils/test-utils.tsx`
+1. Use the custom render method from `__tests__/test-utils.tsx`
 2. Mock the required dependencies and hooks
 3. Break down the tests into smaller, focused test cases
 

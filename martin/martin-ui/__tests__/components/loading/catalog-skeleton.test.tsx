@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import React from "react";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { render } from "../../utils/test-utils";
+import { render } from "../../test-utils";
 
 describe("CatalogSkeleton Component", () => {
   it("renders correctly with default item count", () => {

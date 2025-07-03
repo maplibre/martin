@@ -230,128 +230,6 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
                 class="text-lg"
                 data-testid="card-title"
               >
-                Satellite Style
-              </div>
-            </div>
-          </div>
-          <div
-            data-testid="card-description"
-          >
-            /styles/satellite.json
-          </div>
-        </div>
-        <div
-          data-testid="card-content"
-        >
-          <div
-            class="space-y-4"
-          >
-            <div>
-              <div
-                data-testid="tooltip-trigger"
-              >
-                <div
-                  aria-label="Map style preview"
-                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden cursor-help"
-                >
-                  <div
-                    class="absolute inset-0 opacity-20"
-                  >
-                    <div
-                      class="w-full h-full bg-gradient-to-r"
-                      style="background: linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0);"
-                    />
-                  </div>
-                  <div
-                    data-testid="map-icon"
-                  >
-                    Map
-                  </div>
-                </div>
-              </div>
-              <div
-                data-testid="tooltip-content"
-              >
-                <p>
-                  Not currently implemented in the frontend
-                </p>
-              </div>
-            </div>
-            <div
-              class="space-y-2 text-sm text-muted-foreground"
-            >
-              <div
-                class="flex justify-between"
-              >
-                <span>
-                  Modified:
-                </span>
-                <span />
-              </div>
-            </div>
-            <div
-              class="flex space-x-2"
-            >
-              <button
-                class="flex-1 bg-transparent"
-                variant="outline"
-              >
-                <div
-                  data-testid="download-icon"
-                >
-                  Download
-                </div>
-                Download
-              </button>
-              <div>
-                <div
-                  data-testid="tooltip-trigger"
-                >
-                  <button
-                    class="flex-1"
-                    disabled=""
-                  >
-                    <div
-                      data-testid="eye-icon"
-                    >
-                      Eye
-                    </div>
-                    Preview
-                  </button>
-                </div>
-                <div
-                  data-testid="tooltip-content"
-                >
-                  <p>
-                    Not currently implemented in the frontend
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div
-        class="hover:shadow-lg transition-shadow"
-      >
-        <div
-          data-testid="card-header"
-        >
-          <div
-            class="flex items-center justify-between"
-          >
-            <div
-              class="flex items-center space-x-2"
-            >
-              <div
-                data-testid="brush-icon"
-              >
-                Brush
-              </div>
-              <div
-                class="text-lg"
-                data-testid="card-title"
-              >
                 Hybrid Style
               </div>
             </div>
@@ -437,6 +315,128 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
                 <span>
                   25/03/2023, 01:00:00
                 </span>
+              </div>
+            </div>
+            <div
+              class="flex space-x-2"
+            >
+              <button
+                class="flex-1 bg-transparent"
+                variant="outline"
+              >
+                <div
+                  data-testid="download-icon"
+                >
+                  Download
+                </div>
+                Download
+              </button>
+              <div>
+                <div
+                  data-testid="tooltip-trigger"
+                >
+                  <button
+                    class="flex-1"
+                    disabled=""
+                  >
+                    <div
+                      data-testid="eye-icon"
+                    >
+                      Eye
+                    </div>
+                    Preview
+                  </button>
+                </div>
+                <div
+                  data-testid="tooltip-content"
+                >
+                  <p>
+                    Not currently implemented in the frontend
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="hover:shadow-lg transition-shadow"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <div
+                data-testid="brush-icon"
+              >
+                Brush
+              </div>
+              <div
+                class="text-lg"
+                data-testid="card-title"
+              >
+                Satellite Style
+              </div>
+            </div>
+          </div>
+          <div
+            data-testid="card-description"
+          >
+            /styles/satellite.json
+          </div>
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="space-y-4"
+          >
+            <div>
+              <div
+                data-testid="tooltip-trigger"
+              >
+                <div
+                  aria-label="Map style preview"
+                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden cursor-help"
+                >
+                  <div
+                    class="absolute inset-0 opacity-20"
+                  >
+                    <div
+                      class="w-full h-full bg-gradient-to-r"
+                      style="background: linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0);"
+                    />
+                  </div>
+                  <div
+                    data-testid="map-icon"
+                  >
+                    Map
+                  </div>
+                </div>
+              </div>
+              <div
+                data-testid="tooltip-content"
+              >
+                <p>
+                  Not currently implemented in the frontend
+                </p>
+              </div>
+            </div>
+            <div
+              class="space-y-2 text-sm text-muted-foreground"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <span>
+                  Modified:
+                </span>
+                <span />
               </div>
             </div>
             <div

@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import React from "react";
 import { Header } from "@/components/header";
-import { render } from "../utils/test-utils";
+import { render } from "../test-utils";
 
 jest.mock("@/components/theme-switcher", () => ({
   ThemeSwitcher: () => <div data-testid="theme-switcher">Theme Switcher Mock</div>,

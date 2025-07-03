@@ -65,18 +65,18 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
         <div
           data-testid="card-title"
         >
-          ui-elements
+          transportation
         </div>
         <div
           data-testid="card-description"
         >
-          8 total icons
+          7 total icons
         </div>
         <div
           data-testid="card-content"
         >
           <div>
-            35 KB
+            30 KB
           </div>
           <button>
             <div
@@ -102,18 +102,18 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
         <div
           data-testid="card-title"
         >
-          transportation
+          ui-elements
         </div>
         <div
           data-testid="card-description"
         >
-          7 total icons
+          8 total icons
         </div>
         <div
           data-testid="card-content"
         >
           <div>
-            30 KB
+            35 KB
           </div>
           <button>
             <div

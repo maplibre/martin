@@ -53,12 +53,14 @@ export interface SpriteCollection {
   lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
-/**
- * Usage and performance metrics
- */
+export interface EndpointAnalytics {
+  averageRequestDurationMs: number;
+  requestCount: number;
+}
+
 export interface AnalyticsData {
-  requestsPerSecond: number;
-  memoryUsage: number;
-  cacheHitRate: number;
-  activeSources: number;
+  sprites: EndpointAnalytics;
+  tiles: EndpointAnalytics;
+  fonts: EndpointAnalytics;
+  styles: EndpointAnalytics;
 }

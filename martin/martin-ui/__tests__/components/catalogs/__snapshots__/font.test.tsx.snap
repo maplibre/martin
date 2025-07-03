@@ -59,7 +59,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                 class="text-lg"
                 data-testid="card-title"
               >
-                Roboto Medium
+                Noto Sans Bold
               </div>
             </div>
             <span
@@ -73,7 +73,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
           <div
             data-testid="card-description"
           >
-            Family: Roboto • Style: Medium
+            Family: Noto Sans • Style: Bold
           </div>
         </div>
         <div
@@ -94,7 +94,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                 <div>
                   <p
                     class="text-base text-gray-900 blur-sm animate-pulse"
-                    style="font-family: Roboto; font-weight: 500;"
+                    style="font-family: Noto Sans; font-weight: 500;"
                   >
                     The quick brown fox jumps over the lazy dog
                   </p>
@@ -118,7 +118,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                   Glyph count:
                 </span>
                 <span>
-                  350
+                  380
                 </span>
               </div>
             </div>
@@ -307,7 +307,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                 class="text-lg"
                 data-testid="card-title"
               >
-                Noto Sans Bold
+                Roboto Medium
               </div>
             </div>
             <span
@@ -321,7 +321,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
           <div
             data-testid="card-description"
           >
-            Family: Noto Sans • Style: Bold
+            Family: Roboto • Style: Medium
           </div>
         </div>
         <div
@@ -342,7 +342,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                 <div>
                   <p
                     class="text-base text-gray-900 blur-sm animate-pulse"
-                    style="font-family: Noto Sans; font-weight: 500;"
+                    style="font-family: Roboto; font-weight: 500;"
                   >
                     The quick brown fox jumps over the lazy dog
                   </p>
@@ -366,7 +366,7 @@ exports[`FontCatalog Component matches snapshot for loaded state with mock data 
                   Glyph count:
                 </span>
                 <span>
-                  380
+                  350
                 </span>
               </div>
             </div>

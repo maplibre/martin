@@ -20,8 +20,8 @@ jest.mock("next/router", () => ({
 // Mock next/image
 jest.mock("next/image", () => ({
   __esModule: true,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default: (props: Record<string, unknown>) => {
+  // : Record<string, unknown>
+  default: (props) => {
     // Use React.createElement to avoid JSX parse errors in non-TSX files
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const React = require("react");
@@ -36,7 +36,7 @@ process.env = {
 };
 
 // Suppress console errors during tests
-(global as typeof globalThis & { console: Console }).console = {
+global.console = {
   ...console,
   // Uncomment to ignore specific console methods during tests
   // error: jest.fn(),
@@ -45,7 +45,8 @@ process.env = {
 
 // Mock window.matchMedia
 Object.defineProperty(window, "matchMedia", {
-  value: jest.fn().mockImplementation((query: string) => ({
+  // query: string
+  value: jest.fn().mockImplementation((query) => ({
     addEventListener: jest.fn(),
     addListener: jest.fn(),
     dispatchEvent: jest.fn(),
