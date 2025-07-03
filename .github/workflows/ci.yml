@@ -130,7 +130,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ musl-build ]
+    needs: [ musl-build, lint-debug-test ]
     permissions:
       id-token: write
       attestations: write
@@ -673,7 +673,7 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
-    needs: [ lint-debug-test, musl-build, test-multi-os, test-with-svc, test-aws-lambda ]
+    needs: [ lint-debug-test, test-multi-os, test-with-svc, test-aws-lambda ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
