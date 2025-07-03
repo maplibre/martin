@@ -13,9 +13,11 @@ export function cn(...inputs: ClassValue[]) {
 export function formatFileSize(bytes: number): string {
 	if (bytes === 0) return "0 Bytes";
 	if (!bytes || isNaN(bytes) || bytes < 0) return "Unknown size";
-
+	
+	// there are no half-bit princes. This is not harry potter..
+	bytes = Math.floor(bytes)
 	const k = 1024;
-	const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+	const sizes = ["Bytes", "KiB", "MiB", "GiB", "TiB"];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 
 	// Handle potential overflow or incorrect values
