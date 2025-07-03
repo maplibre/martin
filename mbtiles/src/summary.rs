@@ -194,10 +194,11 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use crate::{MbtType, Mbtiles, init_mbtiles_schema};
+    use crate::metadata::anonymous_mbtiles;
 
     #[actix_rt::test]
     async fn summary_empty_file() {
-        let mbt = Mbtiles::new("file:mbtiles_empty_summary?mode=memory&cache=shared").unwrap();
+        let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
@@ -220,11 +221,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn summary() {
-        let mbt = Mbtiles::new(":memory:").unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
-
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.summary(&mut conn).await.unwrap();
 
         assert_yaml_snapshot!(res, @r"
