@@ -533,7 +533,7 @@ jobs:
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
-    needs: [ build, docker-build-test ]
+    needs: [ build ]
     strategy:
       fail-fast: true
       matrix:
