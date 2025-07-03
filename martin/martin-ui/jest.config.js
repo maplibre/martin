@@ -19,7 +19,8 @@ const customJestConfig = {
     "!<rootDir>/coverage/**",
     "!<rootDir>/components/ui/**",
     "!<rootDir>/hooks/use-toast.ts",
-    "!<rootDir>/*.config.{js,ts}"
+    "!<rootDir>/*.config.{js,ts}",
+    "!<rootDir>/lib/mockResponses.ts"
   ],
   moduleNameMapper: {
     "^.+\\.(css|sass|scss)$": "identity-obj-proxy",
