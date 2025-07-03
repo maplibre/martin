@@ -13,21 +13,20 @@ export function Header() {
       <div className="container mx-auto px-6">
         <div className="flex h-20 items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="items-center flex">
-              <Link className="hidden lg:flex" href="/">
-                <Image
-                  alt="Logo of the Martin Tileserver"
-                  height={9 * 10 - 20}
-                  priority
-                  src="/icon.png"
-                  title="Martin Tile Server"
-                  width={32 * 10 - 30}
-                />
-              </Link>
-              <h1 className="text-3xl font-bold leading-relaxed md:block lg:hidden hidden">
+            <Link className="items-center flex space-x-3" href="/">
+              <Image
+                alt="Martin Logo"
+                className="-mt-5 -rotate-6"
+                height={48}
+                priority
+                src="/logo_martin.svg"
+                title="Martin Tile Server"
+                width={96}
+              />
+              <h1 className="text-3xl font-bold leading-relaxed text-foreground select-none">
                 MARTIN
               </h1>
-            </div>
+            </Link>
             <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
               <Link
                 className="p-1"
