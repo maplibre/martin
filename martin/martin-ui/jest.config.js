@@ -19,7 +19,7 @@ const customJestConfig = {
     "!<rootDir>/coverage/**",
     "!<rootDir>/components/ui/**",
     "!<rootDir>/hooks/use-toast.ts",
-    "!<rootDir>/tailwind.config.ts",
+    "!<rootDir>/*.config.{js,ts}"
   ],
   moduleNameMapper: {
     "^.+\\.(css|sass|scss)$": "identity-obj-proxy",
