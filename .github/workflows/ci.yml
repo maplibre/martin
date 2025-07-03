@@ -115,7 +115,7 @@ jobs:
           export CROSS_BUILD_OPTS="--output=type=docker"
           export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
           cross build --release --target ${{ matrix.target }} --workspace
-      
+
       - name: Move the artefacts to the expected place
         run: |
           mkdir -p target_releases/${{ matrix.target }}
