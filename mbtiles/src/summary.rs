@@ -193,8 +193,8 @@ mod tests {
 
     use insta::assert_yaml_snapshot;
 
-    use crate::{MbtType, Mbtiles, init_mbtiles_schema};
     use crate::metadata::anonymous_mbtiles;
+    use crate::{MbtType, Mbtiles, init_mbtiles_schema};
 
     #[actix_rt::test]
     async fn summary_empty_file() {

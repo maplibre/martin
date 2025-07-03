@@ -1,6 +1,6 @@
 use std::fmt::Display;
-use std::str::FromStr;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use futures::TryStreamExt;
 use log::{info, warn};
@@ -8,7 +8,7 @@ use martin_tile_utils::TileInfo;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{Value as JSONValue, Value, json};
-use sqlx::{SqliteExecutor, query, SqliteConnection};
+use sqlx::{SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 
 use crate::MbtError::InvalidZoomValue;
