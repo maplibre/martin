@@ -621,27 +621,22 @@ FROM tiles;
 pub(crate) mod tests {
     use super::*;
     use crate::mbtiles::tests::open;
+    use crate::metadata::anonymous_mbtiles;
 
     #[actix_rt::test]
     async fn detect_type() {
-        let mbt = Mbtiles::new(":memory:").unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Flat);
 
-        let mbt = Mbtiles::new(":memory:").unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::FlatWithHash);
 
-        let mbt = Mbtiles::new(":memory:").unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Normalized { hash_view: false });
 
@@ -652,10 +647,8 @@ pub(crate) mod tests {
 
     #[actix_rt::test]
     async fn validate_valid_file() {
-        let mbt = Mbtiles::new(":memory:").unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
             .await
             .unwrap();
@@ -663,10 +656,8 @@ pub(crate) mod tests {
 
     #[actix_rt::test]
     async fn validate_invalid_file() {
-        let mbt = Mbtiles::new(":memory:").unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/files/invalid_zoomed_world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(AggHashMismatch(..))));
     }
