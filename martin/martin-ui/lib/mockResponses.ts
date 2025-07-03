@@ -12,23 +12,11 @@ export function getMartinMockAnalytics(): AnalyticsData {
     throw new Error("Simulated mock analytics failure");
   }
   console.log("[MOCK] getMartinMockAnalytics: Returning mock analytics data");
-  const MOCK_METRICS = `
-# HELP http_requests_total The total number of HTTP requests.
-# TYPE http_requests_total counter
-http_requests_total{method="get",endpoint="/catalog"} 42
-http_requests_total{method="get",endpoint="/font/{fontstack}/{start}-{end}"} 17
-http_requests_total{method="get",endpoint="/sprite/{source_ids}.json"} 5
-http_requests_total{method="get",endpoint="/sprite/{source_ids}.png"} 8
-http_requests_total{method="get",endpoint="/style/{style_id}"} 13
-http_requests_total{method="get",endpoint="/{source_ids}/{z}/{x}/{y}"} 99
-`;
-  const { sum, count } = parsePrometheusMetrics(MOCK_METRICS);
-  const groupResults = aggregateEndpointGroups(sum, count, ENDPOINT_GROUPS);
   return {
-    fonts: groupResults.fonts,
-    sprites: groupResults.sprites,
-    styles: groupResults.styles,
-    tiles: groupResults.tiles,
+    fonts: { averageRequestDurationMs: 2, requestCount: 17 },
+    sprites: { averageRequestDurationMs: 42, requestCount: 5 },
+    styles: { averageRequestDurationMs: 1, requestCount: 13 },
+    tiles: { averageRequestDurationMs: 32, requestCount: 99 },
   };
 }
 
