@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
@@ -100,7 +101,7 @@ export function SpriteDownloadDialog({
 
 	return (
 		<Dialog
-			open={!!sprite}
+			open={true}
 			onOpenChange={(v: boolean) => !v && onCloseAction()}
 		>
 			<DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-auto">
@@ -108,6 +109,9 @@ export function SpriteDownloadDialog({
 					<DialogTitle className="text-2xl">
 						Download <code className="font-mono">{name}</code>
 					</DialogTitle>
+					<DialogDescription>
+						Download the sprite in various formats or copy the download URL.
+					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-6">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">

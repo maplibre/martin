@@ -171,6 +171,11 @@ env-info:
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
 
+# Run eslint on the frontend
+[working-directory: 'martin/martin-ui']
+eslint:
+    npm run lint
+
 # Run benchmark tests showing a flamegraph
 flamegraph:
     cargo bench --bench bench -- --profile-time=10
@@ -202,7 +207,7 @@ git *args: start
     git {{args}}
 
 # Run cargo fmt and cargo clippy
-lint: fmt clippy
+lint: fmt clippy eslint type-check
 
 # Run mbtiles command
 mbtiles *args:
@@ -283,6 +288,7 @@ test-fmt:
     cargo fmt --all -- --check
 
 # Run frontend tests
+[working-directory: 'martin/martin-ui']
 test-frontend:
     npm run test
 
@@ -333,6 +339,11 @@ test-ssl-cert: start-ssl-cert
     {{just_executable()}} clean-test
     {{just_executable()}} test-doc
     tests/test.sh
+
+# Run typescript typechecking on the frontend
+[working-directory: 'martin/martin-ui']
+type-check:
+    npm run type-check
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:

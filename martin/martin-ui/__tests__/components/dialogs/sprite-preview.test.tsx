@@ -30,16 +30,6 @@ describe("SpritePreviewDialog Component", () => {
     expect(container).toMatchSnapshot();
   });
 
-  it("does not render when sprite is null", () => {
-    const { container } = render(
-      <SpritePreviewDialog
-        {...mockProps}
-        sprite={null}
-      />
-    );
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
-  });
-
   it("displays sprite name in the title", () => {
     render(<SpritePreviewDialog {...mockProps} />);
     expect(screen.getByText("test-sprite")).toBeInTheDocument();
@@ -90,11 +80,16 @@ describe("SpritePreviewDialog Component", () => {
   });
 
   it("shows tooltip content when hovering over sprite item", async () => {
+    const user = userEvent.setup();
     render(<SpritePreviewDialog {...mockProps} isLoading={false} />);
 
-    // Note: We're not actually testing the hover behavior here because
-    // that's handled by the Tooltip component which is already tested separately.
-    // We're just checking that the tooltip content exists
-    expect(screen.getByText("Sprite preview not currently implemented in the frontend")).toBeInTheDocument();
+    // Find a sprite item to hover over (using its label)
+    const spriteItem = screen.getByText("icon1");
+    // The button is the TooltipTrigger's parent
+    await user.hover(spriteItem.closest("button") || spriteItem);
+
+    // Now the tooltip content should appear (may be multiple tooltips)
+    const tooltips = await screen.findAllByText("Sprite preview not currently implemented in the frontend");
+    expect(tooltips.length).toBeGreaterThan(0);
   });
 });

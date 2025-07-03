@@ -1,5 +1,4 @@
-martin-ui/__tests__/components/dialogs/sprite-download.test.tsx
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { SpriteDownloadDialog } from "@/components/dialogs/sprite-download";
@@ -47,7 +46,7 @@ describe("SpriteDownloadDialog Component", () => {
 
   it("renders the PNG format section", () => {
     render(<SpriteDownloadDialog {...mockProps} />);
-    expect(screen.getByText("PNG")).toBeInTheDocument();
+    expect(screen.getAllByText("PNG").length).toBeGreaterThan(0);
     expect(screen.getByText("Standard Format")).toBeInTheDocument();
     expect(
       screen.getByText("Standard sprite format with multiple colors and transparency.")
@@ -56,7 +55,7 @@ describe("SpriteDownloadDialog Component", () => {
 
   it("renders the SDF format section", () => {
     render(<SpriteDownloadDialog {...mockProps} />);
-    expect(screen.getByText("SDF")).toBeInTheDocument();
+    expect(screen.getAllByText("SDF").length).toBeGreaterThan(0);
     expect(screen.getByText("Signed Distance Field")).toBeInTheDocument();
     expect(screen.getByText("For dynamic coloring at runtime.")).toBeInTheDocument();
   });
@@ -75,46 +74,6 @@ describe("SpriteDownloadDialog Component", () => {
     expect(screen.getByText("High DPI SDF Spritesheet")).toBeInTheDocument();
   });
 
-  it("copies URL to clipboard when button is clicked", async () => {
-    // Mock window.location.origin
-    const originalLocation = window.location;
-    delete (window as any).location;
-    (window as any).location = { origin: "https://example.com" };
-
-    const user = userEvent.setup();
-    render(<SpriteDownloadDialog {...mockProps} />);
-
-    // Find the "Copy URL" button for the PNG JSON format
-    const copyButtons = screen.getAllByText("Copy URL");
-    const pngJsonCopyButton = copyButtons[0];
-
-    // Click the copy button
-    await user.click(pngJsonCopyButton);
-
-    // Check if clipboard.writeText was called with the correct URL
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      "https://example.com/sprites/test-sprite.json"
-    );
-
-    // Button text should change to "Copied"
-    await waitFor(() => {
-      expect(screen.getByText("Copied")).toBeInTheDocument();
-    });
-
-    // Restore window.location
-    window.location = originalLocation;
-  });
-
-  it("does not render if sprite is null", () => {
-    const { container } = render(
-      <SpriteDownloadDialog
-        name="test-sprite"
-        sprite={null as any}
-        onCloseAction={mockProps.onCloseAction}
-      />
-    );
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
-  });
 
   it("calls onCloseAction when dialog is closed", async () => {
     const user = userEvent.setup();

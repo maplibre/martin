@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
@@ -20,7 +21,7 @@ import type { SpriteCollection } from "@/lib/types";
 
 interface SpritePreviewDialogProps {
 	name: string;
-	sprite: SpriteCollection | null;
+	sprite: SpriteCollection;
 	onCloseAction: () => void;
 	onDownloadAction: (sprite: SpriteCollection) => void;
 	isLoading?: boolean;
@@ -33,24 +34,27 @@ export function SpritePreviewDialog({
 	onCloseAction,
 	isLoading,
 }: SpritePreviewDialogProps) {
-	const open = !!sprite;
-
 	return (
-		<Dialog open={open} onOpenChange={(v) => !v && onCloseAction()}>
+		<Dialog open={true} onOpenChange={(v) => !v && onCloseAction()}>
 			<DialogContent className="max-w-4xl w-full p-6 max-h-[80vh] overflow-auto">
 				{sprite && (
 					<div>
 						<DialogHeader className="mb-6">
-							<DialogTitle className="text-2xl flex gap-4">{name}
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => onDownloadAction(sprite)}
-								disabled={isLoading}
-							>
-								<Download className="h-4 w-4 mr-2" />
-								Download
-							</Button></DialogTitle>
+							<DialogTitle className="text-2xl flex gap-4">
+							  {name}
+  							<Button
+  								variant="outline"
+  								size="sm"
+  								onClick={() => onDownloadAction(sprite)}
+  								disabled={isLoading}
+  							>
+  								<Download className="h-4 w-4 mr-2" />
+  								Download
+  							</Button>
+							</DialogTitle>
+							<DialogDescription>
+								Preview the selected sprite and download options.
+							</DialogDescription>
 						</DialogHeader>
 						{isLoading ? (
 						<div className="space-y-4">
