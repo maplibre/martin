@@ -122,10 +122,10 @@ jobs:
           mv target/${{ matrix.target }}/release/martin target_releases/${{ matrix.target }}
           mv target/${{ matrix.target }}/release/martin-cp target_releases/${{ matrix.target }}
           mv target/${{ matrix.target }}/release/mbtiles target_releases/${{ matrix.target }}
-      - name: Save cross-build artifacts
+      - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v4
         with:
-          name: cross-build
+          name: build-${{ matrix.target }}
           path: target_releases/*
   docker-build-test:
     name: Build and test docker images
@@ -193,10 +193,15 @@ jobs:
             }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
-      - name: Download build artifact cross-build
+      - name: Download build artifact build-aarch64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
-          name: cross-build
+          name: build-aarch64-unknown-linux-musl
+          path: target_releases
+      - name: Download build artifact build-aarch64-unknown-linux-musl
+        uses: actions/download-artifact@v4
+        with:
+          name: build-aarch64-unknown-linux-musl
           path: target_releases
       - name: Reorganize artifacts for docker build
         run: |
@@ -389,10 +394,10 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Download build artifact cross-build
+      - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
-          name: cross-build
+          name: build-x86_64-unknown-linux-musl
       - run: tests/test-aws-lambda.sh
         env:
           MARTIN_BIN: x86_64-unknown-linux-musl/martin
