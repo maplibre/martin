@@ -1,0 +1,271 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`AnalyticsSection renders analytics data 1`] = `
+<div>
+  <script
+    nonce=""
+  >
+    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+  </script>
+  <div
+    class="space-y-6 mb-8"
+  >
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+    >
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Requests/Second
+          </div>
+          <div
+            data-testid="icon-activity"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="text-2xl font-bold"
+          >
+            42
+          </div>
+          <p
+            class="text-xs text-muted-foreground"
+          >
+            +12% from last hour
+          </p>
+        </div>
+      </div>
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Memory Usage
+          </div>
+          <div
+            data-testid="icon-server"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="text-2xl font-bold"
+          >
+            70
+            %
+          </div>
+          <p
+            class="text-xs text-muted-foreground"
+          >
+            4.2 GB of 6 GB used
+          </p>
+        </div>
+      </div>
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Cache Hit Rate
+          </div>
+          <div
+            data-testid="icon-zap"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="text-2xl font-bold"
+          >
+            95
+            %
+          </div>
+          <p
+            class="text-xs text-muted-foreground"
+          >
+            Excellent performance
+          </p>
+        </div>
+      </div>
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Active Sources
+          </div>
+          <div
+            data-testid="icon-database"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="text-2xl font-bold"
+          >
+            8
+          </div>
+          <p
+            class="text-xs text-muted-foreground"
+          >
+            All sources healthy
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`AnalyticsSection renders loading state (skeletons) 1`] = `
+<div>
+  <script
+    nonce=""
+  >
+    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+  </script>
+  <div
+    class="space-y-6 mb-8"
+  >
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+    >
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Requests/Second
+          </div>
+          <div
+            data-testid="icon-activity"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="h-8 w-16 mb-2"
+            data-testid="skeleton"
+          />
+          <div
+            class="h-3 w-32"
+            data-testid="skeleton"
+          />
+        </div>
+      </div>
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Memory Usage
+          </div>
+          <div
+            data-testid="icon-server"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="h-8 w-16 mb-2"
+            data-testid="skeleton"
+          />
+          <div
+            class="h-3 w-32"
+            data-testid="skeleton"
+          />
+        </div>
+      </div>
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Cache Hit Rate
+          </div>
+          <div
+            data-testid="icon-zap"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="h-8 w-16 mb-2"
+            data-testid="skeleton"
+          />
+          <div
+            class="h-3 w-32"
+            data-testid="skeleton"
+          />
+        </div>
+      </div>
+      <div
+        data-testid="card"
+      >
+        <div
+          data-testid="card-header"
+        >
+          <div
+            data-testid="card-title"
+          >
+            Active Sources
+          </div>
+          <div
+            data-testid="icon-database"
+          />
+        </div>
+        <div
+          data-testid="card-content"
+        >
+          <div
+            class="h-8 w-16 mb-2"
+            data-testid="skeleton"
+          />
+          <div
+            class="h-3 w-32"
+            data-testid="skeleton"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
