@@ -1,6 +1,6 @@
 "use client";
 
-import { type ErrorInfo, useEffect, useState } from "react";
+import { type ErrorInfo, useCallback, useEffect, useState } from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import { FontCatalog } from "@/components/catalogs/font";
 import { SpriteCatalog } from "@/components/catalogs/sprite";
@@ -59,19 +59,23 @@ export default function MartinTileserverDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
+  const handleAnalyticsError = useCallback((error: Error) => {
+    console.error("Analytics fetch failed:", error);
+  }, []);
+
+  const handleCatalogError = useCallback((error: Error) => {
+    console.error("Catalog fetch failed:", error);
+  }, []);
+
   // Analytics operation
   const analyticsOperation = useAsyncOperation<AnalyticsData>(fetchAnalytics, {
-    onError: (error) => {
-      console.error("Analytics fetch failed:", error);
-    }, // We handle errors in the component
+    onError: handleAnalyticsError,
     showErrorToast: false,
   });
 
   // Catalog operation - unified data fetching
-  const catalogOperation = useAsyncOperation(fetchCatalog, {
-    onError: (error) => {
-      console.error("Catalog fetch failed:", error);
-    },
+  const catalogOperation = useAsyncOperation<CatalogSchema>(fetchCatalog, {
+    onError: handleCatalogError,
     showErrorToast: false,
   });
 
@@ -106,8 +110,6 @@ export default function MartinTileserverDashboard() {
             analytics={analyticsOperation.data}
             error={analyticsOperation.error}
             isLoading={analyticsOperation.isLoading}
-            isRetrying={analyticsOperation.isRetrying}
-            onRetry={analyticsOperation.retry}
           />
 
           <Tabs className="space-y-6" defaultValue="tiles">
@@ -122,8 +124,6 @@ export default function MartinTileserverDashboard() {
               <TilesCatalog
                 error={catalogOperation.error}
                 isLoading={catalogOperation.isLoading}
-                isRetrying={catalogOperation.isRetrying}
-                onRetry={catalogOperation.retry}
                 onSearchChangeAction={setSearchQuery}
                 searchQuery={searchQuery}
                 tileSources={catalogOperation.data?.tiles}
@@ -134,8 +134,6 @@ export default function MartinTileserverDashboard() {
               <StylesCatalog
                 error={catalogOperation.error}
                 isLoading={catalogOperation.isLoading}
-                isRetrying={catalogOperation.isRetrying}
-                onRetry={catalogOperation.retry}
                 onSearchChangeAction={setSearchQuery}
                 searchQuery={searchQuery}
                 styles={catalogOperation.data?.styles}
@@ -147,8 +145,6 @@ export default function MartinTileserverDashboard() {
                 error={catalogOperation.error}
                 fonts={catalogOperation.data?.fonts}
                 isLoading={catalogOperation.isLoading}
-                isRetrying={catalogOperation.isRetrying}
-                onRetry={catalogOperation.retry}
                 onSearchChangeAction={setSearchQuery}
                 searchQuery={searchQuery}
               />
@@ -158,8 +154,6 @@ export default function MartinTileserverDashboard() {
               <SpriteCatalog
                 error={catalogOperation.error}
                 isLoading={catalogOperation.isLoading}
-                isRetrying={catalogOperation.isRetrying}
-                onRetry={catalogOperation.retry}
                 onSearchChangeAction={setSearchQuery}
                 searchQuery={searchQuery}
                 spriteCollections={catalogOperation.data?.sprites}

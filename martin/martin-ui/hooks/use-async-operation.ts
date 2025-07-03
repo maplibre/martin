@@ -3,23 +3,39 @@
 import { useCallback, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
+// A helper function to introduce a delay, which is useful for backoff strategies.
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 interface AsyncOperationState<T> {
   data?: T;
   isLoading: boolean;
   error: Error | null;
-  isRetrying: boolean;
-  retryCount: number;
 }
 
 interface AsyncOperationOptions<T> {
+  /** Callback function that is triggered on a successful operation. */
   onSuccess?: (data: T) => void;
-  onError?: (error: Error) => void;
+  /** Callback function that is triggered on a failed attempt. */
+  onError?: (error: Error, attempt: number) => void;
+  /** Whether to show a toast notification on error. Defaults to `true`. */
   showErrorToast?: boolean;
+  /** Whether to show a toast notification on success. Defaults to `false`. */
   showSuccessToast?: boolean;
+  /** Custom message for the success toast. */
   successMessage?: string;
+  /** The maximum number of attempts, including the initial one. Defaults to 3. */
   maxRetries?: number;
+  /** The initial delay in milliseconds for exponential backoff. Defaults to 500. */
+  initialBackoffDelay?: number;
 }
 
+/**
+ * A custom hook to manage asynchronous operations with automatic retries and exponential backoff.
+ *
+ * @param asyncFunction The asynchronous function to execute.
+ * @param options Configuration options for the operation.
+ * @returns An object with the operation's state (`data`, `isLoading`, `error`) and control functions (`execute`, `reset`).
+ */
 export function useAsyncOperation<T>(
   asyncFunction: () => Promise<T>,
   options: AsyncOperationOptions<T> = {},
@@ -30,7 +46,8 @@ export function useAsyncOperation<T>(
     showErrorToast = true,
     showSuccessToast = false,
     successMessage,
-    maxRetries = 3,
+    maxRetries = 10,
+    initialBackoffDelay = 500,
   } = options;
 
   const { toast } = useToast();
@@ -38,36 +55,30 @@ export function useAsyncOperation<T>(
     data: undefined,
     error: null,
     isLoading: false,
-    isRetrying: false,
-    retryCount: 0,
   });
 
-  const execute = useCallback(
-    async (isRetry = false) => {
-      setState((prev) => ({
-        ...prev,
-        error: null,
-        isLoading: true,
-        isRetrying: isRetry,
-        retryCount: isRetry ? prev.retryCount + 1 : 0,
-      }));
+  const execute = useCallback(async () => {
+    setState((prev) => ({
+      ...prev,
+      error: null,
+      isLoading: true,
+    }));
 
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const result = await asyncFunction();
 
-        setState((prev) => ({
-          ...prev,
+        setState({
           data: result,
           error: null,
           isLoading: false,
-          isRetrying: false,
-        }));
+        });
 
         onSuccess?.(result);
 
         if (showSuccessToast) {
           toast({
-            description: successMessage || "Operation completed successfully",
+            description: successMessage || "Operation completed successfully.",
             title: "Success",
           });
         }
@@ -76,61 +87,55 @@ export function useAsyncOperation<T>(
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
 
-        setState((prev) => ({
-          ...prev,
-          error: err,
-          isLoading: false,
-          isRetrying: false,
-        }));
+        onError?.(err, attempt);
 
-        onError?.(err);
-
-        if (showErrorToast && !isRetry) {
-          toast({
-            description: err.message,
-            title: "Error",
-            variant: "destructive",
+        if (attempt >= maxRetries) {
+          setState({
+            data: undefined,
+            error: err,
+            isLoading: false,
           });
+
+          if (showErrorToast) {
+            toast({
+              description: `Operation failed after ${maxRetries} attempts: ${err.message}`,
+              title: "Error",
+              variant: "destructive",
+            });
+          }
+
+          throw err;
         }
 
-        throw err;
+        const backoffDelay = initialBackoffDelay ** (attempt - 1);
+        const jitter = backoffDelay * 0.2 * Math.random();
+        console.log(`retrying in ${backoffDelay}ms with jitter ${jitter}ms`)
+        await sleep(backoffDelay + jitter);
       }
-    },
-    [asyncFunction, onSuccess, onError, showErrorToast, showSuccessToast, successMessage, toast],
-  );
-
-  const retry = useCallback(async () => {
-    if (state.retryCount >= maxRetries) {
-      toast({
-        description: `Failed after ${maxRetries} attempts`,
-        title: "Max Retries Reached",
-        variant: "destructive",
-      });
-      return;
     }
-
-    try {
-      await execute(true);
-    } catch {
-      // Error is already handled in execute
-    }
-  }, [execute, state.retryCount, maxRetries, toast]);
+  }, [
+    asyncFunction,
+    maxRetries,
+    initialBackoffDelay,
+    onSuccess,
+    onError,
+    showSuccessToast,
+    successMessage,
+    showErrorToast,
+    toast,
+  ]);
 
   const reset = useCallback(() => {
     setState({
       data: undefined,
       error: null,
       isLoading: false,
-      isRetrying: false,
-      retryCount: 0,
     });
   }, []);
 
   return {
     ...state,
-    canRetry: state.retryCount < maxRetries,
     execute,
     reset,
-    retry,
   };
 }

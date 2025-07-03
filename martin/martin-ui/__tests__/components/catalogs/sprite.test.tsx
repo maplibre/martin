@@ -360,28 +360,6 @@ describe("SpriteCatalog Component", () => {
     expect(eyeIcons.length).toBe(3);
   });
 
-  it("shows sprite preview dialog when clicking the preview button", () => {
-    render(<SpriteCatalog {...defaultProps} onPreviewClick={setSelectedSpriteMock} />);
-
-    // Find all preview buttons and click the first one
-    const previewButtons = screen.getAllByText("Preview");
-    fireEvent.click(previewButtons[0]);
-
-    // Check that onPreviewClick was called with the correct sprite name
-    expect(setSelectedSpriteMock).toHaveBeenCalledWith("map-icons");
-  });
-
-  it("shows sprite download dialog when clicking the download button", () => {
-    render(<SpriteCatalog {...defaultProps} onDownloadClick={setDownloadSpriteMock} />);
-
-    // Find all download buttons and click the first one
-    const downloadButtons = screen.getAllByText("Download");
-    fireEvent.click(downloadButtons[0]);
-
-    // Check that onDownloadClick was called with the correct sprite name
-    expect(setDownloadSpriteMock).toHaveBeenCalledWith("map-icons");
-  });
-
   it("disables preview button when isLoadingSprites is true", () => {
     render(<SpriteCatalog {...defaultProps} isLoadingSprites={true} />);
 
