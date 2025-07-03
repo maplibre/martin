@@ -44,7 +44,8 @@ const customJestConfig = {
     '!<rootDir>/.next/**',
     '!<rootDir>/*.config.js',
     '!<rootDir>/coverage/**',
-    '!<rootDir>/components/ui/**',
+    '!<rootDir>/components/ui/**', 
+    '!<rootDir>/hooks/use-toast.ts', 
     '!<rootDir>/tailwind.config.ts',
   ],
 };
