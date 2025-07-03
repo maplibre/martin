@@ -107,6 +107,9 @@ test_metrics() {
   clean_headers_dump "$FILENAME.headers"
   $CURL --dump-header  "$FILENAME.gzip.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.gzip"
   clean_headers_dump "$FILENAME.gzip.headers"
+  # due to slight timing differences, these might be slightly different
+  sed -i 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  sed -i 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.gzip.headers"
 }
 
 test_pbf() {
