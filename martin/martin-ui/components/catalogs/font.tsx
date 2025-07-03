@@ -1,4 +1,5 @@
 import { Download, Eye, Search, Type } from "lucide-react";
+import Link from "next/link";
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -137,9 +138,27 @@ export function FontCatalog({
         ))}
       </div>
 
-      {filteredFonts.length === 0 && searchQuery && (
+      {filteredFonts.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">No fonts found matching "{searchQuery}"</p>
+          <p className="text-muted-foreground mb-2">
+            {searchQuery
+              ? <>No fonts found matching "{searchQuery}".</>
+              : <>No fonts found.</>
+            }
+          </p>
+          <Button
+            asChild
+            variant="link"
+            size="lg"
+          >
+            <Link
+              href="https://maplibre.org/martin/sources-fonts.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Learn how to configure Fonts
+            </Link>
+          </Button>
         </div>
       )}
     </div>

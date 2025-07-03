@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Download, Eye, ImageIcon, Search } from "lucide-react";
 import { useState } from "react";
 import { SpriteDownloadDialog } from "@/components/dialogs/sprite-download";
@@ -158,11 +159,30 @@ export function SpriteCatalog({
           ))}
         </div>
 
-        {filteredSpriteCollections.length === 0 && searchQuery && (
+        {filteredSpriteCollections.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              No sprite collections found matching "{searchQuery}"
-            </p>
+            {searchQuery ? (
+              <p className="text-muted-foreground mb-2">
+                No sprite collections found matching "{searchQuery}"
+              </p>
+            ) : (
+              <p className="text-muted-foreground mb-2">
+                No sprite collections found.
+              </p>
+            )}
+            <Button
+              asChild
+              variant="link"
+              size="lg"
+            >
+              <Link
+                href="https://maplibre.org/martin/sources-sprites.html"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Learn how to configure Sprites
+              </Link>
+            </Button>
           </div>
         )}
       </div>

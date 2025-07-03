@@ -1,4 +1,5 @@
 import { Brush, Download, Eye, Map, Search } from "lucide-react";
+import Link from "next/link";
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -172,9 +173,27 @@ export function StylesCatalog({
         ))}
       </div>
 
-      {filteredStyles.length === 0 && searchQuery && (
+      {filteredStyles.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">No styles found matching "{searchQuery}"</p>
+          <p className="text-muted-foreground mb-2">
+            {searchQuery
+              ? `No styles found matching "${searchQuery}"`
+              : "No styles found."
+            }
+          </p>
+          <Button
+            asChild
+            variant="link"
+            size="lg"
+          >
+            <Link
+              href="https://maplibre.org/martin/sources-styles.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Learn how to configure Styles
+            </Link>
+          </Button>
         </div>
       )}
     </div>

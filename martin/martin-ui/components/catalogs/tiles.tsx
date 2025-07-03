@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Database, Eye, ImageIcon, Layers, Palette, Search } from "lucide-react";
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
@@ -152,9 +154,27 @@ export function TilesCatalog({
         </div>
       </div>
 
-      {filteredTileSources.length === 0 && searchQuery && (
+      {filteredTileSources.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">No tile sources found matching "{searchQuery}"</p>
+          <p className="text-muted-foreground mb-2">
+            {searchQuery
+              ? <>No tile sources found matching "{searchQuery}".</>
+              : <>No tile sources found.</>
+            }
+          </p>
+          <Button
+            asChild
+            variant="link"
+            size="lg"
+          >
+            <Link
+              href="https://maplibre.org/martin/sources-tiles.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Learn how to configure Tile Sources
+            </Link>
+          </Button>
         </div>
       )}
     </div>
