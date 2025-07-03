@@ -21,8 +21,11 @@ jest.mock("next/router", () => ({
 jest.mock("next/image", () => ({
   __esModule: true,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default: (props: any) => {
-    return <img {...props} />;
+  default: (props: Record<string, unknown>) => {
+    // Use React.createElement to avoid JSX parse errors in non-TSX files
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const React = require("react");
+    return React.createElement("img", props);
   },
 }));
 

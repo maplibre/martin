@@ -2,7 +2,7 @@
 
 import { Moon, Sun, SunMoon } from "lucide-react";
 import { useTheme } from "next-themes";
-import * as React from "react";
+
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 

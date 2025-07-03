@@ -18,8 +18,8 @@ declare global {
       toContainHTML(htmlText: string): R;
       toHaveClass(...classNames: string[]): R;
       toHaveFocus(): R;
-      toHaveFormValues(expectedValues: Record<string, any>): R;
-      toHaveStyle(css: string | Record<string, any>): R;
+      toHaveFormValues(expectedValues: Record<string, unknown>): R;
+      toHaveStyle(css: string | Record<string, unknown>): R;
       toHaveTextContent(text: string | RegExp, options?: { normalizeWhitespace: boolean }): R;
       toHaveValue(value?: string | string[] | number): R;
       toBeInTheDOM(): R;

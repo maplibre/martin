@@ -12,7 +12,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 Bytes";
-  if (!bytes || isNaN(bytes) || bytes < 0) return "Unknown size";
+  if (!bytes || Number.isNaN(bytes) || bytes < 0) return "Unknown size";
 
   // there are no half-bit princes. This is not harry potter..
   bytes = Math.floor(bytes);
@@ -23,5 +23,5 @@ export function formatFileSize(bytes: number): string {
   // Handle potential overflow or incorrect values
   if (i >= sizes.length) return "File too large";
 
-  return parseFloat((bytes / k ** i).toFixed(2)) + " " + sizes[i];
+  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 }
