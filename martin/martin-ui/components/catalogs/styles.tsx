@@ -93,7 +93,7 @@ export function StylesCatalog({
 									<Brush className="w-5 h-5 text-primary" />
 									<CardTitle className="text-lg">{name}</CardTitle>
 								</div>
-								<Badge variant="secondary">{style.type}</Badge>
+								{style.type && <Badge variant="secondary">{style.type}</Badge>}
 							</div>
 							<CardDescription>{style.path}</CardDescription>
 						</CardHeader>

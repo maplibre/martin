@@ -1,0 +1,132 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`Header Component renders correctly 1`] = `
+<div>
+  <script
+    nonce=""
+  >
+    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+  </script>
+  <header
+    class="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50"
+  >
+    <div
+      class="container mx-auto px-6"
+    >
+      <div
+        class="flex h-20 items-center justify-between"
+      >
+        <div
+          class="flex items-center space-x-4"
+        >
+          <div
+            class="items-center flex"
+          >
+            <a
+              class="hidden lg:flex"
+              href="/"
+            >
+              <img
+                alt="Logo of the Martin Tileserver"
+                height="70"
+                priority="true"
+                src="/icon.png"
+                title="Martin Tile Server"
+                width="290"
+              />
+            </a>
+            <h1
+              class="text-3xl font-bold leading-relaxed md:block lg:hidden hidden"
+            >
+              MARTIN
+            </h1>
+          </div>
+          <a
+            class="items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90 hover:bg-purple-700 hidden md:block p-1"
+            data-slot="badge"
+            href="https://github.com/maplibre/martin/releases/tag/v0.0.0-test"
+          >
+            v0.0.0-test
+          </a>
+        </div>
+        <div
+          class="flex items-center space-x-6"
+        >
+          <a
+            class="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+            data-state="closed"
+            href="https://maplibre.org/martin/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-book-open"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="18"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 7v14"
+              />
+              <path
+                d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"
+              />
+            </svg>
+            <span>
+              Documentation
+            </span>
+          </a>
+          <a
+            class="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+            data-state="closed"
+            href="https://maplibre.org"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-info"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="18"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+              />
+              <path
+                d="M12 16v-4"
+              />
+              <path
+                d="M12 8h.01"
+              />
+            </svg>
+            <span>
+              About us
+            </span>
+          </a>
+          <div
+            data-testid="theme-switcher"
+          >
+            Theme Switcher Mock
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+</div>
+`;
