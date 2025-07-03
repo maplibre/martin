@@ -20,7 +20,7 @@ exports[`Header Component renders correctly 1`] = `
           class="flex items-center space-x-4"
         >
           <a
-            class="items-center flex space-x-3"
+            class="items-center flex"
             href="/"
           >
             <img
@@ -28,12 +28,12 @@ exports[`Header Component renders correctly 1`] = `
               class="-mt-5 -rotate-6"
               height="48"
               priority="true"
-              src="/logo_martin.svg"
+              src="/logo_martin-light.svg"
               title="Martin Tile Server"
               width="96"
             />
             <h1
-              class="text-3xl font-bold leading-relaxed text-foreground select-none"
+              class="text-3xl -ms-2 font-bold leading-relaxed text-foreground select-none"
             >
               MARTIN
             </h1>

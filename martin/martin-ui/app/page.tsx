@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { type ErrorInfo, useCallback, useEffect, useState } from "react";
+import { type ErrorInfo, useCallback, useEffect } from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import { FontCatalog } from "@/components/catalogs/font";
 import { SpriteCatalog } from "@/components/catalogs/sprite";
@@ -54,10 +54,21 @@ const fetchCatalog = async (): Promise<CatalogSchema> => {
 };
 
 export default function MartinTileserverDashboard() {
-  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const searchQuery = searchParams.get("search") || "";
+  // Update search param in URL, preserving tab and other params
+  const setSearchQuery = (query: string) => {
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    if (query) {
+      params.set("search", query);
+    } else {
+      params.delete("search");
+    }
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
 
   const handleTabChange = (value: string) => {
     const params = new URLSearchParams(Array.from(searchParams.entries()));
