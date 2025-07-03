@@ -102,9 +102,11 @@ test_metrics() {
   FILENAME="$TEST_OUT_DIR/$1"
   URL="$MARTIN_URL/_/metrics"
 
-  echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME"
-  $CURL --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME"
+  echo "Testing $1 from $URL"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+  $CURL --dump-header  "$FILENAME.gzip.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.gzip"
+  clean_headers_dump "$FILENAME.gzip.headers"
 }
 
 test_pbf() {
@@ -477,15 +479,14 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
+test_metrics "metrics_1"
+
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-
-test_metrics "metrics_1"
-
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test martin-cp"
