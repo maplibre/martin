@@ -686,13 +686,16 @@ jobs:
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target/x86_64-unknown-linux-gnu
-
-      - name: Download cross-build artifacts
+      - name: Download build artifact build-aarch64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
-          name: cross-build
-          path: target/cross
-
+          name: build-aarch64-unknown-linux-musl
+          path: target/aarch64-unknown-linux-musl
+      - name: Download build artifact build-x86_64-unknown-linux-musl
+        uses: actions/download-artifact@v4
+        with:
+          name: build-x86_64-unknown-linux-musl
+          path: target/x86_64-unknown-linux-musl
       - name: Download build artifact build-x86_64-pc-windows-msvc
         uses: actions/download-artifact@v4
         with:
@@ -710,32 +713,14 @@ jobs:
 
           cd target
           mkdir files
-          mv cross/* .
 
-          cd aarch64-apple-darwin
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-aarch64-apple-darwin.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-apple-darwin
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-apple-darwin.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-unknown-linux-gnu
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-gnu.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd aarch64-unknown-linux-musl
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-aarch64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-unknown-linux-musl
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
-          cd ..
+          for target in aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
+          do
+            cd "$target"
+            chmod +x martin martin-cp mbtiles
+            tar czvf ../files/martin-${target}.tar.gz martin martin-cp mbtiles
+            cd ..
+          done
 
           #
           # Special case for Windows
