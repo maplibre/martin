@@ -97,10 +97,6 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         with:
           platforms: linux/amd64,linux/arm64
-      - name: Set up AWS SAM
-        uses: aws-actions/setup-sam@v2
-        with:
-          use-installer: true
 
       - name: Build ${{ matrix.target }}
         run: |
@@ -198,8 +194,6 @@ jobs:
         with:
           install: true
           platforms: linux/amd64,linux/arm64
-      - name: Set up AWS SAM
-        uses: aws-actions/setup-sam@v2
       - name: Download build artifact build-aarch64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
