@@ -18,7 +18,7 @@ pub struct SrvConfig {
     #[cfg(feature = "webui")]
     pub web_ui: Option<crate::args::WebUiMode>,
     pub cors: Option<CorsConfig>,
-    /// More advanced monitoring montoring options
+    /// Advanced monitoring options
     pub observability: Option<ObservabilityConfig>,
 }
 
