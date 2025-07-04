@@ -1,0 +1,45 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.0.6/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on",
+        "useSortedAttributes": "on",
+        "useSortedKeys": "on",
+        "useSortedProperties": "on"
+      }
+    },
+    "enabled": true
+  },
+  "files": {
+    "experimentalScannerIgnores": ["node_modules", ".next"],
+    "includes": [
+      "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "{__tests__,__mocks__,types,app,components,hooks,public,lib}/*.{tsx,ts,mjs,json,jsonc,yaml,yml}"
+    ]
+  },
+  "formatter": { "enabled": true, "indentStyle": "space", "lineWidth": 100 },
+  "javascript": { "formatter": { "quoteStyle": "double" } },
+  "linter": {
+    "domains": {
+      "next": "all",
+      "react": "all"
+    },
+    "enabled": true,
+    "includes": ["**"],
+    "rules": {
+      "recommended": true
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["*.ts", "*.tsx", "*.mts", "*.cts"],
+      "linter": {
+        "rules": {
+          "recommended": true
+        }
+      }
+    }
+  ],
+  "vcs": { "clientKind": "git", "enabled": true, "useIgnoreFile": true }
+}

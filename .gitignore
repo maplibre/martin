@@ -4,6 +4,9 @@
 
 **/*.rs.bk
 **/dist/
+**/.next
+**/.out
+**/out
 **/node_modules/
 *.profraw
 .DS_Store
@@ -17,7 +20,9 @@ target/
 test_log*
 tests/mbtiles_temp_files/
 tests/output/
+coverage
 tmp/
+tsconfig.tsbuildinfo
 
 ####
 #### Above content must match .dockerignore ####

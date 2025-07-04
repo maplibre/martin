@@ -56,7 +56,7 @@ bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-frontend bless-int
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
@@ -76,6 +76,10 @@ bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
+
+# Bless the frontend tests
+bless-frontend:
+    npm run test:update-snapshots
 
 # Build and open mdbook documentation
 book:  (cargo-install 'mdbook')
@@ -163,6 +167,11 @@ env-info:
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
 
+# Run eslint on the frontend
+[working-directory: 'martin/martin-ui']
+eslint:
+    npm run lint
+
 # Run benchmark tests showing a flamegraph
 flamegraph:
     cargo bench --bench bench -- --profile-time=10
@@ -194,7 +203,7 @@ git *args: start
     git {{args}}
 
 # Run cargo fmt and cargo clippy
-lint: fmt clippy
+lint: fmt clippy eslint type-check
 
 # Run mbtiles command
 mbtiles *args:
@@ -260,7 +269,7 @@ stop:
     {{dockercompose}} down --remove-orphans
 
 # Run all tests using a test database
-test: start (test-cargo '--all-targets') test-doc test-int
+test: start (test-cargo '--all-targets') test-doc test-frontend test-int
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
@@ -273,6 +282,11 @@ test-doc *args:
 # Test code formatting
 test-fmt:
     cargo fmt --all -- --check
+
+# Run frontend tests
+[working-directory: 'martin/martin-ui']
+test-frontend:
+    npm run test
 
 # Run integration tests
 test-int: clean-test install-sqlx
@@ -321,6 +335,11 @@ test-ssl-cert: start-ssl-cert
     {{just_executable()}} clean-test
     {{just_executable()}} test-doc
     tests/test.sh
+
+# Run typescript typechecking on the frontend
+[working-directory: 'martin/martin-ui']
+type-check:
+    npm run type-check
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
