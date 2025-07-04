@@ -44,7 +44,7 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
-# More advanced monitoring montoring options
+# Advanced monitoring options
 observability:
   # Additional static metric labels to be added to every metric reported under `/_/metrics`
   # example: { environment: production, server: martin }
