@@ -105,11 +105,11 @@ test_metrics() {
   echo "Testing $1 from $URL"
   $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
   clean_headers_dump "$FILENAME.headers"
-  $CURL --dump-header  "$FILENAME.compressed.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.compressed.txt"
-  clean_headers_dump "$FILENAME.compressed.headers"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  clean_headers_dump "$FILENAME.fetched_with_compression.headers"
   # due to slight timing differences, these might be slightly different
   sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.compressed.headers"
+  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
 }
 
 test_pbf() {
