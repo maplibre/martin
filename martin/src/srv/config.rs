@@ -25,7 +25,7 @@ pub struct SrvConfig {
 /// More advanced monitoring montoring options
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct ObservabilityConfig {
-    /// Additional metric labels to be added to every metric reported under `/metrics`
+    /// Extra labels to be added to every metric reported under `/_/metrics`
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub additional_metric_labels: HashMap<String, String>,
 }
