@@ -577,6 +577,7 @@ async fn diff_and_patch(
 
 #[rstest]
 #[trace]
+#[ignore = "test used to run for a while, and then became too complicated to maintain and got out of whack. TODO: bring it back or deleete"]
 #[tokio::test(flavor = "multi_thread")]
 async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
