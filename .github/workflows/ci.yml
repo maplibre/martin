@@ -155,6 +155,10 @@ jobs:
         with:
           install: true
           platforms: linux/amd64,linux/arm64
+      - name: Set up AWS SAM
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
 
       - name: Build targets
         run: |
