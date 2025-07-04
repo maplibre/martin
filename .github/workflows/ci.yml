@@ -396,9 +396,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-x86_64-unknown-linux-musl
+          path: target/
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: x86_64-unknown-linux-musl/martin
+          MARTIN_BIN: target/martin
 
 
   test-multi-os:
