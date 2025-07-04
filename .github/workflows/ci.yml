@@ -112,15 +112,15 @@ jobs:
 
       - name: Move the artefacts to the expected place
         run: |
-          mkdir -p target_releases/${{ matrix.target }}
-          mv target/${{ matrix.target }}/release/martin target_releases/${{ matrix.target }}
-          mv target/${{ matrix.target }}/release/martin-cp target_releases/${{ matrix.target }}
-          mv target/${{ matrix.target }}/release/mbtiles target_releases/${{ matrix.target }}
+          mkdir -p target_releases/
+          mv target/${{ matrix.target }}/release/martin target_releases/
+          mv target/${{ matrix.target }}/release/martin-cp target_releases/
+          mv target/${{ matrix.target }}/release/mbtiles target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.target }}
-          path: target_releases/*
+          path: target_releases/
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
