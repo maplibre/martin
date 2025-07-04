@@ -97,12 +97,6 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         with:
           platforms: linux/amd64,linux/arm64
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        # https://github.com/docker/setup-buildx-action
-        with:
-          install: true
-          platforms: linux/amd64,linux/arm64
       - name: Set up AWS SAM
         uses: aws-actions/setup-sam@v2
         with:
@@ -191,6 +185,12 @@ jobs:
                 "containerd-snapshotter": true
               }
             }
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        # https://github.com/docker/setup-buildx-action
+        with:
+          install: true
+          platforms: linux/amd64,linux/arm64
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Download build artifact build-aarch64-unknown-linux-musl
