@@ -203,6 +203,10 @@ jobs:
         with:
           name: build-x86_64-unknown-linux-musl
           path: target_releases/linux/amd64/
+      - name: Mark executables as executable
+        run:
+          chmod +x target_releases/linux/arm64/*
+          chmod +x target_releases/linux/amd64/*
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
