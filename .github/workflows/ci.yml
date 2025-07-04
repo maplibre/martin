@@ -197,18 +197,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-aarch64-unknown-linux-musl
-          path: target_releases
-      - name: Download build artifact build-aarch64-unknown-linux-musl
+          path: target_releases/linux/arm64/
+      - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
-          name: build-aarch64-unknown-linux-musl
-          path: target_releases
-      - name: Reorganize artifacts for docker build
-        run: |
-          mkdir -p target_releases/linux/arm64
-          mv target_releases/aarch64-unknown-linux-musl/* target_releases/linux/arm64/
-          mkdir -p target_releases/linux/amd64
-          mv target_releases/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
+          name: build-x86_64-unknown-linux-musl
+          path: target_releases/linux/amd64/
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
