@@ -46,9 +46,11 @@ web_ui: disable
 
 # Advanced monitoring options
 observability:
-  # Additional static metric labels to be added to every metric reported under `/_/metrics`
-  # example: { environment: production, server: martin }
-  additional_metric_labels: {}
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
 
 # CORS Configuration
 #
