@@ -23,11 +23,24 @@ pub struct SrvConfig {
 }
 
 /// More advanced monitoring montoring options
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct ObservabilityConfig {
-    /// Extra labels to be added to every metric reported under `/_/metrics`
+    /// Configure metrics reported under `/_/metrics`
+    pub metrics: Option<MetricsConfig>,
+}
+
+/// Configure metrics reported under `/_/metrics`
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+pub struct MetricsConfig {
+    /// Add these labels to every metric
+    ///
+    /// # Example:
+    /// ```json
+    /// { env: prod, server: martin }
+    /// ```
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub additional_metric_labels: HashMap<String, String>,
+    pub add_labels: HashMap<String, String>,
 }
 
 #[cfg(test)]
