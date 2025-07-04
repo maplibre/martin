@@ -2,8 +2,10 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
+use image::{ImageBuffer, Rgba};
 use martin_tile_utils::TileCoord;
-use tiff::decoder::{Decoder, DecodingResult};
+use tiff::ColorType;
+use tiff::decoder::{self, Decoder, DecodingResult};
 
 use super::CogError;
 use crate::{MartinResult, TileData};
@@ -14,19 +16,208 @@ use crate::{MartinResult, TileData};
 pub struct Image {
     /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
     ifd_index: usize,
+    /// The extent of the image in model units, represented as [min_x, min_y, max_x, max_y].
+    extent: [f64; 4],
+    /// The origin of the image in model units.
+    origin: [f64; 3],
     /// Number of tiles in a row of this image
     tiles_across: u32,
-    ///  Number of tiles in a column of this image
+    /// Number of tiles in a column of this image
     tiles_down: u32,
+    /// Tile size in pixels
+    tile_size: (u32, u32),
+    /// Resolution of the image in model units per pixel
+    resolution: (f64, f64),
 }
 
 impl Image {
-    pub fn new(ifd_index: usize, tiles_across: u32, tiles_down: u32) -> Self {
+    pub fn new(
+        ifd_index: usize,
+        extent: [f64; 4],
+        origin: [f64; 3],
+        tiles_across: u32,
+        tiles_down: u32,
+        tile_size: (u32, u32),
+        resolution: (f64, f64),
+    ) -> Self {
         Self {
             ifd_index,
+            extent,
+            origin,
             tiles_across,
             tiles_down,
+            tile_size,
+            resolution,
         }
+    }
+    pub fn get_tile_webmercator(
+        &self,
+        decoder: &mut Decoder<File>,
+        xyz: TileCoord,
+        nodata: Option<f64>,
+        path: &Path,
+    ) -> MartinResult<TileData> {
+        let bbox = martin_tile_utils::xyz_to_bbox_webmercator(xyz.z, xyz.x, xyz.y, xyz.x, xyz.y);
+        let nodata_u8 = nodata.map(|v| v as u8);
+        let bytes = self.clip(decoder, bbox, 256, nodata_u8, path)?;
+        Ok(bytes)
+    }
+
+    fn clip(
+        &self,
+        decoder: &mut Decoder<File>,
+        bbox: [f64; 4],
+        output_size: u32,
+        nodata: Option<u8>,
+        path: &Path,
+    ) -> MartinResult<TileData> {
+        decoder
+            .seek_to_image(self.ifd_index())
+            .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
+        let intersetced_tiles = self.tiles_intersected(bbox);
+        let origin_x = self.origin[0];
+        let origin_y = self.origin[1];
+        let res_x = self.resolution.0;
+        let res_y = self.resolution.1.abs();
+        let window_width_pixel = ((bbox[2] - bbox[0]) / res_x).round() as u32;
+        let window_height_pixel = ((bbox[3] - bbox[1]) / res_y).round() as u32;
+        let mut target = vec![0; (window_width_pixel * window_height_pixel * 4) as usize];
+        for (col, row) in intersetced_tiles {
+            let idx = self
+                .get_tile_index(TileCoord {
+                    z: 0, // acutally get_tile_index does not use z, so we can use 0 here
+                    x: col,
+                    y: row,
+                })
+                .unwrap();
+
+            let tile_min_x = origin_x + f64::from(col * self.tile_size.0) * self.resolution.0;
+            let tile_max_y = origin_y - f64::from(row * self.tile_size.1) * self.resolution.1;
+            let offset_x_geo = tile_min_x - bbox[0];
+            let offset_y_geo = bbox[3] - tile_max_y; // Use window's max Y
+
+            let offset_x_pixel = (offset_x_geo / res_x).round() as i64;
+            let offset_y_pixel = (offset_y_geo / res_y).round() as i64;
+            let decoded = decoder.read_chunk(idx).unwrap();
+            let (data_width, data_height) = decoder.chunk_data_dimensions(idx);
+            let color_type = decoder.colortype().unwrap();
+            let components_count = match color_type {
+                ColorType::RGB(_) => 3,
+                ColorType::RGBA(_) => 4,
+                _ => {
+                    todo!()
+                }
+            };
+            match (decoded, color_type) {
+                (DecodingResult::U8(vec), ColorType::RGB(_)) => draw_tile(
+                    vec,
+                    components_count,
+                    nodata,
+                    (data_width, data_height),
+                    (window_width_pixel, window_height_pixel),
+                    (offset_x_pixel, offset_y_pixel),
+                    &mut target,
+                ),
+                (DecodingResult::U8(vec), ColorType::RGBA(_)) => draw_tile(
+                    vec,
+                    components_count,
+                    nodata,
+                    (data_width, data_height),
+                    (window_width_pixel, window_height_pixel),
+                    (offset_x_pixel, offset_y_pixel),
+                    &mut target,
+                ),
+                (_, _) => {
+                    return Err(CogError::NotSupportedColorTypeAndBitDepth(
+                        color_type,
+                        path.to_path_buf(),
+                    )
+                    .into());
+                } //todo do others in next PRs, a lot of discussion would be needed
+            };
+        }
+
+        let result_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
+            ImageBuffer::from_raw(window_width_pixel, window_height_pixel, target).unwrap();
+        let resized = image::imageops::resize(
+            &result_image,
+            output_size,
+            output_size,
+            image::imageops::FilterType::Nearest,
+        );
+        let png = encode_rgba_as_png(output_size, output_size, resized.as_raw(), path)?;
+        Ok(png)
+    }
+
+    /// Calculates the tiles that intersect with the given window.
+    fn tiles_intersected(&self, window: [f64; 4]) -> Vec<(u32, u32)> {
+        let epsilon = 1e-6;
+
+        let tile_span_x = f64::from(self.tile_size.0) * self.resolution.0;
+        // resolution[1] is typically negative, use its absolute value for span calculation
+        let tile_span_y = f64::from(self.tile_size.1) * self.resolution.1.abs();
+
+        let tile_matrix_min_x = self.extent[0];
+        // Use max Y from extent as the top edge for row calculation
+        let tile_matrix_max_y = self.extent[3];
+
+        let matrix_width = self.tiles_across;
+        let matrix_height = self.tiles_down;
+
+        // Calculate tile index ranges based on the provided formula
+        let tile_min_col_f = ((window[0] - tile_matrix_min_x) / tile_span_x + epsilon).floor();
+        let tile_max_col_f = ((window[2] - tile_matrix_min_x) / tile_span_x - epsilon).floor();
+        let tile_min_row_f = ((tile_matrix_max_y - window[3]) / tile_span_y + epsilon).floor();
+        let tile_max_row_f = ((tile_matrix_max_y - window[1]) / tile_span_y - epsilon).floor();
+
+        // Convert to integer type for clamping and iteration
+        let mut tile_min_col = tile_min_col_f as i64;
+        let mut tile_max_col = tile_max_col_f as i64;
+        let mut tile_min_row = tile_min_row_f as i64;
+        let mut tile_max_row = tile_max_row_f as i64;
+
+        // Clamp minimum values to 0
+        if tile_min_col < 0 {
+            tile_min_col = 0;
+        }
+        if tile_min_row < 0 {
+            tile_min_row = 0;
+        }
+
+        // Clamp maximum values to matrix dimensions - 1
+        let matrix_width_i64 = i64::from(matrix_width);
+        let matrix_height_i64 = i64::from(matrix_height);
+
+        if tile_max_col >= matrix_width_i64 {
+            tile_max_col = matrix_width_i64 - 1;
+        }
+        if tile_max_row >= matrix_height_i64 {
+            tile_max_row = matrix_height_i64 - 1;
+        }
+
+        // If the calculated range is invalid (max < min), return empty vector
+        if tile_max_col < tile_min_col || tile_max_row < tile_min_row {
+            return Vec::new();
+        }
+
+        // Convert to u32 for the final result type
+        let tile_min_col = tile_min_col as u32;
+        let tile_max_col = tile_max_col as u32;
+        let tile_min_row = tile_min_row as u32;
+        let tile_max_row = tile_max_row as u32;
+
+        let mut covered_tiles = Vec::new();
+        // Iterate through the valid tile range and collect the indexes
+        for row in tile_min_row..=tile_max_row {
+            for col in tile_min_col..=tile_max_col {
+                // Double check bounds (should be guaranteed by clamping, but safe)
+                if col < matrix_width && row < matrix_height {
+                    covered_tiles.push((col, row));
+                }
+            }
+        }
+
+        covered_tiles
     }
 
     /// Retrieves a tile from the image, decodes it, and converts it to PNG format.
@@ -60,7 +251,7 @@ impl Image {
 
         //FIXME: do more research on the not u8 case, is this the right way to do it?
         let png_file_bytes = match (decode_result, color_type) {
-            (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => rgb_to_png(
+            (DecodingResult::U8(vec), ColorType::RGB(_)) => rgb_to_png(
                 vec,
                 (tile_width, tile_height),
                 (data_width, data_height),
@@ -68,7 +259,7 @@ impl Image {
                 nodata.map(|v| v as u8),
                 path,
             ),
-            (DecodingResult::U8(vec), tiff::ColorType::RGBA(_)) => rgb_to_png(
+            (DecodingResult::U8(vec), ColorType::RGBA(_)) => rgb_to_png(
                 vec,
                 (tile_width, tile_height),
                 (data_width, data_height),
@@ -87,6 +278,14 @@ impl Image {
 
     pub fn ifd_index(&self) -> usize {
         self.ifd_index
+    }
+
+    pub fn resolution(&self) -> (f64, f64) {
+        self.resolution
+    }
+
+    pub fn tile_size(&self) -> (u32, u32) {
+        self.tile_size
     }
 
     fn get_tile_index(&self, xyz: TileCoord) -> Option<u32> {
@@ -136,38 +335,15 @@ fn ensure_pixels_valid(
     //    See https://gdal.org/en/stable/drivers/raster/gtiff.html#nodata-value
     if nodata.is_some() || add_alpha || is_padded {
         let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
-        for row in 0..data_height {
-            'outer: for col in 0..data_width {
-                let idx_chunk = row * data_width * components_count + col * components_count;
-                let idx_result = row * tile_width * 4 + col * 4;
-
-                // Copy component values one by one
-                for component_idx in 0..components_count {
-                    // Before copying, check if this component == nodata. If so, skip because it's transparent.
-                    // FIXME: Should we copy the RGB values anyway and just set alpha to 0?
-                    //        The visual result is the same (transparent), but the component values would differ.
-                    //        But it might be a little slower as we don't skip the copy.
-                    //   Source pixel: [4, 1, 2, 3]  nodata: Some(1)
-                    //   Skip:
-                    //   result pixel: [4, 0, 0, 0]
-                    //   Do not skip:
-                    //   result pixel: [4, 1, 2, 0]
-                    //   So the visual result is the same, but the component values are different.
-
-                    let value = data[(idx_chunk + component_idx) as usize];
-                    if let Some(v) = nodata {
-                        if value == v {
-                            continue 'outer;
-                        }
-                    }
-                    // Copy this component to the result vector
-                    result_vec[(idx_result + component_idx) as usize] = value;
-                }
-                if add_alpha {
-                    result_vec[(idx_result + 3) as usize] = 255; // opaque
-                }
-            }
-        }
+        draw_tile(
+            data,
+            components_count,
+            nodata,
+            (data_width, data_height),
+            (tile_width, tile_height),
+            (0, 0),
+            &mut result_vec,
+        );
         result_vec
     } else {
         data
@@ -200,6 +376,49 @@ fn encode_rgba_as_png(
     Ok(result_file_buffer)
 }
 
+fn draw_tile(
+    data: Vec<u8>,
+    components_count: u32,
+    nodata: Option<u8>,
+    (data_width, data_height): (u32, u32),
+    (target_width, target_height): (u32, u32),
+    (offset_x, offset_y): (i64, i64),
+    target: &mut Vec<u8>,
+) {
+    let add_alpha = components_count != 4;
+    for row in 0..data_height {
+        'outer: for col in 0..data_width {
+            let idx_chunk = row * data_width * components_count + col * components_count;
+            // 计算目标位置
+            let target_row = row as i64 + offset_y;
+            let target_col = col as i64 + offset_x;
+            // 边界检查
+            if target_row < 0
+                || target_col < 0
+                || target_row >= target_height as i64
+                || target_col >= target_width as i64
+            {
+                continue 'outer;
+            }
+
+            let idx_result = target_row * target_width as i64 * 4 + target_col * 4;
+            for component_idx in 0..components_count {
+                let value = data[(idx_chunk + component_idx) as usize];
+                if let Some(v) = nodata {
+                    if value == v {
+                        continue 'outer;
+                    }
+                }
+                // Copy this component to the result vector
+                target[(idx_result + component_idx as i64) as usize] = value;
+            }
+            if add_alpha {
+                target[(idx_result + 3) as usize] = 255; // opaque
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -213,8 +432,12 @@ mod tests {
     fn can_calc_tile_idx() {
         let image = Image {
             ifd_index: 0,
+            origin: [0.0, 0.0, 0.0],
+            extent: [0.0, 0.0, 0.0, 0.0],
             tiles_across: 3,
             tiles_down: 3,
+            resolution: (1.0, 1.0),
+            tile_size: (256, 256),
         };
         assert_eq!(
             Some(0),
