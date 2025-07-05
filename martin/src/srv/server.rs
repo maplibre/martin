@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
+use actix_web::middleware::{Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt;
@@ -205,14 +206,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "metrics")]
         let app = app.wrap(prometheus.clone());
 
-        let app = app.wrap(middleware::Logger::default());
-
-        #[cfg(feature = "metrics")]
-        let app = app.wrap(middleware::NormalizePath::new(
-            middleware::TrailingSlash::MergeOnly,
-        ));
-
-        app.configure(|c| router(c, &config))
+        app.wrap(Logger::default())
+            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+            .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
