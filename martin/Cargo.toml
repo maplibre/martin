@@ -52,11 +52,12 @@ name = "bench"
 harness = false
 
 [features]
-default = ["cog", "fonts", "lambda", "mbtiles", "pmtiles", "postgres", "sprites", "styles", "webui"]
+default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
 cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
+metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:pmtiles"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
@@ -68,6 +69,7 @@ actix-cors.workspace = true
 actix-http.workspace = true
 actix-middleware-etag.workspace = true
 actix-rt.workspace = true
+actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
