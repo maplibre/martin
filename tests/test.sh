@@ -475,7 +475,6 @@ test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overp
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
-
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test martin-cp"
 

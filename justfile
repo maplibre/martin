@@ -88,11 +88,10 @@ check:
     cargo check --all-targets -p mbtiles --no-default-features
     cargo check --all-targets -p martin
     cargo check --all-targets -p martin --no-default-features
-    cargo check --all-targets -p martin --no-default-features --features fonts
-    cargo check --all-targets -p martin --no-default-features --features mbtiles
-    cargo check --all-targets -p martin --no-default-features --features pmtiles
-    cargo check --all-targets -p martin --no-default-features --features postgres
-    cargo check --all-targets -p martin --no-default-features --features sprites
+    for feature in $({{just_executable()}} get-features); do \
+        echo "Checking '$feature' feature" >&2 ;\
+        cargo check --all-targets -p martin --no-default-features --features $feature ;\
+    done
 
 # Verify doc build
 check-doc:
@@ -187,6 +186,10 @@ fmt-md:
 # Reformat all SQL files using docker
 fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
+
+# Get all testable features of the main crate as space-separated list
+get-features:
+    cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
