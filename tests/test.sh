@@ -98,6 +98,20 @@ test_jsn() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_metrics() {
+  FILENAME="$TEST_OUT_DIR/$1"
+  URL="$MARTIN_URL/_/metrics"
+
+  echo "Testing $1 from $URL"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  clean_headers_dump "$FILENAME.headers"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  clean_headers_dump "$FILENAME.fetched_with_compression.headers"
+  # due to slight timing differences, these might be slightly different
+  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
+}
+
 test_pbf() {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
@@ -467,6 +481,8 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  fnc_Mixed_Name
+
+test_metrics "metrics_1"
 
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
