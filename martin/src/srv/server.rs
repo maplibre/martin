@@ -8,6 +8,7 @@ use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::{Compress, Condition, Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, route, web};
+use actix_web_prom::PrometheusMetricsBuilder;
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
@@ -23,7 +24,6 @@ use crate::source::TileCatalog;
 use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
-use actix_web_prom::PrometheusMetricsBuilder;
 
 #[cfg(feature = "webui")]
 mod webui {
