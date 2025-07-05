@@ -10,6 +10,9 @@ import type { Style } from "@/lib/types";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { CopyLinkButton } from "../ui/copy-link-button";
+import 'maplibre-gl/dist/maplibre-gl.css';
+import {Map as MapLibreMap} from '@vis.gl/react-maplibre';
+import {useState} from "react"
 
 interface StylesCatalogProps {
   styles?: { [name: string]: Style };
@@ -30,6 +33,11 @@ export function StylesCatalog({
   onRetry,
   isRetrying = false,
 }: StylesCatalogProps) {
+  const [viewState, setViewState] = useState({
+    longitude: -100,
+    latitude: 40,
+    zoom: 3.5
+  });
   if (isLoading) {
     return (
       <CatalogSkeleton
@@ -95,28 +103,19 @@ export function StylesCatalog({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <Tooltip>
-                  <TooltipTrigger asChild  className="cursor-help">
-                    <div
-                      aria-label="Map style preview"
-                      className="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
-                    >
-                      <div className="absolute inset-0 opacity-20">
-                        <div
-                          className="w-full h-full bg-gradient-to-r"
-                          style={{
-                            background:
-                              "linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0)",
-                          }}
-                        ></div>
-                      </div>
-                      <Map className="w-8 h-8 text-gray-600 z-10" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Not currently implemented in the frontend</p>
-                  </TooltipContent>
-                </Tooltip>
+                <MapLibreMap
+                    reuseMaps
+                    {...viewState}
+                    onMove={evt => setViewState(evt.viewState)}
+                    style={{
+                      width: "100%",
+                      aspectRatio: 16/9,
+                      borderRadius: "var(--radius)",
+                      backgroundImage: "linear-gradient(to bottom right, var(--tw-gradient-stops))",
+                      backgroundColor: "#E5E7EB",
+                    }}
+                    mapStyle={`/styles/${name}`}
+                  />
                 <div className="space-y-2 text-sm text-muted-foreground">
                   {style.versionHash && (
                     <div className="flex justify-between">
