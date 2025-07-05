@@ -53,7 +53,7 @@ harness = false
 
 [features]
 default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
-cog = ["dep:tiff", "dep:png"]
+cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
@@ -117,8 +117,8 @@ walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [build-dependencies]
-walkdir = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
+walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
@@ -129,8 +129,8 @@ indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 pprof.workspace = true
 rstest.workspace = true
-testcontainers-modules.workspace = true
 tempfile.workspace = true
+testcontainers-modules.workspace = true
 
 [lints]
 workspace = true
