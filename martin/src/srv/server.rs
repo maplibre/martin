@@ -154,7 +154,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     #[cfg(feature = "metrics")]
     let prometheus = actix_web_prom::PrometheusMetricsBuilder::new("martin")
         .endpoint("/_/metrics")
-        .mask_unmatched_patterns("UNKNOWN") // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
+        // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
+        .mask_unmatched_patterns("UNKNOWN")
         .const_labels(
             config
                 .observability
