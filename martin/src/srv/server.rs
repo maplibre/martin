@@ -5,10 +5,8 @@ use std::time::Duration;
 
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::{Compress, Condition, Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
-use actix_web::{App, HttpResponse, HttpServer, Responder, route, web};
-use actix_web_prom::PrometheusMetricsBuilder;
+use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
@@ -105,7 +103,7 @@ async fn get_health() -> impl Responder {
     "/catalog",
     method = "GET",
     method = "HEAD",
-    wrap = "Compress::default()"
+    wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
@@ -152,11 +150,19 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
-    let observability_config = config.observability.clone().unwrap_or_default();
-    let prometheus = PrometheusMetricsBuilder::new("martin")
+    #[cfg(feature = "metrics")]
+    let prometheus = actix_web_prom::PrometheusMetricsBuilder::new("martin")
         .endpoint("/_/metrics")
         .mask_unmatched_patterns("UNKNOWN") // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
-        .const_labels(observability_config.metrics.unwrap_or_default().add_labels)
+        .const_labels(
+            config
+                .observability
+                .clone()
+                .unwrap_or_default()
+                .metrics
+                .unwrap_or_default()
+                .add_labels,
+        )
         .build()?;
     let catalog = Catalog::new(&state)?;
 
@@ -191,14 +197,22 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .app_data(Data::new(catalog.clone()))
             .app_data(Data::new(config.clone()));
 
-        app.wrap(Condition::new(
+        let app = app.wrap(middleware::Condition::new(
             cors_middleware.is_some(),
             cors_middleware.unwrap_or_default(),
-        ))
-        .wrap(prometheus.clone())
-        .wrap(Logger::default())
-        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-        .configure(|c| router(c, &config))
+        ));
+
+        #[cfg(feature = "metrics")]
+        let app = app.wrap(prometheus.clone());
+
+        let app = app.wrap(middleware::Logger::default());
+
+        #[cfg(feature = "metrics")]
+        let app = app.wrap(middleware::NormalizePath::new(
+            middleware::TrailingSlash::MergeOnly,
+        ));
+
+        app.configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]

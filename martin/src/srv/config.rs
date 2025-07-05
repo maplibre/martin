@@ -1,3 +1,4 @@
+#[cfg(feature = "metrics")]
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -20,10 +21,12 @@ pub struct SrvConfig {
     pub web_ui: Option<crate::args::WebUiMode>,
     pub cors: Option<CorsConfig>,
     /// Advanced monitoring options
+    #[cfg(feature = "metrics")]
     pub observability: Option<ObservabilityConfig>,
 }
 
 /// More advanced monitoring montoring options
+#[cfg(feature = "metrics")]
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct ObservabilityConfig {
@@ -32,6 +35,7 @@ pub struct ObservabilityConfig {
 }
 
 /// Configure metrics reported under `/_/metrics`
+#[cfg(feature = "metrics")]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct MetricsConfig {
     /// Add these labels to every metric
