@@ -872,6 +872,14 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
+# Advanced monitoring options
+observability:
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
+
 # CORS Configuration
 #
 # Defaults to `cors: true`, which allows all origins.
@@ -1518,6 +1526,7 @@ fonts:
 <tr><td><code>/font/{font1},…,{fontN}/{start}-{end}</code></td><td><a href="sources-fonts.html">Composite Font source</a></td></tr>
 <tr><td><code>/style/{style}</code></td><td><a href="sources-styles.html">Style source</a></td></tr>
 <tr><td><code>/health</code></td><td>Martin server health check: returns 200 <code>OK</code></td></tr>
+<tr><td><code>/_/metrics</code></td><td>Martin server Prometheus metrics</td></tr>
 </tbody></table>
 </div>
 <h3 id="duplicate-source-id"><a class="header" href="#duplicate-source-id">Duplicate Source ID</a></h3>
