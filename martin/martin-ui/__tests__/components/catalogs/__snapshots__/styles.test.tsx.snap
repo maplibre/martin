@@ -81,37 +81,10 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
           <div
             class="space-y-4"
           >
-            <div>
-              <div
-                data-testid="tooltip-trigger"
-              >
-                <div
-                  aria-label="Map style preview"
-                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
-                >
-                  <div
-                    class="absolute inset-0 opacity-20"
-                  >
-                    <div
-                      class="w-full h-full bg-gradient-to-r"
-                      style="background: linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0);"
-                    />
-                  </div>
-                  <div
-                    data-testid="map-icon"
-                  >
-                    Map
-                  </div>
-                </div>
-              </div>
-              <div
-                data-testid="tooltip-content"
-              >
-                <p>
-                  Not currently implemented in the frontend
-                </p>
-              </div>
-            </div>
+            <div
+              data-testid="maplibre-map"
+              style="width: 100%; aspect-ratio: 1.7777777777777777; border-radius: var(--radius); background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)); background-color: rgb(229, 231, 235);"
+            />
             <div
               class="space-y-2 text-sm text-muted-foreground"
             >
@@ -249,37 +222,10 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
           <div
             class="space-y-4"
           >
-            <div>
-              <div
-                data-testid="tooltip-trigger"
-              >
-                <div
-                  aria-label="Map style preview"
-                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
-                >
-                  <div
-                    class="absolute inset-0 opacity-20"
-                  >
-                    <div
-                      class="w-full h-full bg-gradient-to-r"
-                      style="background: linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0);"
-                    />
-                  </div>
-                  <div
-                    data-testid="map-icon"
-                  >
-                    Map
-                  </div>
-                </div>
-              </div>
-              <div
-                data-testid="tooltip-content"
-              >
-                <p>
-                  Not currently implemented in the frontend
-                </p>
-              </div>
-            </div>
+            <div
+              data-testid="maplibre-map"
+              style="width: 100%; aspect-ratio: 1.7777777777777777; border-radius: var(--radius); background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)); background-color: rgb(229, 231, 235);"
+            />
             <div
               class="space-y-2 text-sm text-muted-foreground"
             >
@@ -390,37 +336,10 @@ exports[`StylesCatalog Component matches snapshot for loaded state with mock dat
           <div
             class="space-y-4"
           >
-            <div>
-              <div
-                data-testid="tooltip-trigger"
-              >
-                <div
-                  aria-label="Map style preview"
-                  class="p-3 aspect-video rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden"
-                >
-                  <div
-                    class="absolute inset-0 opacity-20"
-                  >
-                    <div
-                      class="w-full h-full bg-gradient-to-r"
-                      style="background: linear-gradient(45deg, hsl(271, 81%, 56%), #f699cd, #ffc0cb, #1565c0);"
-                    />
-                  </div>
-                  <div
-                    data-testid="map-icon"
-                  >
-                    Map
-                  </div>
-                </div>
-              </div>
-              <div
-                data-testid="tooltip-content"
-              >
-                <p>
-                  Not currently implemented in the frontend
-                </p>
-              </div>
-            </div>
+            <div
+              data-testid="maplibre-map"
+              style="width: 100%; aspect-ratio: 1.7777777777777777; border-radius: var(--radius); background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)); background-color: rgb(229, 231, 235);"
+            />
             <div
               class="space-y-2 text-sm text-muted-foreground"
             />

@@ -17,16 +17,19 @@ export function Header() {
         <div className="flex h-20 items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link className="items-center flex" href="/">
-              {theme ?
-              <Image
-                alt="Martin Logo"
-                className="-mt-5 -rotate-6"
-                height={48}
-                priority
-                src={`/logo_martin-${theme}.svg`}
-                title="Martin Tile Server"
-                width={96}
-              />:<Skeleton className="h-12 w-24" />}
+              {theme ? (
+                <Image
+                  alt="Martin Logo"
+                  className="-mt-5 -rotate-6"
+                  height={48}
+                  priority
+                  src={`/logo_martin-${theme}.svg`}
+                  title="Martin Tile Server"
+                  width={96}
+                />
+              ) : (
+                <Skeleton className="h-12 w-24" />
+              )}
               <h1 className="text-3xl -ms-2 font-bold leading-relaxed text-foreground select-none">
                 MARTIN
               </h1>

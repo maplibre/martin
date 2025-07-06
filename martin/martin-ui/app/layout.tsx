@@ -4,6 +4,7 @@ import { Roboto } from "next/font/google";
 import type React from "react";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
+import { Header } from "@/components/header";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const roboto = Roboto({ subsets: ["latin"] });
@@ -24,7 +25,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
           enableSystem
         >
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <div className="min-h-screen bg-background">
+              <Header />
+              {children}
+            </div>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

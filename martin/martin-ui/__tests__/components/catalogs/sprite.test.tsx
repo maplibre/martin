@@ -55,7 +55,6 @@ jest.mock("@/components/catalogs/sprite", () => {
               <div data-testid="card-content">
                 <div>{sprite.sizeInBytes / 1000} KB</div>
                 <button
-                  disabled={props.isLoadingSprites}
                   onClick={() => props.onPreviewClick && props.onPreviewClick(name)}
                 >
                   <div data-testid="eye-icon">Eye</div>
@@ -237,7 +236,6 @@ describe("SpriteCatalog Component", () => {
   const defaultProps = {
     error: null,
     isLoading: false,
-    isLoadingSprites: false,
     onDownloadClick: jest.fn(),
     onPreviewClick: jest.fn(),
     onSearchChangeAction: jest.fn(),
@@ -360,13 +358,11 @@ describe("SpriteCatalog Component", () => {
     expect(eyeIcons.length).toBe(3);
   });
 
-  it("disables preview button when isLoadingSprites is true", () => {
-    render(<SpriteCatalog {...defaultProps} isLoadingSprites={true} />);
+  it("renders preview buttons correctly", () => {
+    render(<SpriteCatalog {...defaultProps} />);
 
-    // All preview buttons should be disabled
+    // All preview buttons should be rendered
     const previewButtons = screen.getAllByText("Preview");
-    previewButtons.forEach((button) => {
-      expect(button.closest("button")).toBeDisabled();
-    });
+    expect(previewButtons.length).toBe(3);
   });
 });

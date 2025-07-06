@@ -95,6 +95,18 @@ jest.mock("lucide-react", () => ({
   Search: () => <div data-testid="search-icon">Search</div>,
 }));
 
+// Mock MapLibre to avoid dynamic import issues
+jest.mock("@vis.gl/react-maplibre", () => ({
+  Map: ({ children, ...props }: any) => (
+    <div data-testid="maplibre-map" style={props.style}>
+      {children}
+    </div>
+  ),
+}));
+
+// Mock maplibre-gl CSS import
+jest.mock("maplibre-gl/dist/maplibre-gl.css", () => ({}));
+
 describe("StylesCatalog Component", () => {
   const mockStyles: { [name: string]: Style } = {
     "Basic Style": {
@@ -243,11 +255,11 @@ describe("StylesCatalog Component", () => {
 
     // Check that not implemented buttons have a tooltip
     const mapPreviews = screen.getAllByTestId("tooltip-trigger");
-    expect(mapPreviews.length).toBe(6);
+    expect(mapPreviews.length).toBe(3);
 
-    // Each map preview should contain a map icon
-    const mapIcons = screen.getAllByTestId("map-icon");
-    expect(mapIcons.length).toBe(3);
+    // Each preview button should contain an eye icon
+    const eyeIcons = screen.getAllByTestId("eye-icon");
+    expect(eyeIcons.length).toBe(3);
   });
 
   it("renders copy link and preview buttons for each style", () => {

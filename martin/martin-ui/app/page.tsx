@@ -1,21 +1,12 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { type ErrorInfo, useCallback, useEffect } from "react";
+import { Suspense, useCallback, useEffect } from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
-import { FontCatalog } from "@/components/catalogs/font";
-import { SpriteCatalog } from "@/components/catalogs/sprite";
-import { StylesCatalog } from "@/components/catalogs/styles";
-import { TilesCatalog } from "@/components/catalogs/tiles";
-import { ErrorBoundary } from "@/components/error/error-boundary";
-import { Header } from "@/components/header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Toaster } from "@/components/ui/toaster";
+import { DashboardContent } from "@/components/dashboard-content";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
-import { useToast } from "@/hooks/use-toast";
-import { getMartinMockAnalytics, getMartinMockCatalog } from "@/lib/mockResponses";
+import { getMartinMockAnalytics } from "@/lib/mockResponses";
 import { aggregateEndpointGroups, ENDPOINT_GROUPS, parsePrometheusMetrics } from "@/lib/prometheus";
-import type { AnalyticsData, CatalogSchema } from "@/lib/types";
+import type { AnalyticsData } from "@/lib/types";
 
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
   if (process.env.NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API === "true") {
@@ -41,47 +32,29 @@ const fetchAnalytics = async (): Promise<AnalyticsData> => {
   };
 };
 
-const fetchCatalog = async (): Promise<CatalogSchema> => {
-  if (process.env.NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API === "true") {
-    return getMartinMockCatalog();
-  }
+function DashboardLoading() {
+  return (
+    <div className="animate-pulse space-y-6">
+      {/* Tab navigation skeleton */}
+      <div className="grid w-full grid-cols-4 h-10 bg-gray-200 rounded"></div>
 
-  const res = await fetch("/catalog");
-  if (!res.ok) {
-    throw new Error(`Failed to fetch catalog: ${res.statusText}`);
-  }
-  return res.json();
-};
+      {/* Content skeleton */}
+      <div className="space-y-4">
+        <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+        <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MartinTileserverDashboard() {
-  const { toast } = useToast();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const searchQuery = searchParams.get("search") || "";
-  // Update search param in URL, preserving tab and other params
-  const setSearchQuery = (query: string) => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
-    if (query) {
-      params.set("search", query);
-    } else {
-      params.delete("search");
-    }
-    router.replace(`?${params.toString()}`, { scroll: false });
-  };
-
-  const handleTabChange = (value: string) => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
-    params.set("tab", value);
-    router.replace(`?${params.toString()}`, { scroll: false });
-  };
-
   const handleAnalyticsError = useCallback((error: Error) => {
     console.error("Analytics fetch failed:", error);
-  }, []);
-
-  const handleCatalogError = useCallback((error: Error) => {
-    console.error("Catalog fetch failed:", error);
   }, []);
 
   // Analytics operation
@@ -90,101 +63,23 @@ export default function MartinTileserverDashboard() {
     showErrorToast: false,
   });
 
-  // Catalog operation - unified data fetching
-  const catalogOperation = useAsyncOperation<CatalogSchema>(fetchCatalog, {
-    onError: handleCatalogError,
-    showErrorToast: false,
-  });
-
-  // Load initial data
+  // Load analytics data
   useEffect(() => {
     analyticsOperation.execute();
-    catalogOperation.execute();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analyticsOperation.execute, catalogOperation.execute]);
+  }, [analyticsOperation.execute]);
 
   return (
-    <ErrorBoundary
-      onError={(error: Error, errorInfo: ErrorInfo) => {
-        console.error("Application error:", error, errorInfo);
-        toast({
-          description: "An unexpected error occurred. The page will reload automatically.",
-          title: "Application Error",
-          variant: "destructive",
-        });
+    <div className="container mx-auto px-6 py-8">
+      <AnalyticsSection
+        analytics={analyticsOperation.data}
+        error={analyticsOperation.error}
+        isLoading={analyticsOperation.isLoading}
+      />
 
-        // Auto-reload after 3 seconds
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
-      }}
-    >
-      <div className="min-h-screen bg-background">
-        <Header />
-
-        <div className="container mx-auto px-6 py-8">
-          <AnalyticsSection
-            analytics={analyticsOperation.data}
-            error={analyticsOperation.error}
-            isLoading={analyticsOperation.isLoading}
-          />
-
-          <Tabs
-            className="space-y-6"
-            onValueChange={handleTabChange}
-            value={searchParams.get("tab") || "tiles"}
-          >
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="tiles">Data Catalog</TabsTrigger>
-              <TabsTrigger value="styles">Styles Catalog</TabsTrigger>
-              <TabsTrigger value="fonts">Font Catalog</TabsTrigger>
-              <TabsTrigger value="sprites">Sprite Catalog</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="tiles">
-              <TilesCatalog
-                error={catalogOperation.error}
-                isLoading={catalogOperation.isLoading}
-                onSearchChangeAction={setSearchQuery}
-                searchQuery={searchQuery}
-                tileSources={catalogOperation.data?.tiles}
-              />
-            </TabsContent>
-
-            <TabsContent value="styles">
-              <StylesCatalog
-                error={catalogOperation.error}
-                isLoading={catalogOperation.isLoading}
-                onSearchChangeAction={setSearchQuery}
-                searchQuery={searchQuery}
-                styles={catalogOperation.data?.styles}
-              />
-            </TabsContent>
-
-            <TabsContent value="fonts">
-              <FontCatalog
-                error={catalogOperation.error}
-                fonts={catalogOperation.data?.fonts}
-                isLoading={catalogOperation.isLoading}
-                onSearchChangeAction={setSearchQuery}
-                searchQuery={searchQuery}
-              />
-            </TabsContent>
-
-            <TabsContent value="sprites">
-              <SpriteCatalog
-                error={catalogOperation.error}
-                isLoading={catalogOperation.isLoading}
-                onSearchChangeAction={setSearchQuery}
-                searchQuery={searchQuery}
-                spriteCollections={catalogOperation.data?.sprites}
-              />
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        <Toaster />
-      </div>
-    </ErrorBoundary>
+      <Suspense fallback={<DashboardLoading />}>
+        <DashboardContent />
+      </Suspense>
+    </div>
   );
 }

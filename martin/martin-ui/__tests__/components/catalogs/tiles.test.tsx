@@ -33,7 +33,12 @@ jest.mock("@/components/ui/tooltip", () => ({
 }));
 
 jest.mock("@/components/ui/button", () => ({
-  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+  Button: ({ asChild, children, ...props }: any) => {
+    if (asChild) {
+      return children;
+    }
+    return <button {...props}>{children}</button>;
+  },
 }));
 
 jest.mock("@/components/ui/badge", () => ({
