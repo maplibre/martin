@@ -3,7 +3,7 @@
  * Uses NEXT_PUBLIC_MARTIN_BASE environment variable if set, otherwise defaults to current origin
  */
 export function getMartinBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_MARTIN_BASE ?? window.location.origin ?? ""
+  return process.env.NEXT_PUBLIC_MARTIN_BASE ?? window.location.origin ?? "";
 }
 
 /**

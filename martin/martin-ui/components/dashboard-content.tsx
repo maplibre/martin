@@ -12,14 +12,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
 import { useToast } from "@/hooks/use-toast";
 import { buildMartinUrl } from "@/lib/api";
-import { getMartinMockCatalog } from "@/lib/mockResponses";
 import type { CatalogSchema } from "@/lib/types";
 
 const fetchCatalog = async (): Promise<CatalogSchema> => {
-  if (process.env.NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API === "true") {
-    return getMartinMockCatalog();
-  }
-
   const res = await fetch(buildMartinUrl("/catalog"));
   if (!res.ok) {
     throw new Error(`Failed to fetch catalog: ${res.statusText}`);

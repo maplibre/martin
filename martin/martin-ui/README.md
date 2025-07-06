@@ -7,7 +7,6 @@ A web interface for previewing tiles served by Martin.
 | Variable                             | Description                | Default     |
 |--------------------------------------|----------------------------|-------------|
 | `NEXT_PUBLIC_MARTIN_BASE`            | Martin API base URL        | UI origin   |
-| `NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API` | Enable mock API            | `false`     |
 | `NEXT_PUBLIC_MARTIN_VERSION`         | App version                | `dev`       |
 
 ## Configuration
@@ -28,5 +27,5 @@ npm i
 npm run dev
 ```
 
-> [!TIP]
-> Since the UI is served on port `:3001`, you will need to change either `NEXT_PUBLIC_MARTIN_BASE` or `NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API`
+> [!IMPORTANT]
+> Since the UI is served on port `:3001`, you will need to change `NEXT_PUBLIC_MARTIN_BASE` to point to your Martin instance
