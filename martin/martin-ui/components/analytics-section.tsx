@@ -14,14 +14,14 @@ interface AnalyticsSectionProps {
 
 const CARD_CONFIG = [
   {
-    icon: Image,
-    key: "sprites",
-    title: "Sprites",
-  },
-  {
     icon: Layers,
     key: "tiles",
     title: "Tiles",
+  },
+  {
+    icon: Palette,
+    key: "styles",
+    title: "Styles",
   },
   {
     icon: Type,
@@ -29,9 +29,9 @@ const CARD_CONFIG = [
     title: "Fonts",
   },
   {
-    icon: Palette,
-    key: "styles",
-    title: "Styles",
+    icon: Image,
+    key: "sprites",
+    title: "Sprites",
   },
 ] as const;
 
