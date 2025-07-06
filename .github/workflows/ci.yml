@@ -100,7 +100,7 @@ jobs:
       - name: Build ${{ matrix.target }}
         run: |
           export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-          cargo zigbuild build --release --target ${{ matrix.target }} --workspace
+          cargo zigbuild --release --target ${{ matrix.target }} --workspace --locked
 
       - name: Move the artefacts to the expected place
         run: |
@@ -370,8 +370,8 @@ jobs:
           set -x
           rustup target add "${{ matrix.target }}"
           export RUSTFLAGS='-C strip=debuginfo'
-          cargo build --release --target ${{ matrix.target }} --package mbtiles
-          cargo build --release --target ${{ matrix.target }} --package martin
+          cargo build --release --target ${{ matrix.target }} --package mbtiles --locked
+          cargo build --release --target ${{ matrix.target }} --package martin --locked
           mkdir -p target_releases
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
