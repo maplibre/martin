@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { buildMartinUrl } from "@/lib/api";
 import type { SpriteCollection } from "@/lib/types";
 
 interface SpriteDownloadDialogProps {
@@ -38,17 +39,17 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
     {
       description: "Sprite coordinates and metadata",
       label: "PNG JSON",
-      url: `/sprites/${name}.json`,
+      url: buildMartinUrl(`/sprite/${name}.json`),
     },
     {
       description: "Standard sprite format with full color support",
       label: "PNG Spritesheet",
-      url: `/sprite/${name}.png`,
+      url: buildMartinUrl(`/sprite/${name}.png`),
     },
     {
       description: "High resolution sprites for retina displays",
       label: "High DPI PNG Spritesheet",
-      url: `/sprite/${name}@2x.png`,
+      url: buildMartinUrl(`/sprite/${name}@2x.png`),
     },
   ];
 
@@ -56,25 +57,23 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
     {
       description: "For runtime coloring with single color",
       label: "SDF Spritesheet",
-      url: `/sdf_sprite/${name}.png`,
+      url: buildMartinUrl(`/sdf_sprite/${name}.png`),
     },
     {
       description: "SDF sprite coordinates and metadata",
       label: "SDF JSON",
-      url: `/sdf_sprite/${name}.json`,
+      url: buildMartinUrl(`/sdf_sprite/${name}.json`),
     },
     {
       description: "High resolution sprites for retina displays",
       label: "High DPI SDF Spritesheet",
-      url: `/sdf_sprite/${name}@2x.png`,
+      url: buildMartinUrl(`/sdf_sprite/${name}@2x.png`),
     },
   ];
 
   const handleCopyUrl = async (url: string, label: string) => {
     try {
-      // In a real application, this would be the full URL
-      const fullUrl = `${window.location.origin}${url}`;
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(url);
 
       setCopiedUrl(url);
       toast({

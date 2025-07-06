@@ -16,6 +16,7 @@ import { Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
 import type { MapRef } from '@vis.gl/react-maplibre';
 import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
 import {Popup} from 'maplibre-gl';
+import { buildMartinUrl } from "@/lib/api";
 
 interface TileInspectDialogProps {
   name: string;
@@ -91,7 +92,7 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
             >
               <Source
                 type="vector"
-                url={`/${name}`}
+                url={buildMartinUrl(`/${name}`)}
               />
             </MapLibreMap>
           </div>

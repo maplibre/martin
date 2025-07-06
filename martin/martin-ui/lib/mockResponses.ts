@@ -375,7 +375,7 @@ export function getMartinMockCatalog(): CatalogSchema {
         ],
       },
     },
-    styles: { "navigatum-basemap": { path: "map/navigatum-basemap.json" } },
+    styles: { "navigatum-basemap": { path: "/map-styles/navigatum-basemap.json" } },
     tiles: {
       indoor_nodes: {
         content_type: "application/x-protobuf",

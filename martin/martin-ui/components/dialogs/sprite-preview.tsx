@@ -14,6 +14,7 @@ import {
 import type { SpriteCollection } from "@/lib/types";
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
+import { buildMartinUrl } from "@/lib/api";
 
 // Dynamically import SpritePreview to avoid SSR issues with window/Image
 const SpritePreview = dynamic(() => import("../sprite/SpritePreview"), { ssr: false, loading: () => <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div> });
@@ -54,7 +55,7 @@ export function SpritePreviewDialog({
             </DialogHeader>
             <div className="pace-y-4 bg-gray-50 rounded-lg text-gray-900">
               <SpritePreview
-                spriteUrl={`/sprite/${name}`}
+                spriteUrl={buildMartinUrl(`/sprite/${name}`)}
                 spriteIds={sprite.images}
                 className="w-full grid grid-cols-6 gap-4"
               />

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect } from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import { DashboardContent } from "@/components/dashboard-content";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
+import { buildMartinUrl } from "@/lib/api";
 import { getMartinMockAnalytics } from "@/lib/mockResponses";
 import { aggregateEndpointGroups, ENDPOINT_GROUPS, parsePrometheusMetrics } from "@/lib/prometheus";
 import type { AnalyticsData } from "@/lib/types";
@@ -13,7 +14,7 @@ const fetchAnalytics = async (): Promise<AnalyticsData> => {
     return getMartinMockAnalytics();
   }
 
-  const res = await fetch("/_/metrics", {
+  const res = await fetch(buildMartinUrl("/_/metrics"), {
     headers: {
       "Accept-Encoding": "identity",
     },

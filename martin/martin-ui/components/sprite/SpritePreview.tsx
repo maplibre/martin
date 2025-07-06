@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchSpriteImage, fetchSpriteIndex, SpriteMeta, SpriteIndex } from "./SpriteCache";
 import SpriteCanvas from "./SpriteCanvas";
 import { cn } from "@/lib/utils";
+import { buildMartinUrl } from "@/lib/api";
 
 type SpritePreviewProps = {
   /**
@@ -47,8 +48,8 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
       try {
         // we always use @2x high-DPI assets since we display them a little larger than one would on a map
         const [index, image] = await Promise.all([
-          fetchSpriteIndex(`${spriteUrl}@2x.json`),
-          fetchSpriteImage(`${spriteUrl}@2x.png`),
+          fetchSpriteIndex(buildMartinUrl(`${spriteUrl}@2x.json`)),
+          fetchSpriteImage(buildMartinUrl(`${spriteUrl}@2x.png`)),
         ]);
         if (cancelled) return;
 

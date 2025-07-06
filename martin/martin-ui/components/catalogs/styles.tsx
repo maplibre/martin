@@ -10,6 +10,7 @@ import type { Style } from "@/lib/types";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { CopyLinkButton } from "../ui/copy-link-button";
+import { buildMartinUrl } from "@/lib/api";
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Map as MapLibreMap} from '@vis.gl/react-maplibre';
 import {useState} from "react"
@@ -114,7 +115,7 @@ export function StylesCatalog({
                       backgroundImage: "linear-gradient(to bottom right, var(--tw-gradient-stops))",
                       backgroundColor: "#E5E7EB",
                     }}
-                    mapStyle={`/styles/${name}`}
+                    mapStyle={buildMartinUrl(`/style/${name}`)}
                   />
                 <div className="space-y-2 text-sm text-muted-foreground">
                   {style.versionHash && (
@@ -156,7 +157,7 @@ export function StylesCatalog({
                     className="flex-1 bg-transparent"
                     size="sm"
                     variant="outline"
-                    link={`/style/${name}`}
+                    link={buildMartinUrl(`/style/${name}`)}
                     toastMessage="Style link copied!"
                   />
 

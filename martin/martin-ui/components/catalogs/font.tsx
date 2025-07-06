@@ -11,6 +11,7 @@ import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { CopyLinkButton } from "../ui/copy-link-button";
 import { useToast } from "../ui/use-toast";
+import { buildMartinUrl } from "@/lib/api";
 
 interface FontCatalogProps {
   fonts?: { [name: string]: Font };
@@ -123,7 +124,7 @@ export function FontCatalog({
                     className="flex-1 bg-transparent"
                     size="sm"
                     variant="outline"
-                    link={`/font/${name}/{range}`}
+                    link={buildMartinUrl(`/font/${name}/{range}`)}
                     toastMessage="Font link copied!"
                   />
                   <Tooltip>
