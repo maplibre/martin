@@ -89,22 +89,18 @@ jobs:
         with:
           set-safe-directory: false
       - uses: taiki-e/install-action@v2
-        with: { tool: cross }
+        with: { tool: cargo-zigbuild }
+      - name: Install zig
+        uses: korandoru/setup-zig@v1
+        with:
+          zig-version: 0.14.0
+      - run: rustup target add ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        # https://github.com/docker/setup-qemu-action
-        with:
-          platforms: linux/amd64,linux/arm64
-
       - name: Build ${{ matrix.target }}
         run: |
-          # See https://github.com/cross-rs/cross/issues/1526
-          # TODO: Remove this once a version after cross 0.2.5 is released
-          export CROSS_BUILD_OPTS="--output=type=docker"
           export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-          cross build --release --target ${{ matrix.target }} --workspace
+          cargo zigbuild build --release --target ${{ matrix.target }} --workspace
 
       - name: Move the artefacts to the expected place
         run: |
