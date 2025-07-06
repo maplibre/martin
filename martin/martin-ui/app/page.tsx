@@ -59,10 +59,17 @@ export default function MartinTileserverDashboard() {
     showErrorToast: false,
   });
 
-  // Load analytics data
+  // Load analytics data and set up auto-refresh
   useEffect(() => {
+    // Initial load
     analyticsOperation.execute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    // 15-second refresh interval
+    const interval = setInterval(() => {
+      analyticsOperation.execute();
+    }, 15 * 1000);
+
+    return () => clearInterval(interval);
   }, [analyticsOperation.execute]);
 
   return (
