@@ -10,8 +10,6 @@ To run just the web interface
 npm i
 npm run dev
 ```
-We also allow you to mock the requests which would go to the server via
 
-```bash
-NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API=true npm run dev
-```
+> [!TIP]
+> Since the UI is served on port `3001`, you will need to change either `NEXT_PUBLIC_MARTIN_BASE` or `NEXT_PUBLIC_MARTIN_ENABLE_MOCK_API`
