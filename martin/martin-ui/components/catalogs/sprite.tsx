@@ -63,19 +63,8 @@ export function SpriteCatalog({
   }
 
   // Prepare preview filters outside the render loop
-  const filteredSpriteCollections = Object.entries(spriteCollections || {}).map(([name, sprite]) => {
-    const allowed = new Set(sprite.images.slice(0, 15));
-    // Attach a filter function to each sprite object for preview
-    return [
-      name,
-      {
-        ...sprite,
-        __previewFilter: (id: string) => allowed.has(id),
-      },
-    ] as [string, SpriteCollection & { __previewFilter: (id: string) => boolean }];
-  }).filter(([name]) =>
-    name.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredSpriteCollections = Object.entries(spriteCollections || {})
+    .filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <>
