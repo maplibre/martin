@@ -76,7 +76,7 @@
     "dev": "next dev -p 3001",
     "format": "biome check --write",
     "lint": "biome lint --write",
-    "start": "next start",
+    "start": "npx serve@latest out",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:update-snapshots": "jest --updateSnapshot",
