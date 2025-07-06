@@ -12,6 +12,7 @@
 .DS_Store
 .aider*
 .aws-sam/
+.env.local
 .idea/
 .vscode/
 config.yml

@@ -32,7 +32,7 @@ jest.mock("next/image", () => ({
 // Mock environment variables
 process.env = {
   ...process.env,
-  NEXT_PUBLIC_VERSION: "v0.0.0-test",
+  NEXT_PUBLIC_MARTIN_VERSION: "v0.0.0-test",
 };
 
 // Suppress console errors during tests

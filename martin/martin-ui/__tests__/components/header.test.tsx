@@ -19,7 +19,7 @@ jest.mock("next/image", () => ({
 }));
 
 // Set environment variable used in Header
-process.env.NEXT_PUBLIC_VERSION = "v0.0.0-test";
+process.env.NEXT_PUBLIC_MARTIN_VERSION = "v0.0.0-test";
 
 describe("Header Component", () => {
   beforeEach(() => {

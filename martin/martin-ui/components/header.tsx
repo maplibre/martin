@@ -37,9 +37,9 @@ export function Header() {
             <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
               <Link
                 className="p-1"
-                href={`https://github.com/maplibre/martin/releases/tag/${process.env.NEXT_PUBLIC_VERSION}`}
+                href={`https://github.com/maplibre/martin/releases/tag/${process.env.NEXT_PUBLIC_MARTIN_VERSION}`}
               >
-                {process.env.NEXT_PUBLIC_VERSION}
+                {process.env.NEXT_PUBLIC_MARTIN_VERSION}
               </Link>
             </Badge>
           </div>
