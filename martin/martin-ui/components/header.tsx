@@ -1,35 +1,20 @@
 "use client";
 
 import { BookOpen, Info } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import Logo from "@/components/logo";
 import { ThemeSwitcher } from "./theme-switcher";
-import { Skeleton } from "./ui/skeleton";
 
 export function Header() {
-  const { theme } = useTheme();
   return (
     <header className="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50">
       <div className="container mx-auto px-6">
         <div className="flex h-20 items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link className="items-center flex" href="/">
-              {theme ? (
-                <Image
-                  alt="Martin Logo"
-                  className="-mt-5 -rotate-6"
-                  height={48}
-                  priority
-                  src={`/logo_martin-${theme}.svg`}
-                  title="Martin Tile Server"
-                  width={96}
-                />
-              ) : (
-                <Skeleton className="h-12 w-24" />
-              )}
+              <Logo className="-mt-5 -rotate-6" />
               <h1 className="text-3xl -ms-2 font-bold leading-relaxed text-foreground select-none">
                 MARTIN
               </h1>
