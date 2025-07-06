@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Download, Eye, ImageIcon, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SpriteDownloadDialog } from "@/components/dialogs/sprite-download";
 import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
 import { ErrorState } from "@/components/error/error-state";
@@ -11,9 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SpriteCollection } from "@/lib/types";
 import { formatFileSize } from "@/lib/utils";
+import SpritePreview from "../sprite/SpritePreview";
 
 interface SpriteCatalogProps {
   spriteCollections?: {
@@ -22,7 +22,6 @@ interface SpriteCatalogProps {
   searchQuery?: string;
   onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
-  isLoadingSprites?: boolean; // Only used for preview, not for searching
   error?: string | Error | null;
   onRetry?: () => void;
   isRetrying?: boolean;
@@ -33,7 +32,6 @@ export function SpriteCatalog({
   searchQuery = "",
   onSearchChangeAction = () => {},
   isLoading,
-  isLoadingSprites = false,
   error = null,
   onRetry,
   isRetrying = false,
@@ -64,7 +62,18 @@ export function SpriteCatalog({
     );
   }
 
-  const filteredSpriteCollections = Object.entries(spriteCollections || {}).filter(([name]) =>
+  // Prepare preview filters outside the render loop
+  const filteredSpriteCollections = Object.entries(spriteCollections || {}).map(([name, sprite]) => {
+    const allowed = new Set(sprite.images.slice(0, 15));
+    // Attach a filter function to each sprite object for preview
+    return [
+      name,
+      {
+        ...sprite,
+        __previewFilter: (id: string) => allowed.has(id),
+      },
+    ] as [string, SpriteCollection & { __previewFilter: (id: string) => boolean }];
+  }).filter(([name]) =>
     name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
@@ -104,24 +113,13 @@ export function SpriteCatalog({
                 <div>
                   <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
                     <p className="text-sm font-medium mb-2">Icon Preview:</p>
-                    <div className="grid grid-cols-8 gap-2">
-                      {sprite.images.slice(0, 16).map((spriteID) => (
-                        <Tooltip key={spriteID}>
-                          <TooltipTrigger>
-                            <div className="w-6 h-6 animate-pulse bg-purple-200 rounded flex items-center justify-center">
-                              <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Sprite preview not currently implemented in the frontend</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                      {sprite.images.length > 16 && (
-                        <div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">
-                          +{sprite.images.length - 16}
-                        </div>
-                      )}
+                    <div className="w-full">
+                        <SpritePreview
+                          spriteUrl="https://nav.tum.de/tiles/sprite/maki,navigatum"
+                          spriteIds={sprite.images}
+                          previewMode
+                          className="w-full grid grid-cols-6 min-h-[48px]"
+                        />
                     </div>
                   </div>
                   {sprite.sizeInBytes && (
@@ -145,7 +143,6 @@ export function SpriteCatalog({
                   </Button>
                   <Button
                     className="flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
-                    disabled={isLoadingSprites}
                     onClick={() => setSelectedSprite(name)}
                     size="sm"
                     variant="default"
@@ -189,7 +186,6 @@ export function SpriteCatalog({
 
       {selectedSprite && spriteCollections && (
         <SpritePreviewDialog
-          isLoading={isLoadingSprites}
           name={selectedSprite}
           onCloseAction={() => setSelectedSprite(null)}
           onDownloadAction={() => {
