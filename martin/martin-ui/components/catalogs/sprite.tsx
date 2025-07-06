@@ -115,7 +115,7 @@ export function SpriteCatalog({
                     <p className="text-sm font-medium mb-2">Icon Preview:</p>
                     <div className="w-full">
                         <SpritePreview
-                          spriteUrl="https://nav.tum.de/tiles/sprite/maki,navigatum"
+                          spriteUrl={`/sprite/${name}`}
                           spriteIds={sprite.images}
                           previewMode
                           className="w-full grid grid-cols-6 min-h-[48px]"

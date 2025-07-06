@@ -54,7 +54,7 @@ export function SpritePreviewDialog({
             </DialogHeader>
             <div className="pace-y-4 bg-gray-50 rounded-lg text-gray-900">
               <SpritePreview
-                spriteUrl="https://nav.tum.de/tiles/sprite/maki,navigatum"
+                spriteUrl={`/sprite/${name}`}
                 spriteIds={sprite.images}
                 className="w-full grid grid-cols-6 gap-4"
               />
