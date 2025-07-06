@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import type { TileSource } from "@/lib/types";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { TileInspectDialog } from "@/components/dialogs/tile-inspect";
+import { useState } from "react";
 
 interface TilesCatalogProps {
   tileSources?: { [tile_id: string]: TileSource };
@@ -31,6 +33,7 @@ export function TilesCatalog({
   onRetry,
   isRetrying = false,
 }: TilesCatalogProps) {
+  const [selectedTileForInspection, setSelectedTileForInspection] = useState<string | null>(null);
   if (isLoading) {
     return (
       <CatalogSkeleton
@@ -121,21 +124,15 @@ export function TilesCatalog({
                   )}
                 </div>
                 <div className="flex space-x-2 mt-4">
-                  <Tooltip>
-                    <TooltipTrigger className="flex flex-1 cursor-help">
-                      <DisabledNonInteractiveButton
-                        className="flex-1 bg-transparent"
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Inspect
-                      </DisabledNonInteractiveButton>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    className="flex-1 bg-transparent"
+                    onClick={() => setSelectedTileForInspection(name)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Inspect
+                  </Button>
                   <Tooltip>
                     <TooltipTrigger className="flex flex-1 cursor-help">
                       <DisabledNonInteractiveButton className="flex-1" size="sm">
@@ -176,6 +173,14 @@ export function TilesCatalog({
             </Link>
           </Button>
         </div>
+      )}
+
+      {selectedTileForInspection && tileSources && (
+        <TileInspectDialog
+          name={selectedTileForInspection}
+          source={tileSources[selectedTileForInspection]}
+          onCloseAction={() => setSelectedTileForInspection(null)}
+        />
       )}
     </div>
   );

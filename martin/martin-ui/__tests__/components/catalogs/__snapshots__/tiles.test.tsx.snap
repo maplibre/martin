@@ -98,29 +98,17 @@ exports[`TilesCatalog Component matches snapshot for loaded state with mock data
             <div
               class="flex space-x-2 mt-4"
             >
-              <div>
-                <div>
-                  <button
-                    class="flex-1 bg-transparent"
-                    disabled=""
-                    variant="outline"
-                  >
-                    <div
-                      data-testid="eye-icon"
-                    >
-                      Eye
-                    </div>
-                    Inspect
-                  </button>
-                </div>
+              <button
+                class="flex-1 bg-transparent"
+                variant="outline"
+              >
                 <div
-                  data-testid="tooltip-content"
+                  data-testid="eye-icon"
                 >
-                  <p>
-                    Not currently implemented in the frontend
-                  </p>
+                  Eye
                 </div>
-              </div>
+                Inspect
+              </button>
               <div>
                 <div>
                   <button
@@ -205,29 +193,17 @@ exports[`TilesCatalog Component matches snapshot for loaded state with mock data
             <div
               class="flex space-x-2 mt-4"
             >
-              <div>
-                <div>
-                  <button
-                    class="flex-1 bg-transparent"
-                    disabled=""
-                    variant="outline"
-                  >
-                    <div
-                      data-testid="eye-icon"
-                    >
-                      Eye
-                    </div>
-                    Inspect
-                  </button>
-                </div>
+              <button
+                class="flex-1 bg-transparent"
+                variant="outline"
+              >
                 <div
-                  data-testid="tooltip-content"
+                  data-testid="eye-icon"
                 >
-                  <p>
-                    Not currently implemented in the frontend
-                  </p>
+                  Eye
                 </div>
-              </div>
+                Inspect
+              </button>
               <div>
                 <div>
                   <button
@@ -312,29 +288,17 @@ exports[`TilesCatalog Component matches snapshot for loaded state with mock data
             <div
               class="flex space-x-2 mt-4"
             >
-              <div>
-                <div>
-                  <button
-                    class="flex-1 bg-transparent"
-                    disabled=""
-                    variant="outline"
-                  >
-                    <div
-                      data-testid="eye-icon"
-                    >
-                      Eye
-                    </div>
-                    Inspect
-                  </button>
-                </div>
+              <button
+                class="flex-1 bg-transparent"
+                variant="outline"
+              >
                 <div
-                  data-testid="tooltip-content"
+                  data-testid="eye-icon"
                 >
-                  <p>
-                    Not currently implemented in the frontend
-                  </p>
+                  Eye
                 </div>
-              </div>
+                Inspect
+              </button>
               <div>
                 <div>
                   <button
