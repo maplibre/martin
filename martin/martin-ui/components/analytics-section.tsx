@@ -70,21 +70,20 @@ export function AnalyticsSection({
                 <Icon className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                {isLoading || !data ? (
-                  <>
-                    <Skeleton className="h-8 w-24 mb-2" />
-                    <Skeleton className="h-3 w-32" />
-                  </>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">
-                      {Math.round(data.averageRequestDurationMs)} ms
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {data.requestCount.toLocaleString()} requests
-                    </p>
-                  </>
-                )}
+                <div className="text-2xl font-bold flex flex-row gap-1">
+                  {isLoading || !data ? (
+                    <Skeleton className="h-6 w-8 flex flex-row" />
+                  ) : (
+                    Math.round(data.averageRequestDurationMs)
+                  )}{" ms"}
+                </div>
+                <p className="text-xs text-muted-foreground flex flex-row gap-1">
+                  {isLoading || !data ? (
+                    <Skeleton className="h-3 w-12" />
+                  ) : (
+                    data.requestCount.toLocaleString()
+                  )}{" requests"}
+                </p>
               </CardContent>
             </Card>
           );
