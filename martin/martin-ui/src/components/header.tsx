@@ -16,14 +16,14 @@ export function Header() {
                 MARTIN
               </h1>
             </a>
-            <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
+            {import.meta.env.VITE_MARTIN_VERSION && <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
               <a
                 className="p-1"
                 href={`https://github.com/maplibre/martin/releases/tag/${import.meta.env.VITE_MARTIN_VERSION}`}
               >
                 {import.meta.env.VITE_MARTIN_VERSION}
               </a>
-            </Badge>
+            </Badge>}
           </div>
           <div className="flex items-center space-x-6">
             <HoverCard>
