@@ -1,28 +1,26 @@
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
 import { render, screen } from "@testing-library/react";
+
+// Mock the SpritePreview component first before importing anything else
+jest.mock("@/components/sprite/SpritePreview", () => ({
+  SpritePreview: function MockSpritePreview() {
+    return (
+      <div data-testid="sprite-preview">
+        <div data-testid="sprite-item">icon1</div>
+        <div data-testid="sprite-item">icon2</div>
+        <div data-testid="sprite-item">icon3</div>
+      </div>
+    );
+  },
+}));
 
 // Mock LoadingSpinner component
 jest.mock("@/components/loading/loading-spinner", () => ({
   LoadingSpinner: () => <div data-testid="loading-spinner">Loading Spinner Mock</div>,
 }));
 
-// Mock the dynamic SpritePreview component to avoid async loading issues
-jest.mock("next/dynamic", () => {
-  return () => {
-    function MockSpritePreview() {
-      return (
-        <div data-testid="sprite-preview">
-          <div data-testid="sprite-item">icon1</div>
-          <div data-testid="sprite-item">icon2</div>
-          <div data-testid="sprite-item">icon3</div>
-        </div>
-      );
-    }
-    return MockSpritePreview;
-  };
-});
+import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
 
 describe("SpritePreviewDialog Component", () => {
   const mockSprite = {
@@ -82,11 +80,13 @@ describe("SpritePreviewDialog Component", () => {
   it("renders sprite preview component", () => {
     render(<SpritePreviewDialog {...mockProps} />);
 
-    // Check that the mocked sprite preview is rendered
-    expect(screen.getByTestId("sprite-preview")).toBeInTheDocument();
+    // Check that the sprite preview container is rendered
+    const spriteContainer = screen.getByRole("dialog");
+    expect(spriteContainer).toBeInTheDocument();
 
-    // Check that sprite items are rendered
-    const spriteItems = screen.getAllByTestId("sprite-item");
-    expect(spriteItems).toHaveLength(3);
+    // Check that sprite items are rendered (look for the actual sprite labels)
+    expect(screen.getByText("icon1")).toBeInTheDocument();
+    expect(screen.getByText("icon2")).toBeInTheDocument();
+    expect(screen.getByText("icon3")).toBeInTheDocument();
   });
 });

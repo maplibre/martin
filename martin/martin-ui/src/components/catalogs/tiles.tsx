@@ -1,6 +1,4 @@
-"use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Database, Eye, ImageIcon, Layers, Palette, Search } from "lucide-react";
 import { ErrorState } from "@/components/error/error-state";
@@ -164,13 +162,13 @@ export function TilesCatalog({
             variant="link"
             size="lg"
           >
-            <Link
+            <a
               href="https://maplibre.org/martin/sources-tiles.html"
               target="_blank"
               rel="noopener noreferrer"
             >
               Learn how to configure Tile Sources
-            </Link>
+            </a>
           </Button>
         </div>
       )}

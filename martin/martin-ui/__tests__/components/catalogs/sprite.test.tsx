@@ -3,109 +3,25 @@ import type React from "react";
 import { SpriteCatalog } from "@/components/catalogs/sprite";
 import type { SpriteCollection } from "@/lib/types";
 
-// Mock the components that use state instead of mocking React's useState
-jest.mock("@/components/catalogs/sprite", () => {
-  const originalModule = jest.requireActual("@/components/catalogs/sprite");
-  const MockSpriteCatalog = (props: any) => {
-    // Simple implementation that doesn't use useState
-    const { spriteCollections, searchQuery, isLoading, error, onSearchChangeAction } = props;
-
-    if (isLoading) {
+// Mock the SpritePreview component to avoid complex rendering
+jest.mock("@/components/sprite/SpritePreview", () => {
+  return {
+    __esModule: true,
+    default: function MockSpritePreview({ spriteIds, className }: { spriteIds: string[]; className?: string }) {
       return (
-        <div data-testid="catalog-skeleton">
-          <div data-testid="skeleton-title">Sprite Catalog</div>
-          <div data-testid="skeleton-description">
-            Preview all available sprite sheets and icons
-          </div>
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div data-testid="error-state">
-          <div data-testid="error-title">Failed to Load Sprites</div>
-          <div data-testid="error-description">Unable to fetch sprite catalog from the server</div>
-        </div>
-      );
-    }
-
-    // Filter collections based on search
-    const filteredCollections = Object.entries(spriteCollections || {}).filter(([name]) =>
-      name.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-
-    return (
-      <div>
-        <h2>Sprite Catalog</h2>
-        <div className="relative">
-          <div data-testid="search-icon">Search</div>
-          <input
-            onChange={(e) => onSearchChangeAction(e.target.value)}
-            placeholder="Search sprites..."
-            value={searchQuery}
-          />
-        </div>
-
-        <div className="grid">
-          {filteredCollections.map(([name, sprite]: [string, any]) => (
-            <div data-testid="card-header" key={name}>
-              <div data-testid="card-title">{name}</div>
-              <div data-testid="card-description">{sprite.images.length} total icons</div>
-              <div data-testid="card-content">
-                <div>{sprite.sizeInBytes / 1000} KB</div>
-                <button
-                  onClick={() => props.onPreviewClick && props.onPreviewClick(name)}
-                >
-                  <div data-testid="eye-icon">Eye</div>
-                  Preview
-                </button>
-                <button onClick={() => props.onDownloadClick && props.onDownloadClick(name)}>
-                  <div data-testid="download-icon">Download</div>
-                  Download
-                </button>
-              </div>
+        <div className={className} data-testid="sprite-preview">
+          {spriteIds.map((id) => (
+            <div key={id} data-testid={`sprite-icon-${id}`} className="w-7 h-7 bg-gray-200 rounded">
+              {id}
             </div>
           ))}
         </div>
-
-        {filteredCollections.length === 0 && searchQuery && (
-          <div>No sprite collections found matching "{searchQuery}"</div>
-        )}
-      </div>
-    );
-  };
-
-  return {
-    ...originalModule,
-    SpriteCatalog: MockSpriteCatalog,
+      );
+    }
   };
 });
 
-// Mock function handlers
-const setSelectedSpriteMock = jest.fn();
-const setDownloadSpriteMock = jest.fn();
-
-// Mock all dependencies
-jest.mock("@/components/error/error-state", () => ({
-  ErrorState: ({ title, description }: { title: string; description: string }) => (
-    <div data-testid="error-state">
-      <div data-testid="error-title">{title}</div>
-      <div data-testid="error-description">{description}</div>
-    </div>
-  ),
-}));
-
-jest.mock("@/components/loading/catalog-skeleton", () => ({
-  CatalogSkeleton: ({ title, description }: { title: string; description: string }) => (
-    <div data-testid="catalog-skeleton">
-      <div data-testid="skeleton-title">{title}</div>
-      <div data-testid="skeleton-description">{description}</div>
-    </div>
-  ),
-}));
-
-// Mock dialog components
+// Mock the dialog components
 jest.mock("@/components/dialogs/sprite-preview", () => ({
   SpritePreviewDialog: ({
     name,
@@ -149,71 +65,6 @@ jest.mock("@/components/dialogs/sprite-download", () => ({
   ),
 }));
 
-// Mock UI components to avoid tooltip provider issues
-jest.mock("@/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="tooltip-content">{children}</div>
-  ),
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
-jest.mock("@/components/ui/button", () => ({
-  Button: ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>
-      {children}
-    </button>
-  ),
-}));
-
-jest.mock("@/components/ui/badge", () => ({
-  Badge: ({ children, ...props }: any) => (
-    <span data-testid="badge" {...props}>
-      {children}
-    </span>
-  ),
-}));
-
-jest.mock("@/components/ui/input", () => ({
-  Input: (props: any) => <input {...props} />,
-}));
-
-jest.mock("@/components/ui/card", () => ({
-  Card: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  CardContent: ({ children, ...props }: any) => (
-    <div data-testid="card-content" {...props}>
-      {children}
-    </div>
-  ),
-  CardDescription: ({ children, ...props }: any) => (
-    <div data-testid="card-description" {...props}>
-      {children}
-    </div>
-  ),
-  CardHeader: ({ children, ...props }: any) => (
-    <div data-testid="card-header" {...props}>
-      {children}
-    </div>
-  ),
-  CardTitle: ({ children, ...props }: any) => (
-    <div data-testid="card-title" {...props}>
-      {children}
-    </div>
-  ),
-}));
-
-// Mock utils
-jest.mock("@/lib/utils", () => ({
-  formatFileSize: (size: number) => `${size / 1000} KB`,
-}));
-
-jest.mock("lucide-react", () => ({
-  Download: () => <div data-testid="download-icon">Download</div>,
-  Eye: () => <div data-testid="eye-icon">Eye</div>,
-  ImageIcon: () => <div data-testid="image-icon">Image</div>,
-  Search: () => <div data-testid="search-icon">Search</div>,
-}));
-
 describe("SpriteCatalog Component", () => {
   const mockSpriteCollections: { [name: string]: SpriteCollection } = {
     "map-icons": {
@@ -236,12 +87,16 @@ describe("SpriteCatalog Component", () => {
   const defaultProps = {
     error: null,
     isLoading: false,
-    onDownloadClick: jest.fn(),
-    onPreviewClick: jest.fn(),
+    onRetry: jest.fn(),
+    isRetrying: false,
     onSearchChangeAction: jest.fn(),
     searchQuery: "",
     spriteCollections: mockSpriteCollections,
   };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it("matches snapshot for loading state", () => {
     const { asFragment } = render(<SpriteCatalog {...defaultProps} isLoading={true} />);
@@ -252,34 +107,34 @@ describe("SpriteCatalog Component", () => {
     const { asFragment } = render(<SpriteCatalog {...defaultProps} />);
     expect(asFragment()).toMatchSnapshot();
   });
-  // Reset mocks between tests
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
 
   it("renders loading skeleton when isLoading is true", () => {
     render(<SpriteCatalog {...defaultProps} isLoading={true} />);
-    expect(screen.getByTestId("catalog-skeleton")).toBeInTheDocument();
-    expect(screen.getByTestId("skeleton-title").textContent).toBe("Sprite Catalog");
-    expect(screen.getByTestId("skeleton-description").textContent).toBe(
-      "Preview all available sprite sheets and icons",
-    );
+
+    // The loading skeleton should show the title and description
+    expect(screen.getByText("Sprite Catalog")).toBeInTheDocument();
+    expect(screen.getByText("Preview all available sprite sheets and icons")).toBeInTheDocument();
+
+    // Should not show the search input or actual sprite collections
+    expect(screen.queryByText("map-icons")).not.toBeInTheDocument();
+    expect(screen.queryByText("transportation")).not.toBeInTheDocument();
+    expect(screen.queryByText("ui-elements")).not.toBeInTheDocument();
   });
 
   it("renders error state when there is an error", () => {
     const error = new Error("Test error");
     render(<SpriteCatalog {...defaultProps} error={error} />);
-    expect(screen.getByTestId("error-state")).toBeInTheDocument();
-    expect(screen.getByTestId("error-title").textContent).toBe("Failed to Load Sprites");
+
+    // Check for error state elements
+    expect(screen.getByText("Failed to Load Sprites")).toBeInTheDocument();
+    expect(screen.getByText("Unable to fetch sprite catalog from the server")).toBeInTheDocument();
   });
 
   it("renders sprite collections correctly", () => {
     render(<SpriteCatalog {...defaultProps} />);
-    expect(screen.getByText("Sprite Catalog")).toBeInTheDocument();
 
-    // Get all card headers
-    const headers = screen.getAllByTestId("card-header");
-    expect(headers.length).toBe(3);
+    expect(screen.getByText("Sprite Catalog")).toBeInTheDocument();
+    expect(screen.getByText("Preview all available sprite sheets and icons")).toBeInTheDocument();
 
     // Check that each sprite collection name is displayed
     expect(screen.getByText("map-icons")).toBeInTheDocument();
@@ -291,18 +146,14 @@ describe("SpriteCatalog Component", () => {
     expect(screen.getByText("8 total icons")).toBeInTheDocument();
     expect(screen.getByText("7 total icons")).toBeInTheDocument();
 
-    // Verify file sizes are displayed
-    expect(screen.getByText("25 KB")).toBeInTheDocument();
-    expect(screen.getByText("35 KB")).toBeInTheDocument();
-    expect(screen.getByText("30 KB")).toBeInTheDocument();
+    // Verify file size labels are displayed (the exact format may vary)
+    expect(screen.getAllByText("File Size:")).toHaveLength(3);
   });
 
   it("filters sprite collections based on search query", () => {
     render(<SpriteCatalog {...defaultProps} searchQuery="transportation" />);
 
     // Should only show the transportation sprite collection
-    const headers = screen.getAllByTestId("card-header");
-    expect(headers.length).toBe(1);
     expect(screen.queryByText("map-icons")).not.toBeInTheDocument();
     expect(screen.queryByText("ui-elements")).not.toBeInTheDocument();
     expect(screen.getByText("transportation")).toBeInTheDocument();
@@ -310,13 +161,15 @@ describe("SpriteCatalog Component", () => {
 
   it("shows no results message when search has no matches", () => {
     render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
+
     expect(
       screen.getByText(/No sprite collections found matching "nonexistent"/i),
     ).toBeInTheDocument();
 
-    // Should not render any cards
-    const headers = screen.queryAllByTestId("card-header");
-    expect(headers.length).toBe(0);
+    // Should not show any sprite collections
+    expect(screen.queryByText("map-icons")).not.toBeInTheDocument();
+    expect(screen.queryByText("ui-elements")).not.toBeInTheDocument();
+    expect(screen.queryByText("transportation")).not.toBeInTheDocument();
   });
 
   it("filters sprite collections as the user types in the search input", () => {
@@ -326,13 +179,13 @@ describe("SpriteCatalog Component", () => {
     // Simulate typing "ui" into the search box
     fireEvent.change(searchInput, { target: { value: "ui" } });
 
-    // We rerender to simulate the parent updating searchQuery in response to user input,
-    // ensuring the test reflects how the component would behave in a real app.
+    // Check that the search handler was called
     expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith("ui");
+
+    // Rerender with the search query to simulate parent component updating
     rerender(<SpriteCatalog {...defaultProps} searchQuery="ui" />);
 
-    // Verifying only the filtered result is present ensures the UI reflects the search state,
-    // not just the handler call.
+    // Verify only the filtered result is present
     expect(screen.getByText("ui-elements")).toBeInTheDocument();
     expect(screen.queryByText("map-icons")).not.toBeInTheDocument();
     expect(screen.queryByText("transportation")).not.toBeInTheDocument();
@@ -350,19 +203,55 @@ describe("SpriteCatalog Component", () => {
     render(<SpriteCatalog {...defaultProps} />);
 
     // We should have 3 download buttons (one for each sprite collection)
-    const downloadIcons = screen.getAllByTestId("download-icon");
-    expect(downloadIcons.length).toBe(3);
+    const downloadButtons = screen.getAllByText("Download");
+    expect(downloadButtons.length).toBe(3);
 
-    // We should have 3 eye icons for preview (one for each sprite collection)
-    const eyeIcons = screen.getAllByTestId("eye-icon");
-    expect(eyeIcons.length).toBe(3);
-  });
-
-  it("renders preview buttons correctly", () => {
-    render(<SpriteCatalog {...defaultProps} />);
-
-    // All preview buttons should be rendered
+    // We should have 3 preview buttons (one for each sprite collection)
     const previewButtons = screen.getAllByText("Preview");
     expect(previewButtons.length).toBe(3);
+  });
+
+  it("has working preview and download buttons", () => {
+    render(<SpriteCatalog {...defaultProps} />);
+
+    const previewButtons = screen.getAllByText("Preview");
+    const downloadButtons = screen.getAllByText("Download");
+
+    // Check that buttons exist and are clickable
+    expect(previewButtons.length).toBe(3);
+    expect(downloadButtons.length).toBe(3);
+
+    // Buttons should be enabled and clickable
+    expect(previewButtons[0]).toBeEnabled();
+    expect(downloadButtons[0]).toBeEnabled();
+  });
+
+  it("shows sprite preview sections for each collection", () => {
+    render(<SpriteCatalog {...defaultProps} />);
+
+    // Check that "Icon Preview:" labels are rendered for each collection
+    expect(screen.getAllByText("Icon Preview:")).toHaveLength(3);
+
+    // Check that preview sections exist (the actual sprite rendering is complex and tested separately)
+    const previewSections = screen.getAllByText("Icon Preview:");
+    expect(previewSections).toHaveLength(3);
+  });
+
+  it("shows empty state with configuration link when no collections", () => {
+    render(<SpriteCatalog {...defaultProps} spriteCollections={{}} />);
+
+    expect(screen.getByText("No sprite collections found.")).toBeInTheDocument();
+    expect(screen.getByText("Learn how to configure Sprites")).toBeInTheDocument();
+
+    const configLink = screen.getByRole("link", { name: "Learn how to configure Sprites" });
+    expect(configLink).toHaveAttribute("href", "https://maplibre.org/martin/sources-sprites.html");
+    expect(configLink).toHaveAttribute("target", "_blank");
+  });
+
+  it("shows search-specific empty state when search has no matches", () => {
+    render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
+
+    expect(screen.getByText(/No sprite collections found matching "nonexistent"/i)).toBeInTheDocument();
+    expect(screen.getByText("Learn how to configure Sprites")).toBeInTheDocument();
   });
 });

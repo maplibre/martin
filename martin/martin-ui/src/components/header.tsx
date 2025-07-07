@@ -1,10 +1,7 @@
-"use client";
-
 import { BookOpen, Info } from "lucide-react";
-import Link from "next/link";
+import Logo from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import Logo from "@/components/logo";
 import { ThemeSwitcher } from "./theme-switcher";
 
 export function Header() {
@@ -13,25 +10,25 @@ export function Header() {
       <div className="container mx-auto px-6">
         <div className="flex h-20 items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Link className="items-center flex" href="/">
+            <a className="items-center flex" href="/">
               <Logo className="-mt-5 -rotate-6" />
               <h1 className="text-3xl -ms-2 font-bold leading-relaxed text-foreground select-none">
                 MARTIN
               </h1>
-            </Link>
+            </a>
             <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
-              <Link
+              <a
                 className="p-1"
-                href={`https://github.com/maplibre/martin/releases/tag/${process.env.NEXT_PUBLIC_MARTIN_VERSION}`}
+                href={`https://github.com/maplibre/martin/releases/tag/${import.meta.env.VITE_MARTIN_VERSION}`}
               >
-                {process.env.NEXT_PUBLIC_MARTIN_VERSION}
-              </Link>
+                {import.meta.env.VITE_MARTIN_VERSION}
+              </a>
             </Badge>
           </div>
           <div className="flex items-center space-x-6">
             <HoverCard>
               <HoverCardTrigger asChild>
-                <Link
+                <a
                   className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
                   href="https://maplibre.org/martin/"
                   rel="noopener noreferrer"
@@ -39,7 +36,7 @@ export function Header() {
                 >
                   <BookOpen size={18} />
                   <span>Documentation</span>
-                </Link>
+                </a>
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <div className="space-y-2">
@@ -52,7 +49,7 @@ export function Header() {
             </HoverCard>
             <HoverCard>
               <HoverCardTrigger asChild>
-                <Link
+                <a
                   className="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
                   href="https://maplibre.org"
                   rel="noopener noreferrer"
@@ -60,7 +57,7 @@ export function Header() {
                 >
                   <Info size={18} />
                   <span>About us</span>
-                </Link>
+                </a>
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <div className="space-y-2">

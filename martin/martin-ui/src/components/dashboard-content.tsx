@@ -1,7 +1,4 @@
-"use client";
-
-import { useRouter, useSearchParams } from "next/navigation";
-import { type ErrorInfo, useCallback, useEffect } from "react";
+import { type ErrorInfo, useCallback, useEffect, useState } from "react";
 import { FontCatalog } from "@/components/catalogs/font";
 import { SpriteCatalog } from "@/components/catalogs/sprite";
 import { StylesCatalog } from "@/components/catalogs/styles";
@@ -24,25 +21,11 @@ const fetchCatalog = async (): Promise<CatalogSchema> => {
 
 export function DashboardContent() {
   const { toast } = useToast();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const searchQuery = searchParams.get("search") || "";
-  // Update search param in URL, preserving tab and other params
-  const setSearchQuery = (query: string) => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
-    if (query) {
-      params.set("search", query);
-    } else {
-      params.delete("search");
-    }
-    router.replace(`?${params.toString()}`, { scroll: false });
-  };
+  const [activeTab, setActiveTab] = useState("tiles");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleTabChange = (value: string) => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
-    params.set("tab", value);
-    router.replace(`?${params.toString()}`, { scroll: false });
+    setActiveTab(value);
   };
 
   const handleCatalogError = useCallback((error: Error) => {
@@ -77,11 +60,7 @@ export function DashboardContent() {
         }, 3000);
       }}
     >
-      <Tabs
-        className="space-y-6"
-        onValueChange={handleTabChange}
-        value={searchParams.get("tab") || "tiles"}
-      >
+      <Tabs className="space-y-6" onValueChange={handleTabChange} value={activeTab}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="tiles">Data Catalog</TabsTrigger>
           <TabsTrigger value="styles">Styles Catalog</TabsTrigger>

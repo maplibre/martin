@@ -12,7 +12,7 @@
     "enabled": true
   },
   "files": {
-    "experimentalScannerIgnores": ["node_modules", ".next"],
+    "experimentalScannerIgnores": ["node_modules", "dist"],
     "includes": [
       "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
       "{__tests__,__mocks__,types,app,components,hooks,public,lib}/*.{tsx,ts,mjs,json,jsonc,yaml,yml}"

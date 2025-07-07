@@ -1,5 +1,5 @@
 import { Eye, Search, Type } from "lucide-react";
-import Link from "next/link";
+
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -158,13 +158,13 @@ export function FontCatalog({
             variant="link"
             size="lg"
           >
-            <Link
+            <a
               href="https://maplibre.org/martin/sources-fonts.html"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Learn how to configure Fonts
-            </Link>
+              Learn how to configure Font Sources
+            </a>
           </Button>
         </div>
       )}

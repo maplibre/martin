@@ -3,23 +3,17 @@ import React from "react";
 import { Header } from "@/components/header";
 import { render } from "../test-utils";
 
-jest.mock("@/components/theme-switcher", () => ({
-  ThemeSwitcher: () => <div data-testid="theme-switcher">Theme Switcher Mock</div>,
-}));
-jest.mock("next/image", () => ({
-  __esModule: true,
-  default: (props: any) => {
-    // Convert boolean props to strings to avoid React DOM warnings
-    const imgProps = { ...props };
-    if (typeof imgProps.priority === "boolean") {
-      imgProps.priority = imgProps.priority.toString();
-    }
-    return <img {...imgProps} />;
-  },
-}));
+// No need to mock next/image since we're using Vite and the Logo component is SVG
 
-// Set environment variable used in Header
-process.env.NEXT_PUBLIC_MARTIN_VERSION = "v0.0.0-test";
+// Mock import.meta.env for tests
+const mockImportMeta = {
+  env: {
+    VITE_MARTIN_VERSION: "v0.0.0-test",
+  },
+};
+
+// @ts-ignore
+global.import = { meta: mockImportMeta };
 
 describe("Header Component", () => {
   beforeEach(() => {
@@ -49,7 +43,9 @@ describe("Header Component", () => {
   });
 
   it("includes the theme switcher", () => {
-    const { getByTestId } = render(<Header />);
-    expect(getByTestId("theme-switcher")).toBeInTheDocument();
+    render(<Header />);
+    // Look for the theme switcher button by its aria-label
+    const themeSwitcher = screen.getByRole("button", { name: /switch to.*theme/i });
+    expect(themeSwitcher).toBeInTheDocument();
   });
 });

@@ -1,7 +1,5 @@
-"use client";
-
-import Link from "next/link";
 import { Download, Eye, ImageIcon, Search } from "lucide-react";
+
 import { useState, useMemo } from "react";
 import { SpriteDownloadDialog } from "@/components/dialogs/sprite-download";
 import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
@@ -161,13 +159,13 @@ export function SpriteCatalog({
               variant="link"
               size="lg"
             >
-              <Link
+              <a
                 href="https://maplibre.org/martin/sources-sprites.html"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 Learn how to configure Sprites
-              </Link>
+              </a>
             </Button>
           </div>
         )}

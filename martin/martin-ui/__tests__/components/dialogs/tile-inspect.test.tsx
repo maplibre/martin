@@ -99,10 +99,7 @@ describe('TileInspectDialog', () => {
     );
 
     expect(
-      screen.getByText(/Inspect the tile source with interactive map tools/)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Use the inspect control to explore tile boundaries and properties/)
+      screen.getByText(/Inspect the tile source to explore tile boundaries and properties/)
     ).toBeInTheDocument();
   });
 

@@ -1,4 +1,4 @@
-"use client";
+
 
 import { Download } from "lucide-react";
 import type React from "react";
@@ -12,12 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { SpriteCollection } from "@/lib/types";
-import dynamic from "next/dynamic";
-import { useMemo } from "react";
-import { buildMartinUrl } from "@/lib/api";
-
-// Dynamically import SpritePreview to avoid SSR issues with window/Image
-const SpritePreview = dynamic(() => import("../sprite/SpritePreview"), { ssr: false, loading: () => <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div> });
+import { Suspense } from "react";
+import { SpritePreview } from "../sprite/SpritePreview";
 
 interface SpritePreviewDialogProps {
   name: string;
@@ -54,11 +50,13 @@ export function SpritePreviewDialog({
               </DialogDescription>
             </DialogHeader>
             <div className="pace-y-4 bg-gray-50 rounded-lg text-gray-900">
-              <SpritePreview
-                spriteUrl={buildMartinUrl(`/sprite/${name}`)}
-                spriteIds={sprite.images}
-                className="w-full grid grid-cols-6 gap-4"
-              />
+              <Suspense fallback={<div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>}>
+                <SpritePreview
+                  spriteUrl={`/sprite/${name}`}
+                  spriteIds={sprite.images}
+                  className="w-full grid grid-cols-6 gap-4"
+                />
+              </Suspense>
             </div>
           </div>
         )}

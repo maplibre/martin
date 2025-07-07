@@ -6,8 +6,8 @@ A web interface for previewing tiles served by Martin.
 
 | Variable                             | Description                | Default     |
 |--------------------------------------|----------------------------|-------------|
-| `NEXT_PUBLIC_MARTIN_BASE`            | Martin API base URL        | UI origin   |
-| `NEXT_PUBLIC_MARTIN_VERSION`         | App version                | `dev`       |
+| `VITE_MARTIN_BASE`                   | Martin API base URL        | UI origin   |
+| `VITE_MARTIN_VERSION`                | App version                | `dev`       |
 
 ## Configuration
 
@@ -28,4 +28,4 @@ npm run dev
 ```
 
 > [!IMPORTANT]
-> Since the UI is served on port `:3001`, you will need to change `NEXT_PUBLIC_MARTIN_BASE` to point to your Martin instance
+> Since the UI is served on port `:3001`, you will need to change `VITE_MARTIN_BASE` to point to your Martin instance

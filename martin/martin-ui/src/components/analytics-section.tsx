@@ -77,13 +77,13 @@ export function AnalyticsSection({
                     Math.round(data.averageRequestDurationMs)
                   )}{" ms"}
                 </div>
-                <p className="text-xs text-muted-foreground flex flex-row gap-1">
+                <span className="text-xs text-muted-foreground flex flex-row gap-1">
                   {isLoading || !data ? (
                     <Skeleton className="h-3 w-12" />
                   ) : (
                     data.requestCount.toLocaleString()
                   )}{" requests"}
-                </p>
+                </span>
               </CardContent>
             </Card>
           );

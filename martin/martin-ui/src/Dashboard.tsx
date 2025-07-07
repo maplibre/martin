@@ -1,5 +1,3 @@
-"use client";
-
 import { Suspense, useCallback, useEffect } from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import { DashboardContent } from "@/components/dashboard-content";

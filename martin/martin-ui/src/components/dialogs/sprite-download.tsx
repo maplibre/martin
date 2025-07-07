@@ -1,7 +1,7 @@
-"use client";
+
 
 import { Copy, CopyCheck } from "lucide-react";
-import Link from "next/link";
+
 import type React from "react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -146,12 +146,14 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                 </li>
                 <li>Supported by MapLibre and Mapbox</li>
                 <li>
-                  <Link
+                  <a
                     className="text-purple-950 hover:underline"
                     href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
                     SVG-Like
-                  </Link>{" "}
+                  </a>{" "}
                   zooming
                 </li>
               </ul>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "@jest/globals";
 
 // Import the functions from the correct location
-import { parsePrometheusMetrics, aggregateEndpointGroups } from "../../lib/prometheus";
+import { parsePrometheusMetrics, aggregateEndpointGroups } from "@/lib/prometheus";
 
 describe("parsePrometheusMetrics", () => {
   it("parses sum and count for multiple endpoints", () => {

@@ -4,24 +4,20 @@
     "esModuleInterop": true,
     "incremental": true,
     "isolatedModules": true,
-    "jsx": "preserve",
-    "lib": ["dom", "es2022"],
+    "jsx": "react-jsx",
+    "lib": ["dom", "dom.iterable", "es2022"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./src/*"]
     },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "ES2022"
+    "target": "ES2022",
+    "types": ["vite/client"]
   },
-  "exclude": ["node_modules"],
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "types/jest.d.ts"]
+  "exclude": ["node_modules", "dist"],
+  "include": ["**/*.ts", "**/*.tsx", "types/jest.d.ts", "vite.config.ts"]
 }

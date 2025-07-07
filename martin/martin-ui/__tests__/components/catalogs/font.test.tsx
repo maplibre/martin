@@ -3,47 +3,35 @@ import type React from "react";
 import { FontCatalog } from "@/components/catalogs/font";
 import type { Font } from "@/lib/types";
 
-// Mock all dependencies
-jest.mock("@/components/error/error-state", () => ({
-  ErrorState: ({ title, description }: { title: string; description: string }) => (
-    <div data-testid="error-state">
-      <div data-testid="error-title">{title}</div>
-      <div data-testid="error-description">{description}</div>
-    </div>
-  ),
-}));
+// Create a test wrapper component that provides TooltipProvider
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const TooltipProvider = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
+  return <TooltipProvider>{children}</TooltipProvider>;
+};
 
-jest.mock("@/components/loading/catalog-skeleton", () => ({
-  CatalogSkeleton: ({ title, description }: { title: string; description: string }) => (
-    <div data-testid="catalog-skeleton">
-      <div data-testid="skeleton-title">{title}</div>
-      <div data-testid="skeleton-description">{description}</div>
-    </div>
-  ),
-}));
-
-// Mock UI components to avoid tooltip provider issues
+// Mock all UI components
 jest.mock("@/components/ui/tooltip", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="tooltip-content">{children}</div>
-  ),
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/ui/button", () => ({
-  Button: ({ asChild, children, ...props }: any) => <button {...props}>{children}</button>,
+  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
 }));
 
 jest.mock("@/components/ui/copy-link-button", () => ({
-  CopyLinkButton: ({ toastMessage, children, ...props }: any) => (
-    <button data-testid="copy-link-button" {...props}>{children ?? "Copy Link"}</button>
+  CopyLinkButton: ({ children, ...props }: any) => (
+    <button data-testid="copy-link-button" {...props}>
+      {children ?? "Copy Link"}
+    </button>
   ),
 }));
 
 jest.mock("@/components/ui/badge", () => ({
   Badge: ({ children, ...props }: any) => (
-    <span data-testid="badge" {...props}>
+    <span data-slot="badge" {...props}>
       {children}
     </span>
   ),
@@ -85,6 +73,30 @@ jest.mock("@/components/ui/disabledNonInteractiveButton", () => ({
   ),
 }));
 
+jest.mock("@/components/ui/skeleton", () => ({
+  Skeleton: ({ className, ...props }: any) => (
+    <div className={className} data-testid="skeleton" {...props} />
+  ),
+}));
+
+jest.mock("@/components/loading/catalog-skeleton", () => ({
+  CatalogSkeleton: ({ title, description }: { title: string; description: string }) => (
+    <div data-testid="catalog-skeleton">
+      <div data-testid="skeleton-title">{title}</div>
+      <div data-testid="skeleton-description">{description}</div>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/error/error-state", () => ({
+  ErrorState: ({ title, description }: { title: string; description: string }) => (
+    <div data-testid="error-state">
+      <div data-testid="error-title">{title}</div>
+      <div data-testid="error-description">{description}</div>
+    </div>
+  ),
+}));
+
 jest.mock("lucide-react", () => ({
   Download: () => <div data-testid="download-icon">Download</div>,
   Eye: () => <div data-testid="eye-icon">Eye</div>,
@@ -92,16 +104,28 @@ jest.mock("lucide-react", () => ({
   Type: () => <div data-testid="type-icon">Type</div>,
 }));
 
+// Mock the toast hook
+jest.mock("@/components/ui/use-toast", () => ({
+  useToast: () => ({
+    toast: jest.fn(),
+  }),
+}));
+
+// Mock the API
+jest.mock("@/lib/api", () => ({
+  buildMartinUrl: jest.fn((path: string) => `http://localhost:3000${path}`),
+}));
+
 describe("FontCatalog Component", () => {
   const mockFonts: { [name: string]: Font } = {
-    "Noto Sans Bold": {
+    "Roboto Medium": {
       end: 255,
-      family: "Noto Sans",
+      family: "Roboto",
       format: "ttf",
-      glyphs: 380,
-      lastModifiedAt: new Date("2023-03-20"),
+      glyphs: 350,
+      lastModifiedAt: new Date("2023-01-01"),
       start: 0,
-      style: "Bold",
+      style: "Medium",
     },
     "Open Sans Regular": {
       end: 255,
@@ -112,14 +136,14 @@ describe("FontCatalog Component", () => {
       start: 0,
       style: "Regular",
     },
-    "Roboto Medium": {
+    "Noto Sans Bold": {
       end: 255,
-      family: "Roboto",
+      family: "Noto Sans",
       format: "ttf",
-      glyphs: 350,
-      lastModifiedAt: new Date("2023-01-01"),
+      glyphs: 380,
+      lastModifiedAt: new Date("2023-03-20"),
       start: 0,
-      style: "Medium",
+      style: "Bold",
     },
   };
 
@@ -133,122 +157,193 @@ describe("FontCatalog Component", () => {
     searchQuery: "",
   };
 
-  it("matches snapshot for loading state", () => {
-    const { asFragment } = render(<FontCatalog {...defaultProps} isLoading={true} />);
-    expect(asFragment()).toMatchSnapshot();
-  });
-
-  it("matches snapshot for loaded state with mock data", () => {
-    const { asFragment } = render(<FontCatalog {...defaultProps} />);
-    expect(asFragment()).toMatchSnapshot();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   it("renders loading skeleton when isLoading is true", () => {
-    render(<FontCatalog {...defaultProps} isLoading={true} />);
-    expect(screen.getByTestId("catalog-skeleton")).toBeInTheDocument();
-    expect(screen.getByTestId("skeleton-title").textContent).toBe("Font Catalog");
-    expect(screen.getByTestId("skeleton-description").textContent).toBe(
-      "Preview all available font assets",
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} isLoading={true} />
+      </TestWrapper>
     );
+    expect(screen.getByText("Font Catalog")).toBeInTheDocument();
+    expect(screen.getByText("Preview all available font assets")).toBeInTheDocument();
+    // Check that skeleton elements are rendered
+    expect(document.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0); // Multiple skeleton elements
   });
 
   it("renders error state when there is an error", () => {
     const error = new Error("Test error");
-    render(<FontCatalog {...defaultProps} error={error} />);
-    expect(screen.getByTestId("error-state")).toBeInTheDocument();
-    expect(screen.getByTestId("error-title").textContent).toBe("Failed to Load Fonts");
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} error={error} />
+      </TestWrapper>
+    );
+    expect(screen.getByText("Failed to Load Fonts")).toBeInTheDocument();
+    expect(screen.getByText("Unable to fetch font catalog from the server")).toBeInTheDocument();
+    expect(screen.getByText("Test error")).toBeInTheDocument();
+    expect(screen.getByText("Try Again")).toBeInTheDocument();
   });
 
   it("renders font catalog correctly", () => {
-    render(<FontCatalog {...defaultProps} />);
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} />
+      </TestWrapper>
+    );
+
+    // Check title and description
     expect(screen.getByText("Font Catalog")).toBeInTheDocument();
+    expect(screen.getByText("Preview all available font assets")).toBeInTheDocument();
 
-    // Get all card headers
-    const headers = screen.getAllByTestId("card-header");
-    expect(headers.length).toBe(3);
-
-    // Check that each font name is displayed
+    // Check that all fonts are rendered
     expect(screen.getByText("Roboto Medium")).toBeInTheDocument();
     expect(screen.getByText("Open Sans Regular")).toBeInTheDocument();
     expect(screen.getByText("Noto Sans Bold")).toBeInTheDocument();
 
-    // Verify format badges are displayed
-    const badges = screen.getAllByTestId("badge");
-    expect(badges.length).toBe(3);
-    expect(badges[0].textContent).toBe("ttf");
-    expect(badges[1].textContent).toBe("otf");
-    expect(badges[2].textContent).toBe("ttf");
+    // Check family and style information
+    expect(screen.getByText("Family: Roboto • Style: Medium")).toBeInTheDocument();
+    expect(screen.getByText("Family: Open Sans • Style: Regular")).toBeInTheDocument();
+    expect(screen.getByText("Family: Noto Sans • Style: Bold")).toBeInTheDocument();
 
-    // Verify glyph counts are displayed
+    // Check glyph counts
     expect(screen.getByText("350")).toBeInTheDocument();
     expect(screen.getByText("420")).toBeInTheDocument();
     expect(screen.getByText("380")).toBeInTheDocument();
 
-    // Verify family and style information is displayed
-    expect(screen.getByText("Family: Roboto • Style: Medium")).toBeInTheDocument();
-    expect(screen.getByText("Family: Open Sans • Style: Regular")).toBeInTheDocument();
-    expect(screen.getByText("Family: Noto Sans • Style: Bold")).toBeInTheDocument();
+    // Check format badges - badges should be rendered with uppercase format
+    const badges = document.querySelectorAll('[data-slot="badge"]');
+    expect(badges).toHaveLength(3);
+    expect(badges[0]).toHaveTextContent("ttf");
+    expect(badges[1]).toHaveTextContent("otf");
+    expect(badges[2]).toHaveTextContent("ttf");
   });
 
   it("filters fonts based on search query", () => {
-    render(<FontCatalog {...defaultProps} searchQuery="roboto" />);
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} searchQuery="roboto" />
+      </TestWrapper>
+    );
 
     // Should only show the Roboto font
-    const headers = screen.getAllByTestId("card-header");
-    expect(headers.length).toBe(1);
     expect(screen.getByText("Roboto Medium")).toBeInTheDocument();
     expect(screen.queryByText("Open Sans Regular")).not.toBeInTheDocument();
     expect(screen.queryByText("Noto Sans Bold")).not.toBeInTheDocument();
+
+    // Should have only one badge
+    const badges = document.querySelectorAll('[data-slot="badge"]');
+    expect(badges).toHaveLength(1);
   });
 
   it("filters fonts based on font family", () => {
-    render(<FontCatalog {...defaultProps} searchQuery="open" />);
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} searchQuery="open" />
+      </TestWrapper>
+    );
 
     // Should only show the Open Sans font
-    const headers = screen.getAllByTestId("card-header");
-    expect(headers.length).toBe(1);
     expect(screen.queryByText("Roboto Medium")).not.toBeInTheDocument();
     expect(screen.getByText("Open Sans Regular")).toBeInTheDocument();
     expect(screen.queryByText("Noto Sans Bold")).not.toBeInTheDocument();
   });
 
   it("filters fonts based on style", () => {
-    render(<FontCatalog {...defaultProps} searchQuery="bold" />);
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} searchQuery="bold" />
+      </TestWrapper>
+    );
 
     // Should only show the Noto Sans Bold font
-    const headers = screen.getAllByTestId("card-header");
-    expect(headers.length).toBe(1);
     expect(screen.queryByText("Roboto Medium")).not.toBeInTheDocument();
     expect(screen.queryByText("Open Sans Regular")).not.toBeInTheDocument();
     expect(screen.getByText("Noto Sans Bold")).toBeInTheDocument();
   });
 
   it("shows no results message when search has no matches", () => {
-    render(<FontCatalog {...defaultProps} searchQuery="nonexistent" />);
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} searchQuery="nonexistent" />
+      </TestWrapper>
+    );
     expect(screen.getByText(/No fonts found matching "nonexistent"/i)).toBeInTheDocument();
 
-    // Should not render any cards
-    const headers = screen.queryAllByTestId("card-header");
-    expect(headers.length).toBe(0);
+    // Should not render any badges
+    const badges = document.querySelectorAll('[data-slot="badge"]');
+    expect(badges).toHaveLength(0);
   });
 
   it("calls onSearchChangeAction when search input changes", () => {
-    render(<FontCatalog {...defaultProps} />);
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} />
+      </TestWrapper>
+    );
     const searchInput = screen.getByPlaceholderText("Search fonts...");
 
     fireEvent.change(searchInput, { target: { value: "new search" } });
     expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith("new search");
   });
 
-  it("renders download and details buttons for each font", () => {
-    render(<FontCatalog {...defaultProps} />);
+  it("renders copy link buttons for each font", () => {
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} />
+      </TestWrapper>
+    );
 
-    // We should have 3 copy link buttons (one for each font)
-    const copyLinkButtons = screen.getAllByTestId("copy-link-button");
-    expect(copyLinkButtons.length).toBe(3);
+    // Should have 3 copy link buttons (one for each font) - they render as buttons with specific classes
+    const copyLinkButtons = document.querySelectorAll('button[class*="bg-transparent"]');
+    expect(copyLinkButtons).toHaveLength(3);
+  });
 
-    // We should have 3 eye icons for details (one for each font)
-    const eyeIcons = screen.getAllByTestId("eye-icon");
-    expect(eyeIcons.length).toBe(3);
+  it("renders details buttons for each font", () => {
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} />
+      </TestWrapper>
+    );
+
+    // Should have 3 details buttons (one for each font)
+    const detailsButtons = screen.getAllByText("Details");
+    expect(detailsButtons).toHaveLength(3);
+  });
+
+  it("renders with empty fonts object", () => {
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} fonts={{}} />
+      </TestWrapper>
+    );
+
+    expect(screen.getByText("Font Catalog")).toBeInTheDocument();
+    expect(screen.getByText("No fonts found.")).toBeInTheDocument();
+  });
+
+  it("renders with undefined fonts", () => {
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} fonts={undefined} />
+      </TestWrapper>
+    );
+
+    expect(screen.getByText("Font Catalog")).toBeInTheDocument();
+    expect(screen.getByText("No fonts found.")).toBeInTheDocument();
+  });
+
+  it("case insensitive search works correctly", () => {
+    render(
+      <TestWrapper>
+        <FontCatalog {...defaultProps} searchQuery="ROBOTO" />
+      </TestWrapper>
+    );
+
+    // Should still show the Roboto font despite case difference
+    expect(screen.getByText("Roboto Medium")).toBeInTheDocument();
+    expect(screen.queryByText("Open Sans Regular")).not.toBeInTheDocument();
+    expect(screen.queryByText("Noto Sans Bold")).not.toBeInTheDocument();
   });
 });

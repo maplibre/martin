@@ -1,5 +1,5 @@
 import { Brush, Eye, Map, Search } from "lucide-react";
-import Link from "next/link";
+
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -192,13 +192,13 @@ export function StylesCatalog({
             variant="link"
             size="lg"
           >
-            <Link
+            <a
               href="https://maplibre.org/martin/sources-styles.html"
               target="_blank"
               rel="noopener noreferrer"
             >
               Learn how to configure Styles
-            </Link>
+            </a>
           </Button>
         </div>
       )}
