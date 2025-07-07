@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { fetchSpriteImage, fetchSpriteIndex, SpriteMeta, SpriteIndex } from "./SpriteCache";
-import SpriteCanvas from "./SpriteCanvas";
-import { cn } from "@/lib/utils";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { buildMartinUrl } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { fetchSpriteImage, fetchSpriteIndex, SpriteIndex, type SpriteMeta } from "./SpriteCache";
+import SpriteCanvas from "./SpriteCanvas";
 
 type SpritePreviewProps = {
   /**
@@ -22,7 +23,6 @@ type SpritePreviewProps = {
    * Optional className for the container.
    */
   className?: string;
-
 };
 
 type SpriteState =
@@ -53,18 +53,18 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
         ]);
         if (cancelled) return;
 
-        let sprites = Object.entries(index);
+        const sprites = Object.entries(index);
 
         setState({
-          status: "ready",
-          sprites,
           image,
+          sprites,
+          status: "ready",
         });
       } catch (err: any) {
         if (cancelled) return;
         setState({
-          status: "error",
           error: err?.message || "Failed to load sprite",
+          status: "error",
         });
       }
     }
@@ -100,28 +100,23 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
 
   // Build a metaMap for fast lookup if ready
   const metaMap: Record<string, SpriteMeta> =
-    state.status === "ready"
-      ? Object.fromEntries(state.sprites)
-      : {};
+    state.status === "ready" ? Object.fromEntries(state.sprites) : {};
 
   return (
-    <div
-      className={cn(`flex flex-wrap gap-3 justify-start items-start min-h-[120px]`, className)}
-    >
-      {ids.map((id) =>
+    <div className={cn(`flex flex-wrap gap-3 justify-start items-start min-h-[120px]`, className)}>
+      {ids.map((id) => (
         <SpriteCanvas
-          key={id}
-          meta={metaMap[id]}
           image={state.status === "ready" ? state.image : undefined}
+          key={id}
           label={id}
+          meta={metaMap[id]}
           previewMode={previewMode}
         />
-      )}
+      ))}
 
       {/* +N bubble */}
       {previewMode && spriteIds.length > PREVIEW_LIMIT && (
         <div
-          data-spritecnt = {spriteIds.length}
           className={`
             ${previewMode ? "h-7" : "h-12"}
             flex items-center justify-center
@@ -129,6 +124,7 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
             text-gray-600 font-semibold
             ${previewMode ? "m-1.5" : "m-4"}
           `}
+          data-spritecnt={spriteIds.length}
         >
           +{spriteIds.length - PREVIEW_LIMIT + 1}
         </div>

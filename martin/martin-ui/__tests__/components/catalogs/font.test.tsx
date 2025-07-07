@@ -13,8 +13,8 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => {
 jest.mock("@/components/ui/tooltip", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/ui/button", () => ({
@@ -118,14 +118,14 @@ jest.mock("@/lib/api", () => ({
 
 describe("FontCatalog Component", () => {
   const mockFonts: { [name: string]: Font } = {
-    "Roboto Medium": {
+    "Noto Sans Bold": {
       end: 255,
-      family: "Roboto",
+      family: "Noto Sans",
       format: "ttf",
-      glyphs: 350,
-      lastModifiedAt: new Date("2023-01-01"),
+      glyphs: 380,
+      lastModifiedAt: new Date("2023-03-20"),
       start: 0,
-      style: "Medium",
+      style: "Bold",
     },
     "Open Sans Regular": {
       end: 255,
@@ -136,14 +136,14 @@ describe("FontCatalog Component", () => {
       start: 0,
       style: "Regular",
     },
-    "Noto Sans Bold": {
+    "Roboto Medium": {
       end: 255,
-      family: "Noto Sans",
+      family: "Roboto",
       format: "ttf",
-      glyphs: 380,
-      lastModifiedAt: new Date("2023-03-20"),
+      glyphs: 350,
+      lastModifiedAt: new Date("2023-01-01"),
       start: 0,
-      style: "Bold",
+      style: "Medium",
     },
   };
 
@@ -165,12 +165,12 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} isLoading={true} />
-      </TestWrapper>
+      </TestWrapper>,
     );
     expect(screen.getByText("Font Catalog")).toBeInTheDocument();
     expect(screen.getByText("Preview all available font assets")).toBeInTheDocument();
     // Check that skeleton elements are rendered
-    expect(document.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0); // Multiple skeleton elements
+    expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0); // Multiple skeleton elements
   });
 
   it("renders error state when there is an error", () => {
@@ -178,7 +178,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} error={error} />
-      </TestWrapper>
+      </TestWrapper>,
     );
     expect(screen.getByText("Failed to Load Fonts")).toBeInTheDocument();
     expect(screen.getByText("Unable to fetch font catalog from the server")).toBeInTheDocument();
@@ -190,7 +190,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     // Check title and description
@@ -224,7 +224,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} searchQuery="roboto" />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     // Should only show the Roboto font
@@ -241,7 +241,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} searchQuery="open" />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     // Should only show the Open Sans font
@@ -254,7 +254,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} searchQuery="bold" />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     // Should only show the Noto Sans Bold font
@@ -267,7 +267,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} searchQuery="nonexistent" />
-      </TestWrapper>
+      </TestWrapper>,
     );
     expect(screen.getByText(/No fonts found matching "nonexistent"/i)).toBeInTheDocument();
 
@@ -280,7 +280,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} />
-      </TestWrapper>
+      </TestWrapper>,
     );
     const searchInput = screen.getByPlaceholderText("Search fonts...");
 
@@ -292,7 +292,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     // Should have 3 copy link buttons (one for each font) - they render as buttons with specific classes
@@ -304,7 +304,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     // Should have 3 details buttons (one for each font)
@@ -316,7 +316,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} fonts={{}} />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     expect(screen.getByText("Font Catalog")).toBeInTheDocument();
@@ -327,7 +327,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} fonts={undefined} />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     expect(screen.getByText("Font Catalog")).toBeInTheDocument();
@@ -338,7 +338,7 @@ describe("FontCatalog Component", () => {
     render(
       <TestWrapper>
         <FontCatalog {...defaultProps} searchQuery="ROBOTO" />
-      </TestWrapper>
+      </TestWrapper>,
     );
 
     // Should still show the Roboto font despite case difference

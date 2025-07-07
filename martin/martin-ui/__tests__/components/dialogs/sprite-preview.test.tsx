@@ -1,6 +1,6 @@
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import { render, screen } from "@testing-library/react";
 
 // Mock the SpritePreview component first before importing anything else
 jest.mock("@/components/sprite/SpritePreview", () => ({

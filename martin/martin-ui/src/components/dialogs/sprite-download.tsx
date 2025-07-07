@@ -1,5 +1,3 @@
-
-
 import { Copy, CopyCheck } from "lucide-react";
 
 import type React from "react";
@@ -149,8 +147,8 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                   <a
                     className="text-purple-950 hover:underline"
                     href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf"
-                    target="_blank"
                     rel="noopener noreferrer"
+                    target="_blank"
                   >
                     SVG-Like
                   </a>{" "}

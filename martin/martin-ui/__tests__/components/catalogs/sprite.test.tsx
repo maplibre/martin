@@ -7,17 +7,23 @@ import type { SpriteCollection } from "@/lib/types";
 jest.mock("@/components/sprite/SpritePreview", () => {
   return {
     __esModule: true,
-    default: function MockSpritePreview({ spriteIds, className }: { spriteIds: string[]; className?: string }) {
+    default: function MockSpritePreview({
+      spriteIds,
+      className,
+    }: {
+      spriteIds: string[];
+      className?: string;
+    }) {
       return (
         <div className={className} data-testid="sprite-preview">
           {spriteIds.map((id) => (
-            <div key={id} data-testid={`sprite-icon-${id}`} className="w-7 h-7 bg-gray-200 rounded">
+            <div className="w-7 h-7 bg-gray-200 rounded" data-testid={`sprite-icon-${id}`} key={id}>
               {id}
             </div>
           ))}
         </div>
       );
-    }
+    },
   };
 });
 
@@ -87,8 +93,8 @@ describe("SpriteCatalog Component", () => {
   const defaultProps = {
     error: null,
     isLoading: false,
-    onRetry: jest.fn(),
     isRetrying: false,
+    onRetry: jest.fn(),
     onSearchChangeAction: jest.fn(),
     searchQuery: "",
     spriteCollections: mockSpriteCollections,
@@ -251,7 +257,9 @@ describe("SpriteCatalog Component", () => {
   it("shows search-specific empty state when search has no matches", () => {
     render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
 
-    expect(screen.getByText(/No sprite collections found matching "nonexistent"/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/No sprite collections found matching "nonexistent"/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Learn how to configure Sprites")).toBeInTheDocument();
   });
 });

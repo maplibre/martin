@@ -6,12 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { buildMartinUrl } from "@/lib/api";
 import type { Font } from "@/lib/types";
+import { CopyLinkButton } from "../ui/copy-link-button";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { CopyLinkButton } from "../ui/copy-link-button";
 import { useToast } from "../ui/use-toast";
-import { buildMartinUrl } from "@/lib/api";
 
 interface FontCatalogProps {
   fonts?: { [name: string]: Font };
@@ -122,10 +122,10 @@ export function FontCatalog({
                 <div className="flex space-x-2">
                   <CopyLinkButton
                     className="flex-1 bg-transparent"
-                    size="sm"
-                    variant="outline"
                     link={buildMartinUrl(`/font/${name}/{range}`)}
+                    size="sm"
                     toastMessage="Font link copied!"
+                    variant="outline"
                   />
                   <Tooltip>
                     <TooltipTrigger className="flex-1 flex cursor-help">
@@ -148,20 +148,13 @@ export function FontCatalog({
       {filteredFonts.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">
-            {searchQuery
-              ? <>No fonts found matching "{searchQuery}".</>
-              : <>No fonts found.</>
-            }
+            {searchQuery ? <>No fonts found matching "{searchQuery}".</> : <>No fonts found.</>}
           </p>
-          <Button
-            asChild
-            variant="link"
-            size="lg"
-          >
+          <Button asChild size="lg" variant="link">
             <a
               href="https://maplibre.org/martin/sources-fonts.html"
-              target="_blank"
               rel="noopener noreferrer"
+              target="_blank"
             >
               Learn how to configure Font Sources
             </a>

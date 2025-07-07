@@ -1,6 +1,6 @@
 import { Download, Eye, ImageIcon, Search } from "lucide-react";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { SpriteDownloadDialog } from "@/components/dialogs/sprite-download";
 import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
 import { ErrorState } from "@/components/error/error-state";
@@ -61,8 +61,9 @@ export function SpriteCatalog({
   }
 
   // Prepare preview filters outside the render loop
-  const filteredSpriteCollections = Object.entries(spriteCollections || {})
-    .filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredSpriteCollections = Object.entries(spriteCollections || {}).filter(([name]) =>
+    name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <>
@@ -101,12 +102,12 @@ export function SpriteCatalog({
                   <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
                     <p className="text-sm font-medium mb-2">Icon Preview:</p>
                     <div className="w-full">
-                        <SpritePreview
-                          spriteUrl={`/sprite/${name}`}
-                          spriteIds={sprite.images}
-                          previewMode
-                          className="w-full grid grid-cols-6 min-h-[48px]"
-                        />
+                      <SpritePreview
+                        className="w-full grid grid-cols-6 min-h-[48px]"
+                        previewMode
+                        spriteIds={sprite.images}
+                        spriteUrl={`/sprite/${name}`}
+                      />
                     </div>
                   </div>
                   {sprite.sizeInBytes && (
@@ -150,19 +151,13 @@ export function SpriteCatalog({
                 No sprite collections found matching "{searchQuery}"
               </p>
             ) : (
-              <p className="text-muted-foreground mb-2">
-                No sprite collections found.
-              </p>
+              <p className="text-muted-foreground mb-2">No sprite collections found.</p>
             )}
-            <Button
-              asChild
-              variant="link"
-              size="lg"
-            >
+            <Button asChild size="lg" variant="link">
               <a
                 href="https://maplibre.org/martin/sources-sprites.html"
-                target="_blank"
                 rel="noopener noreferrer"
+                target="_blank"
               >
                 Learn how to configure Sprites
               </a>

@@ -4,21 +4,21 @@ import type { AnalyticsData } from "@/lib/types";
 import { fireEvent, render, screen } from "../test-utils";
 
 const analytics: AnalyticsData = {
-  sprites: {
-    averageRequestDurationMs: 10.5,
-    requestCount: 1000,
-  },
-  tiles: {
-    averageRequestDurationMs: 25.2,
-    requestCount: 50000,
-  },
   fonts: {
     averageRequestDurationMs: 5.1,
     requestCount: 500,
   },
+  sprites: {
+    averageRequestDurationMs: 10.5,
+    requestCount: 1000,
+  },
   styles: {
     averageRequestDurationMs: 2.3,
     requestCount: 200,
+  },
+  tiles: {
+    averageRequestDurationMs: 25.2,
+    requestCount: 50000,
   },
 };
 

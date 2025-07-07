@@ -24,7 +24,7 @@ describe("getMartinBaseUrl", () => {
     expect(result).toBeDefined();
     expect(typeof result).toBe("string");
     // The actual value depends on the Jest setup, but it should be a valid URL origin
-    expect(result).toMatch(/^https?:\/\/[^\/]+$/);
+    expect(result).toMatch(/^https?:\/\/[^/]+$/);
   });
 });
 
@@ -48,7 +48,7 @@ describe("buildMartinUrl", () => {
     const result = buildMartinUrl("/catalog");
 
     // Should use window.location.origin as fallback
-    expect(result).toMatch(/^https?:\/\/[^\/]+\/catalog$/);
+    expect(result).toMatch(/^https?:\/\/[^/]+\/catalog$/);
   });
 
   it("handles paths without leading slash", () => {

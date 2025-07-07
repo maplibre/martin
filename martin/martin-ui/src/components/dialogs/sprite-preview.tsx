@@ -1,7 +1,6 @@
-
-
 import { Download } from "lucide-react";
 import type React from "react";
+import { Suspense } from "react";
 import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +11,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { SpriteCollection } from "@/lib/types";
-import { Suspense } from "react";
 import { SpritePreview } from "../sprite/SpritePreview";
 
 interface SpritePreviewDialogProps {
@@ -36,25 +34,25 @@ export function SpritePreviewDialog({
             <DialogHeader className="mb-6">
               <DialogTitle className="text-2xl flex gap-4">
                 {name}
-                <Button
-                  onClick={() => onDownloadAction(sprite)}
-                  size="sm"
-                  variant="outline"
-                >
+                <Button onClick={() => onDownloadAction(sprite)} size="sm" variant="outline">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
               </DialogTitle>
-              <DialogDescription>
-                Preview the selected sprite.
-              </DialogDescription>
+              <DialogDescription>Preview the selected sprite.</DialogDescription>
             </DialogHeader>
             <div className="pace-y-4 bg-gray-50 rounded-lg text-gray-900">
-              <Suspense fallback={<div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>}>
+              <Suspense
+                fallback={
+                  <div className="flex justify-center py-12">
+                    <LoadingSpinner size="lg" />
+                  </div>
+                }
+              >
                 <SpritePreview
-                  spriteUrl={`/sprite/${name}`}
-                  spriteIds={sprite.images}
                   className="w-full grid grid-cols-6 gap-4"
+                  spriteIds={sprite.images}
+                  spriteUrl={`/sprite/${name}`}
                 />
               </Suspense>
             </div>

@@ -61,7 +61,7 @@ describe("useAsyncOperation", () => {
     const onError = jest.fn();
 
     const { result } = renderHook(() =>
-      useAsyncOperation<unknown>(mockAsyncFunction, { onError, maxRetries: 3 }),
+      useAsyncOperation<unknown>(mockAsyncFunction, { maxRetries: 3, onError }),
     );
 
     let executePromise: Promise<unknown> | undefined;
@@ -99,7 +99,7 @@ describe("useAsyncOperation", () => {
     const onError = jest.fn();
 
     const { result } = renderHook(() =>
-      useAsyncOperation<string>(mockAsyncFunction, { onSuccess, onError }),
+      useAsyncOperation<string>(mockAsyncFunction, { onError, onSuccess }),
     );
 
     let promise: Promise<string | void> | undefined;
@@ -142,8 +142,8 @@ describe("useAsyncOperation", () => {
     });
 
     expect(mockToast).toHaveBeenCalledWith({
-      title: "Error",
       description: "Operation failed after 1 attempts: Toast Test Failed",
+      title: "Error",
       variant: "destructive",
     });
 
@@ -164,16 +164,14 @@ describe("useAsyncOperation", () => {
     });
 
     expect(mockToast).toHaveBeenCalledWith({
-      title: "Success",
       description: "It worked!",
+      title: "Success",
     });
   });
 
   it("should reset the state", async () => {
     const mockAsyncFunction = jest.fn().mockResolvedValue("Some data");
-    const { result } = renderHook(() =>
-      useAsyncOperation<string>(mockAsyncFunction),
-    );
+    const { result } = renderHook(() => useAsyncOperation<string>(mockAsyncFunction));
 
     // Execute to change state
     await act(async () => {

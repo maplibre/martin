@@ -44,7 +44,7 @@ describe("StylesCatalog Component", () => {
     expect(screen.getByText("Preview all available map styles and themes")).toBeInTheDocument();
 
     // Check for skeleton loading elements (they have animate-pulse class)
-    const skeletonElements = document.querySelectorAll('.animate-pulse');
+    const skeletonElements = document.querySelectorAll(".animate-pulse");
     expect(skeletonElements.length).toBeGreaterThan(0);
   });
 
@@ -62,7 +62,9 @@ describe("StylesCatalog Component", () => {
     render(<StylesCatalog {...defaultProps} />);
 
     expect(screen.getByText("Styles Catalog")).toBeInTheDocument();
-    expect(screen.getByText("Browse and preview all available map styles and themes")).toBeInTheDocument();
+    expect(
+      screen.getByText("Browse and preview all available map styles and themes"),
+    ).toBeInTheDocument();
 
     // Check that each style name is displayed
     expect(screen.getByText("Basic Style")).toBeInTheDocument();
@@ -228,7 +230,7 @@ describe("StylesCatalog Component", () => {
     render(<StylesCatalog {...defaultProps} />);
 
     // Check for SVG elements - different style types should have different icons
-    const svgElements = document.querySelectorAll('svg');
+    const svgElements = document.querySelectorAll("svg");
 
     // Should have at least 4 SVGs: search icon + 3 style type icons
     expect(svgElements.length).toBeGreaterThan(3);

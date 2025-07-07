@@ -1,7 +1,7 @@
 import { Clipboard } from "lucide-react";
+import * as React from "react";
 import { Button } from "./button";
 import { useToast } from "./use-toast";
-import * as React from "react";
 
 /**
  * Props for CopyLinkButton
@@ -14,20 +14,13 @@ import * as React from "react";
  * @param iconPosition "left" or "right" (defaults to "left")
  * @param ...props Any other Button props
  */
-export interface CopyLinkButtonProps
-  extends React.ComponentProps<typeof Button> {
+export interface CopyLinkButtonProps extends React.ComponentProps<typeof Button> {
   link: string;
   children?: React.ReactNode;
   className?: string;
   toastMessage?: string;
   size?: "default" | "sm" | "lg" | "icon";
-  variant?:
-    | "default"
-    | "destructive"
-    | "outline"
-    | "secondary"
-    | "ghost"
-    | "link";
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   iconPosition?: "left" | "right";
 }
 
@@ -58,28 +51,20 @@ export function CopyLinkButton({
 
   return (
     <Button
-      type="button"
-      size={size}
-      variant={variant}
+      aria-label="Copy link"
       className={className}
       onClick={handleCopy}
-      aria-label="Copy link"
+      size={size}
+      type="button"
+      variant={variant}
       {...props}
     >
       {iconPosition === "left" && (
-        <Clipboard
-          className="w-4 h-4 mr-2"
-          aria-hidden="true"
-          data-testid="clipboard-icon"
-        />
+        <Clipboard aria-hidden="true" className="w-4 h-4 mr-2" data-testid="clipboard-icon" />
       )}
       {children ?? (copied ? "Copied!" : "Copy Link")}
       {iconPosition === "right" && (
-        <Clipboard
-          className="w-4 h-4 ml-2"
-          aria-hidden="true"
-          data-testid="clipboard-icon"
-        />
+        <Clipboard aria-hidden="true" className="w-4 h-4 ml-2" data-testid="clipboard-icon" />
       )}
     </Button>
   );

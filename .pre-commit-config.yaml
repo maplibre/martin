@@ -14,17 +14,17 @@ repos:
       - id: check-added-large-files
       - id: check-executables-have-shebangs
       - id: check-json
-        exclude: '.+/tsconfig.json'
+        exclude: ".+/tsconfig.json"
       - id: check-shebang-scripts-are-executable
         exclude: '.+\.rs' # would be triggered by #![some_attribute]
       - id: check-symlinks
       - id: check-toml
       - id: check-yaml
-        args: [ --allow-multiple-documents ]
+        args: [--allow-multiple-documents]
       - id: destroyed-symlinks
       - id: end-of-file-fixer
       - id: mixed-line-ending
-        args: [ --fix=lf ]
+        args: [--fix=lf]
       - id: trailing-whitespace
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks
@@ -53,4 +53,26 @@ repos:
         args: [--dialect=postgres, "--exclude-rules=AL07,LT05,LT12"]
         files: \.sql$
 
-# TODO: Add NPM hooks for formatting and linting
+  # NPM hooks for JavaScript/TypeScript formatting and linting
+  - repo: local
+    hooks:
+      # TODO: Add hooks for demo frontend
+
+      # Martin UI - Biome formatting and linting
+      - id: biome-format
+        name: Biome Format (Martin UI)
+        description: "Format JavaScript/TypeScript files in martin-ui"
+        entry: sh -c "cd martin/martin-ui && npm run format"
+        language: system
+        files: ^martin/martin-ui/.*\.(js|jsx|ts|tsx|json|jsonc|yaml|yml)$
+        pass_filenames: false
+        require_serial: true
+
+      - id: biome-lint
+        name: Biome Lint (Martin UI)
+        description: "Lint JavaScript/TypeScript files in martin-ui"
+        entry: sh -c "cd martin/martin-ui && npm run lint"
+        language: system
+        files: ^martin/martin-ui/.*\.(js|jsx|ts|tsx)$
+        pass_filenames: false
+        require_serial: true

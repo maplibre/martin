@@ -1,14 +1,14 @@
-import { screen, fireEvent } from "@testing-library/react";
-import { render } from "../test-utils";
+import { fireEvent, screen } from "@testing-library/react";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { render } from "../test-utils";
 
 // Mock useTheme hook with a simpler approach
 const mockSetTheme = jest.fn();
 
 jest.mock("next-themes", () => ({
   useTheme: jest.fn(() => ({
-    theme: "light",
     setTheme: mockSetTheme,
+    theme: "light",
   })),
 }));
 

@@ -11,11 +11,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { TileSource } from "@/lib/types";
-import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import { Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
-import type { MapRef } from '@vis.gl/react-maplibre';
-import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
-import {Popup} from 'maplibre-gl';
+import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
+import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
+import type { MapRef } from "@vis.gl/react-maplibre";
+import { Map as MapLibreMap, Source } from "@vis.gl/react-maplibre";
+import { Popup } from "maplibre-gl";
 import { buildMartinUrl } from "@/lib/api";
 
 interface TileInspectDialogProps {
@@ -34,7 +34,7 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
 
     const map = mapRef.current.getMap();
 
-    console.log({map,isMapLoaded})
+    console.log({ isMapLoaded, map });
     // Import and add the inspect control
     if (inspectControlRef.current) {
       map.removeControl(inspectControlRef.current);
@@ -42,14 +42,14 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
 
     inspectControlRef.current = new MaplibreInspect({
       popup: new Popup({
-          closeButton: false,
-          closeOnClick: false
-        }),
-      showInspectMap: true,
+        closeButton: false,
+        closeOnClick: false,
+      }),
       showInspectButton: false,
-      showMapPopup: true,
-      showInspectMapPopupOnHover: true,
+      showInspectMap: true,
       showInspectMapPopup: true,
+      showInspectMapPopupOnHover: true,
+      showMapPopup: true,
     });
 
     map.addControl(inspectControlRef.current);
@@ -71,7 +71,9 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
         <DialogHeader className="mb-6">
           <DialogTitle className="text-2xl flex items-center justify-between">
-            <span>Inspect Tile Source: <code>{name}</code></span>
+            <span>
+              Inspect Tile Source: <code>{name}</code>
+            </span>
           </DialogTitle>
           <DialogDescription>
             Inspect the tile source to explore tile boundaries and properties.
@@ -82,18 +84,15 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
           {/* Map Container */}
           <div className="border rounded-lg overflow-hidden">
             <MapLibreMap
+              onLoad={() => setIsMapLoaded(true)}
               ref={mapRef}
               reuseMaps={false}
-              onLoad={()=>setIsMapLoaded(true)}
               style={{
-                width: "100%",
                 height: "500px",
+                width: "100%",
               }}
             >
-              <Source
-                type="vector"
-                url={buildMartinUrl(`/${name}`)}
-              />
+              <Source type="vector" url={buildMartinUrl(`/${name}`)} />
             </MapLibreMap>
           </div>
           {/* Source Information */}

@@ -1,16 +1,15 @@
-
-import { Button } from "@/components/ui/button";
 import { Database, Eye, ImageIcon, Layers, Palette, Search } from "lucide-react";
+import { useState } from "react";
+import { TileInspectDialog } from "@/components/dialogs/tile-inspect";
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { TileSource } from "@/lib/types";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { TileInspectDialog } from "@/components/dialogs/tile-inspect";
-import { useState } from "react";
 
 interface TilesCatalogProps {
   tileSources?: { [tile_id: string]: TileSource };
@@ -77,9 +76,7 @@ export function TilesCatalog({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Tiles Sources Catalog</h2>
-          <p className="text-muted-foreground">
-            Explore all available tile sources
-          </p>
+          <p className="text-muted-foreground">Explore all available tile sources</p>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -152,20 +149,17 @@ export function TilesCatalog({
       {filteredTileSources.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">
-            {searchQuery
-              ? <>No tile sources found matching "{searchQuery}".</>
-              : <>No tile sources found.</>
-            }
+            {searchQuery ? (
+              <>No tile sources found matching "{searchQuery}".</>
+            ) : (
+              <>No tile sources found.</>
+            )}
           </p>
-          <Button
-            asChild
-            variant="link"
-            size="lg"
-          >
+          <Button asChild size="lg" variant="link">
             <a
               href="https://maplibre.org/martin/sources-tiles.html"
-              target="_blank"
               rel="noopener noreferrer"
+              target="_blank"
             >
               Learn how to configure Tile Sources
             </a>
@@ -176,8 +170,8 @@ export function TilesCatalog({
       {selectedTileForInspection && tileSources && (
         <TileInspectDialog
           name={selectedTileForInspection}
-          source={tileSources[selectedTileForInspection]}
           onCloseAction={() => setSelectedTileForInspection(null)}
+          source={tileSources[selectedTileForInspection]}
         />
       )}
     </div>

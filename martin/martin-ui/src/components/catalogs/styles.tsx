@@ -6,14 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { buildMartinUrl } from "@/lib/api";
 import type { Style } from "@/lib/types";
+import { CopyLinkButton } from "../ui/copy-link-button";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { CopyLinkButton } from "../ui/copy-link-button";
-import { buildMartinUrl } from "@/lib/api";
-import 'maplibre-gl/dist/maplibre-gl.css';
-import {Map as MapLibreMap} from '@vis.gl/react-maplibre';
-import {useState} from "react"
+import "maplibre-gl/dist/maplibre-gl.css";
+import { Map as MapLibreMap } from "@vis.gl/react-maplibre";
+import { useState } from "react";
 
 interface StylesCatalogProps {
   styles?: { [name: string]: Style };
@@ -35,9 +35,9 @@ export function StylesCatalog({
   isRetrying = false,
 }: StylesCatalogProps) {
   const [viewState, setViewState] = useState({
-    longitude: -100,
     latitude: 40,
-    zoom: 3.5
+    longitude: -100,
+    zoom: 3.5,
   });
   if (isLoading) {
     return (
@@ -105,18 +105,18 @@ export function StylesCatalog({
             <CardContent>
               <div className="space-y-4">
                 <MapLibreMap
-                    reuseMaps
-                    {...viewState}
-                    onMove={evt => setViewState(evt.viewState)}
-                    style={{
-                      width: "100%",
-                      aspectRatio: 16/9,
-                      borderRadius: "var(--radius)",
-                      backgroundImage: "linear-gradient(to bottom right, var(--tw-gradient-stops))",
-                      backgroundColor: "#E5E7EB",
-                    }}
-                    mapStyle={buildMartinUrl(`/style/${name}`)}
-                  />
+                  reuseMaps
+                  {...viewState}
+                  mapStyle={buildMartinUrl(`/style/${name}`)}
+                  onMove={(evt) => setViewState(evt.viewState)}
+                  style={{
+                    aspectRatio: 16 / 9,
+                    backgroundColor: "#E5E7EB",
+                    backgroundImage: "linear-gradient(to bottom right, var(--tw-gradient-stops))",
+                    borderRadius: "var(--radius)",
+                    width: "100%",
+                  }}
+                />
                 <div className="space-y-2 text-sm text-muted-foreground">
                   {style.versionHash && (
                     <div className="flex justify-between">
@@ -155,10 +155,10 @@ export function StylesCatalog({
                 <div className="flex space-x-2">
                   <CopyLinkButton
                     className="flex-1 bg-transparent"
-                    size="sm"
-                    variant="outline"
                     link={buildMartinUrl(`/style/${name}`)}
+                    size="sm"
                     toastMessage="Style link copied!"
+                    variant="outline"
                   />
 
                   <Tooltip>
@@ -182,20 +182,13 @@ export function StylesCatalog({
       {filteredStyles.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">
-            {searchQuery
-              ? `No styles found matching "${searchQuery}"`
-              : "No styles found."
-            }
+            {searchQuery ? `No styles found matching "${searchQuery}"` : "No styles found."}
           </p>
-          <Button
-            asChild
-            variant="link"
-            size="lg"
-          >
+          <Button asChild size="lg" variant="link">
             <a
               href="https://maplibre.org/martin/sources-styles.html"
-              target="_blank"
               rel="noopener noreferrer"
+              target="_blank"
             >
               Learn how to configure Styles
             </a>

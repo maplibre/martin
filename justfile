@@ -168,9 +168,10 @@ env-info:
     npm --version
     node --version
 
-# Run eslint on the frontend
+# Run biomejs on the dashboard (martin/martin-ui)
 [working-directory: 'martin/martin-ui']
-eslint:
+biomejs-martin-ui:
+    npm run format
     npm run lint
 
 # Run benchmark tests showing a flamegraph
@@ -208,7 +209,7 @@ git *args: start
     git {{args}}
 
 # Run cargo fmt and cargo clippy
-lint: fmt clippy eslint type-check
+lint: fmt clippy biomejs-martin-ui type-check
 
 # Run mbtiles command
 mbtiles *args:
