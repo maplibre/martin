@@ -44,11 +44,7 @@ macro_rules! create_app {
 
 #[actix_rt::test]
 async fn test_cors_explicit_disabled() {
-<<<<<<< HEAD
     let script  = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-=======
-    let script = include_str!("../tests/fixtures/mbtiles/world_cities.sql");
->>>>>>> 914616770fc3bb0b80cac47e0a8c5b4eaa9fab09
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_explicit_disabled", script).await;
 
     let app = create_app!(&formatdoc! {"
@@ -73,11 +69,7 @@ async fn test_cors_explicit_disabled() {
 
 #[actix_rt::test]
 async fn test_cors_implicit_enabled() {
-<<<<<<< HEAD
     let script  = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-=======
-    let script = include_str!("../tests/fixtures/mbtiles/world_cities.sql");
->>>>>>> 914616770fc3bb0b80cac47e0a8c5b4eaa9fab09
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_implicit_enabled", script).await;
 
     let app = create_app!(&formatdoc! {"
@@ -100,11 +92,7 @@ async fn test_cors_implicit_enabled() {
 
 #[actix_rt::test]
 async fn test_cors_explicit_enabled() {
-<<<<<<< HEAD
     let script  = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-=======
-    let script = include_str!("../tests/fixtures/mbtiles/world_cities.sql");
->>>>>>> 914616770fc3bb0b80cac47e0a8c5b4eaa9fab09
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_explicit_enabled", script).await;
 
     let app = create_app!(&formatdoc! {"
@@ -128,11 +116,7 @@ async fn test_cors_explicit_enabled() {
 
 #[actix_rt::test]
 async fn test_cors_specific_origin() {
-<<<<<<< HEAD
     let script  = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-=======
-    let script = include_str!("../tests/fixtures/mbtiles/world_cities.sql");
->>>>>>> 914616770fc3bb0b80cac47e0a8c5b4eaa9fab09
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_specific_origin", script).await;
 
     let app = create_app!(&formatdoc! {"
@@ -157,11 +141,7 @@ async fn test_cors_specific_origin() {
 
 #[actix_rt::test]
 async fn test_cors_no_header_on_mismatch() {
-<<<<<<< HEAD
     let script  = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-=======
-    let script = include_str!("../tests/fixtures/mbtiles/world_cities.sql");
->>>>>>> 914616770fc3bb0b80cac47e0a8c5b4eaa9fab09
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_no_header_on_mismatch", script).await;
 
     let app = create_app!(&formatdoc! {"
@@ -188,14 +168,8 @@ async fn test_cors_no_header_on_mismatch() {
 
 #[actix_rt::test]
 async fn test_cors_preflight_request_with_max_age() {
-<<<<<<< HEAD
     let script  = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_preflight_request_with_max_age", script).await;
-=======
-    let script = include_str!("../tests/fixtures/mbtiles/world_cities.sql");
-    let (_mbt, _conn, file) =
-        temp_named_mbtiles("test_cors_preflight_request_with_max_age", script).await;
->>>>>>> 914616770fc3bb0b80cac47e0a8c5b4eaa9fab09
 
     let app = create_app!(&formatdoc! {"
         cors:
@@ -227,14 +201,8 @@ async fn test_cors_preflight_request_with_max_age() {
 
 #[actix_rt::test]
 async fn test_cors_preflight_request_without_max_age() {
-<<<<<<< HEAD
     let script  = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_preflight_request_without_max_age", script).await;
-=======
-    let script = include_str!("../tests/fixtures/mbtiles/world_cities.sql");
-    let (_mbt, _conn, file) =
-        temp_named_mbtiles("test_cors_preflight_request_without_max_age", script).await;
->>>>>>> 914616770fc3bb0b80cac47e0a8c5b4eaa9fab09
 
     let app = create_app!(&formatdoc! {"
         cors:
