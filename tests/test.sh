@@ -98,6 +98,20 @@ test_jsn() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_metrics() {
+  FILENAME="$TEST_OUT_DIR/$1"
+  URL="$MARTIN_URL/_/metrics"
+
+  echo "Testing $1 from $URL"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  clean_headers_dump "$FILENAME.headers"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  clean_headers_dump "$FILENAME.fetched_with_compression.headers"
+  # due to slight timing differences, these might be slightly different
+  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
+}
+
 test_pbf() {
   FILENAME="$TEST_OUT_DIR/$1.pbf"
   URL="$MARTIN_URL/$2"
@@ -211,6 +225,7 @@ validate_log() {
   remove_line "$LOG_FILE" 'Source IDs must be unique'
   remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
   remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
+  remove_line "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -467,13 +482,14 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
+test_metrics "metrics_1"
+
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test martin-cp"

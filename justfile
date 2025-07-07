@@ -55,8 +55,8 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Run integration tests and save its output as the new expected output (ordering is important, but in some cases run `bless-tests` before others)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-int
+# Run integration tests and save its output as the new expected output (ordering is important)
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
@@ -77,10 +77,6 @@ bless-int:
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
 
-# Run test with bless-tests feature
-bless-tests:
-    cargo test -p martin --features bless-tests
-
 # Build and open mdbook documentation
 book:  (cargo-install 'mdbook')
     mdbook serve docs --open --port 8321
@@ -92,11 +88,10 @@ check:
     cargo check --all-targets -p mbtiles --no-default-features
     cargo check --all-targets -p martin
     cargo check --all-targets -p martin --no-default-features
-    cargo check --all-targets -p martin --no-default-features --features fonts
-    cargo check --all-targets -p martin --no-default-features --features mbtiles
-    cargo check --all-targets -p martin --no-default-features --features pmtiles
-    cargo check --all-targets -p martin --no-default-features --features postgres
-    cargo check --all-targets -p martin --no-default-features --features sprites
+    for feature in $({{just_executable()}} get-features); do \
+        echo "Checking '$feature' feature" >&2 ;\
+        cargo check --all-targets -p martin --no-default-features --features $feature ;\
+    done
 
 # Verify doc build
 check-doc:
@@ -192,6 +187,10 @@ fmt-md:
 fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12 --exclude '^tests/fixtures/(mbtiles|files)/.*\.sql$'
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=sqlite --exclude-rules=LT01,LT05 --files '^tests/fixtures/(mbtiles|files)/.*\.sql$'
+
+# Get all testable features of the main crate as space-separated list
+get-features:
+    cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
