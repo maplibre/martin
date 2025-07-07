@@ -68,15 +68,15 @@ export function SpriteCatalog({
   return (
     <>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center items-start justify-between gap-5">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Sprite Catalog</h2>
             <p className="text-muted-foreground">Preview all available sprite sheets and icons</p>
           </div>
-          <div className="relative">
+          <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              className="pl-10 w-64 bg-card"
+              className="pl-10 md:w-64 w-full bg-card"
               onChange={(e) => onSearchChangeAction(e.target.value)}
               placeholder="Search sprites..."
               value={searchQuery}

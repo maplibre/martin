@@ -62,10 +62,18 @@ export function DashboardContent() {
     >
       <Tabs className="space-y-6" onValueChange={handleTabChange} value={activeTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="tiles">Data Catalog</TabsTrigger>
-          <TabsTrigger value="styles">Styles Catalog</TabsTrigger>
-          <TabsTrigger value="fonts">Font Catalog</TabsTrigger>
-          <TabsTrigger value="sprites">Sprite Catalog</TabsTrigger>
+          <TabsTrigger value="tiles">
+            Tiles<span className="md:block hidden ms-1">Catalog</span>
+          </TabsTrigger>
+          <TabsTrigger value="styles">
+            Styles<span className="md:block hidden ms-1">Catalog</span>
+          </TabsTrigger>
+          <TabsTrigger value="fonts">
+            Fonts<span className="md:block hidden ms-1">Catalog</span>
+          </TabsTrigger>
+          <TabsTrigger value="sprites">
+            Sprites<span className="md:block hidden ms-1">Catalog</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="tiles">
