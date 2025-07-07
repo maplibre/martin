@@ -841,6 +841,8 @@ fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
 mod tests {
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
+    use crate::metadata::temp_named_mbtiles;
+
     use super::*;
 
     const FLAT: Option<MbtTypeCli> = Some(MbtTypeCli::Flat);
@@ -999,12 +1001,9 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_min_max_zoom() {
-        let src_file =
-            PathBuf::from("file:src_copy_with_min_max_zoom_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_copy_with_min_max_zoom_mem", script).await;
 
         let opt = MbtilesCopier {
             src_file,
@@ -1018,12 +1017,9 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_zoom_levels() {
-        let src_file =
-            PathBuf::from("file:src_ccopy_with_zoom_levels_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_ccopy_with_zoom_levels_mem", script).await;
 
         let opt = MbtilesCopier {
             src_file,
@@ -1038,21 +1034,15 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_with_diff_with_file() {
-        let src =
-            PathBuf::from("file:src_copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, src) =
+            temp_named_mbtiles("src_copy_with_diff_with_file_mem_db", script).await;
 
         let dst = PathBuf::from("file:copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
 
-        let diff_file =
-            PathBuf::from("file:diff_copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&diff_file).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, diff_file) =
+            temp_named_mbtiles("diff_copy_with_diff_with_file_mem_db", script).await;
 
         let opt = MbtilesCopier {
             src_file: src.clone(),
@@ -1106,19 +1096,13 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_to_existing_abort_mode() {
-        let src =
-            PathBuf::from("file:src_copy_to_existing_abort_mode_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, src) =
+            temp_named_mbtiles("src_copy_to_existing_abort_mode_mem_db", script).await;
 
-        let dst =
-            PathBuf::from("file:dst_copy_to_existing_abort_mode_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&dst).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, dst) =
+            temp_named_mbtiles("dst_copy_to_existing_abort_mode_mem_db", script).await;
 
         let opt = MbtilesCopier {
             src_file: src.clone(),
@@ -1135,22 +1119,14 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_to_existing_override_mode() {
-        let src_file = PathBuf::from(
-            "file:src_copy_to_existing_override_mode_mem_db?mode=memory&cache=shared",
-        );
-        let mbt = Mbtiles::new(&src_file).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_copy_to_existing_override_mode_mem_db", script).await;
 
         // Copy the dst file to an in-memory DB
-        let dst_file = PathBuf::from(
-            "file:dst_copy_to_existing_override_mode_mem_db?mode=memory&cache=shared",
-        );
-        let mbt = Mbtiles::new(&dst_file).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, dst_file) =
+            temp_named_mbtiles("dst_copy_to_existing_override_mode_mem_db", script).await;
 
         let dst =
             PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
@@ -1189,20 +1165,14 @@ mod tests {
 
     #[actix_rt::test]
     async fn copy_to_existing_ignore_mode() {
-        let src_file =
-            PathBuf::from("file:src_copy_to_existing_ignore_mode_mem?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&src_file).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_copy_to_existing_ignore_mode_mem", script).await;
 
         // Copy the dst file to an in-memory DB
-        let dst_file =
-            PathBuf::from("file:dst_copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");
-        let mbt = Mbtiles::new(&dst_file).unwrap();
-        let mut conn = mbt.open().await.unwrap();
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        let (_mbt, _conn, dst_file) =
+            temp_named_mbtiles("dst_copy_to_existing_ignore_mode_mem_db", script).await;
 
         let dst =
             PathBuf::from("file:copy_to_existing_ignore_mode_mem_db?mode=memory&cache=shared");

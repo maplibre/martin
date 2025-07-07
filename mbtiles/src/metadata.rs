@@ -1,6 +1,6 @@
 use std::fmt::Display;
-use std::str::FromStr;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use futures::TryStreamExt;
 use log::{info, warn};
@@ -8,7 +8,7 @@ use martin_tile_utils::TileInfo;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{Value as JSONValue, Value, json};
-use sqlx::{SqliteExecutor, query, SqliteConnection};
+use sqlx::{SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 
 use crate::MbtError::InvalidZoomValue;
@@ -232,6 +232,7 @@ impl Mbtiles {
     }
 }
 
+#[allow(dead_code)]
 pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
     let mbt = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbt.open().await.unwrap();
@@ -239,12 +240,16 @@ pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
     (mbt, conn)
 }
 
-pub async fn temp_names_mbtiles(file_name: &str, script: &str) -> PathBuf {
-    let file = PathBuf::from(format!("file:{}?mode=memory&cache=shared", file_name));
+#[allow(dead_code)]
+pub async fn temp_named_mbtiles(
+    file_name: &str,
+    script: &str,
+) -> (Mbtiles, SqliteConnection, PathBuf) {
+    let file = PathBuf::from(format!("file:{file_name}?mode=memory&cache=shared"));
     let mbt = Mbtiles::new(&file).unwrap();
     let mut conn = mbt.open().await.unwrap();
     sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
-    file
+    (mbt, conn, file)
 }
 
 #[cfg(test)]
