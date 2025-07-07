@@ -56,7 +56,7 @@ bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-tests bless-frontend bless-int
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
@@ -165,6 +165,8 @@ env-info:
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    npm --version
+    node --version
 
 # Run eslint on the frontend
 [working-directory: 'martin/martin-ui']

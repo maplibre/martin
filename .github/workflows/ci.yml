@@ -26,9 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Run linting
-        run: npm lint
+        run: npm run lint
       - name: Run tests
-        run: npm test
+        run: npm run test
   lint-debug-test:
     name: Lint and Unit test
     runs-on: ubuntu-latest
