@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SpriteMeta } from "./SpriteCache";
 
@@ -22,7 +22,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
     ctx.clearRect(0, 0, meta.width, meta.height);
     // Draw the sprite sub-image
     ctx.drawImage(image, meta.x, meta.y, meta.width, meta.height, 0, 0, meta.width, meta.height);
-  }, [canvasRef, meta, image]);
+  }, [meta, image]);
 
   if (previewMode)
     return (
@@ -33,7 +33,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
           <Tooltip>
             <TooltipTrigger asChild>
               <canvas
-                aria-label={"Icon for " + label}
+                aria-label={`Icon for ${label}`}
                 className="h-7 w-7 object-contain block"
                 height={meta.height}
                 ref={canvasRef}
@@ -61,7 +61,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
         ) : (
           <div className="flex items-center justify-center h-20 w-20">
             <canvas
-              aria-label={"Icon for " + label}
+              aria-label={`Icon for ${label}`}
               className="h-20 w-20 object-contain block"
               height={meta.height}
               ref={canvasRef}

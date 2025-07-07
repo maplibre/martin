@@ -1,5 +1,4 @@
 import { Download } from "lucide-react";
-import type React from "react";
 import { Suspense } from "react";
 import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { Button } from "@/components/ui/button";

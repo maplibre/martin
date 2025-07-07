@@ -1,5 +1,4 @@
 import { fireEvent, screen } from "@testing-library/react";
-import React from "react";
 import { ErrorState, InlineErrorState } from "@/components/error/error-state";
 import { render } from "../../test-utils";
 

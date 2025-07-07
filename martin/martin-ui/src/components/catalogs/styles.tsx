@@ -1,4 +1,4 @@
-import { Brush, Eye, Map, Search } from "lucide-react";
+import { Brush, Eye, Search } from "lucide-react";
 
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
@@ -141,10 +141,10 @@ export function StylesCatalog({
                   <div>
                     <p className="text-sm font-medium mb-2">Color Palette:</p>
                     <div className="flex space-x-1">
-                      {style.colors.map((color, i) => (
+                      {style.colors.map((color) => (
                         <div
                           className="w-6 h-6 rounded border border-gray-200"
-                          key={i}
+                          key={color}
                           style={{ backgroundColor: color }}
                           title={color}
                         ></div>

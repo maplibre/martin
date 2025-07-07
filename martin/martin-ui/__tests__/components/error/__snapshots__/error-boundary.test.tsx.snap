@@ -127,7 +127,9 @@ exports[`ErrorBoundary renders custom fallback component if provided 1`] = `
     <span>
       Test error thrown!
     </span>
-    <button>
+    <button
+      type="button"
+    >
       Retry now
     </button>
   </div>

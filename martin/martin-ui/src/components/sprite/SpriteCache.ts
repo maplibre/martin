@@ -34,7 +34,7 @@ export function fetchSpriteImage(url: string): Promise<HTMLImageElement> {
       spriteImageCache[url].image = img;
       resolve(img);
     };
-    img.onerror = (err) => {
+    img.onerror = (_err) => {
       reject(new Error(`Failed to load sprite image: ${url}`));
     };
     img.crossOrigin = "anonymous";

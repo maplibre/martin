@@ -38,8 +38,8 @@ describe("parsePrometheusMetrics", () => {
 
     expect(sum["/catalog"]).toBe(1.1);
     expect(count["/catalog"]).toBe(2);
-    expect(sum["foo"]).toBeUndefined();
-    expect(count["foo"]).toBeUndefined();
+    expect(sum.foo).toBeUndefined();
+    expect(count.foo).toBeUndefined();
   });
 
   it("handles missing sum or count values gracefully", () => {

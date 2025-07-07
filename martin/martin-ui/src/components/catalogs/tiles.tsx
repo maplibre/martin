@@ -152,7 +152,7 @@ export function TilesCatalog({
             {searchQuery ? (
               <>No tile sources found matching "{searchQuery}".</>
             ) : (
-              <>No tile sources found.</>
+              "No tile sources found."
             )}
           </p>
           <Button asChild size="lg" variant="link">

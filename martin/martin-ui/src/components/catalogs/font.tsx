@@ -11,7 +11,6 @@ import type { Font } from "@/lib/types";
 import { CopyLinkButton } from "../ui/copy-link-button";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { useToast } from "../ui/use-toast";
 
 interface FontCatalogProps {
   fonts?: { [name: string]: Font };
@@ -32,7 +31,6 @@ export function FontCatalog({
   onRetry,
   isRetrying = false,
 }: FontCatalogProps) {
-  const { toast } = useToast();
   if (isLoading) {
     return <CatalogSkeleton description="Preview all available font assets" title="Font Catalog" />;
   }
@@ -148,7 +146,7 @@ export function FontCatalog({
       {filteredFonts.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">
-            {searchQuery ? <>No fonts found matching "{searchQuery}".</> : <>No fonts found.</>}
+            {searchQuery ? <>No fonts found matching "{searchQuery}".</> : "No fonts found."}
           </p>
           <Button asChild size="lg" variant="link">
             <a

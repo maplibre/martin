@@ -1,4 +1,3 @@
-import React from "react";
 import { LoadingSpinner } from "@/components/loading/loading-spinner";
 import { render } from "../../test-utils";
 

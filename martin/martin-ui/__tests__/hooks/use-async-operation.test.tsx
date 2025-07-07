@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import type { useAsyncOperation as UseAsyncOperationType } from "@/hooks/use-async-operation";
 
 // Mock the useToast hook manually
 const mockToast = jest.fn();
@@ -14,7 +15,9 @@ jest.doMock("@/hooks/use-toast", () => ({
 }));
 
 // Import after the mock is set up
-const { useAsyncOperation } = require("@/hooks/use-async-operation");
+const { useAsyncOperation } = require("@/hooks/use-async-operation") as {
+  useAsyncOperation: typeof UseAsyncOperationType;
+};
 
 jest.useFakeTimers();
 
@@ -37,7 +40,7 @@ describe("useAsyncOperation", () => {
     expect(result.current.data).toBeUndefined();
     expect(result.current.error).toBeNull();
 
-    let promise: Promise<string | void> | undefined;
+    let promise: Promise<string | undefined> | undefined;
     act(() => {
       promise = result.current.execute();
     });
@@ -45,7 +48,9 @@ describe("useAsyncOperation", () => {
     expect(result.current.isLoading).toBe(true);
 
     await act(async () => {
-      await promise!;
+      if (promise) {
+        await promise;
+      }
     });
 
     expect(result.current.isLoading).toBe(false);
@@ -76,7 +81,9 @@ describe("useAsyncOperation", () => {
       // Second retry after ~1000ms
       await jest.advanceTimersByTimeAsync(1001);
       // Wait for the promise to reject
-      await expect(executePromise!).rejects.toThrow("Failed");
+      if (executePromise) {
+        await expect(executePromise).rejects.toThrow("Failed");
+      }
     });
 
     expect(result.current.isLoading).toBe(false);
@@ -102,7 +109,7 @@ describe("useAsyncOperation", () => {
       useAsyncOperation<string>(mockAsyncFunction, { onError, onSuccess }),
     );
 
-    let promise: Promise<string | void> | undefined;
+    let promise: Promise<string | undefined> | undefined;
     act(() => {
       promise = result.current.execute();
     });
@@ -110,7 +117,9 @@ describe("useAsyncOperation", () => {
     await act(async () => {
       // Wait for the first backoff period
       await jest.advanceTimersByTimeAsync(501);
-      await promise!;
+      if (promise) {
+        await promise;
+      }
     });
 
     expect(result.current.isLoading).toBe(false);
@@ -136,7 +145,7 @@ describe("useAsyncOperation", () => {
     await act(async () => {
       try {
         await errorResult.current.execute();
-      } catch (e) {
+      } catch (_e) {
         // Expected to throw
       }
     });

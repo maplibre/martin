@@ -1,7 +1,5 @@
 "use client";
 
-import { X } from "lucide-react";
-import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
@@ -27,7 +25,7 @@ interface TileInspectDialogProps {
 export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const inspectControlRef = useRef<any>(null);
+  const inspectControlRef = useRef<MaplibreInspect | null>(null);
 
   useEffect(() => {
     if (!isMapLoaded || !mapRef.current) return;
@@ -59,7 +57,7 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
       if (inspectControlRef.current && map) {
         try {
           map.removeControl(inspectControlRef.current);
-        } catch (e) {
+        } catch (_e) {
           // Control might already be removed
         }
       }

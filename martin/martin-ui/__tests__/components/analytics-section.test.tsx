@@ -1,4 +1,3 @@
-import type React from "react";
 import { AnalyticsSection } from "@/components/analytics-section";
 import type { AnalyticsData } from "@/lib/types";
 import { fireEvent, render, screen } from "../test-utils";

@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type React from "react";
 import { SpriteCatalog } from "@/components/catalogs/sprite";
 import type { SpriteCollection } from "@/lib/types";
 
@@ -31,21 +30,20 @@ jest.mock("@/components/sprite/SpritePreview", () => {
 jest.mock("@/components/dialogs/sprite-preview", () => ({
   SpritePreviewDialog: ({
     name,
-    sprite,
     onCloseAction,
     onDownloadAction,
   }: {
     name: string;
-    sprite: any;
+    sprite: SpriteCollection;
     onCloseAction: () => void;
     onDownloadAction: () => void;
   }) => (
     <div data-testid="sprite-preview-dialog">
       <div data-testid="sprite-preview-name">{name}</div>
-      <button data-testid="sprite-preview-close" onClick={onCloseAction}>
+      <button data-testid="sprite-preview-close" onClick={onCloseAction} type="button">
         Close
       </button>
-      <button data-testid="sprite-preview-download" onClick={onDownloadAction}>
+      <button data-testid="sprite-preview-download" onClick={onDownloadAction} type="button">
         Download
       </button>
     </div>
@@ -55,16 +53,15 @@ jest.mock("@/components/dialogs/sprite-preview", () => ({
 jest.mock("@/components/dialogs/sprite-download", () => ({
   SpriteDownloadDialog: ({
     name,
-    sprite,
     onCloseAction,
   }: {
     name: string;
-    sprite: any;
+    sprite: SpriteCollection;
     onCloseAction: () => void;
   }) => (
     <div data-testid="sprite-download-dialog">
       <div data-testid="sprite-download-name">{name}</div>
-      <button data-testid="sprite-download-close" onClick={onCloseAction}>
+      <button data-testid="sprite-download-close" onClick={onCloseAction} type="button">
         Close
       </button>
     </div>

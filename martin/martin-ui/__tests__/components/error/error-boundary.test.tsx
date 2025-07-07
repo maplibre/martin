@@ -1,5 +1,4 @@
 import { fireEvent, screen } from "@testing-library/react";
-import React from "react";
 import { ErrorBoundary } from "@/components/error/error-boundary";
 import { render } from "../../test-utils";
 
@@ -68,7 +67,9 @@ describe("ErrorBoundary", () => {
       <div>
         <span>Custom fallback!</span>
         {error && <span>{error.message}</span>}
-        <button onClick={retry}>Retry now</button>
+        <button onClick={retry} type="button">
+          Retry now
+        </button>
       </div>
     );
     const { container } = render(
@@ -114,7 +115,9 @@ describe("ErrorBoundary", () => {
       <div>
         <span>Custom fallback!</span>
         {error && <span>{error.message}</span>}
-        <button onClick={retry}>Retry now</button>
+        <button onClick={retry} type="button">
+          Retry now
+        </button>
       </div>
     );
     // Use a key to force remount after retry

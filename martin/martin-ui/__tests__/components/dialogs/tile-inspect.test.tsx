@@ -1,5 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import React from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { TileInspectDialog } from "@/components/dialogs/tile-inspect";
 import type { TileSource } from "@/lib/types";
 
@@ -17,15 +16,23 @@ jest.mock("maplibre-gl", () => ({
 jest.mock("@vis.gl/react-maplibre", () => {
   const { forwardRef } = require("react");
   return {
-    Map: forwardRef((props: any, ref: any) => {
-      return (
-        <div
-          data-testid="maplibre-map"
-          onClick={() => props.onLoad && props.onLoad()}
-          style={props.style}
-        />
-      );
-    }),
+    Map: forwardRef(
+      (
+        props: React.ComponentProps<"div"> & { onLoad?: () => void },
+        _ref: React.Ref<HTMLDivElement>,
+      ) => {
+        return (
+          <div
+            data-testid="maplibre-map"
+            onClick={() => props.onLoad?.()}
+            onKeyDown={(e) => e.key === "Enter" && props.onLoad?.()}
+            role="button"
+            style={props.style}
+            tabIndex={0}
+          />
+        );
+      },
+    ),
   };
 });
 

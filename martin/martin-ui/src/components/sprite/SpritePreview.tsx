@@ -2,7 +2,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { buildMartinUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { fetchSpriteImage, fetchSpriteIndex, SpriteIndex, type SpriteMeta } from "./SpriteCache";
+import { fetchSpriteImage, fetchSpriteIndex, type SpriteMeta } from "./SpriteCache";
 import SpriteCanvas from "./SpriteCanvas";
 
 type SpritePreviewProps = {
@@ -60,10 +60,10 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
           sprites,
           status: "ready",
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (cancelled) return;
         setState({
-          error: err?.message || "Failed to load sprite",
+          error: err instanceof Error ? err.message : "Failed to load sprite",
           status: "error",
         });
       }

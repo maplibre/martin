@@ -6,10 +6,8 @@ describe("formatFileSize", () => {
   });
 
   it("returns 'Unknown size' for undefined, null, NaN, or negative", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(formatFileSize(undefined as any)).toBe("Unknown size");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(formatFileSize(null as any)).toBe("Unknown size");
+    expect(formatFileSize(undefined as unknown as number)).toBe("Unknown size");
+    expect(formatFileSize(null as unknown as number)).toBe("Unknown size");
     expect(formatFileSize(NaN)).toBe("Unknown size");
     expect(formatFileSize(-1)).toBe("Unknown size");
   });

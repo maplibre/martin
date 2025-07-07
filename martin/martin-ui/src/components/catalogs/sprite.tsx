@@ -1,6 +1,6 @@
 import { Download, Eye, ImageIcon, Search } from "lucide-react";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { SpriteDownloadDialog } from "@/components/dialogs/sprite-download";
 import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
 import { ErrorState } from "@/components/error/error-state";
