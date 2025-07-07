@@ -44,6 +44,14 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
+# Advanced monitoring options
+observability:
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
+
 # CORS Configuration
 #
 # Defaults to `cors: true`, which allows all origins.

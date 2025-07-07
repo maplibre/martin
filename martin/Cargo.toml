@@ -52,22 +52,24 @@ name = "bench"
 harness = false
 
 [features]
-default = ["webui", "fonts", "lambda", "mbtiles", "pmtiles", "cog", "postgres", "sprites", "styles"]
-webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
+cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
+metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:pmtiles"]
-cog = ["dep:tiff", "dep:png"]
-styles = ["dep:walkdir", "tokio/fs"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
+styles = ["dep:walkdir", "tokio/fs"]
+webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-middleware-etag.workspace = true
 actix-rt.workspace = true
+actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
@@ -98,10 +100,10 @@ rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
 rustls.workspace = true
 semver = { workspace = true, optional = true }
+serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
-serde.workspace = true
 spreet = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
@@ -115,8 +117,8 @@ walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [build-dependencies]
-walkdir = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
+walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
@@ -127,8 +129,8 @@ indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 pprof.workspace = true
 rstest.workspace = true
-testcontainers-modules.workspace = true
 tempfile.workspace = true
+testcontainers-modules.workspace = true
 
 [lints]
 workspace = true
