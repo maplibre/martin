@@ -4,7 +4,7 @@ use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUES
 use actix_web::test::{TestRequest, call_service};
 use ctor::ctor;
 use indoc::formatdoc;
-use mbtiles::metadata::temp_named_mbtiles;
+use mbtiles::temp_named_mbtiles;
 pub mod utils;
 pub use utils::*;
 
