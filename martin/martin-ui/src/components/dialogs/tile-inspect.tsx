@@ -13,6 +13,7 @@ import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
 import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
 import type { MapRef } from "@vis.gl/react-maplibre";
 import { Map as MapLibreMap, Source } from "@vis.gl/react-maplibre";
+import { Database } from "lucide-react";
 import { Popup } from "maplibre-gl";
 import { buildMartinUrl } from "@/lib/api";
 
@@ -80,7 +81,7 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
 
         <div className="space-y-4">
           {/* Map Container */}
-          <div className="border rounded-lg overflow-hidden">
+          <section className="border rounded-lg overflow-hidden">
             <MapLibreMap
               onLoad={() => setIsMapLoaded(true)}
               ref={mapRef}
@@ -92,47 +93,56 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
             >
               <Source type="vector" url={buildMartinUrl(`/${name}`)} />
             </MapLibreMap>
-          </div>
+          </section>
           {/* Source Information */}
-          <div className="bg-muted/30 p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">Source Information</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
+          <section className="bg-muted/30 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Database className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-semibold">Source Information</h3>
+            </div>
+            <div className="flex flex-col md:grid md:grid-cols-2 gap-y-4 text-sm">
+              <p>
                 <span className="font-medium">Content Type:</span>
-                <span className="ml-2">{source.content_type}</span>
-              </div>
+                <br />
+                <code>{source.content_type}</code>
+              </p>
               {source.content_encoding && (
-                <div>
+                <p>
                   <span className="font-medium">Encoding:</span>
-                  <span className="ml-2">{source.content_encoding}</span>
-                </div>
+                  <br />
+                  <code>{source.content_encoding}</code>
+                </p>
               )}
               {source.name && (
-                <div>
+                <p>
                   <span className="font-medium">Name:</span>
-                  <span className="ml-2">{source.name}</span>
-                </div>
+                  <br />
+                  <span>{source.name}</span>
+                </p>
               )}
               {source.description && (
-                <div>
+                <p className="col-span-2">
                   <span className="font-medium">Description:</span>
-                  <span className="ml-2">{source.description}</span>
-                </div>
+                  <br />
+                  <span>{source.description}</span>
+                </p>
               )}
               {source.layerCount && (
-                <div>
+                <p>
                   <span className="font-medium">Layer Count:</span>
-                  <span className="ml-2">{source.layerCount}</span>
-                </div>
+                  <br />
+                  <span>{source.layerCount}</span>
+                </p>
               )}
               {source.attribution && (
-                <div className="col-span-2">
+                <p className="col-span-2">
                   <span className="font-medium">Attribution:</span>
-                  <span className="ml-2">{source.attribution}</span>
-                </div>
+                  <br />
+                  <span>{source.attribution}</span>
+                </p>
               )}
             </div>
-          </div>
+          </section>
         </div>
       </DialogContent>
     </Dialog>
