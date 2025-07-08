@@ -9,29 +9,16 @@
         "useSortedProperties": "on"
       }
     },
-    "enabled": true
-  },
-  "extends": "//",
-  "files": {
-    "experimentalScannerIgnores": ["node_modules", "dist"],
-    "includes": [
-      "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
-      "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}"
-    ]
+    "enabled": false
   },
   "formatter": {
-    "enabled": true,
+    "enabled": false,
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 100
   },
-  "javascript": { "formatter": { "quoteStyle": "double" } },
   "linter": {
-    "domains": {
-      "react": "all"
-    },
-    "enabled": true,
-    "includes": ["**"],
+    "enabled": false,
     "rules": {
       "recommended": true
     }

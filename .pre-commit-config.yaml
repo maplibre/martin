@@ -53,25 +53,10 @@ repos:
         args: [--dialect=postgres, "--exclude-rules=AL07,LT05,LT12"]
         files: \.sql$
   # NPM hooks for JavaScript/TypeScript formatting and linting
-  - repo: local
-    hooks:
-      # TODO: Add hooks for demo frontend
-
-      # Martin UI - Biome formatting and linting
-      - id: biome-format
-        name: Biome Format (Martin UI)
-        description: "Format JavaScript/TypeScript files in martin-ui"
-        entry: sh -c "cd martin/martin-ui && npx @biomejs/biome format --write"
-        language: node
-        files: ^martin/martin-ui/.*\.(js|jsx|ts|tsx|json|jsonc|yaml|yml)$
-        pass_filenames: false
-        require_serial: true
-
-      - id: biome-lint
-        name: Biome Lint (Martin UI)
-        description: "Lint JavaScript/TypeScript files in martin-ui"
-        entry: sh -c "cd martin/martin-ui && npx @biomejs/biome check --write"
-        language: node
-        files: ^martin/martin-ui/.*\.(js|jsx|ts|tsx)$
-        pass_filenames: false
-        require_serial: true
+  -   repo: https://github.com/biomejs/pre-commit
+      rev: "v2.0.6"  # Use the sha / tag you want to point at
+      hooks:
+      -   id: biome-check
+          additional_dependencies: ["@biomejs/biome@2.1.1"]
+      -   id: biome-format
+          additional_dependencies: ["@biomejs/biome@2.1.1"]
