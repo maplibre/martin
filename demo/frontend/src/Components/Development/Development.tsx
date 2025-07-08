@@ -1,4 +1,3 @@
-import React from "react";
 import GitHubButton from "../GitHubButton";
 import DocsButton from "../GitHubButton/DocsButton";
 import Container from "./Container";

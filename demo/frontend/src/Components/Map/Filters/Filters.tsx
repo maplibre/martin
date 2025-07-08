@@ -1,5 +1,5 @@
 import { debounce } from "debounce";
-import React, { PureComponent } from "react";
+import { PureComponent } from "react";
 //@ts-ignore
 import { addToRange, DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -7,7 +7,6 @@ import "react-day-picker/dist/style.css";
 import { DEC, JAN } from "../../../config/constants";
 import dateConverter from "../../../utils/dateConverter";
 import AvgTime from "./AvgTime";
-import CaptionElement from "./CaptionElement";
 import Container from "./Container";
 import DayPickerContainer from "./DayPicker";
 import Input from "./Input";
@@ -73,7 +72,6 @@ class Filters extends PureComponent<
               modifiers={modifiers}
               numberOfMonths={1}
               onDayClick={this.handleDayClick}
-              // captionElement={CaptionElement}
               selected={[from, { from, to }]}
               style={{ height: "290px" }}
               toMonth={DEC}
