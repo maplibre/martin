@@ -101,7 +101,7 @@ export function TilesCatalog({
                   </div>
                   <Badge variant="secondary">{source.content_type}</Badge>
                 </div>
-                <p className="text-center md:text-start break-all text-balance">
+                <div className="text-center md:text-start break-all text-balance">
                   {(source.description || source.name) && (
                     <CardDescription>
                       {source.name}
@@ -109,7 +109,7 @@ export function TilesCatalog({
                       {source.description}
                     </CardDescription>
                   )}
-                </p>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm text-muted-foreground">
