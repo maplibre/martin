@@ -4,7 +4,7 @@ import Development from "../Development/Development";
 import Features from "../Fatures";
 import Footer from "../Footer/Footer";
 import Intro from "../Intro";
-import Map from "../Map";
+import MaplibreMap from "../MaplibreMap";
 import TryIt from "../TryIt";
 import GlobalStyle from "./GlobalStyle";
 
@@ -24,7 +24,7 @@ const App = () => (
         hours and to sum or average the numbers by areas.
       </p>
     </TryIt>
-    <Map />
+    <MaplibreMap />
     <Development />
     <Footer />
   </ParallaxProvider>
