@@ -24,7 +24,7 @@ exports[`Header Component renders correctly 1`] = `
             href="/"
           >
             <div
-              class="-mt-5 -rotate-6"
+              class="-mt-5 -rotate-6 md:block hidden"
               style="height: 48px; width: 96px;"
             >
               <svg
@@ -1297,7 +1297,7 @@ exports[`Header Component renders correctly 1`] = `
               </svg>
             </div>
             <h1
-              class="text-3xl -ms-2 font-bold leading-relaxed text-foreground select-none"
+              class="text-3xl md:block hidden -ms-2 font-bold leading-relaxed text-foreground select-none"
             >
               MARTIN
             </h1>

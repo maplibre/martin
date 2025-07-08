@@ -20,27 +20,23 @@ describe("CatalogSkeleton Component", () => {
 
   it("renders with custom item count", () => {
     const { container } = render(
-      <CatalogSkeleton
-        description="Custom item count"
-        itemCount={3}
-        title="Custom Count Catalog"
-      />,
+      <CatalogSkeleton description="Custom item count" title="Custom Count Catalog" />,
     );
     expect(container).toMatchSnapshot();
 
-    // Should render the specified number of skeleton items
+    // Should render the default number of skeleton items (6)
     const cards = container.querySelectorAll('[class*="hover:shadow-lg"]');
-    expect(cards.length).toBe(3);
+    expect(cards.length).toBe(6);
   });
 
   it("renders with large item count", () => {
     const { container } = render(
-      <CatalogSkeleton description="Many items" itemCount={12} title="Large Catalog" />,
+      <CatalogSkeleton description="Many items" title="Large Catalog" />,
     );
     expect(container).toMatchSnapshot();
 
-    // Should render the specified number of skeleton items
+    // Should render the default number of skeleton items (6)
     const cards = container.querySelectorAll('[class*="hover:shadow-lg"]');
-    expect(cards.length).toBe(12);
+    expect(cards.length).toBe(6);
   });
 });

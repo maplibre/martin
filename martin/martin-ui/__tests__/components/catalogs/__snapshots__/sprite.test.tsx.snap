@@ -6,7 +6,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
     class="space-y-6"
   >
     <div
-      class="flex items-center justify-between"
+      class="flex flex-col md:flex-row md:items-center items-start justify-between gap-5"
     >
       <div>
         <h2
@@ -21,7 +21,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
         </p>
       </div>
       <div
-        class="relative"
+        class="relative w-full md:w-64"
       >
         <svg
           aria-hidden="true"
@@ -46,7 +46,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
           />
         </svg>
         <input
-          class="flex h-10 rounded-md border border-input px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-10 w-64 bg-card"
+          class="flex h-10 rounded-md border border-input px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-10 md:w-64 w-full bg-card"
           placeholder="Search sprites..."
           value=""
         />
@@ -98,7 +98,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
                 />
               </svg>
               <div
-                class="font-semibold tracking-tight text-lg"
+                class="font-semibold tracking-tight text-lg font-mono"
               >
                 map-icons
               </div>
@@ -188,10 +188,10 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
             </div>
           </div>
           <div
-            class="flex space-x-2 mt-4"
+            class="flex flex-col md:flex-row items-center gap-2 mt-4"
           >
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
               data-slot="button"
             >
               <svg
@@ -220,7 +220,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
               Download
             </button>
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
               data-slot="button"
             >
               <svg
@@ -293,7 +293,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
                 />
               </svg>
               <div
-                class="font-semibold tracking-tight text-lg"
+                class="font-semibold tracking-tight text-lg font-mono"
               >
                 transportation
               </div>
@@ -397,10 +397,10 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
             </div>
           </div>
           <div
-            class="flex space-x-2 mt-4"
+            class="flex flex-col md:flex-row items-center gap-2 mt-4"
           >
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
               data-slot="button"
             >
               <svg
@@ -429,7 +429,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
               Download
             </button>
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
               data-slot="button"
             >
               <svg
@@ -502,7 +502,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
                 />
               </svg>
               <div
-                class="font-semibold tracking-tight text-lg"
+                class="font-semibold tracking-tight text-lg font-mono"
               >
                 ui-elements
               </div>
@@ -613,10 +613,10 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
             </div>
           </div>
           <div
-            class="flex space-x-2 mt-4"
+            class="flex flex-col md:flex-row items-center gap-2 mt-4"
           >
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
               data-slot="button"
             >
               <svg
@@ -645,7 +645,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
               Download
             </button>
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
               data-slot="button"
             >
               <svg

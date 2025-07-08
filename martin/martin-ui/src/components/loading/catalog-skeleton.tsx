@@ -4,7 +4,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface CatalogSkeletonProps {
   title: string;
   description: string;
-  itemCount?: number;
 }
 
 function CatalogItemSkeleton() {
