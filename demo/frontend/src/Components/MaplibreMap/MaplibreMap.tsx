@@ -11,7 +11,10 @@ import Filters from "./Filters";
 
 const mapStyle = { height: "615px", marginLeft: "350px" };
 
-class Map extends PureComponent<Record<string, never>, { visibleLayer: any; range: any; hour: any }> {
+class Map extends PureComponent<
+  Record<string, never>,
+  { visibleLayer: any; range: any; hour: any }
+> {
   map: any;
   nav: any;
 
