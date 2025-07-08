@@ -14,21 +14,6 @@ defaults:
     shell: bash
 
 jobs:
-  frontend-tests:
-    name: Test the frontend
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: martin/martin-ui
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install dependencies
-        run: npm install
-      - name: Run linting
-        run: npm run lint
-      - name: Run tests
-        run: npm run test
   lint-debug-test:
     name: Lint and Unit test
     runs-on: ubuntu-latest
@@ -68,6 +53,12 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
       - run: just test-fmt
+      - name: Run martin/martin-ui linting
+        run: npx @biomejs/biome ci
+        working-directory: martin/martin-ui
+      - name: Run martin/martin-ui tests
+        run: npm install && npm test
+        working-directory: martin/martin-ui
       - run: just clippy
       - run: just check
       - run: just check-doc
@@ -89,10 +80,49 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
+  musl-build:
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-musl
+          - target: x86_64-unknown-linux-musl
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          set-safe-directory: false
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-zigbuild }
+      - name: Install zig
+        uses: korandoru/setup-zig@v1
+        with:
+          zig-version: 0.14.0
+      - run: rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - name: Build ${{ matrix.target }}
+        run: |
+          export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
+          cargo zigbuild --release --target ${{ matrix.target }} --workspace --locked
 
+      - name: Move the artefacts to the expected place
+        run: |
+          mkdir -p target_releases/
+          mv target/${{ matrix.target }}/release/martin target_releases/
+          mv target/${{ matrix.target }}/release/martin-cp target_releases/
+          mv target/${{ matrix.target }}/release/mbtiles target_releases/
+      - name: Save build artifacts to build-${{ matrix.target }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: target_releases/
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
+    needs: [ musl-build, lint-debug-test ]
     permissions:
       id-token: write
       attestations: write
@@ -126,14 +156,10 @@ jobs:
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
-      - uses: taiki-e/install-action@v2
-        with: { tool: cross }
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
           set-safe-directory: false
-      - uses: Swatinem/rust-cache@v2
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -170,38 +196,20 @@ jobs:
         with:
           install: true
           platforms: linux/amd64,linux/arm64
-      - name: Set up AWS SAM
-        uses: aws-actions/setup-sam@v2
+      - name: Download build artifact build-aarch64-unknown-linux-musl
+        uses: actions/download-artifact@v4
         with:
-          use-installer: true
-
-      - name: Build targets
-        run: |
-          for target in "aarch64-unknown-linux-musl" "x86_64-unknown-linux-musl"; do
-            echo -e "\n----------------------------------------------"
-            echo "Building $target"
-            # See https://github.com/cross-rs/cross/issues/1526
-            # TODO: Remove this once a version after cross 0.2.5 is released
-            export CROSS_BUILD_OPTS="--output=type=docker"
-            export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-            cross build --release --target $target --workspace
-            mkdir -p target_releases/$target
-            mv target/$target/release/martin target_releases/$target
-            mv target/$target/release/martin-cp target_releases/$target
-            mv target/$target/release/mbtiles target_releases/$target
-          done
-
-      - name: Save cross-build artifacts
-        uses: actions/upload-artifact@v4
+          name: build-aarch64-unknown-linux-musl
+          path: target_releases/linux/arm64/
+      - name: Mark target_releases/linux/arm64/* as executable
+        run: chmod +x target_releases/linux/arm64/*
+      - name: Download build artifact build-x86_64-unknown-linux-musl
+        uses: actions/download-artifact@v4
         with:
-          name: cross-build
-          path: target_releases/*
-      - name: Reorganize artifacts for docker build
-        run: |
-          mkdir -p target_releases/linux/arm64
-          mv target_releases/aarch64-unknown-linux-musl/* target_releases/linux/arm64/
-          mkdir -p target_releases/linux/amd64
-          mv target_releases/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
+          name: build-x86_64-unknown-linux-musl
+          path: target_releases/linux/amd64/
+      - name: Mark target_releases/linux/amd64/* as executable
+        run: chmod +x target_releases/linux/amd64/*
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
@@ -368,8 +376,8 @@ jobs:
           set -x
           rustup target add "${{ matrix.target }}"
           export RUSTFLAGS='-C strip=debuginfo'
-          cargo build --release --target ${{ matrix.target }} --package mbtiles
-          cargo build --release --target ${{ matrix.target }} --package martin
+          cargo build --release --target ${{ matrix.target }} --package mbtiles --locked
+          cargo build --release --target ${{ matrix.target }} --package martin --locked
           mkdir -p target_releases
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
@@ -383,17 +391,18 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
-    needs: [ docker-build-test ]
+    needs: [ musl-build ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Download build artifact cross-build
+      - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
-          name: cross-build
+          name: build-x86_64-unknown-linux-musl
+          path: target/
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: x86_64-unknown-linux-musl/martin
+          MARTIN_BIN: target/martin
 
 
   test-multi-os:
@@ -526,7 +535,7 @@ jobs:
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
-    needs: [ build, docker-build-test ]
+    needs: [ build ]
     strategy:
       fail-fast: true
       matrix:
@@ -668,7 +677,7 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
-    needs: [ lint-debug-test, frontend-tests, docker-build-test, test-multi-os, test-with-svc ]
+    needs: [ lint-debug-test, test-multi-os, test-with-svc, test-aws-lambda ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -687,13 +696,16 @@ jobs:
         with:
           name: build-x86_64-unknown-linux-gnu
           path: target/x86_64-unknown-linux-gnu
-
-      - name: Download cross-build artifacts
+      - name: Download build artifact build-aarch64-unknown-linux-musl
         uses: actions/download-artifact@v4
         with:
-          name: cross-build
-          path: target/cross
-
+          name: build-aarch64-unknown-linux-musl
+          path: target/aarch64-unknown-linux-musl
+      - name: Download build artifact build-x86_64-unknown-linux-musl
+        uses: actions/download-artifact@v4
+        with:
+          name: build-x86_64-unknown-linux-musl
+          path: target/x86_64-unknown-linux-musl
       - name: Download build artifact build-x86_64-pc-windows-msvc
         uses: actions/download-artifact@v4
         with:
@@ -711,32 +723,14 @@ jobs:
 
           cd target
           mkdir files
-          mv cross/* .
 
-          cd aarch64-apple-darwin
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-aarch64-apple-darwin.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-apple-darwin
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-apple-darwin.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-unknown-linux-gnu
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-gnu.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd aarch64-unknown-linux-musl
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-aarch64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-unknown-linux-musl
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
-          cd ..
+          for target in aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
+          do
+            cd "$target"
+            chmod +x martin martin-cp mbtiles
+            tar czvf ../files/martin-${target}.tar.gz martin martin-cp mbtiles
+            cd ..
+          done
 
           #
           # Special case for Windows
@@ -833,7 +827,7 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
-    needs: [ package ]
+    needs: [ package, docker-build-test ]
     steps:
       - name: Finished
         run: echo "CI finished successfully"
