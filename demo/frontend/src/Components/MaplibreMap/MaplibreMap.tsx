@@ -1,3 +1,4 @@
+/* biome-ignore-all lint/suspicious/noExplicitAny: this is a legacy component and needs to be redone */
 import maplibregl from "maplibre-gl";
 import { PureComponent } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -11,7 +12,7 @@ import Filters from "./Filters";
 
 const mapStyle = { height: "615px", marginLeft: "350px" };
 
-class Map extends PureComponent<
+class MaplibreMap extends PureComponent<
   Record<string, never>,
   { visibleLayer: any; range: any; hour: any }
 > {
@@ -116,4 +117,4 @@ class Map extends PureComponent<
   }
 }
 
-export default Map;
+export default MaplibreMap;
