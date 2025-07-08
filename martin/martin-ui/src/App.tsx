@@ -1,6 +1,6 @@
-import martinCover from './assets/logo.png';
-import './App.css';
-import styled from 'styled-components';
+import martinCover from "./assets/logo.png";
+import "./App.css";
+import styled from "styled-components";
 
 const CoverImage = styled.img`
   width: 100%;
