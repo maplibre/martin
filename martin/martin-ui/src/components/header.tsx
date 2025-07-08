@@ -11,8 +11,8 @@ export function Header() {
         <div className="flex h-20 items-center justify-between">
           <div className="flex items-center space-x-4">
             <a className="items-center flex" href="/">
-              <Logo className="-mt-5 -rotate-6" />
-              <h1 className="text-3xl -ms-2 font-bold leading-relaxed text-foreground select-none">
+              <Logo className="-mt-5 -rotate-6 md:block hidden" />
+              <h1 className="text-3xl md:block hidden -ms-2 font-bold leading-relaxed text-foreground select-none">
                 MARTIN
               </h1>
             </a>
