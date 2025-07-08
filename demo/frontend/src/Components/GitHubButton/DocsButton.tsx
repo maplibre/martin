@@ -1,9 +1,9 @@
-import React from 'react';
-import octocat from './octocat.svg';
-import Container from './Container';
+import React from "react";
+import Container from "./Container";
+import octocat from "./octocat.svg";
 
 const DocsButton = () => (
-  <Container href='https://maplibre.org/martin' target='_blank'>
+  <Container href="https://maplibre.org/martin" target="_blank">
     <span>Documentation</span>
   </Container>
 );

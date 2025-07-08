@@ -9,16 +9,21 @@
         "useSortedProperties": "on"
       }
     },
-    "enabled": false
+    "enabled": true
   },
   "formatter": {
-    "enabled": false,
+    "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 100
   },
+  "javascript": { "formatter": { "quoteStyle": "double" } },
   "linter": {
-    "enabled": false,
+    "domains": {
+      "react": "all"
+    },
+    "enabled": true,
+    "includes": ["**"],
     "rules": {
       "recommended": true
     }

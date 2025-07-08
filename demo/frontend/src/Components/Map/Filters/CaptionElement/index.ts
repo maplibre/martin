@@ -1,1 +1,1 @@
-export { default } from './CaptionElement';
+export { default } from "./CaptionElement";
