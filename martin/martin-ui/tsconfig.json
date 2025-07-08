@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "esModuleInterop": true,
+    "esModuleInterop": false,
     "incremental": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "lib": ["dom", "dom.iterable", "es2022"],
+    "lib": ["dom", "dom.iterable", "es2023"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": true,
@@ -15,7 +15,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "ES2022",
+    "target": "ES2023",
     "types": ["vite/client"]
   },
   "exclude": ["node_modules", "dist"],
