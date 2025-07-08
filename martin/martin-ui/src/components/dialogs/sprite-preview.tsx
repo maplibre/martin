@@ -49,7 +49,7 @@ export function SpritePreviewDialog({
                 }
               >
                 <SpritePreview
-                  className="w-full grid grid-cols-6 gap-4"
+                  className="w-full grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4"
                   spriteIds={sprite.images}
                   spriteUrl={`/sprite/${name}`}
                 />
