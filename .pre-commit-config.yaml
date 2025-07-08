@@ -52,12 +52,6 @@ repos:
         # If you update this rule, please also update the rules in justfile, the fmt-sql recipe
         args: [--dialect=postgres, "--exclude-rules=AL07,LT05,LT12"]
         files: \.sql$
-
-  - repo: https://github.com/biomejs/pre-commit
-    rev: v2.0.6 # Use the sha / tag you want to point at
-    hooks:
-      - id: biome-check
-      - id: biome-check
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: local
     hooks:
