@@ -81,7 +81,7 @@ export function FontCatalog({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Type className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg">{name}</CardTitle>
+                  <CardTitle className="text-lg font-mono">{name}</CardTitle>
                 </div>
                 {font.format && (
                   <Badge className="uppercase" variant="secondary">

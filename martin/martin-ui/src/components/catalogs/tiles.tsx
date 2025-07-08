@@ -97,7 +97,7 @@ export function TilesCatalog({
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 mb-4">
                   <div className="flex items-center space-x-2">
                     {getIcon(source.content_type)}
-                    <CardTitle className="text-lg">{name}</CardTitle>
+                    <CardTitle className="text-lg font-mono">{name}</CardTitle>
                   </div>
                   <Badge variant="secondary">{source.content_type}</Badge>
                 </div>
