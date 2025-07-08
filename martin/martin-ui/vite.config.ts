@@ -6,6 +6,13 @@ import { defineConfig } from "vite";
 export default defineConfig({
   build: {
     outDir: "dist",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          maplibre: ["maplibre-gl", "@vis.gl/react-maplibre", "@maplibre/maplibre-gl-inspect"],
+        },
+      },
+    },
     sourcemap: true,
   },
   define: {
