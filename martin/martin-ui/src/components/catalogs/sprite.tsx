@@ -119,9 +119,9 @@ export function SpriteCatalog({
                     </div>
                   )}
                 </div>
-                <div className="flex space-x-2 mt-4">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
-                    className="flex-1 bg-transparent"
+                    className="flex-1 bg-transparent w-full"
                     onClick={() => setDownloadSprite(name)}
                     size="sm"
                     variant="outline"
@@ -130,7 +130,7 @@ export function SpriteCatalog({
                     Download
                   </Button>
                   <Button
-                    className="flex-1 bg-primary hover:bg-purple-700 text-primary-foreground"
+                    className="flex-1 bg-primary hover:bg-purple-700 text-primary-foreground  w-full"
                     onClick={() => setSelectedSprite(name)}
                     size="sm"
                     variant="default"

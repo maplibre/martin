@@ -94,20 +94,22 @@ export function TilesCatalog({
           {filteredTileSources.map(([name, source]) => (
             <Card className="hover:shadow-lg transition-shadow" key={name}>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 mb-4">
                   <div className="flex items-center space-x-2">
                     {getIcon(source.content_type)}
                     <CardTitle className="text-lg">{name}</CardTitle>
                   </div>
                   <Badge variant="secondary">{source.content_type}</Badge>
                 </div>
-                {(source.description || source.name) && (
-                  <CardDescription>
-                    {source.name}
-                    {source.description && source.name && <br />}
-                    {source.description}
-                  </CardDescription>
-                )}
+                <p className="text-center md:text-start break-all text-balance">
+                  {(source.description || source.name) && (
+                    <CardDescription>
+                      {source.name}
+                      {source.description && source.name && <br />}
+                      {source.description}
+                    </CardDescription>
+                  )}
+                </p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm text-muted-foreground">
@@ -118,9 +120,9 @@ export function TilesCatalog({
                     </div>
                   )}
                 </div>
-                <div className="flex space-x-2 mt-4">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
-                    className="flex-1 bg-transparent"
+                    className="flex-1 bg-transparent w-full"
                     onClick={() => setSelectedTileForInspection(name)}
                     size="sm"
                     variant="outline"
@@ -129,8 +131,8 @@ export function TilesCatalog({
                     Inspect
                   </Button>
                   <Tooltip>
-                    <TooltipTrigger className="flex flex-1 cursor-help">
-                      <DisabledNonInteractiveButton className="flex-1" size="sm">
+                    <TooltipTrigger className="flex flex-1 w-full cursor-help">
+                      <DisabledNonInteractiveButton className="flex-1 w-full" size="sm">
                         <Palette className="w-4 h-4 mr-2" />
                         Style
                       </DisabledNonInteractiveButton>

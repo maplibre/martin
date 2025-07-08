@@ -152,9 +152,9 @@ export function StylesCatalog({
                     </div>
                   </div>
                 )}
-                <div className="flex space-x-2">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <CopyLinkButton
-                    className="flex-1 bg-transparent"
+                    className="flex-1 bg-transparent w-full"
                     link={buildMartinUrl(`/style/${name}`)}
                     size="sm"
                     toastMessage="Style link copied!"
@@ -162,8 +162,8 @@ export function StylesCatalog({
                   />
 
                   <Tooltip>
-                    <TooltipTrigger className="flex flex-1">
-                      <DisabledNonInteractiveButton className="flex-1" size="sm">
+                    <TooltipTrigger className="flex flex-1 w-full">
+                      <DisabledNonInteractiveButton className="flex-1 w-full" size="sm">
                         <Eye className="w-4 h-4 mr-2" />
                         Preview
                       </DisabledNonInteractiveButton>

@@ -117,17 +117,21 @@ export function FontCatalog({
                     <span>{font.glyphs}</span>
                   </div>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <CopyLinkButton
-                    className="flex-1 bg-transparent"
+                    className="flex-1 bg-transparent w-full"
                     link={buildMartinUrl(`/font/${name}/{range}`)}
                     size="sm"
                     toastMessage="Font link copied!"
                     variant="outline"
                   />
                   <Tooltip>
-                    <TooltipTrigger className="flex-1 flex cursor-help">
-                      <DisabledNonInteractiveButton className="flex-1 grow" disabled size="sm">
+                    <TooltipTrigger className="flex-1 flex cursor-help w-full">
+                      <DisabledNonInteractiveButton
+                        className="flex-1 grow w-full"
+                        disabled
+                        size="sm"
+                      >
                         <Eye className="w-4 h-4 mr-2" />
                         Details
                       </DisabledNonInteractiveButton>
