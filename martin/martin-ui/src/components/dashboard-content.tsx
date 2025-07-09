@@ -4,6 +4,7 @@ import { SpriteCatalog } from "@/components/catalogs/sprite";
 import { StylesCatalog } from "@/components/catalogs/styles";
 import { TilesCatalog } from "@/components/catalogs/tiles";
 import { ErrorBoundary } from "@/components/error/error-boundary";
+import { StyleEditor } from "@/components/style-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/toaster";
 import { useAsyncOperation } from "@/hooks/use-async-operation";
@@ -23,6 +24,7 @@ export function DashboardContent() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("tiles");
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingStyle, setEditingStyle] = useState<string | null>(null);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -43,6 +45,25 @@ export function DashboardContent() {
     catalogOperation.execute();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogOperation.execute]);
+
+  const handleEditStyle = useCallback((styleName: string) => {
+    setEditingStyle(styleName);
+  }, []);
+
+  const handleCloseEditor = useCallback(() => {
+    setEditingStyle(null);
+  }, []);
+
+  // If editing a style, show the editor
+  if (editingStyle && catalogOperation.data?.styles?.[editingStyle]) {
+    return (
+      <StyleEditor
+        onClose={handleCloseEditor}
+        style={catalogOperation.data.styles[editingStyle]}
+        styleName={editingStyle}
+      />
+    );
+  }
 
   return (
     <ErrorBoundary
@@ -90,6 +111,7 @@ export function DashboardContent() {
           <StylesCatalog
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
+            onEditStyle={handleEditStyle}
             onSearchChangeAction={setSearchQuery}
             searchQuery={searchQuery}
             styles={catalogOperation.data?.styles}

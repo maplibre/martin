@@ -1,6 +1,14 @@
 # Martin Web UI
 
-A web interface for previewing tiles served by Martin.
+A web interface for previewing tiles served by Martin with integrated style editing capabilities.
+
+## Features
+
+- **Tile Catalog**: Browse and preview all available tile sources
+- **Style Editor**: Visual style editing with integrated Maputnik editor
+- **Font Catalog**: View and manage font collections
+- **Sprite Catalog**: Browse and download sprite collections
+- **Analytics**: Real-time performance metrics and usage statistics
 
 ## Environment Variables
 

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface CatalogSkeletonProps {
+export interface CatalogSkeletonProps {
   title: string;
   description: string;
 }

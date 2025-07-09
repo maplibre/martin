@@ -2,8 +2,6 @@ import { screen } from "@testing-library/react";
 import { Header } from "@/components/header";
 import { render } from "../test-utils";
 
-// No need to mock next/image since we're using Vite and the Logo component is SVG
-
 // Mock import.meta.env for tests
 const mockImportMeta = {
   env: {

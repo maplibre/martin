@@ -22,6 +22,7 @@ interface StylesCatalogProps {
   error?: Error | null;
   onRetry?: () => void;
   isRetrying?: boolean;
+  onEditStyle?: (styleName: string) => void;
 }
 
 export function StylesCatalog({
@@ -32,6 +33,7 @@ export function StylesCatalog({
   error = null,
   onRetry,
   isRetrying = false,
+  onEditStyle,
 }: StylesCatalogProps) {
   const [viewState, setViewState] = useState({
     latitude: 40,
@@ -166,17 +168,15 @@ export function StylesCatalog({
                     </TooltipContent>
                   </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger className="flex flex-1 w-full">
-                      <DisabledNonInteractiveButton className="flex-1 w-full" size="sm">
-                        <SquarePen className="w-4 h-4 mr-2" />
-                        Edit
-                      </DisabledNonInteractiveButton>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    className="flex-1 w-full"
+                    onClick={() => onEditStyle?.(name)}
+                    size="sm"
+                    variant="default"
+                  >
+                    <SquarePen className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
                 </div>
               </div>
             </CardContent>

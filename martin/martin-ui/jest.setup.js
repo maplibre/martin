@@ -158,6 +158,10 @@ jest.mock("@vis.gl/react-maplibre", () => ({
     const React = require("react");
     return React.createElement("div", { "data-testid": "maplibre-source" }, children);
   },
+  FullscreenControl: ({ ...props }) => {
+    const React = require("react");
+    return React.createElement("div", { "data-testid": "fullscreen-control" });
+  },
 }));
 
 // Mock maplibre-gl itself
