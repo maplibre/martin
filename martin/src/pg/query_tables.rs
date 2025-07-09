@@ -21,8 +21,8 @@ use crate::pg::utils::{json_to_hashmap, polygon_to_bbox};
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
-static  EARTH_CIRCUMFERENCE_METERS: f64 = 40_075_016.685_578_5;
-static  EARTH_CIRCUMFERENCE_DEGREES: u32 = 360;
+static EARTH_CIRCUMFERENCE_METERS: f64 = 40_075_016.685_578_5;
+static EARTH_CIRCUMFERENCE_DEGREES: u32 = 360;
 
 /// Examine a database to get a list of all tables that have geometry columns.
 pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
@@ -176,17 +176,31 @@ pub async fn table_to_query(
     let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
     let margin = f64::from(buffer) / f64::from(extent);
-    let proj = if let Some(proj) = &info.proj { proj } else { "" };
-    let proj_unit = if let Some(proj_unit) = &info.proj_unit { proj_unit } else { "" };
+    let proj = if let Some(proj) = &info.proj {
+        proj
+    } else {
+        ""
+    };
+    let proj_unit = if let Some(proj_unit) = &info.proj_unit {
+        proj_unit
+    } else {
+        ""
+    };
 
     let bbox_search = if buffer == 0 {
         format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
     } else if pool.supports_tile_margin() && srid == 3857 {
-        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin}), {srid})")
+        format!(
+            "ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin}), {srid})"
+        )
     } else if proj == "longlat" {
-        format!("ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)")
+        format!(
+            "ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)"
+        )
     } else if proj_unit == "m" {
-        format!("ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_METERS}) / 2^$1::integer)")
+        format!(
+            "ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_METERS}) / 2^$1::integer)"
+        )
     } else {
         format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
     };
