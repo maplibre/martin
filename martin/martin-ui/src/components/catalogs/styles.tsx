@@ -1,4 +1,4 @@
-import { Brush, Eye, Search } from "lucide-react";
+import { Brush, Eye, Search, SquarePen } from "lucide-react";
 
 import { ErrorState } from "@/components/error/error-state";
 import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
@@ -8,11 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { buildMartinUrl } from "@/lib/api";
 import type { Style } from "@/lib/types";
-import { CopyLinkButton } from "../ui/copy-link-button";
 import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Map as MapLibreMap } from "@vis.gl/react-maplibre";
+import { FullscreenControl, Map as MapLibreMap } from "@vis.gl/react-maplibre";
 import { useState } from "react";
 
 interface StylesCatalogProps {
@@ -116,7 +115,9 @@ export function StylesCatalog({
                     borderRadius: "var(--radius)",
                     width: "100%",
                   }}
-                />
+                >
+                  <FullscreenControl />
+                </MapLibreMap>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   {style.versionHash && (
                     <div className="flex justify-between">
@@ -153,19 +154,23 @@ export function StylesCatalog({
                   </div>
                 )}
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
-                  <CopyLinkButton
-                    className="flex-1 bg-transparent w-full"
-                    link={buildMartinUrl(`/style/${name}`)}
-                    size="sm"
-                    toastMessage="Style link copied!"
-                    variant="outline"
-                  />
-
                   <Tooltip>
                     <TooltipTrigger className="flex flex-1 w-full">
                       <DisabledNonInteractiveButton className="flex-1 w-full" size="sm">
                         <Eye className="w-4 h-4 mr-2" />
                         Preview
+                      </DisabledNonInteractiveButton>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Not currently implemented in the frontend</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger className="flex flex-1 w-full">
+                      <DisabledNonInteractiveButton className="flex-1 w-full" size="sm">
+                        <SquarePen className="w-4 h-4 mr-2" />
+                        Edit
                       </DisabledNonInteractiveButton>
                     </TooltipTrigger>
                     <TooltipContent>

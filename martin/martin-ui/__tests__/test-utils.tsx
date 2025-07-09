@@ -36,11 +36,9 @@ const customRender = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper">
 };
 
 // re-export everything
-// biome-ignore lint/suspicious/noExportsInTest: this is an utils file
 export * from "@testing-library/react";
 
 // override render method
-// biome-ignore lint/suspicious/noExportsInTest: this is an utils file
 export { customRender as render };
 
 // This dummy test ensures Jest doesn't complain about an empty test suite
