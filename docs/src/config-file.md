@@ -44,6 +44,14 @@ preferred_encoding: gzip
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
 web_ui: disable
 
+# Advanced monitoring options
+observability:
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
+
 # CORS Configuration
 #
 # Defaults to `cors: true`, which allows all origins.
@@ -196,7 +204,7 @@ postgres:
 pmtiles:
   # Allows forcing path style URLs for S3 buckets [default: false]
   #
-  # A path style URL is a URL that uses the bucket name as part of the path like mys3.com/somebucket instead of the hostname somebucket.mys3.com
+  # A path style URL is a URL that uses the bucket name as part of the path like example.org/some_bucket instead of the hostname some_bucket.example.org
   force_path_style: false
   # Skip loading credentials for S3 buckets [default: false]
   #
