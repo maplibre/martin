@@ -108,7 +108,7 @@ descriptions AS (
         pg_description.description
     FROM pg_class AS cls
     INNER JOIN pg_namespace ON cls.relnamespace = pg_namespace.oid
-    LEFT JOIN pg_description ON cls.oid = pg_description.objoid
+    LEFT JOIN pg_description ON cls.oid = pg_description.objoid AND pg_description.objsubid = 0
     WHERE cls.relkind = 'r' OR cls.relkind = 'v'
 ),
 
