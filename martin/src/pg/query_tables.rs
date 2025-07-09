@@ -109,6 +109,7 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 
 /// Generate a query to fetch tiles from a table.
 /// The function is async because it may need to query the database for the table bounds (could be very slow).
+#[allow(clippy::too_many_lines)]
 pub async fn table_to_query(
     id: String,
     mut info: TableInfo,

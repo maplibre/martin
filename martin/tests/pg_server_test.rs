@@ -1047,6 +1047,7 @@ tables:
     schema: MixedCase
     table: MixPoints
     srid: 4326
+    proj: longlat
     geometry_column: Geom
     id_column: giD
     bounds:
@@ -1063,6 +1064,7 @@ tables:
     schema: MixedCase
     table: MixPoints
     srid: 4326
+    proj: longlat
     geometry_column: Geom
     id_column: giD
     bounds:
@@ -1080,6 +1082,7 @@ tables:
     schema: MixedCase
     table: MixPoints
     srid: 4326
+    proj: longlat
     geometry_column: Geom
     bounds:
       - -180
