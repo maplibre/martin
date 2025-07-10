@@ -199,12 +199,12 @@ impl FontSources {
         let mut stack = Fontstack::default();
 
         for (id, font, ds) in fonts {
-            if !stack.name.is_empty() {
+            if stack.name.is_empty() {
+                stack.name = id.to_string();
+            } else {
                 let name = &mut stack.name;
                 name.push_str(", ");
                 name.push_str(id);
-            } else {
-                stack.name = id.to_string();
             }
 
             let face = lib.new_face(&font.path, font.face_index)?;
