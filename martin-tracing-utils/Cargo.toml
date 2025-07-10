@@ -1,5 +1,3 @@
-lints.workspace = true
-
 [package]
 name = "martin-tracing-utils"
 version = "0.1.0"
@@ -23,3 +21,6 @@ tracing.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[lints]
+workspace = true
