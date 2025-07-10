@@ -275,7 +275,6 @@ jobs:
           retention-days: 5
 
       - name: Login to GitHub Docker registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         # https://github.com/docker/login-action
         with:
@@ -285,7 +284,6 @@ jobs:
 
       - name: Push the Docker image
         id: docker_push
-        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
           provenance: mode=max
@@ -299,7 +297,6 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
       - name: Attest
-        if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v2
         id: attest
         with:
