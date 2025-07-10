@@ -41,13 +41,14 @@ pub enum FileError {
     InvalidMetadata(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
-    InvalidUrlMetadata(String, Url),
+    #[error(r"Error occurred in processing S3 source uri: {0}")]
+    S3SourceError(String),
 
     #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
     #[cfg(feature = "pmtiles")]
-    #[error(r"PMTiles error {0} processing {1}")]
+    #[error(r"PMTiles error {0:?} processing {1}")]
     PmtError(pmtiles::PmtError, String),
 
     #[cfg(feature = "cog")]
@@ -389,9 +390,7 @@ fn sanitize_url(url: &Url) -> String {
 fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
     if !is_enabled {
         return Ok(None);
-    }
-    path.to_str()
-        .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
+        .filter(|v| v.starts_with("http://") || v.starts_with("https://") || v.starts_with("s3://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }

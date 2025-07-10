@@ -106,9 +106,7 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 pub struct FontSources {
     fonts: DashMap<String, FontSource>,
     masks: Vec<BitSet>,
-}
-
-pub type FontCatalog = DashMap<String, CatalogFontEntry>;
+pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

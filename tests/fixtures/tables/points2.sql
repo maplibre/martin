@@ -2,7 +2,11 @@ CREATE TABLE points2
 (
     gid SERIAL PRIMARY KEY,
     geom GEOMETRY (POINT, 4326)
-);
+-- if below were valid tilejson, we would serve it as such
+-- for this test case, this is intentionally not the case
+COMMENT ON TABLE points2 IS 'A table with points';
+COMMENT ON COLUMN points2.gid IS 'The primary key';
+COMMENT ON COLUMN points2.geom IS 'The geometry column';
 
 -- INSERT INTO points2
 -- SELECT generate_series(1, 3) as id,

@@ -1,5 +1,7 @@
 mod config;
 mod errors;
+mod image;
+mod model;
 mod source;
 
 pub use config::CogConfig;

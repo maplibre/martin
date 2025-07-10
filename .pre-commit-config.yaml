@@ -25,7 +25,11 @@ repos:
       - id: end-of-file-fixer
       - id: mixed-line-ending
         args: [ --fix=lf ]
-      - id: trailing-whitespace
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: forbid-tabs
+      - id: remove-tabs
 
   - repo: local
     hooks:
@@ -35,9 +39,7 @@ repos:
         entry: sh -c "cargo fmt --all"
         language: rust
         pass_filenames: false
-
-  - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 3.4.0
+    rev: 3.4.1
     hooks:
       - id: sqlfluff-fix
         # AL07: Avoid table aliases in from clauses and join conditions <- we sometimes do this for long names

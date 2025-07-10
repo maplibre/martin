@@ -12,12 +12,11 @@ use tracing::info;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
-use crate::OptOneMany;
-#[cfg(any(
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
-    feature = "cog"
+    feature = "styles",
 ))]
 use crate::file_config::FileConfigEnum;
 use crate::source::{TileInfoSources, TileSources};

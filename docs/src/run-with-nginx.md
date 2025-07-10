@@ -34,9 +34,7 @@ services:
       - POSTGRES_PASSWORD=password
     volumes:
       - ./pg_data:/var/lib/postgresql/data
-```
-
-You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).
+You can [find an example NGINX configuration file here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).
 
 ### Rewriting URLs
 
@@ -89,6 +87,4 @@ http {
     }
   }
 }
-```
-
-You can find an example NGINX configuration file [here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).
+You can [find an example NGINX configuration file here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).

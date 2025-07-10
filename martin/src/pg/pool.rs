@@ -43,10 +43,12 @@ impl PgPool {
 
         let pool = Pool::builder(mgr)
             .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
-            .build()
-            .map_err(|e| PostgresPoolBuildError(e, id.clone()))?;
-
-        let conn = get_conn(&pool, &id).await?;
+        let mut res = Self {
+            id: id.clone(),
+            pool,
+            supports_tile_margin: false,
+        };
+        let conn = res.get().await?;
         let pg_ver = get_postgres_version(&conn).await?;
         if pg_ver < MINIMUM_POSTGRES_VERSION {
             return Err(PostgresqlTooOld(pg_ver, MINIMUM_POSTGRES_VERSION));
@@ -57,16 +59,13 @@ impl PgPool {
             return Err(PostgisTooOld(postgis_ver, MINIMUM_POSTGIS_VERSION));
         }
 
-        // In the warning cases below, we could technically run.
-        // This is not ideal for reasons explained in the warnings
-
         if pg_ver < RECOMMENDED_POSTGRES_VERSION {
             warn!(
                 "PostgreSQL {pg_ver} is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
             );
         }
-        let supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
-        if !supports_tile_margin {
+        res.supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
+        if !res.supports_tile_margin {
             warn!(
                 "PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
             );
@@ -74,16 +73,8 @@ impl PgPool {
         if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
             warn!(
                 "PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
-            );
-        }
-
         info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
-
-        Ok(Self {
-            id,
-            pool,
-            supports_tile_margin,
-        })
+        Ok(res)
     }
 
     fn parse_config(config: &PgConfig) -> PgResult<(String, Manager)> {
@@ -120,15 +111,22 @@ impl PgPool {
         };
 
         Ok((id, mgr))
-    }
-
+    /// Retrieves an [`Object`] from this [`PgPool`] or waits for one to become available.
+    ///
+    /// # Errors
+    ///
+    /// See [`PostgresPoolConnError`] for details.
     pub async fn get(&self) -> PgResult<Object> {
-        get_conn(&self.pool, self.id.as_str()).await
+        self.pool
+            .get()
+            .await
+            .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
     }
 
+    /// ID under which this [`PgPool`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {
-        self.id.as_str()
+        &self.id
     }
 
     /// Indicates if `ST_TileEnvelope` supports the margin parameter.
@@ -139,14 +137,6 @@ impl PgPool {
     pub fn supports_tile_margin(&self) -> bool {
         self.supports_tile_margin
     }
-}
-
-async fn get_conn(pool: &Pool, id: &str) -> PgResult<Object> {
-    pool.get()
-        .await
-        .map_err(|e| PostgresPoolConnError(e, id.to_string()))
-}
-
 /// Get [PostgreSQL version](https://www.postgresql.org/support/versioning/).
 /// `PostgreSQL` only has a Major.Minor versioning, so we use 0 the patch version
 async fn get_postgres_version(conn: &Object) -> PgResult<Version> {

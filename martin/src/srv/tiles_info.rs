@@ -1,9 +1,9 @@
-use std::string::ToString;
-
+use actix_middleware_etag::Etag;
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::Uri;
+use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, middleware, route};
+use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use itertools::Itertools as _;
 use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
@@ -18,9 +18,8 @@ pub struct SourceIDsRequest {
 
 #[route(
     "/{source_ids}",
-    method = "GET",
-    method = "HEAD",
-    wrap = "middleware::Compress::default()"
+    wrap = "Etag",
+    wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]
 async fn get_source_info(

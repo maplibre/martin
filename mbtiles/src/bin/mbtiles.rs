@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
-
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand};
 use martin_tracing_utils::{LogFormat, LogFormatOptions, LogLevel, MartinObservability};
 use mbtiles::{
@@ -7,14 +7,20 @@ use mbtiles::{
     MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch,
 };
 use tilejson::Bounds;
-use tracing::error;
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, PartialEq, Debug)]
 #[command(
     version,
     name = "mbtiles",
     about = "A utility to work with .mbtiles file content",
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information.",
+    styles = HELP_STYLES
 )]
 pub struct Args {
     /// Display detailed information

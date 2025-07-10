@@ -42,28 +42,49 @@ cache_size_mb: 1024
 preferred_encoding: gzip
 
 # Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
-web_ui: disable
+# Advanced monitoring options
+observability:
+  # How to format the logs. [DEFAULT: compact]
+  #
+  # Possible values:
+  # - full:    Emit human-readable, single-line logs. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output
+  # - compact: A variant of the full-format, optimized for short line lengths. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output
+  # - pretty:  Excessively pretty, multi-line logs for local development/debugging, prioritizing readability over compact storage Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output
+  # - json:    Outputs newline-delimited (structured) JSON logs, not optimized for human readability. Sample:https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output
+  log_format: compact
+  
+  # Set which logs martin outputs. [DEFAULT: martin=info]
+  # Can also be specified via the `RUST_LOG` environment variable.
+  #
+  # More information: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax
+  log_level: martin=info
 
-# How to format the logs. [DEFAULT: compact]
-#
-# Possible values:
-# - full:    Emit human-readable, single-line logs. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output
-# - compact: A variant of the full-format, optimized for short line lengths. Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output
-# - pretty:  Excessively pretty, multi-line logs for local development/debugging, prioritizing readability over compact storage Sample: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output
-# - json:    Outputs newline-delimited (structured) JSON logs, not optimized for human readability. Sample:https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output
-log_format: compact
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
 
-# Set which logs martin outputs. [DEFAULT: martin=info]
-# Can also be specified via the `RUST_LOG` environment variable.
+# CORS Configuration
 #
-# More information: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax
-log_level: martin=info
+# Defaults to `cors: true`, which allows all origins.
+# Sending/Acting on CORS headers can be completely disabled via `cors: false`
+cors:
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
+  origin:
+    - https://example.org
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
+  max_age: 3600
 
 # Database configuration. This can also be a list of PG configs.
 postgres:
-  # Database connection string. You can use env vars too, for example:
-  #   $DATABASE_URL
-  #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
+  # Database connection string.
+  #
+  # You can use environment variables too, for example:
+  # connection_string: $DATABASE_URL
+  # connection_string: ${DATABASE_URL:-postgresql://postgres@localhost/db}
   connection_string: 'postgresql://postgres@localhost:5432/db'
 
   # Same as PGSSLCERT for psql
@@ -84,13 +105,11 @@ postgres:
   # If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
   # This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
   # It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
-  max_feature_count: null # either a positive integer, or null=unlimited (default)
-
-  # Control the automatic generation of bounds for spatial tables [default: quick]
+  # Specify how bounds should be computed for the spatial PG tables [default: quick]
   # 'calc' - compute table geometry bounds on startup.
   # 'quick' - same as 'calc', but the calculation will be aborted if it takes more than 5 seconds.
   # 'skip' - do not compute table geometry bounds on startup.
-  auto_bounds: skip
+  auto_bounds: quick
 
   # Enable automatic discovery of tables and functions.
   # You may set this to `false` to disable.
@@ -192,8 +211,14 @@ postgres:
       # Values may be integers or floating point numbers.
       bounds: [ -180.0, -90.0, 180.0, 90.0 ]
 
-# Publish PMTiles files from local disk or proxy to a web server
-pmtiles:
+  # Allows forcing path style URLs for S3 buckets [default: false]
+  #
+  # A path style URL is a URL that uses the bucket name as part of the path like example.org/some_bucket instead of the hostname some_bucket.example.org
+  force_path_style: false
+  # Skip loading credentials for S3 buckets [default: false]
+  #
+  # Set this to true to request anonymously for publicly available buckets.
+  skip_credentials: false
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path

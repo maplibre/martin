@@ -14,9 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-
-      - name: 'Validate .md files (use "just fmt-md" to fix)'
-        uses: DavidAnson/markdownlint-cli2-action@v19
+        uses: DavidAnson/markdownlint-cli2-action@v20
         with:
           config: '.github/files/config.markdownlint-cli2.jsonc'
 

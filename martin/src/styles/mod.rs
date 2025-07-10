@@ -1,8 +1,5 @@
 use dashmap::{DashMap, Entry};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
 use crate::config::UnrecognizedValues;
@@ -11,9 +8,7 @@ use crate::file_config::{ConfigExtras, FileConfigEnum, FileError, FileResult};
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogStyleEntry {
     pub path: PathBuf,
-}
-
-pub type StyleCatalog = DashMap<String, CatalogStyleEntry>;
+pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct StyleConfig {
@@ -61,14 +56,18 @@ impl StyleSources {
 
         let mut paths_with_names = Vec::new();
         for base_path in cfg.paths {
-            let files = list_contained_files(&base_path, "json")?;
-            if files.is_empty() {
-                warn!("No styles (.json files) found in path {base_path:?}");
+                warn!(
+                    "No styles (.json files) found in path {:?}",
+                    base_path.display()
+                );
                 continue;
             }
             for path in files {
                 let Some(name) = path.file_name() else {
-                    warn!("Ignoring style source with no name from {path:?}");
+                    warn!(
+                        "Ignoring style source with no name from {:?}",
+                        path.display()
+                    );
                     continue;
                 };
                 let style_id = name
@@ -97,9 +96,7 @@ impl StyleSources {
     }
 
     /// an external representation of the internal catalog
-    #[must_use]
-    pub fn get_catalog(&self) -> StyleCatalog {
-        let entries = StyleCatalog::new();
+        let mut entries = StyleCatalog::new();
         for source in &self.0 {
             entries.insert(
                 source.key().clone(),
@@ -182,11 +179,8 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
         .is_some_and(|s| s.starts_with('.'))
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::file_config::FileConfigSrc;
-
     use super::*;
+    use crate::file_config::FileConfigSrc;
     #[test]
     fn test_add_single_source() {
         use std::fs::File;

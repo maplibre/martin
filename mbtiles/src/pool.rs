@@ -66,21 +66,28 @@ impl MbtilesPool {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles
             .get_tile_and_hash(&mut conn, mbt_type, z, x, y)
-            .await
+    /// Check if a tile exists in the database.
+    ///
+    /// This method is slightly faster than [`Mbtiles::get_tile_and_hash`] and [`Mbtiles::get_tile`]
+    /// because it only checks if the tile exists but does not retrieve tile data.
+    /// Most of the time you would want to use the other two functions.
+    pub async fn contains(&self, mbt_type: MbtType, z: u8, x: u32, y: u32) -> MbtResult<bool> {
+        let mut conn = self.pool.acquire().await?;
+        self.mbtiles.contains(&mut conn, mbt_type, z, x, y).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn test_invalid_type() {
+    async fn test_metadata_invalid() {
         let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
             .await
             .unwrap();
+        // invalid type
+        assert!(pool.detect_type().await.is_err());
         let metadata = pool.get_metadata().await.unwrap();
-        insta::assert_yaml_snapshot!(metadata,@r#"
+        insta::assert_yaml_snapshot!(metadata, @r#"
         id: webp
         tile_info:
           format: webp
@@ -101,8 +108,31 @@ mod tests {
           maxzoom: 0
           minzoom: 0
           name: ne2sr
-          format: webp
-        "#);
+    }
+
+    #[tokio::test]
+    async fn test_contains_invalid() {
+        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
+            .await
+            .unwrap();
+        assert!(pool.detect_type().await.is_err());
+
+        assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
+        for error_mbt_type in [
+            MbtType::Normalized { hash_view: false },
+            MbtType::Normalized { hash_view: true },
+            MbtType::FlatWithHash,
+        ] {
+            assert!(pool.contains(error_mbt_type, 0, 0, 0).await.is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_invalid_type() {
+        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
+            .await
+            .unwrap();
+
         // invalid type => cannot hash properly, but can get tile
         assert!(pool.detect_type().await.is_err());
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
@@ -123,16 +153,18 @@ mod tests {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
     }
-
-    #[tokio::test]
-    async fn test_normalized() {
+    async fn test_metadata_normalized() {
         let pool = MbtilesPool::open_readonly(
             "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
         )
         .await
         .unwrap();
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::Normalized { hash_view: false }
+        );
         let metadata = pool.get_metadata().await.unwrap();
-        insta::assert_yaml_snapshot!(metadata,@r#"
+        insta::assert_yaml_snapshot!(metadata, @r#"
         id: geography-class-png-no-bounds
         tile_info:
           format: png
@@ -146,12 +178,42 @@ mod tests {
           minzoom: 0
           name: Geography Class
           template: "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
-          version: 1.0.0
-        "#);
+    }
+
+    #[tokio::test]
+    async fn test_contains_normalized() {
+        let pool = MbtilesPool::open_readonly(
+            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
+        )
+        .await
+        .unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
         );
+
+        for working_mbt_type in [
+            MbtType::Normalized { hash_view: false },
+            MbtType::Normalized { hash_view: true },
+            MbtType::Flat,
+        ] {
+            assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
+        }
+        assert!(pool.contains(MbtType::FlatWithHash, 0, 0, 0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_normalized() {
+        let pool = MbtilesPool::open_readonly(
+            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::Normalized { hash_view: false }
+        );
+
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert!(!t1.is_empty());
 
@@ -177,17 +239,16 @@ mod tests {
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
-    }
-
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     #[tokio::test]
-    async fn test_flat_with_hash() {
+    async fn test_metadata_flat_with_hash() {
         let pool =
             MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
                 .await
                 .unwrap();
+        assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let metadata = pool.get_metadata().await.unwrap();
-        insta::assert_yaml_snapshot!(metadata,@r#"
+        insta::assert_yaml_snapshot!(metadata, @r#"
         id: zoomed_world_cities
         tile_info:
           format: mvt
@@ -299,8 +360,32 @@ mod tests {
                 count: 68
                 geometry: Point
                 layer: cities
-        agg_tiles_hash: D4E1030D57751A0B45A28A71267E46B8
-        "#);
+    }
+
+    #[tokio::test]
+    async fn test_contains_flat_with_hash() {
+        let pool =
+            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
+                .await
+                .unwrap();
+        assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
+        for working_mbt_type in [MbtType::FlatWithHash, MbtType::Flat] {
+            assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
+        }
+        for error_mbt_type in [
+            MbtType::Normalized { hash_view: false },
+            MbtType::Normalized { hash_view: true },
+        ] {
+            assert!(pool.contains(error_mbt_type, 6, 38, 19).await.is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_flat_with_hash() {
+        let pool =
+            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
+                .await
+                .unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert!(!t1.is_empty());

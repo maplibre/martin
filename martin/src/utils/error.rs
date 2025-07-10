@@ -87,6 +87,7 @@ pub enum MartinError {
     #[error(transparent)]
     IoError(#[from] io::Error),
 
-    #[error("Internal error: {0}")]
-    InternalError(#[from] Box<dyn Error + Send + Sync>),
+
+    #[error(transparent)]
+    CorsError(#[from] crate::srv::cors::CorsError),
 }

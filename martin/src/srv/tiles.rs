@@ -1,8 +1,7 @@
 use actix_http::ContentEncoding;
 use actix_http::header::Quality;
-use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
-use actix_web::http::header::{
-    AcceptEncoding, CONTENT_ENCODING, Encoding as HeaderEnc, Preference,
+    AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
+    Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -47,8 +46,7 @@ async fn get_tile(
         sources.as_ref(),
         &path.source_ids,
         Some(path.z),
-        req.query_string(),
-        req.get_header::<AcceptEncoding>(),
+        req.get_header::<IfNoneMatch>(),
         srv_config.preferred_encoding,
         cache.as_ref().as_ref(),
     )?;
@@ -65,19 +63,18 @@ pub struct DynTileSource<'a> {
     pub sources: TileInfoSources,
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
-    pub query_obj: Option<UrlQuery>,
-    pub accept_enc: Option<AcceptEncoding>,
+    pub if_none_match: Option<IfNoneMatch>,
     pub preferred_enc: Option<PreferredEncoding>,
     pub cache: Option<&'a MainCache>,
 }
 
 impl<'a> DynTileSource<'a> {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         sources: &'a TileSources,
         source_ids: &str,
         zoom: Option<u8>,
-        query: &'a str,
-        accept_enc: Option<AcceptEncoding>,
+        if_none_match: Option<IfNoneMatch>,
         preferred_enc: Option<PreferredEncoding>,
         cache: Option<&'a MainCache>,
     ) -> ActixResult<Self> {
@@ -98,26 +95,32 @@ impl<'a> DynTileSource<'a> {
             sources,
             info,
             query_str,
-            query_obj,
-            accept_enc,
+            if_none_match,
             preferred_enc,
             cache,
         })
     }
 
-    pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
-        let tile = self.get_tile_content(xyz).await?;
-
-        Ok(if tile.data.is_empty() {
-            HttpResponse::NoContent().finish()
-        } else {
-            let mut response = HttpResponse::Ok();
-            response.content_type(tile.info.format.content_type());
-            if let Some(val) = tile.info.encoding.content_encoding() {
-                response.insert_header((CONTENT_ENCODING, val));
+        if tile.data.is_empty() {
+            return Ok(HttpResponse::NoContent().finish());
+        }
+        let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
+        let etag = EntityTag::new_strong(hash.to_string());
+        if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_none_match {
+            for expected_etag in expected_etags {
+                if etag.strong_eq(expected_etag) {
+                    return Ok(HttpResponse::NotModified().finish());
+                }
             }
-            response.body(tile.data)
-        })
+        }
+
+        let mut response = HttpResponse::Ok();
+        response.content_type(tile.info.format.content_type());
+        response.insert_header((ETAG, etag));
+        if let Some(val) = tile.info.encoding.content_encoding() {
+            response.insert_header((CONTENT_ENCODING, val));
+        }
+        Ok(response.body(tile.data))
     }
 
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
@@ -292,8 +295,7 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
     })
 }
 
-#[cfg(test)]
-mod tests {
+    use actix_http::header::TryIntoHeaderValue;
     use rstest::rstest;
     use tilejson::tilejson;
 
@@ -333,8 +335,7 @@ mod tests {
             &sources,
             "test_source",
             None,
-            "",
-            accept_enc,
+            None,
             preferred_enc,
             None,
         )
@@ -343,6 +344,45 @@ mod tests {
         let xyz = TileCoord { z: 0, x: 0, y: 0 };
         let tile = src.get_tile_content(xyz).await.unwrap();
         assert_eq!(tile.info.encoding, expected_enc);
+    #[rstest]
+    #[case(200, None, Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
+    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("229249875805521414007261281044017345339".to_string())])), None)]
+    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_string())])), Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
+    #[actix_rt::test]
+    async fn test_etag(
+        #[case] expected_status: u16,
+        #[case] if_none_match: Option<IfNoneMatch>,
+        #[case] expected_etag: Option<EntityTag>,
+    ) {
+        let source_id = "source1";
+        let source1 = TestSource {
+            id: source_id,
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+        };
+        let sources = TileSources::new(vec![vec![Box::new(source1)]]);
+
+        let src = DynTileSource::new(
+            &sources,
+            source_id,
+            None,
+            "",
+            None,
+            if_none_match,
+            None,
+            None,
+        )
+        .unwrap();
+        let resp = &src
+            .get_http_response(TileCoord { z: 0, x: 0, y: 0 })
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), expected_status);
+        let etag = resp.headers().get(ETAG);
+        assert_eq!(
+            etag,
+            expected_etag.map(|e| e.try_into_value().unwrap()).as_ref()
+        );
     }
 
     #[actix_rt::test]
@@ -370,9 +410,8 @@ mod tests {
             ("non-empty,empty", vec![1_u8, 2, 3]),
             ("non-empty,empty,non-empty", vec![1_u8, 2, 3, 1_u8, 2, 3]),
             ("empty,non-empty", vec![1_u8, 2, 3]),
-            ("empty,non-empty,empty", vec![1_u8, 2, 3]),
-        ] {
-            let src = DynTileSource::new(&sources, source_id, None, "", None, None, None).unwrap();
+            let src =
+                DynTileSource::new(&sources, source_id, None, "", None, None, None, None).unwrap();
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }

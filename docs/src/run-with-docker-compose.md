@@ -4,9 +4,7 @@ You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/map
 file as a reference
 
 ```yml
-services:
-  martin:
-    image: ghcr.io/maplibre/martin:v0.13.0
+    image: ghcr.io/maplibre/martin:v0.16.0
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -14,9 +12,7 @@ services:
       - DATABASE_URL=postgresql://postgres:password@db/db
     depends_on:
       - db
-
-  db:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgis/postgis:17-3.5-alpine
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-
-use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use tracing::warn;
 
 use crate::MartinError::ConfigAndConnectionsError;
@@ -10,20 +10,27 @@ use crate::OptOneMany;
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
-use crate::config::Config;
-#[cfg(any(
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
-    feature = "cog"
+    feature = "styles",
 ))]
 use crate::file_config::FileConfigEnum;
+
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about,
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information."
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax for more information.",
+    styles = HELP_STYLES
 )]
 pub struct Args {
     #[command(flatten)]
@@ -142,28 +149,29 @@ impl Args {
 
         cli_strings.check()
     }
-}
-
-#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+/// Check if a string is a valid [`url::Url`] with a specified extension.
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
-    if s.starts_with("http") {
-        if let Ok(url) = url::Url::parse(s) {
-            if url.scheme() == "http" || url.scheme() == "https" {
-                if let Some(ext) = url.path().rsplit('.').next() {
-                    return extension.contains(&ext);
-                }
-            }
-        }
+    let Ok(url) = url::Url::parse(s) else {
+        return false;
+    };
+    match url.scheme() {
+        "s3" => url.path().split('/').any(|segment| {
+            segment
+                .rsplit('.')
+                .next()
+                .is_some_and(|ext| extension.contains(&ext))
+        }),
+        "http" | "https" => url
+            .path()
+            .rsplit('.')
+            .next()
+            .is_some_and(|ext| extension.contains(&ext)),
+        _ => false,
     }
-    false
 }
 
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "cog",
-    feature = "styles"
-))]
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
 pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
     extensions: &[&str],

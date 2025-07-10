@@ -41,9 +41,13 @@ pub struct PgArgs {
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
-    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {POOL_SIZE_DEFAULT}]"), short, long)]
-    pub pool_size: Option<usize>,
-    /// Limit the number of features in a tile from a PG table source.
+    /// Limit the number of geo features per tile.
+    ///
+    /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
+    /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
+    /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+    ///
+    /// Can be either a positive integer or unlimited if omitted.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
 }
@@ -132,9 +136,6 @@ impl PgArgs {
                 c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
             });
         }
-
-        for v in &[
-            "DANGER_ACCEPT_INVALID_CERTS",
             "DATABASE_URL",
             "DEFAULT_SRID",
             "PGSSLCERT",
@@ -275,9 +276,6 @@ mod tests {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
-                ("DATABASE_URL", os("postgres://localhost:5432")),
-                ("DEFAULT_SRID", os("10")),
-                ("DANGER_ACCEPT_INVALID_CERTS", os("1")),
                 ("PGSSLROOTCERT", os("file")),
             ]
             .into_iter()

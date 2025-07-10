@@ -11,9 +11,7 @@ use crate::pg::utils::{InfoMap, normalize_key, patch_json};
 pub type TableInfoSources = InfoMap<TableInfo>;
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
-pub struct TableInfo {
-    /// ID of the layer as specified in a tile (ST_AsMVT param)
+    /// ID of the layer as specified in a tile (`ST_AsMVT` parameter)
     pub layer_id: Option<String>,
 
     /// Table schema
@@ -30,9 +28,7 @@ pub struct TableInfo {
 
     /// Geometry column has a spatial index
     #[serde(skip)]
-    pub geometry_index: Option<bool>,
-
-    /// Flag indicating if table is actually a view (PostgreSQL relkind = 'v')
+    /// Flag indicating if table is actually a view (`PostgreSQL relkind = 'v'`)
     #[serde(skip)]
     pub is_view: Option<bool>,
 
@@ -71,9 +67,7 @@ pub struct TableInfo {
     pub prop_mapping: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
-    pub unrecognized: UnrecognizedValues,
-
-    /// TileJSON provider by the SQL comment. Shouldn't be serialized
+    /// `TileJSON` provider by the SQL comment. Shouldn't be serialized
     #[serde(skip)]
     pub tilejson: Option<serde_json::Value>,
 }
@@ -166,8 +160,8 @@ impl TableInfo {
 
         Some(inf)
     }
-
-    /// Determine the SRID value to use for a table, or None if unknown, assuming self is a table info from the database
+    ///
+    /// Tries to use `default_srid` if a spatial table has SRID 0.
     #[must_use]
     pub fn calc_srid(&self, new_id: &str, cfg_srid: i32, default_srid: Option<i32>) -> Option<i32> {
         match (self.srid, cfg_srid, default_srid) {

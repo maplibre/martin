@@ -32,8 +32,7 @@ fn test_get(path: &str) -> TestRequest {
 
 const CONFIG: &str = indoc! {"
         pmtiles:
-            sources:
-                p_png: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+                s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     "};
 
 #[actix_rt::test]
@@ -71,8 +70,11 @@ async fn pmt_get_catalog_gzip() {
     sprites: {}
     styles: {}
     tiles:
-      p_png:
-        content_type: image/png
+      s3:
+        content_encoding: gzip
+        content_type: application/x-protobuf
+        description: cb_2018_us_zcta510_500k.mbtiles
+        name: cb_2018_us_zcta510_500k.mbtiles
     ");
 }
 
@@ -131,5 +133,27 @@ async fn pmt_get_raster_gzip() {
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
-    assert_eq!(body.len(), 18404);
+
+#[actix_rt::test]
+async fn pmt_get_tilejson_s3() {
+    let app = create_app! { CONFIG };
+    let req = test_get("/s3").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let headers = response.headers();
+    assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
+    assert!(headers.get(CONTENT_ENCODING).is_none());
+    let body: TileJSON = read_body_json(response).await;
+    assert_eq!(body.name, Some("cb_2018_us_zcta510_500k.mbtiles".into()));
+    assert_eq!(body.maxzoom, Some(7));
+}
+
+#[actix_rt::test]
+async fn pmt_get_tile_s3() {
+    let app = create_app! { CONFIG };
+    let req = test_get("/s3/0/0/0").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let headers = response.headers();
+    assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
 }

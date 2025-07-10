@@ -4,9 +4,7 @@
       "__comment__": "See https://github.com/tcort/markdown-link-check/issues/264",
       "pattern": "%23",
       "replacement": ""
-    }
-  ],
-  "timeout": "2s",
+  "timeout": "3s",
   "retryOn429": true,
   "ignorePatterns": [
     {
