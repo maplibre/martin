@@ -1,23 +1,15 @@
-lints.workspace = true
-
 [package]
 name = "martin"
-# Once the release is published with the hash, update https://github.com/maplibre/homebrew-martin
-version = "0.11.2"
+version = "0.18.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
 categories = ["science::geo", "web-programming::http-server"]
-exclude = [
-    # Tests include a lot of data and other test files that are not needed for the users of the library
-    "/tests",
-]
 default-run = "martin"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-readme = "README.md"
 homepage.workspace = true
 
 [package.metadata.deb]
@@ -53,58 +45,92 @@ path = "src/bin/martin.rs"
 [[bin]]
 name = "martin-cp"
 path = "src/bin/martin-cp.rs"
+required-features = ["mbtiles"]
 
 [[bench]]
 name = "bench"
 harness = false
 
 [features]
-default = []
-bless-tests = []
+default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
+cog = ["dep:png", "dep:tiff"]
+fonts = ["dep:bit-set", "dep:pbf_font_tools"]
+lambda = ["dep:lambda-web"]
+mbtiles = ["dep:mbtiles"]
+metrics = ["dep:actix-web-prom"]
+pmtiles = ["dep:pmtiles"]
+postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
+sprites = ["dep:spreet", "tokio/fs"]
+styles = ["dep:walkdir", "tokio/fs"]
+webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
 actix-cors.workspace = true
 actix-http.workspace = true
+actix-middleware-etag.workspace = true
 actix-rt.workspace = true
+actix-web-prom = { workspace = true, optional = true }
+actix-web-static-files = { workspace = true, optional = true }
 actix-web.workspace = true
 async-trait.workspace = true
-bit-set.workspace = true
-brotli.workspace = true
+aws-config.workspace = true
+bit-set = { workspace = true, optional = true }
 clap.workspace = true
-deadpool-postgres.workspace = true
+dashmap.workspace = true
+deadpool-postgres = { workspace = true, optional = true }
+enum-display.workspace = true
 env_logger.workspace = true
-flate2.workspace = true
 futures.workspace = true
 itertools.workspace = true
-json-patch.workspace = true
+json-patch = { workspace = true, optional = true }
+lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
-mbtiles.workspace = true
+mbtiles = { workspace = true, optional = true }
+moka.workspace = true
 num_cpus.workspace = true
-pbf_font_tools.workspace = true
-pmtiles.workspace = true
-postgis.workspace = true
-postgres-protocol.workspace = true
-postgres.workspace = true
+pbf_font_tools = { workspace = true, optional = true }
+pmtiles = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
+postgis = { workspace = true, optional = true }
+postgres = { workspace = true, optional = true }
+postgres-protocol = { workspace = true, optional = true }
 regex.workspace = true
 rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
 rustls.workspace = true
-semver.workspace = true
+semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
-spreet.workspace = true
+spreet = { workspace = true, optional = true }
+static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
+tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
-tokio-postgres-rustls.workspace = true
+tokio-postgres-rustls = { workspace = true, optional = true }
+url.workspace = true
+walkdir = { workspace = true, optional = true }
+xxhash-rust.workspace = true
+
+[build-dependencies]
+static-files = { workspace = true, optional = true }
+walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
-cargo-husky.workspace = true
+anyhow.workspace = true
+approx.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["yaml"] }
+insta = { workspace = true, features = ["json", "yaml"] }
+pprof.workspace = true
+rstest.workspace = true
+tempfile.workspace = true
+testcontainers-modules.workspace = true
+
+[lints]
+workspace = true

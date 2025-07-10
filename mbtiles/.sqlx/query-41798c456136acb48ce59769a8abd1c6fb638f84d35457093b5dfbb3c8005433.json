@@ -6,22 +6,22 @@
       {
         "name": "zoom",
         "ordinal": 0,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "count",
         "ordinal": 1,
-        "type_info": "Int"
+        "type_info": "Integer"
       },
       {
         "name": "smallest",
         "ordinal": 2,
-        "type_info": "Int"
+        "type_info": "Integer"
       },
       {
         "name": "largest",
         "ordinal": 3,
-        "type_info": "Int"
+        "type_info": "Integer"
       },
       {
         "name": "average",
@@ -31,22 +31,22 @@
       {
         "name": "min_tile_x",
         "ordinal": 5,
-        "type_info": "Int"
+        "type_info": "Integer"
       },
       {
         "name": "min_tile_y",
         "ordinal": 6,
-        "type_info": "Int"
+        "type_info": "Integer"
       },
       {
         "name": "max_tile_x",
         "ordinal": 7,
-        "type_info": "Int"
+        "type_info": "Integer"
       },
       {
         "name": "max_tile_y",
         "ordinal": 8,
-        "type_info": "Int"
+        "type_info": "Integer"
       }
     ],
     "parameters": {

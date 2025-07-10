@@ -1,7 +1,9 @@
+#![cfg(feature = "postgres")]
+
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::TileCoord;
+use martin_tile_utils::TileCoord;
 
 pub mod utils;
 pub use utils::*;
@@ -14,15 +16,14 @@ fn init() {
 #[actix_rt::test]
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
-    let tj = source(&mock, "function_zxy_query").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
-    ---
+    let src = source(&mock, "function_zxy_query");
+    assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
     tiles: []
     name: function_zxy_query
     foo:
       bar: foo
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -30,14 +31,14 @@ async fn function_source_tile() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let src = source(&mock, "function_zxy_query");
     let tile = src
-        .get_tile(&TileCoord { z: 0, x: 0, y: 0 }, &None)
+        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
         .await
         .unwrap();
     assert!(!tile.is_empty());
 
     let src = source(&mock, "function_zxy_query_jsonb");
     let tile = src
-        .get_tile(&TileCoord { z: 0, x: 0, y: 0 }, &None)
+        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
         .await
         .unwrap();
     assert!(!tile.is_empty());
@@ -53,10 +54,9 @@ async fn function_source_schemas() {
             from_schemas: MixedCase
     "});
     let sources = mock_sources(cfg).await.0.tiles;
-    assert_yaml_snapshot!(sources.get_catalog(), @r###"
-    ---
+    assert_yaml_snapshot!(sources.get_catalog(), @r"
     function_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
-    "###);
+    ");
 }

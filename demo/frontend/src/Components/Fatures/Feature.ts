@@ -26,7 +26,7 @@ export default styled.div`
     border: 7px solid;
 
     border-image: linear-gradient(to bottom left, #7300FF, #351c83) 1;
-    
+
     @media (max-width: 500px) {
       height: 380px;
     }

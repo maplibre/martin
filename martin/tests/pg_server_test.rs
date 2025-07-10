@@ -1,10 +1,13 @@
+#![cfg(feature = "postgres")]
+
 use actix_http::Request;
 use actix_web::http::StatusCode;
-use actix_web::test::{call_and_read_body_json, call_service, read_body, TestRequest};
+use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_body};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::OptOneMany;
+use martin::srv::SrvConfig;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -24,8 +27,10 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(&state).unwrap(),
                 ))
+                .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
-                .configure(::martin::srv::router),
+                .app_data(actix_web::web::Data::new(SrvConfig::default()))
+                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
         .await
     }};
@@ -44,14 +49,20 @@ postgres:
 
     let req = test_get("/catalog");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r#"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
+      "-function.withweired---_-characters":
+        content_type: application/x-protobuf
+        description: a function source with special characters
+      ".-Points-----------quote":
+        content_type: application/x-protobuf
+        description: Escaping test table
       MixPoints:
         content_type: application/x-protobuf
         description: a description from comment on table
@@ -100,8 +111,9 @@ postgres:
         content_type: application/x-protobuf
         description: public.points1.geom
       points1_vw:
+        attribution: some attribution from SQL comment
         content_type: application/x-protobuf
-        description: public.points1_vw.geom
+        description: description from SQL comment
       points2:
         content_type: application/x-protobuf
         description: public.points2.geom
@@ -110,13 +122,15 @@ postgres:
         description: public.points3857.geom
       table_source:
         content_type: application/x-protobuf
+      table_source_geog:
+        content_type: application/x-protobuf
       table_source_multiple_geom:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom1
       table_source_multiple_geom.1:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom2
-    "###);
+    "#);
 }
 
 #[actix_rt::test]
@@ -176,29 +190,23 @@ postgres:
         .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
-    assert_eq!(
-        result,
-        serde_json::from_str(indoc! {r#"
-{
-  "name": "table_source",
-  "description": "public.table_source.geom",
-  "tilejson": "3.0.0",
-  "tiles": [
-    "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin"
-  ],
-  "vector_layers": [
-    {
-      "id": "table_source",
-      "fields": {
-        "gid": "int4"
-      }
-    }
-  ],
-  "bounds": [-180.0, -90.0, 180.0, 90.0]
-}
-        "#})
-        .unwrap()
-    );
+    assert_yaml_snapshot!(result, @r#"
+    tilejson: 3.0.0
+    tiles:
+      - "http://localhost:8080/tiles/table_source/{z}/{x}/{y}?token=martin"
+    vector_layers:
+      - id: table_source
+        fields:
+          gid: int4
+    bounds:
+      - -180
+      - -90
+      - 180
+      - 90
+    name: table_source
+    foo:
+      bar: foo
+    "#);
 }
 
 #[actix_rt::test]
@@ -288,7 +296,7 @@ postgres:
 
     let req = test_get("/table_source/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -374,11 +382,11 @@ postgres:
 
     let req = test_get("/table_source_multiple_geom.geom1/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/table_source_multiple_geom.geom2/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -436,12 +444,12 @@ postgres:
     // zoom = 6 (points1)
     let req = test_get("/points1/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (points1)
     let req = test_get("/points1/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (nothing)
     let req = test_get("/points1/13/4952/2560");
@@ -451,22 +459,22 @@ postgres:
     // zoom = 0 (points2)
     let req = test_get("/points2/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 6 (points2)
     let req = test_get("/points2/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (points2)
     let req = test_get("/points2/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (points2)
     let req = test_get("/points2/13/4952/2560");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 0 (nothing)
     let req = test_get("/points3857/0/0/0");
@@ -476,12 +484,12 @@ postgres:
     // zoom = 12 (points3857)
     let req = test_get("/points3857/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 0 (table_source)
     let req = test_get("/table_source/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (nothing)
     let req = test_get("/table_source/12/2476/1280");
@@ -607,7 +615,7 @@ postgres:
 
     let req = test_get("/points1,points2,points3857");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -697,7 +705,7 @@ postgres:
 
     let req = test_get("/points1,points2,points3857/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -738,27 +746,27 @@ postgres:
     // zoom = 6 (points1)
     let req = test_get("/points1,points2/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (points1)
     let req = test_get("/points1,points2/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (points1, points2)
     let req = test_get("/points1,points2/13/4952/2560");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 14 (points2)
     let req = test_get("/points1,points2/14/9904/5121");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 20 (points2)
     let req = test_get("/points1,points2/20/633856/327787");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 21 (nothing)
     let req = test_get("/points1,points2/21/1267712/655574");
@@ -799,35 +807,35 @@ postgres:
 
     let req = test_get("/function_zoom_xy");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_query");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_query_jsonb");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_query_test");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_row");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_Mixed_Name");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     let req = test_get("/function_zxy_row_key");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -846,18 +854,25 @@ postgres:
         result.tiles,
         &["http://localhost:8080/tiles/function_zxy_query/{z}/{x}/{y}?token=martin"]
     );
+}
+
+#[actix_rt::test]
+async fn pg_get_function_source_ok_rewrite_all() {
+    let app = create_app! { "
+postgres:
+  connection_string: $DATABASE_URL
+"};
 
     let req = TestRequest::get()
         .uri("/function_zxy_query_jsonb?token=martin")
-        .insert_header((
-            "x-rewrite-url",
-            "/tiles/function_zxy_query_jsonb?token=martin",
-        ))
+        .insert_header(("X-Forwarded-Proto", "https"))
+        .insert_header(("X-Forwarded-Host", "example.org:7654"))
+        .insert_header(("X-Rewrite-URL", "/proxy/function_zxy_query_jsonb"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
         result.tiles,
-        &["http://localhost:8080/tiles/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
+        &["https://example.org:7654/proxy/function_zxy_query_jsonb/{z}/{x}/{y}?token=martin"]
     );
 }
 
@@ -870,7 +885,7 @@ postgres:
 
     let req = test_get("/function_zxy_query/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -893,22 +908,22 @@ postgres:
     // zoom = 0 (function_source1)
     let req = test_get("/function_source1/0/0/0");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 6 (function_source1)
     let req = test_get("/function_source1/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (function_source1)
     let req = test_get("/function_source1/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (function_source1)
     let req = test_get("/function_source1/13/4952/2560");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 0 (nothing)
     let req = test_get("/function_source2/0/0/0");
@@ -918,12 +933,12 @@ postgres:
     // zoom = 6 (function_source2)
     let req = test_get("/function_source2/6/38/20");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 12 (function_source2)
     let req = test_get("/function_source2/12/2476/1280");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 
     // zoom = 13 (nothing)
     let req = test_get("/function_source2/13/4952/2560");
@@ -944,7 +959,7 @@ postgres:
 
     let req = test_get("/function_zxy_query_test/0/0/0?token=martin");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -956,7 +971,7 @@ postgres:
 
     let req = test_get("/health");
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    assert_response(response).await;
 }
 
 #[actix_rt::test]
@@ -1010,26 +1025,25 @@ tables:
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
     assert!(matches!(&src.properties, Some(v) if v.len() == 1));
-    let tj = source(&mock, "no_id").get_tilejson();
-    assert_yaml_snapshot!(tj, @r###"
-    ---
+    let src = source(&mock, "no_id");
+    assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
-      - id: no_id
+      - id: MixPoints
         fields:
+          Gid: int4
           TABLE: text
     bounds:
       - -180
       - -90
       - 180
       - 90
-    description: MixedCase.MixPoints.Geom
+    description: a description from comment on table
     name: no_id
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "id_only"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "id_only"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1043,10 +1057,9 @@ tables:
     geometry_type: POINT
     properties:
       TABLE: text
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1061,10 +1074,9 @@ tables:
     properties:
       TABLE: text
       giD: int4
-    "###);
+    ");
 
-    assert_yaml_snapshot!(table(&mock, "prop_only"), @r###"
-    ---
+    assert_yaml_snapshot!(table(&mock, "prop_only"), @r"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1078,7 +1090,7 @@ tables:
     properties:
       TABLE: text
       giD: int4
-    "###);
+    ");
 
     // --------------------------------------------
 
@@ -1088,8 +1100,10 @@ tables:
             .app_data(actix_web::web::Data::new(
                 ::martin::srv::Catalog::new(&state).unwrap(),
             ))
+            .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
             .app_data(actix_web::web::Data::new(state.tiles))
-            .configure(::martin::srv::router),
+            .app_data(actix_web::web::Data::new(SrvConfig::default()))
+            .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
     )
     .await;
 
@@ -1099,6 +1113,6 @@ tables:
     for (name, _) in cfg.tables.unwrap_or_default() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;
-        assert!(response.status().is_success());
+        assert_response(response).await;
     }
 }

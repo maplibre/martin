@@ -3,7 +3,7 @@ use tilejson::{Bounds, TileJSON};
 
 use crate::config::UnrecognizedValues;
 use crate::pg::config::PgInfo;
-use crate::pg::utils::{patch_json, InfoMap};
+use crate::pg::utils::{InfoMap, patch_json};
 
 pub type FuncInfoSources = InfoMap<FunctionInfo>;
 
@@ -28,7 +28,7 @@ pub struct FunctionInfo {
     /// Values may be integers or floating point numbers.
     pub bounds: Option<Bounds>,
 
-    /// TileJSON provided by the SQL function comment. Not serialized.
+    /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]
     pub tilejson: Option<serde_json::Value>,
 
@@ -80,6 +80,18 @@ impl PgInfo for FunctionInfo {
         tilejson.minzoom = self.minzoom;
         tilejson.maxzoom = self.maxzoom;
         tilejson.bounds = self.bounds;
-        patch_json(tilejson, &self.tilejson)
+        patch_json(tilejson, self.tilejson.as_ref())
+    }
+}
+
+impl FunctionInfo {
+    /// For a given function info discovered from the database, append the configuration info provided by the user
+    #[must_use]
+    pub fn append_cfg_info(&self, cfg_inf: &FunctionInfo) -> FunctionInfo {
+        FunctionInfo {
+            // TileJson does not need to be merged because it cannot be de-serialized from config
+            tilejson: self.tilejson.clone(),
+            ..cfg_inf.clone()
+        }
     }
 }

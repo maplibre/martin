@@ -1,8 +1,4 @@
 {
-  "tilejson": "3.0.0",
-  "tiles": [
-    "http://localhost:3111/geography-class-png/{z}/{x}/{y}"
-  ],
   "bounds": [
     -180,
     -85.0511,
@@ -20,5 +16,9 @@
   "minzoom": 0,
   "name": "Geography Class",
   "template": "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/geography-class-png/{z}/{x}/{y}"
+  ],
   "version": "1.0.0"
 }

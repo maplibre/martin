@@ -8,13 +8,13 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_RADIUS};
+use martin_tile_utils::{get_zoom_precision, xyz_to_bbox};
 use serde::Serialize;
 use size_format::SizeFormatterBinary;
-use sqlx::{query, SqliteExecutor};
+use sqlx::{SqliteExecutor, query};
 use tilejson::Bounds;
 
-use crate::{MbtResult, MbtType, Mbtiles};
+use crate::{MbtResult, MbtType, Mbtiles, invert_y_value};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ZoomInfo {
@@ -154,11 +154,12 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.unwrap(),
-                        r.min_tile_y.unwrap(),
-                        r.max_tile_x.unwrap(),
-                        r.max_tile_y.unwrap(),
-                    ),
+                        r.min_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.max_tile_y.unwrap() as u32),
+                        r.max_tile_x.unwrap() as u32,
+                        invert_y_value(zoom, r.min_tile_y.unwrap() as u32),
+                    )
+                    .into(),
                 }
             })
             .collect();
@@ -186,65 +187,13 @@ impl Mbtiles {
     }
 }
 
-/// Convert min/max XYZ tile coordinates to a bounding box
-fn xyz_to_bbox(zoom: u8, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bounds {
-    let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
-    let (min_lng, min_lat) = webmercator_to_wgs84(
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_x) * tile_size,
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(min_y) * tile_size,
-    );
-    let (max_lng, max_lat) = webmercator_to_wgs84(
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_x + 1) * tile_size,
-        -0.5 * EARTH_CIRCUMFERENCE + f64::from(max_y + 1) * tile_size,
-    );
-
-    Bounds::new(min_lng, min_lat, max_lng, max_lat)
-}
-
-fn get_zoom_precision(zoom: u8) -> usize {
-    let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
-    let log = lng_delta.log10() - 0.5;
-    if log > 0.0 {
-        0
-    } else {
-        -log.ceil() as usize
-    }
-}
-
-fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
-    let lng = (x / EARTH_RADIUS).to_degrees();
-    let lat = (f64::atan(f64::sinh(y / EARTH_RADIUS))).to_degrees();
-    (lng, lat)
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unreadable_literal)]
 
-    use approx::assert_relative_eq;
     use insta::assert_yaml_snapshot;
 
-    use crate::summary::webmercator_to_wgs84;
-    use crate::{init_mbtiles_schema, MbtResult, MbtType, Mbtiles};
-
-    #[actix_rt::test]
-    async fn meter_to_lng_lat() {
-        let (lng, lat) = webmercator_to_wgs84(-20037508.34, -20037508.34);
-        assert_relative_eq!(lng, -179.99999991016847, epsilon = f64::EPSILON);
-        assert_relative_eq!(lat, -85.05112877205713, epsilon = f64::EPSILON);
-
-        let (lng, lat) = webmercator_to_wgs84(20037508.34, 20037508.34);
-        assert_relative_eq!(lng, 179.99999991016847, epsilon = f64::EPSILON);
-        assert_relative_eq!(lat, 85.05112877205713, epsilon = f64::EPSILON);
-
-        let (lng, lat) = webmercator_to_wgs84(0.0, 0.0);
-        assert_relative_eq!(lng, 0.0, epsilon = f64::EPSILON);
-        assert_relative_eq!(lat, 0.0, epsilon = f64::EPSILON);
-
-        let (lng, lat) = webmercator_to_wgs84(3000.0, 9000.0);
-        assert_relative_eq!(lng, 0.02694945851388753, epsilon = f64::EPSILON);
-        assert_relative_eq!(lat, 0.0808483487118794, epsilon = f64::EPSILON);
-    }
+    use crate::{MbtResult, MbtType, Mbtiles, init_mbtiles_schema};
 
     #[actix_rt::test]
     async fn summary_empty_file() -> MbtResult<()> {
@@ -253,8 +202,7 @@ mod tests {
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
         let res = mbt.summary(&mut conn).await?;
-        assert_yaml_snapshot!(res, @r###"
-        ---
+        assert_yaml_snapshot!(res, @r"
         file_size: ~
         mbt_type: Flat
         page_size: 512
@@ -267,7 +215,7 @@ mod tests {
         min_zoom: ~
         max_zoom: ~
         zoom_info: []
-        "###);
+        ");
 
         Ok(())
     }
@@ -279,8 +227,7 @@ mod tests {
 
         let res = mbt.summary(&mut conn).await?;
 
-        assert_yaml_snapshot!(res, @r###"
-        ---
+        assert_yaml_snapshot!(res, @r"
         file_size: 49152
         mbt_type: Flat
         page_size: 4096
@@ -292,7 +239,7 @@ mod tests {
         bbox:
           - -180
           - -85.0511287798066
-          - 180
+          - 180.00000000000003
           - 85.0511287798066
         min_zoom: 0
         max_zoom: 6
@@ -325,7 +272,7 @@ mod tests {
             bbox:
               - -180
               - -66.51326044311186
-              - 180
+              - 180.00000000000003
               - 66.51326044311186
           - zoom: 3
             tile_count: 17
@@ -335,7 +282,7 @@ mod tests {
             bbox:
               - -135
               - -40.97989806962013
-              - 180
+              - 179.99999999999997
               - 66.51326044311186
           - zoom: 4
             tile_count: 38
@@ -344,8 +291,8 @@ mod tests {
             avg_tile_size: 86
             bbox:
               - -135
-              - -40.97989806962013
-              - 180
+              - -40.97989806962014
+              - 180.00000000000003
               - 66.51326044311186
           - zoom: 5
             tile_count: 57
@@ -355,8 +302,8 @@ mod tests {
             bbox:
               - -123.75000000000001
               - -40.97989806962013
-              - 180
-              - 61.60639637138627
+              - 179.99999999999997
+              - 61.60639637138628
           - zoom: 6
             tile_count: 72
             min_tile_size: 64
@@ -364,10 +311,10 @@ mod tests {
             avg_tile_size: 68.29166666666667
             bbox:
               - -123.75000000000001
-              - -40.97989806962013
-              - 180
-              - 61.60639637138627
-        "###);
+              - -40.97989806962015
+              - 180.00000000000003
+              - 61.60639637138628
+        ");
 
         Ok(())
     }

@@ -1,9 +1,10 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
-use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
+use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::decode_gzip;
+use martin::srv::SrvConfig;
+use martin_tile_utils::{decode_brotli, decode_gzip};
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -22,8 +23,10 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(&state).unwrap(),
                 ))
+                .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
-                .configure(::martin::srv::router),
+                .app_data(actix_web::web::Data::new(SrvConfig::default()))
+                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
         .await
     }};
@@ -48,12 +51,12 @@ async fn mbt_get_catalog() {
 
     let req = test_get("/catalog").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       m_json:
         content_type: application/json
@@ -70,7 +73,7 @@ async fn mbt_get_catalog() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -79,13 +82,13 @@ async fn mbt_get_catalog_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/catalog").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       m_json:
         content_type: application/json
@@ -102,7 +105,7 @@ async fn mbt_get_catalog_gzip() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -110,7 +113,7 @@ async fn mbt_get_tilejson() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_mvt").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let headers = response.headers();
     assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
     assert!(headers.get(CONTENT_ENCODING).is_none());
@@ -124,7 +127,7 @@ async fn mbt_get_tilejson_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_webp").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let headers = response.headers();
     assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
     assert_eq!(headers.get(CONTENT_ENCODING).unwrap(), "gzip");
@@ -138,7 +141,7 @@ async fn mbt_get_raster() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_webp/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/webp");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
@@ -152,7 +155,7 @@ async fn mbt_get_raster_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_webp/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/webp");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
@@ -164,7 +167,7 @@ async fn mbt_get_mvt() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -181,7 +184,7 @@ async fn mbt_get_mvt_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -200,7 +203,7 @@ async fn mbt_get_mvt_brotli() {
     let accept = (ACCEPT_ENCODING, "br");
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -208,7 +211,7 @@ async fn mbt_get_mvt_brotli() {
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
     let body = read_body(response).await;
     assert_eq!(body.len(), 871); // this number could change if compression gets more optimized
-    let body = martin::decode_brotli(&body).unwrap();
+    let body = decode_brotli(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
 
@@ -218,7 +221,7 @@ async fn mbt_get_raw_mvt() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_raw_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -237,7 +240,7 @@ async fn mbt_get_raw_mvt_gzip() {
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
@@ -259,15 +262,15 @@ async fn mbt_get_raw_mvt_gzip_br() {
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/x-protobuf"
     );
-    assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
+    assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 871); // this number could change if compression gets more optimized
-    let body = martin::decode_brotli(&body).unwrap();
+    assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
+    let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
 
@@ -277,7 +280,7 @@ async fn mbt_get_json() {
     let app = create_app! { CONFIG };
     let req = test_get("/m_json/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/json"
@@ -294,7 +297,7 @@ async fn mbt_get_json_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/m_json/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         "application/json"

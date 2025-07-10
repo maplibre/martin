@@ -1,19 +1,20 @@
-use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
 use spreet::{
-    get_svg_input_paths, sprite_name, SpreetError, Sprite, Spritesheet, SpritesheetBuilder,
+    SpreetError, Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name,
 };
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
-use crate::file_config::{FileConfigEnum, FileResult};
+use crate::config::UnrecognizedValues;
+use crate::file_config::{ConfigExtras, FileConfigEnum, FileResult};
 
 pub type SpriteResult<T> = Result<T, SpriteError>;
 
@@ -22,31 +23,31 @@ pub enum SpriteError {
     #[error("Sprite {0} not found")]
     SpriteNotFound(String),
 
-    #[error("IO error {0}: {}", .1.display())]
+    #[error("IO error {0}: {1}")]
     IoError(std::io::Error, PathBuf),
 
-    #[error("Sprite path is not a file: {}", .0.display())]
+    #[error("Sprite path is not a file: {0}")]
     InvalidFilePath(PathBuf),
 
-    #[error("Sprite {0} uses bad file {}", .1.display())]
+    #[error("Sprite {0} uses bad file {1}")]
     InvalidSpriteFilePath(String, PathBuf),
 
-    #[error("No sprite files found in {}", .0.display())]
+    #[error("No sprite files found in {0}")]
     NoSpriteFilesFound(PathBuf),
 
-    #[error("Sprite {} could not be loaded", .0.display())]
+    #[error("Sprite {0} could not be loaded")]
     UnableToReadSprite(PathBuf),
 
-    #[error("{0} in file {}", .1.display())]
+    #[error("{0} in file {1}")]
     SpriteProcessingError(SpreetError, PathBuf),
 
-    #[error("{0} in file {}", .1.display())]
+    #[error("{0} in file {1}")]
     SpriteParsingError(ResvgError, PathBuf),
 
     #[error("Unable to generate spritesheet")]
     UnableToGenerateSpritesheet,
 
-    #[error("Unable to create a sprite from file {}", .0.display())]
+    #[error("Unable to create a sprite from file {0}")]
     SpriteInstError(PathBuf),
 }
 
@@ -55,14 +56,26 @@ pub struct CatalogSpriteEntry {
     pub images: Vec<String>,
 }
 
-pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
+pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SpriteConfig {
+    #[serde(flatten)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl ConfigExtras for SpriteConfig {
+    fn get_unrecognized(&self) -> &UnrecognizedValues {
+        &self.unrecognized
+    }
+}
 
 #[derive(Debug, Clone, Default)]
-pub struct SpriteSources(HashMap<String, SpriteSource>);
+pub struct SpriteSources(DashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn resolve(config: &mut FileConfigEnum) -> FileResult<Self> {
-        let Some(cfg) = config.extract_file_config() else {
+    pub fn resolve(config: &mut FileConfigEnum<SpriteConfig>) -> FileResult<Self> {
+        let Some(cfg) = config.extract_file_config(None)? else {
             return Ok(Self::default());
         };
 
@@ -75,7 +88,7 @@ impl SpriteSources {
                 configs.insert(id.clone(), source.clone());
                 results.add_source(id, source.abs_path()?);
             }
-        };
+        }
 
         for path in cfg.paths {
             let Some(name) = path.file_name() else {
@@ -89,7 +102,7 @@ impl SpriteSources {
             results.add_source(name.to_string_lossy().to_string(), path);
         }
 
-        *config = FileConfigEnum::new_extended(directories, configs, cfg.unrecognized);
+        *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
         Ok(results)
     }
@@ -97,7 +110,7 @@ impl SpriteSources {
     pub fn get_catalog(&self) -> SpriteResult<SpriteCatalog> {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
-        for (id, source) in &self.0 {
+        for source in &self.0 {
             let paths = get_svg_input_paths(&source.path, true)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
             let mut images = Vec::with_capacity(paths.len());
@@ -108,7 +121,7 @@ impl SpriteSources {
                 );
             }
             images.sort();
-            entries.insert(id.clone(), CatalogSpriteEntry { images });
+            entries.insert(source.key().clone(), CatalogSpriteEntry { images });
         }
         Ok(entries)
     }
@@ -120,20 +133,23 @@ impl SpriteSources {
         } else {
             match self.0.entry(id) {
                 Entry::Occupied(v) => {
-                    warn!("Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
-                    v.key(), v.get().path.display());
+                    warn!(
+                        "Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
+                        v.key(),
+                        v.get().path.display()
+                    );
                 }
                 Entry::Vacant(v) => {
                     info!("Configured sprite source {} from {disp_path}", v.key());
                     v.insert(SpriteSource { path });
                 }
             }
-        };
+        }
     }
 
     /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
     /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
-    pub async fn get_sprites(&self, ids: &str) -> SpriteResult<Spritesheet> {
+    pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> SpriteResult<Spritesheet> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
         } else {
@@ -142,14 +158,17 @@ impl SpriteSources {
 
         let sprite_ids = ids
             .split(',')
-            .map(|id| {
-                self.0
-                    .get(id)
-                    .ok_or_else(|| SpriteError::SpriteNotFound(id.to_string()))
-            })
+            .map(|id| self.get(id))
             .collect::<SpriteResult<Vec<_>>>()?;
 
-        get_spritesheet(sprite_ids.into_iter(), dpi).await
+        get_spritesheet(sprite_ids.iter(), dpi, as_sdf).await
+    }
+
+    fn get(&self, id: &str) -> SpriteResult<SpriteSource> {
+        match self.0.get(id) {
+            Some(v) => Ok(v.clone()),
+            None => Err(SpriteError::SpriteNotFound(id.to_string())),
+        }
     }
 }
 
@@ -162,6 +181,7 @@ async fn parse_sprite(
     name: String,
     path: PathBuf,
     pixel_ratio: u8,
+    as_sdf: bool,
 ) -> SpriteResult<(String, Sprite)> {
     let on_err = |e| SpriteError::IoError(e, path.clone());
 
@@ -173,7 +193,12 @@ async fn parse_sprite(
     let tree = Tree::from_data(&buffer, &Options::default())
         .map_err(|e| SpriteParsingError(e, path.clone()))?;
 
-    let sprite = Sprite::new(tree, pixel_ratio).ok_or_else(|| SpriteInstError(path.clone()))?;
+    let sprite = if as_sdf {
+        Sprite::new_sdf(tree, pixel_ratio)
+    } else {
+        Sprite::new(tree, pixel_ratio)
+    };
+    let sprite = sprite.ok_or_else(|| SpriteInstError(path.clone()))?;
 
     Ok((name, sprite))
 }
@@ -181,6 +206,7 @@ async fn parse_sprite(
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
+    as_sdf: bool,
 ) -> SpriteResult<Spritesheet> {
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
@@ -190,11 +216,14 @@ pub async fn get_spritesheet(
         for path in paths {
             let name = sprite_name(&path, &source.path)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
-            futures.push(parse_sprite(name, path, pixel_ratio));
+            futures.push(parse_sprite(name, path, pixel_ratio, as_sdf));
         }
     }
     let sprites = try_join_all(futures).await?;
     let mut builder = SpritesheetBuilder::new();
+    if as_sdf {
+        builder.make_sdf();
+    }
     builder.sprites(sprites.into_iter().collect());
 
     // TODO: decide if this is needed and/or configurable
@@ -221,56 +250,48 @@ mod tests {
         let sprites = SpriteSources::resolve(&mut cfg).unwrap().0;
         assert_eq!(sprites.len(), 2);
 
-        test_src(sprites.values(), 1, "all_1").await;
-        test_src(sprites.values(), 2, "all_2").await;
+        for generate_sdf in [true, false] {
+            let paths = sprites
+                .iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
+            test_src(paths.iter(), 1, "all_1", generate_sdf).await;
+            test_src(paths.iter(), 2, "all_2", generate_sdf).await;
 
-        test_src(sprites.get("src1").into_iter(), 1, "src1_1").await;
-        test_src(sprites.get("src1").into_iter(), 2, "src1_2").await;
+            let src1_path = sprites
+                .get("src1")
+                .into_iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
+            test_src(src1_path.iter(), 1, "src1_1", generate_sdf).await;
+            test_src(src1_path.iter(), 2, "src1_2", generate_sdf).await;
 
-        test_src(sprites.get("src2").into_iter(), 1, "src2_1").await;
-        test_src(sprites.get("src2").into_iter(), 2, "src2_2").await;
+            let src2_path = sprites
+                .get("src2")
+                .into_iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
+            test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
+            test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
+        }
     }
 
     async fn test_src(
         sources: impl Iterator<Item = &SpriteSource>,
         pixel_ratio: u8,
         filename: &str,
+        generate_sdf: bool,
     ) {
-        let path = PathBuf::from(format!("../tests/fixtures/sprites/expected/{filename}"));
-
-        let sprites = get_spritesheet(sources, pixel_ratio).await.unwrap();
-        let mut json = serde_json::to_string_pretty(sprites.get_index()).unwrap();
-        json.push('\n');
+        let sprites = get_spritesheet(sources, pixel_ratio, generate_sdf)
+            .await
+            .unwrap();
+        let filename = if generate_sdf {
+            format!("{filename}_sdf")
+        } else {
+            filename.to_string()
+        };
+        insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
         let png = sprites.encode_png().unwrap();
-
-        #[cfg(feature = "bless-tests")]
-        {
-            use std::io::Write as _;
-            let mut file = std::fs::File::create(path.with_extension("json")).unwrap();
-            file.write_all(json.as_bytes()).unwrap();
-
-            let mut file = std::fs::File::create(path.with_extension("png")).unwrap();
-            file.write_all(&png).unwrap();
-        }
-
-        #[cfg(not(feature = "bless-tests"))]
-        {
-            let expected = std::fs::read_to_string(path.with_extension("json"))
-                .expect("Unable to open expected JSON file, make sure to bless tests with\n  cargo test --features bless-tests\n");
-
-            assert_eq!(
-                serde_json::from_str::<serde_json::Value>(&json).unwrap(),
-                serde_json::from_str::<serde_json::Value>(&expected).unwrap(),
-                "Make sure to run bless if needed:\n  cargo test --features bless-tests\n\n{json}",
-            );
-
-            let expected = std::fs::read(path.with_extension("png"))
-                .expect("Unable to open expected PNG file, make sure to bless tests with\n  cargo test --features bless-tests\n");
-
-            assert_eq!(
-                png, expected,
-                "Make sure to run bless if needed:\n  cargo test --features bless-tests\n\n{json}",
-            );
-        }
+        insta::assert_binary_snapshot!(&format!("{filename}.png"), png);
     }
 }

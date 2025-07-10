@@ -5,9 +5,27 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      all-actions-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      all-actions-security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
   - package-ecosystem: cargo
     directory: "/"
     schedule:
       interval: daily
       time: "02:00"
     open-pull-requests-limit: 10
+    groups:
+      all-cargo-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      all-cargo-security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"

@@ -1,9 +1,10 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
-use actix_web::test::{call_service, read_body, read_body_json, TestRequest};
+use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::decode_gzip;
+use martin::srv::SrvConfig;
+use martin_tile_utils::decode_gzip;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -22,8 +23,10 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(&state).unwrap(),
                 ))
+                .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
-                .configure(::martin::srv::router),
+                .app_data(actix_web::web::Data::new(SrvConfig::default()))
+                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
         .await
     }};
@@ -37,6 +40,7 @@ const CONFIG: &str = indoc! {"
         pmtiles:
             sources:
                 p_png: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+                s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     "};
 
 #[actix_rt::test]
@@ -46,16 +50,16 @@ async fn pmt_get_catalog() {
 
     let req = test_get("/catalog").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       stamen_toner__raster_CC-BY-ODbL_z3:
         content_type: image/png
-    "###);
+    ");
 }
 
 #[actix_rt::test]
@@ -64,17 +68,22 @@ async fn pmt_get_catalog_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/catalog").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r###"
-    ---
+    assert_yaml_snapshot!(body, @r"
     fonts: {}
     sprites: {}
+    styles: {}
     tiles:
       p_png:
         content_type: image/png
-    "###);
+      s3:
+        content_encoding: gzip
+        content_type: application/x-protobuf
+        description: cb_2018_us_zcta510_500k.mbtiles
+        name: cb_2018_us_zcta510_500k.mbtiles
+    ");
 }
 
 #[actix_rt::test]
@@ -82,7 +91,7 @@ async fn pmt_get_tilejson() {
     let app = create_app! { CONFIG };
     let req = test_get("/p_png").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let headers = response.headers();
     assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
     assert!(headers.get(CONTENT_ENCODING).is_none());
@@ -96,7 +105,7 @@ async fn pmt_get_tilejson_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/p_png").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     let headers = response.headers();
     assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
     assert_eq!(headers.get(CONTENT_ENCODING).unwrap(), "gzip");
@@ -110,7 +119,7 @@ async fn pmt_get_raster() {
     let app = create_app! { CONFIG };
     let req = test_get("/p_png/0/0/0").to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
@@ -124,9 +133,33 @@ async fn pmt_get_raster_gzip() {
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/p_png/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
-    assert!(response.status().is_success());
+    let response = assert_response(response).await;
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 18404);
+}
+
+#[actix_rt::test]
+async fn pmt_get_tilejson_s3() {
+    let app = create_app! { CONFIG };
+    let req = test_get("/s3").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let headers = response.headers();
+    assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
+    assert!(headers.get(CONTENT_ENCODING).is_none());
+    let body: TileJSON = read_body_json(response).await;
+    assert_eq!(body.name, Some("cb_2018_us_zcta510_500k.mbtiles".into()));
+    assert_eq!(body.maxzoom, Some(7));
+}
+
+#[actix_rt::test]
+async fn pmt_get_tile_s3() {
+    let app = create_app! { CONFIG };
+    let req = test_get("/s3/0/0/0").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let headers = response.headers();
+    assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
 }

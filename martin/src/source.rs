@@ -1,14 +1,15 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
+use dashmap::DashMap;
 use log::debug;
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use crate::{MartinResult, TileCoord};
+use crate::MartinResult;
 
 pub type TileData = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
@@ -18,8 +19,8 @@ pub type TileInfoSource = Box<dyn Source>;
 pub type TileInfoSources = Vec<TileInfoSource>;
 
 #[derive(Default, Clone)]
-pub struct TileSources(HashMap<String, Box<dyn Source>>);
-pub type TileCatalog = BTreeMap<String, CatalogSourceEntry>;
+pub struct TileSources(DashMap<String, TileInfoSource>);
+pub type TileCatalog = HashMap<String, CatalogSourceEntry>;
 
 impl TileSources {
     #[must_use]
@@ -37,16 +38,22 @@ impl TileSources {
     pub fn get_catalog(&self) -> TileCatalog {
         self.0
             .iter()
-            .map(|(id, src)| (id.to_string(), src.get_catalog_entry()))
+            .map(|v| (v.key().to_string(), v.get_catalog_entry()))
             .collect()
     }
 
-    pub fn get_source(&self, id: &str) -> actix_web::Result<&dyn Source> {
+    #[must_use]
+    pub fn source_names(&self) -> Vec<String> {
+        self.0.iter().map(|v| v.key().to_string()).collect()
+    }
+
+    pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0
             .get(id)
             .ok_or_else(|| ErrorNotFound(format!("Source {id} does not exist")))?
-            .as_ref())
+            .value()
+            .clone())
     }
 
     /// Get a list of sources, and the tile info for the merged sources.
@@ -56,7 +63,7 @@ impl TileSources {
         &self,
         source_ids: &str,
         zoom: Option<u8>,
-    ) -> actix_web::Result<(Vec<&dyn Source>, bool, TileInfo)> {
+    ) -> actix_web::Result<(Vec<TileInfoSource>, bool, TileInfo)> {
         let mut sources = Vec::new();
         let mut info: Option<TileInfo> = None;
         let mut use_url_query = false;
@@ -78,7 +85,7 @@ impl TileSources {
 
             // TODO: Use chained-if-let once available
             if match zoom {
-                Some(zoom) if Self::check_zoom(src, id, zoom) => true,
+                Some(zoom) if Self::check_zoom(&*src, id, zoom) => true,
                 None => true,
                 _ => false,
             } {
@@ -101,24 +108,33 @@ impl TileSources {
 
 #[async_trait]
 pub trait Source: Send + Debug {
+    /// ID under which this [`Source`] is identified if accessed externally
     fn get_id(&self) -> &str;
 
+    /// `TileJSON` of this [`Source`]
+    ///
+    /// Will be communicated verbatim to the outside to give rendering engines information about the source's contents such as zoom levels, center points, ...
     fn get_tilejson(&self) -> &TileJSON;
 
+    /// Information for serving the source such as which Mime-type to apply or how compression should work
     fn get_tile_info(&self) -> TileInfo;
 
-    fn clone_source(&self) -> Box<dyn Source>;
+    fn clone_source(&self) -> TileInfoSource;
 
     fn support_url_query(&self) -> bool {
         false
     }
 
-    async fn get_tile(&self, xyz: &TileCoord, query: &Option<UrlQuery>) -> MartinResult<TileData>;
+    async fn get_tile(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinResult<TileData>;
 
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();
-        tj.minzoom.map_or(true, |minzoom| zoom >= minzoom)
-            && tj.maxzoom.map_or(true, |maxzoom| zoom <= maxzoom)
+        tj.minzoom.is_none_or(|minzoom| zoom >= minzoom)
+            && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
     }
 
     fn get_catalog_entry(&self) -> CatalogSourceEntry {
@@ -135,7 +151,7 @@ pub trait Source: Send + Debug {
     }
 }
 
-impl Clone for Box<dyn Source> {
+impl Clone for TileInfoSource {
     fn clone(&self) -> Self {
         self.clone_source()
     }
@@ -163,6 +179,7 @@ mod tests {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Tile {
     pub data: TileData,
     pub info: TileInfo,

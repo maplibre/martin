@@ -1,7 +1,6 @@
 use indoc::formatdoc;
 pub use martin::args::Env;
-use martin::pg::TableInfo;
-use martin::{Config, IdResolver, ServerState, Source};
+use martin::{Config, ServerState, Source};
 
 use crate::mock_cfg;
 
@@ -23,16 +22,17 @@ pub fn mock_pgcfg(yaml: &str) -> Config {
 
 #[allow(dead_code)]
 pub async fn mock_sources(mut config: Config) -> MockSource {
-    let res = config.resolve(IdResolver::default()).await;
+    let res = config.resolve().await;
     let res = res.unwrap_or_else(|e| panic!("Failed to resolve config {config:?}: {e}"));
     (res, config)
 }
 
+#[cfg(feature = "postgres")]
 #[allow(dead_code)]
 #[must_use]
-pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
+pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a martin::pg::TableInfo {
     let (_, config) = mock;
-    let vals: Vec<&TableInfo> = config
+    let vals: Vec<&martin::pg::TableInfo> = config
         .postgres
         .iter()
         .flat_map(|v| v.tables.iter().map(|vv| vv.get(name)))
@@ -44,7 +44,7 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
 
 #[allow(dead_code)]
 #[must_use]
-pub fn source<'a>(mock: &'a MockSource, name: &str) -> &'a dyn Source {
+pub fn source(mock: &MockSource, name: &str) -> Box<dyn Source> {
     let (sources, _) = mock;
     sources.tiles.get_source(name).unwrap()
 }

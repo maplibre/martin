@@ -1,3 +1,4 @@
+cache_size_mb: 8
 keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
@@ -137,6 +138,9 @@ postgres:
       properties:
         gid: int4
   functions:
+    fnc_Mixed_Name:
+      schema: MixedCase
+      function: function_Mixed_Name
     function_zxy_query:
       schema: public
       function: function_zxy_query
@@ -160,11 +164,21 @@ postgres:
 pmtiles:
   sources:
     pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
-    pmt2: tests/fixtures/pmtiles2/webp2.pmtiles
+    pmt2: http://localhost:5412/webp2.pmtiles
+    webp2: http://localhost:5412/webp2.pmtiles
+cog:
+  sources:
+    cog-src1: tests/fixtures/cog/rgba_u8.tif
+    cog-src2: tests/fixtures/cog/rgb_u8.tif
+    rgba_u8_nodata: tests/fixtures/cog/rgba_u8_nodata.tiff
 sprites:
   paths: tests/fixtures/sprites/src1
   sources:
     mysrc: tests/fixtures/sprites/src2
+styles:
+  paths: tests/fixtures/styles/src2
+  sources:
+    maplibre: tests/fixtures/styles/maplibre_demo.json
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
 - tests/fixtures/fonts

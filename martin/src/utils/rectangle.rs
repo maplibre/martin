@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tile_range_is_ovelapping() {
+    fn test_tile_range_is_overlapping() {
         let r1 = TileRect::new(0, 0, 0, 0, 0);
         let r2 = TileRect::new(0, 0, 0, 0, 0);
         assert!(r1.is_overlapping(&r2));

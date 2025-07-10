@@ -1,4 +1,4 @@
-use std::f64::consts::PI;
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -6,21 +6,25 @@ use std::time::Duration;
 
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
-use actix_web::http::header::{AcceptEncoding, Header as _, ACCEPT_ENCODING};
+use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
 use clap::Parser;
-use futures::stream::{self, StreamExt};
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
+use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled};
-use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, PgArgs, SrvArgs};
-use martin::srv::{get_tile_content, merge_tilejson, RESERVED_KEYWORDS};
+use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
+use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
-    append_rect, read_config, Config, IdResolver, MartinError, MartinResult, ServerState, Source,
-    TileCoord, TileData, TileRect,
+    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, TileRect,
+    append_rect, read_config,
 };
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileCoord, TileInfo, bbox_to_xyz};
+use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
-    init_mbtiles_schema, is_empty_database, CopyDuplicateMode, MbtType, MbtTypeCli, Mbtiles,
+    CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
+    is_empty_database,
 };
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
@@ -32,31 +36,40 @@ const SAVE_EVERY: Duration = Duration::from_secs(60);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
-    version
+    version,
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
 )]
 pub struct CopierArgs {
     #[command(flatten)]
     pub copy: CopyArgs,
     #[command(flatten)]
     pub meta: MetaArgs,
+    #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<PgArgs>,
+    pub pg: Option<martin::args::PgArgs>,
 }
 
 #[serde_with::serde_as]
 #[derive(clap::Args, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
 pub struct CopyArgs {
-    /// Name of the source to copy from.
+    /// Name of the source to copy from. Not required if there is only one source.
     #[arg(short, long)]
-    pub source: String,
+    pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
     #[arg(short, long)]
     pub output_file: PathBuf,
-    /// Output format of the new destination file. Ignored if the file exists. Defaults to 'normalized'.
+    /// Output format of the new destination file. Ignored if the file exists. [DEFAULT: normalized]
     #[arg(
         long = "mbtiles-type",
         alias = "dst-type",
@@ -68,18 +81,19 @@ pub struct CopyArgs {
     #[arg(long)]
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
+    ///
     /// If set to multiple values like `gzip,br`, martin-cp will use the first encoding,
-    /// or re-encode if the tile is already encoded and that encoding is not listed.  
+    /// or re-encode if the tile is already encoded and that encoding is not listed.
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
-    /// Specify the behaviour when generated tile already exists in the destination file.
-    #[arg(long, value_enum, default_value_t = CopyDuplicateMode::default())]
-    pub on_duplicate: CopyDuplicateMode,
+    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+    #[arg(long, value_enum)]
+    pub on_duplicate: Option<CopyDuplicateMode>,
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
     pub concurrency: Option<usize>,
-    /// Bounds to copy. Can be specified multiple times. Overlapping regions will be handled correctly.
+    /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times. Overlapping regions will be handled correctly.
     #[arg(long)]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy
@@ -99,10 +113,26 @@ pub struct CopyArgs {
     /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
     #[arg(long)]
     pub skip_agg_tiles_hash: bool,
+    /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
+    #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
+    pub set_meta: Vec<(String, String)>,
+}
+
+fn parse_key_value(s: &str) -> Result<(String, String), String> {
+    let mut parts = s.splitn(2, '=');
+    let key = parts.next().unwrap();
+    let value = parts
+        .next()
+        .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
+    if key.is_empty() || value.is_empty() {
+        Err(format!("Invalid key=value pair: {s}"))
+    } else {
+        Ok((key.to_string(), value.to_string()))
+    }
 }
 
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
-    info!("Martin-CP tile copier v{VERSION}");
+    info!("martin-cp tile copier v{VERSION}");
 
     let env = OsEnv::default();
     let save_config = copy_args.meta.save_config.clone();
@@ -118,12 +148,14 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         meta: copy_args.meta,
         extras: ExtraArgs::default(),
         srv: SrvArgs::default(),
+        #[cfg(feature = "postgres")]
         pg: copy_args.pg,
     };
 
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
-    let sources = config.resolve(IdResolver::new(RESERVED_KEYWORDS)).await?;
+
+    let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
         config.save_to_file(file_name)?;
@@ -134,36 +166,17 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-/// Convert longitude and latitude to tile index
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn tile_index(lon: f64, lat: f64, zoom: u8) -> (u32, u32) {
-    let n = f64::from(1_u32 << zoom);
-    let x = ((lon + 180.0) / 360.0 * n).floor() as u32;
-    let y = ((1.0 - (lat.to_radians().tan() + 1.0 / lat.to_radians().cos()).ln() / PI) / 2.0 * n)
-        .floor() as u32;
-    let max_value = (1_u32 << zoom) - 1;
-    (x.min(max_value), y.min(max_value))
-}
-
 fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
     let mut ranges = Vec::new();
-    let mut zooms_vec = Vec::new();
-    let zooms = if let Some(max_zoom) = args.max_zoom {
-        let min_zoom = args.min_zoom.unwrap_or(0);
-        zooms_vec.extend(min_zoom..=max_zoom);
-        &zooms_vec
-    } else {
-        &args.zoom_levels
-    };
     let boxes = if args.bbox.is_empty() {
         vec![Bounds::MAX_TILED]
     } else {
         args.bbox.clone()
     };
-    for zoom in zooms {
+    for zoom in get_zooms(args).iter() {
         for bbox in &boxes {
-            let (min_x, min_y) = tile_index(bbox.left, bbox.top, *zoom);
-            let (max_x, max_y) = tile_index(bbox.right, bbox.bottom, *zoom);
+            let (min_x, min_y, max_x, max_y) =
+                bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
             append_rect(
                 &mut ranges,
                 TileRect::new(*zoom, min_x, min_y, max_x, max_y),
@@ -171,6 +184,17 @@ fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
         }
     }
     ranges
+}
+
+fn get_zooms(args: &CopyArgs) -> Cow<[u8]> {
+    if let Some(max_zoom) = args.max_zoom {
+        let mut zooms_vec = Vec::new();
+        let min_zoom = args.min_zoom.unwrap_or(0);
+        zooms_vec.extend(min_zoom..=max_zoom);
+        Cow::Owned(zooms_vec)
+    } else {
+        Cow::Borrowed(&args.zoom_levels)
+    }
 }
 
 struct TileXyz {
@@ -215,7 +239,13 @@ enum MartinCpError {
     #[error(transparent)]
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
-    Mbt(#[from] mbtiles::MbtError),
+    Mbt(#[from] MbtError),
+    #[error("No sources found")]
+    NoSources,
+    #[error(
+        "More than one source found, please specify source using --source.\nAvailable sources: {0}"
+    )]
+    MultipleSources(String),
 }
 
 impl Display for Progress {
@@ -239,9 +269,9 @@ impl Display for Progress {
 
         let left = self.total - done;
         if left == 0 {
-            write!(f, " | done")
+            f.write_str(" | done")
         } else if done == 0 {
-            write!(f, " | ??? left")
+            f.write_str(" | ??? left")
         } else {
             let left = Duration::from_secs_f32(elapsed_s * left as f32 / done as f32);
             write!(f, " | {left:.0?} left")
@@ -258,40 +288,71 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     })
 }
 
+fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
+    if let Some(source) = &args.source {
+        Ok(source.to_string())
+    } else {
+        let sources = state.tiles.source_names();
+        if let Some(source) = sources.first() {
+            if sources.len() > 1 {
+                return Err(MartinCpError::MultipleSources(sources.join(", ")));
+            }
+            Ok(source.to_string())
+        } else {
+            Err(MartinCpError::NoSources)
+        }
+    }
+}
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
-    let (sources, _use_url_query, info) = state.tiles.get_sources(args.source.as_str(), None)?;
-    let sources = sources.as_slice();
-    let tile_info = sources.first().unwrap().get_tile_info();
+
+    let source = check_sources(&args, &state)?;
+
+    let src = DynTileSource::new(
+        &state.tiles,
+        &source,
+        None,
+        args.url_query.as_deref().unwrap_or_default(),
+        Some(parse_encoding(args.encoding.as_str())?),
+        None,
+        None,
+        None,
+    )?;
+    // parallel async below uses move, so we must only use copyable types
+    let src = &src;
+
     let (tx, mut rx) = channel::<TileXyz>(500);
     let tiles = compute_tile_ranges(&args);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
-    let mbt_type = init_schema(&mbt, &mut conn, sources, tile_info, args.mbt_type).await?;
-    let query = args.url_query.as_deref();
-    let req = TestRequest::default()
-        .insert_header((ACCEPT_ENCODING, args.encoding.as_str()))
-        .finish();
-    let accept_encoding = AcceptEncoding::parse(&req)?;
-    let encodings = Some(&accept_encoding);
+    let on_duplicate = if let Some(on_duplicate) = args.on_duplicate {
+        on_duplicate
+    } else if !is_empty_database(&mut conn).await? {
+        return Err(MbtError::DestinationFileExists(output_file.clone()).into());
+    } else {
+        CopyDuplicateMode::Override
+    };
+    let mbt_type = init_schema(&mbt, &mut conn, src.sources.as_slice(), src.info, &args).await?;
 
     let progress = Progress::new(&tiles);
     info!(
-        "Copying {} {tile_info} tiles from {} to {}",
+        "Copying {} {} tiles from {} to {}",
         progress.total,
-        args.source,
+        src.info,
+        source,
         args.output_file.display()
     );
 
     try_join!(
+        // Note: for some reason, tests hang here without the `move` keyword
         async move {
             stream::iter(iterate_tiles(tiles))
                 .map(MartinResult::Ok)
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = get_tile_content(sources, info, &xyz, query, encodings).await?;
+                        let tile = src.get_tile_content(xyz).await?;
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
@@ -312,7 +373,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
-                        mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
+                        mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                             .await?;
                         batch.clear();
                         last_saved = Instant::now();
@@ -327,7 +388,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 }
             }
             if !batch.is_empty() {
-                mbt.insert_tiles(&mut conn, mbt_type, args.on_duplicate, &batch)
+                mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                     .await?;
             }
             Ok(())
@@ -335,6 +396,13 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     )?;
 
     info!("{progress}");
+
+    mbt.update_metadata(&mut conn, GrowOnly).await?;
+
+    for (key, value) in args.set_meta {
+        info!("Setting metadata key={key} value={value}");
+        mbt.set_metadata_value(&mut conn, &key, value).await?;
+    }
 
     if !args.skip_agg_tiles_hash {
         if progress.non_empty.load(Ordering::Relaxed) == 0 {
@@ -348,15 +416,22 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     Ok(())
 }
 
+fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
+    let req = TestRequest::default()
+        .insert_header((ACCEPT_ENCODING, encoding))
+        .finish();
+    Ok(AcceptEncoding::parse(&req)?)
+}
+
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[&dyn Source],
+    sources: &[TileInfoSource],
     tile_info: TileInfo,
-    mbt_type: Option<MbtTypeCli>,
+    args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
     Ok(if is_empty_database(&mut *conn).await? {
-        let mbt_type = match mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
             MbtTypeCli::Flat => MbtType::Flat,
             MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
             MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
@@ -365,12 +440,19 @@ async fn init_schema(
         let mut tj = merge_tilejson(sources, String::new());
         tj.other.insert(
             "format".to_string(),
-            serde_json::Value::String(tile_info.format.to_string()),
+            serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
         );
         tj.other.insert(
             "generator".to_string(),
             serde_json::Value::String(format!("martin-cp v{VERSION}")),
         );
+        let zooms = get_zooms(args);
+        if let Some(min_zoom) = zooms.iter().min() {
+            tj.minzoom = Some(*min_zoom);
+        }
+        if let Some(max_zoom) = zooms.iter().max() {
+            tj.maxzoom = Some(*max_zoom);
+        }
         mbt.insert_metadata(&mut *conn, &tj).await?;
         mbt_type
     } else {
@@ -383,19 +465,15 @@ async fn main() {
     let env = env_logger::Env::default().default_filter_or("martin_cp=info");
     env_logger::Builder::from_env(env).init();
 
-    start(CopierArgs::parse())
-        .await
-        .unwrap_or_else(|e| on_error(e));
-}
-
-fn on_error<E: Display>(e: E) -> ! {
-    // Ensure the message is printed, even if the logging is disabled
-    if log_enabled!(log::Level::Error) {
-        error!("{e}");
-    } else {
-        eprintln!("{e}");
+    if let Err(e) = start(CopierArgs::parse()).await {
+        // Ensure the message is printed, even if the logging is disabled
+        if log_enabled!(log::Level::Error) {
+            error!("{e}");
+        } else {
+            eprintln!("{e}");
+        }
+        std::process::exit(1);
     }
-    std::process::exit(1);
 }
 
 #[cfg(test)]
@@ -407,11 +485,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tile_index() {
-        assert_eq!((0, 0), tile_index(-180.0, 85.0511, 0));
-    }
-
-    #[test]
     fn test_compute_tile_ranges() {
         let world = Bounds::MAX_TILED;
         let bbox_ca = Bounds::from_str("-124.482,32.5288,-114.1307,42.0095").unwrap();
@@ -419,46 +492,31 @@ mod tests {
         let bbox_mi = Bounds::from_str("-86.6271,41.6811,-82.3095,45.8058").unwrap();
         let bbox_usa = Bounds::from_str("-124.8489,24.3963,-66.8854,49.3843").unwrap();
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[0])), @r###"
-        ---
-        - "0: (0,0) - (0,0)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[0])), @r#"- "0: (0,0) - (0,0)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[3,7])), @r###"
-        ---
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[3,7])), @r#"
         - "3: (0,0) - (7,7)"
         - "7: (0,0) - (127,127)"
-        "###);
+        "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&arg_minmax(&[world], 2, 4)), @r###"
-        ---
+        assert_yaml_snapshot!(compute_tile_ranges(&arg_minmax(&[world], 2, 4)), @r#"
         - "2: (0,0) - (3,3)"
         - "3: (0,0) - (7,7)"
         - "4: (0,0) - (15,15)"
-        "###);
+        "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[14])), @r###"
-        ---
-        - "14: (0,0) - (16383,16383)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[14])), @r#"- "14: (0,0) - (16383,16383)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa], &[14])), @r###"
-        ---
-        - "14: (2509,5599) - (5147,7046)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa, bbox_mi, bbox_ca], &[14])), @r###"
-        ---
-        - "14: (2509,5599) - (5147,7046)"
-        "###);
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa, bbox_mi, bbox_ca], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_ca_south, bbox_mi, bbox_ca], &[14])), @r###"
-        ---
+        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_ca_south, bbox_mi, bbox_ca], &[14])), @r#"
         - "14: (2791,6499) - (2997,6624)"
         - "14: (4249,5841) - (4446,6101)"
         - "14: (2526,6081) - (2790,6624)"
         - "14: (2791,6081) - (2997,6498)"
-        "###);
+        "#);
     }
 
     fn args(bbox: &[Bounds], zooms: &[u8]) -> CopyArgs {

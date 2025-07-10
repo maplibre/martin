@@ -1,56 +1,82 @@
 use std::collections::HashSet;
+use std::str::from_utf8;
 
-#[cfg(feature = "cli")]
-use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
-use martin_tile_utils::{Format, TileInfo};
+use martin_tile_utils::{Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{query, Row, SqliteExecutor};
+use sqlx::{Row, SqliteConnection, SqliteExecutor, query};
 use tilejson::TileJSON;
 
+use crate::MbtError::{
+    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
+    InvalidTileIndex,
+};
 use crate::errors::{MbtError, MbtResult};
+use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
-use crate::MbtError::{
-    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
-};
-use crate::{invert_y_value, Mbtiles};
+use crate::{Mbtiles, get_patch_type, invert_y_value};
 
 /// Metadata key for the aggregate tiles hash value
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
 
-/// Metadata key for a diff file,
-/// describing the eventual [`AGG_TILES_HASH`] value once the diff is applied
-pub const AGG_TILES_HASH_IN_DIFF: &str = "agg_tiles_hash_after_apply";
+/// Metadata key for a diff file, describing the eventual [`AGG_TILES_HASH`] value of the resulting tileset once the diff is applied
+pub const AGG_TILES_HASH_AFTER_APPLY: &str = "agg_tiles_hash_after_apply";
+
+/// Metadata key for a diff file, describing the expected [`AGG_TILES_HASH`] value of the tileset to which the diff will be applied.
+pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
 pub enum MbtType {
+    /// Flat `MBTiles` file without any hash values
+    ///
+    /// The closest to the original `MBTiles` specification.
+    /// It stores all tiles in a single table.
+    /// This schema is the most efficient when the tileset contains no duplicate tiles.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#flat> for the concrete schema.
     Flat,
+    /// [`MbtType::Flat`] `MBTiles` file with hash values
+    ///
+    /// Similar to the [`MbtType::Flat`] schema, but also includes a `tile_hash` column that contains a hash value of the `tile_data` column.
+    /// Use this schema when the tileset has no duplicate tiles, but you still want to be able to validate the content of each tile individually.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#flat-with-hash> for the concrete schema.
     FlatWithHash,
+    /// Normalized `MBTiles` file
+    ///
+    /// The most efficient when the tileset contains duplicate tiles.
+    /// It stores all tile blobs in the `images` table, and stores the tile Z,X,Y coordinates in a `map` table.
+    /// The `map` table contains a `tile_id` column that is a foreign key to the `images` table.
+    /// The `tile_id` column is a hash of the `tile_data` column, making it possible to both validate each individual tile like in the [`MbtType::FlatWithHash`] schema, and also to optimize storage by storing each unique tile only once.
+    ///
+    /// The `hash_view` argument specifies whether to create/assume a `tiles_with_hash` view exists.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
     Normalized { hash_view: bool },
 }
 
 impl MbtType {
     #[must_use]
-    pub fn is_normalized(&self) -> bool {
+    pub fn is_normalized(self) -> bool {
         matches!(self, Self::Normalized { .. })
     }
 
     #[must_use]
-    pub fn is_normalized_with_view(&self) -> bool {
+    pub fn is_normalized_with_view(self) -> bool {
         matches!(self, Self::Normalized { hash_view: true })
     }
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum IntegrityCheckType {
     #[default]
     Quick,
@@ -58,9 +84,9 @@ pub enum IntegrityCheckType {
     Off,
 }
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, EnumDisplay)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
 #[enum_display(case = "Kebab")]
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum AggHashType {
     /// Verify that the aggregate tiles hash value in the metadata table matches the computed value. Used by default.
     #[default]
@@ -72,7 +98,8 @@ pub enum AggHashType {
 }
 
 impl Mbtiles {
-    pub async fn validate(
+    /// Open the mbtiles file and validate its integrity.
+    pub async fn open_and_validate(
         &self,
         check_type: IntegrityCheckType,
         agg_hash: AggHashType,
@@ -82,11 +109,30 @@ impl Mbtiles {
         } else {
             self.open_readonly().await?
         };
-        self.check_integrity(&mut conn, check_type).await?;
-        self.check_each_tile_hash(&mut conn).await?;
+        self.validate(&mut conn, check_type, agg_hash).await
+    }
+
+    /// Validate the integrity of the mbtiles file by:
+    /// - sqlite internal integrity check
+    /// - tiles' table has the expected column, row, zoom, and data values
+    /// - each tile has the correct hash stored
+    ///
+    /// Depending on the `agg_hash` parameter, the function will either verify or update the aggregate tiles hash value.
+    pub async fn validate<T>(
+        &self,
+        conn: &mut T,
+        check_type: IntegrityCheckType,
+        agg_hash: AggHashType,
+    ) -> MbtResult<String>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        self.check_integrity(&mut *conn, check_type).await?;
+        self.check_tiles_type_validity(&mut *conn).await?;
+        self.check_each_tile_hash(&mut *conn).await?;
         match agg_hash {
-            AggHashType::Verify => self.check_agg_tiles_hashes(&mut conn).await,
-            AggHashType::Update => self.update_agg_tiles_hash(&mut conn).await,
+            AggHashType::Verify => self.check_agg_tiles_hashes(conn).await,
+            AggHashType::Update => self.update_agg_tiles_hash(conn).await,
             AggHashType::Off => Ok(String::new()),
         }
     }
@@ -108,14 +154,16 @@ impl Mbtiles {
         let mut tested_zoom = -1_i64;
 
         // First, pick any random tile
-        let query = query!("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1");
+        let query = query!(
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1"
+        );
         let row = query.fetch_optional(&mut *conn).await?;
         if let Some(r) = row {
             tile_info = self.parse_tile(r.zoom_level, r.tile_column, r.tile_row, r.tile_data);
             tested_zoom = r.zoom_level.unwrap_or(-1);
         }
 
-        // Afterwards, iterate over tiles in all allowed zooms and check for consistency
+        // Afterward, iterate over tiles in all allowed zooms and check for consistency
         for z in tilejson.minzoom.unwrap_or(0)..=tilejson.maxzoom.unwrap_or(18) {
             if i64::from(z) == tested_zoom {
                 continue;
@@ -145,17 +193,23 @@ impl Mbtiles {
                 }
                 (None, Some(fmt)) => {
                     if fmt.is_detectable() {
-                        warn!("Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}");
+                        warn!(
+                            "Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}"
+                        );
                     } else {
                         info!("Using '{fmt}' tile format from metadata table in file {file}");
                     }
                     tile_info = Some(fmt.into());
                 }
                 (Some(info), Some(fmt)) if info.format == fmt => {
-                    debug!("Detected tile format {info} matches metadata.format '{fmt}' in file {file}");
+                    debug!(
+                        "Detected tile format {info} matches metadata.format '{fmt}' in file {file}"
+                    );
                 }
                 (Some(info), _) => {
-                    warn!("Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}.");
+                    warn!(
+                        "Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
+                    );
                 }
             }
         }
@@ -173,6 +227,7 @@ impl Mbtiles {
         }
     }
 
+    /// Detects the format of a tile and returns its information if none of the values are `None`
     fn parse_tile(
         &self,
         z: Option<i64>,
@@ -201,6 +256,9 @@ impl Mbtiles {
         }
     }
 
+    /// Detect the type of the `MBTiles` file.
+    ///
+    /// See [`MbtType`] for more information.
     pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -311,6 +369,64 @@ impl Mbtiles {
         Ok(())
     }
 
+    /// Check that the tiles table has the expected column, row, zoom, and data values
+    pub async fn check_tiles_type_validity<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let sql = format!(
+            "
+SELECT zoom_level, tile_column, tile_row
+FROM tiles
+WHERE FALSE
+   OR typeof(zoom_level) != 'integer'
+   OR zoom_level < 0
+   OR zoom_level > {MAX_ZOOM}
+   OR typeof(tile_column) != 'integer'
+   OR tile_column < 0
+   OR tile_column >= (1 << zoom_level)
+   OR typeof(tile_row) != 'integer'
+   OR tile_row < 0
+   OR tile_row >= (1 << zoom_level)
+   OR (typeof(tile_data) != 'blob' AND typeof(tile_data) != 'null')
+LIMIT 1;"
+        );
+
+        if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+            let mut res: Vec<String> = Vec::with_capacity(3);
+            for idx in (0..3).rev() {
+                use sqlx::ValueRef as _;
+                let raw = row.try_get_raw(idx)?;
+                if raw.is_null() {
+                    res.push("NULL".to_string());
+                } else if let Ok(v) = row.try_get::<String, _>(idx) {
+                    res.push(format!(r#""{v}" (TEXT)"#));
+                } else if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
+                    res.push(format!(
+                        r#""{}" (BLOB)"#,
+                        from_utf8(&v).unwrap_or("<non-utf8-data>")
+                    ));
+                } else if let Ok(v) = row.try_get::<i32, _>(idx) {
+                    res.push(format!("{v}"));
+                } else if let Ok(v) = row.try_get::<f64, _>(idx) {
+                    res.push(format!("{v} (REAL)"));
+                } else {
+                    res.push(format!("{:?}", raw.type_info()));
+                }
+            }
+
+            return Err(InvalidTileIndex(
+                self.filepath().to_string(),
+                res.pop().unwrap(),
+                res.pop().unwrap(),
+                res.pop().unwrap(),
+            ));
+        }
+
+        info!("All values in the `tiles` table/view are valid for {self}");
+        Ok(())
+    }
+
     pub async fn check_agg_tiles_hashes<T>(&self, conn: &mut T) -> MbtResult<String>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -336,7 +452,9 @@ impl Mbtiles {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
         if old_hash.as_ref() == Some(&hash) {
-            info!("Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}");
+            info!(
+                "Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}"
+            );
         } else {
             if let Some(old_hash) = old_hash {
                 info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
@@ -395,6 +513,108 @@ impl Mbtiles {
         info!("All tile hashes are valid for {self}");
         Ok(())
     }
+
+    pub async fn examine_diff(&self, conn: &mut SqliteConnection) -> MbtResult<PatchFileInfo> {
+        let info = PatchFileInfo {
+            mbt_type: self.detect_type(&mut *conn).await?,
+            agg_tiles_hash: self.get_agg_tiles_hash(&mut *conn).await?,
+            agg_tiles_hash_before_apply: self
+                .get_metadata_value(&mut *conn, AGG_TILES_HASH_BEFORE_APPLY)
+                .await?,
+            agg_tiles_hash_after_apply: self
+                .get_metadata_value(&mut *conn, AGG_TILES_HASH_AFTER_APPLY)
+                .await?,
+            patch_type: get_patch_type(conn).await?,
+        };
+
+        Ok(info)
+    }
+
+    pub fn assert_hashes(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
+        if info.agg_tiles_hash.is_none() {
+            if !force {
+                return Err(MbtError::CannotDiffFileWithoutHash(
+                    self.filepath().to_string(),
+                ));
+            }
+            warn!(
+                "File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}"
+            );
+        } else if info.agg_tiles_hash_before_apply.is_some()
+            || info.agg_tiles_hash_after_apply.is_some()
+        {
+            if !force {
+                return Err(MbtError::DiffingDiffFile(self.filepath().to_string()));
+            }
+            warn!(
+                "File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file."
+            );
+        }
+        Ok(())
+    }
+
+    pub fn validate_diff_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
+        match (
+            &info.agg_tiles_hash_before_apply,
+            &info.agg_tiles_hash_after_apply,
+        ) {
+            (Some(before), Some(after)) => {
+                info!(
+                    "The patch file {self} expects to be applied to a tileset with {AGG_TILES_HASH}={before}, and should result in hash {after} after applying",
+                );
+            }
+            (None, Some(_)) => {
+                if !force {
+                    return Err(MbtError::PatchFileHasNoBeforeHash(
+                        self.filepath().to_string(),
+                    ));
+                }
+                warn!(
+                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool."
+                );
+            }
+            _ => {
+                if !force {
+                    return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_string()));
+                }
+                warn!(
+                    "The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool."
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
+/// This should work on all mbtiles files perf `MBTiles` specification.
+pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    debug!("Calculating agg_tiles_hash");
+    let query = query(
+        // The md5_concat func will return NULL if there are no rows in the tiles table.
+        // For our use case, we will treat it as an empty string, and hash that.
+        // `tile_data` values must be stored as a blob per MBTiles spec
+        // `md5` functions will fail if the value is not text/blob/null
+        //
+        // Note that ORDER BY controls the output ordering, which is important for the hash value,
+        // and we must use ORDER BY as a parameter to the aggregate function itself (available since SQLite 3.44.0)
+        // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
+        "
+SELECT coalesce(
+           md5_concat_hex(
+               cast(zoom_level AS text),
+               cast(tile_column AS text),
+               cast(tile_row AS text),
+               tile_data
+               ORDER BY zoom_level, tile_column, tile_row),
+           md5_hex(''))
+FROM tiles;
+",
+    );
+    Ok(query.fetch_one(conn).await?.get::<String, _>(0))
 }
 
 #[cfg(test)]
@@ -439,39 +659,4 @@ pub(crate) mod tests {
         assert!(matches!(result, Err(AggHashMismatch(..))));
         Ok(())
     }
-}
-
-/// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
-/// This should work on all mbtiles files perf `MBTiles` specification.
-pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
-where
-    for<'e> &'e mut T: SqliteExecutor<'e>,
-{
-    debug!("Calculating agg_tiles_hash");
-    let query = query(
-        // The md5_concat func will return NULL if there are no rows in the tiles table.
-        // For our use case, we will treat it as an empty string, and hash that.
-        // `tile_data` values must be stored as a blob per MBTiles spec
-        // `md5` functions will fail if the value is not text/blob/null
-        //
-        // Note that ORDER BY controls the output ordering, which is important for the hash value,
-        // and having it at the top level would not order values properly.
-        // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
-        "
-SELECT coalesce(
-    (SELECT md5_concat_hex(
-               cast(zoom_level AS text),
-               cast(tile_column AS text),
-               cast(tile_row AS text),
-               tile_data
-           )
-           OVER (ORDER BY zoom_level, tile_column, tile_row ROWS
-                 BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-     FROM tiles
-     LIMIT 1),
-    md5_hex('')
-);
-",
-    );
-    Ok(query.fetch_one(conn).await?.get::<String, _>(0))
 }

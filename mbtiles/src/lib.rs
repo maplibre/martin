@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 // Re-export sqlx
+pub use bindiff::{PatchType, PatchTypeCli};
 pub use sqlx;
 
 mod copier;
@@ -10,7 +11,7 @@ mod errors;
 pub use errors::{MbtError, MbtResult};
 
 mod mbtiles;
-pub use mbtiles::{MbtTypeCli, Mbtiles};
+pub use mbtiles::{CopyType, MbtTypeCli, Mbtiles};
 
 mod metadata;
 pub use metadata::Metadata;
@@ -26,10 +27,16 @@ pub use queries::*;
 
 mod summary;
 
+mod update;
+pub use update::UpdateZoomType;
+
+mod bindiff;
+
 mod validation;
+
 pub use validation::{
-    calc_agg_tiles_hash, AggHashType, IntegrityCheckType, MbtType, AGG_TILES_HASH,
-    AGG_TILES_HASH_IN_DIFF,
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType,
+    IntegrityCheckType, MbtType, calc_agg_tiles_hash,
 };
 
 /// `MBTiles` uses a TMS (Tile Map Service) scheme for its tile coordinates (inverted along the Y axis).

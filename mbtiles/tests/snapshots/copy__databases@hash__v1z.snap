@@ -1,0 +1,58 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+[[]]
+type = 'table'
+tbl_name = 'metadata'
+sql = '''
+CREATE TABLE metadata (
+             name text NOT NULL PRIMARY KEY,
+             value text)'''
+values = [
+    '(  "agg_tiles_hash", "C0CA886B149CE416242AB2AFE8E641AD"  )',
+    '(  "md-edit", "value - v1"  )',
+    '(  "md-remove", "value - remove"  )',
+    '(  "md-same", "value - same"  )',
+]
+
+[[]]
+type = 'table'
+tbl_name = 'tiles_with_hash'
+sql = '''
+CREATE TABLE tiles_with_hash (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data blob,
+             tile_hash text,
+             PRIMARY KEY(zoom_level, tile_column, tile_row))'''
+values = [
+    '(  3, 6, 7, blob(1F8B08000000000000FF2BCACF2F01005BF9F41604000000), "0A62AF3A2A3D38C0E8FF098A684C3EC1"  )',
+    '(  5, 0, 0, blob(1F8B08000000000000FF2B4ECC4D050044F150FC04000000), "98AD49106F1CE0AA003027C229A70F7E"  )',
+    '(  5, 0, 1, blob(1F8B08000000000000FF03000000000000000000), "163BE0A88C70CA629FD516DBAADAD96A"  )',
+    '(  5, 1, 1, blob(1F8B08000000000000FF4B4DC92CD12D3304007ED8D6BF07000000), "A4D55DDE3B49D78DD9846688A0786F2D"  )',
+    '(  5, 1, 2, blob(1F8B08000000000000FF03000000000000000000), "163BE0A88C70CA629FD516DBAADAD96A"  )',
+    '(  5, 1, 3, blob(1F8B08000000000000FFCBCBCFD34DCD2D28A9040006173DB509000000), "4DE1D83BFD7CB6ACE583AA7D5A18725A"  )',
+    '(  5, 2, 2, blob(1F8B08000000000000FF2B4ACDCD2F4B0500301D806806000000), "0D9BABF1C0099632D55F6274FB15419F"  )',
+    '(  5, 2, 3, blob(1F8B08000000000000FF03000000000000000000), "163BE0A88C70CA629FD516DBAADAD96A"  )',
+    '(  6, 0, 3, blob(1F8B08000000000000FF2B4ECC4D050044F150FC04000000), "98AD49106F1CE0AA003027C229A70F7E"  )',
+    '(  6, 0, 5, blob(1F8B08000000000000FF33D4CD4E4D2DD035D42DCA050026D508C30B000000), "3CD93E79D6812F995906036D24282DBE"  )',
+    '(  6, 1, 4, blob(1F8B08000000000000FF4B4DC92CD12D3304007ED8D6BF07000000), "A4D55DDE3B49D78DD9846688A0786F2D"  )',
+    '(  6, 2, 6, blob(1F8B08000000000000FF33D4CD4E4D2DD035D42DCA050026D508C30B000000), "3CD93E79D6812F995906036D24282DBE"  )',
+]
+
+[[]]
+type = 'index'
+tbl_name = 'metadata'
+
+[[]]
+type = 'index'
+tbl_name = 'tiles_with_hash'
+
+[[]]
+type = 'view'
+tbl_name = 'tiles'
+sql = '''
+CREATE VIEW tiles AS
+             SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash'''

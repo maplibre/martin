@@ -4,3 +4,4 @@ pmtiles:
   sources:
     webp2: tests/fixtures/pmtiles2/webp2.pmtiles
 mbtiles: tests/fixtures/pmtiles2
+cog: tests/fixtures/pmtiles2

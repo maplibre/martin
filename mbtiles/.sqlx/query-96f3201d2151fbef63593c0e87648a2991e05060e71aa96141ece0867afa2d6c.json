@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\nSELECT min(zoom_level) AS min_zoom,\n       max(zoom_level) AS max_zoom\nFROM tiles;",
+  "describe": {
+    "columns": [
+      {
+        "name": "min_zoom",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "max_zoom",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "96f3201d2151fbef63593c0e87648a2991e05060e71aa96141ece0867afa2d6c"
+}

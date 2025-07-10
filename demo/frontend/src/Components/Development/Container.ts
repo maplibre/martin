@@ -6,7 +6,7 @@ export default styled.div`
   margin: auto;
 
   font-size: 30px;
-  
+
   @media (max-width: 500px) {
     padding: 7vw 7vw 50px;
   }

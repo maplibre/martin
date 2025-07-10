@@ -109,4 +109,5 @@ json:
       count: 68
       geometry: Point
       layer: cities
+agg_tiles_hash: 84792BF4EE9AEDDC5B1A60E707011FEE
 

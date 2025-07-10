@@ -1,8 +1,49 @@
 {
+  "fonts": {
+    "Overpass Mono Light": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Light"
+    },
+    "Overpass Mono Regular": {
+      "end": 64258,
+      "family": "Overpass Mono",
+      "glyphs": 931,
+      "start": 0,
+      "style": "Regular"
+    }
+  },
+  "sprites": {
+    "mysrc": {
+      "images": [
+        "bicycle"
+      ]
+    },
+    "src1": {
+      "images": [
+        "another_bicycle",
+        "bear",
+        "sub/circle"
+      ]
+    }
+  },
+  "styles": {
+    "maplibre": {
+      "path": "tests/fixtures/styles/maplibre_demo.json"
+    },
+    "maptiler_basic": {
+      "path": "tests/fixtures/styles/src2/maptiler_basic.json"
+    },
+    "osm-liberty-lite": {
+      "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
+    }
+  },
   "tiles": {
     "MixPoints": {
       "content_type": "application/x-protobuf",
-      "description": "MixedCase.MixPoints.Geom"
+      "description": "a description from comment on table"
     },
     "auto_table": {
       "content_type": "application/x-protobuf",
@@ -12,9 +53,18 @@
       "content_type": "application/x-protobuf",
       "description": "autodetect.bigint_table.geom"
     },
-    "function_zxy_query": {
+    "cog-src1": {
+      "content_type": "image/png"
+    },
+    "cog-src2": {
+      "content_type": "image/png"
+    },
+    "fnc_Mixed_Name": {
       "content_type": "application/x-protobuf",
-      "description": "public.function_zxy_query"
+      "description": "a function source with MixedCase name"
+    },
+    "function_zxy_query": {
+      "content_type": "application/x-protobuf"
     },
     "function_zxy_query_test": {
       "content_type": "application/x-protobuf",
@@ -39,39 +89,15 @@
       "content_type": "application/x-protobuf",
       "description": "public.points3857.geom"
     },
+    "rgba_u8_nodata": {
+      "content_type": "image/png"
+    },
     "table_source": {
-      "content_type": "application/x-protobuf",
-      "description": "public.table_source.geom"
-    }
-  },
-  "sprites": {
-    "mysrc": {
-      "images": [
-        "bicycle"
-      ]
+      "content_type": "application/x-protobuf"
     },
-    "src1": {
-      "images": [
-        "another_bicycle",
-        "bear",
-        "sub/circle"
-      ]
-    }
-  },
-  "fonts": {
-    "Overpass Mono Light": {
-      "family": "Overpass Mono",
-      "style": "Light",
-      "glyphs": 931,
-      "start": 0,
-      "end": 64258
-    },
-    "Overpass Mono Regular": {
-      "family": "Overpass Mono",
-      "style": "Regular",
-      "glyphs": 931,
-      "start": 0,
-      "end": 64258
+    "webp2": {
+      "content_type": "image/webp",
+      "name": "ne2sr"
     }
   }
 }

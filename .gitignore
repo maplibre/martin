@@ -1,13 +1,24 @@
+####
 #### This must match .dockerignore ####
-.DS_Store
-target/
+####
+
 **/*.rs.bk
+**/dist/
+**/node_modules/
+*.profraw
+.DS_Store
+.aider*
+.aws-sam/
 .idea/
 .vscode/
-test_log*
-*.profraw
-
-pg_data/
 config.yml
+pg_data/
+target/
+test_log*
+tests/mbtiles_temp_files/
 tests/output/
 tmp/
+
+####
+#### Above content must match .dockerignore ####
+####

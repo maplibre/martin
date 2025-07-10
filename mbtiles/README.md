@@ -2,7 +2,7 @@
 
 [![Book](https://img.shields.io/badge/docs-Book-informational)](https://maplibre.org/martin/tools.html)
 [![docs.rs docs](https://docs.rs/mbtiles/badge.svg)](https://docs.rs/mbtiles)
-[![Slack chat](https://img.shields.io/badge/Chat-on%20Slack-blueviolet)](https://slack.openstreetmap.us/)
+[![](https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
 [![crates.io version](https://img.shields.io/crates/v/mbtiles.svg)](https://crates.io/crates/mbtiles)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)

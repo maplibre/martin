@@ -1,20 +1,24 @@
 use std::time::Duration;
 
 use clap::ValueEnum;
+use enum_display::EnumDisplay;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
 use crate::args::environment::Env;
-use crate::pg::{PgConfig, PgSslCerts, POOL_SIZE_DEFAULT};
+use crate::pg::{POOL_SIZE_DEFAULT, PgConfig, PgSslCerts};
 use crate::utils::{OptBoolObj, OptOneMany};
 
 // Must match the help string for BoundsType::Quick
 pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
 
-#[derive(PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[derive(
+    PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum, EnumDisplay,
+)]
 #[serde(rename_all = "lowercase")]
+#[enum_display(case = "Kebab")]
 pub enum BoundsCalcType {
     /// Compute table geometry bounds, but abort if it takes longer than 5 seconds.
     #[default]
@@ -37,9 +41,15 @@ pub struct PgArgs {
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
-    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {}]", POOL_SIZE_DEFAULT), short, long)]
+    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {POOL_SIZE_DEFAULT}]"), short, long)]
     pub pool_size: Option<usize>,
-    /// Limit the number of features in a tile from a PG table source.
+    /// Limit the number of geo features per tile.
+    ///
+    /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
+    /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
+    /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+    ///
+    /// Can be either a positive integer or unlimited if omitted.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
 }
@@ -76,37 +86,60 @@ impl PgArgs {
         }
     }
 
+    /// Apply CLI parameters from `self` to the configuration loaded from the config file `pg_config`
     pub fn override_config<'a>(self, pg_config: &mut OptOneMany<PgConfig>, env: &impl Env<'a>) {
-        if self.default_srid.is_some() {
-            info!("Overriding configured default SRID to {} on all Postgres connections because of a CLI parameter", self.default_srid.unwrap());
-            pg_config.iter_mut().for_each(|c| {
-                c.default_srid = self.default_srid;
-            });
-        }
-        if self.pool_size.is_some() {
-            info!("Overriding configured pool size to {} on all Postgres connections because of a CLI parameter", self.pool_size.unwrap());
-            pg_config.iter_mut().for_each(|c| {
-                c.pool_size = self.pool_size;
-            });
-        }
-        if self.max_feature_count.is_some() {
-            info!("Overriding maximum feature count to {} on all Postgres connections because of a CLI parameter", self.max_feature_count.unwrap());
-            pg_config.iter_mut().for_each(|c| {
-                c.max_feature_count = self.max_feature_count;
-            });
-        }
+        // This ensures that if a new parameter is added to the struct, it will not be forgotten here
+        let Self {
+            default_srid,
+            pool_size,
+            auto_bounds,
+            max_feature_count,
+            ca_root_file,
+        } = self;
 
-        if self.ca_root_file.is_some() {
-            info!("Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
-                self.ca_root_file.as_ref().unwrap().display());
+        if let Some(value) = default_srid {
+            info!(
+                "Overriding configured default SRID to {value} on all Postgres connections because of a CLI parameter"
+            );
             pg_config.iter_mut().for_each(|c| {
-                c.ssl_certificates.ssl_root_cert = self.ca_root_file.clone();
+                c.default_srid = default_srid;
+            });
+        }
+        if let Some(value) = pool_size {
+            info!(
+                "Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.pool_size = pool_size;
+            });
+        }
+        if let Some(value) = auto_bounds {
+            info!(
+                "Overriding auto_bounds to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.auto_bounds = auto_bounds;
+            });
+        }
+        if let Some(value) = max_feature_count {
+            info!(
+                "Overriding maximum feature count to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.max_feature_count = max_feature_count;
+            });
+        }
+        if let Some(ref value) = ca_root_file {
+            info!(
+                "Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
+                value.display()
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
             });
         }
 
         for v in &[
-            "CA_ROOT_FILE",
-            "DANGER_ACCEPT_INVALID_CERTS",
             "DATABASE_URL",
             "DEFAULT_SRID",
             "PGSSLCERT",
@@ -115,7 +148,9 @@ impl PgArgs {
         ] {
             // We don't want to warn about these in case they were used in the config file expansion
             if env.has_unused_var(v) {
-                warn!("Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file.");
+                warn!(
+                    "Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file."
+                );
             }
         }
     }
@@ -167,13 +202,6 @@ impl PgArgs {
         if result.ssl_root_cert.is_none() {
             result.ssl_root_cert = Self::parse_env_var(env, "PGSSLROOTCERT", "root certificate(s)");
         }
-        if result.ssl_root_cert.is_none() {
-            result.ssl_root_cert = Self::parse_env_var(
-                env,
-                "CA_ROOT_FILE",
-                "root certificate(s). This setting is obsolete, please use PGSSLROOTCERT instead",
-            );
-        }
 
         result
     }
@@ -202,8 +230,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::test_utils::{os, some, FauxEnv};
     use crate::MartinError;
+    use crate::tests::{FauxEnv, os, some};
 
     #[test]
     fn test_extract_conn_strings() {
@@ -254,8 +282,7 @@ mod tests {
             vec![
                 ("DATABASE_URL", os("postgres://localhost:5432")),
                 ("DEFAULT_SRID", os("10")),
-                ("DANGER_ACCEPT_INVALID_CERTS", os("1")),
-                ("CA_ROOT_FILE", os("file")),
+                ("PGSSLROOTCERT", os("file")),
             ]
             .into_iter()
             .collect(),

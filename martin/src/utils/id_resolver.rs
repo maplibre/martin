@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::sync::{Arc, Mutex};
 
 use log::warn;
@@ -34,8 +34,9 @@ impl IdResolver {
         };
         let new_name = self.resolve_int(name, unique_name);
         if name != new_name {
-            warn!("Source `{name}`{info} was renamed to `{new_name}`. Source IDs must be unique, cannot be reserved, and must contain alpha-numeric characters or `._-`",
-                 info = info.map_or(String::new(), |v| format!(" ({v})"))
+            warn!(
+                "Source `{name}`{info} was renamed to `{new_name}`. Source IDs must be unique, cannot be reserved, and must contain alpha-numeric characters or `._-`",
+                info = info.map_or(String::new(), |v| format!(" ({v})"))
             );
         }
         new_name
@@ -58,6 +59,8 @@ impl IdResolver {
                     e.insert(unique_name);
                     return id;
                 }
+                // Rust v1.78 - possibly due to bug fixed in https://github.com/rust-lang/rust-clippy/pull/12756
+                #[allow(unknown_lints, clippy::assigning_clones)]
                 Entry::Occupied(e) => {
                     name = e.key().clone();
                     if e.get() == &unique_name {

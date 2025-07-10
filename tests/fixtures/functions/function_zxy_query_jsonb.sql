@@ -1,10 +1,12 @@
 DROP FUNCTION IF EXISTS public.function_zxy_query_jsonb;
 
-CREATE OR REPLACE FUNCTION public.function_zxy_query_jsonb(z integer, x integer, y integer, query jsonb) RETURNS bytea AS $$
+CREATE OR REPLACE FUNCTION public.function_zxy_query_jsonb(
+    z integer, x integer, y integer, query jsonb
+) RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN
-  RAISE NOTICE 'query: %', query;
+  RAISE DEBUG 'function got query: %', query;
 
   SELECT INTO mvt ST_AsMVT(tile, 'public.function_zxy_query_jsonb', 4096, 'geom') FROM (
     SELECT

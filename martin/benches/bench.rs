@@ -1,12 +1,11 @@
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
-use criterion::{criterion_group, criterion_main, Criterion};
-use martin::srv::get_tile_response;
-use martin::{
-    CatalogSourceEntry, MartinResult, Source, TileCoord, TileData, TileSources, UrlQuery,
-};
-use martin_tile_utils::{Encoding, Format, TileInfo};
-use tilejson::{tilejson, TileJSON};
+use criterion::{Criterion, criterion_group, criterion_main};
+use martin::srv::DynTileSource;
+use martin::{CatalogSourceEntry, MartinResult, Source, TileData, TileSources, UrlQuery};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
+use pprof::criterion::{Output, PProfProfiler};
+use tilejson::{TileJSON, tilejson};
 
 #[derive(Clone, Debug)]
 struct NullSource {
@@ -16,14 +15,14 @@ struct NullSource {
 impl NullSource {
     fn new() -> Self {
         Self {
-            tilejson: tilejson! { "https://example.com/".to_string() },
+            tilejson: tilejson! { "https://example.org/".to_string() },
         }
     }
 }
 
 #[async_trait]
 impl Source for NullSource {
-    fn get_id(&self) -> &str {
+    fn get_id(&self) -> &'static str {
         "null"
     }
 
@@ -45,10 +44,10 @@ impl Source for NullSource {
 
     async fn get_tile(
         &self,
-        _xyz: &TileCoord,
-        _query: &Option<UrlQuery>,
+        _xyz: TileCoord,
+        _url_query: Option<&UrlQuery>,
     ) -> MartinResult<TileData> {
-        Ok(Vec::new())
+        Ok(b"empty".to_vec())
     }
 
     fn get_catalog_entry(&self) -> CatalogSourceEntry {
@@ -57,7 +56,8 @@ impl Source for NullSource {
 }
 
 async fn process_tile(sources: &TileSources) {
-    get_tile_response(sources, TileCoord { z: 0, x: 0, y: 0 }, "null", "", None)
+    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None).unwrap();
+    src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
         .unwrap();
 }
@@ -69,5 +69,10 @@ fn bench_null_source(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_null_source);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().with_profiler(PProfProfiler::new(1000, Output::Flamegraph(None)));
+    targets = bench_null_source
+}
+
 criterion_main!(benches);

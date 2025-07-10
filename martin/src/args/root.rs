@@ -1,20 +1,41 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use log::warn;
 
+use crate::MartinError::ConfigAndConnectionsError;
+use crate::MartinResult;
+#[cfg(feature = "fonts")]
+use crate::OptOneMany;
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;
-use crate::args::pg::PgArgs;
 use crate::args::srv::SrvArgs;
-use crate::args::State::{Ignore, Share, Take};
 use crate::config::Config;
+#[cfg(any(
+    feature = "cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "sprites",
+    feature = "styles",
+))]
 use crate::file_config::FileConfigEnum;
-use crate::MartinError::ConfigAndConnectionsError;
-use crate::{MartinResult, OptOneMany};
+
+/// Defines the styles used for the CLI help output.
+const HELP_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug, PartialEq, Default)]
-#[command(about, version)]
+#[command(
+    about,
+    version,
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    styles = HELP_STYLES
+)]
 pub struct Args {
     #[command(flatten)]
     pub meta: MetaArgs,
@@ -22,8 +43,9 @@ pub struct Args {
     pub extras: ExtraArgs,
     #[command(flatten)]
     pub srv: SrvArgs,
+    #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<PgArgs>,
+    pub pg: Option<crate::args::pg::PgArgs>,
 }
 
 // None of these params will be transferred to the config
@@ -39,10 +61,13 @@ pub struct MetaArgs {
     /// By default, only print if sources are auto-detected.
     #[arg(long)]
     pub save_config: Option<PathBuf>,
+    /// Main cache size (in MB)
+    #[arg(short = 'C', long)]
+    pub cache_size: Option<u64>,
     /// **Deprecated** Scan for new sources on sources list requests
     #[arg(short, long, hide = true)]
     pub watch: bool,
-    /// Connection strings, e.g. postgres://... or /path/to/files
+    /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
 }
 
@@ -50,52 +75,78 @@ pub struct MetaArgs {
 #[command()]
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
-    #[arg(short, long)]
+    #[arg(short = 's', long)]
+    #[cfg(feature = "sprites")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
+    #[cfg(feature = "fonts")]
     pub font: Vec<PathBuf>,
+    /// Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times.
+    #[arg(short = 'S', long)]
+    #[cfg(feature = "styles")]
+    pub style: Vec<PathBuf>,
 }
 
 impl Args {
     pub fn merge_into_config<'a>(
         self,
         config: &mut Config,
-        env: &impl Env<'a>,
+        #[allow(unused_variables)] env: &impl Env<'a>,
     ) -> MartinResult<()> {
         if self.meta.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
-        }
-        if env.has_unused_var("WATCH_MODE") {
-            warn!("The WATCH_MODE env variable is no longer supported, and will be ignored");
         }
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
+        if self.meta.cache_size.is_some() {
+            config.cache_size_mb = self.meta.cache_size;
+        }
+
         self.srv.merge_into_config(&mut config.srv);
 
+        #[allow(unused_mut)]
         let mut cli_strings = Arguments::new(self.meta.connection);
-        let pg_args = self.pg.unwrap_or_default();
-        if config.postgres.is_none() {
-            config.postgres = pg_args.into_config(&mut cli_strings, env);
-        } else {
-            // config was loaded from a file, we can only apply a few CLI overrides to it
-            pg_args.override_config(&mut config.postgres, env);
+
+        #[cfg(feature = "postgres")]
+        {
+            let pg_args = self.pg.unwrap_or_default();
+            if config.postgres.is_none() {
+                config.postgres = pg_args.into_config(&mut cli_strings, env);
+            } else {
+                // config was loaded from a file, we can only apply a few CLI overrides to it
+                pg_args.override_config(&mut config.postgres, env);
+            }
         }
 
+        #[cfg(feature = "pmtiles")]
         if !cli_strings.is_empty() {
-            config.pmtiles = parse_file_args(&mut cli_strings, "pmtiles");
+            config.pmtiles = parse_file_args(&mut cli_strings, &["pmtiles"], true);
         }
 
+        #[cfg(feature = "mbtiles")]
         if !cli_strings.is_empty() {
-            config.mbtiles = parse_file_args(&mut cli_strings, "mbtiles");
+            config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
+        #[cfg(feature = "cog")]
+        if !cli_strings.is_empty() {
+            config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
+        }
+
+        #[cfg(feature = "styles")]
+        if !self.extras.style.is_empty() {
+            config.styles = FileConfigEnum::new(self.extras.style);
+        }
+
+        #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfigEnum::new(self.extras.sprite);
         }
 
+        #[cfg(feature = "fonts")]
         if !self.extras.font.is_empty() {
             config.fonts = OptOneMany::new(self.extras.font);
         }
@@ -104,18 +155,52 @@ impl Args {
     }
 }
 
-pub fn parse_file_args(cli_strings: &mut Arguments, extension: &str) -> FileConfigEnum {
-    let paths = cli_strings.process(|v| match PathBuf::try_from(v) {
-        Ok(v) => {
-            if v.is_dir() {
-                Share(v)
-            } else if v.is_file() && v.extension().map_or(false, |e| e == extension) {
-                Take(v)
-            } else {
-                Ignore
-            }
+/// Check if a string is a valid [`url::Url`] with a specified extension.
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+fn is_url(s: &str, extension: &[&str]) -> bool {
+    let Ok(url) = url::Url::parse(s) else {
+        return false;
+    };
+    match url.scheme() {
+        "s3" => url.path().split('/').any(|segment| {
+            segment
+                .rsplit('.')
+                .next()
+                .is_some_and(|ext| extension.contains(&ext))
+        }),
+        "http" | "https" => url
+            .path()
+            .rsplit('.')
+            .next()
+            .is_some_and(|ext| extension.contains(&ext)),
+        _ => false,
+    }
+}
+
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
+    cli_strings: &mut Arguments,
+    extensions: &[&str],
+    allow_url: bool,
+) -> FileConfigEnum<T> {
+    use crate::args::State::{Ignore, Share, Take};
+
+    let paths = cli_strings.process(|s| {
+        let path = PathBuf::from(s);
+        if allow_url && is_url(s, extensions) {
+            Take(path)
+        } else if path.is_dir() {
+            Share(path)
+        } else if path.is_file()
+            && extensions.iter().any(|&expected_ext| {
+                path.extension()
+                    .is_some_and(|actual_ext| actual_ext == expected_ext)
+            })
+        {
+            Take(path)
+        } else {
+            Ignore
         }
-        Err(_) => Ignore,
     });
 
     FileConfigEnum::new(paths)
@@ -123,11 +208,13 @@ pub fn parse_file_args(cli_strings: &mut Arguments, extension: &str) -> FileConf
 
 #[cfg(test)]
 mod tests {
+
+    use insta::assert_yaml_snapshot;
+
     use super::*;
-    use crate::pg::PgConfig;
-    use crate::test_utils::{some, FauxEnv};
-    use crate::utils::OptOneMany;
     use crate::MartinError::UnrecognizableConnections;
+    use crate::args::PreferredEncoding;
+    use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -144,8 +231,12 @@ mod tests {
         assert_eq!(args, expected);
     }
 
+    #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
+        use crate::tests::some;
+        use crate::utils::OptOneMany;
+
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
             config: Some(PathBuf::from("c.toml")),
@@ -163,7 +254,7 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(PgConfig {
+            postgres: OptOneMany::One(crate::pg::PgConfig {
                 connection_string: some("postgres://connection"),
                 ..Default::default()
             }),
@@ -174,6 +265,28 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(args, (cfg, meta));
+    }
+
+    #[test]
+    fn cli_encoding_arguments() {
+        let config1 = parse(&["martin", "--preferred-encoding", "brotli"]);
+        let config2 = parse(&["martin", "--preferred-encoding", "br"]);
+        let config3 = parse(&["martin", "--preferred-encoding", "gzip"]);
+        let config4 = parse(&["martin"]);
+
+        assert_eq!(
+            config1.unwrap().0.srv.preferred_encoding,
+            Some(PreferredEncoding::Brotli)
+        );
+        assert_eq!(
+            config2.unwrap().0.srv.preferred_encoding,
+            Some(PreferredEncoding::Brotli)
+        );
+        assert_eq!(
+            config3.unwrap().0.srv.preferred_encoding,
+            Some(PreferredEncoding::Gzip)
+        );
+        assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
     #[test]
@@ -206,5 +319,43 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env).unwrap_err();
         let bad = vec!["foobar".to_string()];
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
+    }
+
+    #[test]
+    fn cli_multiple_extensions() {
+        let args = Args::parse_from([
+            "martin",
+            "../tests/fixtures/pmtiles/png.pmtiles",
+            "../tests/fixtures/mbtiles/json.mbtiles",
+            "../tests/fixtures/cog/rgba_u8_nodata.tiff",
+            "../tests/fixtures/cog/rgba_u8.tif",
+        ]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
+        cog:
+          - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
+          - "../tests/fixtures/cog/rgba_u8.tif"
+        "#);
+    }
+
+    #[test]
+    fn cli_directories_propagate() {
+        let args = Args::parse_from(["martin", "../tests/fixtures/"]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        let err = args.merge_into_config(&mut config, &env);
+        assert!(err.is_ok());
+        assert_yaml_snapshot!(config, @r#"
+        pmtiles: "../tests/fixtures/"
+        mbtiles: "../tests/fixtures/"
+        cog: "../tests/fixtures/"
+        "#);
     }
 }
