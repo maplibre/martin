@@ -53,11 +53,11 @@ async fn start(args: Args) -> MartinResult<()> {
 async fn main() {
     // since logging is not yet available, we have to manually check the locations
     let log_filter = LogLevel::from_argument("--log-level")
-        .or_in_config_file("--config", "log_level")
+        .or_in_config_file("--config", "observability.log_level")
         .or_env_var("MARTIN_LOG_FORMAT")
         .lossy_parse_to_filter_with_default("martin=info");
     let log_format = LogFormat::from_argument("--log-level")
-        .or_in_config_file("--config", "log_format")
+        .or_in_config_file("--config", "observability.log_format")
         .or_env_var("RUST_LOG")
         .or_default(LogFormatOptions::Compact);
     MartinObservability::from((log_filter, log_format))

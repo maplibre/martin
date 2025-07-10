@@ -1,3 +1,5 @@
+[package]
+name = "martin"
 version = "0.18.0"
 authors = ["Stepan Kuzmin <to.stepan.kuzmin@gmail.com>", "Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
@@ -48,6 +50,8 @@ required-features = ["mbtiles"]
 [[bench]]
 name = "bench"
 harness = false
+
+[features]
 default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
 cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
@@ -93,6 +97,8 @@ postgres-protocol = { workspace = true, optional = true }
 regex.workspace = true
 rustls-native-certs.workspace = true
 rustls-pemfile.workspace = true
+rustls.workspace = true
+semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
@@ -107,6 +113,7 @@ tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 tracing.workspace = true
+walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [build-dependencies]
@@ -121,10 +128,9 @@ indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 pprof.workspace = true
 rstest.workspace = true
-testcontainers-modules.workspace = true
-tracing-test.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
+tracing-test.workspace = true
 
 [lints]
 workspace = true
