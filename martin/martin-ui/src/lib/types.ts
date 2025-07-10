@@ -1,8 +1,8 @@
 export interface CatalogSchema {
-  tiles: { [tile_id: string]: TileSource };
-  sprites: { [sprite_collection_id: string]: SpriteCollection };
-  fonts: { [name: string]: Font };
-  styles: { [name: string]: Style };
+  tiles: { readonly [tile_id: string]: TileSource };
+  sprites: { readonly [sprite_collection_id: string]: SpriteCollection };
+  fonts: { readonly [name: string]: Font };
+  styles: { readonly [name: string]: Style };
 }
 
 export interface Font {
@@ -25,7 +25,7 @@ export interface Style {
   type?: "vector" | "raster" | "hybrid"; // todo: make this provided as required upstream
   versionHash?: string; // todo: make this provided as required upstream
   layerCount?: number; // todo: make this provided as required upstream
-  colors?: string[]; // todo: make this provided as required upstream
+  colors?: readonly string[]; // todo: make this provided as required upstream
   lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 /**
@@ -48,7 +48,7 @@ export interface TileSource {
  * This is a placeholder type and might need to be adjusted based on the actual sprite data.
  */
 export interface SpriteCollection {
-  images: string[];
+  images: readonly string[];
   sizeInBytes?: number; // todo: make this provided as required upstream
   lastModifiedAt?: Date; // todo: make this provided as required upstream
 }

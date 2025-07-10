@@ -14,7 +14,7 @@ type SpritePreviewProps = {
   /**
    * List of sprite IDs to display, in order. If not provided, all from the index are shown.
    */
-  spriteIds: string[];
+  spriteIds: readonly string[];
   /**
    * If true, only display the first PREVIEW_LIMIT sprites and use smaller icon size (for catalog previews).
    */
@@ -28,7 +28,11 @@ type SpritePreviewProps = {
 type SpriteState =
   | { status: "loading" }
   | { status: "error"; error: string }
-  | { status: "ready"; sprites: [string, SpriteMeta][]; image: HTMLImageElement };
+  | {
+      status: "ready";
+      sprites: [string, SpriteMeta][];
+      image: HTMLImageElement;
+    };
 
 export const SpritePreview: React.FC<SpritePreviewProps> = ({
   spriteUrl,
