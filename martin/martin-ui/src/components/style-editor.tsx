@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -28,22 +28,6 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
 
   const handleIframeError = useCallback(() => {
     setError("Failed to load Maputnik editor");
-  }, []);
-
-  const handleDownload = useCallback(() => {
-    if (!iframeRef.current) return;
-
-    try {
-      // Request download from Maputnik
-      iframeRef.current.contentWindow?.postMessage(
-        {
-          type: "maputnik:download-style",
-        },
-        "*",
-      );
-    } catch (err) {
-      console.error("Failed to download style from Maputnik:", err);
-    }
   }, []);
 
   // Listen for messages from Maputnik iframe
@@ -76,12 +60,6 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
                   </span>
                 </CardTitle>
               </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button className="rounded-none" onClick={handleDownload} size="sm" variant="default">
-                <Download className="w-4 h-4 mr-2" />
-                Download
-              </Button>
             </div>
           </div>
         </CardHeader>

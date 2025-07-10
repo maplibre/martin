@@ -37,7 +37,7 @@ jest.mock("@/lib/api", () => ({
 // Mock lucide-react icons
 jest.mock("lucide-react", () => ({
   ArrowLeft: () => <span>←</span>,
-  Download: () => <span>↓</span>,
+  X: () => <span>×</span>,
 }));
 
 describe("StyleEditor", () => {
@@ -67,7 +67,6 @@ describe("StyleEditor", () => {
     render(<StyleEditor {...defaultProps} />);
 
     expect(screen.getByText("Back to Catalog")).toBeDefined();
-    expect(screen.getByText("Download")).toBeDefined();
   });
 
   it("renders iframe with correct src", () => {

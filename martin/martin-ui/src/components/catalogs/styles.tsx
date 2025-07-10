@@ -34,9 +34,9 @@ export function StylesCatalog({
   onEditStyle,
 }: StylesCatalogProps) {
   const [viewState, setViewState] = useState({
-    latitude: 40,
-    longitude: -100,
-    zoom: 3.5,
+    latitude: 53,
+    longitude: 9,
+    zoom: 2,
   });
   const [selectedStyleForGuide, setSelectedStyleForGuide] = useState<{
     name: string;

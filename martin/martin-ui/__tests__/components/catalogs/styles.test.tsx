@@ -255,27 +255,23 @@ describe("StylesCatalog Component", () => {
     expect(colorSwatches.length).toBeGreaterThan(0);
   });
 
-  it("renders edit and preview buttons for each style", () => {
+  it("renders edit and integration guide buttons for each style", () => {
     render(<StylesCatalog {...defaultProps} />);
 
     // We should have 3 edit buttons (one for each style)
     const editButtons = screen.getAllByText("Edit");
     expect(editButtons.length).toBe(3);
 
-    // We should have 3 preview buttons (one for each style)
-    const previewButtons = screen.getAllByText("Preview");
-    expect(previewButtons.length).toBe(3);
+    // We should have 3 integration guide buttons (one for each style)
+    const integrationButtons = screen.getAllByText("Integration Guide");
+    expect(integrationButtons.length).toBe(3);
   });
 
-  it("renders disabled preview buttons with tooltip", () => {
+  it("renders integration guide buttons", () => {
     render(<StylesCatalog {...defaultProps} />);
 
-    const previewButtons = screen.getAllByText("Preview");
-    expect(previewButtons.length).toBe(3);
-
-    // Check for tooltip content indicating buttons are disabled/not implemented (there are 3 instances)
-    const tooltipTexts = screen.getAllByText("Not currently implemented in the frontend");
-    expect(tooltipTexts.length).toBe(3);
+    const integrationButtons = screen.getAllByText("Integration Guide");
+    expect(integrationButtons.length).toBe(3);
   });
 
   it("displays search input with correct placeholder", () => {
