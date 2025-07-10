@@ -9,7 +9,7 @@ use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
-use pbf_font_tools::protobuf::Message;
+use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, PbfFontError, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -70,7 +70,7 @@ pub enum FontError {
     PbfFontError(#[from] PbfFontError),
 
     #[error(transparent)]
-    ErrorSerializingProtobuf(#[from] pbf_font_tools::protobuf::Error),
+    ErrorSerializingProtobuf(#[from] pbf_font_tools::prost::DecodeError),
 }
 
 type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
@@ -196,15 +196,15 @@ impl FontSources {
         }
 
         let lib = Library::init()?;
-        let mut stack = Fontstack::new();
+        let mut stack = Fontstack::default();
 
         for (id, font, ds) in fonts {
-            if stack.has_name() {
-                let name = stack.mut_name();
+            if !stack.name.is_empty() {
+                let name = &mut stack.name;
                 name.push_str(", ");
                 name.push_str(id);
             } else {
-                stack.set_name(id.to_string());
+                stack.name = id.to_string();
             }
 
             let face = lib.new_face(&font.path, font.face_index)?;
@@ -223,13 +223,11 @@ impl FontSources {
             }
         }
 
-        stack.set_range(format!("{start}-{end}"));
+        stack.range = format!("{start}-{end}");
 
-        let mut glyphs = Glyphs::new();
+        let mut glyphs = Glyphs::default();
         glyphs.stacks.push(stack);
-        let mut result = Vec::new();
-        glyphs.write_to_vec(&mut result)?;
-        Ok(result)
+        Ok(glyphs.encode_to_vec())
     }
 }
 
