@@ -26,9 +26,11 @@ pub struct TableInfo {
     pub srid: i32,
 
     /// Projection of SRID if found in `spatial_ref_sys`
+    #[serde(skip)]
     pub proj: Option<String>,
 
     /// Projection unit of SRID if found in `spatial_ref_sys`
+    #[serde(skip)]
     pub proj_unit: Option<String>,
 
     /// Geometry column name

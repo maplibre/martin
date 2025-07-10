@@ -98,7 +98,6 @@ async fn table_source() {
     schema: public
     table: table_source
     srid: 4326
-    proj: longlat
     geometry_column: geom
     bounds:
       - -2
@@ -115,7 +114,6 @@ async fn table_source() {
     schema: public
     table: table_source_geog
     srid: 4326
-    proj: longlat
     geometry_column: geog
     bounds:
       - -2
@@ -132,8 +130,6 @@ async fn table_source() {
     schema: public
     table: points3857
     srid: 3857
-    proj: merc
-    proj_unit: m
     geometry_column: geom
     bounds:
       - -161.40590777554058
