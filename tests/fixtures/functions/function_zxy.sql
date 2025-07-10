@@ -1,6 +1,8 @@
 DROP FUNCTION IF EXISTS public.function_zxy;
 
-CREATE OR REPLACE FUNCTION public.function_zxy(z integer, x integer, y integer) RETURNS bytea AS $$
+CREATE OR REPLACE FUNCTION public.function_zxy(
+    z integer, x integer, y integer
+) RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN

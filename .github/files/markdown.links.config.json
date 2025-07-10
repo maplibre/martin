@@ -6,7 +6,7 @@
       "replacement": ""
     }
   ],
-  "timeout": "2s",
+  "timeout": "3s",
   "retryOn429": true,
   "ignorePatterns": [
     {

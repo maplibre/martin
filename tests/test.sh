@@ -94,7 +94,22 @@ test_jsn() {
 
   echo "Testing $(basename "$FILENAME") from $URL"
   # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  $CURL "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  $CURL  --dump-header  "$FILENAME.headers" "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+}
+
+test_metrics() {
+  FILENAME="$TEST_OUT_DIR/$1"
+  URL="$MARTIN_URL/_/metrics"
+
+  echo "Testing $1 from $URL"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  clean_headers_dump "$FILENAME.headers"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  clean_headers_dump "$FILENAME.fetched_with_compression.headers"
+  # due to slight timing differences, these might be slightly different
+  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
 }
 
 test_pbf() {
@@ -102,7 +117,8 @@ test_pbf() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
@@ -119,7 +135,8 @@ test_png() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
     file "$FILENAME" > "$FILENAME.txt"
@@ -136,7 +153,8 @@ test_font() {
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL "$URL" > "$FILENAME"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
 }
 
 # Delete a line from a file $1 that matches parameter $2
@@ -146,6 +164,21 @@ remove_line() {
   >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
   grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
   mv "${FILE}.tmp" "${FILE}"
+}
+
+# if we dump a headers file via curl, this is otherwise not reproducible
+clean_headers_dump() {
+  FILE="$1"
+  # now we need to strip the date header as it is undeterministic
+  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  # the http version is not an "header" that we want to assert
+  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  # need to remove entirely empty lines, \r\n and leading/trailing whitespace
+  # sorting is arbitrairy => sort here
+  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  mv "$FILE.tmp" "$FILE"
+  # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
+  sed --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
@@ -192,6 +225,7 @@ validate_log() {
   remove_line "$LOG_FILE" 'Source IDs must be unique'
   remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
   remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
+  remove_line "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -244,7 +278,8 @@ LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
+
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -311,6 +346,7 @@ test_pbf points3857_srid_0_0_0    points3857/0/0/0
 test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
+test_pbf s3_1_0_0    cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
 
 >&2 echo "***** Test server response for MbTiles source *****"
 test_jsn mb_jpg       geography-class-jpg
@@ -446,13 +482,14 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
+test_metrics "metrics_1"
+
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test martin-cp"
@@ -479,6 +516,11 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
 
   unset DATABASE_URL
+
+  test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
+      --mbtiles-type flat --concurrency 3 \
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0" \
 
 else
   echo "Skipping martin-cp tests"

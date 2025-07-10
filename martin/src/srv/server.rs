@@ -3,10 +3,9 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
-use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::TrailingSlash;
+use actix_web::middleware::{Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt;
@@ -81,7 +80,7 @@ async fn get_index_no_ui() -> &'static str {
     See documentation https://github.com/maplibre/martin"
 }
 
-/// Root path in case web front is disabled and the WebUI feature is enabled.
+/// Root path in case web front is disabled and the `webui` feature is enabled.
 #[cfg(feature = "webui")]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
@@ -154,6 +153,21 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+    #[cfg(feature = "metrics")]
+    let prometheus = actix_web_prom::PrometheusMetricsBuilder::new("martin")
+        .endpoint("/_/metrics")
+        // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
+        .mask_unmatched_patterns("UNKNOWN")
+        .const_labels(
+            config
+                .observability
+                .clone()
+                .unwrap_or_default()
+                .metrics
+                .unwrap_or_default()
+                .add_labels,
+        )
+        .build()?;
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
@@ -163,10 +177,12 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .clone()
         .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
 
+    let cors_config = config.cors.clone().unwrap_or_default();
+    cors_config.validate()?;
+    cors_config.log_current_configuration();
+
     let factory = move || {
-        let cors_middleware = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET"]);
+        let cors_middleware = cors_config.make_cors_middleware();
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
@@ -181,11 +197,20 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "styles")]
         let app = app.app_data(Data::new(state.styles.clone()));
 
-        app.app_data(Data::new(catalog.clone()))
-            .app_data(Data::new(config.clone()))
-            .wrap(cors_middleware)
-            .wrap(middleware::NormalizePath::new(TrailingSlash::MergeOnly))
-            .wrap(middleware::Logger::default())
+        let app = app
+            .app_data(Data::new(catalog.clone()))
+            .app_data(Data::new(config.clone()));
+
+        let app = app.wrap(middleware::Condition::new(
+            cors_middleware.is_some(),
+            cors_middleware.unwrap_or_default(),
+        ));
+
+        #[cfg(feature = "metrics")]
+        let app = app.wrap(prometheus.clone());
+
+        app.wrap(Logger::default())
+            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
             .configure(|c| router(c, &config))
     };
 

@@ -1,0 +1,13 @@
+---
+source: martin/src/sprites/mod.rs
+expression: sprites.get_index()
+---
+{
+  "bicycle": {
+    "height": 15,
+    "pixelRatio": 1,
+    "width": 15,
+    "x": 0,
+    "y": 0
+  }
+}
