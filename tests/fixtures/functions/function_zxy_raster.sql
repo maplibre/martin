@@ -8,10 +8,10 @@ BEGIN
     SELECT
     st_clip(
         st_transform(st_union(rast),3857),
-        st_tileenvelope(z,x,y) 
+        st_tileenvelope(z,x,y)
     )
     as bands
-    from public.landcover where ST_ConvexHull(rast) && st_transform( st_tileenvelope(z,x,y),4326) 
+    from public.landcover where ST_ConvexHull(rast) && st_transform( st_tileenvelope(z,x,y),4326)
   )
   SELECT into mvt ST_AsJPEG(st_tile(bands,256,256)) from rast;
   return mvt;

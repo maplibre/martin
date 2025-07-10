@@ -29,7 +29,7 @@ done
 echo "Importing raster tables from $FIXTURES_DIR/raster"
 echo "################################################################################################"
 psql -e -P pager=off -v ON_ERROR_STOP=1 -f "$FIXTURES_DIR"/raster/init_raster_support.sql
-raster2pgsql -s 4326 -I  -C -F -t 100x100 "$FIXTURES_DIR"/raster/raster.tif public.landcover | psql -e -P pager=off -v ON_ERROR_STOP=1 
+raster2pgsql -s 4326 -I  -C -F -t 100x100 "$FIXTURES_DIR"/raster/raster.tif public.landcover | psql -e -P pager=off -v ON_ERROR_STOP=1
 
 echo -e "\n\n\n"
 echo "################################################################################################"
