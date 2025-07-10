@@ -1,4 +1,3 @@
-import React from "react";
 import { Parallax } from "react-scroll-parallax";
 import GitHubButton from "../GitHubButton";
 import DocsButton from "../GitHubButton/DocsButton";

@@ -18,20 +18,18 @@
     "styled-components": "6.1.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.1.1",
+    "@biomejs/biome": "^2.1.1",
     "@types/node": "^20.9.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
-    "@vitejs/plugin-react": "^4.1.1",
-    "typescript": "^5.2.2",
-    "vite": "^4.5.14",
-    "vite-plugin-mkcert": "^1.16.0",
-    "vite-tsconfig-paths": "^4.2.1"
-  },
-  "eslintConfig": {
-    "extends": "react-app"
+    "@vitejs/plugin-react": "^4.6.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vite-plugin-mkcert": "^1.17.8",
+    "vite-tsconfig-paths": "^5.0.0"
   },
   "name": "martin-landing",
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
   "private": true,
   "proxy": "https://maplibre.org",
   "scripts": {

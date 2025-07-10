@@ -1,5 +1,6 @@
+/* biome-ignore-all lint/suspicious/noExplicitAny: this is a legacy component and needs to be redone */
 import maplibregl from "maplibre-gl";
-import React, { PureComponent } from "react";
+import { PureComponent } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { MAP_STYLE } from "../../config/constants";
@@ -11,11 +12,14 @@ import Filters from "./Filters";
 
 const mapStyle = { height: "615px", marginLeft: "350px" };
 
-class Map extends PureComponent<{}, { visibleLayer: any; range: any; hour: any }> {
+class MaplibreMap extends PureComponent<
+  Record<string, never>,
+  { visibleLayer: any; range: any; hour: any }
+> {
   map: any;
   nav: any;
 
-  constructor(props: {} | Readonly<{}>) {
+  constructor(props: Record<string, never> | Readonly<Record<string, never>>) {
     super(props);
     this.state = {
       hour: 9,
@@ -44,7 +48,7 @@ class Map extends PureComponent<{}, { visibleLayer: any; range: any; hour: any }
 
   componentDidUpdate() {
     const newStyle = this.map.getStyle();
-    newStyle.sources["trips_source"].url = `/tiles/get_trips?${this.getQueryParams()}`;
+    newStyle.sources.trips_source.url = `/tiles/get_trips?${this.getQueryParams()}`;
     this.map.setStyle(newStyle);
   }
 
@@ -113,4 +117,4 @@ class Map extends PureComponent<{}, { visibleLayer: any; range: any; hour: any }
   }
 }
 
-export default Map;
+export default MaplibreMap;

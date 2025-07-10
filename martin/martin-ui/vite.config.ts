@@ -15,9 +15,6 @@ export default defineConfig({
     },
     sourcemap: true,
   },
-  define: {
-    "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV || "development"),
-  },
   envPrefix: "VITE_",
   plugins: [react()],
   resolve: {

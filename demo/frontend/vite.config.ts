@@ -14,5 +14,5 @@ export default defineConfig({
     }),
     mkcert(),
   ],
-  server: { host: true, https: false, port: 8080 },
+  server: { host: true, port: 8080 },
 });
