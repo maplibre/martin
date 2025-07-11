@@ -577,8 +577,8 @@ async fn diff_and_patch(
 
 #[rstest]
 #[trace]
+#[ignore = "test used to run for a while, and then became too complicated to maintain and got out of whack. TODO: bring it back or deleete"]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
 async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
@@ -655,7 +655,7 @@ async fn patch_on_copy(
 
 /// A simple tester to run specific values
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
+#[ignore = "this test is for debugging only, and should be disabled"]
 async fn test_one() {
     // This will cause an error if ran together with other tests
     let db = databases();

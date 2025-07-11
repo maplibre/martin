@@ -14,10 +14,11 @@ use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
 #[cfg(any(
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
-    feature = "cog"
+    feature = "styles",
 ))]
 use crate::file_config::FileConfigEnum;
 
@@ -155,7 +156,7 @@ impl Args {
 }
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
-#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
@@ -176,12 +177,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     }
 }
 
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "cog",
-    feature = "styles"
-))]
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
 pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
     extensions: &[&str],

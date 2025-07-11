@@ -45,7 +45,7 @@ pmtiles:
 
 We also support forcing path style URLs for S3 buckets via the environment variable `AWS_S3_FORCE_PATH_STYLE=1` or configuration key `force_path_style: true`.
 This allows you to use this functionality for [`MinIO`](https://min.io/) or similar s3-compatible instances which use path style URLs.
-A path style URL is a URL that uses the bucket name as part of the path (`mys3.com/somebucket`) instead of the hostname (`somebucket.mys3.com`).
+A path style URL is a URL that uses the bucket name as part of the path (`example.org/some_bucket`) instead of the hostname (`some_bucket.example.org`).
 
 Example configuration:
 

@@ -9,12 +9,13 @@ use std::sync::atomic::Ordering::Relaxed;
 use async_trait::async_trait;
 use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
-use pmtiles::async_reader::AsyncPmTilesReader;
 use pmtiles::aws_sdk_s3::Client as S3Client;
 use pmtiles::aws_sdk_s3::config::Builder as S3ConfigBuilder;
-use pmtiles::cache::{DirCacheResult, DirectoryCache};
 use pmtiles::reqwest::Client;
-use pmtiles::{AwsS3Backend, Compression, Directory, HttpBackend, MmapBackend, TileType};
+use pmtiles::{
+    AsyncPmTilesReader, AwsS3Backend, Compression, DirCacheResult, Directory, DirectoryCache,
+    HttpBackend, MmapBackend, TileId, TileType,
+};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
@@ -42,7 +43,7 @@ impl PmtCache {
 }
 
 impl DirectoryCache for PmtCache {
-    async fn get_dir_entry(&self, offset: usize, tile_id: u64) -> DirCacheResult {
+    async fn get_dir_entry(&self, offset: usize, tile_id: TileId) -> DirCacheResult {
         if let Some(dir) = get_cached_value!(&self.cache, CacheValue::PmtDirectory, {
             CacheKey::PmtDirectory(self.id, offset)
         }) {
@@ -69,7 +70,7 @@ impl DirectoryCache for PmtCache {
 pub struct PmtConfig {
     /// Force path style URLs for S3 buckets
     ///
-    /// A path style URL is a URL that uses the bucket name as part of the path like `mys3.com/somebucket` instead of the hostname `somebucket.mys3.com`.
+    /// A path style URL is a URL that uses the bucket name as part of the path like `example.org/some_bucket` instead of the hostname `some_bucket.example.org`.
     /// If `None` (the default), this will look at `AWS_S3_FORCE_PATH_STYLE` or default to `false`.
     #[serde(default, alias = "aws_s3_force_path_style")]
     pub force_path_style: Option<bool>,
@@ -301,7 +302,12 @@ macro_rules! impl_pmtiles_source {
                 // TODO: optimize to return Bytes
                 if let Some(t) = self
                     .pmtiles
-                    .get_tile(xyz.z, u64::from(xyz.x), u64::from(xyz.y))
+                    .get_tile(
+                        // TODO: next pmtiles ver will return a proper PmtError
+                        //       https://github.com/stadiamaps/pmtiles-rs/pull/69
+                        pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y)
+                            .ok_or_else(|| io::Error::other("Invalid tile coordinates"))?,
+                    )
                     .await?
                 {
                     Ok(t.to_vec())
@@ -362,7 +368,7 @@ impl PmtS3Source {
             })?
             .to_string();
 
-        // Strip leading '/' from key
+        // Strip leading '/' from the key
         let key = url.path()[1..].to_string();
 
         let reader =
