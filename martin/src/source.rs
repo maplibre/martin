@@ -107,7 +107,7 @@ impl TileSources {
 }
 
 #[async_trait]
-pub trait Source: Send + Debug {
+pub trait Source: Send + Sync + Debug {
     /// ID under which this [`Source`] is identified if accessed externally
     fn get_id(&self) -> &str;
 
@@ -130,6 +130,16 @@ pub trait Source: Send + Debug {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinResult<TileData>;
+
+    /// Get pre-computed etag for a tile if available
+    /// Default implementation returns None (etag will be computed from tile data)
+    async fn get_tile_etag(
+        &self,
+        _xyz: TileCoord,
+        _url_query: Option<&UrlQuery>,
+    ) -> MartinResult<Option<String>> {
+        Ok(None)
+    }
 
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();
@@ -183,11 +193,17 @@ mod tests {
 pub struct Tile {
     pub data: TileData,
     pub info: TileInfo,
+    pub etag: Option<String>,
 }
 
 impl Tile {
     #[must_use]
     pub fn new(data: TileData, info: TileInfo) -> Self {
-        Self { data, info }
+        Self { data, info, etag: None }
+    }
+
+    #[must_use]
+    pub fn with_etag(data: TileData, info: TileInfo, etag: Option<String>) -> Self {
+        Self { data, info, etag }
     }
 }
