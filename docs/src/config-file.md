@@ -263,7 +263,6 @@ fonts:
   - /path/to/font_dir
 
 # Publish MapLibre style files
-# In the future, the style files will be used for the server-side rendering as well
 styles:
    paths:
      # publish all *.json files in this directory
