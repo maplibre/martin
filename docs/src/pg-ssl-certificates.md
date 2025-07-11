@@ -40,6 +40,17 @@ For basic SSL encryption, you need:
 - `server-key.pem` - PostgreSQL server private key
 - `ca-cert.pem` - Certificate Authority certificate
 
+```
+┌─────────────────┐    SSL/TLS     ┌─────────────────┐
+│     Martin      │◄─────────────►│   PostgreSQL    │
+└─────────────────┘   verify-full  └─────────────────┘
+         │                                   │
+    ┌─────────┐                        ┌────────────┐
+    │ CA Cert │                        │   Server   │
+    │         │                        │ Cert + Key │
+    └─────────┘                        └────────────┘
+```
+
 ### Self-Signed Certificates
 
 To generate certificates as a CA, you will need a private key.
@@ -60,13 +71,15 @@ You can then generate a server certificates:
 # Generate server private key
 openssl genrsa -out server-key.pem 3072
 
-# Generate server certificate signing request
+# Generate server certificate signing request with SAN extension
 openssl req -new -key server-key.pem -out server-csr.pem \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" \
+    -addext "subjectAltName = DNS:localhost"
 
-# Generate server certificate signed by CA
+# Generate server certificate signed by CA with SAN extension
 openssl x509 -req -days 365 -in server-csr.pem -CA ca-cert.pem -CAkey ca-key.pem \
-    -CAcreateserial -out server-cert.pem
+    -CAcreateserial -out server-cert.pem -extensions v3_req \
+    -extfile <(printf "[v3_req]\nsubjectAltName = DNS:localhost")
 
 # Set permissions
 chmod 400 *-key.pem
@@ -93,20 +106,12 @@ services:
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
+    user: "${UID}:${GID}"
     volumes:
       - ./server-cert.pem:/var/lib/postgresql/server-cert.pem:ro
       - ./server-key.pem:/var/lib/postgresql/server-key.pem:ro
       - ./ca-cert.pem:/var/lib/postgresql/ca-cert.pem:ro
-    command: >
-      bash -c "
-        # Copy certificates to writable location and set permissions
-        chown postgres:postgres /var/lib/postgresql/*.pem
-        chmod 600 /var/lib/postgresql/server-key.pem
-        chmod 644 /var/lib/postgresql/server-cert.pem /var/lib/postgresql/ca-cert.pem
-        
-        # Start PostgreSQL with SSL enabled
-        exec gosu postgres docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server-cert.pem -c ssl_key_file=/var/lib/postgresql/server-key.pem -c ssl_ca_file=/var/lib/postgresql/ca-cert.pem
-      "
+    command: exec gosu postgres docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server-cert.pem -c ssl_key_file=/var/lib/postgresql/server-key.pem -c ssl_ca_file=/var/lib/postgresql/ca-cert.pem
 ```
 
 ## Testing with psql
@@ -121,6 +126,9 @@ psql "postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full" \
 Then, verify SSL Status by
 
 ```sql
+-- Enable SSL info extension (required for ssl_is_used function)
+CREATE EXTENSION IF NOT EXISTS sslinfo;
+
 -- Check SSL status
 SELECT ssl_is_used();
 
