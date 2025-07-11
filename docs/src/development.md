@@ -108,11 +108,6 @@ When developing MBTiles SQL code, you may need to use `just prepare-sqlite` when
 ## Quick Start
 
 ```bash
-# Clone and setup remotes
-git clone -o upstream https://github.com/maplibre/martin.git
-cd martin
-git remote add origin https://github.com/YOUR_USERNAME/martin.git
-
 # Install tools
 cargo install just --locked
 just validate-tools
