@@ -191,7 +191,7 @@ martin
 ```yaml
 postgres:
   connection_string: 'postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full'
-  
+
   # SSL certificate files
   ssl_root_cert: '~/certs/ca-cert.pem'
   ssl_cert: '~/certs/client-cert.pem'
