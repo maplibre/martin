@@ -124,6 +124,22 @@ async fn table_source() {
     properties:
       gid: int4
     ");
+
+    let source3 = table(&mock, "points3857");
+    assert_yaml_snapshot!(source3, @r"
+    schema: public
+    table: points3857
+    srid: 3857
+    geometry_column: geom
+    bounds:
+      - -161.40590777554058
+      - -81.50727021609012
+      - 172.51549126768532
+      - 84.2440187164111
+    geometry_type: POINT
+    properties:
+      gid: int4
+    ");
 }
 
 #[actix_rt::test]
