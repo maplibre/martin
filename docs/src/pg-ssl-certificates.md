@@ -40,7 +40,7 @@ For development and testing:
 
 ```bash
 # Create certificate directory
-mkdir -p ~/certs && cd ~/certs
+mkdir -p certs && cd certs
 
 # Generate CA private key
 openssl genrsa -out ca-key.pem 4096
@@ -74,6 +74,9 @@ openssl x509 -req -days 365 -in client-csr.pem -CA ca-cert.pem -CAkey ca-key.pem
 # Set permissions
 chmod 400 *-key.pem
 chmod 444 *-cert.pem ca-cert.pem
+
+# Exit certificate directory
+cd ..
 ```
 
 ### Production Certificates
@@ -121,10 +124,9 @@ hostssl all             all             0.0.0.0/0               cert
 ### Docker Configuration
 
 ```yaml
-version: '3.8'
 services:
   postgres:
-    image: postgis/postgis:16-3.5
+    image: postgis/postgis:17-3.5
     command: |
       postgres
       -c ssl=on
@@ -139,6 +141,8 @@ services:
       - POSTGRES_DB=mydb
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
+    ports:
+      - 5432:5432
 ```
 
 ## Testing with psql
