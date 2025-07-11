@@ -53,7 +53,7 @@ harness = false
 
 [features]
 default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
-cog = ["dep:png", "dep:tiff"]
+cog = ["dep:image", "dep:imageproc", "dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
@@ -81,6 +81,8 @@ deadpool-postgres = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
+imageproc = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
