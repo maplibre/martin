@@ -256,32 +256,32 @@ RUST_LOG=debug martin postgresql://...
 
 - <details>
   <summary>Certificate verification failed (click to expand)</summary>
-  
+
   - Check server certificate is signed by the CA
   - Verify CA certificate path in `PGSSLROOTCERT`
   - Ensure certificate files are readable
-  
+
   </details>
 - <details>
   <summary>Hostname verification failed (click to expand)</summary>
-  
+
   - Server certificate CN/SAN must match hostname
   - Use `verify-ca` instead of `verify-full` if hostname doesn't match
-  
+
   </details>
 - <details>
   <summary>Permission denied (click to expand)</summary>
-  
+
   - Check certificate file permissions
   - Private keys should be `chmod 400`
-  
+
   </details>
 - <details>
   <summary>Connection refused (click to expand)</summary>
-  
+
   - Verify PostgreSQL accepts SSL connections
   - Check `pg_hba.conf` allows SSL from your IP
-  
+
   </details>
 
 ## Security Best Practices
