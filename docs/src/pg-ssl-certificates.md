@@ -12,17 +12,25 @@ Use SSL certificates for:
 
 ## SSL Modes
 
-PostgreSQL supports several SSL modes:
+| sslmode       | Eaves-<br/>dropping<br/>protection | MITM <br/>protection      | Statement                                                                                                                                   |
+|---------------|--------------------------|----------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `disable`     | ⛔                        | ⛔                    | I don't care about security, and I don't want to pay the overhead of encryption.                                                            |
+| `allow`       | 🤷                        | ⛔                    | I don't care about security, but I will pay the overhead of encryption if the server insists on it.                                         |
+| `prefer`      | 🤷                        | ⛔                    | I don't care about encryption, but I wish to pay the overhead of encryption if the server supports it.                                      |
+| `require`     | ✅                        | ⛔                    | I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.   |
+| `verify-ca`   | ✅                        | Depends <br/> on CA policy | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.                             |
+| `verify-full` | ✅                        | ✅                    | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it's the one I specify. |
 
-| Mode          | Description                                          |
-|---------------|------------------------------------------------------|
-| `disable`     | No SSL connection                                    |
-| `prefer`      | Try SSL first, fall back to non-SSL (default)        |
-| `require`     | Require SSL, don't verify certificate                |
-| `verify-ca`   | Require SSL and verify server certificate against CA |
-| `verify-full` | Require SSL, verify certificate and hostname         |
+Our recommendation: **`verify-full` or `allow`**.
+There are not many cases where anything in between makes sense.
 
-`verify-ca` verifies the server certificate is signed by a trusted CA but doesn't check hostname matching. `verify-full` provides maximum security by verifying both CA signature and hostname matching.
+In particular, the default mode (`prefer`) does not make much sense.
+From the postgres documentation:
+
+> As is shown in the table, this makes no sense from a security point of view, and it only promises performance overhead if possible.
+> It is only provided as the default for backward compatibility, and is not recommended in secure deployments.
+
+For a fuller explanation of the different tradeoffs, refer to the [PostgreSQL SSL Certificates documentation](https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-CONFIG).
 
 ## Generating Certificates
 
