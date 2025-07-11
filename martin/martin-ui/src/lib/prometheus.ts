@@ -113,7 +113,7 @@ export function parsePrometheusHistogram(
 
 				// Skip +Inf bucket as it's redundant with count
 				if (le !== Infinity) {
-					histograms[endpoint].buckets.push({ le, count });
+					histograms[endpoint].buckets.push({ count, le });
 				}
 			}
 			continue;
@@ -243,6 +243,86 @@ export function parseCompletePrometheusMetrics(text: string): {
 		...parsePrometheusMetrics(text),
 		histograms: parsePrometheusHistogram(text),
 	};
+}
+
+/**
+ * Aggregates histogram data for endpoint groups by combining multiple endpoints.
+ * Properly handles cumulative histogram buckets and adds histograms together.
+ *
+ * @param histograms - Record of endpoint to histogram data
+ * @param endpointGroups - Object mapping group name to array of endpoint patterns
+ * @returns Object mapping group name to aggregated histogram data
+ */
+export function aggregateHistogramGroups(
+	histograms: Record<string, HistogramData>,
+	endpointGroups: Record<string, string[]>,
+): Record<string, HistogramData> {
+	const result: Record<string, HistogramData> = {};
+
+	for (const [group, endpoints] of Object.entries(endpointGroups)) {
+		// Find all histograms that belong to this group
+		const groupHistograms: HistogramData[] = [];
+		for (const endpoint of endpoints) {
+			if (histograms[endpoint]) {
+				groupHistograms.push(histograms[endpoint]);
+			}
+		}
+
+		if (groupHistograms.length === 0) {
+			// No histogram data for this group
+			continue;
+		}
+
+		// Collect all unique bucket boundaries (le values)
+		const allBuckets = new Set<number>();
+		for (const hist of groupHistograms) {
+			for (const bucket of hist.buckets) {
+				allBuckets.add(bucket.le);
+			}
+		}
+
+		// Sort bucket boundaries
+		const sortedBuckets = Array.from(allBuckets).sort((a, b) => a - b);
+
+		// Create aggregated histogram
+		const aggregatedBuckets: HistogramBucket[] = [];
+		let totalSum = 0;
+		let totalCount = 0;
+
+		// For each bucket boundary, sum up counts from all histograms
+		for (const le of sortedBuckets) {
+			let bucketCount = 0;
+
+			for (const hist of groupHistograms) {
+				// Find the cumulative count up to this le value
+				let cumulativeCount = 0;
+				for (const bucket of hist.buckets) {
+					if (bucket.le <= le) {
+						cumulativeCount = bucket.count;
+					} else {
+						break;
+					}
+				}
+				bucketCount += cumulativeCount;
+			}
+
+			aggregatedBuckets.push({ le, count: bucketCount });
+		}
+
+		// Sum up totals
+		for (const hist of groupHistograms) {
+			totalSum += hist.sum || 0;
+			totalCount += hist.count || 0;
+		}
+
+		result[group] = {
+			buckets: aggregatedBuckets,
+			sum: totalSum,
+			count: totalCount,
+		};
+	}
+
+	return result;
 }
 
 export const ENDPOINT_GROUPS = {
