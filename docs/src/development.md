@@ -144,5 +144,3 @@ just stop        # stop test database
 just test-cargo -- --test integration_test
 just run --config /path/to/config.yaml
 ```
-
-
