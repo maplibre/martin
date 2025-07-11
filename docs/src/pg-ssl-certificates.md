@@ -9,6 +9,7 @@ Use SSL certificates for:
 - Deployments where martin and Postgis are on separate machines
 - Compliance requirements (PCI DSS, HIPAA, etc.)
 - Cloud PostgreSQL deployments
+- High-security environments requiring certificate-based authentication
 
 ## SSL Modes
 
@@ -34,23 +35,30 @@ For a fuller explanation of the different tradeoffs, refer to the [PostgreSQL SS
 
 ## Generating Certificates
 
+For basic SSL encryption, you need:
+- `server-cert.pem` - PostgreSQL server certificate
+- `server-key.pem` - PostgreSQL server private key
+- `ca-cert.pem` - Certificate Authority certificate
+
 ### Self-Signed Certificates
 
-For development and testing:
+To generate certificates as a CA, you will need a private key.
+To verify the certificate, you will need the CA certificate.
 
 ```bash
-# Create certificate directory
-mkdir -p certs && cd certs
-
 # Generate CA private key
-openssl genrsa -out ca-key.pem 4096
+openssl genrsa -out ca-key.pem 3072
 
 # Generate CA certificate
 openssl req -new -x509 -days 365 -key ca-key.pem -out ca-cert.pem \
     -subj "/C=US/ST=State/L=City/O=Organization/CN=Test CA"
+```
 
+You can then generate a server certificates:
+
+```bash
 # Generate server private key
-openssl genrsa -out server-key.pem 4096
+openssl genrsa -out server-key.pem 3072
 
 # Generate server certificate signing request
 openssl req -new -key server-key.pem -out server-csr.pem \
@@ -60,115 +68,57 @@ openssl req -new -key server-key.pem -out server-csr.pem \
 openssl x509 -req -days 365 -in server-csr.pem -CA ca-cert.pem -CAkey ca-key.pem \
     -CAcreateserial -out server-cert.pem
 
-# Generate client private key
-openssl genrsa -out client-key.pem 4096
-
-# Generate client certificate signing request
-openssl req -new -key client-key.pem -out client-csr.pem \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=postgres"
-
-# Generate client certificate signed by CA
-openssl x509 -req -days 365 -in client-csr.pem -CA ca-cert.pem -CAkey ca-key.pem \
-    -CAcreateserial -out client-cert.pem
-
 # Set permissions
 chmod 400 *-key.pem
 chmod 444 *-cert.pem ca-cert.pem
-
-# Exit certificate directory
-cd ..
 ```
 
 ### Production Certificates
 
 For production, use certificates from:
 
-- Certificate Authorities (Let's Encrypt, DigiCert, GlobalSign)
-- Cloud provider managed certificates
-- Internal organizational CA
+- Regular Certificate Authorities (Let's Encrypt, DigiCert, GlobalSign)
+- Cloud provider managed Certificate Authorities
+- Organization-Internal Certificate Authority
 
 ## PostgreSQL Configuration
-
-### Server Configuration
-
-Edit `postgresql.conf`:
-
-```conf
-# Enable SSL
-ssl = on
-
-# Certificate files
-ssl_cert_file = '/path/to/server-cert.pem'
-ssl_key_file = '/path/to/server-key.pem'
-ssl_ca_file = '/path/to/ca-cert.pem'
-
-# SSL cipher configuration (optional)
-ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL'
-ssl_prefer_server_ciphers = on
-```
-
-### Client Authentication
-
-Edit `pg_hba.conf`:
-
-```conf
-# TYPE  DATABASE        USER            ADDRESS                 METHOD
-
-# SSL connections only
-hostssl all             all             0.0.0.0/0               md5
-
-# SSL with client certificates
-hostssl all             all             0.0.0.0/0               cert
-```
-
-### Docker Configuration
 
 ```yaml
 services:
   postgres:
     image: postgis/postgis:17-3.5
-    command: |
-      postgres
-      -c ssl=on
-      -c ssl_cert_file=/etc/ssl/certs/server-cert.pem
-      -c ssl_key_file=/etc/ssl/private/server-key.pem
-      -c ssl_ca_file=/etc/ssl/certs/ca-cert.pem
-    volumes:
-      - ./certs/server-cert.pem:/etc/ssl/certs/server-cert.pem:ro
-      - ./certs/server-key.pem:/etc/ssl/private/server-key.pem:ro
-      - ./certs/ca-cert.pem:/etc/ssl/certs/ca-cert.pem:ro
     environment:
-      - POSTGRES_DB=mydb
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
-      - 5432:5432
+      - "5432:5432"
+    volumes:
+      - ./server-cert.pem:/var/lib/postgresql/server-cert.pem:ro
+      - ./server-key.pem:/var/lib/postgresql/server-key.pem:ro
+      - ./ca-cert.pem:/var/lib/postgresql/ca-cert.pem:ro
+    command: >
+      bash -c "
+        # Copy certificates to writable location and set permissions
+        chown postgres:postgres /var/lib/postgresql/*.pem
+        chmod 600 /var/lib/postgresql/server-key.pem
+        chmod 644 /var/lib/postgresql/server-cert.pem /var/lib/postgresql/ca-cert.pem
+        
+        # Start PostgreSQL with SSL enabled
+        exec gosu postgres docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server-cert.pem -c ssl_key_file=/var/lib/postgresql/server-key.pem -c ssl_ca_file=/var/lib/postgresql/ca-cert.pem
+      "
 ```
 
 ## Testing with psql
 
-### Test SSL Connection
+Test SSL Connection via
 
 ```bash
-# Basic SSL connection
-psql "postgresql://postgres:password@localhost:5432/mydb?sslmode=require"
-
-# Certificate verification
-psql "postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-ca" \
-     --set=PGSSLROOTCERT=~/certs/ca-cert.pem
-
-# Full verification
 psql "postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full" \
      --set=PGSSLROOTCERT=~/certs/ca-cert.pem
-
-# Client certificate authentication
-psql "postgresql://postgres@localhost:5432/mydb?sslmode=verify-full" \
-     --set=PGSSLROOTCERT=~/certs/ca-cert.pem \
-     --set=PGSSLCERT=~/certs/client-cert.pem \
-     --set=PGSSLKEY=~/certs/client-key.pem
 ```
 
-### Verify SSL Status
+Then, verify SSL Status by
 
 ```sql
 -- Check SSL status
@@ -180,19 +130,14 @@ SELECT * FROM pg_stat_ssl WHERE pid = pg_backend_pid();
 
 ## Martin Configuration
 
+Martin can be configured using environment variables, the CLI, or the configuration file.
+Which of them you choose is up to you.
+You do not need to configure things twice.
+
 ### Environment Variables
 
-Configure Martin for SSL using environment variables:
-
 ```bash
-# Root CA certificate
 export PGSSLROOTCERT=~/certs/ca-cert.pem
-
-# Client certificate (if required)
-export PGSSLCERT=~/certs/client-cert.pem
-export PGSSLKEY=~/certs/client-key.pem
-
-# Database connection
 export DATABASE_URL="postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full"
 
 martin
@@ -202,12 +147,8 @@ martin
 
 ```yaml
 postgres:
-  connection_string: 'postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full'
-
-  # SSL certificate files
   ssl_root_cert: '~/certs/ca-cert.pem'
-  ssl_cert: '~/certs/client-cert.pem'
-  ssl_key: '~/certs/client-key.pem'
+  connection_string: 'postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full'
 ```
 
 ### Command Line
@@ -228,6 +169,8 @@ PGSSLMODE=verify-full PGSSLROOTCERT=~/certs/ca-cert.pem psql -h localhost -U pos
 # Debug Martin
 RUST_LOG=debug martin postgresql://...
 ```
+
+These are the errors that can occur:
 
 - <details>
   <summary>Certificate verification failed (click to expand)</summary>
@@ -259,11 +202,12 @@ RUST_LOG=debug martin postgresql://...
 
   </details>
 
-## Security Best Practices
+## Security Best Practices if using postgres via SSL
 
-- Use at least 2048-bit RSA keys
-- Protect private keys with restricted permissions
+- Use at least 3072-bit RSA keys
+- Protect private keys with restricted permissions (`chmod 400`)
 - Rotate certificates before expiration
-- Use `verify-full` in production when possible
+- Use `verify-full` in production
 - Monitor certificate expiration
+- Store `ca-key.pem` securely (only needed for certificate management)
 - Use secure secret management for production certificates
