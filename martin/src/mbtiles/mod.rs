@@ -229,14 +229,6 @@ mod tests {
         
         // This test would require actual mbtiles files with different types
         // For now, we'll just verify that the method exists and compiles
-        use crate::source::Source;
-        use martin_tile_utils::TileCoord;
-
-        // Create a dummy source (this would fail at runtime without a real file,
-        // but demonstrates the API)
-        // let source = MbtSource::new("test".to_string(), PathBuf::from("test.mbtiles")).await;
-        // let xyz = TileCoord { z: 0, x: 0, y: 0 };
-        // let etag = source.get_tile_etag(xyz, None).await;
         
         // The test passes if this compiles successfully
         assert!(true);
