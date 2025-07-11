@@ -116,7 +116,7 @@ impl<'a> DynTileSource<'a> {
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
         }
-        
+
         // Use pre-computed etag if available, otherwise compute it
         let etag = if let Some(pre_computed_etag) = tile.etag {
             EntityTag::new_strong(pre_computed_etag)
@@ -124,7 +124,7 @@ impl<'a> DynTileSource<'a> {
             let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
             EntityTag::new_strong(hash.to_string())
         };
-        
+
         if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_none_match {
             for expected_etag in expected_etags {
                 if etag.strong_eq(expected_etag) {
@@ -199,7 +199,7 @@ impl<'a> DynTileSource<'a> {
                         self.info, xyz.z
                     )))?;
                 }
-                (tiles.concat(), None)  // No etag for concatenated tiles
+                (tiles.concat(), None) // No etag for concatenated tiles
             }
         };
 
@@ -465,50 +465,72 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_mbtiles_precomputed_etag() {
-        use std::path::PathBuf;
-        use crate::mbtiles::MbtConfig;
         use crate::file_config::SourceConfigExtras;
-        
+        use crate::mbtiles::MbtConfig;
+        use std::path::PathBuf;
+
         // Test with FlatWithHash mbtiles - should provide pre-computed etag
         let path = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles");
         if path.exists() {
             let config = MbtConfig::default();
-            let source = config.new_sources("test_flat_with_hash".to_string(), path).await;
-            
+            let source = config
+                .new_sources("test_flat_with_hash".to_string(), path)
+                .await;
+
             if let Ok(source) = source {
                 let xyz = TileCoord { z: 6, x: 38, y: 19 };
-                
+
                 // Test that this source provides a pre-computed etag
                 let etag = source.get_tile_etag(xyz, None).await.unwrap();
-                assert!(etag.is_some(), "FlatWithHash mbtiles should provide pre-computed etag");
-                
+                assert!(
+                    etag.is_some(),
+                    "FlatWithHash mbtiles should provide pre-computed etag"
+                );
+
                 if let Some(etag_value) = etag {
                     // The etag should be a non-empty string
-                    assert!(!etag_value.is_empty(), "Pre-computed etag should not be empty");
+                    assert!(
+                        !etag_value.is_empty(),
+                        "Pre-computed etag should not be empty"
+                    );
                     // For this specific tile, we know the expected hash from the pool tests
-                    assert_eq!(etag_value, "80EE46337AC006B6BD14B4FA4D6E2EF9", "Pre-computed etag should match expected hash");
+                    assert_eq!(
+                        etag_value, "80EE46337AC006B6BD14B4FA4D6E2EF9",
+                        "Pre-computed etag should match expected hash"
+                    );
                 }
             }
         }
-        
-        // Test with Normalized mbtiles - should provide pre-computed etag  
+
+        // Test with Normalized mbtiles - should provide pre-computed etag
         let path = PathBuf::from("../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles");
         if path.exists() {
             let config = MbtConfig::default();
-            let source = config.new_sources("test_normalized".to_string(), path).await;
-            
+            let source = config
+                .new_sources("test_normalized".to_string(), path)
+                .await;
+
             if let Ok(source) = source {
                 let xyz = TileCoord { z: 0, x: 0, y: 0 };
-                
+
                 // Test that this source provides a pre-computed etag
                 let etag = source.get_tile_etag(xyz, None).await.unwrap();
-                assert!(etag.is_some(), "Normalized mbtiles should provide pre-computed etag");
-                
+                assert!(
+                    etag.is_some(),
+                    "Normalized mbtiles should provide pre-computed etag"
+                );
+
                 if let Some(etag_value) = etag {
                     // The etag should be a non-empty string
-                    assert!(!etag_value.is_empty(), "Pre-computed etag should not be empty");
+                    assert!(
+                        !etag_value.is_empty(),
+                        "Pre-computed etag should not be empty"
+                    );
                     // For this specific tile, we know the expected hash from the pool tests
-                    assert_eq!(etag_value, "1578fdca522831a6435f7795586c235b", "Pre-computed etag should match expected hash");
+                    assert_eq!(
+                        etag_value, "1578fdca522831a6435f7795586c235b",
+                        "Pre-computed etag should match expected hash"
+                    );
                 }
             }
         }
@@ -516,19 +538,19 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_http_response_with_precomputed_etag() {
-        use std::path::PathBuf;
-        use crate::mbtiles::MbtConfig;
         use crate::file_config::SourceConfigExtras;
-        
+        use crate::mbtiles::MbtConfig;
+        use std::path::PathBuf;
+
         // Test that HTTP response uses pre-computed etag instead of computing one
         let path = PathBuf::from("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles");
         if path.exists() {
             let config = MbtConfig::default();
             let source = config.new_sources("test_http_etag".to_string(), path).await;
-            
+
             if let Ok(source) = source {
                 let sources = TileSources::new(vec![vec![source]]);
-                
+
                 let src = DynTileSource::new(
                     &sources,
                     "test_http_etag",
@@ -538,20 +560,27 @@ mod tests {
                     None,
                     None,
                     None,
-                ).unwrap();
-                
+                )
+                .unwrap();
+
                 let xyz = TileCoord { z: 6, x: 38, y: 19 };
                 let resp = src.get_http_response(xyz).await.unwrap();
-                
+
                 // Check that response has an etag header
                 let etag_header = resp.headers().get(ETAG);
-                assert!(etag_header.is_some(), "HTTP response should have etag header");
-                
+                assert!(
+                    etag_header.is_some(),
+                    "HTTP response should have etag header"
+                );
+
                 if let Some(etag_header) = etag_header {
                     let etag_str = etag_header.to_str().unwrap();
                     // The etag should be quoted and contain our expected hash
-                    assert!(etag_str.contains("80EE46337AC006B6BD14B4FA4D6E2EF9"), 
-                           "HTTP etag should contain pre-computed hash, got: {}", etag_str);
+                    assert!(
+                        etag_str.contains("80EE46337AC006B6BD14B4FA4D6E2EF9"),
+                        "HTTP etag should contain pre-computed hash, got: {}",
+                        etag_str
+                    );
                 }
             }
         }

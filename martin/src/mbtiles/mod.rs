@@ -226,10 +226,10 @@ mod tests {
     async fn test_mbt_source_etag() {
         // Test that MbtSource provides pre-computed etag for supported types
         // and None for flat types
-        
+
         // This test would require actual mbtiles files with different types
         // For now, we'll just verify that the method exists and compiles
-        
+
         // The test passes if this compiles successfully
         assert!(true);
     }

@@ -199,7 +199,11 @@ pub struct Tile {
 impl Tile {
     #[must_use]
     pub fn new(data: TileData, info: TileInfo) -> Self {
-        Self { data, info, etag: None }
+        Self {
+            data,
+            info,
+            etag: None,
+        }
     }
 
     #[must_use]
