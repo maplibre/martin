@@ -55,6 +55,12 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
+# Run biomejs on the dashboard (martin/martin-ui)
+[working-directory: 'martin/martin-ui']
+biomejs-martin-ui:
+    npm run format
+    npm run lint
+
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
 
@@ -168,11 +174,6 @@ env-info:
     npm --version
     node --version
 
-# Run biomejs on the dashboard (martin/martin-ui)
-[working-directory: 'martin/martin-ui']
-biomejs-martin-ui:
-    npm run format
-    npm run lint
 
 # Run benchmark tests showing a flamegraph
 flamegraph:
@@ -351,6 +352,56 @@ type-check:
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+
+# Validate that all required development tools are installed
+validate-tools:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Validating development tools..."
+
+    # Check essential tools
+    missing_tools=()
+
+    if ! command -v jq >/dev/null 2>&1; then
+        missing_tools+=("jq")
+    fi
+
+    if ! command -v file >/dev/null 2>&1; then
+        missing_tools+=("file")
+    fi
+
+    if ! command -v curl >/dev/null 2>&1; then
+        missing_tools+=("curl")
+    fi
+
+    if ! command -v grep >/dev/null 2>&1; then
+        missing_tools+=("grep")
+    fi
+
+    if ! command -v sqlite3 >/dev/null 2>&1; then
+        missing_tools+=("sqlite3")
+    fi
+
+    if ! command -v sqldiff >/dev/null 2>&1; then
+        missing_tools+=("sqldiff")
+    fi
+
+    # Check Linux-specific tools
+    if [[ "$OSTYPE" == "linux"* ]]; then
+        if ! command -v ogrmerge.py >/dev/null 2>&1; then
+            missing_tools+=("ogrmerge.py")
+        fi
+    fi
+
+    # Report results
+    if [[ ${#missing_tools[@]} -eq 0 ]]; then
+        echo "✓ All required tools are installed"
+    else
+        echo "✗ Missing: ${missing_tools[*]}"
+        echo "Install: sudo apt install -y jq file gdal-bin sqlite3-tools (Ubuntu)"
+        echo "Install: brew install jq file gdal sqlite (macOS)"
+        exit 1
+    fi
 
 # Make sure the git repo has no uncommitted changes
 [private]
