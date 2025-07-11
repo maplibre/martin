@@ -23,6 +23,7 @@ Use [rustaceanvim](https://github.com/mrcjkb/rustaceanvim)
 ### Emacs
 
 Use either
+
 * [rustic](https://github.com/brotzeit/rustic) or
 * [rust-mode](https://github.com/rust-lang/rust-mode)
 
