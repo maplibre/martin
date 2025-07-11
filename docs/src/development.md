@@ -1,5 +1,26 @@
 # Development
 
+## docker
+
+Install [docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/)
+
+## just
+
+Install [Just](https://github.com/casey/just#readme):
+
+```bash, ignore
+cargo install just --locked
+just validate-tools  # verify setup
+```
+
+## Other Required tools
+
+We provide a simple command to check that all requirements are setup
+
+```bash, ignore
+just validate-tools
+```
+
 ## Git setup
 
 The recommended setup for both core and casual contributors is to **always** create a fork
@@ -59,7 +80,52 @@ git remote add origin https://github.com/nyurik/martin.git
 
 </details>
 
-### Contributing New Code
+## Quick Start
+
+```bash
+# Clone and setup remotes
+git clone -o upstream https://github.com/maplibre/martin.git
+cd martin
+git remote add origin https://github.com/YOUR_USERNAME/martin.git
+
+# Install tools
+cargo install just --locked
+just validate-tools
+
+# Start development
+just start  # test database
+just run    # Martin server
+just test   # verify setup
+```
+
+## Working with Just
+
+```bash
+just help        # common commands
+just --list      # all commands
+just validate-tools  # check setup
+```
+
+### Development workflow
+
+```bash
+just start       # start test database
+just run         # start Martin server
+just test        # run all tests
+just fmt         # format code
+just clippy      # lint code
+just book        # build documentation
+just stop        # stop test database
+```
+
+### Pass arguments to commands
+
+```bash
+just test-cargo -- --test integration_test
+just run --config /path/to/config.yaml
+```
+
+## Contributing New Code
 
 ```bash
 # switch to main branch (tracking upstream/main), and pull the latest changes
@@ -80,34 +146,6 @@ git push -u origin my-new-feature
 
 # Click the link shown by `git push` in the terminal to create a pull request
 # from your fork using the GitHub web interface
-```
-
-## Installed tools and libraries
-
-Install a few required libs and tools:
-
-```bash, ignore
-# For Ubuntu-based distros
-sudo apt update
-sudo apt install -y build-essential pkg-config jq file gdal-bin
-```
-
-### docker
-
-Install [docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/)
-
-```bash, ignore
-# Ubuntu-based distros have an older version that might also work:
-sudo apt install -y  docker.io docker-compose
-```
-
-### just
-
-Install [Just](https://github.com/casey/just#readme) (improved makefile processor). Note that some Linux and Homebrew
-distros have outdated versions of Just, so you should install it from source:
-
-```bash, ignore
-cargo install just --locked
 ```
 
 When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified.
