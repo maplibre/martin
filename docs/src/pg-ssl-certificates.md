@@ -205,43 +205,6 @@ martin --ca-root-file ~/certs/ca-cert.pem \
        "postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full"
 ```
 
-## Cloud Providers
-
-### AWS RDS
-
-```bash
-# Download RDS CA certificate
-curl -o ~/certs/rds-ca-2019-root.pem https://s3.amazonaws.com/rds-downloads/rds-ca-2019-root.pem
-
-# Configure Martin
-export PGSSLROOTCERT=~/certs/rds-ca-2019-root.pem
-export DATABASE_URL="postgresql://username:password@rds-endpoint:5432/dbname?sslmode=verify-full"
-martin
-```
-
-### Google Cloud SQL
-
-```bash
-# Download CA certificate from console
-export PGSSLROOTCERT=~/certs/server-ca.pem
-export PGSSLCERT=~/certs/client-cert.pem
-export PGSSLKEY=~/certs/client-key.pem
-export DATABASE_URL="postgresql://username:password@google-cloud-ip:5432/dbname?sslmode=verify-full"
-martin
-```
-
-### Azure Database for PostgreSQL
-
-```bash
-# Download Azure CA certificate
-curl -o ~/certs/azure-ca.pem https://www.digicert.com/CACerts/BaltimoreCyberTrustRoot.crt.pem
-
-# Configure Martin
-export PGSSLROOTCERT=~/certs/azure-ca.pem
-export DATABASE_URL="postgresql://username:password@azure-server:5432/dbname?sslmode=verify-full"
-martin
-```
-
 ## Troubleshooting
 
 You can get more context via the following commands:
