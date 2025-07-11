@@ -80,6 +80,31 @@ git remote add origin https://github.com/nyurik/martin.git
 
 </details>
 
+## Contributing New Code
+
+```bash
+# switch to main branch (tracking upstream/main), and pull the latest changes
+git switch main
+git fetch upstream
+
+# create a new branch for your work
+git switch -c my-new-feature
+
+# edit files, and commit changes
+# '-a' will add all modified files
+# `-m` allows you to add a short commit message
+git commit -a -m "My new feature"
+
+# push the changes to your own fork
+# '-u' will track your local branch with the remote
+git push -u origin my-new-feature
+
+# Click the link shown by `git push` in the terminal to create a pull request
+# from your fork using the GitHub web interface
+```
+
+When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified.
+
 ## Quick Start
 
 ```bash
@@ -125,28 +150,4 @@ just test-cargo -- --test integration_test
 just run --config /path/to/config.yaml
 ```
 
-## Contributing New Code
 
-```bash
-# switch to main branch (tracking upstream/main), and pull the latest changes
-git switch main
-git fetch upstream
-
-# create a new branch for your work
-git switch -c my-new-feature
-
-# edit files, and commit changes
-# '-a' will add all modified files
-# `-m` allows you to add a short commit message
-git commit -a -m "My new feature"
-
-# push the changes to your own fork
-# '-u' will track your local branch with the remote
-git push -u origin my-new-feature
-
-# Click the link shown by `git push` in the terminal to create a pull request
-# from your fork using the GitHub web interface
-```
-
-When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified.
-Run `just` to see all available commands.
