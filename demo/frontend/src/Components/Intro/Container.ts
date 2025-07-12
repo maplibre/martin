@@ -1,6 +1,6 @@
-import styled from 'styled-components';
+import styled from "styled-components";
 
-import logoMartin from './logo_martin.svg';
+import logoMartin from "./logo_martin.svg";
 
 export default styled.div`
   display: flex;

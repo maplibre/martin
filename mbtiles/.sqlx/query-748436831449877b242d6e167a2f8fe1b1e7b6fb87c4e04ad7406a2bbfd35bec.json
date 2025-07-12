@@ -1,6 +1,5 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -24,15 +23,11 @@
         "type_info": "Blob"
       }
     ],
+    "nullable": [true, true, true, true],
     "parameters": {
       "Right": 0
-    },
-    "nullable": [
-      true,
-      true,
-      true,
-      true
-    ]
+    }
   },
-  "hash": "748436831449877b242d6e167a2f8fe1b1e7b6fb87c4e04ad7406a2bbfd35bec"
+  "hash": "748436831449877b242d6e167a2f8fe1b1e7b6fb87c4e04ad7406a2bbfd35bec",
+  "query": "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1"
 }
