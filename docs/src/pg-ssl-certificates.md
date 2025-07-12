@@ -36,11 +36,12 @@ For a fuller explanation of the different tradeoffs, refer to the [PostgreSQL SS
 ## Generating Certificates
 
 For basic SSL encryption, you need:
+
 - `server-cert.pem` - PostgreSQL server certificate
 - `server-key.pem` - PostgreSQL server private key
 - `ca-cert.pem` - Certificate Authority certificate
 
-```
+```raw
 ┌─────────────────┐    SSL/TLS     ┌─────────────────┐
 │     Martin      │◄─────────────►│   PostgreSQL    │
 └─────────────────┘   verify-full  └─────────────────┘
