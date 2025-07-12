@@ -1,48 +1,48 @@
 import type { HistogramBucket } from "./prometheus";
 
 export interface CatalogSchema {
-	tiles: { readonly [tile_id: string]: TileSource };
-	sprites: { readonly [sprite_collection_id: string]: SpriteCollection };
-	fonts: { readonly [name: string]: Font };
-	styles: { readonly [name: string]: Style };
+  tiles: { readonly [tile_id: string]: TileSource };
+  sprites: { readonly [sprite_collection_id: string]: SpriteCollection };
+  fonts: { readonly [name: string]: Font };
+  styles: { readonly [name: string]: Style };
 }
 
 export interface Font {
-	// the group of fonts that are used in the application
-	// Example
-	// - "Roboto Medium" has the family of Roboto
-	// - "Roboto Condensed Medium Italic" has family "Roboto Condensed"
-	family: string;
-	// if the style is Medium, Bold, Italic, Bold Italic, ..
-	style: string;
-	format?: "otf" | "ttf" | "ttc"; // todo: make this provided as required upstream
-	start: number; // todo: what is this?
-	end: number; // todo: what is this?
-	glyphs: number;
-	lastModifiedAt?: Date; // todo: make this provided as required upstream
+  // the group of fonts that are used in the application
+  // Example
+  // - "Roboto Medium" has the family of Roboto
+  // - "Roboto Condensed Medium Italic" has family "Roboto Condensed"
+  family: string;
+  // if the style is Medium, Bold, Italic, Bold Italic, ..
+  style: string;
+  format?: "otf" | "ttf" | "ttc"; // todo: make this provided as required upstream
+  start: number; // todo: what is this?
+  end: number; // todo: what is this?
+  glyphs: number;
+  lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
 export interface Style {
-	path: string;
-	type?: "vector" | "raster" | "hybrid"; // todo: make this provided as required upstream
-	versionHash?: string; // todo: make this provided as required upstream
-	layerCount?: number; // todo: make this provided as required upstream
-	colors?: readonly string[]; // todo: make this provided as required upstream
-	lastModifiedAt?: Date; // todo: make this provided as required upstream
+  path: string;
+  type?: "vector" | "raster" | "hybrid"; // todo: make this provided as required upstream
+  versionHash?: string; // todo: make this provided as required upstream
+  layerCount?: number; // todo: make this provided as required upstream
+  colors?: readonly string[]; // todo: make this provided as required upstream
+  lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 /**
  * Represents a data source in the data catalog.
  */
 export interface TileSource {
-	// application/x-protobuf, image/...
-	content_type: string;
-	// for example gzip
-	content_encoding?: string;
-	name?: string;
-	description?: string;
-	attribution?: string;
-	layerCount?: number; // todo: make this provided as required upstream
-	lastModifiedAt?: Date; // todo: make this provided as required upstream
+  // application/x-protobuf, image/...
+  content_type: string;
+  // for example gzip
+  content_encoding?: string;
+  name?: string;
+  description?: string;
+  attribution?: string;
+  layerCount?: number; // todo: make this provided as required upstream
+  lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
 /**
@@ -50,20 +50,20 @@ export interface TileSource {
  * This is a placeholder type and might need to be adjusted based on the actual sprite data.
  */
 export interface SpriteCollection {
-	images: readonly string[];
-	sizeInBytes?: number; // todo: make this provided as required upstream
-	lastModifiedAt?: Date; // todo: make this provided as required upstream
+  images: readonly string[];
+  sizeInBytes?: number; // todo: make this provided as required upstream
+  lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
 export interface EndpointAnalytics {
-	averageRequestDurationMs: number;
-	requestCount: number;
-	histogram: HistogramBucket[];
+  averageRequestDurationMs: number;
+  requestCount: number;
+  histogram: HistogramBucket[];
 }
 
 export interface AnalyticsData {
-	sprites: EndpointAnalytics;
-	tiles: EndpointAnalytics;
-	fonts: EndpointAnalytics;
-	styles: EndpointAnalytics;
+  sprites: EndpointAnalytics;
+  tiles: EndpointAnalytics;
+  fonts: EndpointAnalytics;
+  styles: EndpointAnalytics;
 }
