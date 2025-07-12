@@ -150,12 +150,15 @@ export function aggregateHistogramGroups(
         // => short-circuiting by setting the result to the histogram would be incorrect
         result[group] = [];
       }
-      for (const bucket of histograms[endpoint]) {
-        const existingBucket = result[group].find((b) => b.le === bucket.le);
-        if (existingBucket) {
-          existingBucket.count += bucket.count;
-        } else {
-          result[group].push(bucket);
+      // Check if histogram data exists for this endpoint
+      if (histograms[endpoint]) {
+        for (const bucket of histograms[endpoint]) {
+          const existingBucket = result[group].find((b) => b.le === bucket.le);
+          if (existingBucket) {
+            existingBucket.count += bucket.count;
+          } else {
+            result[group].push(bucket);
+          }
         }
       }
     }

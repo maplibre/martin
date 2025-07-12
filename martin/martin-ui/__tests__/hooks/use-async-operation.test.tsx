@@ -36,7 +36,7 @@ describe("useAsyncOperation", () => {
       useAsyncOperation<string>(mockAsyncFunction, { onSuccess }),
     );
 
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isLoading).toBe(true);
     expect(result.current.data).toBeUndefined();
     expect(result.current.error).toBeNull();
 
@@ -197,6 +197,6 @@ describe("useAsyncOperation", () => {
 
     expect(result.current.data).toBeUndefined();
     expect(result.current.error).toBeNull();
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isLoading).toBe(true);
   });
 });

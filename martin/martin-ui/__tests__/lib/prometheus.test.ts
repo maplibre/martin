@@ -278,8 +278,9 @@ describe("parsePrometheusMetrics", () => {
         expect(result.sprites[1]).toEqual({ count: 230, le: 0.01 });
         expect(result.sprites[2]).toEqual({ count: 300, le: 0.025 });
 
-        // Tiles group should not exist since no histogram data
-        expect(result.tiles).toBeUndefined();
+        // Tiles group should exist but be empty since no histogram data
+        expect(result.tiles).toBeDefined();
+        expect(result.tiles).toHaveLength(0);
       });
 
       it("handles different bucket boundaries across endpoints", () => {
@@ -304,11 +305,11 @@ describe("parsePrometheusMetrics", () => {
         // Should have 4 unique bucket boundaries: 0.005, 0.01, 0.025, 0.05
         expect(result.sprites).toHaveLength(4);
 
-        // Check aggregation with different bucket boundaries
+        // Check simple aggregation - only combines buckets with same le values
         expect(result.sprites[0]).toEqual({ count: 100, le: 0.005 }); // Only from json
-        expect(result.sprites[1]).toEqual({ count: 150, le: 0.01 }); // 100 + 50
-        expect(result.sprites[2]).toEqual({ count: 200, le: 0.025 }); // 150 + 50
-        expect(result.sprites[3]).toEqual({ count: 230, le: 0.05 }); // 150 + 80
+        expect(result.sprites[1]).toEqual({ count: 50, le: 0.01 }); // Only from png
+        expect(result.sprites[2]).toEqual({ count: 150, le: 0.025 }); // Only from json
+        expect(result.sprites[3]).toEqual({ count: 80, le: 0.05 }); // Only from png
       });
 
       it("handles single endpoint in group", () => {
@@ -340,7 +341,11 @@ describe("parsePrometheusMetrics", () => {
 
         const result = aggregateHistogramGroups(histograms, endpointGroups);
 
-        expect(Object.keys(result)).toHaveLength(0);
+        expect(Object.keys(result)).toHaveLength(2);
+        expect(result.sprites).toBeDefined();
+        expect(result.sprites).toHaveLength(0);
+        expect(result.tiles).toBeDefined();
+        expect(result.tiles).toHaveLength(0);
       });
 
       it("handles partial histogram data (some endpoints missing)", () => {

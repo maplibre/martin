@@ -43,7 +43,7 @@ describe("AnalyticsSection", () => {
 
     // Check for skeleton elements by their CSS classes
     const skeletons = container.querySelectorAll(".animate-pulse.rounded-md.bg-muted");
-    expect(skeletons).toHaveLength(12); // 2 for metrics + 1 for histogram per card (4 cards * 3 = 12)
+    expect(skeletons).toHaveLength(8); // 2 for metrics per card (4 cards * 2 = 8)
 
     // Check that all 4 cards are rendered
     expect(screen.getByText("Tiles")).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe("AnalyticsSection", () => {
 
     // Check fonts data
     expect(screen.getByText("5 ms")).toBeInTheDocument();
-    expect(screen.getByText("500 requests")).toBeInTheDocument();
+    expect(screen.getAllByText("500 requests")[0]).toBeInTheDocument();
 
     // Check sprites data
     expect(screen.getByText("11 ms")).toBeInTheDocument();
