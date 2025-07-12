@@ -78,7 +78,7 @@ export function MiniHistogram({ histogram, className = "" }: MiniHistogramProps)
               />
             </TooltipTrigger>
             <TooltipContent>
-              <div className="text-xs">
+              <div className="text-xs text-center">
                 <div className="font-medium">{bar.requestCount.toLocaleString()} requests</div>
                 <div className="text-muted-foreground">{bar.timeRange}</div>
               </div>
