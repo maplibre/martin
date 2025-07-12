@@ -151,55 +151,24 @@ export function aggregateHistogramGroups(
 	const result: Record<string, HistogramBucket[]> = {};
 
 	for (const [group, endpoints] of Object.entries(endpointGroups)) {
-		// Find all histograms that belong to this group
-		const groupHistograms: HistogramBucket[][] = [];
 		for (const endpoint of endpoints) {
-			if (histograms[endpoint]) {
-				groupHistograms.push(histograms[endpoint]);
+			if (!result[group]) {
+				// due to etags, a multiple statuses are relevant.
+				// because they are not merged in previous steps, we have to do this here
+				// => short-circuiting by setting the result to the histogram would be incorrect
+				result[group] = [];
 			}
-		}
-
-		if (groupHistograms.length === 0) {
-			// No histogram data for this group
-			continue;
-		}
-
-		// Collect all unique bucket boundaries (le values)
-		const allBuckets = new Set<number>();
-		for (const hist of groupHistograms) {
-			for (const bucket of hist) {
-				allBuckets.add(bucket.le);
-			}
-		}
-
-		// Sort bucket boundaries
-		const sortedBuckets = Array.from(allBuckets).sort((a, b) => a - b);
-
-		// Create aggregated histogram
-		const aggregatedBuckets: HistogramBucket[] = [];
-
-		// For each bucket boundary, sum up counts from all histograms
-		for (const le of sortedBuckets) {
-			let bucketCount = 0;
-
-			for (const hist of groupHistograms) {
-				// Find the cumulative count up to this le value
-				let cumulativeCount = 0;
-				for (const bucket of hist) {
-					if (bucket.le <= le) {
-						cumulativeCount = bucket.count;
-					} else {
-						break;
-					}
+			for (const bucket of histograms[endpoint]) {
+				const existingBucket = result[group].find((b) => b.le === bucket.le);
+				if (existingBucket) {
+					existingBucket.count += bucket.count;
+				} else {
+					result[group].push(bucket);
 				}
-				bucketCount += cumulativeCount;
 			}
-
-			aggregatedBuckets.push({ count: bucketCount, le });
 		}
-
-		result[group] = aggregatedBuckets;
 	}
+	console.assert(false);
 
 	return result;
 }
