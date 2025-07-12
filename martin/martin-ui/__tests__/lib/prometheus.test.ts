@@ -4,7 +4,6 @@ import { describe, expect, it } from "@jest/globals";
 import {
 	aggregateEndpointGroups,
 	aggregateHistogramGroups,
-	calculateHistogramPercentiles,
 	parseCompletePrometheusMetrics,
 	parsePrometheusHistogram,
 	parsePrometheusMetrics,
@@ -126,37 +125,37 @@ describe("parsePrometheusMetrics", () => {
 			const metrics = [
 				"# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
 				"# TYPE martin_http_requests_duration_seconds histogram",
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.005"} 23004',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.01"} 23045',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.025"} 23228',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.05"} 23410',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.1"} 23637',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.25"} 23722',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.5"} 23735',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="1"} 23746',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="2.5"} 23747',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="5"} 23747',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="10"} 23747',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="+Inf"} 23747',
-				'martin_http_requests_duration_seconds_sum{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 61.49839745299979',
-				'martin_http_requests_duration_seconds_count{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 23747',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.005"} 1',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.01"} 2',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.025"} 4',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.05"} 5',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.1"} 5',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.25"} 10',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.5"} 15',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="1"} 15',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="2.5"} 20',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="5"} 20',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="10"} 20',
+				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="+Inf"} 20',
+				'martin_http_requests_duration_seconds_sum{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 20',
+				'martin_http_requests_duration_seconds_count{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 20',
 			].join("\n");
-
 			const histogram = parsePrometheusHistogram(metrics);
 			const tileEndpoint = "/{source_ids}/{z}/{x}/{y}";
 
 			expect(histogram[tileEndpoint]).toBeDefined();
-			expect(histogram[tileEndpoint].buckets).toHaveLength(11); // All buckets except +Inf
-			expect(histogram[tileEndpoint].buckets[0]).toEqual({
-				count: 23004,
-				le: 0.005,
-			});
-			expect(histogram[tileEndpoint].buckets[10]).toEqual({
-				count: 23747,
-				le: 10,
-			});
-			expect(histogram[tileEndpoint].sum).toBe(61.49839745299979);
-			expect(histogram[tileEndpoint].count).toBe(23747);
+			expect(histogram[tileEndpoint]).toHaveLength(11); // All buckets except +Inf
+
+			const expectedCounts = [1, 2, 4, 5, 5, 10, 15, 15, 20, 20, 20];
+			expect(histogram[tileEndpoint].map((bucket) => bucket.count)).toEqual(
+				expectedCounts,
+			);
+			const expectedLe = [
+				0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
+			];
+			expect(histogram[tileEndpoint].map((bucket) => bucket.le)).toEqual(
+				expectedLe,
+			);
 		});
 
 		it("handles multiple endpoints with histograms", () => {
@@ -176,10 +175,8 @@ describe("parsePrometheusMetrics", () => {
 			const histogram = parsePrometheusHistogram(metrics);
 
 			expect(Object.keys(histogram)).toHaveLength(2);
-			expect(histogram["/sprite/{source_ids}.json"].buckets).toHaveLength(2);
-			expect(histogram["/style/{style_id}"].buckets).toHaveLength(2);
-			expect(histogram["/sprite/{source_ids}.json"].sum).toBe(2.5);
-			expect(histogram["/style/{style_id}"].count).toBe(100);
+			expect(histogram["/sprite/{source_ids}.json"]).toHaveLength(2);
+			expect(histogram["/style/{style_id}"]).toHaveLength(2);
 		});
 
 		it("ignores non-histogram metrics", () => {
@@ -208,175 +205,77 @@ describe("parsePrometheusMetrics", () => {
 			const histogram = parsePrometheusHistogram(metrics);
 
 			expect(histogram["/incomplete"]).toBeDefined();
-			expect(histogram["/incomplete"].buckets).toHaveLength(1);
-			expect(histogram["/incomplete"].sum).toBe(1.0);
-			expect(histogram["/incomplete"].count).toBeUndefined();
-		});
-	});
-
-	describe("calculateHistogramPercentiles", () => {
-		it("calculates percentiles correctly from histogram buckets", () => {
-			const histogram = {
-				buckets: [
-					{ count: 100, le: 0.005 },
-					{ count: 200, le: 0.01 },
-					{ count: 300, le: 0.025 },
-					{ count: 400, le: 0.05 },
-					{ count: 450, le: 0.1 },
-					{ count: 480, le: 0.25 },
-					{ count: 490, le: 0.5 },
-					{ count: 500, le: 1 },
-				],
-				count: 500,
-				sum: 25.0,
-			};
-
-			const percentiles = calculateHistogramPercentiles(
-				histogram,
-				[50, 95, 99],
-			);
-
-			// P50 should be around 0.025 (300/500 = 60%, so 50% is between 0.01 and 0.025)
-			expect(percentiles.p50).toBeGreaterThan(0.01);
-			expect(percentiles.p50).toBeLessThanOrEqual(0.025);
-
-			// P95 should be around 0.25 (480/500 = 96%, so 95% is between 0.1 and 0.25)
-			expect(percentiles.p95).toBeGreaterThan(0.1);
-			expect(percentiles.p95).toBeLessThanOrEqual(0.25);
-
-			// P99 should be around 0.5 (490/500 = 98%, so 99% is between 0.25 and 0.5)
-			expect(percentiles.p99).toBeGreaterThan(0.25);
-			expect(percentiles.p99).toBeLessThanOrEqual(1.0);
-		});
-
-		it("handles edge cases for percentile calculation", () => {
-			const histogram = {
-				buckets: [{ count: 1000, le: 0.1 }],
-				count: 1000,
-				sum: 50.0,
-			};
-
-			const percentiles = calculateHistogramPercentiles(
-				histogram,
-				[50, 95, 99],
-			);
-
-			// All requests are in the first bucket, so all percentiles should be <= 0.1
-			expect(percentiles.p50).toBeLessThanOrEqual(0.1);
-			expect(percentiles.p95).toBeLessThanOrEqual(0.1);
-			expect(percentiles.p99).toBeLessThanOrEqual(0.1);
-		});
-
-		it("returns 0 for empty histogram", () => {
-			const histogram = {
-				buckets: [],
-				count: 0,
-				sum: 0,
-			};
-
-			const percentiles = calculateHistogramPercentiles(
-				histogram,
-				[50, 95, 99],
-			);
-
-			expect(percentiles.p50).toBe(0);
-			expect(percentiles.p95).toBe(0);
-			expect(percentiles.p99).toBe(0);
+			expect(histogram["/incomplete"]).toHaveLength(1);
 		});
 	});
 
 	describe("Real world histogram data", () => {
+		const sampleMetrics = [
+			"# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
+			"# TYPE martin_http_requests_duration_seconds histogram",
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.005"} 23004',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.01"} 23045',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.025"} 23228',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.05"} 23410',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.1"} 23637',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.25"} 23722',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.5"} 23735',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="1"} 23746',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="2.5"} 23747',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="5"} 23747',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="10"} 23747',
+			'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="+Inf"} 23747',
+			'martin_http_requests_duration_seconds_sum{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 61.49839745299979',
+			'martin_http_requests_duration_seconds_count{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 23747',
+		].join("\n");
 		it("parses the provided sample histogram data correctly", () => {
-			const sampleMetrics = [
-				"# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
-				"# TYPE martin_http_requests_duration_seconds histogram",
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.005"} 23004',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.01"} 23045',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.025"} 23228',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.05"} 23410',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.1"} 23637',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.25"} 23722',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.5"} 23735',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="1"} 23746',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="2.5"} 23747',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="5"} 23747',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="10"} 23747',
-				'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="+Inf"} 23747',
-				'martin_http_requests_duration_seconds_sum{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 61.49839745299979',
-				'martin_http_requests_duration_seconds_count{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 23747',
-			].join("\n");
-
 			const histogram = parsePrometheusHistogram(sampleMetrics);
 			const tileEndpoint = "/{source_ids}/{z}/{x}/{y}";
 
 			expect(histogram[tileEndpoint]).toBeDefined();
-			expect(histogram[tileEndpoint].count).toBe(23747);
-			expect(histogram[tileEndpoint].sum).toBeCloseTo(61.49839745299979);
-
-			// Calculate percentiles for the sample data
-			const percentiles = calculateHistogramPercentiles(
-				histogram[tileEndpoint],
-				[50, 95, 99],
+			const expectedCounts = [
+				23004, 23045, 23228, 23410, 23637, 23722, 23735, 23746, 23747, 23747,
+				23747,
+			];
+			expect(histogram[tileEndpoint].map((hist) => hist.count)).toEqual(
+				expectedCounts,
 			);
-
-			// Most requests (23004/23747 = 97%) are under 5ms, so percentiles should be very low
-			expect(percentiles.p50).toBeLessThan(0.005);
-			expect(percentiles.p95).toBeLessThan(0.1);
-			expect(percentiles.p99).toBeLessThan(0.25);
-
-			// Verify average request duration
-			const avgDurationMs =
-				(histogram[tileEndpoint].sum! / histogram[tileEndpoint].count!) * 1000;
-			expect(avgDurationMs).toBeCloseTo(2.59, 1); // ~2.59ms average
+			const expectedLe = [
+				0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
+			];
+			expect(histogram[tileEndpoint].map((hist) => hist.le)).toEqual(
+				expectedLe,
+			);
 		});
 
 		describe("parseCompletePrometheusMetrics", () => {
 			it("parses all metrics types (sum, count, histograms) in one call", () => {
-				const metrics = [
-					"# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
-					"# TYPE martin_http_requests_duration_seconds histogram",
-					'martin_http_requests_duration_seconds_bucket{endpoint="/test",method="GET",status="200",le="0.1"} 50',
-					'martin_http_requests_duration_seconds_bucket{endpoint="/test",method="GET",status="200",le="0.5"} 80',
-					'martin_http_requests_duration_seconds_bucket{endpoint="/test",method="GET",status="200",le="+Inf"} 100',
-					'martin_http_requests_duration_seconds_sum{endpoint="/test",method="GET",status="200"} 5.0',
-					'martin_http_requests_duration_seconds_count{endpoint="/test",method="GET",status="200"} 100',
-				].join("\n");
-
-				const result = parseCompletePrometheusMetrics(metrics);
+				const result = parseCompletePrometheusMetrics(sampleMetrics);
 
 				// Check sum and count are parsed
-				expect(result.sum["/test"]).toBe(5.0);
-				expect(result.count["/test"]).toBe(100);
+				expect(result.sum["/{source_ids}/{z}/{x}/{y}"]).toBe(61.49839745299979);
+				expect(result.count["/{source_ids}/{z}/{x}/{y}"]).toBe(23747);
 
 				// Check histogram is parsed
-				expect(result.histograms["/test"]).toBeDefined();
-				expect(result.histograms["/test"].buckets).toHaveLength(2);
-				expect(result.histograms["/test"].sum).toBe(5.0);
-				expect(result.histograms["/test"].count).toBe(100);
+				expect(result.histograms).toEqual(
+					parsePrometheusHistogram(sampleMetrics),
+				);
 			});
 		});
 
 		describe("aggregateHistogramGroups", () => {
 			it("aggregates multiple endpoints into a single group histogram", () => {
 				const histograms = {
-					"/sprite/{source_ids}.json": {
-						buckets: [
-							{ le: 0.005, count: 100 },
-							{ le: 0.01, count: 150 },
-							{ le: 0.025, count: 180 },
-						],
-						sum: 1.5,
-						count: 180,
-					},
-					"/sprite/{source_ids}.png": {
-						buckets: [
-							{ le: 0.005, count: 50 },
-							{ le: 0.01, count: 80 },
-							{ le: 0.025, count: 120 },
-						],
-						sum: 1.0,
-						count: 120,
-					},
+					"/sprite/{source_ids}.json": [
+						{ count: 100, le: 0.005 },
+						{ count: 150, le: 0.01 },
+						{ count: 180, le: 0.025 },
+					],
+					"/sprite/{source_ids}.png": [
+						{ count: 50, le: 0.005 },
+						{ count: 80, le: 0.01 },
+						{ count: 120, le: 0.025 },
+					],
 				};
 
 				const endpointGroups = {
@@ -387,16 +286,12 @@ describe("parsePrometheusMetrics", () => {
 				const result = aggregateHistogramGroups(histograms, endpointGroups);
 
 				expect(result.sprites).toBeDefined();
-				expect(result.sprites.buckets).toHaveLength(3);
+				expect(result.sprites).toHaveLength(3);
 
 				// Buckets should be aggregated: 100+50=150, 150+80=230, 180+120=300
-				expect(result.sprites.buckets[0]).toEqual({ le: 0.005, count: 150 });
-				expect(result.sprites.buckets[1]).toEqual({ le: 0.01, count: 230 });
-				expect(result.sprites.buckets[2]).toEqual({ le: 0.025, count: 300 });
-
-				// Sum and count should be aggregated
-				expect(result.sprites.sum).toBe(2.5);
-				expect(result.sprites.count).toBe(300);
+				expect(result.sprites[0]).toEqual({ count: 150, le: 0.005 });
+				expect(result.sprites[1]).toEqual({ count: 230, le: 0.01 });
+				expect(result.sprites[2]).toEqual({ count: 300, le: 0.025 });
 
 				// Tiles group should not exist since no histogram data
 				expect(result.tiles).toBeUndefined();
@@ -404,22 +299,14 @@ describe("parsePrometheusMetrics", () => {
 
 			it("handles different bucket boundaries across endpoints", () => {
 				const histograms = {
-					"/sprite/{source_ids}.json": {
-						buckets: [
-							{ le: 0.005, count: 100 },
-							{ le: 0.025, count: 150 },
-						],
-						sum: 1.0,
-						count: 150,
-					},
-					"/sprite/{source_ids}.png": {
-						buckets: [
-							{ le: 0.01, count: 50 },
-							{ le: 0.05, count: 80 },
-						],
-						sum: 0.8,
-						count: 80,
-					},
+					"/sprite/{source_ids}.json": [
+						{ count: 100, le: 0.005 },
+						{ count: 150, le: 0.025 },
+					],
+					"/sprite/{source_ids}.png": [
+						{ count: 50, le: 0.01 },
+						{ count: 80, le: 0.05 },
+					],
 				};
 
 				const endpointGroups = {
@@ -430,25 +317,21 @@ describe("parsePrometheusMetrics", () => {
 
 				expect(result.sprites).toBeDefined();
 				// Should have 4 unique bucket boundaries: 0.005, 0.01, 0.025, 0.05
-				expect(result.sprites.buckets).toHaveLength(4);
+				expect(result.sprites).toHaveLength(4);
 
 				// Check aggregation with different bucket boundaries
-				expect(result.sprites.buckets[0]).toEqual({ le: 0.005, count: 100 }); // Only from json
-				expect(result.sprites.buckets[1]).toEqual({ le: 0.01, count: 150 }); // 100 + 50
-				expect(result.sprites.buckets[2]).toEqual({ le: 0.025, count: 200 }); // 150 + 50
-				expect(result.sprites.buckets[3]).toEqual({ le: 0.05, count: 230 }); // 150 + 80
+				expect(result.sprites[0]).toEqual({ count: 100, le: 0.005 }); // Only from json
+				expect(result.sprites[1]).toEqual({ count: 150, le: 0.01 }); // 100 + 50
+				expect(result.sprites[2]).toEqual({ count: 200, le: 0.025 }); // 150 + 50
+				expect(result.sprites[3]).toEqual({ count: 230, le: 0.05 }); // 150 + 80
 			});
 
 			it("handles single endpoint in group", () => {
 				const histograms = {
-					"/{source_ids}/{z}/{x}/{y}": {
-						buckets: [
-							{ le: 0.005, count: 1000 },
-							{ le: 0.01, count: 1200 },
-						],
-						sum: 5.0,
-						count: 1200,
-					},
+					"/{source_ids}/{z}/{x}/{y}": [
+						{ count: 1000, le: 0.005 },
+						{ count: 1200, le: 0.01 },
+					],
 				};
 
 				const endpointGroups = {
@@ -458,11 +341,9 @@ describe("parsePrometheusMetrics", () => {
 				const result = aggregateHistogramGroups(histograms, endpointGroups);
 
 				expect(result.tiles).toBeDefined();
-				expect(result.tiles.buckets).toHaveLength(2);
-				expect(result.tiles.buckets[0]).toEqual({ le: 0.005, count: 1000 });
-				expect(result.tiles.buckets[1]).toEqual({ le: 0.01, count: 1200 });
-				expect(result.tiles.sum).toBe(5.0);
-				expect(result.tiles.count).toBe(1200);
+				expect(result.tiles).toHaveLength(2);
+				expect(result.tiles[0]).toEqual({ count: 1000, le: 0.005 });
+				expect(result.tiles[1]).toEqual({ count: 1200, le: 0.01 });
 			});
 
 			it("returns empty result when no histogram data available", () => {
@@ -479,11 +360,7 @@ describe("parsePrometheusMetrics", () => {
 
 			it("handles partial histogram data (some endpoints missing)", () => {
 				const histograms = {
-					"/sprite/{source_ids}.json": {
-						buckets: [{ le: 0.01, count: 100 }],
-						sum: 1.0,
-						count: 100,
-					},
+					"/sprite/{source_ids}.json": [{ count: 100, le: 0.01 }],
 					// "/sprite/{source_ids}.png" is missing
 				};
 
@@ -494,10 +371,8 @@ describe("parsePrometheusMetrics", () => {
 				const result = aggregateHistogramGroups(histograms, endpointGroups);
 
 				expect(result.sprites).toBeDefined();
-				expect(result.sprites.buckets).toHaveLength(1);
-				expect(result.sprites.buckets[0]).toEqual({ le: 0.01, count: 100 });
-				expect(result.sprites.sum).toBe(1.0);
-				expect(result.sprites.count).toBe(100);
+				expect(result.sprites).toHaveLength(1);
+				expect(result.sprites[0]).toEqual({ count: 100, le: 0.01 });
 			});
 		});
 	});
@@ -545,38 +420,29 @@ describe("parsePrometheusMetrics", () => {
 
 			// Verify aggregated buckets are cumulative sums
 			const spritesHist = aggregatedHistograms.sprites;
-			expect(spritesHist.buckets).toHaveLength(3);
+			expect(spritesHist).toHaveLength(3);
 
 			// le=0.005: 100 + 50 = 150
-			expect(spritesHist.buckets[0]).toEqual({ le: 0.005, count: 150 });
+			expect(spritesHist[0]).toEqual({ count: 150, le: 0.005 });
 			// le=0.01: 150 + 80 = 230
-			expect(spritesHist.buckets[1]).toEqual({ le: 0.01, count: 230 });
+			expect(spritesHist[1]).toEqual({ count: 230, le: 0.01 });
 			// le=0.025: 180 + 120 = 300
-			expect(spritesHist.buckets[2]).toEqual({ le: 0.025, count: 300 });
-
-			// Verify sum and count aggregation
-			expect(spritesHist.sum).toBe(3.5); // 2.0 + 1.5
-			expect(spritesHist.count).toBe(350); // 200 + 150
+			expect(spritesHist[2]).toEqual({ count: 300, le: 0.025 });
 
 			// Test MiniHistogram visualization with aggregated data
 			// This tests that bucket differences are calculated correctly:
 			// Bucket diffs: 150-0=150, 230-150=80, 300-230=70
 			// Max diff: 150, so heights: 150/150=100%, 80/150=53%, 70/150=47%
 			const bucketDifferences = [];
-			for (let i = 0; i < spritesHist.buckets.length; i++) {
-				const bucket = spritesHist.buckets[i];
-				const prevCount = i > 0 ? spritesHist.buckets[i - 1].count : 0;
+			for (let i = 0; i < spritesHist.length; i++) {
+				const bucket = spritesHist[i];
+				const prevCount = i > 0 ? spritesHist[i - 1].count : 0;
 				bucketDifferences.push(bucket.count - prevCount);
 			}
 
 			expect(bucketDifferences).toEqual([150, 80, 70]);
 			const maxDiff = Math.max(...bucketDifferences);
 			expect(maxDiff).toBe(150);
-
-			// Verify percentile calculation works with aggregated data
-			const percentiles = calculateHistogramPercentiles(spritesHist, [50, 95]);
-			expect(percentiles.p50).toBeGreaterThan(0);
-			expect(percentiles.p95).toBeGreaterThan(percentiles.p50);
 
 			// Test traditional sum/count aggregation for comparison
 			const aggregatedMetrics = aggregateEndpointGroups(

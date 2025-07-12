@@ -1,4 +1,4 @@
-import type { HistogramData } from "./prometheus";
+import type { HistogramBucket } from "./prometheus";
 
 export interface CatalogSchema {
 	tiles: { readonly [tile_id: string]: TileSource };
@@ -58,7 +58,7 @@ export interface SpriteCollection {
 export interface EndpointAnalytics {
 	averageRequestDurationMs: number;
 	requestCount: number;
-	histogram: HistogramData;
+	histogram: HistogramBucket[];
 }
 
 export interface AnalyticsData {

@@ -6,18 +6,34 @@ const analytics: AnalyticsData = {
 	fonts: {
 		averageRequestDurationMs: 5.1,
 		requestCount: 500,
+		histogram: [
+			{ le: 0.5, count: 0 },
+			{ le: 1, count: 500 },
+		],
 	},
 	sprites: {
 		averageRequestDurationMs: 10.5,
 		requestCount: 1000,
+		histogram: [
+			{ le: 0.5, count: 2 },
+			{ le: 1, count: 1000 },
+		],
 	},
 	styles: {
 		averageRequestDurationMs: 2.3,
 		requestCount: 200,
+		histogram: [
+			{ le: 0.5, count: 2 },
+			{ le: 1, count: 200 },
+		],
 	},
 	tiles: {
 		averageRequestDurationMs: 25.2,
 		requestCount: 50000,
+		histogram: [
+			{ le: 0.5, count: 2 },
+			{ le: 1, count: 50000 },
+		],
 	},
 };
 

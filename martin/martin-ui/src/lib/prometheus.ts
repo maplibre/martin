@@ -3,12 +3,6 @@ export interface HistogramBucket {
 	count: number;
 }
 
-export interface HistogramData {
-	buckets: HistogramBucket[];
-	sum?: number;
-	count?: number;
-}
-
 /**
  * Parses Prometheus metrics text and extracts sum and count for each endpoint.
  * Returns an object with two maps: sum and count, keyed by endpoint string.
@@ -59,7 +53,7 @@ export function parsePrometheusMetrics(text: string): {
 export function aggregateEndpointGroups(
 	sum: Record<string, number>,
 	count: Record<string, number>,
-	endpointGroups: Record<string, string[]>,
+	endpointGroups: Record<string, readonly string[]>,
 ): Record<string, { averageRequestDurationMs: number; requestCount: number }> {
 	const result: Record<
 		string,
@@ -87,15 +81,15 @@ export function aggregateEndpointGroups(
  */
 export function parsePrometheusHistogram(
 	text: string,
-): Record<string, HistogramData> {
+): Record<string, HistogramBucket[]> {
 	const lines = text.split("\n");
-	const histograms: Record<string, HistogramData> = {};
+	const histograms: Record<string, HistogramBucket[]> = {};
 
 	for (const line of lines) {
 		const trimmed = line.trim();
 
 		// Parse bucket lines: martin_http_requests_duration_seconds_bucket{...le="0.1"} 123
-		let match = trimmed.match(
+		const match = trimmed.match(
 			/^martin_http_requests_duration_seconds_bucket\{(.*)\}\s+([0-9.eE+-]+)$/,
 		);
 		if (match) {
@@ -108,126 +102,23 @@ export function parsePrometheusHistogram(
 				const le = leMatch[1] === "+Inf" ? Infinity : parseFloat(leMatch[1]);
 
 				if (!histograms[endpoint]) {
-					histograms[endpoint] = { buckets: [] };
+					histograms[endpoint] = [];
 				}
 
 				// Skip +Inf bucket as it's redundant with count
 				if (le !== Infinity) {
-					histograms[endpoint].buckets.push({ count, le });
+					histograms[endpoint].push({ count, le });
 				}
-			}
-			continue;
-		}
-
-		// Parse sum lines
-		match = trimmed.match(
-			/^martin_http_requests_duration_seconds_sum\{(.*)\}\s+([0-9.eE+-]+)$/,
-		);
-		if (match) {
-			const labels = match[1];
-			const sum = parseFloat(match[2]);
-			const endpoint = /endpoint="([^"]+)"/.exec(labels)?.[1];
-
-			if (endpoint) {
-				if (!histograms[endpoint]) {
-					histograms[endpoint] = { buckets: [] };
-				}
-				histograms[endpoint].sum = sum;
-			}
-			continue;
-		}
-
-		// Parse count lines
-		match = trimmed.match(
-			/^martin_http_requests_duration_seconds_count\{(.*)\}\s+([0-9.eE+-]+)$/,
-		);
-		if (match) {
-			const labels = match[1];
-			const count = parseFloat(match[2]);
-			const endpoint = /endpoint="([^"]+)"/.exec(labels)?.[1];
-
-			if (endpoint) {
-				if (!histograms[endpoint]) {
-					histograms[endpoint] = { buckets: [] };
-				}
-				histograms[endpoint].count = count;
 			}
 		}
 	}
 
 	// Sort buckets by le value for each endpoint
 	for (const histogram of Object.values(histograms)) {
-		histogram.buckets.sort((a, b) => a.le - b.le);
+		histogram.sort((a, b) => a.le - b.le);
 	}
 
 	return histograms;
-}
-
-/**
- * Calculates percentiles from histogram bucket data using linear interpolation.
- *
- * @param histogram - Histogram data with sorted buckets
- * @param percentiles - Array of percentile values (e.g., [50, 95, 99])
- * @returns Object with percentile keys (e.g., { p50: 0.025, p95: 0.1, p99: 0.25 })
- */
-export function calculateHistogramPercentiles(
-	histogram: HistogramData,
-	percentiles: number[],
-): Record<string, number> {
-	const result: Record<string, number> = {};
-
-	if (
-		!histogram.count ||
-		histogram.count === 0 ||
-		histogram.buckets.length === 0
-	) {
-		// Return 0 for all percentiles if no data
-		for (const p of percentiles) {
-			result[`p${p}`] = 0;
-		}
-		return result;
-	}
-
-	for (const p of percentiles) {
-		const targetCount = (p / 100) * histogram.count;
-
-		// Find the bucket that contains this percentile
-		let bucketIndex = 0;
-		for (let i = 0; i < histogram.buckets.length; i++) {
-			if (histogram.buckets[i].count >= targetCount) {
-				bucketIndex = i;
-				break;
-			}
-			bucketIndex = i;
-		}
-
-		const bucket = histogram.buckets[bucketIndex];
-		const prevBucket =
-			bucketIndex > 0 ? histogram.buckets[bucketIndex - 1] : null;
-
-		let percentileValue: number;
-
-		if (!prevBucket) {
-			// First bucket - linear interpolation from 0 to bucket.le
-			const ratio = targetCount / bucket.count;
-			percentileValue = ratio * bucket.le;
-		} else {
-			// Linear interpolation between previous bucket and current bucket
-			const countDiff = bucket.count - prevBucket.count;
-			const countFromPrev = targetCount - prevBucket.count;
-
-			if (countDiff === 0) {
-				percentileValue = bucket.le;
-			} else {
-				const ratio = countFromPrev / countDiff;
-				percentileValue = prevBucket.le + ratio * (bucket.le - prevBucket.le);
-			}
-		}
-
-		result[`p${p}`] = percentileValue;
-	}
-
-	return result;
 }
 
 /**
@@ -237,7 +128,7 @@ export function calculateHistogramPercentiles(
 export function parseCompletePrometheusMetrics(text: string): {
 	sum: Record<string, number>;
 	count: Record<string, number>;
-	histograms: Record<string, HistogramData>;
+	histograms: Record<string, HistogramBucket[]>;
 } {
 	return {
 		...parsePrometheusMetrics(text),
@@ -254,14 +145,14 @@ export function parseCompletePrometheusMetrics(text: string): {
  * @returns Object mapping group name to aggregated histogram data
  */
 export function aggregateHistogramGroups(
-	histograms: Record<string, HistogramData>,
-	endpointGroups: Record<string, string[]>,
-): Record<string, HistogramData> {
-	const result: Record<string, HistogramData> = {};
+	histograms: Record<string, HistogramBucket[]>,
+	endpointGroups: Record<string, readonly string[]>,
+): Record<string, HistogramBucket[]> {
+	const result: Record<string, HistogramBucket[]> = {};
 
 	for (const [group, endpoints] of Object.entries(endpointGroups)) {
 		// Find all histograms that belong to this group
-		const groupHistograms: HistogramData[] = [];
+		const groupHistograms: HistogramBucket[][] = [];
 		for (const endpoint of endpoints) {
 			if (histograms[endpoint]) {
 				groupHistograms.push(histograms[endpoint]);
@@ -276,7 +167,7 @@ export function aggregateHistogramGroups(
 		// Collect all unique bucket boundaries (le values)
 		const allBuckets = new Set<number>();
 		for (const hist of groupHistograms) {
-			for (const bucket of hist.buckets) {
+			for (const bucket of hist) {
 				allBuckets.add(bucket.le);
 			}
 		}
@@ -286,8 +177,6 @@ export function aggregateHistogramGroups(
 
 		// Create aggregated histogram
 		const aggregatedBuckets: HistogramBucket[] = [];
-		let totalSum = 0;
-		let totalCount = 0;
 
 		// For each bucket boundary, sum up counts from all histograms
 		for (const le of sortedBuckets) {
@@ -296,7 +185,7 @@ export function aggregateHistogramGroups(
 			for (const hist of groupHistograms) {
 				// Find the cumulative count up to this le value
 				let cumulativeCount = 0;
-				for (const bucket of hist.buckets) {
+				for (const bucket of hist) {
 					if (bucket.le <= le) {
 						cumulativeCount = bucket.count;
 					} else {
@@ -306,20 +195,10 @@ export function aggregateHistogramGroups(
 				bucketCount += cumulativeCount;
 			}
 
-			aggregatedBuckets.push({ le, count: bucketCount });
+			aggregatedBuckets.push({ count: bucketCount, le });
 		}
 
-		// Sum up totals
-		for (const hist of groupHistograms) {
-			totalSum += hist.sum || 0;
-			totalCount += hist.count || 0;
-		}
-
-		result[group] = {
-			buckets: aggregatedBuckets,
-			sum: totalSum,
-			count: totalCount,
-		};
+		result[group] = aggregatedBuckets;
 	}
 
 	return result;
@@ -334,5 +213,5 @@ export const ENDPOINT_GROUPS = {
 		"/sdf_sprite/{source_ids}.png",
 	],
 	styles: ["/style/{style_id}"],
-	tiles: ["/{source_ids}/{z}/{x}/{y}"],
-} as Record<string, string[]>;
+	tiles: ["/{source_ids}/{z}/{x}/{y}", "/{source_ids}"],
+} as Record<string, readonly string[]>;
