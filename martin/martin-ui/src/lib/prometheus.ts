@@ -164,6 +164,11 @@ export function aggregateHistogramGroups(
     }
   }
 
+  // Sort buckets by le value for each group
+  for (const histogram of Object.values(result)) {
+    histogram.sort((a, b) => a.le - b.le);
+  }
+
   return result;
 }
 
