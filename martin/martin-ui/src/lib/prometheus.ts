@@ -160,7 +160,6 @@ export function aggregateHistogramGroups(
       }
     }
   }
-  console.assert(false);
 
   return result;
 }
