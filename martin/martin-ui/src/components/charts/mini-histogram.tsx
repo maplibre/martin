@@ -41,7 +41,7 @@ function rebucket(buckets: HistogramBucket[]): RebucketedHistogram[] {
     maxBucketDiff = Math.max(maxBucketDiff, bucketCount);
     bucketRanges.push({
       requestCount: bucketCount,
-      timeRange: `${fromValue === 0 ? "[" : "("}${formatDuration(fromValue)}, ${formatDuration(toValue)}]`,
+      timeRange: `${formatDuration(fromValue)} - ${formatDuration(toValue)}`,
     });
   }
 
