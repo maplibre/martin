@@ -267,6 +267,7 @@ pub fn tile_index(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     (col, row)
 }
 
+/// Convert min/max XYZ tile coordinates to a bounding box values in Web Mercator.
 #[must_use]
 pub fn xyz_to_bbox_webmercator(
     zoom: u8,
