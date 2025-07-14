@@ -4,8 +4,8 @@ use ctor::ctor;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
 use martin::srv::SrvConfig;
-use mbtiles::{Mbtiles, temp_named_mbtiles, sqlx::SqliteConnection};
 use martin_tile_utils::{decode_brotli, decode_gzip};
+use mbtiles::{Mbtiles, sqlx::SqliteConnection, temp_named_mbtiles};
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -37,17 +37,32 @@ fn test_get(path: &str) -> TestRequest {
     TestRequest::get().uri(path)
 }
 
-async fn config(test_name: &str)  -> (String, ((Mbtiles, SqliteConnection), (Mbtiles, SqliteConnection), (Mbtiles, SqliteConnection), (Mbtiles, SqliteConnection))){
+async fn config(
+    test_name: &str,
+) -> (
+    String,
+    (
+        (Mbtiles, SqliteConnection),
+        (Mbtiles, SqliteConnection),
+        (Mbtiles, SqliteConnection),
+        (Mbtiles, SqliteConnection),
+    ),
+) {
     let json_script = include_str!("../../tests/fixtures/mbtiles/json.sql");
-    let (_json_mbt, _json_conn, json_file) = temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
+    let (_json_mbt, _json_conn, json_file) =
+        temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
     let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (_mvt_mbt, _mvt_conn, mvt_file) = temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
+    let (_mvt_mbt, _mvt_conn, mvt_file) =
+        temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
     let raw_mvt_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
-    let (_raw_mvt_mbt, _raw_mvt_conn, raw_mvt_file) = temp_named_mbtiles(&format!("{test_name}_raw_mvt"), raw_mvt_script).await;
+    let (_raw_mvt_mbt, _raw_mvt_conn, raw_mvt_file) =
+        temp_named_mbtiles(&format!("{test_name}_raw_mvt"), raw_mvt_script).await;
     let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
-    let (_webp_mbt, _webp_conn, webp_file) = temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
+    let (_webp_mbt, _webp_conn, webp_file) =
+        temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
 
-    return (formatdoc! {"
+    return (
+        formatdoc! {"
     mbtiles:
         sources:
             m_json: {json}
@@ -55,12 +70,19 @@ async fn config(test_name: &str)  -> (String, ((Mbtiles, SqliteConnection), (Mbt
             m_raw_mvt: {raw_mvt}
             m_webp: {webp}
     ",
-    json = json_file.display(),
-    mvt = mvt_file.display(),
-    raw_mvt = raw_mvt_file.display(),
-    webp = webp_file.display()
-    }, ((_json_mbt, _json_conn), (_mvt_mbt, _mvt_conn), (_raw_mvt_mbt, _raw_mvt_conn), (_webp_mbt, _webp_conn)))
-    }
+        json = json_file.display(),
+        mvt = mvt_file.display(),
+        raw_mvt = raw_mvt_file.display(),
+        webp = webp_file.display()
+        },
+        (
+            (_json_mbt, _json_conn),
+            (_mvt_mbt, _mvt_conn),
+            (_raw_mvt_mbt, _raw_mvt_conn),
+            (_webp_mbt, _webp_conn),
+        ),
+    );
+}
 
 #[actix_rt::test]
 async fn mbt_get_catalog() {
