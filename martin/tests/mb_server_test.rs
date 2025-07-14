@@ -49,19 +49,19 @@ async fn config(
     ),
 ) {
     let json_script = include_str!("../../tests/fixtures/mbtiles/json.sql");
-    let (_json_mbt, _json_conn, json_file) =
+    let (json_mbt, json_conn, json_file) =
         temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
     let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (_mvt_mbt, _mvt_conn, mvt_file) =
+    let (mvt_mbt, mvt_conn, mvt_file) =
         temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
     let raw_mvt_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
-    let (_raw_mvt_mbt, _raw_mvt_conn, raw_mvt_file) =
+    let (raw_mvt_mbt, raw_mvt_conn, raw_mvt_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mvt"), raw_mvt_script).await;
     let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
-    let (_webp_mbt, _webp_conn, webp_file) =
+    let (webp_mbt, webp_conn, webp_file) =
         temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
 
-    return (
+    (
         formatdoc! {"
     mbtiles:
         sources:
@@ -76,12 +76,12 @@ async fn config(
         webp = webp_file.display()
         },
         (
-            (_json_mbt, _json_conn),
-            (_mvt_mbt, _mvt_conn),
-            (_raw_mvt_mbt, _raw_mvt_conn),
-            (_webp_mbt, _webp_conn),
+            (json_mbt, json_conn),
+            (mvt_mbt, mvt_conn),
+            (raw_mvt_mbt, raw_mvt_conn),
+            (webp_mbt, webp_conn),
         ),
-    );
+    )
 }
 
 #[actix_rt::test]
