@@ -225,7 +225,7 @@ impl FileConfigSrc {
     pub fn abs_path(&self) -> FileResult<PathBuf> {
         let path = self.get_path();
 
-        if is_sqlite_memory_uri(&path) {
+        if is_sqlite_memory_uri(path) {
             // Skip canonicalization for in-memory DB URIs
             return Ok(path.clone());
         }
@@ -234,7 +234,7 @@ impl FileConfigSrc {
     }
 }
 
-fn is_sqlite_memory_uri(path: &PathBuf) -> bool {
+fn is_sqlite_memory_uri(path: &Path) -> bool {
     if let Some(s) = path.to_str() {
         s.starts_with("file:") && s.contains("mode=memory") && s.contains("cache=shared")
     } else {
