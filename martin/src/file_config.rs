@@ -11,9 +11,7 @@ use url::Url;
 use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
 use crate::config::{UnrecognizedValues, copy_unrecognized_config};
-use crate::file_config::FileError::{
-    InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
-};
+use crate::file_config::FileError::{InvalidFilePath, InvalidSourceUrl, IoError};
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
 
@@ -29,9 +27,6 @@ pub enum FileError {
 
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(url::ParseError, String),
-
-    #[error("Source {0} uses bad file {1}")]
-    InvalidSourceFilePath(String, PathBuf),
 
     #[cfg(any(feature = "webui", feature = "styles"))]
     #[error("Walk directory error {0}: {1}")]
@@ -229,7 +224,21 @@ impl FileConfigSrc {
 
     pub fn abs_path(&self) -> FileResult<PathBuf> {
         let path = self.get_path();
+
+        if is_sqlite_memory_uri(&path) {
+            // Skip canonicalization for in-memory DB URIs
+            return Ok(path.clone());
+        }
+
         path.canonicalize().map_err(|e| IoError(e, path.clone()))
+    }
+}
+
+fn is_sqlite_memory_uri(path: &PathBuf) -> bool {
+    if let Some(s) = path.to_str() {
+        s.starts_with("file:") && s.contains("mode=memory") && s.contains("cache=shared")
+    } else {
+        false
     }
 }
 
@@ -276,8 +285,7 @@ async fn resolve_int<T: SourceConfigExtras>(
             } else {
                 let can = source.abs_path()?;
                 if !can.is_file() {
-                    // todo: maybe warn instead?
-                    return Err(InvalidSourceFilePath(id.to_string(), can));
+                    log::warn!("The file: {} does not exist", can.display());
                 }
 
                 let dup = !files.insert(can.clone());
