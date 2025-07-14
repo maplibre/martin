@@ -100,10 +100,10 @@ async fn table_source() {
     srid: 4326
     geometry_column: geom
     bounds:
-      - -2
+      - -182
       - -1
       - 142.84131509869133
-      - 45
+      - 53
     geometry_type: GEOMETRY
     properties:
       gid: int4
@@ -154,10 +154,10 @@ async fn tables_tilejson() {
         fields:
           gid: int4
     bounds:
-      - -2
+      - -182
       - -1
       - 142.84131509869133
-      - 45
+      - 53
     name: table_source
     foo:
       bar: foo

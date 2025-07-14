@@ -296,6 +296,7 @@ test_jsn catalog_auto catalog
 >&2 echo "***** Test server response for table source *****"
 test_jsn table_source             table_source
 test_pbf tbl_0_0_0                table_source/0/0/0
+test_pbf tbl_4_0_5                table_source/4/0/5
 test_pbf tbl_6_57_29              table_source/6/57/29
 test_pbf tbl_12_3673_1911         table_source/12/3673/1911
 test_pbf tbl_13_7346_3822         table_source/13/7346/3822

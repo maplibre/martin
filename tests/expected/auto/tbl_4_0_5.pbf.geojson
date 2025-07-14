@@ -1,0 +1,74 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              546,
+              2636
+            ],
+            [
+              546,
+              3228
+            ],
+            [
+              1456,
+              3228
+            ],
+            [
+              1456,
+              2636
+            ],
+            [
+              546,
+              2636
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "gid": 29,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              546,
+              2636
+            ],
+            [
+              546,
+              3228
+            ],
+            [
+              4096,
+              3228
+            ],
+            [
+              4096,
+              2636
+            ],
+            [
+              546,
+              2636
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "gid": 30,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}
