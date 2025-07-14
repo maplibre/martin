@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileInfo, xyz_to_bbox};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
@@ -86,7 +85,7 @@ impl CogSource {
                     &path,
                     ifd_index,
                     origin,
-                    extent.clone(),
+                    extent,
                     (full_width, full_length),
                 )?);
             } else {

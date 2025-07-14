@@ -5,7 +5,7 @@ use std::path::Path;
 use image::{ImageBuffer, Rgba};
 use martin_tile_utils::TileCoord;
 use tiff::ColorType;
-use tiff::decoder::{self, Decoder, DecodingResult};
+use tiff::decoder::{Decoder, DecodingResult};
 
 use super::CogError;
 use crate::{MartinResult, TileData};
@@ -16,7 +16,7 @@ use crate::{MartinResult, TileData};
 pub struct Image {
     /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
     ifd_index: usize,
-    /// The extent of the image in model units, represented as [min_x, min_y, max_x, max_y].
+    /// The extent of the image in model units, represented as [`min_x`, `min_y`, `max_x`, `max_y`].
     extent: [f64; 4],
     /// The origin of the image in model units.
     origin: [f64; 3],
@@ -134,7 +134,7 @@ impl Image {
                     )
                     .into());
                 } //todo do others in next PRs, a lot of discussion would be needed
-            };
+            }
         }
 
         let result_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
@@ -390,18 +390,18 @@ fn draw_tile(
         'outer: for col in 0..data_width {
             let idx_chunk = row * data_width * components_count + col * components_count;
             // 计算目标位置
-            let target_row = row as i64 + offset_y;
-            let target_col = col as i64 + offset_x;
+            let target_row = i64::from(row) + offset_y;
+            let target_col = i64::from(col) + offset_x;
             // 边界检查
             if target_row < 0
                 || target_col < 0
-                || target_row >= target_height as i64
-                || target_col >= target_width as i64
+                || target_row >= i64::from(target_height)
+                || target_col >= i64::from(target_width)
             {
                 continue 'outer;
             }
 
-            let idx_result = target_row * target_width as i64 * 4 + target_col * 4;
+            let idx_result = target_row * i64::from(target_width) * 4 + target_col * 4;
             for component_idx in 0..components_count {
                 let value = data[(idx_chunk + component_idx) as usize];
                 if let Some(v) = nodata {
@@ -410,7 +410,7 @@ fn draw_tile(
                     }
                 }
                 // Copy this component to the result vector
-                target[(idx_result + component_idx as i64) as usize] = value;
+                target[(idx_result + i64::from(component_idx)) as usize] = value;
             }
             if add_alpha {
                 target[(idx_result + 3) as usize] = 255; // opaque
