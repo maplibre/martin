@@ -178,11 +178,14 @@ impl CogSource {
 fn nearest_web_mercator_zoom(resolution: (f64, f64), tile_size: (u32, u32)) -> u8 {
     let tile_width_in_model = resolution.0 * f64::from(tile_size.0);
     let mut nearest_zoom = 0u8;
-    let diff = (tile_width_in_model - EARTH_CIRCUMFERENCE / f64::from(1_u32 << 0)).abs();
+    let mut min_diff = f64::INFINITY;
+
     for google_zoom in 0..30 {
         let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << google_zoom);
         let current_diff = (tile_width_in_model - tile_length).abs();
-        if current_diff < diff {
+
+        if current_diff < min_diff {
+            min_diff = current_diff;
             nearest_zoom = google_zoom;
         }
     }
@@ -640,5 +643,18 @@ mod tests {
         .unwrap();
         assert_abs_diff_eq!(full_resolution[0], expected[0], epsilon = 0.00001);
         assert_abs_diff_eq!(full_resolution[1], expected[1], epsilon = 0.00001);
+    }
+
+    #[rstest]
+    #[case(((9.554628535644346,-9.554628535646771)),(256,256), 14)]
+    fn test_nearest_web_mercator_zoom(
+        #[case] resolution: (f64, f64),
+        #[case] tile_size: (u32, u32),
+        #[case] expected_zoom: u8,
+    ) {
+        use crate::cog::source::nearest_web_mercator_zoom;
+
+        let result = nearest_web_mercator_zoom(resolution, tile_size);
+        assert_eq!(result, expected_zoom);
     }
 }
