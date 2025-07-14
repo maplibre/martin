@@ -29,8 +29,8 @@
         "type": "Polygon"
       },
       "properties": {
-        "gid": 29,
-        "source_mvt_layer": "table_source"
+        "gid": 1,
+        "source_mvt_layer": "antimeridian"
       },
       "type": "Feature"
     },
@@ -63,8 +63,8 @@
         "type": "Polygon"
       },
       "properties": {
-        "gid": 30,
-        "source_mvt_layer": "table_source"
+        "gid": 2,
+        "source_mvt_layer": "antimeridian"
       },
       "type": "Feature"
     }

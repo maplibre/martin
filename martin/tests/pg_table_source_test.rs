@@ -26,6 +26,9 @@ async fn table_source() {
     MixPoints:
       content_type: application/x-protobuf
       description: a description from comment on table
+    antimeridian:
+      content_type: application/x-protobuf
+      description: public.antimeridian.geom
     auto_table:
       content_type: application/x-protobuf
       description: autodetect.auto_table.geom
@@ -100,10 +103,10 @@ async fn table_source() {
     srid: 4326
     geometry_column: geom
     bounds:
-      - -182
+      - -2
       - -1
       - 142.84131509869133
-      - 53
+      - 45
     geometry_type: GEOMETRY
     properties:
       gid: int4
@@ -154,10 +157,10 @@ async fn tables_tilejson() {
         fields:
           gid: int4
     bounds:
-      - -182
+      - -2
       - -1
       - 142.84131509869133
-      - 53
+      - 45
     name: table_source
     foo:
       bar: foo
