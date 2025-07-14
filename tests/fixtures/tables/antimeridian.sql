@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS antimeridian;
 
 CREATE TABLE antimeridian
 (
-    gid  serial PRIMARY KEY,
+    gid serial PRIMARY KEY,
     geom GEOMETRY (GEOMETRY, 4326)
 );
 
