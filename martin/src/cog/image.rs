@@ -50,6 +50,8 @@ impl Image {
             resolution,
         }
     }
+
+    #[allow(clippy::cast_possible_truncation)]
     pub fn get_tile_webmercator(
         &self,
         decoder: &mut Decoder<File>,
@@ -63,6 +65,7 @@ impl Image {
         Ok(bytes)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn clip(
         &self,
         decoder: &mut Decoder<File>,
@@ -91,13 +94,15 @@ impl Image {
                 })
                 .unwrap();
 
-            let tile_min_x = origin_x + f64::from(col * self.tile_size.0) * self.resolution.0;
-            let tile_max_y = origin_y - f64::from(row * self.tile_size.1) * self.resolution.1;
-            let offset_x_geo = tile_min_x - bbox[0];
-            let offset_y_geo = bbox[3] - tile_max_y; // Use window's max Y
+            let offset_x = (((origin_x + f64::from(col * self.tile_size.0) * self.resolution.0)
+                - bbox[0])
+                / res_x)
+                .round() as i64;
+            let offset_y = ((bbox[3]
+                - (origin_y - f64::from(row * self.tile_size.1) * self.resolution.1))
+                / res_y)
+                .round() as i64;
 
-            let offset_x_pixel = (offset_x_geo / res_x).round() as i64;
-            let offset_y_pixel = (offset_y_geo / res_y).round() as i64;
             let decoded = decoder.read_chunk(idx).unwrap();
             let (data_width, data_height) = decoder.chunk_data_dimensions(idx);
             let color_type = decoder.colortype().unwrap();
@@ -109,22 +114,13 @@ impl Image {
                 }
             };
             match (decoded, color_type) {
-                (DecodingResult::U8(vec), ColorType::RGB(_)) => draw_tile(
+                (DecodingResult::U8(vec), ColorType::RGB(_) | ColorType::RGBA(_)) => draw_tile(
                     vec,
                     components_count,
                     nodata,
                     (data_width, data_height),
                     (window_width_pixel, window_height_pixel),
-                    (offset_x_pixel, offset_y_pixel),
-                    &mut target,
-                ),
-                (DecodingResult::U8(vec), ColorType::RGBA(_)) => draw_tile(
-                    vec,
-                    components_count,
-                    nodata,
-                    (data_width, data_height),
-                    (window_width_pixel, window_height_pixel),
-                    (offset_x_pixel, offset_y_pixel),
+                    (offset_x, offset_y),
                     &mut target,
                 ),
                 (_, _) => {
@@ -376,6 +372,8 @@ fn encode_rgba_as_png(
     Ok(result_file_buffer)
 }
 
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_sign_loss)]
 fn draw_tile(
     data: Vec<u8>,
     components_count: u32,
@@ -389,10 +387,8 @@ fn draw_tile(
     for row in 0..data_height {
         'outer: for col in 0..data_width {
             let idx_chunk = row * data_width * components_count + col * components_count;
-            // 计算目标位置
             let target_row = i64::from(row) + offset_y;
             let target_col = i64::from(col) + offset_x;
-            // 边界检查
             if target_row < 0
                 || target_col < 0
                 || target_row >= i64::from(target_height)
@@ -400,8 +396,9 @@ fn draw_tile(
             {
                 continue 'outer;
             }
-
-            let idx_result = target_row * i64::from(target_width) * 4 + target_col * 4;
+            let target_row = target_row as usize;
+            let target_col = target_col as usize;
+            let idx_result = target_row * target_width as usize * 4 + target_col * 4;
             for component_idx in 0..components_count {
                 let value = data[(idx_chunk + component_idx) as usize];
                 if let Some(v) = nodata {
@@ -410,10 +407,10 @@ fn draw_tile(
                     }
                 }
                 // Copy this component to the result vector
-                target[(idx_result + i64::from(component_idx)) as usize] = value;
+                target[idx_result + component_idx as usize] = value;
             }
             if add_alpha {
-                target[(idx_result + 3) as usize] = 255; // opaque
+                target[idx_result + 3_usize] = 255; // opaque
             }
         }
     }
