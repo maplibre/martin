@@ -172,7 +172,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
             copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
         }
         if res.is_empty() {
-            warn!("There exists an unrecognized value")
+            warn!("There exists an unrecognized value");
         }
         res
     }
