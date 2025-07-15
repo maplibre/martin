@@ -171,6 +171,9 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         if let Self::Config(cfg) = self {
             copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
         }
+        if !res {
+            warn!("There exists an unrecognized value")
+        }
         res
     }
 }
