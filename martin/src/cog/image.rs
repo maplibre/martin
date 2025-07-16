@@ -60,11 +60,12 @@ impl Image {
         path: &Path,
     ) -> MartinResult<TileData> {
         let bbox = martin_tile_utils::xyz_to_bbox_webmercator(xyz.z, xyz.x, xyz.y, xyz.x, xyz.y);
+        #[allow(clippy::cast_sign_loss)]
         let nodata_u8 = nodata.map(|v| v as u8);
         let bytes = self.clip(decoder, bbox, 256, nodata_u8, path)?;
         Ok(bytes)
     }
-
+    #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
     fn clip(
         &self,
@@ -103,7 +104,7 @@ impl Image {
                 / res_y)
                 .round() as i64;
 
-            let decoded = decoder.read_chunk(idx).unwrap();
+            let chunk_data = decoder.read_chunk(idx).unwrap();
             let (data_width, data_height) = decoder.chunk_data_dimensions(idx);
             let color_type = decoder.colortype().unwrap();
             let components_count = match color_type {
@@ -113,9 +114,9 @@ impl Image {
                     todo!()
                 }
             };
-            match (decoded, color_type) {
+            match (chunk_data, color_type) {
                 (DecodingResult::U8(vec), ColorType::RGB(_) | ColorType::RGBA(_)) => draw_tile(
-                    vec,
+                    &vec,
                     components_count,
                     nodata,
                     (data_width, data_height),
@@ -144,8 +145,8 @@ impl Image {
         let png = encode_rgba_as_png(output_size, output_size, resized.as_raw(), path)?;
         Ok(png)
     }
-
     /// Calculates the tiles that intersect with the given window.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn tiles_intersected(&self, window: [f64; 4]) -> Vec<(u32, u32)> {
         let epsilon = 1e-6;
 
@@ -332,7 +333,7 @@ fn ensure_pixels_valid(
     if nodata.is_some() || add_alpha || is_padded {
         let mut result_vec = vec![0; (tile_width * tile_height * 4) as usize];
         draw_tile(
-            data,
+            &data,
             components_count,
             nodata,
             (data_width, data_height),
@@ -375,13 +376,13 @@ fn encode_rgba_as_png(
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::cast_sign_loss)]
 fn draw_tile(
-    data: Vec<u8>,
+    data: &[u8],
     components_count: u32,
     nodata: Option<u8>,
     (data_width, data_height): (u32, u32),
     (target_width, target_height): (u32, u32),
     (offset_x, offset_y): (i64, i64),
-    target: &mut Vec<u8>,
+    target: &mut [u8],
 ) {
     let add_alpha = components_count != 4;
     for row in 0..data_height {

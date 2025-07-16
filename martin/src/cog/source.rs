@@ -481,9 +481,7 @@ mod tests {
     use rstest::rstest;
     use tiff::decoder::Decoder;
 
-    use crate::Source;
     use crate::cog::model::ModelInfo;
-    use crate::cog::source::CogSource;
 
     #[test]
     fn can_get_model_info() {
@@ -645,7 +643,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(((9.554628535644346,-9.554628535646771)),(256,256), 14)]
+    #[case((9.554_628_535_644_346,-9.554_628_535_646_77),(256,256), 14)]
     fn test_nearest_web_mercator_zoom(
         #[case] resolution: (f64, f64),
         #[case] tile_size: (u32, u32),
