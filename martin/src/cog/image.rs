@@ -87,13 +87,14 @@ impl Image {
         let window_height_pixel = ((bbox[3] - bbox[1]) / res_y).round() as u32;
         let mut target = vec![0; (window_width_pixel * window_height_pixel * 4) as usize];
         for (col, row) in intersetced_tiles {
-            let idx = self
-                .get_tile_index(TileCoord {
-                    z: 0, // acutally get_tile_index does not use z, so we can use 0 here
-                    x: col,
-                    y: row,
-                })
-                .unwrap();
+            let Some(idx) = self.get_tile_index(TileCoord {
+                z: 0, // acutally get_tile_index does not use z, so we can use 0 here
+                x: col,
+                y: row,
+            }) else {
+                // Skip invalid tile coordinates (should not happen due to tiles_intersected bounds checking)
+                continue;
+            };
 
             let offset_x = (((origin_x + f64::from(col * self.tile_size.0) * self.resolution.0)
                 - bbox[0])
@@ -104,9 +105,13 @@ impl Image {
                 / res_y)
                 .round() as i64;
 
-            let chunk_data = decoder.read_chunk(idx).unwrap();
+            let chunk_data = decoder.read_chunk(idx).map_err(|e| {
+                CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf())
+            })?;
             let (data_width, data_height) = decoder.chunk_data_dimensions(idx);
-            let color_type = decoder.colortype().unwrap();
+            let color_type = decoder
+                .colortype()
+                .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
             let components_count = match color_type {
                 ColorType::RGB(_) => 3,
                 ColorType::RGBA(_) => 4,
@@ -135,7 +140,16 @@ impl Image {
         }
 
         let result_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
-            ImageBuffer::from_raw(window_width_pixel, window_height_pixel, target).unwrap();
+            ImageBuffer::from_raw(window_width_pixel, window_height_pixel, target).ok_or_else(
+                || {
+                    CogError::ImageBufferCreationFailed(
+                        path.to_path_buf(),
+                        format!(
+                            "Failed to create image buffer with dimensions {window_width_pixel}x{window_height_pixel}"
+                        ),
+                    )
+                },
+            )?;
         let resized = image::imageops::resize(
             &result_image,
             output_size,
