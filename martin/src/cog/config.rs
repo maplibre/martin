@@ -14,7 +14,7 @@ pub struct CogConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 
-    /// Default true
+    /// Default false
     /// If enabled, martin will automatically serve COG as a [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) service, the tiles will be cliped and merged internally to be aligned with the Web Mercator grid.
     /// Note: Just work for COG files with a Web Mercator CRS (EPSG:3857).
     pub auto_web: Option<bool>,
@@ -32,7 +32,7 @@ impl SourceConfigExtras for CogConfig {
     }
 
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
-        let cog = CogSource::new(id, path, self.auto_web.unwrap_or(true))?;
+        let cog = CogSource::new(id, path, self.auto_web.unwrap_or(false))?;
         Ok(Box::new(cog))
     }
 
