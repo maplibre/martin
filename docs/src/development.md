@@ -103,7 +103,8 @@ git push -u origin my-new-feature
 # from your fork using the GitHub web interface
 ```
 
-When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified.
+> [!TIP]
+> When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified.
 
 ## Quick Start
 
