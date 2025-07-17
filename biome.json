@@ -17,7 +17,7 @@
     "indentWidth": 2,
     "lineWidth": 100
   },
-  "javascript": { "formatter": { "quoteStyle": "double" } },
+  "javascript": { "formatter": { "quoteStyle": "single" } },
   "linter": {
     "domains": {
       "react": "all"
