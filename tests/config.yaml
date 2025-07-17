@@ -187,7 +187,7 @@ cog:
     cog-src1: tests/fixtures/cog/rgba_u8.tif
     cog-src2: tests/fixtures/cog/rgb_u8.tif
     # Test COG with auto_webmercator enabled
-    cog-auto-web: 
+    cog-auto-web:
       path: tests/fixtures/cog/rgba_u8_nodata.tiff
       auto_web: true
 
