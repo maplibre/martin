@@ -32,7 +32,9 @@ jobs:
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
         with:
-          mdbook-version: '0.4.40'
+          mdbook-version: '0.4.51'
+      - name: Install mdbook-alerts
+        run: cargo install mdbook-alerts
 
       - run: mdbook build docs
 
