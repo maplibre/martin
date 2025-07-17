@@ -249,6 +249,17 @@
 
 </style>
 <h1 id="development"><a class="header" href="#development">Development</a></h1>
+<h2 id="docker"><a class="header" href="#docker">docker</a></h2>
+<p>Install <a href="https://docs.docker.com/get-docker/">docker</a> and <a href="https://docs.docker.com/compose/">docker-compose</a></p>
+<h2 id="just"><a class="header" href="#just">just</a></h2>
+<p>Install <a href="https://github.com/casey/just#readme">Just</a>:</p>
+<pre><code class="language-bash  ignore">cargo install just --locked
+just validate-tools  # verify setup
+</code></pre>
+<h2 id="other-required-tools"><a class="header" href="#other-required-tools">Other Required tools</a></h2>
+<p>We provide a simple command to check that all requirements are setup</p>
+<pre><code class="language-bash  ignore">just validate-tools
+</code></pre>
 <h2 id="git-setup"><a class="header" href="#git-setup">Git setup</a></h2>
 <p>The recommended setup for both core and casual contributors is to <strong>always</strong> create a fork
 of the primary repo under their own account. The local repo should have two remotes: <code>upstream</code> pointing to the primary <code>maplibre/martin</code> repo, and <code>origin</code> pointing to the user’s own fork. The <code>main</code> branch should track <code>upstream/main</code>, but all new work will be pushed to <code>origin</code> and PRs will be created from there.</p>
@@ -293,7 +304,7 @@ git remote rename origin upstream
 git remote add origin https://github.com/nyurik/martin.git
 </code></pre>
 </details>
-<h3 id="contributing-new-code"><a class="header" href="#contributing-new-code">Contributing New Code</a></h3>
+<h2 id="contributing-new-code"><a class="header" href="#contributing-new-code">Contributing New Code</a></h2>
 <pre><code class="language-bash"># switch to main branch (tracking upstream/main), and pull the latest changes
 git switch main
 git fetch upstream
@@ -313,24 +324,41 @@ git push -u origin my-new-feature
 # Click the link shown by `git push` in the terminal to create a pull request
 # from your fork using the GitHub web interface
 </code></pre>
-<h2 id="installed-tools-and-libraries"><a class="header" href="#installed-tools-and-libraries">Installed tools and libraries</a></h2>
-<p>Install a few required libs and tools:</p>
-<pre><code class="language-bash  ignore"># For Ubuntu-based distros
-sudo apt update
-sudo apt install -y build-essential pkg-config jq file gdal-bin
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p>When developing MBTiles SQL code, you may need to use <code>just prepare-sqlite</code> whenever SQL queries are modified.</p>
+</div>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<pre><code class="language-bash"># Install tools
+cargo install just --locked
+just validate-tools
+
+# Start development
+just start  # test database
+just run    # Martin server
+just test   # verify setup
 </code></pre>
-<h3 id="docker"><a class="header" href="#docker">docker</a></h3>
-<p>Install <a href="https://docs.docker.com/get-docker/">docker</a> and <a href="https://docs.docker.com/compose/">docker-compose</a></p>
-<pre><code class="language-bash  ignore"># Ubuntu-based distros have an older version that might also work:
-sudo apt install -y  docker.io docker-compose
+<h2 id="working-with-just"><a class="header" href="#working-with-just">Working with Just</a></h2>
+<pre><code class="language-bash">just help        # common commands
+just --list      # all commands
+just validate-tools  # check setup
 </code></pre>
-<h3 id="just"><a class="header" href="#just">just</a></h3>
-<p>Install <a href="https://github.com/casey/just#readme">Just</a> (improved makefile processor). Note that some Linux and Homebrew
-distros have outdated versions of Just, so you should install it from source:</p>
-<pre><code class="language-bash  ignore">cargo install just --locked
+<h3 id="development-workflow"><a class="header" href="#development-workflow">Development workflow</a></h3>
+<pre><code class="language-bash">just start       # start test database
+just run         # start Martin server
+just test        # run all tests
+just fmt         # format code
+just clippy      # lint code
+just book        # build documentation
+just stop        # stop test database
 </code></pre>
-<p>When developing MBTiles SQL code, you may need to use <code>just prepare-sqlite</code> whenever SQL queries are modified.
-Run <code>just</code> to see all available commands.</p>
+<h3 id="pass-arguments-to-commands"><a class="header" href="#pass-arguments-to-commands">Pass arguments to commands</a></h3>
+<pre><code class="language-bash">just test-cargo -- --test integration_test
+just run --config /path/to/config.yaml
+</code></pre>
 
                     </main>
 

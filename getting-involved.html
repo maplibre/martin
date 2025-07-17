@@ -249,14 +249,41 @@
 
 </style>
 <h1 id="getting-involved"><a class="header" href="#getting-involved">Getting involved</a></h1>
-<p>It’s time to get involved once you have the <a href="development.html">fork and all required software</a>.</p>
-<p>We assume you are working on Ubuntu (or WSL) with Visual Studio Code in this post.</p>
-<h2 id="editor-plugins"><a class="header" href="#editor-plugins">Editor Plugins</a></h2>
-<p>Install plugins below:</p>
+<p>It’s time to get involved once you have the <a href="development.html">fork and all required software</a>.
+This guide covers IDE setup and debugging.
+While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.</p>
+<details>
+<summary>Editor-specifc Guides (click to expand)</summary>
+<h3 id="visual-studio-code"><a class="header" href="#visual-studio-code">Visual Studio Code</a></h3>
+<p>Install these essential extensions:</p>
 <ul>
-<li><a href="https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb">CodeLLDB</a></li>
-<li><a href="https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer">rust-analyzer</a></li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer">rust-analyzer</a> - Rust language server</li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb">CodeLLDB</a> - Debugger for Rust</li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml">Even Better TOML</a> - TOML syntax highlighting</li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens">GitLens</a> - Git integration (optional)</li>
 </ul>
+<h3 id="vimneovim"><a class="header" href="#vimneovim">Vim/Neovim</a></h3>
+<p>Use <a href="https://github.com/mrcjkb/rustaceanvim">rustaceanvim</a></p>
+<h3 id="emacs"><a class="header" href="#emacs">Emacs</a></h3>
+<p>Use either</p>
+<ul>
+<li><a href="https://github.com/brotzeit/rustic">rustic</a> or</li>
+<li><a href="https://github.com/rust-lang/rust-mode">rust-mode</a></li>
+</ul>
+<h3 id="rustrover"><a class="header" href="#rustrover">RustRover</a></h3>
+<p><a href="https://jetbrains.com/rust/">RustRover</a> supports rust out of the box</p>
+<h3 id="zed"><a class="header" href="#zed">Zed</a></h3>
+<p><a href="https://zed.dev/">Zed</a> supports rust out of the box</p>
+</details>
+<h2 id="quick-development-setup"><a class="header" href="#quick-development-setup">Quick Development Setup</a></h2>
+<p>Before diving into IDE configuration, make sure your development environment is ready:</p>
+<pre><code class="language-bash"># Validate all required tools are installed
+just validate-tools
+
+# Start the development environment
+just start  # starts test database
+just help   # shows common commands
+</code></pre>
 <h2 id="debugging-with-launchjson"><a class="header" href="#debugging-with-launchjson">Debugging with <code>launch.json</code></a></h2>
 <p>Generally, you need to debug martin with specific arguments or a config file to fix issues or add features.</p>
 <p>The most convenient way is to generate a launch.json and modify it.</p>

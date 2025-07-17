@@ -5346,6 +5346,17 @@ to force the value to be updated, even if it is incorrect or does not exist.</p>
 
 </style>
 <h1 id="development"><a class="header" href="#development">Development</a></h1>
+<h2 id="docker-1"><a class="header" href="#docker-1">docker</a></h2>
+<p>Install <a href="https://docs.docker.com/get-docker/">docker</a> and <a href="https://docs.docker.com/compose/">docker-compose</a></p>
+<h2 id="just"><a class="header" href="#just">just</a></h2>
+<p>Install <a href="https://github.com/casey/just#readme">Just</a>:</p>
+<pre><code class="language-bash  ignore">cargo install just --locked
+just validate-tools  # verify setup
+</code></pre>
+<h2 id="other-required-tools"><a class="header" href="#other-required-tools">Other Required tools</a></h2>
+<p>We provide a simple command to check that all requirements are setup</p>
+<pre><code class="language-bash  ignore">just validate-tools
+</code></pre>
 <h2 id="git-setup"><a class="header" href="#git-setup">Git setup</a></h2>
 <p>The recommended setup for both core and casual contributors is to <strong>always</strong> create a fork
 of the primary repo under their own account. The local repo should have two remotes: <code>upstream</code> pointing to the primary <code>maplibre/martin</code> repo, and <code>origin</code> pointing to the user’s own fork. The <code>main</code> branch should track <code>upstream/main</code>, but all new work will be pushed to <code>origin</code> and PRs will be created from there.</p>
@@ -5390,7 +5401,7 @@ git remote rename origin upstream
 git remote add origin https://github.com/nyurik/martin.git
 </code></pre>
 </details>
-<h3 id="contributing-new-code"><a class="header" href="#contributing-new-code">Contributing New Code</a></h3>
+<h2 id="contributing-new-code"><a class="header" href="#contributing-new-code">Contributing New Code</a></h2>
 <pre><code class="language-bash"># switch to main branch (tracking upstream/main), and pull the latest changes
 git switch main
 git fetch upstream
@@ -5410,24 +5421,41 @@ git push -u origin my-new-feature
 # Click the link shown by `git push` in the terminal to create a pull request
 # from your fork using the GitHub web interface
 </code></pre>
-<h2 id="installed-tools-and-libraries"><a class="header" href="#installed-tools-and-libraries">Installed tools and libraries</a></h2>
-<p>Install a few required libs and tools:</p>
-<pre><code class="language-bash  ignore"># For Ubuntu-based distros
-sudo apt update
-sudo apt install -y build-essential pkg-config jq file gdal-bin
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p>When developing MBTiles SQL code, you may need to use <code>just prepare-sqlite</code> whenever SQL queries are modified.</p>
+</div>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<pre><code class="language-bash"># Install tools
+cargo install just --locked
+just validate-tools
+
+# Start development
+just start  # test database
+just run    # Martin server
+just test   # verify setup
 </code></pre>
-<h3 id="docker-1"><a class="header" href="#docker-1">docker</a></h3>
-<p>Install <a href="https://docs.docker.com/get-docker/">docker</a> and <a href="https://docs.docker.com/compose/">docker-compose</a></p>
-<pre><code class="language-bash  ignore"># Ubuntu-based distros have an older version that might also work:
-sudo apt install -y  docker.io docker-compose
+<h2 id="working-with-just"><a class="header" href="#working-with-just">Working with Just</a></h2>
+<pre><code class="language-bash">just help        # common commands
+just --list      # all commands
+just validate-tools  # check setup
 </code></pre>
-<h3 id="just"><a class="header" href="#just">just</a></h3>
-<p>Install <a href="https://github.com/casey/just#readme">Just</a> (improved makefile processor). Note that some Linux and Homebrew
-distros have outdated versions of Just, so you should install it from source:</p>
-<pre><code class="language-bash  ignore">cargo install just --locked
+<h3 id="development-workflow"><a class="header" href="#development-workflow">Development workflow</a></h3>
+<pre><code class="language-bash">just start       # start test database
+just run         # start Martin server
+just test        # run all tests
+just fmt         # format code
+just clippy      # lint code
+just book        # build documentation
+just stop        # stop test database
 </code></pre>
-<p>When developing MBTiles SQL code, you may need to use <code>just prepare-sqlite</code> whenever SQL queries are modified.
-Run <code>just</code> to see all available commands.</p>
+<h3 id="pass-arguments-to-commands"><a class="header" href="#pass-arguments-to-commands">Pass arguments to commands</a></h3>
+<pre><code class="language-bash">just test-cargo -- --test integration_test
+just run --config /path/to/config.yaml
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><style>
 .mdbook-alerts {
   padding: 8px 16px;
@@ -5496,14 +5524,41 @@ Run <code>just</code> to see all available commands.</p>
 
 </style>
 <h1 id="getting-involved"><a class="header" href="#getting-involved">Getting involved</a></h1>
-<p>It’s time to get involved once you have the <a href="development.html">fork and all required software</a>.</p>
-<p>We assume you are working on Ubuntu (or WSL) with Visual Studio Code in this post.</p>
-<h2 id="editor-plugins"><a class="header" href="#editor-plugins">Editor Plugins</a></h2>
-<p>Install plugins below:</p>
+<p>It’s time to get involved once you have the <a href="development.html">fork and all required software</a>.
+This guide covers IDE setup and debugging.
+While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.</p>
+<details>
+<summary>Editor-specifc Guides (click to expand)</summary>
+<h3 id="visual-studio-code"><a class="header" href="#visual-studio-code">Visual Studio Code</a></h3>
+<p>Install these essential extensions:</p>
 <ul>
-<li><a href="https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb">CodeLLDB</a></li>
-<li><a href="https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer">rust-analyzer</a></li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer">rust-analyzer</a> - Rust language server</li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb">CodeLLDB</a> - Debugger for Rust</li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml">Even Better TOML</a> - TOML syntax highlighting</li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens">GitLens</a> - Git integration (optional)</li>
 </ul>
+<h3 id="vimneovim"><a class="header" href="#vimneovim">Vim/Neovim</a></h3>
+<p>Use <a href="https://github.com/mrcjkb/rustaceanvim">rustaceanvim</a></p>
+<h3 id="emacs"><a class="header" href="#emacs">Emacs</a></h3>
+<p>Use either</p>
+<ul>
+<li><a href="https://github.com/brotzeit/rustic">rustic</a> or</li>
+<li><a href="https://github.com/rust-lang/rust-mode">rust-mode</a></li>
+</ul>
+<h3 id="rustrover"><a class="header" href="#rustrover">RustRover</a></h3>
+<p><a href="https://jetbrains.com/rust/">RustRover</a> supports rust out of the box</p>
+<h3 id="zed"><a class="header" href="#zed">Zed</a></h3>
+<p><a href="https://zed.dev/">Zed</a> supports rust out of the box</p>
+</details>
+<h2 id="quick-development-setup"><a class="header" href="#quick-development-setup">Quick Development Setup</a></h2>
+<p>Before diving into IDE configuration, make sure your development environment is ready:</p>
+<pre><code class="language-bash"># Validate all required tools are installed
+just validate-tools
+
+# Start the development environment
+just start  # starts test database
+just help   # shows common commands
+</code></pre>
 <h2 id="debugging-with-launchjson"><a class="header" href="#debugging-with-launchjson">Debugging with <code>launch.json</code></a></h2>
 <p>Generally, you need to debug martin with specific arguments or a config file to fix issues or add features.</p>
 <p>The most convenient way is to generate a launch.json and modify it.</p>
