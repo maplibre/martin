@@ -60,7 +60,7 @@ mbtiles = { path = "./mbtiles", version = "0.12.2" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
-pbf_font_tools = { version = "2.5.1", features = ["freetype"] }
+pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
 pmtiles = { version = "0.15", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
 png = "0.17.14"
 postgis = "0.9"
@@ -70,7 +70,7 @@ pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.25"
-rustls = "0.23.28"
+rustls = "0.23.29"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
