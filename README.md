@@ -19,7 +19,7 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
   * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
   * [MBTile](https://github.com/mapbox/mbtiles-spec) files
 * [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources into one
-* Generate [sprites](https://maplibre.org/martin/sources-sprites.html), [font glyphs](https://maplibre.org/martin/sources-fonts.html) and serve [styles](https://maplibre.org/martin/sources-styles.html)
+* [Serve styles](https://maplibre.org/martin/sources-styles.html) and generate [sprites](https://maplibre.org/martin/sources-sprites.html) or [font glyphs](https://maplibre.org/martin/sources-fonts.html) on the fly
 * Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
 * Examine, copy, validate, compare, and apply diffs between `MBTiles` files with [mbtiles](https://maplibre.org/martin/tools.html#mbtiles) tool
 
