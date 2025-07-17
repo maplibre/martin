@@ -30,7 +30,7 @@ jobs:
           config-file: '.github/files/markdown.links.config.json'
 
       - uses: taiki-e/install-action@v2
-        with: { tool: mdbook }
+        with: { tool: mdbook,cargo-binstall }
       - name: Install mdbook-alerts
         run: cargo binstall mdbook-alerts
 
