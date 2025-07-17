@@ -1,16 +1,16 @@
 /* biome-ignore-all lint/suspicious/noExplicitAny: this is a legacy component and needs to be redone */
-import maplibregl from "maplibre-gl";
-import { PureComponent } from "react";
-import "maplibre-gl/dist/maplibre-gl.css";
+import maplibregl from 'maplibre-gl';
+import { PureComponent } from 'react';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { MAP_STYLE } from "../../config/constants";
-import layers from "../../config/layers";
-import dateConverter from "../../utils/dateConverter";
+import { MAP_STYLE } from '../../config/constants';
+import layers from '../../config/layers';
+import dateConverter from '../../utils/dateConverter';
 
-import Container from "./Container";
-import Filters from "./Filters";
+import Container from './Container';
+import Filters from './Filters';
 
-const mapStyle = { height: "615px", marginLeft: "350px" };
+const mapStyle = { height: '615px', marginLeft: '350px' };
 
 class MaplibreMap extends PureComponent<
   Record<string, never>,
@@ -27,14 +27,14 @@ class MaplibreMap extends PureComponent<
         from: new Date(2017, 0, 1),
         to: new Date(2017, 4, 4),
       },
-      visibleLayer: "trips",
+      visibleLayer: 'trips',
     };
   }
 
   componentDidMount() {
     this.map = new maplibregl.Map({
       center: [-74.005308, 40.71337],
-      container: "map",
+      container: 'map',
       cooperativeGestures: true,
       pitch: 45,
       style: MAP_STYLE,
@@ -42,8 +42,8 @@ class MaplibreMap extends PureComponent<
     });
     this.nav = new maplibregl.NavigationControl();
 
-    this.map.addControl(this.nav, "top-right");
-    this.map.on("load", this.mapOnLoad);
+    this.map.addControl(this.nav, 'top-right');
+    this.map.on('load', this.mapOnLoad);
   }
 
   componentDidUpdate() {
@@ -55,12 +55,12 @@ class MaplibreMap extends PureComponent<
   mapOnLoad = () => {
     const queryParams = this.getQueryParams();
 
-    this.map.addSource("trips_source", {
-      type: "vector",
+    this.map.addSource('trips_source', {
+      type: 'vector',
       url: `/tiles/get_trips?${queryParams}`,
     });
     layers.forEach(({ maplibreLayer }) => {
-      this.map.addLayer(maplibreLayer, "place_town");
+      this.map.addLayer(maplibreLayer, 'place_town');
     });
   };
 
@@ -91,9 +91,9 @@ class MaplibreMap extends PureComponent<
   toggleLayer = (layerId: string) => {
     layers.forEach(({ id }) => {
       if (layerId === id) {
-        this.map.setLayoutProperty(id, "visibility", "visible");
+        this.map.setLayoutProperty(id, 'visibility', 'visible');
       } else {
-        this.map.setLayoutProperty(id, "visibility", "none");
+        this.map.setLayoutProperty(id, 'visibility', 'none');
       }
     });
     this.setState({ visibleLayer: layerId });

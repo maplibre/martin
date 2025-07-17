@@ -1,4 +1,4 @@
-import Container from "./Container";
+import Container from './Container';
 
 const DocsButton = () => (
   <Container href="https://maplibre.org/martin" target="_blank">

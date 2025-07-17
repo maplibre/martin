@@ -1,1 +1,1 @@
-export { default } from "./MaplibreMap";
+export { default } from './MaplibreMap';
