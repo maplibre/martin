@@ -88,7 +88,7 @@ bless-frontend:
     npm run test:update-snapshots
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary
