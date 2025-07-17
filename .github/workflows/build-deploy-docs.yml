@@ -29,12 +29,10 @@ jobs:
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 
-      - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v2
-        with:
-          mdbook-version: '0.4.51'
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'mdbook,cargo-binstall' }
       - name: Install mdbook-alerts
-        run: cargo install mdbook-alerts
+        run: cargo binstall mdbook-alerts
 
       - run: mdbook build docs
 
