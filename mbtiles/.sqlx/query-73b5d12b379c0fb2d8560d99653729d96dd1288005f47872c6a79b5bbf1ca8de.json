@@ -1,6 +1,5 @@
 {
   "db_name": "SQLite",
-  "query": "PRAGMA page_count;",
   "describe": {
     "columns": [
       {
@@ -9,12 +8,11 @@
         "type_info": "Integer"
       }
     ],
+    "nullable": [null],
     "parameters": {
       "Right": 0
-    },
-    "nullable": [
-      null
-    ]
+    }
   },
-  "hash": "73b5d12b379c0fb2d8560d99653729d96dd1288005f47872c6a79b5bbf1ca8de"
+  "hash": "73b5d12b379c0fb2d8560d99653729d96dd1288005f47872c6a79b5bbf1ca8de",
+  "query": "PRAGMA page_count;"
 }
