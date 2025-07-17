@@ -123,8 +123,6 @@ jobs:
           export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
           cross build --release --target ${{ matrix.target }} --workspace
 
-=======
->>>>>>> replace-cross-with-zigbuild
       - name: Move the artefacts to the expected place
         run: |
           mkdir -p target_releases/
