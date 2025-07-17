@@ -1,11 +1,10 @@
-import React from 'react';
-import octocat from './octocat.svg';
 import Container from './Container';
+import octocat from './octocat.svg';
 
 const GitHubButton = () => (
-  <Container href='https://github.com/maplibre/martin' target='_blank'>
+  <Container href="https://github.com/maplibre/martin" target="_blank">
     <span>View on GitHub</span>
-    <img src={octocat} alt='octocat' />
+    <img alt="octocat" src={octocat} />
   </Container>
 );
 
