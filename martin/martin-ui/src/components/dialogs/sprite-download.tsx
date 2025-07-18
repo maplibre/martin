@@ -144,7 +144,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                 <li>Supported by MapLibre and Mapbox</li>
                 <li>
                   <a
-                    className="text-purple-950 hover:underline"
+                    className="text-purple-950 underline hover:text-purple-900"
                     href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf"
                     rel="noopener noreferrer"
                     target="_blank"
