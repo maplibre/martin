@@ -9,6 +9,7 @@
 .DS_Store
 .aider*
 .aws-sam/
+.env.local
 .idea/
 .vscode/
 config.yml
@@ -17,7 +18,9 @@ target/
 test_log*
 tests/mbtiles_temp_files/
 tests/output/
+coverage
 tmp/
+tsconfig.tsbuildinfo
 
 ####
 #### Above content must match .dockerignore ####
