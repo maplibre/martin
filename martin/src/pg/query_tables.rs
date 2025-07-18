@@ -179,6 +179,20 @@ pub async fn table_to_query(
     let proj = info.proj.as_ref().map_or("", |v| v);
     let proj_unit = info.proj_unit.as_ref().map_or("", |v| v);
 
+    // When calculating the bounding box to search within, a few considerations must be made when
+    // using a margin. The ST_TileEnvelope margin parameter is for use with SRID 3857. When using a
+    // different SRID, ST_Expand is used and provided with SRID specific units. For longlat
+    // projections such as SRID 4326, this is degrees. If the projection specifically provides "m"
+    // (meters) as a unit, that is used. If the SRID uses a non-standard projection or unit, it will
+    // fallback to existing behavior.
+    //
+    // If a geodetic projection such as SRID 4326 were to be used with ST_TileEnvelope and margin
+    // parameter, the resultant bounding box for tiles on the antimeridian would be calculated
+    // incorrectly. For example with a margin of 2 units, the antimeridian edge would transform from
+    // -180 to +178. This results in a bbox that stretches from the easternmost edge of a tile
+    // (plus margin) around the map to the westernmost edge of the tile (minus margin). The
+    // resulting bbox covers none of the original tile. In this example, ST_Expand will result in
+    // a westernmost edge (minus margin) of -182.
     let bbox_search = if buffer == 0 {
         format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
     } else if pool.supports_tile_margin() && srid == 3857 {
