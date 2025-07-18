@@ -409,9 +409,10 @@ validate-tools:
     if [[ ${#missing_tools[@]} -eq 0 ]]; then
         echo "✓ All required tools are installed"
     else
-        echo "✗ Missing: ${missing_tools[*]}"
-        echo "Install: sudo apt install -y jq file gdal-bin sqlite3-tools (Ubuntu)"
-        echo "Install: brew install jq file gdal sqlite (macOS)"
+        echo "✗ Missing tools: ${missing_tools[*]}"
+        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
+        echo "  macOS: brew install jq file curl grep sqlite gdal"
+        echo ""
         exit 1
     fi
 
