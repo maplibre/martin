@@ -6,7 +6,6 @@ This directory contains snapshot tests for the Martin UI components. Snapshot te
 
 - `__tests__/components/`: Contains tests for components in the corresponding directories
 - `__tests__/utils/`: Contains test utilities and helpers
-- `__mocks__/`: Contains mock implementations for various modules
 
 ## Running Tests
 
