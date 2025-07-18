@@ -1,5 +1,5 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -11,17 +11,17 @@ export function cn(...inputs: ClassValue[]) {
  * @returns A formatted string representation of the file size
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return "0 Bytes";
-  if (!bytes || Number.isNaN(bytes) || bytes < 0) return "Unknown size";
+  if (bytes === 0) return '0 Bytes';
+  if (!bytes || Number.isNaN(bytes) || bytes < 0) return 'Unknown size';
 
   // there are no half-bit princes. This is not harry potter..
   bytes = Math.floor(bytes);
   const k = 1024;
-  const sizes = ["Bytes", "KiB", "MiB", "GiB", "TiB"];
+  const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   // Handle potential overflow or incorrect values
-  if (i >= sizes.length) return "File too large";
+  if (i >= sizes.length) return 'File too large';
 
   return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 }

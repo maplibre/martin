@@ -1,8 +1,8 @@
-import { TooltipProvider } from "@radix-ui/react-tooltip";
-import { type RenderOptions, render } from "@testing-library/react";
-import { ThemeProvider } from "next-themes";
-import type React from "react";
-import type { ReactElement } from "react";
+import { TooltipProvider } from '@radix-ui/react-tooltip';
+import { type RenderOptions, render } from '@testing-library/react';
+import { ThemeProvider } from 'next-themes';
+import type React from 'react';
+import type { ReactElement } from 'react';
 
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -12,15 +12,15 @@ const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const customRender = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) => {
+const customRender = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) => {
   // Suppress specific warnings during tests
   const originalConsoleError = console.error;
   console.error = (...args) => {
     // Filter out warnings about missing keys and Dialog Description
-    const msg = args[0] || "";
+    const msg = args[0] || '';
     if (
-      typeof msg === "string" &&
-      (msg.includes('unique "key" prop') || msg.includes("Missing `Description`"))
+      typeof msg === 'string' &&
+      (msg.includes('unique "key" prop') || msg.includes('Missing `Description`'))
     ) {
       return;
     }
@@ -36,14 +36,14 @@ const customRender = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper">
 };
 
 // re-export everything
-export * from "@testing-library/react";
+export * from '@testing-library/react';
 
 // override render method
 export { customRender as render };
 
 // This dummy test ensures Jest doesn't complain about an empty test suite
-describe("Test Utils", () => {
-  it("should have a valid render function", () => {
+describe('Test Utils', () => {
+  it('should have a valid render function', () => {
     expect(customRender).toBeDefined();
   });
 });

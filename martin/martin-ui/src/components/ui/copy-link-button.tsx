@@ -1,7 +1,7 @@
-import { Clipboard } from "lucide-react";
-import * as React from "react";
-import { Button } from "./button";
-import { useToast } from "./use-toast";
+import { Clipboard } from 'lucide-react';
+import * as React from 'react';
+import { Button } from './button';
+import { useToast } from './use-toast';
 
 /**
  * Props for CopyLinkButton
@@ -19,19 +19,19 @@ export interface CopyLinkButtonProps extends React.ComponentProps<typeof Button>
   children?: React.ReactNode;
   className?: string;
   toastMessage?: string;
-  size?: "default" | "sm" | "lg" | "icon";
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
-  iconPosition?: "left" | "right";
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  iconPosition?: 'left' | 'right';
 }
 
 export function CopyLinkButton({
   link,
   children,
   className,
-  toastMessage = "Link copied!",
-  size = "sm",
-  variant = "outline",
-  iconPosition = "left",
+  toastMessage = 'Link copied!',
+  size = 'sm',
+  variant = 'outline',
+  iconPosition = 'left',
   ...props
 }: CopyLinkButtonProps) {
   const { toast } = useToast();
@@ -45,7 +45,7 @@ export function CopyLinkButton({
       toast({ description: toastMessage });
       setTimeout(() => setCopied(false), 3000);
     } catch {
-      toast({ description: "Failed to copy link", variant: "destructive" });
+      toast({ description: 'Failed to copy link', variant: 'destructive' });
     }
   };
 
@@ -59,11 +59,11 @@ export function CopyLinkButton({
       variant={variant}
       {...props}
     >
-      {iconPosition === "left" && (
+      {iconPosition === 'left' && (
         <Clipboard aria-hidden="true" className="w-4 h-4 mr-2" data-testid="clipboard-icon" />
       )}
-      {children ?? (copied ? "Copied!" : "Copy Link")}
-      {iconPosition === "right" && (
+      {children ?? (copied ? 'Copied!' : 'Copy Link')}
+      {iconPosition === 'right' && (
         <Clipboard aria-hidden="true" className="w-4 h-4 ml-2" data-testid="clipboard-icon" />
       )}
     </Button>

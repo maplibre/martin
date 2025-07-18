@@ -1,7 +1,7 @@
-import { ThemeProvider } from "next-themes";
-import { Header } from "@/components/header";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import MartinTileserverDashboard from "./Dashboard";
+import { ThemeProvider } from 'next-themes';
+import { Header } from '@/components/header';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import MartinTileserverDashboard from './Dashboard';
 
 function App() {
   return (

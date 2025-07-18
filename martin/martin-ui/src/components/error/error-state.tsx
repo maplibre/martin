@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { AlertTriangle, RefreshCw, WifiOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export interface ErrorStateProps {
   title?: string;
@@ -10,7 +10,7 @@ export interface ErrorStateProps {
   error?: Error | string;
   onRetry?: () => void;
   isRetrying?: boolean;
-  variant?: "network" | "server" | "generic" | "timeout";
+  variant?: 'network' | 'server' | 'generic' | 'timeout';
   showDetails?: boolean;
 }
 
@@ -20,41 +20,41 @@ export function ErrorState({
   error,
   onRetry,
   isRetrying = false,
-  variant = "generic",
+  variant = 'generic',
   showDetails = false,
 }: ErrorStateProps) {
   const getErrorConfig = () => {
     switch (variant) {
-      case "network":
+      case 'network':
         return {
           defaultDescription:
-            "Unable to connect to the server. Please check your internet connection.",
-          defaultTitle: "Network Error",
+            'Unable to connect to the server. Please check your internet connection.',
+          defaultTitle: 'Network Error',
           icon: <WifiOff className="h-8 w-8 text-destructive-foreground" />,
         };
-      case "server":
+      case 'server':
         return {
-          defaultDescription: "The server encountered an error. Please try again later.",
-          defaultTitle: "Server Error",
+          defaultDescription: 'The server encountered an error. Please try again later.',
+          defaultTitle: 'Server Error',
           icon: <AlertTriangle className="h-8 w-8 text-destructive-foreground" />,
         };
-      case "timeout":
+      case 'timeout':
         return {
-          defaultDescription: "The request took too long to complete. Please try again.",
-          defaultTitle: "Request Timeout",
+          defaultDescription: 'The request took too long to complete. Please try again.',
+          defaultTitle: 'Request Timeout',
           icon: <AlertTriangle className="h-8 w-8 text-orange-500" />,
         };
       default:
         return {
-          defaultDescription: "An unexpected error occurred. Please try again.",
-          defaultTitle: "Something went wrong",
+          defaultDescription: 'An unexpected error occurred. Please try again.',
+          defaultTitle: 'Something went wrong',
           icon: <AlertTriangle className="h-8 w-8 text-destructive-foreground" />,
         };
     }
   };
 
   const config = getErrorConfig();
-  const errorMessage = typeof error === "string" ? error : error?.message;
+  const errorMessage = typeof error === 'string' ? error : error?.message;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -73,8 +73,8 @@ export function ErrorState({
         )}
         {onRetry && (
           <Button className="w-full" disabled={isRetrying} onClick={onRetry}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? "animate-spin" : ""}`} />
-            {isRetrying ? "Retrying..." : "Try Again"}
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
+            {isRetrying ? 'Retrying...' : 'Try Again'}
           </Button>
         )}
       </CardContent>
@@ -86,18 +86,18 @@ export function InlineErrorState({
   message,
   onRetry,
   isRetrying = false,
-  variant = "generic",
+  variant = 'generic',
 }: {
   message: string;
   onRetry?: () => void;
   isRetrying?: boolean;
-  variant?: "network" | "server" | "generic";
+  variant?: 'network' | 'server' | 'generic';
 }) {
   const getIcon = () => {
     switch (variant) {
-      case "network":
+      case 'network':
         return <WifiOff className="h-4 w-4 text-destructive-foreground" />;
-      case "server":
+      case 'server':
         return <AlertTriangle className="h-4 w-4 text-destructive-foreground" />;
       default:
         return <AlertTriangle className="h-4 w-4 text-destructive-foreground" />;
@@ -112,8 +112,8 @@ export function InlineErrorState({
       </div>
       {onRetry && (
         <Button disabled={isRetrying} onClick={onRetry} size="sm" variant="outline">
-          <RefreshCw className={`h-3 w-3 mr-1 ${isRetrying ? "animate-spin" : ""}`} />
-          {isRetrying ? "Retrying" : "Retry"}
+          <RefreshCw className={`h-3 w-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+          {isRetrying ? 'Retrying' : 'Retry'}
         </Button>
       )}
     </div>

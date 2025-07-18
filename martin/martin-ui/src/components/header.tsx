@@ -1,8 +1,8 @@
-import { BookOpen, Info } from "lucide-react";
-import Logo from "@/components/logo";
-import { Badge } from "@/components/ui/badge";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { ThemeSwitcher } from "./theme-switcher";
+import { BookOpen, Info } from 'lucide-react';
+import Logo from '@/components/logo';
+import { Badge } from '@/components/ui/badge';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { ThemeSwitcher } from './theme-switcher';
 
 export function Header() {
   return (

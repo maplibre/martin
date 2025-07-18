@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useCallback, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 // A helper function to introduce a delay, which is useful for backoff strategies.
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -77,8 +77,8 @@ export function useAsyncOperation<T>(
 
         if (showSuccessToast) {
           toast({
-            description: successMessage || "Operation completed successfully.",
-            title: "Success",
+            description: successMessage || 'Operation completed successfully.',
+            title: 'Success',
           });
         }
 
@@ -94,8 +94,8 @@ export function useAsyncOperation<T>(
           if (showErrorToast) {
             toast({
               description: `Operation failed after ${maxRetries} attempts: ${err.message}`,
-              title: "Error",
-              variant: "destructive",
+              title: 'Error',
+              variant: 'destructive',
             });
           }
 

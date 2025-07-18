@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export default styled.div<{ isEnabled: boolean }>`
   padding: 5px;
@@ -7,7 +7,7 @@ export default styled.div<{ isEnabled: boolean }>`
   font-size: 16px;
   font-weight: bold;
 
-  color: ${({ isEnabled }) => (isEnabled ? "#DADFEE" : "#6C7495")};
+  color: ${({ isEnabled }) => (isEnabled ? '#DADFEE' : '#6C7495')};
   cursor: pointer;
 
   &:hover {

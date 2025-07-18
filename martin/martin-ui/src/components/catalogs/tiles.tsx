@@ -1,15 +1,15 @@
-import { Database, Eye, ImageIcon, Layers, Palette, Search } from "lucide-react";
-import { useState } from "react";
-import { TileInspectDialog } from "@/components/dialogs/tile-inspect";
-import { ErrorState } from "@/components/error/error-state";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import type { TileSource } from "@/lib/types";
-import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { Database, Eye, ImageIcon, Layers, Palette, Search } from 'lucide-react';
+import { useState } from 'react';
+import { TileInspectDialog } from '@/components/dialogs/tile-inspect';
+import { ErrorState } from '@/components/error/error-state';
+import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import type { TileSource } from '@/lib/types';
+import { DisabledNonInteractiveButton } from '../ui/disabledNonInteractiveButton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface TilesCatalogProps {
   tileSources?: { [tile_id: string]: TileSource };
@@ -65,8 +65,8 @@ export function TilesCatalog({
   );
 
   const getIcon = (content_type: string) => {
-    if (content_type.startsWith("image/")) return <ImageIcon className="w-5 h-5 text-primary" />;
-    if (content_type === "application/x-protobuf")
+    if (content_type.startsWith('image/')) return <ImageIcon className="w-5 h-5 text-primary" />;
+    if (content_type === 'application/x-protobuf')
       return <Layers className="w-5 h-5 text-primary" />;
     return <Database className="w-5 h-5 text-primary" />;
   };
@@ -154,7 +154,7 @@ export function TilesCatalog({
             {searchQuery ? (
               <>No tile sources found matching "{searchQuery}".</>
             ) : (
-              "No tile sources found."
+              'No tile sources found.'
             )}
           </p>
           <Button asChild size="lg" variant="link">

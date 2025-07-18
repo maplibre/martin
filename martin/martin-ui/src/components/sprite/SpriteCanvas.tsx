@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useToast } from "@/hooks/use-toast";
-import type { SpriteMeta } from "./SpriteCache";
+import { useEffect, useRef } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
+import type { SpriteMeta } from './SpriteCache';
 
 type SpriteCanvasProps = {
   meta?: SpriteMeta;
@@ -19,14 +19,14 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
       await navigator.clipboard.writeText(label);
       toast({
         description: `Sprite ID "${label}" copied to clipboard`,
-        title: "Copied!",
+        title: 'Copied!',
       });
     } catch (err) {
-      console.error("Failed to copy sprite ID:", err);
+      console.error('Failed to copy sprite ID:', err);
       toast({
-        description: "Failed to copy sprite ID to clipboard",
-        title: "Error",
-        variant: "destructive",
+        description: 'Failed to copy sprite ID to clipboard',
+        title: 'Error',
+        variant: 'destructive',
       });
     }
   };
@@ -35,7 +35,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
     const canvas = canvasRef.current;
     if (!canvas || !meta || !image) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
     // Clear
     ctx.clearRect(0, 0, meta.width, meta.height);
@@ -62,7 +62,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                Sprite:{" "}
+                Sprite:{' '}
                 <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 rounded-sm">
                   {label}
                 </code>

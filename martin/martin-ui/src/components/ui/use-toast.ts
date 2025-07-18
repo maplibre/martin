@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
 // Inspired by react-hot-toast library
-import * as React from "react";
+import * as React from 'react';
 
-import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
+import type { ToastActionElement, ToastProps } from '@/components/ui/toast';
 
 const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;
@@ -16,10 +16,10 @@ type ToasterToast = ToastProps & {
 };
 
 // Define action type constants
-const ADD_TOAST = "ADD_TOAST";
-const UPDATE_TOAST = "UPDATE_TOAST";
-const DISMISS_TOAST = "DISMISS_TOAST";
-const REMOVE_TOAST = "REMOVE_TOAST";
+const ADD_TOAST = 'ADD_TOAST';
+const UPDATE_TOAST = 'UPDATE_TOAST';
+const DISMISS_TOAST = 'DISMISS_TOAST';
+const REMOVE_TOAST = 'REMOVE_TOAST';
 
 let count = 0;
 
@@ -39,11 +39,11 @@ type Action =
     }
   | {
       type: typeof DISMISS_TOAST;
-      toastId?: ToasterToast["id"];
+      toastId?: ToasterToast['id'];
     }
   | {
       type: typeof REMOVE_TOAST;
-      toastId?: ToasterToast["id"];
+      toastId?: ToasterToast['id'];
     };
 
 interface State {
@@ -61,7 +61,7 @@ const addToRemoveQueue = (toastId: string) => {
     toastTimeouts.delete(toastId);
     dispatch({
       toastId: toastId,
-      type: "REMOVE_TOAST",
+      type: 'REMOVE_TOAST',
     });
   }, TOAST_REMOVE_DELAY);
 
@@ -132,7 +132,7 @@ function dispatch(action: Action) {
   });
 }
 
-type Toast = Omit<ToasterToast, "id">;
+type Toast = Omit<ToasterToast, 'id'>;
 
 function toast({ ...props }: Toast) {
   const id = genId();

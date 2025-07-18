@@ -1,12 +1,12 @@
-import { createGlobalStyle } from "styled-components";
-import "normalize.css";
+import { createGlobalStyle } from 'styled-components';
+import 'normalize.css';
 
-import vremenagroteskboldWoff from "./fonts/vremenagroteskbold.woff";
+import vremenagroteskboldWoff from './fonts/vremenagroteskbold.woff';
 // vremenaGroteskBold
-import vremenagroteskboldWoff2 from "./fonts/vremenagroteskbold.woff2";
-import vremenagroteskbookWoff from "./fonts/vremenagroteskbook.woff";
+import vremenagroteskboldWoff2 from './fonts/vremenagroteskbold.woff2';
+import vremenagroteskbookWoff from './fonts/vremenagroteskbook.woff';
 // vremenagroteskBook
-import vremenagroteskbookWoff2 from "./fonts/vremenagroteskbook.woff2";
+import vremenagroteskbookWoff2 from './fonts/vremenagroteskbook.woff2';
 
 export default createGlobalStyle`
   * {

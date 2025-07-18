@@ -1,10 +1,10 @@
-import { ArrowLeft, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buildMartinUrl } from "@/lib/api";
-import type { Style } from "@/lib/types";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { buildMartinUrl } from '@/lib/api';
+import type { Style } from '@/lib/types';
 
 interface StyleEditorProps {
   styleName: string;
@@ -17,28 +17,28 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Construct the Maputnik URL with the style loaded
-  const maputnikUrl = new URL("https://maplibre.org/maputnik/");
+  const maputnikUrl = new URL('https://maplibre.org/maputnik/');
 
   // Add the style URL as a parameter for Maputnik to load
-  maputnikUrl.searchParams.set("style", buildMartinUrl(`/style/${styleName}`));
+  maputnikUrl.searchParams.set('style', buildMartinUrl(`/style/${styleName}`));
 
   const handleIframeLoad = useCallback(() => {
     setError(null);
   }, []);
 
   const handleIframeError = useCallback(() => {
-    setError("Failed to load Maputnik editor");
+    setError('Failed to load Maputnik editor');
   }, []);
 
   // Listen for messages from Maputnik iframe
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       console.log(event);
-      if (event.origin !== "https://maplibre.org") return;
+      if (event.origin !== 'https://maplibre.org') return;
     };
 
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   return (
@@ -54,7 +54,7 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
               </Button>
               <div>
                 <CardTitle>
-                  <span className="text-xl text-white font-mono">{styleName}</span>{" "}
+                  <span className="text-xl text-white font-mono">{styleName}</span>{' '}
                   <span className="text-sm text-gray-500 dark:text-gray-300 font-mono">
                     {style.path}
                   </span>

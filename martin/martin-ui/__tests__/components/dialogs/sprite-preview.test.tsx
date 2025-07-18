@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 // Mock the SpritePreview component first before importing anything else
-jest.mock("@/components/sprite/SpritePreview", () => ({
+jest.mock('@/components/sprite/SpritePreview', () => ({
   SpritePreview: function MockSpritePreview() {
     return (
       <div data-testid="sprite-preview">
@@ -15,20 +15,20 @@ jest.mock("@/components/sprite/SpritePreview", () => ({
 }));
 
 // Mock LoadingSpinner component
-jest.mock("@/components/loading/loading-spinner", () => ({
+jest.mock('@/components/loading/loading-spinner', () => ({
   LoadingSpinner: () => <div data-testid="loading-spinner">Loading Spinner Mock</div>,
 }));
 
-import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
+import { SpritePreviewDialog } from '@/components/dialogs/sprite-preview';
 
-describe("SpritePreviewDialog Component", () => {
+describe('SpritePreviewDialog Component', () => {
   const mockSprite = {
-    id: "test-sprite",
-    images: ["icon1", "icon2", "icon3"],
+    id: 'test-sprite',
+    images: ['icon1', 'icon2', 'icon3'],
   };
 
   const mockProps = {
-    name: "test-sprite",
+    name: 'test-sprite',
     onCloseAction: jest.fn(),
     onDownloadAction: jest.fn(),
     sprite: mockSprite,
@@ -38,54 +38,54 @@ describe("SpritePreviewDialog Component", () => {
     jest.clearAllMocks();
   });
 
-  it("displays sprite name in the title", () => {
+  it('displays sprite name in the title', () => {
     render(<SpritePreviewDialog {...mockProps} />);
-    expect(screen.getByText("test-sprite")).toBeInTheDocument();
+    expect(screen.getByText('test-sprite')).toBeInTheDocument();
   });
 
-  it("renders download button", () => {
+  it('renders download button', () => {
     render(<SpritePreviewDialog {...mockProps} />);
-    expect(screen.getByText("Download")).toBeInTheDocument();
+    expect(screen.getByText('Download')).toBeInTheDocument();
   });
 
-  it("calls onDownloadAction when download button is clicked", async () => {
+  it('calls onDownloadAction when download button is clicked', async () => {
     const user = userEvent.setup();
     render(<SpritePreviewDialog {...mockProps} />);
 
-    const downloadButton = screen.getByRole("button", { name: /download/i });
+    const downloadButton = screen.getByRole('button', { name: /download/i });
     await user.click(downloadButton);
 
     expect(mockProps.onDownloadAction).toHaveBeenCalledWith(mockSprite);
   });
 
-  it("enables download button correctly", () => {
+  it('enables download button correctly', () => {
     render(<SpritePreviewDialog {...mockProps} />);
 
-    const downloadButton = screen.getByRole("button", { name: /download/i });
+    const downloadButton = screen.getByRole('button', { name: /download/i });
     expect(downloadButton).toBeEnabled();
   });
 
-  it("calls onCloseAction when dialog is closed", async () => {
+  it('calls onCloseAction when dialog is closed', async () => {
     const user = userEvent.setup();
     render(<SpritePreviewDialog {...mockProps} />);
 
     // Find the close button (X button)
-    const closeButton = screen.getByRole("button", { name: /close/i });
+    const closeButton = screen.getByRole('button', { name: /close/i });
     await user.click(closeButton);
 
     expect(mockProps.onCloseAction).toHaveBeenCalled();
   });
 
-  it("renders sprite preview component", () => {
+  it('renders sprite preview component', () => {
     render(<SpritePreviewDialog {...mockProps} />);
 
     // Check that the sprite preview container is rendered
-    const spriteContainer = screen.getByRole("dialog");
+    const spriteContainer = screen.getByRole('dialog');
     expect(spriteContainer).toBeInTheDocument();
 
     // Check that sprite items are rendered (look for the actual sprite labels)
-    expect(screen.getByText("icon1")).toBeInTheDocument();
-    expect(screen.getByText("icon2")).toBeInTheDocument();
-    expect(screen.getByText("icon3")).toBeInTheDocument();
+    expect(screen.getByText('icon1')).toBeInTheDocument();
+    expect(screen.getByText('icon2')).toBeInTheDocument();
+    expect(screen.getByText('icon3')).toBeInTheDocument();
   });
 });

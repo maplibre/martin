@@ -1,5 +1,5 @@
-import { act, renderHook } from "@testing-library/react";
-import type { useAsyncOperation as UseAsyncOperationType } from "@/hooks/use-async-operation";
+import { act, renderHook } from '@testing-library/react';
+import type { useAsyncOperation as UseAsyncOperationType } from '@/hooks/use-async-operation';
 
 // Mock the useToast hook manually
 const mockToast = jest.fn();
@@ -8,28 +8,28 @@ const mockUseToast = jest.fn(() => ({
 }));
 
 // Use require to manually mock the module
-const originalModule = jest.requireActual("@/hooks/use-toast");
-jest.doMock("@/hooks/use-toast", () => ({
+const originalModule = jest.requireActual('@/hooks/use-toast');
+jest.doMock('@/hooks/use-toast', () => ({
   ...originalModule,
   useToast: mockUseToast,
 }));
 
 // Import after the mock is set up
-const { useAsyncOperation } = require("@/hooks/use-async-operation") as {
+const { useAsyncOperation } = require('@/hooks/use-async-operation') as {
   useAsyncOperation: typeof UseAsyncOperationType;
 };
 
 jest.useFakeTimers();
 
-describe("useAsyncOperation", () => {
+describe('useAsyncOperation', () => {
   beforeEach(() => {
     // Clear mock history before each test
     mockToast.mockClear();
     mockUseToast.mockClear();
   });
 
-  it("should handle successful operation on the first attempt", async () => {
-    const mockAsyncFunction = jest.fn().mockResolvedValue("Success Data");
+  it('should handle successful operation on the first attempt', async () => {
+    const mockAsyncFunction = jest.fn().mockResolvedValue('Success Data');
     const onSuccess = jest.fn();
 
     const { result } = renderHook(() =>
@@ -54,14 +54,14 @@ describe("useAsyncOperation", () => {
     });
 
     expect(result.current.isLoading).toBe(false);
-    expect(result.current.data).toBe("Success Data");
+    expect(result.current.data).toBe('Success Data');
     expect(result.current.error).toBeNull();
     expect(mockAsyncFunction).toHaveBeenCalledTimes(1);
-    expect(onSuccess).toHaveBeenCalledWith("Success Data");
+    expect(onSuccess).toHaveBeenCalledWith('Success Data');
   });
 
-  it("should handle operation failure after all retries", async () => {
-    const error = new Error("Failed");
+  it('should handle operation failure after all retries', async () => {
+    const error = new Error('Failed');
     const mockAsyncFunction = jest.fn().mockRejectedValue(error);
     const onError = jest.fn();
 
@@ -82,7 +82,7 @@ describe("useAsyncOperation", () => {
       await jest.advanceTimersByTimeAsync(1001);
       // Wait for the promise to reject
       if (executePromise) {
-        await expect(executePromise).rejects.toThrow("Failed");
+        await expect(executePromise).rejects.toThrow('Failed');
       }
     });
 
@@ -96,11 +96,11 @@ describe("useAsyncOperation", () => {
     expect(onError).toHaveBeenCalledWith(error, 3);
   });
 
-  it("should succeed on the second attempt", async () => {
-    const successData = "Success on second try";
+  it('should succeed on the second attempt', async () => {
+    const successData = 'Success on second try';
     const mockAsyncFunction = jest
       .fn()
-      .mockRejectedValueOnce(new Error("Failed first time"))
+      .mockRejectedValueOnce(new Error('Failed first time'))
       .mockResolvedValueOnce(successData);
     const onSuccess = jest.fn();
     const onError = jest.fn();
@@ -130,9 +130,9 @@ describe("useAsyncOperation", () => {
     expect(onError).toHaveBeenCalledTimes(1);
   });
 
-  it("should show success and error toasts when configured", async () => {
+  it('should show success and error toasts when configured', async () => {
     // Test error toast
-    const error = new Error("Toast Test Failed");
+    const error = new Error('Toast Test Failed');
     const failingMock = jest.fn().mockRejectedValue(error);
 
     const { result: errorResult } = renderHook(() =>
@@ -151,20 +151,20 @@ describe("useAsyncOperation", () => {
     });
 
     expect(mockToast).toHaveBeenCalledWith({
-      description: "Operation failed after 1 attempts: Toast Test Failed",
-      title: "Error",
-      variant: "destructive",
+      description: 'Operation failed after 1 attempts: Toast Test Failed',
+      title: 'Error',
+      variant: 'destructive',
     });
 
     mockToast.mockClear();
 
     // Test success toast
-    const successData = "Toast Test Success";
+    const successData = 'Toast Test Success';
     const succeedingMock = jest.fn().mockResolvedValue(successData);
     const { result: successResult } = renderHook(() =>
       useAsyncOperation<string>(succeedingMock, {
         showSuccessToast: true,
-        successMessage: "It worked!",
+        successMessage: 'It worked!',
       }),
     );
 
@@ -173,13 +173,13 @@ describe("useAsyncOperation", () => {
     });
 
     expect(mockToast).toHaveBeenCalledWith({
-      description: "It worked!",
-      title: "Success",
+      description: 'It worked!',
+      title: 'Success',
     });
   });
 
-  it("should reset the state", async () => {
-    const mockAsyncFunction = jest.fn().mockResolvedValue("Some data");
+  it('should reset the state', async () => {
+    const mockAsyncFunction = jest.fn().mockResolvedValue('Some data');
     const { result } = renderHook(() => useAsyncOperation<string>(mockAsyncFunction));
 
     // Execute to change state
@@ -187,7 +187,7 @@ describe("useAsyncOperation", () => {
       await result.current.execute();
     });
 
-    expect(result.current.data).toBe("Some data");
+    expect(result.current.data).toBe('Some data');
     expect(result.current.isLoading).toBe(false);
 
     // Reset the state

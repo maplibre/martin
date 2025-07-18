@@ -1,20 +1,20 @@
-import { Suspense, useCallback, useEffect } from "react";
-import { AnalyticsSection } from "@/components/analytics-section";
-import { DashboardContent } from "@/components/dashboard-content";
-import { useAsyncOperation } from "@/hooks/use-async-operation";
-import { buildMartinUrl } from "@/lib/api";
+import { Suspense, useCallback, useEffect } from 'react';
+import { AnalyticsSection } from '@/components/analytics-section';
+import { DashboardContent } from '@/components/dashboard-content';
+import { useAsyncOperation } from '@/hooks/use-async-operation';
+import { buildMartinUrl } from '@/lib/api';
 import {
   aggregateEndpointGroups,
   aggregateHistogramGroups,
   ENDPOINT_GROUPS,
   parseCompletePrometheusMetrics,
-} from "@/lib/prometheus";
-import type { AnalyticsData } from "@/lib/types";
+} from '@/lib/prometheus';
+import type { AnalyticsData } from '@/lib/types';
 
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
-  const res = await fetch(buildMartinUrl("/_/metrics"), {
+  const res = await fetch(buildMartinUrl('/_/metrics'), {
     headers: {
-      "Accept-Encoding": "identity",
+      'Accept-Encoding': 'identity',
     },
   });
   if (!res.ok) {
@@ -57,7 +57,7 @@ function DashboardLoading() {
 
 export default function MartinTileserverDashboard() {
   const handleAnalyticsError = useCallback((error: Error) => {
-    console.error("Analytics fetch failed:", error);
+    console.error('Analytics fetch failed:', error);
   }, []);
 
   // Analytics operation

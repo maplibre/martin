@@ -1,14 +1,14 @@
-import { useTheme } from "next-themes";
-import type { SVGProps } from "react";
+import { useTheme } from 'next-themes';
+import type { SVGProps } from 'react';
 
-interface LogoProps extends Omit<SVGProps<SVGSVGElement>, "width" | "height"> {
+interface LogoProps extends Omit<SVGProps<SVGSVGElement>, 'width' | 'height'> {
   width?: number;
   height?: number;
 }
 
 const Logo = ({ width = 96, height = 48, className, ...props }: LogoProps) => {
   const { resolvedTheme } = useTheme();
-  const color = resolvedTheme === "dark" ? "rgba(231, 163, 245, 0.70)" : "rgba(93,44,228, 0.52)";
+  const color = resolvedTheme === 'dark' ? 'rgba(231, 163, 245, 0.70)' : 'rgba(93,44,228, 0.52)';
   return (
     <div className={className} style={{ height, width }}>
       <svg
@@ -19,7 +19,7 @@ const Logo = ({ width = 96, height = 48, className, ...props }: LogoProps) => {
         xmlnsXlink="http://www.w3.org/1999/xlink"
         {...props}
       >
-        <title>{"Martin Tile Server"}</title>
+        <title>{'Martin Tile Server'}</title>
         <defs>
           <filter
             filterUnits="objectBoundingBox"

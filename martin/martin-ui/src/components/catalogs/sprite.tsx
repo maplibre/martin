@@ -1,17 +1,17 @@
-import { Download, Eye, ImageIcon, Search } from "lucide-react";
+import { Download, Eye, ImageIcon, Search } from 'lucide-react';
 
-import { useState } from "react";
-import { SpriteDownloadDialog } from "@/components/dialogs/sprite-download";
-import { SpritePreviewDialog } from "@/components/dialogs/sprite-preview";
-import { ErrorState } from "@/components/error/error-state";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import type { SpriteCollection } from "@/lib/types";
-import { formatFileSize } from "@/lib/utils";
-import SpritePreview from "../sprite/SpritePreview";
+import { useState } from 'react';
+import { SpriteDownloadDialog } from '@/components/dialogs/sprite-download';
+import { SpritePreviewDialog } from '@/components/dialogs/sprite-preview';
+import { ErrorState } from '@/components/error/error-state';
+import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import type { SpriteCollection } from '@/lib/types';
+import { formatFileSize } from '@/lib/utils';
+import SpritePreview from '../sprite/SpritePreview';
 
 interface SpriteCatalogProps {
   spriteCollections?: {
@@ -27,7 +27,7 @@ interface SpriteCatalogProps {
 
 export function SpriteCatalog({
   spriteCollections,
-  searchQuery = "",
+  searchQuery = '',
   onSearchChangeAction = () => {},
   isLoading,
   error = null,

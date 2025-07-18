@@ -1,16 +1,16 @@
-import { Download } from "lucide-react";
-import { Suspense } from "react";
-import { LoadingSpinner } from "@/components/loading/loading-spinner";
-import { Button } from "@/components/ui/button";
+import { Download } from 'lucide-react';
+import { Suspense } from 'react';
+import { LoadingSpinner } from '@/components/loading/loading-spinner';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import type { SpriteCollection } from "@/lib/types";
-import { SpritePreview } from "../sprite/SpritePreview";
+} from '@/components/ui/dialog';
+import type { SpriteCollection } from '@/lib/types';
+import { SpritePreview } from '../sprite/SpritePreview';
 
 interface SpritePreviewDialogProps {
   name: string;

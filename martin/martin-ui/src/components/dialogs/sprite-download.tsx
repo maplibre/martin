@@ -1,18 +1,18 @@
-import { Copy, CopyCheck } from "lucide-react";
+import { Copy, CopyCheck } from 'lucide-react';
 
-import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { buildMartinUrl } from "@/lib/api";
-import type { SpriteCollection } from "@/lib/types";
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { buildMartinUrl } from '@/lib/api';
+import type { SpriteCollection } from '@/lib/types';
 
 interface SpriteDownloadDialogProps {
   name: string;
@@ -34,36 +34,36 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
   // Generate sprite format URLs
   const pngFormats: SpriteFormat[] = [
     {
-      description: "Sprite coordinates and metadata",
-      label: "PNG JSON",
+      description: 'Sprite coordinates and metadata',
+      label: 'PNG JSON',
       url: buildMartinUrl(`/sprite/${name}.json`),
     },
     {
-      description: "Standard sprite format with full color support",
-      label: "PNG Spritesheet",
+      description: 'Standard sprite format with full color support',
+      label: 'PNG Spritesheet',
       url: buildMartinUrl(`/sprite/${name}.png`),
     },
     {
-      description: "High resolution sprites for retina displays",
-      label: "High DPI PNG Spritesheet",
+      description: 'High resolution sprites for retina displays',
+      label: 'High DPI PNG Spritesheet',
       url: buildMartinUrl(`/sprite/${name}@2x.png`),
     },
   ];
 
   const sdfFormats: SpriteFormat[] = [
     {
-      description: "For runtime coloring with single color",
-      label: "SDF Spritesheet",
+      description: 'For runtime coloring with single color',
+      label: 'SDF Spritesheet',
       url: buildMartinUrl(`/sdf_sprite/${name}.png`),
     },
     {
-      description: "SDF sprite coordinates and metadata",
-      label: "SDF JSON",
+      description: 'SDF sprite coordinates and metadata',
+      label: 'SDF JSON',
       url: buildMartinUrl(`/sdf_sprite/${name}.json`),
     },
     {
-      description: "High resolution sprites for retina displays",
-      label: "High DPI SDF Spritesheet",
+      description: 'High resolution sprites for retina displays',
+      label: 'High DPI SDF Spritesheet',
       url: buildMartinUrl(`/sdf_sprite/${name}@2x.png`),
     },
   ];
@@ -75,7 +75,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
       setCopiedUrl(url);
       toast({
         description: `URL of ${label} copied to clipboard`,
-        title: "URL Copied",
+        title: 'URL Copied',
       });
 
       // Reset copied state after 2 seconds
@@ -84,9 +84,9 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
       }, 2000);
     } catch {
       toast({
-        description: "Failed to copy URL to clipboard",
-        title: "Copy Failed",
-        variant: "destructive",
+        description: 'Failed to copy URL to clipboard',
+        title: 'Copy Failed',
+        variant: 'destructive',
       });
     }
   };
@@ -135,10 +135,10 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
               <ul className="text-xs text-purple-700  my-6 ml-6 list-disc [&>li]:mt-2">
                 <li>Single color per sprite - Layer multiple SDFs for multi-color icons</li>
                 <li>
-                  Customizable color via{" "}
+                  Customizable color via{' '}
                   <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-0.5 rounded-sm">
                     icon-color
-                  </code>{" "}
+                  </code>{' '}
                   property
                 </li>
                 <li>Supported by MapLibre and Mapbox</li>
@@ -150,7 +150,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                     target="_blank"
                   >
                     SVG-Like
-                  </a>{" "}
+                  </a>{' '}
                   zooming
                 </li>
               </ul>

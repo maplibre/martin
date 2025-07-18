@@ -3,7 +3,7 @@
  * Uses VITE_MARTIN_BASE environment variable if set, otherwise defaults to current origin
  */
 export function getMartinBaseUrl(): string {
-  return import.meta.env.VITE_MARTIN_BASE ?? window.location.origin ?? "";
+  return import.meta.env.VITE_MARTIN_BASE ?? window.location.origin ?? '';
 }
 
 /**
@@ -15,10 +15,10 @@ export function buildMartinUrl(path: string): string {
   const baseUrl = getMartinBaseUrl();
 
   // Ensure path starts with /
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
   // Remove trailing slash from base URL if present
-  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 
   return `${normalizedBaseUrl}${normalizedPath}`;
 }

@@ -1,9 +1,9 @@
-import type React from "react";
-import { useEffect, useState } from "react";
-import { buildMartinUrl } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { fetchSpriteImage, fetchSpriteIndex, type SpriteMeta } from "./SpriteCache";
-import SpriteCanvas from "./SpriteCanvas";
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { buildMartinUrl } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { fetchSpriteImage, fetchSpriteIndex, type SpriteMeta } from './SpriteCache';
+import SpriteCanvas from './SpriteCanvas';
 
 type SpritePreviewProps = {
   /**
@@ -26,10 +26,10 @@ type SpritePreviewProps = {
 };
 
 type SpriteState =
-  | { status: "loading" }
-  | { status: "error"; error: string }
+  | { status: 'loading' }
+  | { status: 'error'; error: string }
   | {
-      status: "ready";
+      status: 'ready';
       sprites: [string, SpriteMeta][];
       image: HTMLImageElement;
     };
@@ -41,13 +41,13 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
   className,
 }) => {
   const PREVIEW_LIMIT = 18;
-  const [state, setState] = useState<SpriteState>({ status: "loading" });
+  const [state, setState] = useState<SpriteState>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      setState({ status: "loading" });
+      setState({ status: 'loading' });
 
       try {
         // we always use @2x high-DPI assets since we display them a little larger than one would on a map
@@ -62,13 +62,13 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
         setState({
           image,
           sprites,
-          status: "ready",
+          status: 'ready',
         });
       } catch (err: unknown) {
         if (cancelled) return;
         setState({
-          error: err instanceof Error ? err.message : "Failed to load sprite",
-          status: "error",
+          error: err instanceof Error ? err.message : 'Failed to load sprite',
+          status: 'error',
         });
       }
     }
@@ -86,17 +86,17 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
   }
 
   // --- Main grid of sprites ---
-  if (state.status === "error") {
+  if (state.status === 'error') {
     return (
-      <div className={`text-red-600 text-center p-4 ${className ?? ""}`}>
+      <div className={`text-red-600 text-center p-4 ${className ?? ''}`}>
         <span>Error: {state.error}</span>
       </div>
     );
   }
 
-  if (state.status === "ready" && state.sprites.length === 0) {
+  if (state.status === 'ready' && state.sprites.length === 0) {
     return (
-      <div className={`text-center p-4 ${className ?? ""}`}>
+      <div className={`text-center p-4 ${className ?? ''}`}>
         <span>No sprites found.</span>
       </div>
     );
@@ -104,13 +104,13 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
 
   // Build a metaMap for fast lookup if ready
   const metaMap: Record<string, SpriteMeta> =
-    state.status === "ready" ? Object.fromEntries(state.sprites) : {};
+    state.status === 'ready' ? Object.fromEntries(state.sprites) : {};
 
   return (
     <div className={cn(`flex flex-wrap gap-3 justify-start items-start min-h-[120px]`, className)}>
       {ids.map((id) => (
         <SpriteCanvas
-          image={state.status === "ready" ? state.image : undefined}
+          image={state.status === 'ready' ? state.image : undefined}
           key={id}
           label={id}
           meta={metaMap[id]}
@@ -122,11 +122,11 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
       {previewMode && spriteIds.length > PREVIEW_LIMIT && (
         <div
           className={`
-            ${previewMode ? "h-7" : "h-12"}
+            ${previewMode ? 'h-7' : 'h-12'}
             flex items-center justify-center
-            ${previewMode ? "text-sm" : "text-lg"}
+            ${previewMode ? 'text-sm' : 'text-lg'}
             text-gray-600 font-semibold
-            ${previewMode ? "m-1.5" : "m-4"}
+            ${previewMode ? 'm-1.5' : 'm-4'}
           `}
           data-spritecnt={spriteIds.length}
         >

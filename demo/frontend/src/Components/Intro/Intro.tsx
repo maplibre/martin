@@ -1,9 +1,9 @@
-import { Parallax } from "react-scroll-parallax";
-import GitHubButton from "../GitHubButton";
-import DocsButton from "../GitHubButton/DocsButton";
-import Container from "./Container";
-import Description from "./Description";
-import Title from "./Title";
+import { Parallax } from 'react-scroll-parallax';
+import GitHubButton from '../GitHubButton';
+import DocsButton from '../GitHubButton/DocsButton';
+import Container from './Container';
+import Description from './Description';
+import Title from './Title';
 
 const Intro = () => (
   <Container>

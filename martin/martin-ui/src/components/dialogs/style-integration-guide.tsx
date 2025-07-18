@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { Code, Copy, ExternalLink } from "lucide-react";
-import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Code, Copy, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { buildMartinUrl } from "@/lib/api";
-import type { Style } from "@/lib/types";
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { buildMartinUrl } from '@/lib/api';
+import type { Style } from '@/lib/types';
 
 interface StyleIntegrationGuideDialogProps {
   name: string;
@@ -36,7 +36,7 @@ export function StyleIntegrationGuideDialog({
       setCopiedCode(id);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (err) {
-      console.error("Failed to copy code:", err);
+      console.error('Failed to copy code:', err);
     }
   };
 
@@ -50,7 +50,7 @@ export function StyleIntegrationGuideDialog({
           variant="ghost"
         >
           <Copy className="w-3 h-3 mr-1" />
-          {copiedCode === id ? "Copied!" : "Copy"}
+          {copiedCode === id ? 'Copied!' : 'Copy'}
         </Button>
         <code>{code}</code>
       </pre>

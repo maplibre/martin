@@ -1,16 +1,16 @@
-import { Eye, Search, Type } from "lucide-react";
+import { Eye, Search, Type } from 'lucide-react';
 
-import { ErrorState } from "@/components/error/error-state";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { buildMartinUrl } from "@/lib/api";
-import type { Font } from "@/lib/types";
-import { CopyLinkButton } from "../ui/copy-link-button";
-import { DisabledNonInteractiveButton } from "../ui/disabledNonInteractiveButton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { ErrorState } from '@/components/error/error-state';
+import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { buildMartinUrl } from '@/lib/api';
+import type { Font } from '@/lib/types';
+import { CopyLinkButton } from '../ui/copy-link-button';
+import { DisabledNonInteractiveButton } from '../ui/disabledNonInteractiveButton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface FontCatalogProps {
   fonts?: { [name: string]: Font };
@@ -24,7 +24,7 @@ interface FontCatalogProps {
 
 export function FontCatalog({
   fonts,
-  searchQuery = "",
+  searchQuery = '',
   onSearchChangeAction = () => {},
   isLoading,
   error = null,
@@ -150,7 +150,7 @@ export function FontCatalog({
       {filteredFonts.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">
-            {searchQuery ? <>No fonts found matching "{searchQuery}".</> : "No fonts found."}
+            {searchQuery ? <>No fonts found matching "{searchQuery}".</> : 'No fonts found.'}
           </p>
           <Button asChild size="lg" variant="link">
             <a

@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import type { TileSource } from "@/lib/types";
-import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
-import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
-import type { MapRef } from "@vis.gl/react-maplibre";
-import { Map as MapLibreMap, Source } from "@vis.gl/react-maplibre";
-import { Database } from "lucide-react";
-import { Popup } from "maplibre-gl";
-import { buildMartinUrl } from "@/lib/api";
+} from '@/components/ui/dialog';
+import type { TileSource } from '@/lib/types';
+import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
+import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
+import type { MapRef } from '@vis.gl/react-maplibre';
+import { Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
+import { Database } from 'lucide-react';
+import { Popup } from 'maplibre-gl';
+import { buildMartinUrl } from '@/lib/api';
 
 interface TileInspectDialogProps {
   name: string;
@@ -87,8 +87,8 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
               ref={mapRef}
               reuseMaps={false}
               style={{
-                height: "500px",
-                width: "100%",
+                height: '500px',
+                width: '100%',
               }}
             >
               <Source type="vector" url={buildMartinUrl(`/${name}`)} />

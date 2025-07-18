@@ -1,6 +1,6 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { HistogramBucket } from "@/lib/prometheus";
-import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { HistogramBucket } from '@/lib/prometheus';
+import { cn } from '@/lib/utils';
 
 interface MiniHistogramProps {
   histogram: HistogramBucket[];
@@ -60,12 +60,12 @@ function rebucket(buckets: HistogramBucket[]): RebucketedHistogram[] {
   return bars;
 }
 
-export function MiniHistogram({ histogram, className = "" }: MiniHistogramProps) {
+export function MiniHistogram({ histogram, className = '' }: MiniHistogramProps) {
   const bars = rebucket(histogram);
 
   return (
     <TooltipProvider>
-      <div className={cn("w-20 h-12 flex items-end gap-px", className)}>
+      <div className={cn('w-20 h-12 flex items-end gap-px', className)}>
         {bars.map((bar) => (
           <Tooltip key={bar.timeRange}>
             <TooltipTrigger asChild>

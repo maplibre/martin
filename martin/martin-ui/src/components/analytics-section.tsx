@@ -1,9 +1,9 @@
-import { Image, Layers, Palette, Type } from "lucide-react";
-import { MiniHistogram } from "@/components/charts/mini-histogram";
-import { ErrorState } from "@/components/error/error-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { AnalyticsData } from "@/lib/types";
+import { Image, Layers, Palette, Type } from 'lucide-react';
+import { MiniHistogram } from '@/components/charts/mini-histogram';
+import { ErrorState } from '@/components/error/error-state';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { AnalyticsData } from '@/lib/types';
 
 interface AnalyticsSectionProps {
   analytics?: AnalyticsData;
@@ -16,23 +16,23 @@ interface AnalyticsSectionProps {
 const CARD_CONFIG = [
   {
     icon: Layers,
-    key: "tiles",
-    title: "Tiles",
+    key: 'tiles',
+    title: 'Tiles',
   },
   {
     icon: Palette,
-    key: "styles",
-    title: "Styles",
+    key: 'styles',
+    title: 'Styles',
   },
   {
     icon: Type,
-    key: "fonts",
-    title: "Fonts",
+    key: 'fonts',
+    title: 'Fonts',
   },
   {
     icon: Image,
-    key: "sprites",
-    title: "Sprites",
+    key: 'sprites',
+    title: 'Sprites',
   },
 ] as const;
 
@@ -78,7 +78,7 @@ export function AnalyticsSection({
                       ) : (
                         <>
                           {Math.round(data.averageRequestDurationMs)}
-                          {" ms"}
+                          {' ms'}
                         </>
                       )}
                     </div>
@@ -88,7 +88,7 @@ export function AnalyticsSection({
                       ) : (
                         <>
                           {data.requestCount.toLocaleString()}
-                          {" requests"}
+                          {' requests'}
                         </>
                       )}
                     </span>

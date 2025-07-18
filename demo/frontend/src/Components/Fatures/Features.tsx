@@ -1,12 +1,12 @@
-import { Parallax } from "react-scroll-parallax";
+import { Parallax } from 'react-scroll-parallax';
 
-import martinFeatures from "../../config/features";
+import martinFeatures from '../../config/features';
 
-import Container from "./Container";
-import Description from "./Description";
-import Feature from "./Feature";
-import tiles from "./martin_mobile.png";
-import Title from "./Title";
+import Container from './Container';
+import Description from './Description';
+import Feature from './Feature';
+import tiles from './martin_mobile.png';
+import Title from './Title';
 
 const Features = () => (
   <Container>

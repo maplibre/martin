@@ -1,19 +1,19 @@
-import { type ErrorInfo, useCallback, useEffect, useState } from "react";
-import { FontCatalog } from "@/components/catalogs/font";
-import { SpriteCatalog } from "@/components/catalogs/sprite";
-import { StylesCatalog } from "@/components/catalogs/styles";
-import { TilesCatalog } from "@/components/catalogs/tiles";
-import { ErrorBoundary } from "@/components/error/error-boundary";
-import { StyleEditor } from "@/components/style-editor";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Toaster } from "@/components/ui/toaster";
-import { useAsyncOperation } from "@/hooks/use-async-operation";
-import { useToast } from "@/hooks/use-toast";
-import { buildMartinUrl } from "@/lib/api";
-import type { CatalogSchema } from "@/lib/types";
+import { type ErrorInfo, useCallback, useEffect, useState } from 'react';
+import { FontCatalog } from '@/components/catalogs/font';
+import { SpriteCatalog } from '@/components/catalogs/sprite';
+import { StylesCatalog } from '@/components/catalogs/styles';
+import { TilesCatalog } from '@/components/catalogs/tiles';
+import { ErrorBoundary } from '@/components/error/error-boundary';
+import { StyleEditor } from '@/components/style-editor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Toaster } from '@/components/ui/toaster';
+import { useAsyncOperation } from '@/hooks/use-async-operation';
+import { useToast } from '@/hooks/use-toast';
+import { buildMartinUrl } from '@/lib/api';
+import type { CatalogSchema } from '@/lib/types';
 
 const fetchCatalog = async (): Promise<CatalogSchema> => {
-  const res = await fetch(buildMartinUrl("/catalog"));
+  const res = await fetch(buildMartinUrl('/catalog'));
   if (!res.ok) {
     throw new Error(`Failed to fetch catalog: ${res.statusText}`);
   }
@@ -22,8 +22,8 @@ const fetchCatalog = async (): Promise<CatalogSchema> => {
 
 export function DashboardContent() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("tiles");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState('tiles');
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingStyle, setEditingStyle] = useState<string | null>(null);
 
   const handleTabChange = (value: string) => {
@@ -31,7 +31,7 @@ export function DashboardContent() {
   };
 
   const handleCatalogError = useCallback((error: Error) => {
-    console.error("Catalog fetch failed:", error);
+    console.error('Catalog fetch failed:', error);
   }, []);
 
   // Catalog operation - unified data fetching
@@ -68,11 +68,11 @@ export function DashboardContent() {
   return (
     <ErrorBoundary
       onError={(error: Error, errorInfo: ErrorInfo) => {
-        console.error("Application error:", error, errorInfo);
+        console.error('Application error:', error, errorInfo);
         toast({
-          description: "An unexpected error occurred. The page will reload automatically.",
-          title: "Application Error",
-          variant: "destructive",
+          description: 'An unexpected error occurred. The page will reload automatically.',
+          title: 'Application Error',
+          variant: 'destructive',
         });
 
         // Auto-reload after 3 seconds

@@ -1,16 +1,16 @@
-import { Brush, Code, Search, SquarePen } from "lucide-react";
-import { StyleIntegrationGuideDialog } from "@/components/dialogs/style-integration-guide";
-import { ErrorState } from "@/components/error/error-state";
-import { CatalogSkeleton } from "@/components/loading/catalog-skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { buildMartinUrl } from "@/lib/api";
-import type { Style } from "@/lib/types";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { FullscreenControl, Map as MapLibreMap } from "@vis.gl/react-maplibre";
-import { useState } from "react";
+import { Brush, Code, Search, SquarePen } from 'lucide-react';
+import { StyleIntegrationGuideDialog } from '@/components/dialogs/style-integration-guide';
+import { ErrorState } from '@/components/error/error-state';
+import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { buildMartinUrl } from '@/lib/api';
+import type { Style } from '@/lib/types';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { FullscreenControl, Map as MapLibreMap } from '@vis.gl/react-maplibre';
+import { useState } from 'react';
 
 interface StylesCatalogProps {
   styles?: { [name: string]: Style };
@@ -25,7 +25,7 @@ interface StylesCatalogProps {
 
 export function StylesCatalog({
   styles,
-  searchQuery = "",
+  searchQuery = '',
   onSearchChangeAction = () => {},
   isLoading,
   error = null,
@@ -114,10 +114,10 @@ export function StylesCatalog({
                   onMove={(evt) => setViewState(evt.viewState)}
                   style={{
                     aspectRatio: 16 / 9,
-                    backgroundColor: "#E5E7EB",
-                    backgroundImage: "linear-gradient(to bottom right, var(--tw-gradient-stops))",
-                    borderRadius: "var(--radius)",
-                    width: "100%",
+                    backgroundColor: '#E5E7EB',
+                    backgroundImage: 'linear-gradient(to bottom right, var(--tw-gradient-stops))',
+                    borderRadius: 'var(--radius)',
+                    width: '100%',
                   }}
                 >
                   <FullscreenControl />
@@ -187,7 +187,7 @@ export function StylesCatalog({
       {filteredStyles.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">
-            {searchQuery ? `No styles found matching "${searchQuery}"` : "No styles found."}
+            {searchQuery ? `No styles found matching "${searchQuery}"` : 'No styles found.'}
           </p>
           <Button asChild size="lg" variant="link">
             <a

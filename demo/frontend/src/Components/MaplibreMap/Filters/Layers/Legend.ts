@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export default styled.div<{ fromColor: string; toColor: string }>`
   height: 4px;

@@ -37,7 +37,7 @@ export function fetchSpriteImage(url: string): Promise<HTMLImageElement> {
     img.onerror = (_err) => {
       reject(new Error(`Failed to load sprite image: ${url}`));
     };
-    img.crossOrigin = "anonymous";
+    img.crossOrigin = 'anonymous';
     img.src = url;
   });
 
@@ -63,14 +63,14 @@ export function fetchSpriteIndex(url: string): Promise<SpriteIndex> {
     return spriteIndexCache[url].promise;
   }
 
-  const promise = fetch(url, { credentials: "omit" }).then(async (res) => {
+  const promise = fetch(url, { credentials: 'omit' }).then(async (res) => {
     if (!res.ok) {
       throw new Error(`Failed to fetch sprite index: ${url}`);
     }
     const json = await res.json();
     // Basic validation
-    if (typeof json !== "object" || json === null) {
-      throw new Error("Sprite index JSON is not an object");
+    if (typeof json !== 'object' || json === null) {
+      throw new Error('Sprite index JSON is not an object');
     }
     return json as SpriteIndex;
   });

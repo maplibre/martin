@@ -209,6 +209,18 @@ get-features:
 git *args: start
     git {{args}}
 
+# Show help for new contributors
+help:
+    @echo "Common commands:"
+    @echo "  just validate-tools    # Check required tools"
+    @echo "  just start             # Start test database"
+    @echo "  just run               # Start Martin server"
+    @echo "  just test              # Run all tests"
+    @echo "  just fmt               # Format code"
+    @echo "  just book              # Build documentation"
+    @echo ""
+    @echo "Full list: just --list"
+
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
 

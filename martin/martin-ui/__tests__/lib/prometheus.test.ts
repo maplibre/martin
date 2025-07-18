@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it } from '@jest/globals';
 
 // Import the functions from the correct location
 import {
@@ -7,83 +7,83 @@ import {
   parseCompletePrometheusMetrics,
   parsePrometheusHistogram,
   parsePrometheusMetrics,
-} from "@/lib/prometheus";
+} from '@/lib/prometheus';
 
-describe("parsePrometheusMetrics", () => {
-  it("parses sum and count for multiple endpoints", () => {
+describe('parsePrometheusMetrics', () => {
+  it('parses sum and count for multiple endpoints', () => {
     const metrics = [
-      "# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
-      "# TYPE martin_http_requests_duration_seconds histogram",
+      '# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests',
+      '# TYPE martin_http_requests_duration_seconds histogram',
       'martin_http_requests_duration_seconds_sum{endpoint="/sprite/{source_ids}.json",method="GET",status="200"} 12.5',
       'martin_http_requests_duration_seconds_count{endpoint="/sprite/{source_ids}.json",method="GET",status="200"} 50',
       'martin_http_requests_duration_seconds_sum{endpoint="/font/{fontstack}/{start}-{end}",method="GET",status="200"} 3.2',
       'martin_http_requests_duration_seconds_count{endpoint="/font/{fontstack}/{start}-{end}",method="GET",status="200"} 8',
       'martin_http_requests_duration_seconds_sum{endpoint="/style/{style_id}",method="GET",status="200"} 7.0',
       'martin_http_requests_duration_seconds_count{endpoint="/style/{style_id}",method="GET",status="200"} 14',
-    ].join("\n");
+    ].join('\n');
     const { sum, count } = parsePrometheusMetrics(metrics);
 
-    expect(sum["/sprite/{source_ids}.json"]).toBe(12.5);
-    expect(count["/sprite/{source_ids}.json"]).toBe(50);
+    expect(sum['/sprite/{source_ids}.json']).toBe(12.5);
+    expect(count['/sprite/{source_ids}.json']).toBe(50);
 
-    expect(sum["/font/{fontstack}/{start}-{end}"]).toBe(3.2);
-    expect(count["/font/{fontstack}/{start}-{end}"]).toBe(8);
+    expect(sum['/font/{fontstack}/{start}-{end}']).toBe(3.2);
+    expect(count['/font/{fontstack}/{start}-{end}']).toBe(8);
 
-    expect(sum["/style/{style_id}"]).toBe(7.0);
-    expect(count["/style/{style_id}"]).toBe(14);
+    expect(sum['/style/{style_id}']).toBe(7.0);
+    expect(count['/style/{style_id}']).toBe(14);
   });
 
-  it("ignores unrelated metrics", () => {
+  it('ignores unrelated metrics', () => {
     const metrics = [
       'other_metric{foo="bar"} 123',
       'martin_http_requests_duration_seconds_sum{endpoint="/catalog",method="GET",status="200"} 1.1',
       'martin_http_requests_duration_seconds_count{endpoint="/catalog",method="GET",status="200"} 2',
-    ].join("\n");
+    ].join('\n');
 
     const { sum, count } = parsePrometheusMetrics(metrics);
 
-    expect(sum["/catalog"]).toBe(1.1);
-    expect(count["/catalog"]).toBe(2);
+    expect(sum['/catalog']).toBe(1.1);
+    expect(count['/catalog']).toBe(2);
     expect(sum.foo).toBeUndefined();
     expect(count.foo).toBeUndefined();
   });
 
-  it("handles missing sum or count values gracefully", () => {
+  it('handles missing sum or count values gracefully', () => {
     const metrics = [
       'martin_http_requests_duration_seconds_sum{endpoint="/sprite/{source_ids}.json",method="GET",status="200"} 5.5',
-      "# No count for this endpoint",
+      '# No count for this endpoint',
       'martin_http_requests_duration_seconds_count{endpoint="/style/{style_id}",method="GET",status="200"} 10',
-      "# No sum for this endpoint",
-    ].join("\n");
+      '# No sum for this endpoint',
+    ].join('\n');
 
     const { sum, count } = parsePrometheusMetrics(metrics);
 
-    expect(sum["/sprite/{source_ids}.json"]).toBe(5.5);
-    expect(count["/sprite/{source_ids}.json"]).toBeUndefined();
+    expect(sum['/sprite/{source_ids}.json']).toBe(5.5);
+    expect(count['/sprite/{source_ids}.json']).toBeUndefined();
 
-    expect(sum["/style/{style_id}"]).toBeUndefined();
-    expect(count["/style/{style_id}"]).toBe(10);
+    expect(sum['/style/{style_id}']).toBeUndefined();
+    expect(count['/style/{style_id}']).toBe(10);
   });
 
-  describe("aggregateEndpointGroups", () => {
-    it("aggregates metrics for defined endpoint groups", () => {
+  describe('aggregateEndpointGroups', () => {
+    it('aggregates metrics for defined endpoint groups', () => {
       const sum = {
-        "/font/{fontstack}/{start}-{end}": 5,
-        "/sprite/{source_ids}.json": 10,
-        "/sprite/{source_ids}.png": 20,
-        "/style/{style_id}": 8,
+        '/font/{fontstack}/{start}-{end}': 5,
+        '/sprite/{source_ids}.json': 10,
+        '/sprite/{source_ids}.png': 20,
+        '/style/{style_id}': 8,
       };
       const count = {
-        "/font/{fontstack}/{start}-{end}": 1,
-        "/sprite/{source_ids}.json": 2,
-        "/sprite/{source_ids}.png": 4,
-        "/style/{style_id}": 8,
+        '/font/{fontstack}/{start}-{end}': 1,
+        '/sprite/{source_ids}.json': 2,
+        '/sprite/{source_ids}.png': 4,
+        '/style/{style_id}': 8,
       };
       const endpointGroups = {
-        fonts: ["/font/{fontstack}/{start}-{end}"],
-        missing: ["/not_present"],
-        sprites: ["/sprite/{source_ids}.json", "/sprite/{source_ids}.png"],
-        styles: ["/style/{style_id}"],
+        fonts: ['/font/{fontstack}/{start}-{end}'],
+        missing: ['/not_present'],
+        sprites: ['/sprite/{source_ids}.json', '/sprite/{source_ids}.png'],
+        styles: ['/style/{style_id}'],
       };
 
       const result = aggregateEndpointGroups(sum, count, endpointGroups);
@@ -105,12 +105,12 @@ describe("parsePrometheusMetrics", () => {
       expect(result.missing.requestCount).toBe(0);
     });
 
-    it("handles empty input gracefully", () => {
+    it('handles empty input gracefully', () => {
       const sum = {};
       const count = {};
       const endpointGroups = {
-        group1: ["/foo"],
-        group2: ["/bar"],
+        group1: ['/foo'],
+        group2: ['/bar'],
       };
       const result = aggregateEndpointGroups(sum, count, endpointGroups);
       expect(result.group1.averageRequestDurationMs).toBe(0);
@@ -120,11 +120,11 @@ describe("parsePrometheusMetrics", () => {
     });
   });
 
-  describe("parsePrometheusHistogram", () => {
-    it("parses histogram buckets for an endpoint", () => {
+  describe('parsePrometheusHistogram', () => {
+    it('parses histogram buckets for an endpoint', () => {
       const metrics = [
-        "# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
-        "# TYPE martin_http_requests_duration_seconds histogram",
+        '# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests',
+        '# TYPE martin_http_requests_duration_seconds histogram',
         'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.005"} 1',
         'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.01"} 2',
         'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.025"} 4',
@@ -139,9 +139,9 @@ describe("parsePrometheusMetrics", () => {
         'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="+Inf"} 20',
         'martin_http_requests_duration_seconds_sum{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 20',
         'martin_http_requests_duration_seconds_count{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 20',
-      ].join("\n");
+      ].join('\n');
       const histogram = parsePrometheusHistogram(metrics);
-      const tileEndpoint = "/{source_ids}/{z}/{x}/{y}";
+      const tileEndpoint = '/{source_ids}/{z}/{x}/{y}';
 
       expect(histogram[tileEndpoint]).toBeDefined();
       expect(histogram[tileEndpoint]).toHaveLength(11); // All buckets except +Inf
@@ -152,7 +152,7 @@ describe("parsePrometheusMetrics", () => {
       expect(histogram[tileEndpoint].map((bucket) => bucket.le)).toEqual(expectedLe);
     });
 
-    it("handles multiple endpoints with histograms", () => {
+    it('handles multiple endpoints with histograms', () => {
       const metrics = [
         'martin_http_requests_duration_seconds_bucket{endpoint="/sprite/{source_ids}.json",method="GET",status="200",le="0.005"} 100',
         'martin_http_requests_duration_seconds_bucket{endpoint="/sprite/{source_ids}.json",method="GET",status="200",le="0.01"} 150',
@@ -164,49 +164,49 @@ describe("parsePrometheusMetrics", () => {
         'martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}",method="GET",status="200",le="+Inf"} 100',
         'martin_http_requests_duration_seconds_sum{endpoint="/style/{style_id}",method="GET",status="200"} 1.2',
         'martin_http_requests_duration_seconds_count{endpoint="/style/{style_id}",method="GET",status="200"} 100',
-      ].join("\n");
+      ].join('\n');
 
       const histogram = parsePrometheusHistogram(metrics);
 
       expect(Object.keys(histogram)).toHaveLength(2);
-      expect(histogram["/sprite/{source_ids}.json"]).toHaveLength(2);
-      expect(histogram["/style/{style_id}"]).toHaveLength(2);
+      expect(histogram['/sprite/{source_ids}.json']).toHaveLength(2);
+      expect(histogram['/style/{style_id}']).toHaveLength(2);
     });
 
-    it("ignores non-histogram metrics", () => {
+    it('ignores non-histogram metrics', () => {
       const metrics = [
         'other_metric{foo="bar"} 123',
         'martin_http_requests_duration_seconds_bucket{endpoint="/test",method="GET",status="200",le="0.1"} 50',
         'martin_http_requests_duration_seconds_sum{endpoint="/test",method="GET",status="200"} 1.0',
         'martin_http_requests_duration_seconds_count{endpoint="/test",method="GET",status="200"} 50',
         'unrelated_bucket{le="0.1"} 999',
-      ].join("\n");
+      ].join('\n');
 
       const histogram = parsePrometheusHistogram(metrics);
 
       expect(Object.keys(histogram)).toHaveLength(1);
-      expect(histogram["/test"]).toBeDefined();
+      expect(histogram['/test']).toBeDefined();
       expect(histogram.other_metric).toBeUndefined();
     });
 
-    it("handles missing sum or count gracefully", () => {
+    it('handles missing sum or count gracefully', () => {
       const metrics = [
         'martin_http_requests_duration_seconds_bucket{endpoint="/incomplete",method="GET",status="200",le="0.1"} 50',
         'martin_http_requests_duration_seconds_sum{endpoint="/incomplete",method="GET",status="200"} 1.0',
         // Missing count
-      ].join("\n");
+      ].join('\n');
 
       const histogram = parsePrometheusHistogram(metrics);
 
-      expect(histogram["/incomplete"]).toBeDefined();
-      expect(histogram["/incomplete"]).toHaveLength(1);
+      expect(histogram['/incomplete']).toBeDefined();
+      expect(histogram['/incomplete']).toHaveLength(1);
     });
   });
 
-  describe("Real world histogram data", () => {
+  describe('Real world histogram data', () => {
     const sampleMetrics = [
-      "# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
-      "# TYPE martin_http_requests_duration_seconds histogram",
+      '# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests',
+      '# TYPE martin_http_requests_duration_seconds histogram',
       'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.005"} 23004',
       'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.01"} 23045',
       'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="0.025"} 23228',
@@ -221,10 +221,10 @@ describe("parsePrometheusMetrics", () => {
       'martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200",le="+Inf"} 23747',
       'martin_http_requests_duration_seconds_sum{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 61.49839745299979',
       'martin_http_requests_duration_seconds_count{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} 23747',
-    ].join("\n");
-    it("parses the provided sample histogram data correctly", () => {
+    ].join('\n');
+    it('parses the provided sample histogram data correctly', () => {
       const histogram = parsePrometheusHistogram(sampleMetrics);
-      const tileEndpoint = "/{source_ids}/{z}/{x}/{y}";
+      const tileEndpoint = '/{source_ids}/{z}/{x}/{y}';
 
       expect(histogram[tileEndpoint]).toBeDefined();
       const expectedCounts = [
@@ -235,28 +235,28 @@ describe("parsePrometheusMetrics", () => {
       expect(histogram[tileEndpoint].map((hist) => hist.le)).toEqual(expectedLe);
     });
 
-    describe("parseCompletePrometheusMetrics", () => {
-      it("parses all metrics types (sum, count, histograms) in one call", () => {
+    describe('parseCompletePrometheusMetrics', () => {
+      it('parses all metrics types (sum, count, histograms) in one call', () => {
         const result = parseCompletePrometheusMetrics(sampleMetrics);
 
         // Check sum and count are parsed
-        expect(result.sum["/{source_ids}/{z}/{x}/{y}"]).toBe(61.49839745299979);
-        expect(result.count["/{source_ids}/{z}/{x}/{y}"]).toBe(23747);
+        expect(result.sum['/{source_ids}/{z}/{x}/{y}']).toBe(61.49839745299979);
+        expect(result.count['/{source_ids}/{z}/{x}/{y}']).toBe(23747);
 
         // Check histogram is parsed
         expect(result.histograms).toEqual(parsePrometheusHistogram(sampleMetrics));
       });
     });
 
-    describe("aggregateHistogramGroups", () => {
-      it("aggregates multiple endpoints into a single group histogram", () => {
+    describe('aggregateHistogramGroups', () => {
+      it('aggregates multiple endpoints into a single group histogram', () => {
         const histograms = {
-          "/sprite/{source_ids}.json": [
+          '/sprite/{source_ids}.json': [
             { count: 100, le: 0.005 },
             { count: 150, le: 0.01 },
             { count: 180, le: 0.025 },
           ],
-          "/sprite/{source_ids}.png": [
+          '/sprite/{source_ids}.png': [
             { count: 50, le: 0.005 },
             { count: 80, le: 0.01 },
             { count: 120, le: 0.025 },
@@ -264,8 +264,8 @@ describe("parsePrometheusMetrics", () => {
         };
 
         const endpointGroups = {
-          sprites: ["/sprite/{source_ids}.json", "/sprite/{source_ids}.png"],
-          tiles: ["/{source_ids}/{z}/{x}/{y}"],
+          sprites: ['/sprite/{source_ids}.json', '/sprite/{source_ids}.png'],
+          tiles: ['/{source_ids}/{z}/{x}/{y}'],
         };
 
         const result = aggregateHistogramGroups(histograms, endpointGroups);
@@ -283,20 +283,20 @@ describe("parsePrometheusMetrics", () => {
         expect(result.tiles).toHaveLength(0);
       });
 
-      it("handles different bucket boundaries across endpoints", () => {
+      it('handles different bucket boundaries across endpoints', () => {
         const histograms = {
-          "/sprite/{source_ids}.json": [
+          '/sprite/{source_ids}.json': [
             { count: 100, le: 0.005 },
             { count: 150, le: 0.025 },
           ],
-          "/sprite/{source_ids}.png": [
+          '/sprite/{source_ids}.png': [
             { count: 50, le: 0.01 },
             { count: 80, le: 0.05 },
           ],
         };
 
         const endpointGroups = {
-          sprites: ["/sprite/{source_ids}.json", "/sprite/{source_ids}.png"],
+          sprites: ['/sprite/{source_ids}.json', '/sprite/{source_ids}.png'],
         };
 
         const result = aggregateHistogramGroups(histograms, endpointGroups);
@@ -312,16 +312,16 @@ describe("parsePrometheusMetrics", () => {
         expect(result.sprites[3]).toEqual({ count: 80, le: 0.05 }); // Only from png
       });
 
-      it("handles single endpoint in group", () => {
+      it('handles single endpoint in group', () => {
         const histograms = {
-          "/{source_ids}/{z}/{x}/{y}": [
+          '/{source_ids}/{z}/{x}/{y}': [
             { count: 1000, le: 0.005 },
             { count: 1200, le: 0.01 },
           ],
         };
 
         const endpointGroups = {
-          tiles: ["/{source_ids}/{z}/{x}/{y}"],
+          tiles: ['/{source_ids}/{z}/{x}/{y}'],
         };
 
         const result = aggregateHistogramGroups(histograms, endpointGroups);
@@ -332,11 +332,11 @@ describe("parsePrometheusMetrics", () => {
         expect(result.tiles[1]).toEqual({ count: 1200, le: 0.01 });
       });
 
-      it("returns empty result when no histogram data available", () => {
+      it('returns empty result when no histogram data available', () => {
         const histograms = {};
         const endpointGroups = {
-          sprites: ["/sprite/{source_ids}.json"],
-          tiles: ["/{source_ids}/{z}/{x}/{y}"],
+          sprites: ['/sprite/{source_ids}.json'],
+          tiles: ['/{source_ids}/{z}/{x}/{y}'],
         };
 
         const result = aggregateHistogramGroups(histograms, endpointGroups);
@@ -348,14 +348,14 @@ describe("parsePrometheusMetrics", () => {
         expect(result.tiles).toHaveLength(0);
       });
 
-      it("handles partial histogram data (some endpoints missing)", () => {
+      it('handles partial histogram data (some endpoints missing)', () => {
         const histograms = {
-          "/sprite/{source_ids}.json": [{ count: 100, le: 0.01 }],
+          '/sprite/{source_ids}.json': [{ count: 100, le: 0.01 }],
           // "/sprite/{source_ids}.png" is missing
         };
 
         const endpointGroups = {
-          sprites: ["/sprite/{source_ids}.json", "/sprite/{source_ids}.png"],
+          sprites: ['/sprite/{source_ids}.json', '/sprite/{source_ids}.png'],
         };
 
         const result = aggregateHistogramGroups(histograms, endpointGroups);
@@ -367,12 +367,12 @@ describe("parsePrometheusMetrics", () => {
     });
   });
 
-  describe("Integration test: Corrected histogram processing", () => {
-    it("properly handles cumulative histogram buckets and multi-endpoint aggregation", () => {
+  describe('Integration test: Corrected histogram processing', () => {
+    it('properly handles cumulative histogram buckets and multi-endpoint aggregation', () => {
       // Sample data with multiple sprite endpoints showing cumulative histogram nature
       const sampleMetrics = [
-        "# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests",
-        "# TYPE martin_http_requests_duration_seconds histogram",
+        '# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests',
+        '# TYPE martin_http_requests_duration_seconds histogram',
         // Sprite JSON endpoint - cumulative buckets (le = "less than or equal")
         'martin_http_requests_duration_seconds_bucket{endpoint="/sprite/{source_ids}.json",method="GET",status="200",le="0.005"} 100',
         'martin_http_requests_duration_seconds_bucket{endpoint="/sprite/{source_ids}.json",method="GET",status="200",le="0.01"} 150', // 50 more requests (150-100)
@@ -387,18 +387,18 @@ describe("parsePrometheusMetrics", () => {
         'martin_http_requests_duration_seconds_bucket{endpoint="/sprite/{source_ids}.png",method="GET",status="200",le="+Inf"} 150',
         'martin_http_requests_duration_seconds_sum{endpoint="/sprite/{source_ids}.png",method="GET",status="200"} 1.5',
         'martin_http_requests_duration_seconds_count{endpoint="/sprite/{source_ids}.png",method="GET",status="200"} 150',
-      ].join("\n");
+      ].join('\n');
 
       // Parse all metrics
       const { sum, count, histograms } = parseCompletePrometheusMetrics(sampleMetrics);
 
       // Verify individual endpoint parsing
-      expect(histograms["/sprite/{source_ids}.json"]).toBeDefined();
-      expect(histograms["/sprite/{source_ids}.png"]).toBeDefined();
+      expect(histograms['/sprite/{source_ids}.json']).toBeDefined();
+      expect(histograms['/sprite/{source_ids}.png']).toBeDefined();
 
       // Test histogram aggregation
       const endpointGroups = {
-        sprites: ["/sprite/{source_ids}.json", "/sprite/{source_ids}.png"],
+        sprites: ['/sprite/{source_ids}.json', '/sprite/{source_ids}.png'],
       };
 
       const aggregatedHistograms = aggregateHistogramGroups(histograms, endpointGroups);

@@ -11,7 +11,7 @@ export function parsePrometheusMetrics(text: string): {
   sum: Record<string, number>;
   count: Record<string, number>;
 } {
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   const sum: Record<string, number> = {};
   const count: Record<string, number> = {};
 
@@ -74,7 +74,7 @@ export function aggregateEndpointGroups(
  * Returns an object mapping endpoint strings to histogram data.
  */
 export function parsePrometheusHistogram(text: string): Record<string, HistogramBucket[]> {
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   const histograms: Record<string, HistogramBucket[]> = {};
 
   for (const line of lines) {
@@ -91,7 +91,7 @@ export function parsePrometheusHistogram(text: string): Record<string, Histogram
       const leMatch = /le="([^"]+)"/.exec(labels);
 
       if (endpoint && leMatch) {
-        const le = leMatch[1] === "+Inf" ? Infinity : parseFloat(leMatch[1]);
+        const le = leMatch[1] === '+Inf' ? Infinity : parseFloat(leMatch[1]);
 
         if (!histograms[endpoint]) {
           histograms[endpoint] = [];
@@ -173,13 +173,13 @@ export function aggregateHistogramGroups(
 }
 
 export const ENDPOINT_GROUPS = {
-  fonts: ["/font/{fontstack}/{start}-{end}"],
+  fonts: ['/font/{fontstack}/{start}-{end}'],
   sprites: [
-    "/sprite/{source_ids}.json",
-    "/sprite/{source_ids}.png",
-    "/sdf_sprite/{source_ids}.json",
-    "/sdf_sprite/{source_ids}.png",
+    '/sprite/{source_ids}.json',
+    '/sprite/{source_ids}.png',
+    '/sdf_sprite/{source_ids}.json',
+    '/sdf_sprite/{source_ids}.png',
   ],
-  styles: ["/style/{style_id}"],
-  tiles: ["/{source_ids}/{z}/{x}/{y}", "/{source_ids}"],
+  styles: ['/style/{style_id}'],
+  tiles: ['/{source_ids}/{z}/{x}/{y}', '/{source_ids}'],
 } as Record<string, readonly string[]>;

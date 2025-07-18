@@ -1,4 +1,4 @@
-import type { HistogramBucket } from "./prometheus";
+import type { HistogramBucket } from './prometheus';
 
 export interface CatalogSchema {
   tiles: { readonly [tile_id: string]: TileSource };
@@ -15,7 +15,7 @@ export interface Font {
   family: string;
   // if the style is Medium, Bold, Italic, Bold Italic, ..
   style: string;
-  format?: "otf" | "ttf" | "ttc"; // todo: make this provided as required upstream
+  format?: 'otf' | 'ttf' | 'ttc'; // todo: make this provided as required upstream
   start: number; // todo: what is this?
   end: number; // todo: what is this?
   glyphs: number;
@@ -24,7 +24,7 @@ export interface Font {
 
 export interface Style {
   path: string;
-  type?: "vector" | "raster" | "hybrid"; // todo: make this provided as required upstream
+  type?: 'vector' | 'raster' | 'hybrid'; // todo: make this provided as required upstream
   versionHash?: string; // todo: make this provided as required upstream
   layerCount?: number; // todo: make this provided as required upstream
   colors?: readonly string[]; // todo: make this provided as required upstream
