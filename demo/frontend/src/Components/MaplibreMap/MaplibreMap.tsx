@@ -1,5 +1,6 @@
-import React, { PureComponent } from 'react';
+/* biome-ignore-all lint/suspicious/noExplicitAny: this is a legacy component and needs to be redone */
 import maplibregl from 'maplibre-gl';
+import { PureComponent } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { MAP_STYLE } from '../../config/constants';
@@ -11,30 +12,32 @@ import Filters from './Filters';
 
 const mapStyle = { height: '615px', marginLeft: '350px' };
 
-class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> {
-
+class MaplibreMap extends PureComponent<
+  Record<string, never>,
+  { visibleLayer: any; range: any; hour: any }
+> {
   map: any;
   nav: any;
 
-  constructor(props: {} | Readonly<{}>) {
+  constructor(props: Record<string, never> | Readonly<Record<string, never>>) {
     super(props);
     this.state = {
-      visibleLayer: 'trips',
+      hour: 9,
       range: {
         from: new Date(2017, 0, 1),
-        to: new Date(2017, 4, 4)
+        to: new Date(2017, 4, 4),
       },
-      hour: 9
+      visibleLayer: 'trips',
     };
   }
 
   componentDidMount() {
     this.map = new maplibregl.Map({
-      cooperativeGestures: true,
+      center: [-74.005308, 40.71337],
       container: 'map',
-      style: MAP_STYLE,
-      center: [-74.005308, 40.713370],
+      cooperativeGestures: true,
       pitch: 45,
+      style: MAP_STYLE,
       zoom: 9,
     });
     this.nav = new maplibregl.NavigationControl();
@@ -45,7 +48,7 @@ class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> 
 
   componentDidUpdate() {
     const newStyle = this.map.getStyle();
-    newStyle.sources['trips_source'].url = `/tiles/get_trips?${this.getQueryParams()}`;
+    newStyle.sources.trips_source.url = `/tiles/get_trips?${this.getQueryParams()}`;
     this.map.setStyle(newStyle);
   }
 
@@ -54,7 +57,7 @@ class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> 
 
     this.map.addSource('trips_source', {
       type: 'vector',
-      url: `/tiles/get_trips?${queryParams}`
+      url: `/tiles/get_trips?${queryParams}`,
     });
     layers.forEach(({ maplibreLayer }) => {
       this.map.addLayer(maplibreLayer, 'place_town');
@@ -63,15 +66,18 @@ class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> 
 
   changeFilter = (filter: string, value: any) => {
     if (filter !== undefined && value !== undefined) {
-      this.setState(state => ({
+      this.setState((state) => ({
         ...state,
-        [filter]: value
+        [filter]: value,
       }));
     }
   };
 
   getQueryParams = () => {
-    const { range: { from, to }, hour } = this.state;
+    const {
+      range: { from, to },
+      hour,
+    } = this.state;
 
     const dateFrom = `${dateConverter(from)}.2017`;
     let dateTo = `${dateConverter(to)}.2017`;
@@ -99,19 +105,16 @@ class Map extends PureComponent<{}, {visibleLayer: any, range: any, hour: any}> 
     return (
       <Container>
         <Filters
-          visibleLayer={visibleLayer}
-          range={range}
-          hour={hour}
-          toggleLayer={this.toggleLayer}
           changeFilter={this.changeFilter}
+          hour={hour}
+          range={range}
+          toggleLayer={this.toggleLayer}
+          visibleLayer={visibleLayer}
         />
-        <div
-          id='map'
-          style={mapStyle}
-        />
+        <div id="map" style={mapStyle} />
       </Container>
     );
   }
 }
 
-export default Map;
+export default MaplibreMap;
