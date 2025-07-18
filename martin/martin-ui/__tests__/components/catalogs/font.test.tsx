@@ -107,7 +107,7 @@ jest.mock('lucide-react', () => ({
 }));
 
 // Mock the toast hook
-jest.mock('@/components/ui/use-toast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: jest.fn(),
   }),
