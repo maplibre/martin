@@ -168,11 +168,17 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
 
     pub fn finalize(&self, prefix: &str) -> UnrecognizedValues {
         let mut res = UnrecognizedValues::new();
+
         if let Self::Config(cfg) = self {
             copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
-        }
-        if res.is_empty() {
-            warn!("There exists an unrecognized value");
+
+            if !res.is_empty() {
+                warn!(
+                    "Unrecognized configuration values found in prefix '{}': {:?}. \
+                    These will be ignored. Please check your configuration file for typos or deprecated keys.",
+                    prefix, cfg.get_unrecognized()
+                );
+            }
         }
         res
     }
