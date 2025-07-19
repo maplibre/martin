@@ -176,7 +176,8 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
                 warn!(
                     "Unrecognized configuration values found in prefix '{}': {:?}. \
                     These will be ignored. Please check your configuration file for typos or deprecated keys.",
-                    prefix, cfg.get_unrecognized()
+                    prefix,
+                    cfg.get_unrecognized()
                 );
             }
         }
