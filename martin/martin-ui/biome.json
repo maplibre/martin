@@ -1,0 +1,11 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.1.1/schema.json",
+  "extends": "//",
+  "files": {
+    "experimentalScannerIgnores": ["node_modules", "dist"],
+    "includes": [
+      "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}"
+    ]
+  }
+}
