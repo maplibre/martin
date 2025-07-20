@@ -174,7 +174,9 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
             copy_unrecognized_config(&mut res, prefix, unrecognized);
 
             for (key, value) in unrecognized.into_iter() {
-                warn!("Ignoring unrecognized configuration entry '{prefix}.{key}: {value}'. Please check your configuration file for typos.");
+                warn!(
+                    "Ignoring unrecognized configuration entry '{prefix}.{key}: {value}'. Please check your configuration file for typos."
+                );
             }
         }
         res
