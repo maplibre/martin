@@ -170,15 +170,11 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         let mut res = UnrecognizedValues::new();
 
         if let Self::Config(cfg) = self {
-            copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
+            let unrecognized = cfg.get_unrecognized();
+            copy_unrecognized_config(&mut res, prefix, unrecognized);
 
-            if !res.is_empty() {
-                warn!(
-                    "Unrecognized configuration values found in prefix '{}': {:?}. \
-                    These will be ignored. Please check your configuration file for typos or deprecated keys.",
-                    prefix,
-                    cfg.get_unrecognized()
-                );
+            for (key, value) in unrecognized.into_iter() {
+                warn!("Ignoring unrecognized configuration entry '{prefix}.{key}: {value}'. Please check your configuration file for typos.");
             }
         }
         res
