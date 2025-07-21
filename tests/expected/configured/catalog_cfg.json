@@ -53,6 +53,9 @@
       "content_type": "application/x-protobuf",
       "description": "autodetect.bigint_table.geom"
     },
+    "cog-auto-web": {
+      "content_type": "image/png"
+    },
     "cog-src1": {
       "content_type": "image/png"
     },
@@ -88,9 +91,6 @@
     "points3857": {
       "content_type": "application/x-protobuf",
       "description": "public.points3857.geom"
-    },
-    "rgba_u8_nodata": {
-      "content_type": "image/png"
     },
     "table_source": {
       "content_type": "application/x-protobuf"

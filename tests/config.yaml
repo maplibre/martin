@@ -181,11 +181,9 @@ sprites:
     mysrc: tests/fixtures/sprites/src2
 
 cog:
-  paths:
-    - tests/fixtures/cog/rgba_u8_nodata.tiff
   sources:
-    cog-src1: tests/fixtures/cog/rgba_u8.tif
     cog-src2: tests/fixtures/cog/rgb_u8.tif
+    cog-src1: tests/fixtures/cog/rgba_u8.tif
     # Test COG with auto_webmercator enabled
     cog-auto-web:
       path: tests/fixtures/cog/rgba_u8_nodata.tiff
