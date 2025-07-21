@@ -145,33 +145,33 @@ You do not need to configure things twice.
 
 - <details>
   <summary>Environment Variables</summary>
-  
+
   ```bash
   export PGSSLROOTCERT=~/certs/ca-cert.pem
   export DATABASE_URL="postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full"
-  
+
   martin
   ```
-  
+
   </details>
 - <details>
   <summary>Configuration File</summary>
-  
+
   ```yaml
   postgres:
     ssl_root_cert: '~/certs/ca-cert.pem'
     connection_string: 'postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full'
   ```
-  
+
   </details>
 - <details>
   <summary>Command Line</summary>
-    
+
   ```bash
   martin --ca-root-file ~/certs/ca-cert.pem \
          "postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full"
   ```
-  
+
   </details>
 
 ## Troubleshooting
