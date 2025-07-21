@@ -57,6 +57,6 @@ repos:
       rev: "v2.1.2"  # Use the sha / tag you want to point at
       hooks:
       -   id: biome-check
-          additional_dependencies: ["@biomejs/biome@2.1.1"]
+          additional_dependencies: ["@biomejs/biome@2.1.2"]
       -   id: biome-format
-          additional_dependencies: ["@biomejs/biome@2.1.1"]
+          additional_dependencies: ["@biomejs/biome@2.1.2"]
