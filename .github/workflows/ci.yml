@@ -54,11 +54,12 @@ jobs:
       - run: just env-info
       - run: just test-fmt
       - name: Run martin/martin-ui linting
-        run: npx @biomejs/biome ci
+        run: just biomejs-martin-ui
         working-directory: martin/martin-ui
       - name: Run martin/martin-ui tests
-        run: npm install && npm test
-        working-directory: martin/martin-ui
+        run: just test-frontend
+      - name: Run martin/martin-ui type checks
+        run: just type-check
       - run: just clippy
       - run: just check
       - run: just check-doc
