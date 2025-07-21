@@ -36,6 +36,31 @@ impl SourceConfigExtras for CogConfig {
         Ok(Box::new(cog))
     }
 
+    async fn new_sources_with_config(
+        &self,
+        id: String,
+        path: PathBuf,
+        config: serde_yaml::Value,
+    ) -> FileResult<Box<dyn Source>> {
+        let source_auto_web = if let serde_yaml::Value::Mapping(map) = &config {
+            if let Some(auto_web_value) = map.get(serde_yaml::Value::String("auto_web".to_string()))
+            {
+                match auto_web_value {
+                    serde_yaml::Value::Bool(b) => Some(*b),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let auto_web = source_auto_web.unwrap_or_else(|| self.auto_web.unwrap_or(false));
+        let cog = CogSource::new(id, path, auto_web)?;
+        Ok(Box::new(cog))
+    }
+
     async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
         unreachable!()
     }
