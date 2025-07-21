@@ -53,9 +53,10 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
       - run: just test-fmt
+      - run: npm install
+        working-directory: martin/martin-ui
       - name: Run martin/martin-ui linting
         run: just biomejs-martin-ui
-        working-directory: martin/martin-ui
       - name: Run martin/martin-ui tests
         run: just test-frontend
       - name: Run martin/martin-ui type checks
