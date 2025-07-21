@@ -1,18 +1,14 @@
 {
   "config": {
     "default": true,
-    "relative-links": true,
     "MD001": false,
     // Line length Check. See https://github.com/DavidAnson/markdownlint/blob/v0.32.1/doc/md013.md
     "MD013": false,
     "MD033": false,
     "MD041": false,
     "MD045": false,
+    "relative-links": true
   },
   // globs expression. See https://github.com/DavidAnson/markdownlint-cli2#command-line
-  "globs": [
-    "README.md",
-    "!CHANGELOG.md",
-    "docs/src/*.md"
-  ]
+  "globs": ["README.md", "!CHANGELOG.md", "docs/src/*.md"]
 }

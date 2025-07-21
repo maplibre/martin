@@ -1,29 +1,27 @@
-import React from 'react'
-import { Parallax } from 'react-scroll-parallax'
+import { Parallax } from 'react-scroll-parallax';
 
-import martinFeatures from '../../config/features'
+import martinFeatures from '../../config/features';
 
-import Container from './Container'
-import Feature from './Feature'
-import Title from './Title'
-import Description from './Description'
-
-import tiles from './martin_mobile.png'
+import Container from './Container';
+import Description from './Description';
+import Feature from './Feature';
+import tiles from './martin_mobile.png';
+import Title from './Title';
 
 const Features = () => (
   <Container>
     {martinFeatures.map((feature) => (
       <Feature key={feature.id}>
         <Parallax
-          translateY={[50, -50]}
           translateX={[0, 20]}
+          translateY={[50, -50]}
           // slowerScrollRate
         >
           <Title>{feature.title}</Title>
         </Parallax>
         <Parallax
-          translateY={[50, -40]}
           translateX={[10, 0]}
+          translateY={[50, -40]}
           // slowerScrollRate
         >
           <Description>{feature.description}</Description>
@@ -32,17 +30,17 @@ const Features = () => (
     ))}
     <Feature>
       <Title>
-        <img src={tiles} alt='tiles' />
+        <img alt="tiles" src={tiles} />
       </Title>
       <Parallax
-        translateY={[50, -40]}
         translateX={[10, 0]}
+        translateY={[50, -40]}
         // slowerScrollRate
       >
         <Description>Start building with Martin!</Description>
       </Parallax>
     </Feature>
   </Container>
-)
+);
 
-export default Features
+export default Features;

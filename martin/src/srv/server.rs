@@ -76,7 +76,7 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
 #[allow(clippy::unused_async)]
 async fn get_index_no_ui() -> &'static str {
     "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
-    A list of all available sources is at /catalog\n\n\
+    A list of all available sources is available at http://<host>/catalog\n\n\
     See documentation https://github.com/maplibre/martin"
 }
 
@@ -87,7 +87,7 @@ async fn get_index_no_ui() -> &'static str {
 async fn get_index_ui_disabled() -> &'static str {
     "Martin server is running.\n\n
     The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
-    A list of all available sources is at /catalog\n\n\
+    A list of all available sources is available at http://<host>/catalog\n\n\
     See documentation https://github.com/maplibre/martin"
 }
 
