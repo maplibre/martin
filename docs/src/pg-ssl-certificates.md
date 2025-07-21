@@ -46,10 +46,11 @@ For basic SSL encryption, you need:
 │     Martin      │◄─────────────►│   PostgreSQL    │
 └─────────────────┘   verify-full  └─────────────────┘
          │                                   │
-    ┌─────────┐                        ┌────────────┐
-    │ CA Cert │                        │   Server   │
-    │         │                        │ Cert + Key │
-    └─────────┘                        └────────────┘
+    ┌─────────┐                        ┌─────────────┐
+    │         │                        │   CA Cert   │
+    │ CA Cert │                        │ Server Cert │
+    │         │                        │ Server Key  │
+    └─────────┘                        └─────────────┘
 ```
 
 ### Self-Signed Certificates
@@ -112,7 +113,7 @@ services:
       - ./server-cert.pem:/var/lib/postgresql/server-cert.pem:ro
       - ./server-key.pem:/var/lib/postgresql/server-key.pem:ro
       - ./ca-cert.pem:/var/lib/postgresql/ca-cert.pem:ro
-    command: exec gosu postgres docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server-cert.pem -c ssl_key_file=/var/lib/postgresql/server-key.pem -c ssl_ca_file=/var/lib/postgresql/ca-cert.pem
+    command: -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server-cert.pem -c ssl_key_file=/var/lib/postgresql/server-key.pem -c ssl_ca_file=/var/lib/postgresql/ca-cert.pem
 ```
 
 ## Testing with psql

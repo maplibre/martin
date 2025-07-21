@@ -15,7 +15,7 @@ By default, `sslmode` is `prefer` - SSL is used if the server supports it, but t
 This matches `psql` default behavior. Use the `sslmode` parameter to specify a different mode:
 
 ```bash
-martin postgresql://user:password@host/db?sslmode=require
+martin postgresql://user:password@host/db?sslmode=verify-full
 ```
 
-For comprehensive SSL certificate setup, including certificate generation, server configuration, and troubleshooting, see the [PostgreSQL SSL Certificates Guide](pg-ssl-certificates.md).
+For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our [PostgreSQL SSL Certificates Recipe](pg-ssl-certificates.md).
