@@ -1,19 +1,19 @@
 {
   "compilerOptions": {
-    "strict": true,
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "noImplicitAny": false,
+    "allowJs": true,
 
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "allowJs": true,
+    "isolatedModules": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "types": ["vite/client"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "noEmit": true,
+    "noImplicitAny": false,
+    "strict": true,
     "strictNullChecks": false,
-    "isolatedModules": true
+    "target": "ESNext",
+    "types": ["vite/client"]
   }
 }
