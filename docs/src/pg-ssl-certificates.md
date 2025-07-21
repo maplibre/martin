@@ -47,7 +47,6 @@ For basic SSL encryption, you need:
 └─────────────────┘   verify-full  └─────────────────┘
          │                                   │
     ┌─────────┐                        ┌─────────────┐
-    │         │                        │   CA Cert   │
     │ CA Cert │                        │ Server Cert │
     │         │                        │ Server Key  │
     └─────────┘                        └─────────────┘
@@ -100,30 +99,47 @@ For production, use certificates from:
 
 ```yaml
 services:
-  postgres:
+  db:
     image: postgis/postgis:17-3.5
     environment:
-      POSTGRES_DB: mydb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
-    user: "${UID}:${GID}"
     volumes:
-      - ./server-cert.pem:/var/lib/postgresql/server-cert.pem:ro
-      - ./server-key.pem:/var/lib/postgresql/server-key.pem:ro
-      - ./ca-cert.pem:/var/lib/postgresql/ca-cert.pem:ro
-    command: -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server-cert.pem -c ssl_key_file=/var/lib/postgresql/server-key.pem -c ssl_ca_file=/var/lib/postgresql/ca-cert.pem
+      - ./server-cert.pem:/var/lib/postgresql/server.crt:ro
+      - ./server-key.pem:/var/lib/postgresql/server.key:ro
+    command: -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
 ```
+
+```bash
+docker compose up
+```
+
+> [!TIP]
+> Postgres requires specific file permissions and ownership for SSL certificates.
+> In docker this can be a bit tricky:
+> 
+> alpine images have `70:70` as the default `user:group`
+> debian images have `999:999` as the default `user:group`
+> 
+> You can change this by running the following commands:
+> ```bash
+> chown 999:999 *.pem
+> chmod 400 *.pem
+> ```
 
 ## Testing with psql
 
 Test SSL Connection via
 
 ```bash
-psql "postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full" \
-     --set=PGSSLROOTCERT=~/certs/ca-cert.pem
+PGSSLROOTCERT=ca-cert.pem psql "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 ```
+
+> [!TIP]
+> If you get file permission errors, make sure the current user can access the files.
+> The previous step may set them to not readable by the current user.
 
 Then, verify SSL Status by
 
@@ -145,32 +161,31 @@ Which of them you choose is up to you.
 You do not need to configure things twice.
 
 - <details>
-  <summary>Environment Variables</summary>
+  <summary>Environment Variables (click to expand)</summary>
 
   ```bash
-  export PGSSLROOTCERT=~/certs/ca-cert.pem
-  export DATABASE_URL="postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full"
-
+  export PGSSLROOTCERT=./ca-cert.pem
+  export DATABASE_URL="postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
   martin
   ```
 
   </details>
 - <details>
-  <summary>Configuration File</summary>
+  <summary>Configuration File (click to expand)</summary>
 
   ```yaml
   postgres:
-    ssl_root_cert: '~/certs/ca-cert.pem'
-    connection_string: 'postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full'
+    ssl_root_cert: './ca-cert.pem'
+    connection_string: 'postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full'
   ```
 
   </details>
 - <details>
-  <summary>Command Line</summary>
+  <summary>Command Line (click to expand)</summary>
 
   ```bash
-  martin --ca-root-file ~/certs/ca-cert.pem \
-         "postgresql://postgres:password@localhost:5432/mydb?sslmode=verify-full"
+  martin --ca-root-file ./ca-cert.pem \
+        "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
   ```
 
   </details>
@@ -181,7 +196,7 @@ You can get more context via the following commands:
 
 ```bash
 # Verbose psql
-PGSSLMODE=verify-full PGSSLROOTCERT=~/certs/ca-cert.pem psql -h localhost -U postgres -d mydb -v
+PGSSLMODE=verify-full PGSSLROOTCERT=./ca-cert.pem psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
 RUST_LOG=debug martin postgresql://...
@@ -208,7 +223,7 @@ These are the errors that can occur:
   <summary>Permission denied (click to expand)</summary>
 
   - Check certificate file permissions
-  - Private keys should be `chmod 400`
+  - Private keys should be `chmod 400` and readable by the user running the application
 
   </details>
 - <details>
