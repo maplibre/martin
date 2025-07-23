@@ -13,12 +13,12 @@
 .idea/
 .vscode/
 config.yml
+coverage
 pg_data/
 target/
 test_log*
 tests/mbtiles_temp_files/
 tests/output/
-coverage
 tmp/
 tsconfig.tsbuildinfo
 
