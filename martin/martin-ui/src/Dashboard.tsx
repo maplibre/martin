@@ -17,9 +17,9 @@ const fetchAnalytics = async (): Promise<AnalyticsData> => {
   }
   const text = await res.text();
   const { sum, count, histograms } = parseCompletePrometheusMetrics(text);
-  const groupResults = aggregateEndpointGroups(sum, count, ENDPOINT_GROUPS);
 
-  // Aggregate histogram data by endpoint groups
+  // We want to merge some URLs, such as the many sprite URLs
+  const groupResults = aggregateEndpointGroups(sum, count, ENDPOINT_GROUPS);
   const groupHistograms = aggregateHistogramGroups(histograms, ENDPOINT_GROUPS);
 
   return {
@@ -51,13 +51,9 @@ function DashboardLoading() {
 }
 
 export default function MartinTileserverDashboard() {
-  const handleAnalyticsError = useCallback((error: Error) => {
-    console.error('Analytics fetch failed:', error);
-  }, []);
-
   // Analytics operation
   const analyticsOperation = useAsyncOperation<AnalyticsData>(fetchAnalytics, {
-    onError: handleAnalyticsError,
+    onError: (error: Error) => console.error('Analytics fetch failed:', error),
     showErrorToast: false,
   });
 
