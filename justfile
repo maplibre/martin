@@ -55,8 +55,14 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
+# Run biomejs on the dashboard (martin/martin-ui)
+[working-directory: 'martin/martin-ui']
+biomejs-martin-ui:
+    npm run format
+    npm run lint
+
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
@@ -76,6 +82,10 @@ bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
+
+# Bless the frontend tests
+bless-frontend:
+    npm run test:update-snapshots
 
 # Build and open mdbook documentation
 book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
@@ -161,6 +171,9 @@ env-info:
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    npm --version
+    node --version
+
 
 # Run benchmark tests showing a flamegraph
 flamegraph:
@@ -209,7 +222,7 @@ help:
     @echo "Full list: just --list"
 
 # Run cargo fmt and cargo clippy
-lint: fmt clippy
+lint: fmt clippy biomejs-martin-ui type-check
 
 # Run mbtiles command
 mbtiles *args:
@@ -275,7 +288,7 @@ stop:
     {{dockercompose}} down --remove-orphans
 
 # Run all tests using a test database
-test: start (test-cargo '--all-targets') test-doc test-int
+test: start (test-cargo '--all-targets') test-doc test-frontend test-int
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
@@ -288,6 +301,11 @@ test-doc *args:
 # Test code formatting
 test-fmt:
     cargo fmt --all -- --check
+
+# Run frontend tests
+[working-directory: 'martin/martin-ui']
+test-frontend:
+    npm run test
 
 # Run integration tests
 test-int: clean-test install-sqlx
@@ -336,6 +354,11 @@ test-ssl-cert: start-ssl-cert
     {{just_executable()}} clean-test
     {{just_executable()}} test-doc
     tests/test.sh
+
+# Run typescript typechecking on the frontend
+[working-directory: 'martin/martin-ui']
+type-check:
+    npm run type-check
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
