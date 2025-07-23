@@ -169,18 +169,22 @@ postgres:
 
 
 pmtiles:
+  this-should: be-a-warning
   paths:
     - http://localhost:5412/webp2.pmtiles
   sources:
+    this-should: be-a-warning
     pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
     pmt2: http://localhost:5412/webp2.pmtiles
 
 sprites:
+  this-should: be-a-warning
   paths: tests/fixtures/sprites/src1
   sources:
     mysrc: tests/fixtures/sprites/src2
 
 cog:
+  this-should: be-a-warning
   paths:
     - tests/fixtures/cog/rgba_u8_nodata.tiff
   sources:
@@ -188,11 +192,14 @@ cog:
     cog-src2: tests/fixtures/cog/rgb_u8.tif
 
 fonts:
+  # this-should: be-a-warning
   - tests/fixtures/fonts/overpass-mono-regular.ttf
   - tests/fixtures/fonts
 
 styles:
+  this-should: be-a-warning
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
   paths:
     - tests/fixtures/styles/src2
+    
