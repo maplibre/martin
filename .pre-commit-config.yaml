@@ -20,11 +20,11 @@ repos:
       - id: check-symlinks
       - id: check-toml
       - id: check-yaml
-        args: [--allow-multiple-documents]
+        args: [ --allow-multiple-documents ]
       - id: destroyed-symlinks
       - id: end-of-file-fixer
       - id: mixed-line-ending
-        args: [--fix=lf]
+        args: [ --fix=lf ]
       - id: trailing-whitespace
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks
@@ -50,13 +50,13 @@ repos:
         # LT05: Line is too long <- not useful. mostly triggers for comments
         # LT12: Files must end with a single trailing newline <- already done by trailing-whitespace
         # If you update this rule, please also update the rules in justfile, the fmt-sql recipe
-        args: [--dialect=postgres, "--exclude-rules=AL07,LT05,LT12"]
+        args: [ --dialect=postgres, "--exclude-rules=AL07,LT05,LT12" ]
         files: \.sql$
   # NPM hooks for JavaScript/TypeScript formatting and linting
-  -   repo: https://github.com/biomejs/pre-commit
-      rev: "v2.1.2"  # Use the sha / tag you want to point at
-      hooks:
-      -   id: biome-check
-          additional_dependencies: ["@biomejs/biome@2.1.2"]
-      -   id: biome-format
-          additional_dependencies: ["@biomejs/biome@2.1.2"]
+  - repo: https://github.com/biomejs/pre-commit
+    rev: "v2.1.2"  # Use the sha / tag you want to point at
+    hooks:
+      - id: biome-check
+        additional_dependencies: [ "@biomejs/biome@2.1.2" ]
+      - id: biome-format
+        additional_dependencies: [ "@biomejs/biome@2.1.2" ]
