@@ -1,6 +1,5 @@
-import { Suspense, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { AnalyticsSection } from '@/components/analytics-section';
-import { DashboardContent } from '@/components/dashboard-content';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { buildMartinUrl } from '@/lib/api';
 import {
@@ -87,9 +86,7 @@ export default function MartinTileserverDashboard() {
         isLoading={analyticsOperation.isLoading}
       />
 
-      <Suspense fallback={<DashboardLoading />}>
-        <DashboardContent />
-      </Suspense>
+      <DashboardLoading />
     </div>
   );
 }
