@@ -55,12 +55,9 @@ jobs:
       - run: just test-fmt
       - run: npm install
         working-directory: martin/martin-ui
-      - name: Run martin/martin-ui linting
-        run: just biomejs-martin-ui
-      - name: Run martin/martin-ui tests
-        run: just test-frontend
-      - name: Run martin/martin-ui type checks
-        run: just type-check
+      - run: just biomejs-martin-ui
+      - run: just test-frontend
+      - run: just type-check
       - run: just clippy
       - run: just check
       - run: just check-doc
