@@ -11,11 +11,7 @@ import {
 import type { AnalyticsData } from '@/lib/types';
 
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
-  const res = await fetch(buildMartinUrl('/_/metrics'), {
-    headers: {
-      'Accept-Encoding': 'identity',
-    },
-  });
+  const res = await fetch(buildMartinUrl('/_/metrics'));
   if (!res.ok) {
     throw new Error(`Failed to fetch analytics: ${res.statusText}`);
   }
