@@ -24,7 +24,7 @@
     "tailwindcss-animate": "1.0.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.1.1",
+    "@biomejs/biome": "2.1.2",
     "@swc/core": "1.12.9",
     "@swc/jest": "0.2.38",
     "@testing-library/jest-dom": "6.6.3",

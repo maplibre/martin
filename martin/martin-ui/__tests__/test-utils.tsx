@@ -40,10 +40,3 @@ export * from '@testing-library/react';
 
 // override render method
 export { customRender as render };
-
-// This dummy test ensures Jest doesn't complain about an empty test suite
-describe('Test Utils', () => {
-  it('should have a valid render function', () => {
-    expect(customRender).toBeDefined();
-  });
-});

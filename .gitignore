@@ -13,6 +13,7 @@
 .idea/
 .vscode/
 config.yml
+coverage
 pg_data/
 target/
 test_log*

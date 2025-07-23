@@ -17,8 +17,7 @@ const config = {
     "!<rootDir>/*.config.{js,ts}",
   ],
   moduleNameMapper: {
-    "^.+\\.(css|sass|scss)$": "identity-obj-proxy",
-    "^.+\\.module\\.(css|sass|scss)$": "identity-obj-proxy",
+    "^.+\\.css$": "identity-obj-proxy",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   // Handle import.meta.env in tests
@@ -27,11 +26,11 @@ const config = {
   },
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   testEnvironment: "jest-environment-jsdom",
-  testMatch: ["**/__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)"],
+  testMatch: ["**/__tests__/compponents/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)"],
   transform: {
     '^.+\\.(t|j)sx?$': '<rootDir>/jest-transform.js',
   },
-  transformIgnorePatterns: ["/node_modules/", "^.+\\.module\\.(css|sass|scss)$"],
+  transformIgnorePatterns: ["/node_modules/", "^.+\\.module\\.css$"],
 };
 
 export default config;
