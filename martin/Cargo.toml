@@ -62,6 +62,7 @@ pmtiles = ["dep:pmtiles"]
 postgres = ["dep:deadpool-postgres", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 styles = ["dep:walkdir", "tokio/fs"]
+styles_rendering = ["styles", "dep:maplibre_native"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
@@ -85,6 +86,7 @@ itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
+maplibre_native = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
