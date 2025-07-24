@@ -1,0 +1,8 @@
+{
+  "maxzoom": 13,
+  "minzoom": 11,
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/cog-auto-web/{z}/{x}/{y}"
+  ]
+}
