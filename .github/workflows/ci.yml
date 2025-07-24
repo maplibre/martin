@@ -45,6 +45,7 @@ jobs:
           postgis/postgis:16-3.5
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
+      - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@v2
         with: { tool: just }
       - name: Checkout sources
@@ -53,6 +54,11 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
       - run: just test-fmt
+      - run: npm install
+        working-directory: martin/martin-ui
+      - run: just biomejs-martin-ui
+      - run: just test-frontend
+      - run: just type-check
       - run: just clippy
       - run: just check
       - run: just check-doc
@@ -74,10 +80,46 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
+  musl-build:
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-musl
+          - target: x86_64-unknown-linux-musl
+    steps:
+      - run: rustup update stable && rustup default stable
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with: { set-safe-directory: false }
+      - name: Install zig
+        uses: korandoru/setup-zig@v1
+        with: { zig-version: '0.14.0' }
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-zigbuild }
+      - run: rustup target add ${{ matrix.target }}
+      - name: Build ${{ matrix.target }}
+        run: |
+          export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
+          cargo zigbuild --release --target ${{ matrix.target }} --workspace --locked
 
+      - name: Move the artefacts to the expected place
+        run: |
+          mkdir -p target_releases/
+          mv target/${{ matrix.target }}/release/martin target_releases/
+          mv target/${{ matrix.target }}/release/martin-cp target_releases/
+          mv target/${{ matrix.target }}/release/mbtiles target_releases/
+      - name: Save build artifacts to build-${{ matrix.target }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: target_releases/
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
+    needs: [ musl-build, lint-debug-test ]
     permissions:
       id-token: write
       attestations: write
@@ -111,14 +153,9 @@ jobs:
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
-      - uses: taiki-e/install-action@v2
-        with: { tool: cross }
       - name: Checkout sources
         uses: actions/checkout@v4
-        with:
-          set-safe-directory: false
-      - uses: Swatinem/rust-cache@v2
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        with: { set-safe-directory: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -145,48 +182,23 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         # https://github.com/docker/setup-qemu-action
-        with:
-          platforms: linux/amd64,linux/arm64
+        with: { platforms: 'linux/amd64,linux/arm64' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         # https://github.com/docker/setup-buildx-action
-        with:
-          install: true
-          platforms: linux/amd64,linux/arm64
-      - name: Set up AWS SAM
-        uses: aws-actions/setup-sam@v2
-        with:
-          use-installer: true
-
-      - name: Build targets
-        run: |
-          for target in "aarch64-unknown-linux-musl" "x86_64-unknown-linux-musl"; do
-            echo -e "\n----------------------------------------------"
-            echo "Building $target"
-            # See https://github.com/cross-rs/cross/issues/1526
-            # TODO: Remove this once a version after cross 0.2.5 is released
-            export CROSS_BUILD_OPTS="--output=type=docker"
-            export "CARGO_TARGET_$(echo $target | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-            cross build --release --target $target --workspace
-            mkdir -p target_releases/$target
-            mv target/$target/release/martin target_releases/$target
-            mv target/$target/release/martin-cp target_releases/$target
-            mv target/$target/release/mbtiles target_releases/$target
-          done
-
-      - name: Save cross-build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cross-build
-          path: target_releases/*
-      - name: Reorganize artifacts for docker build
-        run: |
-          mkdir -p target_releases/linux/arm64
-          mv target_releases/aarch64-unknown-linux-musl/* target_releases/linux/arm64/
-          mkdir -p target_releases/linux/amd64
-          mv target_releases/x86_64-unknown-linux-musl/* target_releases/linux/amd64/
+        with: { install: true, platforms: 'linux/amd64,linux/arm64' }
+      - name: Download build artifact build-aarch64-unknown-linux-musl
+        uses: actions/download-artifact@v4
+        with: { name: 'build-aarch64-unknown-linux-musl', path: 'target_releases/linux/arm64/' }
+      - name: Mark target_releases/linux/arm64/* as executable
+        run: chmod +x target_releases/linux/arm64/*
+      - name: Download build artifact build-x86_64-unknown-linux-musl
+        uses: actions/download-artifact@v4
+        with: { name: 'build-x86_64-unknown-linux-musl', path: 'target_releases/linux/amd64/' }
+      - name: Mark target_releases/linux/amd64/* as executable
+        run: chmod +x target_releases/linux/amd64/*
       - name: Start NGINX
         uses: nyurik/action-setup-nginx@v1.1
         id: nginx
@@ -329,12 +341,9 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - run: rustup update stable && rustup default stable
       - name: Rust Versions
         run: rustc --version && cargo --version
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.os }}
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
@@ -353,8 +362,8 @@ jobs:
           set -x
           rustup target add "${{ matrix.target }}"
           export RUSTFLAGS='-C strip=debuginfo'
-          cargo build --release --target ${{ matrix.target }} --package mbtiles
-          cargo build --release --target ${{ matrix.target }} --package martin
+          cargo build --release --target ${{ matrix.target }} --package mbtiles --locked
+          cargo build --release --target ${{ matrix.target }} --package martin --locked
           mkdir -p target_releases
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
@@ -368,17 +377,16 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
-    needs: [ docker-build-test ]
+    needs: [ musl-build ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Download build artifact cross-build
+      - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@v4
-        with:
-          name: cross-build
+        with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
       - run: tests/test-aws-lambda.sh
         env:
-          MARTIN_BIN: x86_64-unknown-linux-musl/martin
+          MARTIN_BIN: target/martin
 
 
   test-multi-os:
@@ -412,7 +420,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 16, port: 34837, postgis_version: 3.5.2}
+        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 16, port: 34837, postgis_version: 3.5.2 }
       - name: Install and run Postgis (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -482,9 +490,7 @@ jobs:
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@v4
-        with:
-          name: build-debian-x86_64
-          path: target/
+        with: { name: 'build-debian-x86_64', path: 'target/' }
       - name: Tests Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
@@ -511,7 +517,7 @@ jobs:
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
-    needs: [ build, docker-build-test ]
+    needs: [ build ]
     strategy:
       fail-fast: true
       matrix:
@@ -561,9 +567,10 @@ jobs:
           postgis/postgis:${{ matrix.img_ver }}
           -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
+      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2 # for the unit-test to be run against postgres
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Run NGINX
         uses: nyurik/action-setup-nginx@v1.1
@@ -584,9 +591,7 @@ jobs:
           docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@v4
-        with:
-          name: build-x86_64-unknown-linux-gnu
-          path: target_releases/
+        with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Integration Tests
@@ -607,9 +612,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Download Debian package
         uses: actions/download-artifact@v4
-        with:
-          name: build-debian-x86_64
-          path: target_releases/
+        with: { name: 'build-debian-x86_64', path: 'target_releases/' }
       - name: Tests Debian package
         run: |
           sudo dpkg -i target_releases/debian-x86_64.deb
@@ -653,42 +656,31 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
-    needs: [ lint-debug-test, docker-build-test, test-multi-os, test-with-svc ]
+    needs: [ lint-debug-test, test-multi-os, test-with-svc, test-aws-lambda ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@v4
-        with:
-          name: build-aarch64-apple-darwin
-          path: target/aarch64-apple-darwin
+        with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
       - name: Download build artifact build-x86_64-apple-darwin
         uses: actions/download-artifact@v4
-        with:
-          name: build-x86_64-apple-darwin
-          path: target/x86_64-apple-darwin
+        with: { name: 'build-x86_64-apple-darwin', path: 'target/x86_64-apple-darwin' }
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@v4
-        with:
-          name: build-x86_64-unknown-linux-gnu
-          path: target/x86_64-unknown-linux-gnu
-
-      - name: Download cross-build artifacts
+        with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
+      - name: Download build artifact build-aarch64-unknown-linux-musl
         uses: actions/download-artifact@v4
-        with:
-          name: cross-build
-          path: target/cross
-
+        with: { name: 'build-aarch64-unknown-linux-musl', path: 'target/aarch64-unknown-linux-musl' }
+      - name: Download build artifact build-x86_64-unknown-linux-musl
+        uses: actions/download-artifact@v4
+        with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/x86_64-unknown-linux-musl' }
       - name: Download build artifact build-x86_64-pc-windows-msvc
         uses: actions/download-artifact@v4
-        with:
-          name: build-x86_64-pc-windows-msvc
-          path: target/x86_64-pc-windows-msvc
+        with: { name: 'build-x86_64-pc-windows-msvc', path: 'target/x86_64-pc-windows-msvc' }
       - name: Download build artifact build-debian-x86_64
         uses: actions/download-artifact@v4
-        with:
-          name: build-debian-x86_64
-          path: target/debian-x86_64
+        with: { name: 'build-debian-x86_64', path: 'target/debian-x86_64' }
 
       - name: Package
         run: |
@@ -696,32 +688,14 @@ jobs:
 
           cd target
           mkdir files
-          mv cross/* .
 
-          cd aarch64-apple-darwin
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-aarch64-apple-darwin.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-apple-darwin
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-apple-darwin.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-unknown-linux-gnu
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-gnu.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd aarch64-unknown-linux-musl
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-aarch64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
-          cd ..
-
-          cd x86_64-unknown-linux-musl
-          chmod +x martin martin-cp mbtiles
-          tar czvf ../files/martin-x86_64-unknown-linux-musl.tar.gz martin martin-cp mbtiles
-          cd ..
+          for target in aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
+          do
+            cd "$target"
+            chmod +x martin martin-cp mbtiles
+            tar czvf ../files/martin-${target}.tar.gz martin martin-cp mbtiles
+            cd ..
+          done
 
           #
           # Special case for Windows
@@ -757,16 +731,12 @@ jobs:
 
       - name: Save Homebrew Config
         uses: actions/upload-artifact@v4
-        with:
-          name: homebrew-config
-          path: target/homebrew_config.yaml
+        with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
 
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
-        with:
-          files: 'target/files/*'
-          generate_release_notes: true
+        with: { files: 'target/files/*', generate_release_notes: true }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -818,7 +788,7 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
-    needs: [ package ]
+    needs: [ package, docker-build-test ]
     steps:
       - name: Finished
         run: echo "CI finished successfully"
