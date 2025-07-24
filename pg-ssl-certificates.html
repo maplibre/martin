@@ -1,0 +1,445 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Using PostgreSQL with SSL Certificates - Martin Tile Server Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Martin Tile Server Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/maplibre/martin" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/maplibre/martin/edit/main/docs/src/pg-ssl-certificates.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="postgresql-ssl-certificates"><a class="header" href="#postgresql-ssl-certificates">PostgreSQL SSL Certificates</a></h1>
+<p>Martin supports SSL certificate authentication for PostgreSQL connections. This guide covers certificate generation, PostgreSQL configuration, and Martin setup.</p>
+<h2 id="when-to-use-ssl-certificates"><a class="header" href="#when-to-use-ssl-certificates">When to Use SSL Certificates</a></h2>
+<p>Use SSL certificates for:</p>
+<ul>
+<li>Deployments where martin and Postgis are on separate machines</li>
+<li>Compliance requirements (PCI DSS, HIPAA, etc.)</li>
+<li>Cloud PostgreSQL deployments</li>
+<li>High-security environments requiring certificate-based authentication</li>
+</ul>
+<h2 id="ssl-modes"><a class="header" href="#ssl-modes">SSL Modes</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>sslmode</th><th>Eaves-<br/>dropping<br/>protection</th><th>MITM <br/>protection</th><th>Statement</th></tr></thead><tbody>
+<tr><td><code>disable</code></td><td>⛔</td><td>⛔</td><td>I don’t care about security, and I don’t want to pay the overhead of encryption.</td></tr>
+<tr><td><code>allow</code></td><td>🤷</td><td>⛔</td><td>I don’t care about security, but I will pay the overhead of encryption if the server insists on it.</td></tr>
+<tr><td><code>prefer</code></td><td>🤷</td><td>⛔</td><td>I don’t care about encryption, but I wish to pay the overhead of encryption if the server supports it.</td></tr>
+<tr><td><code>require</code></td><td>✅</td><td>⛔</td><td>I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.</td></tr>
+<tr><td><code>verify-ca</code></td><td>✅</td><td>Depends <br/> on CA policy</td><td>I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.</td></tr>
+<tr><td><code>verify-full</code></td><td>✅</td><td>✅</td><td>I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it’s the one I specify.</td></tr>
+</tbody></table>
+</div>
+<p>Our recommendation: <strong><code>verify-full</code> or <code>allow</code></strong>.
+There are not many cases where anything in between makes sense.</p>
+<p>In particular, the default mode (<code>prefer</code>) does not make much sense.
+From the postgres documentation:</p>
+<blockquote>
+<p>As is shown in the table, this makes no sense from a security point of view, and it only promises performance overhead if possible.
+It is only provided as the default for backward compatibility, and is not recommended in secure deployments.</p>
+</blockquote>
+<p>For a fuller explanation of the different tradeoffs, refer to the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-CONFIG">PostgreSQL SSL Certificates documentation</a>.</p>
+<h2 id="generating-certificates"><a class="header" href="#generating-certificates">Generating Certificates</a></h2>
+<p>For basic SSL encryption, you need:</p>
+<ul>
+<li><code>server-cert.pem</code> - PostgreSQL server certificate</li>
+<li><code>server-key.pem</code> - PostgreSQL server private key</li>
+<li><code>ca-cert.pem</code> - Certificate Authority certificate</li>
+</ul>
+<pre><code class="language-raw">┌─────────────────┐    SSL/TLS     ┌─────────────────┐
+│     Martin      │◄─────────────►│   PostgreSQL    │
+└─────────────────┘   verify-full  └─────────────────┘
+         │                                   │
+    ┌─────────┐                        ┌─────────────┐
+    │ CA Cert │                        │ Server Cert │
+    │         │                        │ Server Key  │
+    └─────────┘                        └─────────────┘
+</code></pre>
+<h3 id="self-signed-certificates"><a class="header" href="#self-signed-certificates">Self-Signed Certificates</a></h3>
+<p>To generate certificates as a CA, you will need a private key.
+To verify the certificate, you will need the CA certificate.</p>
+<pre><code class="language-bash"># Generate CA private key
+openssl genrsa -out ca-key.pem 3072
+
+# Generate CA certificate
+openssl req -new -x509 -days 365 -key ca-key.pem -out ca-cert.pem \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=Test CA"
+</code></pre>
+<p>You can then generate a server certificates:</p>
+<pre><code class="language-bash"># Generate server private key
+openssl genrsa -out server-key.pem 3072
+
+# Generate server certificate signing request with SAN extension
+openssl req -new -key server-key.pem -out server-csr.pem \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" \
+    -addext "subjectAltName = DNS:localhost"
+
+# Generate server certificate signed by CA with SAN extension
+openssl x509 -req -days 365 -in server-csr.pem -CA ca-cert.pem -CAkey ca-key.pem \
+    -CAcreateserial -out server-cert.pem -extensions v3_req \
+    -extfile &lt;(printf "[v3_req]\nsubjectAltName = DNS:localhost")
+
+# Set permissions
+chmod 400 *-key.pem
+chmod 444 *-cert.pem ca-cert.pem
+</code></pre>
+<h3 id="production-certificates"><a class="header" href="#production-certificates">Production Certificates</a></h3>
+<p>For production, use certificates from:</p>
+<ul>
+<li>Regular Certificate Authorities (Let’s Encrypt, DigiCert, GlobalSign)</li>
+<li>Cloud provider managed Certificate Authorities</li>
+<li>Organization-Internal Certificate Authority</li>
+</ul>
+<h2 id="postgresql-configuration"><a class="header" href="#postgresql-configuration">PostgreSQL Configuration</a></h2>
+<pre><code class="language-yaml">services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./server-cert.pem:/var/lib/postgresql/server.crt:ro
+      - ./server-key.pem:/var/lib/postgresql/server.key:ro
+    command: -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
+</code></pre>
+<pre><code class="language-bash">docker compose up
+</code></pre>
+<blockquote>
+<p>[!TIP]
+Postgres requires specific file permissions and ownership for SSL certificates.
+In docker this can be a bit tricky:</p>
+<p>alpine images have <code>70:70</code> as the default <code>user:group</code>
+debian images have <code>999:999</code> as the default <code>user:group</code></p>
+<p>You can change this by running the following commands:</p>
+<pre><code class="language-bash">chown 999:999 *.pem
+chmod 400 *.pem
+</code></pre>
+</blockquote>
+<h2 id="testing-with-psql"><a class="header" href="#testing-with-psql">Testing with psql</a></h2>
+<p>Test SSL Connection via</p>
+<pre><code class="language-bash">PGSSLROOTCERT=ca-cert.pem psql "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+</code></pre>
+<blockquote>
+<p>[!TIP]
+If you get file permission errors, make sure the current user can access the files.
+The previous step may set them to not readable by the current user.</p>
+</blockquote>
+<p>Then, verify SSL Status by</p>
+<pre><code class="language-sql">-- Enable SSL info extension (required for ssl_is_used function)
+CREATE EXTENSION IF NOT EXISTS sslinfo;
+
+-- Check SSL status
+SELECT ssl_is_used();
+
+-- SSL connection details
+SELECT * FROM pg_stat_ssl WHERE pid = pg_backend_pid();
+</code></pre>
+<h2 id="martin-configuration"><a class="header" href="#martin-configuration">Martin Configuration</a></h2>
+<p>Martin can be configured using environment variables, the CLI, or the configuration file.
+Which of them you choose is up to you.
+You do not need to configure things twice.</p>
+<ul>
+<li><details>
+<summary>Environment Variables (click to expand)</summary>
+<pre><code class="language-bash">export PGSSLROOTCERT=./ca-cert.pem
+export DATABASE_URL="postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+martin
+</code></pre>
+</details>
+</li>
+<li><details>
+<summary>Configuration File (click to expand)</summary>
+<pre><code class="language-yaml">postgres:
+  ssl_root_cert: './ca-cert.pem'
+  connection_string: 'postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full'
+</code></pre>
+</details>
+</li>
+<li><details>
+<summary>Command Line (click to expand)</summary>
+<pre><code class="language-bash">martin --ca-root-file ./ca-cert.pem \
+      "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+</code></pre>
+</details>
+</li>
+</ul>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<p>You can get more context via the following commands:</p>
+<pre><code class="language-bash"># Verbose psql
+PGSSLMODE=verify-full PGSSLROOTCERT=./ca-cert.pem psql -h localhost -U postgres -d postgres -v
+
+# Debug Martin
+RUST_LOG=debug martin postgresql://...
+</code></pre>
+<p>These are the errors that can occur:</p>
+<ul>
+<li><details>
+<summary>Certificate verification failed (click to expand)</summary>
+<ul>
+<li>Check server certificate is signed by the CA</li>
+<li>Verify CA certificate path in <code>PGSSLROOTCERT</code></li>
+<li>Ensure certificate files are readable</li>
+</ul>
+</details>
+</li>
+<li><details>
+<summary>Hostname verification failed (click to expand)</summary>
+<ul>
+<li>Server certificate CN/SAN must match hostname</li>
+<li>Use <code>verify-ca</code> instead of <code>verify-full</code> if hostname doesn’t match</li>
+</ul>
+</details>
+</li>
+<li><details>
+<summary>Permission denied (click to expand)</summary>
+<ul>
+<li>Check certificate file permissions</li>
+<li>Private keys should be <code>chmod 400</code> and readable by the user running the application</li>
+</ul>
+</details>
+</li>
+<li><details>
+<summary>Connection refused (click to expand)</summary>
+<ul>
+<li>Verify PostgreSQL accepts SSL connections</li>
+<li>Check <code>pg_hba.conf</code> allows SSL from your IP</li>
+</ul>
+</details>
+</li>
+</ul>
+<h2 id="security-best-practices-if-using-postgres-via-ssl"><a class="header" href="#security-best-practices-if-using-postgres-via-ssl">Security Best Practices if using postgres via SSL</a></h2>
+<ul>
+<li>Use at least 3072-bit RSA keys</li>
+<li>Protect private keys with restricted permissions (<code>chmod 400</code>)</li>
+<li>Rotate certificates before expiration</li>
+<li>Use <code>verify-full</code> in production</li>
+<li>Monitor certificate expiration</li>
+<li>Store <code>ca-key.pem</code> securely (only needed for certificate management)</li>
+<li>Use secure secret management for production certificates</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="recipe-basemap-postgis.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="martin-cp.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="recipe-basemap-postgis.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="martin-cp.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

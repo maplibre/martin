@@ -181,11 +181,22 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h2 id="postgresql-connection-string"><a class="header" href="#postgresql-connection-string">PostgreSQL Connection String</a></h2>
-<p>Martin supports many of the PostgreSQL connection string settings such as <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, <code>dbname</code>, <code>sslmode</code>, <code>connect_timeout</code>, <code>keepalives</code>, <code>keepalives_idle</code>, etc. See the <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING">PostgreSQL docs</a> for more details.</p>
-<h3 id="postgresql-ssl-connections"><a class="header" href="#postgresql-ssl-connections">PostgreSQL SSL Connections</a></h3>
-<p>Martin supports PostgreSQL <code>sslmode</code> including <code>disable</code>, <code>prefer</code>, <code>require</code>, <code>verify-ca</code> and <code>verify-full</code> modes as described in the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html">PostgreSQL docs</a>.  Certificates can be provided in the configuration file, or can be set using the same env vars as used for <code>psql</code>. When set as env vars, they apply to all PostgreSQL connections.  See <a href="env-vars.html">environment vars</a> section for more details.</p>
-<p>By default, <code>sslmode</code> is set to <code>prefer</code> which means that SSL is used if the server supports it, but the connection is not aborted if the server does not support it.  This is the default behavior of <code>psql</code> and is the most compatible option.  Use the <code>sslmode</code> param to set a different <code>sslmode</code>, e.g. <code>postgresql://user:password@host/db?sslmode=require</code>.</p>
+                        <h2 id="postgresql-connections"><a class="header" href="#postgresql-connections">PostgreSQL Connections</a></h2>
+<p>Martin supports standard PostgreSQL connection string settings including <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, <code>dbname</code>, <code>sslmode</code>, <code>connect_timeout</code>, <code>keepalives</code>, <code>keepalives_idle</code>, etc.
+See the <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING">PostgreSQL docs</a> for more details.</p>
+<h3 id="ssl-connections"><a class="header" href="#ssl-connections">SSL Connections</a></h3>
+<p>Martin supports PostgreSQL <code>sslmode</code> settings: <code>disable</code>, <code>prefer</code>, <code>require</code>, <code>verify-ca</code> and <code>verify-full</code>.
+See the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html">PostgreSQL docs</a> for mode descriptions.
+Certificates can be provided in the configuration file or via environment variables (same as <code>psql</code>).
+Environment variables apply to all PostgreSQL connections.
+See <a href="env-vars.html">environment vars</a> for details.</p>
+<p>By default, <code>sslmode</code> is <code>prefer</code> - encrypt (don’t check certificates) if the server supports it, but the connection proceeds without SSL if not supported.
+This matches <code>psql</code> default behavior.</p>
+<p>If you require guarnatees regarding <a href="https://en.wikipedia.org/wiki/Eavesdropping">eavesdropping</a> or <a href="https://en.wikipedia.org/wiki/Man-in-the-middle_attack">MITM protection</a>, you need a different option.
+Use the <code>sslmode</code> parameter to specify a different mode:</p>
+<pre><code class="language-bash">martin postgresql://user:password@host/db?sslmode=verify-full
+</code></pre>
+<p>For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our <a href="pg-ssl-certificates.html">PostgreSQL SSL Certificates Recipe</a>.</p>
 
                     </main>
 

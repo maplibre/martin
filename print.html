@@ -1177,11 +1177,22 @@ A path style URL is a URL that uses the bucket name as part of the path (<code>e
   sources:
     tiles: s3://bucket/path/to/tiles.pmtiles
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="postgresql-connection-string"><a class="header" href="#postgresql-connection-string">PostgreSQL Connection String</a></h2>
-<p>Martin supports many of the PostgreSQL connection string settings such as <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, <code>dbname</code>, <code>sslmode</code>, <code>connect_timeout</code>, <code>keepalives</code>, <code>keepalives_idle</code>, etc. See the <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING">PostgreSQL docs</a> for more details.</p>
-<h3 id="postgresql-ssl-connections"><a class="header" href="#postgresql-ssl-connections">PostgreSQL SSL Connections</a></h3>
-<p>Martin supports PostgreSQL <code>sslmode</code> including <code>disable</code>, <code>prefer</code>, <code>require</code>, <code>verify-ca</code> and <code>verify-full</code> modes as described in the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html">PostgreSQL docs</a>.  Certificates can be provided in the configuration file, or can be set using the same env vars as used for <code>psql</code>. When set as env vars, they apply to all PostgreSQL connections.  See <a href="env-vars.html">environment vars</a> section for more details.</p>
-<p>By default, <code>sslmode</code> is set to <code>prefer</code> which means that SSL is used if the server supports it, but the connection is not aborted if the server does not support it.  This is the default behavior of <code>psql</code> and is the most compatible option.  Use the <code>sslmode</code> param to set a different <code>sslmode</code>, e.g. <code>postgresql://user:password@host/db?sslmode=require</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="postgresql-connections"><a class="header" href="#postgresql-connections">PostgreSQL Connections</a></h2>
+<p>Martin supports standard PostgreSQL connection string settings including <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, <code>dbname</code>, <code>sslmode</code>, <code>connect_timeout</code>, <code>keepalives</code>, <code>keepalives_idle</code>, etc.
+See the <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING">PostgreSQL docs</a> for more details.</p>
+<h3 id="ssl-connections"><a class="header" href="#ssl-connections">SSL Connections</a></h3>
+<p>Martin supports PostgreSQL <code>sslmode</code> settings: <code>disable</code>, <code>prefer</code>, <code>require</code>, <code>verify-ca</code> and <code>verify-full</code>.
+See the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html">PostgreSQL docs</a> for mode descriptions.
+Certificates can be provided in the configuration file or via environment variables (same as <code>psql</code>).
+Environment variables apply to all PostgreSQL connections.
+See <a href="env-vars.html">environment vars</a> for details.</p>
+<p>By default, <code>sslmode</code> is <code>prefer</code> - encrypt (don’t check certificates) if the server supports it, but the connection proceeds without SSL if not supported.
+This matches <code>psql</code> default behavior.</p>
+<p>If you require guarnatees regarding <a href="https://en.wikipedia.org/wiki/Eavesdropping">eavesdropping</a> or <a href="https://en.wikipedia.org/wiki/Man-in-the-middle_attack">MITM protection</a>, you need a different option.
+Use the <code>sslmode</code> parameter to specify a different mode:</p>
+<pre><code class="language-bash">martin postgresql://user:password@host/db?sslmode=verify-full
+</code></pre>
+<p>For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our <a href="pg-ssl-certificates.html">PostgreSQL SSL Certificates Recipe</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="postgresql-table-sources"><a class="header" href="#postgresql-table-sources">PostgreSQL Table Sources</a></h1>
 <p>Table Source is a database table which can be used to query <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a>. If a <a href="pg-connections.html">PostgreSQL connection string</a> is given, Martin will publish all tables as data sources if they have at least one geometry column. If geometry column SRID is 0, a default SRID must be set, or else that geo-column/table will be ignored. All non-geometry table columns will be published as vector tile feature tags (properties).</p>
 <h2 id="modifying-tilejson"><a class="header" href="#modifying-tilejson">Modifying Tilejson</a></h2>
@@ -1887,6 +1898,215 @@ Once the tiles are deployed behind https, this can be used.</p>
 </ul>
 </li>
 </ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="postgresql-ssl-certificates"><a class="header" href="#postgresql-ssl-certificates">PostgreSQL SSL Certificates</a></h1>
+<p>Martin supports SSL certificate authentication for PostgreSQL connections. This guide covers certificate generation, PostgreSQL configuration, and Martin setup.</p>
+<h2 id="when-to-use-ssl-certificates"><a class="header" href="#when-to-use-ssl-certificates">When to Use SSL Certificates</a></h2>
+<p>Use SSL certificates for:</p>
+<ul>
+<li>Deployments where martin and Postgis are on separate machines</li>
+<li>Compliance requirements (PCI DSS, HIPAA, etc.)</li>
+<li>Cloud PostgreSQL deployments</li>
+<li>High-security environments requiring certificate-based authentication</li>
+</ul>
+<h2 id="ssl-modes"><a class="header" href="#ssl-modes">SSL Modes</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>sslmode</th><th>Eaves-<br/>dropping<br/>protection</th><th>MITM <br/>protection</th><th>Statement</th></tr></thead><tbody>
+<tr><td><code>disable</code></td><td>⛔</td><td>⛔</td><td>I don’t care about security, and I don’t want to pay the overhead of encryption.</td></tr>
+<tr><td><code>allow</code></td><td>🤷</td><td>⛔</td><td>I don’t care about security, but I will pay the overhead of encryption if the server insists on it.</td></tr>
+<tr><td><code>prefer</code></td><td>🤷</td><td>⛔</td><td>I don’t care about encryption, but I wish to pay the overhead of encryption if the server supports it.</td></tr>
+<tr><td><code>require</code></td><td>✅</td><td>⛔</td><td>I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.</td></tr>
+<tr><td><code>verify-ca</code></td><td>✅</td><td>Depends <br/> on CA policy</td><td>I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.</td></tr>
+<tr><td><code>verify-full</code></td><td>✅</td><td>✅</td><td>I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it’s the one I specify.</td></tr>
+</tbody></table>
+</div>
+<p>Our recommendation: <strong><code>verify-full</code> or <code>allow</code></strong>.
+There are not many cases where anything in between makes sense.</p>
+<p>In particular, the default mode (<code>prefer</code>) does not make much sense.
+From the postgres documentation:</p>
+<blockquote>
+<p>As is shown in the table, this makes no sense from a security point of view, and it only promises performance overhead if possible.
+It is only provided as the default for backward compatibility, and is not recommended in secure deployments.</p>
+</blockquote>
+<p>For a fuller explanation of the different tradeoffs, refer to the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-CONFIG">PostgreSQL SSL Certificates documentation</a>.</p>
+<h2 id="generating-certificates"><a class="header" href="#generating-certificates">Generating Certificates</a></h2>
+<p>For basic SSL encryption, you need:</p>
+<ul>
+<li><code>server-cert.pem</code> - PostgreSQL server certificate</li>
+<li><code>server-key.pem</code> - PostgreSQL server private key</li>
+<li><code>ca-cert.pem</code> - Certificate Authority certificate</li>
+</ul>
+<pre><code class="language-raw">┌─────────────────┐    SSL/TLS     ┌─────────────────┐
+│     Martin      │◄─────────────►│   PostgreSQL    │
+└─────────────────┘   verify-full  └─────────────────┘
+         │                                   │
+    ┌─────────┐                        ┌─────────────┐
+    │ CA Cert │                        │ Server Cert │
+    │         │                        │ Server Key  │
+    └─────────┘                        └─────────────┘
+</code></pre>
+<h3 id="self-signed-certificates"><a class="header" href="#self-signed-certificates">Self-Signed Certificates</a></h3>
+<p>To generate certificates as a CA, you will need a private key.
+To verify the certificate, you will need the CA certificate.</p>
+<pre><code class="language-bash"># Generate CA private key
+openssl genrsa -out ca-key.pem 3072
+
+# Generate CA certificate
+openssl req -new -x509 -days 365 -key ca-key.pem -out ca-cert.pem \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=Test CA"
+</code></pre>
+<p>You can then generate a server certificates:</p>
+<pre><code class="language-bash"># Generate server private key
+openssl genrsa -out server-key.pem 3072
+
+# Generate server certificate signing request with SAN extension
+openssl req -new -key server-key.pem -out server-csr.pem \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" \
+    -addext "subjectAltName = DNS:localhost"
+
+# Generate server certificate signed by CA with SAN extension
+openssl x509 -req -days 365 -in server-csr.pem -CA ca-cert.pem -CAkey ca-key.pem \
+    -CAcreateserial -out server-cert.pem -extensions v3_req \
+    -extfile &lt;(printf "[v3_req]\nsubjectAltName = DNS:localhost")
+
+# Set permissions
+chmod 400 *-key.pem
+chmod 444 *-cert.pem ca-cert.pem
+</code></pre>
+<h3 id="production-certificates"><a class="header" href="#production-certificates">Production Certificates</a></h3>
+<p>For production, use certificates from:</p>
+<ul>
+<li>Regular Certificate Authorities (Let’s Encrypt, DigiCert, GlobalSign)</li>
+<li>Cloud provider managed Certificate Authorities</li>
+<li>Organization-Internal Certificate Authority</li>
+</ul>
+<h2 id="postgresql-configuration"><a class="header" href="#postgresql-configuration">PostgreSQL Configuration</a></h2>
+<pre><code class="language-yaml">services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./server-cert.pem:/var/lib/postgresql/server.crt:ro
+      - ./server-key.pem:/var/lib/postgresql/server.key:ro
+    command: -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
+</code></pre>
+<pre><code class="language-bash">docker compose up
+</code></pre>
+<blockquote>
+<p>[!TIP]
+Postgres requires specific file permissions and ownership for SSL certificates.
+In docker this can be a bit tricky:</p>
+<p>alpine images have <code>70:70</code> as the default <code>user:group</code>
+debian images have <code>999:999</code> as the default <code>user:group</code></p>
+<p>You can change this by running the following commands:</p>
+<pre><code class="language-bash">chown 999:999 *.pem
+chmod 400 *.pem
+</code></pre>
+</blockquote>
+<h2 id="testing-with-psql"><a class="header" href="#testing-with-psql">Testing with psql</a></h2>
+<p>Test SSL Connection via</p>
+<pre><code class="language-bash">PGSSLROOTCERT=ca-cert.pem psql "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+</code></pre>
+<blockquote>
+<p>[!TIP]
+If you get file permission errors, make sure the current user can access the files.
+The previous step may set them to not readable by the current user.</p>
+</blockquote>
+<p>Then, verify SSL Status by</p>
+<pre><code class="language-sql">-- Enable SSL info extension (required for ssl_is_used function)
+CREATE EXTENSION IF NOT EXISTS sslinfo;
+
+-- Check SSL status
+SELECT ssl_is_used();
+
+-- SSL connection details
+SELECT * FROM pg_stat_ssl WHERE pid = pg_backend_pid();
+</code></pre>
+<h2 id="martin-configuration"><a class="header" href="#martin-configuration">Martin Configuration</a></h2>
+<p>Martin can be configured using environment variables, the CLI, or the configuration file.
+Which of them you choose is up to you.
+You do not need to configure things twice.</p>
+<ul>
+<li><details>
+<summary>Environment Variables (click to expand)</summary>
+<pre><code class="language-bash">export PGSSLROOTCERT=./ca-cert.pem
+export DATABASE_URL="postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+martin
+</code></pre>
+</details>
+</li>
+<li><details>
+<summary>Configuration File (click to expand)</summary>
+<pre><code class="language-yaml">postgres:
+  ssl_root_cert: './ca-cert.pem'
+  connection_string: 'postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full'
+</code></pre>
+</details>
+</li>
+<li><details>
+<summary>Command Line (click to expand)</summary>
+<pre><code class="language-bash">martin --ca-root-file ./ca-cert.pem \
+      "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+</code></pre>
+</details>
+</li>
+</ul>
+<h2 id="troubleshooting-1"><a class="header" href="#troubleshooting-1">Troubleshooting</a></h2>
+<p>You can get more context via the following commands:</p>
+<pre><code class="language-bash"># Verbose psql
+PGSSLMODE=verify-full PGSSLROOTCERT=./ca-cert.pem psql -h localhost -U postgres -d postgres -v
+
+# Debug Martin
+RUST_LOG=debug martin postgresql://...
+</code></pre>
+<p>These are the errors that can occur:</p>
+<ul>
+<li><details>
+<summary>Certificate verification failed (click to expand)</summary>
+<ul>
+<li>Check server certificate is signed by the CA</li>
+<li>Verify CA certificate path in <code>PGSSLROOTCERT</code></li>
+<li>Ensure certificate files are readable</li>
+</ul>
+</details>
+</li>
+<li><details>
+<summary>Hostname verification failed (click to expand)</summary>
+<ul>
+<li>Server certificate CN/SAN must match hostname</li>
+<li>Use <code>verify-ca</code> instead of <code>verify-full</code> if hostname doesn’t match</li>
+</ul>
+</details>
+</li>
+<li><details>
+<summary>Permission denied (click to expand)</summary>
+<ul>
+<li>Check certificate file permissions</li>
+<li>Private keys should be <code>chmod 400</code> and readable by the user running the application</li>
+</ul>
+</details>
+</li>
+<li><details>
+<summary>Connection refused (click to expand)</summary>
+<ul>
+<li>Verify PostgreSQL accepts SSL connections</li>
+<li>Check <code>pg_hba.conf</code> allows SSL from your IP</li>
+</ul>
+</details>
+</li>
+</ul>
+<h2 id="security-best-practices-if-using-postgres-via-ssl"><a class="header" href="#security-best-practices-if-using-postgres-via-ssl">Security Best Practices if using postgres via SSL</a></h2>
+<ul>
+<li>Use at least 3072-bit RSA keys</li>
+<li>Protect private keys with restricted permissions (<code>chmod 400</code>)</li>
+<li>Rotate certificates before expiration</li>
+<li>Use <code>verify-full</code> in production</li>
+<li>Monitor certificate expiration</li>
+<li>Store <code>ca-key.pem</code> securely (only needed for certificate management)</li>
+<li>Use secure secret management for production certificates</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="generating-tiles-in-bulk"><a class="header" href="#generating-tiles-in-bulk">Generating Tiles in Bulk</a></h1>
 <p>We offer the <code>martin-cp</code> tool for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.</p>
 <p><code>martin-cp</code> can be used to generate tiles for a large area or multiple areas (bounding boxes).
