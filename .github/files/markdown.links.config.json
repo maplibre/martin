@@ -1,13 +1,15 @@
 {
-  "replacementPatterns": [
+  "httpHeaders": [
     {
-      "__comment__": "See https://github.com/tcort/markdown-link-check/issues/264",
-      "pattern": "%23",
-      "replacement": ""
+      "headers": {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Encoding": "zstd, br, gzip, deflate",
+        "Accept-Language": "en",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0"
+      },
+      "urls": ["https://crates.io", "https://ghcr.io", "https://github.com"]
     }
   ],
-  "timeout": "3s",
-  "retryOn429": true,
   "ignorePatterns": [
     {
       "pattern": "^http://127.0.0.1"
@@ -22,19 +24,13 @@
       "pattern": "^http://opensource.org"
     }
   ],
-  "httpHeaders": [
+  "replacementPatterns": [
     {
-      "urls": [
-        "https://crates.io",
-        "https://ghcr.io",
-        "https://github.com"
-      ],
-      "headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Encoding": "zstd, br, gzip, deflate",
-        "Accept-Language": "en"
-      }
+      "__comment__": "See https://github.com/tcort/markdown-link-check/issues/264",
+      "pattern": "%23",
+      "replacement": ""
     }
-  ]
+  ],
+  "retryOn429": true,
+  "timeout": "3s"
 }
