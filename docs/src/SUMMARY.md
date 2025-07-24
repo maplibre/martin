@@ -39,6 +39,7 @@
   - [Tile source specific](using-with-data.md)
     - [Using Hosted PostgreSQL](recipes.md)
     - [Setting up a basemap and overlaying data](recipe-basemap-postgis.md)
+    - [Using PostgreSQL with SSL Certificates](pg-ssl-certificates.md)
   - [Bulk Tile Generation](martin-cp.md)
   - [Working with MBTiles archives](mbtiles.md)
     - [MBTiles Schemas](mbtiles-schema.md)
