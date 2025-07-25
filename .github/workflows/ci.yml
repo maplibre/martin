@@ -791,7 +791,6 @@ jobs:
     needs: [ package, docker-build-test ]
     if: always()
     steps:
+      - run: echo "${{ toJSON(needs) }}"
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
-      - name: Finished
-        run: echo "CI finished successfully"
