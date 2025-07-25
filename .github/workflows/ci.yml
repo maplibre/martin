@@ -91,7 +91,6 @@ jobs:
           - target: x86_64-unknown-linux-musl
     steps:
       - run: rustup update stable && rustup default stable
-      - run: exit 1
       - name: Checkout sources
         uses: actions/checkout@v4
         with: { set-safe-directory: false }
