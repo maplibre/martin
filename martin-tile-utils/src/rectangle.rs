@@ -80,18 +80,11 @@ impl TileRect {
         }
     }
 
-    /// Checks if this rectangle overlaps with another rectangle.
+    /// Checks if two rectangles overlap.
     ///
-    /// Two rectangles overlap if they share the same zoom level and their
-    /// coordinate ranges intersect in both X and Y dimensions.
-    ///
-    /// # Arguments
-    ///
-    /// * `other` - The other rectangle to check for overlap
-    ///
-    /// # Returns
-    ///
-    /// `true` if the rectangles overlap, `false` otherwise.
+    /// Two rectangles overlap if
+    /// - they share the same zoom level and
+    /// - their coordinate ranges intersect in both X and Y dimensions.
     ///
     /// # Examples
     ///
@@ -113,20 +106,18 @@ impl TileRect {
             && self.max_y >= other.min_y
     }
 
-    /// Calculates the total number of tiles contained in this rectangle.
+    /// Total number of tiles contained in this rectangle.
     ///
     /// The size is calculated as `(max_x - min_x + 1) * (max_y - min_y + 1)`.
-    ///
-    /// # Returns
-    ///
-    /// The number of tiles in the rectangle as a `u64`.
     ///
     /// # Examples
     ///
     /// ```
     /// # use martin_tile_utils::TileRect;
+    /// // x = 0..=2 => 3 tiles
+    /// // y = 0..=3 => 4 tiles
     /// let rect = TileRect::new(0, 0, 0, 2, 3);
-    /// assert_eq!(rect.size(), 12); // 3 * 4 = 12 tiles
+    /// assert_eq!(rect.size(), 3 * 4);
     /// ```
     #[must_use]
     pub fn size(&self) -> u64 {
@@ -136,8 +127,9 @@ impl TileRect {
     /// Returns up to 4 non-overlapping rectangles that represent the parts of `o`
     /// that do not overlap with `self`.
     ///
-    /// This method splits the `other` rectangle into up to 4 parts that extend
+    /// This method splits the `o` rectangle into up to 4 parts that extend
     /// beyond the boundaries of `self`. The parts are: left, right, top, and bottom.
+    /// The `o` rectangle has to be of the same zoom level.
     fn get_non_overlapping(&self, o: &Self) -> [Option<Self>; 4] {
         let mut result = [None, None, None, None];
         assert_eq!(self.zoom, o.zoom);
@@ -170,14 +162,9 @@ impl TileRect {
 /// Appends a new rectangle to a list of rectangles, ensuring no overlaps exist.
 ///
 /// If the new rectangle overlaps with any existing rectangle, it will be split
-/// into non-overlapping parts that extend beyond the existing rectangle. This
-/// process is recursive and ensures that the final list contains only
+/// into non-overlapping parts that extend beyond the existing rectangle.
+/// This process is recursive and ensures that the final list contains only
 /// non-overlapping rectangles.
-///
-/// # Arguments
-///
-/// * `rectangles` - A mutable reference to the list of existing rectangles
-/// * `new_rect` - The new rectangle to add
 ///
 /// # Examples
 ///
