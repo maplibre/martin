@@ -789,6 +789,7 @@ jobs:
     name: CI Finished
     runs-on: ubuntu-latest
     needs: [ package, docker-build-test ]
+    if: always()
     steps:
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
