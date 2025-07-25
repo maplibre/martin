@@ -15,6 +15,8 @@ pub const MAX_ZOOM: u8 = 30;
 
 mod decoders;
 pub use decoders::*;
+mod rectangle;
+pub use rectangle::{TileRect, append_rect};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct TileCoord {
