@@ -13,8 +13,10 @@ use spreet::{
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
-use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, FileConfigEnum, FileResult};
+use crate::file_config::{FileConfigEnum, FileResult};
+
+mod config;
+pub use config::SpriteConfig;
 
 pub type SpriteResult<T> = Result<T, SpriteError>;
 
@@ -57,18 +59,6 @@ pub struct CatalogSpriteEntry {
 }
 
 pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct SpriteConfig {
-    #[serde(flatten)]
-    pub unrecognized: UnrecognizedValues,
-}
-
-impl ConfigExtras for SpriteConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct SpriteSources(DashMap<String, SpriteSource>);

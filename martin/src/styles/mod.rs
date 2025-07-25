@@ -6,8 +6,10 @@ use dashmap::{DashMap, Entry};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
-use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, FileConfigEnum, FileError, FileResult};
+use crate::file_config::{FileConfigEnum, FileError, FileResult};
+
+mod config;
+pub use config::StyleConfig;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogStyleEntry {
@@ -15,18 +17,6 @@ pub struct CatalogStyleEntry {
 }
 
 pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct StyleConfig {
-    #[serde(flatten)]
-    pub unrecognized: UnrecognizedValues,
-}
-
-impl ConfigExtras for StyleConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
