@@ -60,11 +60,11 @@ pub enum MartinError {
 
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]
-    PmtilesError(#[from] pmtiles::PmtError),
+    PmtilesError(#[from] crate::pmtiles::PmtilesError),
 
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] mbtiles::MbtError),
+    MbtilesError(#[from] crate::mbtiles::MbtilesError),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]

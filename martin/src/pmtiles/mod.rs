@@ -3,8 +3,6 @@ use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::Relaxed;
 
 use async_trait::async_trait;
 use log::{trace, warn};
@@ -16,17 +14,20 @@ use pmtiles::{
     AsyncPmTilesReader, AwsS3Backend, Compression, DirCacheResult, Directory, DirectoryCache,
     HttpBackend, MmapBackend, TileId, TileType,
 };
-use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use url::Url;
 
-use crate::config::UnrecognizedValues;
-use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileError, FileResult, SourceConfigExtras};
+use crate::file_config::FileError::{InvalidMetadata, IoError};
 use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
-use crate::{MartinResult, Source, TileData};
+use crate::{MartinError, MartinResult, Source, TileData};
+
+mod config;
+pub use config::PmtConfig;
+mod error;
+pub use error::PmtilesError;
+pub use error::PmtilesError::InvalidUrlMetadata;
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {
@@ -65,134 +66,6 @@ impl DirectoryCache for PmtCache {
     }
 }
 
-#[serde_with::skip_serializing_none]
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct PmtConfig {
-    /// Force path style URLs for S3 buckets
-    ///
-    /// A path style URL is a URL that uses the bucket name as part of the path like `example.org/some_bucket` instead of the hostname `some_bucket.example.org`.
-    /// If `None` (the default), this will look at `AWS_S3_FORCE_PATH_STYLE` or default to `false`.
-    #[serde(default, alias = "aws_s3_force_path_style")]
-    pub force_path_style: Option<bool>,
-    /// Skip loading credentials for S3 buckets
-    ///
-    /// Set this to `true` to request anonymously for publicly available buckets.
-    /// If `None` (the default), this will look at `AWS_SKIP_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `false`.
-    #[serde(default, alias = "aws_skip_credentials")]
-    pub skip_credentials: Option<bool>,
-    #[serde(flatten)]
-    pub unrecognized: UnrecognizedValues,
-
-    //
-    // The rest are internal state, not serialized
-    //
-    #[serde(skip)]
-    pub client: Option<Client>,
-
-    #[serde(skip)]
-    pub next_cache_id: AtomicUsize,
-
-    #[serde(skip)]
-    pub cache: OptMainCache,
-}
-
-impl PartialEq for PmtConfig {
-    fn eq(&self, other: &Self) -> bool {
-        self.unrecognized == other.unrecognized
-    }
-}
-
-impl Clone for PmtConfig {
-    fn clone(&self) -> Self {
-        // State is not shared between clones, only the serialized config
-        Self {
-            unrecognized: self.unrecognized.clone(),
-            ..Default::default()
-        }
-    }
-}
-
-impl PmtConfig {
-    /// Create a new cache object for a source, giving it a unique internal ID
-    /// and a reference to the global cache.
-    pub fn new_cached_source(&self) -> PmtCache {
-        PmtCache::new(self.next_cache_id.fetch_add(1, Relaxed), self.cache.clone())
-    }
-}
-
-impl ConfigExtras for PmtConfig {
-    fn init_parsing(&mut self, cache: OptMainCache) -> FileResult<()> {
-        assert!(self.client.is_none());
-        assert!(self.cache.is_none());
-
-        self.client = Some(Client::new());
-        self.cache = cache;
-
-        if self.unrecognized.contains_key("dir_cache_size_mb") {
-            warn!(
-                "dir_cache_size_mb is no longer used. Instead, use cache_size_mb param in the root of the config file."
-            );
-        }
-
-        Ok(())
-    }
-
-    fn is_default(&self) -> bool {
-        true
-    }
-
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
-    }
-}
-
-impl SourceConfigExtras for PmtConfig {
-    fn parse_urls() -> bool {
-        true
-    }
-
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        Ok(Box::new(
-            PmtFileSource::new(self.new_cached_source(), id, path).await?,
-        ))
-    }
-
-    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
-        match url.scheme() {
-            "s3" => {
-                let force_path_style = self.force_path_style.unwrap_or_else(|| {
-                    get_env_as_bool("AWS_S3_FORCE_PATH_STYLE").unwrap_or_default()
-                });
-                let skip_credentials = self.skip_credentials.unwrap_or_else(|| {
-                    get_env_as_bool("AWS_SKIP_CREDENTIALS").unwrap_or_else(|| {
-                        // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
-                        get_env_as_bool("AWS_NO_CREDENTIALS").unwrap_or_default()
-                    })
-                });
-                Ok(Box::new(
-                    PmtS3Source::new(
-                        self.new_cached_source(),
-                        id,
-                        url,
-                        skip_credentials,
-                        force_path_style,
-                    )
-                    .await?,
-                ))
-            }
-            _ => Ok(Box::new(
-                PmtHttpSource::new(
-                    self.client.clone().unwrap(),
-                    self.new_cached_source(),
-                    id,
-                    url,
-                )
-                .await?,
-            )),
-        }
-    }
-}
-
 macro_rules! impl_pmtiles_source {
     ($name: ident, $backend: ty, $path: ty, $display_path: path, $err: ident) => {
         #[derive(Clone)]
@@ -221,17 +94,17 @@ macro_rules! impl_pmtiles_source {
                 id: String,
                 path: $path,
                 reader: AsyncPmTilesReader<$backend, PmtCache>,
-            ) -> FileResult<Self> {
+            ) -> MartinResult<Self> {
                 let hdr = &reader.get_header();
 
                 if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
-                    return Err($err(
+                    return Err(MartinError::from($err(
                         format!(
                             "Format {:?} and compression {:?} are not yet supported",
                             hdr.tile_type, hdr.tile_compression
                         ),
                         path,
-                    ));
+                    )));
                 }
 
                 let format = match hdr.tile_type {
@@ -255,7 +128,12 @@ macro_rules! impl_pmtiles_source {
                     TileType::Png => Format::Png.into(),
                     TileType::Jpeg => Format::Jpeg.into(),
                     TileType::Webp => Format::Webp.into(),
-                    TileType::Unknown => return Err($err("Unknown tile type".to_string(), path)),
+                    TileType::Unknown => {
+                        return Err(MartinError::from($err(
+                            "Unknown tile type".to_string(),
+                            path,
+                        )));
+                    }
                 };
 
                 let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
@@ -306,9 +184,12 @@ macro_rules! impl_pmtiles_source {
                         // TODO: next pmtiles ver will return a proper PmtError
                         //       https://github.com/stadiamaps/pmtiles-rs/pull/69
                         pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y)
-                            .ok_or_else(|| io::Error::other("Invalid tile coordinates"))?,
+                            .ok_or_else(|| PmtilesError::InvalidTileCoordinates)?,
                     )
-                    .await?
+                    .await
+                    .map_err(|e| {
+                        PmtilesError::PmtilesLibraryError(e, $display_path(&self.path).to_string())
+                    })?
                 {
                     Ok(t.to_vec())
                 } else {
@@ -332,9 +213,9 @@ impl_pmtiles_source!(
 );
 
 impl PmtHttpSource {
-    pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+    pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> MartinResult<Self> {
         let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
-        let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+        let reader = reader.map_err(|e| PmtilesError::PmtilesLibraryError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
@@ -349,7 +230,7 @@ impl PmtS3Source {
         url: Url,
         skip_credentials: bool,
         force_path_style: bool,
-    ) -> FileResult<Self> {
+    ) -> MartinResult<Self> {
         let mut aws_config_builder = aws_config::from_env();
         if skip_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
@@ -364,7 +245,7 @@ impl PmtS3Source {
         let bucket = url
             .host_str()
             .ok_or_else(|| {
-                FileError::S3SourceError(format!("failed to parse bucket name from {url}"))
+                PmtilesError::S3SourceError(format!("failed to parse bucket name from {url}"))
             })?
             .to_string();
 
@@ -374,7 +255,7 @@ impl PmtS3Source {
         let reader =
             AsyncPmTilesReader::new_with_cached_client_bucket_and_path(cache, client, bucket, key)
                 .await
-                .map_err(|e| FileError::PmtError(e, url.to_string()))?;
+                .map_err(|e| PmtilesError::PmtilesLibraryError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
@@ -389,7 +270,7 @@ impl_pmtiles_source!(
 );
 
 impl PmtFileSource {
-    pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> FileResult<Self> {
+    pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> MartinResult<Self> {
         let backend = MmapBackend::try_from(path.as_path())
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -402,12 +283,4 @@ impl PmtFileSource {
 
         Self::new_int(id, path, reader).await
     }
-}
-
-/// Interpret an environment variable as a [`bool`]
-///
-/// This ignores casing and treats bad utf8 encoding as `false`.
-fn get_env_as_bool(key: &'static str) -> Option<bool> {
-    let val = std::env::var_os(key)?.to_ascii_lowercase();
-    Some(val.to_str().is_some_and(|val| val == "1" || val == "true"))
 }
