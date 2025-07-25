@@ -1,11 +1,35 @@
+//! Rectangle utilities for working with tile coordinate rectangles.
+//!
+//! This module provides the `TileRect` struct for representing rectangular regions
+//! in tile coordinate space, along with utilities for managing collections of
+//! non-overlapping rectangles.
+
 use serde::Serialize;
 
+/// A rectangular region in tile coordinate space.
+///
+/// Represents a rectangle defined by zoom level and tile coordinates.
+/// The rectangle is inclusive of both min and max coordinates.
+/// Use [`append_rect`] to merge rectangles without overlapping.
+///
+/// # Examples
+///
+/// ```
+/// # use martin_tile_utils::TileRect;
+/// let rect = TileRect::new(10, 0, 0, 255, 255);
+/// assert_eq!(rect.size(), 256 * 256);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TileRect {
+    /// The zoom level of the tiles
     pub zoom: u8,
+    /// The minimum X coordinate (inclusive)
     pub min_x: u32,
+    /// The minimum Y coordinate (inclusive)
     pub min_y: u32,
+    /// The maximum X coordinate (inclusive)
     pub max_x: u32,
+    /// The maximum Y coordinate (inclusive)
     pub max_y: u32,
 }
 
@@ -22,6 +46,27 @@ impl Serialize for TileRect {
 }
 
 impl TileRect {
+    /// Creates a new `TileRect` with the specified coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `zoom` - The zoom level
+    /// * `min_x` - The minimum X coordinate (inclusive)
+    /// * `min_y` - The minimum Y coordinate (inclusive)
+    /// * `max_x` - The maximum X coordinate (inclusive)
+    /// * `max_y` - The maximum Y coordinate (inclusive)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `min_x > max_x` or `min_y > max_y`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use martin_tile_utils::TileRect;
+    /// let rect = TileRect::new(0, 0, 0, 1, 1);
+    /// assert_eq!(rect.size(), 4);
+    /// ```
     #[must_use]
     pub fn new(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> Self {
         assert!(min_x <= max_x);
@@ -35,6 +80,30 @@ impl TileRect {
         }
     }
 
+    /// Checks if this rectangle overlaps with another rectangle.
+    ///
+    /// Two rectangles overlap if they share the same zoom level and their
+    /// coordinate ranges intersect in both X and Y dimensions.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The other rectangle to check for overlap
+    ///
+    /// # Returns
+    ///
+    /// `true` if the rectangles overlap, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use martin_tile_utils::TileRect;
+    /// let rect1 = TileRect::new(0, 0, 0, 1, 1);
+    /// let rect2 = TileRect::new(0, 1, 1, 2, 2);
+    /// assert!(rect1.is_overlapping(&rect2));
+    ///
+    /// let rect3 = TileRect::new(0, 2, 2, 3, 3);
+    /// assert!(!rect1.is_overlapping(&rect3));
+    /// ```
     #[must_use]
     pub fn is_overlapping(&self, other: &Self) -> bool {
         self.zoom == other.zoom
@@ -44,11 +113,31 @@ impl TileRect {
             && self.max_y >= other.min_y
     }
 
+    /// Calculates the total number of tiles contained in this rectangle.
+    ///
+    /// The size is calculated as `(max_x - min_x + 1) * (max_y - min_y + 1)`.
+    ///
+    /// # Returns
+    ///
+    /// The number of tiles in the rectangle as a `u64`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use martin_tile_utils::TileRect;
+    /// let rect = TileRect::new(0, 0, 0, 2, 3);
+    /// assert_eq!(rect.size(), 12); // 3 * 4 = 12 tiles
+    /// ```
     #[must_use]
     pub fn size(&self) -> u64 {
         u64::from(self.max_x - self.min_x + 1) * u64::from(self.max_y - self.min_y + 1)
     }
 
+    /// Returns up to 4 non-overlapping rectangles that represent the parts of `o`
+    /// that do not overlap with `self`.
+    ///
+    /// This method splits the `other` rectangle into up to 4 parts that extend
+    /// beyond the boundaries of `self`. The parts are: left, right, top, and bottom.
     fn get_non_overlapping(&self, o: &Self) -> [Option<Self>; 4] {
         let mut result = [None, None, None, None];
         assert_eq!(self.zoom, o.zoom);
@@ -78,7 +167,29 @@ impl TileRect {
     }
 }
 
-/// Append a new rectangle to the list of rectangles, ensuring that none of the rectangles overlap
+/// Appends a new rectangle to a list of rectangles, ensuring no overlaps exist.
+///
+/// If the new rectangle overlaps with any existing rectangle, it will be split
+/// into non-overlapping parts that extend beyond the existing rectangle. This
+/// process is recursive and ensures that the final list contains only
+/// non-overlapping rectangles.
+///
+/// # Arguments
+///
+/// * `rectangles` - A mutable reference to the list of existing rectangles
+/// * `new_rect` - The new rectangle to add
+///
+/// # Examples
+///
+/// ```
+/// # use martin_tile_utils::{TileRect, append_rect};
+/// let mut rectangles = Vec::new();
+/// append_rect(&mut rectangles, TileRect::new(0, 0, 0, 1, 1));
+/// append_rect(&mut rectangles, TileRect::new(0, 1, 1, 2, 2));
+///
+/// // The second rectangle overlaps with the first, so it gets split
+/// assert_eq!(rectangles.len(), 3);
+/// ```
 pub fn append_rect(rectangles: &mut Vec<TileRect>, new_rect: TileRect) {
     for rect in rectangles.iter() {
         if rect.is_overlapping(&new_rect) {
