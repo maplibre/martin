@@ -45,6 +45,7 @@ jobs:
           postgis/postgis:16-3.5
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
+      - run: exit 1
       - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@v2
         with: { tool: just }
@@ -90,6 +91,7 @@ jobs:
           - target: aarch64-unknown-linux-musl
           - target: x86_64-unknown-linux-musl
     steps:
+      - run: exit 1
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -339,6 +341,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - run: exit 1
       - name: Checkout sources
         uses: actions/checkout@v4
       - run: rustup update stable && rustup default stable
