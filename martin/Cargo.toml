@@ -63,7 +63,7 @@ lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:aws-config", "dep:pmtiles"]
-postgres = ["dep:deadpool-postgres", "dep:enum-display", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:regex", "dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:semver", "dep:tokio-postgres-rustls"]
+postgres = ["dep:deadpool-postgres", "dep:enum-display", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:regex", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 styles = ["dep:walkdir", "tokio/fs"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -102,7 +102,7 @@ postgres-protocol = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
-rustls = { workspace = true, optional = true }
+rustls.workspace = true
 semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
