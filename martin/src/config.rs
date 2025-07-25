@@ -7,12 +7,12 @@ use std::pin::Pin;
 
 use futures::future::try_join_all;
 use log::info;
+#[cfg(any(feature = "fonts", feature = "postgres"))]
+use martin_core::config::OptOneMany;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-#[cfg(any(feature = "fonts", feature = "postgres"))]
-use crate::OptOneMany;
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",

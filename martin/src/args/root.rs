@@ -4,11 +4,11 @@ use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use log::warn;
+#[cfg(feature = "fonts")]
+use martin_core::config::OptOneMany;
 
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
-#[cfg(feature = "fonts")]
-use crate::OptOneMany;
 use crate::args::connections::Arguments;
 use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
@@ -234,8 +234,9 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
+        use martin_core::config::OptOneMany;
+
         use crate::tests::some;
-        use crate::utils::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {

@@ -85,6 +85,7 @@ itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
+martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true

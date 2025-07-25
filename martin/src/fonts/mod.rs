@@ -8,13 +8,12 @@ use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use log::{debug, info, warn};
+use martin_core::config::OptOneMany;
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, PbfFontError, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-
-use crate::OptOneMany;
 
 const MAX_UNICODE_CP: usize = 0xFFFF;
 const CP_RANGE_SIZE: usize = 256;
