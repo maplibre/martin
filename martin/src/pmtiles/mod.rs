@@ -27,7 +27,10 @@ mod config;
 pub use config::PmtConfig;
 mod error;
 pub use error::PmtilesError;
-pub use error::PmtilesError::InvalidUrlMetadata;
+use error::PmtilesError::InvalidUrlMetadata;
+
+mod config;
+pub use config::PmtConfig;
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {

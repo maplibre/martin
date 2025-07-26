@@ -13,6 +13,9 @@ use tokio::io::AsyncReadExt;
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
 use crate::file_config::{FileConfigEnum, FileResult};
 
+mod config;
+pub use config::SpriteConfig;
+
 mod error;
 pub use error::SpriteError;
 

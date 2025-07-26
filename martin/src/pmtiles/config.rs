@@ -1,5 +1,6 @@
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::Relaxed;
 
 use log::warn;
 use pmtiles::reqwest::Client;
@@ -7,8 +8,12 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::UnrecognizedValues;
+use crate::config::UnrecognizedValues;
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use crate::pmtiles::{PmtFileSource, PmtHttpSource, PmtS3Source};
+use crate::utils::OptMainCache;
 use crate::utils::OptMainCache;
 use crate::{MartinResult, TileInfoSource};
 
@@ -63,10 +68,7 @@ impl PmtConfig {
     /// Create a new cache object for a source, giving it a unique internal ID
     /// and a reference to the global cache.
     pub fn new_cached_source(&self) -> super::PmtCache {
-        super::PmtCache::new(
-            self.next_cache_id.fetch_add(1, Ordering::Relaxed),
-            self.cache.clone(),
-        )
+        super::PmtCache::new(self.next_cache_id.fetch_add(1, Relaxed), self.cache.clone())
     }
 }
 

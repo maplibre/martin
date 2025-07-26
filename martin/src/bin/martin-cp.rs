@@ -19,7 +19,6 @@ use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
     Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, read_config,
 };
-
 use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;

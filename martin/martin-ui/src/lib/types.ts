@@ -1,3 +1,5 @@
+import type { HistogramBucket } from './prometheus';
+
 export interface CatalogSchema {
   tiles: { readonly [tile_id: string]: TileSource };
   sprites: { readonly [sprite_collection_id: string]: SpriteCollection };
@@ -51,4 +53,17 @@ export interface SpriteCollection {
   images: readonly string[];
   sizeInBytes?: number; // todo: make this provided as required upstream
   lastModifiedAt?: Date; // todo: make this provided as required upstream
+}
+
+export interface EndpointAnalytics {
+  averageRequestDurationMs: number;
+  requestCount: number;
+  histogram: HistogramBucket[];
+}
+
+export interface AnalyticsData {
+  sprites: EndpointAnalytics;
+  tiles: EndpointAnalytics;
+  fonts: EndpointAnalytics;
+  styles: EndpointAnalytics;
 }
