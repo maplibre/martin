@@ -4,8 +4,9 @@ use std::collections::HashSet;
 use futures::future::join_all;
 use itertools::Itertools as _;
 use log::{debug, error, info, warn};
+use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
+use martin_core::config::OptOneMany::NoVals;
 
-use crate::OptBoolObj::{Bool, NoValue, Object};
 use crate::args::BoundsCalcType;
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::config::{PgConfig, PgInfo};
@@ -19,7 +20,6 @@ use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
 use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
-use crate::utils::OptOneMany::NoVals;
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;

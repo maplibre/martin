@@ -6,8 +6,8 @@ use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_b
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::OptOneMany;
 use martin::srv::SrvConfig;
+use martin_core::config::OptOneMany;
 use tilejson::TileJSON;
 
 pub mod utils;

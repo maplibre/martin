@@ -3,13 +3,13 @@ use std::time::Duration;
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::{info, warn};
+use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
 use crate::args::environment::Env;
 use crate::pg::{POOL_SIZE_DEFAULT, PgConfig, PgSslCerts};
-use crate::utils::{OptBoolObj, OptOneMany};
 
 // Must match the help string for BoundsType::Quick
 pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
