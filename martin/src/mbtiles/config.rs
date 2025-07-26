@@ -6,6 +6,7 @@ use url::Url;
 
 use crate::config::UnrecognizedValues;
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::mbtiles::MbtSource;
 use crate::source::TileInfoSource;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -22,7 +23,7 @@ impl ConfigExtras for MbtConfig {
 
 impl SourceConfigExtras for MbtConfig {
     async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        Ok(Box::new(super::MbtSource::new(id, path).await?))
+        Ok(Box::new(MbtSource::new(id, path).await?))
     }
 
     async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<TileInfoSource> {
