@@ -31,6 +31,19 @@ postgres:
       properties:
         Gid: int4
         TABLE: text
+    antimeridian:
+      schema: public
+      table: antimeridian
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -182.0
+      - 51.0
+      - -160.0
+      - 62.0
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
     auto_table:
       schema: autodetect
       table: auto_table

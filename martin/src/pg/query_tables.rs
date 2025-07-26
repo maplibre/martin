@@ -1,3 +1,4 @@
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 use std::collections::HashMap;
 
 use futures::pin_mut;
@@ -59,6 +60,8 @@ pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMa
             geometry_index: row.get("geom_idx"),
             is_view: row.get("is_view"),
             srid: row.get("srid"), // casting i32 to u32?
+            proj: row.get("proj"),
+            proj_unit: row.get("proj_unit"),
             geometry_type: row.get("type"),
             properties: Some(json_to_hashmap(&row.get("properties"))),
             tilejson,
@@ -105,6 +108,7 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 
 /// Generate a query to fetch tiles from a table.
 /// The function is async because it may need to query the database for the table bounds (could be very slow).
+#[allow(clippy::too_many_lines)]
 pub async fn table_to_query(
     id: String,
     mut info: TableInfo,
@@ -171,19 +175,40 @@ pub async fn table_to_query(
 
     let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
+    let margin = f64::from(buffer) / f64::from(extent);
+    let proj = info.proj.as_ref().map_or("", |v| v);
+    let proj_unit = info.proj_unit.as_ref().map_or("", |v| v);
 
+    // When calculating the bounding box to search within, a few considerations must be made when
+    // using a margin. The ST_TileEnvelope margin parameter is for use with SRID 3857. When using a
+    // different SRID, ST_Expand is used and provided with SRID specific units. For longlat
+    // projections such as SRID 4326, this is degrees. If the projection specifically provides "m"
+    // (meters) as a unit, that is used. If the SRID uses a non-standard projection or unit, it will
+    // fallback to existing behavior.
+    //
+    // If a geodetic projection such as SRID 4326 were to be used with ST_TileEnvelope and margin
+    // parameter, the resultant bounding box for tiles on the antimeridian would be calculated
+    // incorrectly. For example with a margin of 2 units, the antimeridian edge would transform from
+    // -180 to +178. This results in a bbox that stretches from the easternmost edge of a tile
+    // (plus margin) around the map to the westernmost edge of the tile (minus margin). The
+    // resulting bbox covers none of the original tile. In this example, ST_Expand will result in
+    // a westernmost edge (minus margin) of -182.
     let bbox_search = if buffer == 0 {
-        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
-    } else if pool.supports_tile_margin() {
-        let margin = f64::from(buffer) / f64::from(extent);
-        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin})")
+        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
+    } else if pool.supports_tile_margin() && srid == 3857 {
+        format!(
+            "ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin}), {srid})"
+        )
+    } else if proj == "longlat" {
+        format!(
+            "ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)"
+        )
+    } else if proj_unit == "m" {
+        format!(
+            "ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE}) / 2^$1::integer)"
+        )
     } else {
-        // TODO: we should use ST_Expand here, but it may require a bit more math work,
-        //       so might not be worth it as it is only used for PostGIS < v3.1.
-        //       v3.1 has been out for 2+ years (december 2020)
-        // let val = EARTH_CIRCUMFERENCE * buffer as f64 / extent as f64;
-        // format!("ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {val}/2^$1::integer)")
-        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
+        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
     };
 
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
@@ -204,7 +229,7 @@ FROM (
   FROM
     {schema}.{table}
   WHERE
-    {geometry_column} && ST_Transform({bbox_search}, {srid})
+    {geometry_column} && {bbox_search}
   {limit_clause}
 ) AS tile;
 "
