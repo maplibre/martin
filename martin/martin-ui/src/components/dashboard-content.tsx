@@ -29,10 +29,10 @@ export function DashboardContent() {
   });
 
   // Load catalog data
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
   useEffect(() => {
     catalogOperation.execute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogOperation.execute]);
+  }, []);
 
   return (
     <ErrorBoundary

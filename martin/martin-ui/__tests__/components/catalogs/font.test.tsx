@@ -61,7 +61,7 @@ jest.mock('@/components/ui/card', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/disabledNonInteractiveButton', () => ({
+jest.mock('@/components/ui/disabled-non-interactive-button', () => ({
   DisabledNonInteractiveButton: ({ children, ...props }: React.ComponentProps<'button'>) => (
     <button {...props} disabled>
       {children}
