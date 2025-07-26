@@ -19,9 +19,6 @@ pub use config::SpriteConfig;
 mod error;
 pub use error::SpriteError;
 
-mod config;
-pub use config::SpriteConfig;
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogSpriteEntry {
     pub images: Vec<String>,

@@ -25,12 +25,10 @@ use crate::{MartinError, MartinResult, Source, TileData};
 
 mod config;
 pub use config::PmtConfig;
+
 mod error;
 pub use error::PmtilesError;
 use error::PmtilesError::InvalidUrlMetadata;
-
-mod config;
-pub use config::PmtConfig;
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {
