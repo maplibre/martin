@@ -60,11 +60,11 @@ pub enum MartinError {
 
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]
-    PmtilesError(#[from] pmtiles::PmtError),
+    PmtilesError(#[from] crate::pmtiles::PmtilesError),
 
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] mbtiles::MbtError),
+    MbtilesError(#[from] crate::mbtiles::MbtilesError),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]
@@ -80,6 +80,10 @@ pub enum MartinError {
     #[cfg(feature = "fonts")]
     #[error(transparent)]
     FontError(#[from] crate::fonts::FontError),
+
+    #[cfg(feature = "styles")]
+    #[error(transparent)]
+    StyleError(#[from] crate::styles::StyleError),
 
     #[error(transparent)]
     WebError(#[from] actix_web::Error),

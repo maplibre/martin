@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::source::CogSource;
-use crate::Source;
 use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::file_config::{ConfigExtras, SourceConfigExtras};
+use crate::{MartinResult, TileInfoSource};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
@@ -26,12 +26,12 @@ impl SourceConfigExtras for CogConfig {
         false
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
         let cog = CogSource::new(id, path)?;
         Ok(Box::new(cog))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
+    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<TileInfoSource> {
         unreachable!()
     }
 }
