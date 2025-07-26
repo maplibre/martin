@@ -59,6 +59,7 @@ export default function MartinTileserverDashboard() {
   });
 
   // Load analytics data and set up auto-refresh
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
   useEffect(() => {
     // Initial load
     analyticsOperation.execute();
@@ -69,7 +70,7 @@ export default function MartinTileserverDashboard() {
     }, 15 * 1000);
 
     return () => clearInterval(interval);
-  }, [analyticsOperation.execute]);
+  }, []);
 
   return (
     <div className="container mx-auto px-6 py-8">
