@@ -5,13 +5,12 @@ use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::debug;
+pub use martin_tile_utils::TileData;
 use martin_tile_utils::{TileCoord, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
 use crate::MartinResult;
-
-pub type TileData = Vec<u8>;
 pub type UrlQuery = HashMap<String, String>;
 
 pub type TileInfoSource = Box<dyn Source>;
