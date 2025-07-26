@@ -1,7 +1,7 @@
 import { Clipboard } from 'lucide-react';
 import * as React from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from './button';
-import { useToast } from './use-toast';
 
 /**
  * Props for CopyLinkButton
