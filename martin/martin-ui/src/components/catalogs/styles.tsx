@@ -1,5 +1,4 @@
 import { Brush, Code, Search, SquarePen } from 'lucide-react';
-import { StyleIntegrationGuideDialog } from '@/components/dialogs/style-integration-guide';
 import { ErrorState } from '@/components/error/error-state';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
