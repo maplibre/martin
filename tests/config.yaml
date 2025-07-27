@@ -1,4 +1,5 @@
 ---
+warning: 'due to not expected'
 # Connection keep alive timeout [default: 75]
 keep_alive: 75
 
@@ -11,8 +12,33 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 8
 
+# Advanced monitoring options
+observability:
+  warning: 'due to not expected'
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    warning: 'due to not expected'
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
+
+# CORS Configuration
+#
+# Defaults to `cors: true`, which allows all origins.
+# Sending/Acting on CORS headers can be completely disabled via `cors: false`
+cors:
+  warning: 'due to not expected'
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
+  origin:
+    - '*'
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
+  max_age: null
+
 # Database configuration. This can also be a list of PG configs.
 postgres:
+  warning: 'due to not expected'
   # Database connection string
   connection_string: '${DATABASE_URL:postgresql://postgres@localhost:5432/db}'
 
@@ -23,16 +49,22 @@ postgres:
   pool_size: 20
 
   auto_publish:
+    warning: 'due to not expected'
     tables:
+      warning: 'due to not expected'
       from_schemas: autodetect
       id_columns: [feat_id, big_feat_id]
       clip_geom: false
       buffer: 3
       extent: 9000
+    functions:
+      warning: 'due to not expected'
+      from_schemas: MixedCase # function is function_Mixed_Namen
 
   # Associative arrays of table sources
   tables:
     table_source:
+      warning: 'due to not expected'
       # Table schema (required)
       schema: public
 
@@ -138,6 +170,7 @@ postgres:
   # Associative arrays of function sources
   functions:
     function_zxy_query:
+      warning: 'due to not expected'
       # Schema name (required)
       schema: public
 
@@ -163,28 +196,23 @@ postgres:
       maxzoom: 30
       bounds: [-180.0, -90.0, 180.0, 90.0]
 
-    fnc_Mixed_Name:
-      schema: MixedCase
-      function: function_Mixed_Name
-
 
 pmtiles:
-  this-should: be-a-warning
+  warning: 'due to not expected'
   paths:
     - http://localhost:5412/webp2.pmtiles
   sources:
-    this-should: be-a-warning
     pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
     pmt2: http://localhost:5412/webp2.pmtiles
 
 sprites:
-  this-should: be-a-warning
+  warning: 'due to not expected'
   paths: tests/fixtures/sprites/src1
   sources:
     mysrc: tests/fixtures/sprites/src2
 
 cog:
-  this-should: be-a-warning
+  warning: 'due to not expected'
   paths:
     - tests/fixtures/cog/rgba_u8_nodata.tiff
   sources:
@@ -192,12 +220,11 @@ cog:
     cog-src2: tests/fixtures/cog/rgb_u8.tif
 
 fonts:
-  # this-should: be-a-warning
   - tests/fixtures/fonts/overpass-mono-regular.ttf
   - tests/fixtures/fonts
 
 styles:
-  this-should: be-a-warning
+  warning: 'due to not expected'
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
   paths:
