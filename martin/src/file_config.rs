@@ -173,9 +173,9 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
             let unrecognized = cfg.get_unrecognized();
             copy_unrecognized_config(&mut res, prefix, unrecognized);
 
-            for (key, value) in unrecognized.into_iter() {
+            for key in unrecognized.keys() {
                 warn!(
-                    "Ignoring unrecognized configuration entry '{prefix}.{key}: {value}'. Please check your configuration file for typos."
+                    "Ignoring unrecognized configuration key '{prefix}.{key}'. Please check your configuration file for typos."
                 );
             }
         }
