@@ -1,5 +1,6 @@
-import { type ErrorInfo, useEffect, useState } from 'react';
+import { type ErrorInfo, useCallback, useEffect, useState } from 'react';
 import { FontCatalog } from '@/components/catalogs/font';
+import { SpriteCatalog } from '@/components/catalogs/sprite';
 import { ErrorBoundary } from '@/components/error/error-boundary';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/toaster';
@@ -91,9 +92,12 @@ export function DashboardContent() {
         </TabsContent>
 
         <TabsContent value="sprites">
-          <CatalogSkeleton
-            description="Preview all available sprite sheets and icons"
-            title="Sprite Catalog"
+          <SpriteCatalog
+            error={catalogOperation.error}
+            isLoading={catalogOperation.isLoading}
+            onSearchChangeAction={setSearchQuery}
+            searchQuery={searchQuery}
+            spriteCollections={catalogOperation.data?.sprites}
           />
         </TabsContent>
       </Tabs>
