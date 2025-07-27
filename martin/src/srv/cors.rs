@@ -2,6 +2,8 @@ use actix_http::Method;
 use log::info;
 use serde::{Deserialize, Serialize};
 
+use crate::config::{UnrecognizedKeys, UnrecognizedValues};
+use crate::file_config::ConfigExtras;
 use crate::{MartinError, MartinResult};
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
@@ -28,6 +30,9 @@ pub struct CorsProperties {
     #[serde(default)]
     pub origin: Vec<String>,
     pub max_age: Option<usize>,
+
+    #[serde(flatten)]
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl Default for CorsProperties {
@@ -35,7 +40,14 @@ impl Default for CorsProperties {
         Self {
             origin: vec!["*".to_string()],
             max_age: None,
+            unrecognized: UnrecognizedValues::default(),
         }
+    }
+}
+
+impl ConfigExtras for CorsProperties {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
@@ -110,6 +122,8 @@ impl CorsConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use indoc::indoc;
 
     use super::*;
@@ -213,6 +227,7 @@ mod tests {
         let properties = CorsProperties {
             origin: vec![],
             max_age: Some(3600),
+            unrecognized: HashMap::default(),
         };
 
         assert_eq!(properties.validate(), Err(CorsError::NoOriginsConfigured));
@@ -223,6 +238,7 @@ mod tests {
         let properties = CorsProperties {
             origin: vec!["https://example.org".to_string()],
             max_age: Some(3600),
+            unrecognized: HashMap::default(),
         };
         assert!(properties.validate().is_ok());
 

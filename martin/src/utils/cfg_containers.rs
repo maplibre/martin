@@ -2,10 +2,13 @@ use std::vec::IntoIter;
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::UnrecognizedKeys;
+use crate::file_config::ConfigExtras;
+
 /// A serde helper to store a boolean as an object.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OptBoolObj<T> {
+pub enum OptBoolObj<T: ConfigExtras> {
     #[default]
     #[serde(skip)]
     NoValue,
@@ -13,9 +16,18 @@ pub enum OptBoolObj<T> {
     Object(T),
 }
 
-impl<T> OptBoolObj<T> {
+impl<T: ConfigExtras> OptBoolObj<T> {
     pub fn is_none(&self) -> bool {
         matches!(self, Self::NoValue)
+    }
+}
+impl<T: ConfigExtras> ConfigExtras for OptBoolObj<T> {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        match self {
+            Self::NoValue => UnrecognizedKeys::default(),
+            Self::Bool(_) => UnrecognizedKeys::default(),
+            Self::Object(obj) => obj.get_unrecognized_keys(),
+        }
     }
 }
 

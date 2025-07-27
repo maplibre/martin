@@ -10,7 +10,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
-use crate::config::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::UnrecognizedKeys;
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
@@ -68,7 +68,8 @@ pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
         true
     }
 
-    fn get_unrecognized(&self) -> &UnrecognizedValues;
+    /// Iterates over all unrecognized (present, but not expected) keys in the configuration
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
 }
 
 pub trait SourceConfigExtras: ConfigExtras {
@@ -166,20 +167,15 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         Ok(Some(res))
     }
 
-    pub fn finalize(&self, prefix: &str) -> UnrecognizedValues {
-        let mut res = UnrecognizedValues::new();
-
+    pub fn finalize(&self, prefix: &str) -> UnrecognizedKeys {
         if let Self::Config(cfg) = self {
-            let unrecognized = cfg.get_unrecognized();
-            copy_unrecognized_config(&mut res, prefix, unrecognized);
-
-            for key in unrecognized.keys() {
-                warn!(
-                    "Ignoring unrecognized configuration key '{prefix}.{key}'. Please check your configuration file for typos."
-                );
-            }
+            return cfg
+                .get_unrecognized_keys()
+                .iter()
+                .map(|k| format!("{prefix}{k}"))
+                .collect::<UnrecognizedKeys>();
         }
-        res
+        UnrecognizedKeys::new()
     }
 }
 
@@ -201,12 +197,12 @@ impl<T: ConfigExtras> FileConfig<T> {
     pub fn is_empty(&self) -> bool {
         self.paths.is_none()
             && self.sources.is_none()
-            && self.get_unrecognized().is_empty()
+            && self.get_unrecognized_keys().is_empty()
             && self.custom.is_default()
     }
 
-    pub fn get_unrecognized(&self) -> &UnrecognizedValues {
-        self.custom.get_unrecognized()
+    pub fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.custom.get_unrecognized_keys()
     }
 }
 

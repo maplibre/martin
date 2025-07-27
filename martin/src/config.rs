@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
@@ -6,13 +6,14 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use crate::OptOneMany;
+use crate::file_config::ConfigExtras;
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -26,6 +27,7 @@ use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
 
+pub type UnrecognizedKeys = HashSet<String>;
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
 pub struct ServerState {
@@ -81,36 +83,51 @@ pub struct Config {
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedValues> {
-        let mut res = UnrecognizedValues::new();
-        copy_unrecognized_config(&mut res, "", &self.unrecognized);
+    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
+        let mut unrecognized_keys = self
+            .unrecognized
+            .keys()
+            .cloned()
+            .collect::<UnrecognizedKeys>();
+        unrecognized_keys.extend(self.srv.get_unrecognized_keys());
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
-
+        #[cfg(feature = "postgres")]
+        let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
+            "postgres."
+        } else {
+            "postgres[]."
+        };
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {
-            res.extend(pg.finalize()?);
+            unrecognized_keys.extend(pg.finalize(pg_prefix)?);
         }
 
         #[cfg(feature = "pmtiles")]
-        res.extend(self.pmtiles.finalize("pmtiles."));
+        unrecognized_keys.extend(self.pmtiles.finalize("pmtiles."));
 
         #[cfg(feature = "mbtiles")]
-        res.extend(self.mbtiles.finalize("mbtiles."));
+        unrecognized_keys.extend(self.mbtiles.finalize("mbtiles."));
 
         #[cfg(feature = "cog")]
-        res.extend(self.cog.finalize("cog."));
+        unrecognized_keys.extend(self.cog.finalize("cog."));
 
         #[cfg(feature = "sprites")]
-        res.extend(self.sprites.finalize("sprites."));
+        unrecognized_keys.extend(self.sprites.finalize("sprites."));
 
         #[cfg(feature = "styles")]
-        res.extend(self.styles.finalize("styles."));
+        unrecognized_keys.extend(self.styles.finalize("styles."));
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
+
+        for key in &unrecognized_keys {
+            warn!(
+                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+            );
+        }
 
         let is_empty = true;
 
@@ -135,7 +152,11 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        if is_empty { Err(NoSources) } else { Ok(res) }
+        if is_empty {
+            Err(NoSources)
+        } else {
+            Ok(unrecognized_keys)
+        }
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
@@ -232,18 +253,6 @@ impl Config {
             }
         }
     }
-}
-
-pub fn copy_unrecognized_config(
-    result: &mut UnrecognizedValues,
-    prefix: &str,
-    unrecognized: &UnrecognizedValues,
-) {
-    result.extend(
-        unrecognized
-            .iter()
-            .map(|(k, v)| (format!("{prefix}{k}"), v.clone())),
-    );
 }
 
 /// Read config from a file

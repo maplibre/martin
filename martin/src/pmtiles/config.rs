@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::TileInfoSource;
-use crate::config::UnrecognizedValues;
+use crate::config::{UnrecognizedKeys, UnrecognizedValues};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use crate::utils::OptMainCache;
@@ -89,8 +89,8 @@ impl ConfigExtras for PmtConfig {
         true
     }
 
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::UnrecognizedValues;
+use crate::config::{UnrecognizedKeys, UnrecognizedValues};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::mbtiles::MbtSource;
 use crate::source::TileInfoSource;
@@ -16,8 +16,8 @@ pub struct MbtConfig {
 }
 
 impl ConfigExtras for MbtConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
