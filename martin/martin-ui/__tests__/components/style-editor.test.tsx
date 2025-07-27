@@ -26,10 +26,6 @@ jest.mock('@/components/ui/card', () => ({
   CardTitle: ({ children, ...props }: MockComponentProps) => <h3 {...props}>{children}</h3>,
 }));
 
-jest.mock('@/components/ui/separator', () => ({
-  Separator: () => <hr />,
-}));
-
 jest.mock('@/lib/api', () => ({
   buildMartinUrl: jest.fn((path: string) => `http://localhost:3000${path}`),
 }));

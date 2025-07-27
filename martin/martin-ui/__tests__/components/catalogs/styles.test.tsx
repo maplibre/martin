@@ -43,7 +43,7 @@ jest.mock('@/components/ui/tooltip', () => ({
   TooltipTrigger: ({ children }: MockTooltipProps) => children,
 }));
 
-jest.mock('@/components/ui/disabledNonInteractiveButton', () => ({
+jest.mock('@/components/ui/disabled-non-interactive-button', () => ({
   DisabledNonInteractiveButton: ({ children, ...props }: MockComponentProps) => (
     <button {...props}>{children}</button>
   ),
