@@ -26,6 +26,48 @@ jest.mock('@/components/sprite/SpritePreview', () => {
   };
 });
 
+// Mock the dialog components
+jest.mock('@/components/dialogs/sprite-preview', () => ({
+  SpritePreviewDialog: ({
+    name,
+    onCloseAction,
+    onDownloadAction,
+  }: {
+    name: string;
+    sprite: SpriteCollection;
+    onCloseAction: () => void;
+    onDownloadAction: () => void;
+  }) => (
+    <div data-testid="sprite-preview-dialog">
+      <div data-testid="sprite-preview-name">{name}</div>
+      <button data-testid="sprite-preview-close" onClick={onCloseAction} type="button">
+        Close
+      </button>
+      <button data-testid="sprite-preview-download" onClick={onDownloadAction} type="button">
+        Download
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('@/components/dialogs/sprite-download', () => ({
+  SpriteDownloadDialog: ({
+    name,
+    onCloseAction,
+  }: {
+    name: string;
+    sprite: SpriteCollection;
+    onCloseAction: () => void;
+  }) => (
+    <div data-testid="sprite-download-dialog">
+      <div data-testid="sprite-download-name">{name}</div>
+      <button data-testid="sprite-download-close" onClick={onCloseAction} type="button">
+        Close
+      </button>
+    </div>
+  ),
+}));
+
 describe('SpriteCatalog Component', () => {
   const mockSpriteCollections: { [name: string]: SpriteCollection } = {
     'map-icons': {

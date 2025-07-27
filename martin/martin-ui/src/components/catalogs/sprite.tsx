@@ -1,6 +1,8 @@
 import { Download, Eye, ImageIcon, Search } from 'lucide-react';
 
 import { useState } from 'react';
+import { SpriteDownloadDialog } from '@/components/dialogs/sprite-download';
+import { SpritePreviewDialog } from '@/components/dialogs/sprite-preview';
 import { ErrorState } from '@/components/error/error-state';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -163,6 +165,25 @@ export function SpriteCatalog({
           </div>
         )}
       </div>
+
+      {selectedSprite && spriteCollections && (
+        <SpritePreviewDialog
+          name={selectedSprite}
+          onCloseAction={() => setSelectedSprite(null)}
+          onDownloadAction={() => {
+            setDownloadSprite(selectedSprite);
+            setSelectedSprite(null);
+          }}
+          sprite={spriteCollections[selectedSprite]}
+        />
+      )}
+      {downloadSprite && spriteCollections && (
+        <SpriteDownloadDialog
+          name={downloadSprite}
+          onCloseAction={() => setDownloadSprite(null)}
+          sprite={spriteCollections[downloadSprite]}
+        />
+      )}
     </>
   );
 }
