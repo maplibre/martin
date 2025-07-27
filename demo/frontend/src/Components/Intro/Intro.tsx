@@ -7,10 +7,8 @@ import Title from './Title';
 
 const Intro = () => (
   <Container>
-    <Parallax translateY={[100, -50]}>
+    <Parallax translateY={[50, -50]}>
       <Title>
-        Martin
-        <br />
         Demo
       </Title>
       <Description>Vector Tiles from Large Databases on the Fly</Description>
