@@ -200,14 +200,6 @@ export function StylesCatalog({
           </Button>
         </div>
       )}
-
-      {selectedStyleForGuide && (
-        <StyleIntegrationGuideDialog
-          name={selectedStyleForGuide.name}
-          onCloseAction={() => setSelectedStyleForGuide(null)}
-          style={selectedStyleForGuide.style}
-        />
-      )}
     </div>
   );
 }
