@@ -19,7 +19,7 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
   * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
   * [MBTile](https://github.com/mapbox/mbtiles-spec) files
 * [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources into one
-* Generate [sprites](https://maplibre.org/martin/sources-sprites.html) and [font glyphs](https://maplibre.org/martin/sources-fonts.html)
+* Serve [styles](https://maplibre.org/martin/sources-styles.html) and generate [sprites](https://maplibre.org/martin/sources-sprites.html) or [font glyphs](https://maplibre.org/martin/sources-fonts.html) on the fly
 * Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
 * Examine, copy, validate, compare, and apply diffs between `MBTiles` files with [mbtiles](https://maplibre.org/martin/tools.html#mbtiles) tool
 
@@ -34,6 +34,14 @@ from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` 
 ## Getting Involved
 
 Join the `#maplibre-martin` slack channel at OSMUS -- automatic invite is at <https://slack.openstreetmap.us/>
+
+## Contributing
+
+Like any open source project, Martin welcomes contributions from anyone who wants to help improve it.
+
+* See [Development Guide](https://maplibre.org/martin/development.html) for setup
+* Use `just help` for common commands
+* Check [help wanted](https://github.com/maplibre/martin/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) issues
 
 ## License
 
