@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { buildMartinUrl } from '@/lib/api';
 import type { Font } from '@/lib/types';
 import { CopyLinkButton } from '../ui/copy-link-button';
-import { DisabledNonInteractiveButton } from '../ui/disabledNonInteractiveButton';
+import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface FontCatalogProps {

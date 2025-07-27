@@ -26,25 +26,11 @@ export function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingStyle, setEditingStyle] = useState<string | null>(null);
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-  };
-
-  const handleCatalogError = useCallback((error: Error) => {
-    console.error('Catalog fetch failed:', error);
-  }, []);
-
-  // Catalog operation - unified data fetching
+  // Catalog operation
   const catalogOperation = useAsyncOperation<CatalogSchema>(fetchCatalog, {
-    onError: handleCatalogError,
+    onError: (error: Error) => console.error('Catalog fetch failed:', error),
     showErrorToast: false,
   });
-
-  // Load catalog data
-  useEffect(() => {
-    catalogOperation.execute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogOperation.execute]);
 
   const handleEditStyle = useCallback((styleName: string) => {
     setEditingStyle(styleName);
@@ -65,6 +51,11 @@ export function DashboardContent() {
     );
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
+  useEffect(() => {
+    catalogOperation.execute();
+  }, []);
+
   return (
     <ErrorBoundary
       onError={(error: Error, errorInfo: ErrorInfo) => {
@@ -81,7 +72,7 @@ export function DashboardContent() {
         }, 3000);
       }}
     >
-      <Tabs className="space-y-6" onValueChange={handleTabChange} value={activeTab}>
+      <Tabs className="space-y-6" onValueChange={(value) => setActiveTab(value)} value={activeTab}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="tiles">
             Tiles<span className="md:block hidden ms-1">Catalog</span>

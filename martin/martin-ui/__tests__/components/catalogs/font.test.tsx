@@ -3,12 +3,6 @@ import type React from 'react';
 import { FontCatalog } from '@/components/catalogs/font';
 import type { Font } from '@/lib/types';
 
-// Create a test wrapper component that provides TooltipProvider
-const TestWrapper = ({ children }: { children: React.ReactNode }) => {
-  const TooltipProvider = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-  return <TooltipProvider>{children}</TooltipProvider>;
-};
-
 // Mock all UI components
 jest.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -67,7 +61,7 @@ jest.mock('@/components/ui/card', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/disabledNonInteractiveButton', () => ({
+jest.mock('@/components/ui/disabled-non-interactive-button', () => ({
   DisabledNonInteractiveButton: ({ children, ...props }: React.ComponentProps<'button'>) => (
     <button {...props} disabled>
       {children}
@@ -164,11 +158,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('renders loading skeleton when isLoading is true', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} isLoading={true} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} isLoading={true} />);
     expect(screen.getByText('Font Catalog')).toBeInTheDocument();
     expect(screen.getByText('Preview all available font assets')).toBeInTheDocument();
     // Check that skeleton elements are rendered
@@ -177,11 +167,7 @@ describe('FontCatalog Component', () => {
 
   it('renders error state when there is an error', () => {
     const error = new Error('Test error');
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} error={error} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} error={error} />);
     expect(screen.getByText('Failed to Load Fonts')).toBeInTheDocument();
     expect(screen.getByText('Unable to fetch font catalog from the server')).toBeInTheDocument();
     expect(screen.getByText('Test error')).toBeInTheDocument();
@@ -189,11 +175,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('renders font catalog correctly', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} />);
 
     // Check title and description
     expect(screen.getByText('Font Catalog')).toBeInTheDocument();
@@ -223,11 +205,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('filters fonts based on search query', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} searchQuery="roboto" />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} searchQuery="roboto" />);
 
     // Should only show the Roboto font
     expect(screen.getByText('Roboto Medium')).toBeInTheDocument();
@@ -240,11 +218,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('filters fonts based on font family', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} searchQuery="open" />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} searchQuery="open" />);
 
     // Should only show the Open Sans font
     expect(screen.queryByText('Roboto Medium')).not.toBeInTheDocument();
@@ -253,11 +227,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('filters fonts based on style', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} searchQuery="bold" />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} searchQuery="bold" />);
 
     // Should only show the Noto Sans Bold font
     expect(screen.queryByText('Roboto Medium')).not.toBeInTheDocument();
@@ -266,11 +236,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('shows no results message when search has no matches', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} searchQuery="nonexistent" />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} searchQuery="nonexistent" />);
     expect(screen.getByText(/No fonts found matching "nonexistent"/i)).toBeInTheDocument();
 
     // Should not render any badges
@@ -279,11 +245,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('calls onSearchChangeAction when search input changes', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} />);
     const searchInput = screen.getByPlaceholderText('Search fonts...');
 
     fireEvent.change(searchInput, { target: { value: 'new search' } });
@@ -291,11 +253,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('renders copy link buttons for each font', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} />);
 
     // Should have 3 copy link buttons (one for each font) - they render as buttons with specific classes
     const copyLinkButtons = document.querySelectorAll('button[class*="bg-transparent"]');
@@ -303,11 +261,7 @@ describe('FontCatalog Component', () => {
   });
 
   it('renders details buttons for each font', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} />);
 
     // Should have 3 details buttons (one for each font)
     const detailsButtons = screen.getAllByText('Details');
@@ -315,33 +269,21 @@ describe('FontCatalog Component', () => {
   });
 
   it('renders with empty fonts object', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} fonts={{}} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} fonts={{}} />);
 
     expect(screen.getByText('Font Catalog')).toBeInTheDocument();
     expect(screen.getByText('No fonts found.')).toBeInTheDocument();
   });
 
   it('renders with undefined fonts', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} fonts={undefined} />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} fonts={undefined} />);
 
     expect(screen.getByText('Font Catalog')).toBeInTheDocument();
     expect(screen.getByText('No fonts found.')).toBeInTheDocument();
   });
 
   it('case insensitive search works correctly', () => {
-    render(
-      <TestWrapper>
-        <FontCatalog {...defaultProps} searchQuery="ROBOTO" />
-      </TestWrapper>,
-    );
+    render(<FontCatalog {...defaultProps} searchQuery="ROBOTO" />);
 
     // Should still show the Roboto font despite case difference
     expect(screen.getByText('Roboto Medium')).toBeInTheDocument();
