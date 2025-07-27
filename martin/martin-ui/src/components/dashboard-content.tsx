@@ -40,6 +40,11 @@ export function DashboardContent() {
     setEditingStyle(null);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
+  useEffect(() => {
+    catalogOperation.execute();
+  }, []);
+
   // If editing a style, show the editor
   if (editingStyle && catalogOperation.data?.styles?.[editingStyle]) {
     return (
@@ -50,11 +55,6 @@ export function DashboardContent() {
       />
     );
   }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
-  useEffect(() => {
-    catalogOperation.execute();
-  }, []);
 
   return (
     <ErrorBoundary
