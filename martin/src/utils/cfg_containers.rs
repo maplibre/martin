@@ -24,8 +24,7 @@ impl<T: ConfigExtras> OptBoolObj<T> {
 impl<T: ConfigExtras> ConfigExtras for OptBoolObj<T> {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         match self {
-            Self::NoValue => UnrecognizedKeys::default(),
-            Self::Bool(_) => UnrecognizedKeys::default(),
+            Self::NoValue | Self::Bool(_) => UnrecognizedKeys::default(),
             Self::Object(obj) => obj.get_unrecognized_keys(),
         }
     }
