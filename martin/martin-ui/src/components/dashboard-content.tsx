@@ -7,6 +7,7 @@ import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
 import { buildMartinUrl } from '@/lib/api';
 import type { CatalogSchema } from '@/lib/types';
+import { TilesCatalog } from './catalogs/tiles';
 import { CatalogSkeleton } from './loading/catalog-skeleton';
 
 const fetchCatalog = async (): Promise<CatalogSchema> => {
@@ -67,9 +68,12 @@ export function DashboardContent() {
         </TabsList>
 
         <TabsContent value="tiles">
-          <CatalogSkeleton
-            description="Explore all available tile sources"
-            title="Tiles Sources Catalog"
+          <TilesCatalog
+            error={catalogOperation.error}
+            isLoading={catalogOperation.isLoading}
+            onSearchChangeAction={setSearchQuery}
+            searchQuery={searchQuery}
+            tileSources={catalogOperation.data?.tiles}
           />
         </TabsContent>
 
