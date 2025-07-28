@@ -8,7 +8,7 @@ use tilejson::TileJSON;
 
 use crate::MartinResult;
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::{copy_unrecognized_config, UnrecognizedKeys};
+use crate::config::{UnrecognizedKeys, copy_unrecognized_config};
 use crate::pg::builder::PgBuilder;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
