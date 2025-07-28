@@ -1,3 +1,4 @@
+#[cfg(feature = "metrics")]
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -110,6 +111,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    use crate::config::UnrecognizedValues;
     use crate::srv::cors::CorsProperties;
     use crate::tests::some;
 
@@ -218,7 +220,7 @@ mod tests {
                         "https://example.org".to_string()
                     ],
                     max_age: None,
-                    unrecognized: HashMap::default()
+                    unrecognized: UnrecognizedValues::default()
                 })),
                 ..Default::default()
             }
