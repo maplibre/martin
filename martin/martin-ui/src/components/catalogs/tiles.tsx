@@ -84,7 +84,7 @@ export function TilesCatalog({
           <Input
             className="pl-10 md:w-64 w-full bg-card"
             onChange={(e) => onSearchChangeAction(e.target.value)}
-            placeholder="Search tiles sources..."
+            placeholder="Search tile sources..."
             value={searchQuery}
           />
         </div>
