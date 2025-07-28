@@ -54,14 +54,15 @@ export function TilesCatalog({
     );
   }
 
+  const lowercaseSearchQuery = searchQuery.toLowerCase();
   const filteredTileSources = Object.entries(tileSources || {}).filter(
     ([name, source]) =>
-      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      source.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      source.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      source.attribution?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      source.content_encoding?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      source.content_type?.toLowerCase().includes(searchQuery.toLowerCase()),
+      name.toLowerCase().includes(lowercaseSearchQuery) ||
+      source.name?.toLowerCase().includes(lowercaseSearchQuery) ||
+      source.description?.toLowerCase().includes(lowercaseSearchQuery) ||
+      source.attribution?.toLowerCase().includes(lowercaseSearchQuery) ||
+      source.content_encoding?.toLowerCase().includes(lowercaseSearchQuery) ||
+      source.content_type?.toLowerCase().includes(lowercaseSearchQuery),
   );
 
   const getIcon = (content_type: string) => {
