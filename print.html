@@ -2230,6 +2230,10 @@ postgres:
       # Tile extent in tile coordinate space, optional, default to 4096
       extent: 4096
     functions:
+      # Optionally limit to just these schemas
+      from_schemas:
+        - public
+        - my_schema
       # Optionally set how source ID should be generated based on the function's name and schema
       source_id_format: '{schema}.{function}'
 
