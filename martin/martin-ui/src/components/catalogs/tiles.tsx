@@ -76,7 +76,7 @@ export function TilesCatalog({
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center items-start justify-between gap-5">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Tiles Sources Catalog</h2>
+          <h2 className="text-2xl font-bold text-foreground">Tile Sources Catalog</h2>
           <p className="text-muted-foreground">Explore all available tile sources</p>
         </div>
         <div className="relative w-full md:w-64">
