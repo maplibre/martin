@@ -33,7 +33,6 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
 
     const map = mapRef.current.getMap();
 
-    console.log({ isMapLoaded, map });
     // Import and add the inspect control
     if (inspectControlRef.current) {
       map.removeControl(inspectControlRef.current);
