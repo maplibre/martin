@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
@@ -26,6 +26,7 @@ use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
 
+pub type UnrecognizedKeys = HashSet<String>;
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
 pub struct ServerState {
@@ -81,8 +82,8 @@ pub struct Config {
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedValues> {
-        let mut res = UnrecognizedValues::new();
+    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
+        let mut res = UnrecognizedKeys::new();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.base_path {
@@ -235,15 +236,11 @@ impl Config {
 }
 
 pub fn copy_unrecognized_config(
-    result: &mut UnrecognizedValues,
+    result: &mut UnrecognizedKeys,
     prefix: &str,
     unrecognized: &UnrecognizedValues,
 ) {
-    result.extend(
-        unrecognized
-            .iter()
-            .map(|(k, v)| (format!("{prefix}{k}"), v.clone())),
-    );
+    result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
 }
 
 /// Read config from a file

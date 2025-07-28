@@ -8,7 +8,7 @@ use tilejson::TileJSON;
 
 use crate::MartinResult;
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::{copy_unrecognized_config, UnrecognizedKeys};
 use crate::pg::builder::PgBuilder;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
@@ -127,8 +127,8 @@ impl PgConfig {
         Ok(())
     }
 
-    pub fn finalize(&mut self) -> PgResult<UnrecognizedValues> {
-        let mut res = UnrecognizedValues::new();
+    pub fn finalize(&mut self) -> PgResult<UnrecognizedKeys> {
+        let mut res = UnrecognizedKeys::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
                 copy_unrecognized_config(&mut res, &format!("tables.{k}."), &v.unrecognized);
