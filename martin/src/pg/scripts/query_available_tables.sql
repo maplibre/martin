@@ -110,17 +110,6 @@ descriptions AS (
     INNER JOIN pg_namespace ON cls.relnamespace = pg_namespace.oid
     LEFT JOIN pg_description ON cls.oid = pg_description.objoid AND pg_description.objsubid = 0
     WHERE cls.relkind = 'r' OR cls.relkind = 'v'
-),
-
---
-proj_data AS (
-    SELECT
-        srid,
-        srtext,
-        proj4text,
-        (regexp_matches(proj4text, '(?<=\+proj=).*?(?=\s)'))[1] AS proj,
-        (regexp_matches(proj4text, '(?<=\+units=).*?(?=\s)'))[1] AS proj_unit
-    FROM spatial_ref_sys
 )
 
 SELECT
@@ -131,8 +120,6 @@ SELECT
     gc.type,
     gc.is_view,
     gc.geom_idx,
-    pd.proj,
-    pd.proj_unit,
     dc.description,
     coalesce(
         jsonb_object_agg(columns.column_name, columns.type_name)
@@ -153,6 +140,5 @@ LEFT JOIN descriptions AS dc
     ON
         gc.schema = dc.schema_name
         AND gc.name = dc.table_name
-LEFT JOIN proj_data AS pd ON gc.srid = pd.srid
 GROUP BY -- noqa: AM06
-    gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, pd.proj, pd.proj_unit, dc.description;
+    gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description;

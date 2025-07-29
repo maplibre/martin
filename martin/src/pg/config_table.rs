@@ -25,14 +25,6 @@ pub struct TableInfo {
     /// Geometry SRID
     pub srid: i32,
 
-    /// Projection of SRID if found in `spatial_ref_sys`
-    #[serde(skip)]
-    pub proj: Option<String>,
-
-    /// Projection unit of SRID if found in `spatial_ref_sys`
-    #[serde(skip)]
-    pub proj_unit: Option<String>,
-
     /// Geometry column name
     pub geometry_column: String,
 
@@ -143,8 +135,6 @@ impl TableInfo {
             tilejson: self.tilejson.clone(),
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
-            proj: self.proj.clone(),
-            proj_unit: self.proj_unit.clone(),
             prop_mapping: HashMap::new(),
             ..cfg_inf.clone()
         };
