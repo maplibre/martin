@@ -1,9 +1,12 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import mkcert from 'vite-plugin-mkcert'
-import viteTsConfigPaths from 'vite-tsconfig-paths'
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
+import mkcert from 'vite-plugin-mkcert';
+import viteTsConfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
+  build: {
+    target: 'esnext',
+  },
   plugins: [
     react(),
     viteTsConfigPaths({
@@ -11,8 +14,5 @@ export default defineConfig({
     }),
     mkcert(),
   ],
-  build: {
-    target: 'esnext',
-  },
-  server: { https: false, host: true, port: 8080 },
-})
+  server: { host: true, port: 8080 },
+});

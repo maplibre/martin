@@ -14,7 +14,7 @@ repos:
       - id: check-added-large-files
       - id: check-executables-have-shebangs
       - id: check-json
-        exclude: '.+/tsconfig.json'
+        exclude: ".+/tsconfig.json"
       - id: check-shebang-scripts-are-executable
         exclude: '.+\.rs' # would be triggered by #![some_attribute]
       - id: check-symlinks
@@ -50,7 +50,13 @@ repos:
         # LT05: Line is too long <- not useful. mostly triggers for comments
         # LT12: Files must end with a single trailing newline <- already done by trailing-whitespace
         # If you update this rule, please also update the rules in justfile, the fmt-sql recipe
-        args: [--dialect=postgres, "--exclude-rules=AL07,LT05,LT12"]
+        args: [ --dialect=postgres, "--exclude-rules=AL07,LT05,LT12" ]
         files: \.sql$
-
-# TODO: Add NPM hooks for formatting and linting
+  # NPM hooks for JavaScript/TypeScript formatting and linting
+  - repo: https://github.com/biomejs/pre-commit
+    rev: "v2.1.2"  # Use the sha / tag you want to point at
+    hooks:
+      - id: biome-check
+        additional_dependencies: [ "@biomejs/biome@2.1.2" ]
+      - id: biome-format
+        additional_dependencies: [ "@biomejs/biome@2.1.2" ]
