@@ -6,10 +6,8 @@ use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use spreet::resvg::usvg::{Error as ResvgError, Options, Tree, TreeParsing};
-use spreet::{
-    SpreetError, Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name,
-};
+use spreet::resvg::usvg::{Options, Tree, TreeParsing};
+use spreet::{Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name};
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
@@ -18,40 +16,8 @@ use crate::file_config::{FileConfigEnum, FileResult};
 mod config;
 pub use config::SpriteConfig;
 
-pub type SpriteResult<T> = Result<T, SpriteError>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum SpriteError {
-    #[error("Sprite {0} not found")]
-    SpriteNotFound(String),
-
-    #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
-
-    #[error("Sprite path is not a file: {0}")]
-    InvalidFilePath(PathBuf),
-
-    #[error("Sprite {0} uses bad file {1}")]
-    InvalidSpriteFilePath(String, PathBuf),
-
-    #[error("No sprite files found in {0}")]
-    NoSpriteFilesFound(PathBuf),
-
-    #[error("Sprite {0} could not be loaded")]
-    UnableToReadSprite(PathBuf),
-
-    #[error("{0} in file {1}")]
-    SpriteProcessingError(SpreetError, PathBuf),
-
-    #[error("{0} in file {1}")]
-    SpriteParsingError(ResvgError, PathBuf),
-
-    #[error("Unable to generate spritesheet")]
-    UnableToGenerateSpritesheet,
-
-    #[error("Unable to create a sprite from file {0}")]
-    SpriteInstError(PathBuf),
-}
+mod error;
+pub use error::SpriteError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogSpriteEntry {
@@ -97,7 +63,7 @@ impl SpriteSources {
         Ok(results)
     }
 
-    pub fn get_catalog(&self) -> SpriteResult<SpriteCatalog> {
+    pub fn get_catalog(&self) -> Result<SpriteCatalog, SpriteError> {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
         for source in &self.0 {
@@ -139,7 +105,7 @@ impl SpriteSources {
 
     /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
     /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
-    pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> SpriteResult<Spritesheet> {
+    pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
         } else {
@@ -149,12 +115,12 @@ impl SpriteSources {
         let sprite_ids = ids
             .split(',')
             .map(|id| self.get(id))
-            .collect::<SpriteResult<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, SpriteError>>()?;
 
         get_spritesheet(sprite_ids.iter(), dpi, as_sdf).await
     }
 
-    fn get(&self, id: &str) -> SpriteResult<SpriteSource> {
+    fn get(&self, id: &str) -> Result<SpriteSource, SpriteError> {
         match self.0.get(id) {
             Some(v) => Ok(v.clone()),
             None => Err(SpriteError::SpriteNotFound(id.to_string())),
@@ -172,7 +138,7 @@ async fn parse_sprite(
     path: PathBuf,
     pixel_ratio: u8,
     as_sdf: bool,
-) -> SpriteResult<(String, Sprite)> {
+) -> Result<(String, Sprite), SpriteError> {
     let on_err = |e| SpriteError::IoError(e, path.clone());
 
     let mut file = tokio::fs::File::open(&path).await.map_err(on_err)?;
@@ -197,7 +163,7 @@ pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
     as_sdf: bool,
-) -> SpriteResult<Spritesheet> {
+) -> Result<Spritesheet, SpriteError> {
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
     for source in sources {
