@@ -1,4 +1,4 @@
-#![cfg(feature = "postgres")]
+#![cfg(feature = "test-pg")]
 
 use ctor::ctor;
 use indoc::indoc;

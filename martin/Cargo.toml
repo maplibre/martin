@@ -66,6 +66,8 @@ pmtiles = ["dep:aws-config", "dep:pmtiles"]
 postgres = ["dep:deadpool-postgres", "dep:enum-display", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:regex", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:semver", "dep:tokio-postgres-rustls"]
 sprites = ["dep:spreet", "tokio/fs"]
 styles = ["dep:walkdir", "tokio/fs"]
+test-pg = ["postgres"]
+test-pmtiles = ["pmtiles"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]

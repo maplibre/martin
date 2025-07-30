@@ -27,7 +27,7 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
     (res, config)
 }
 
-#[cfg(feature = "postgres")]
+#[cfg(feature = "test-pg")]
 #[allow(dead_code)]
 #[must_use]
 pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a martin::pg::TableInfo {
