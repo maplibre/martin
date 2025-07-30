@@ -64,6 +64,10 @@ biomejs-martin-ui:
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
 
+# Bless the frontend tests
+bless-frontend:
+    npm run test:update-snapshots
+
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
     cargo insta test --accept --bin martin-cp {{args}}
@@ -82,10 +86,6 @@ bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
-
-# Bless the frontend tests
-bless-frontend:
-    npm run test:update-snapshots
 
 # Build and open mdbook documentation
 book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
@@ -173,7 +173,6 @@ env-info:
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
     npm --version
     node --version
-
 
 # Run benchmark tests showing a flamegraph
 flamegraph:

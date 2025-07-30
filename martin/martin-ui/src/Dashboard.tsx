@@ -1,5 +1,6 @@
-import { useCallback, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { AnalyticsSection } from '@/components/analytics-section';
+import { DashboardContent } from '@/components/dashboard-content';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { buildMartinUrl } from '@/lib/api';
 import {
@@ -58,6 +59,7 @@ export default function MartinTileserverDashboard() {
   });
 
   // Load analytics data and set up auto-refresh
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
   useEffect(() => {
     // Initial load
     analyticsOperation.execute();
@@ -68,7 +70,7 @@ export default function MartinTileserverDashboard() {
     }, 15 * 1000);
 
     return () => clearInterval(interval);
-  }, [analyticsOperation.execute]);
+  }, []);
 
   return (
     <div className="container mx-auto px-6 py-8">
@@ -78,7 +80,9 @@ export default function MartinTileserverDashboard() {
         isLoading={analyticsOperation.isLoading}
       />
 
-      <DashboardLoading />
+      <Suspense fallback={<DashboardLoading />}>
+        <DashboardContent />
+      </Suspense>
     </div>
   );
 }

@@ -374,6 +374,10 @@ test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
+>&2 echo "***** Test server response for table source with antimeridian geometries *****"
+test_pbf antimeridian_4_0_4 antimeridian/4/0/4
+test_pbf antimeridian_4_0_5 antimeridian/4/0/5
+
 >&2 echo "***** Test server response for comments *****"
 test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
