@@ -9,13 +9,16 @@ use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
 
-use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
+use crate::file_config::FileError::{InvalidMetadata, IoError};
 use crate::file_config::FileResult;
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
 
 mod config;
+mod error;
+
 pub use config::MbtConfig;
+pub use error::MbtilesError;
 
 #[derive(Clone)]
 pub struct MbtSource {
@@ -84,7 +87,7 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|_| AcquireConnError(self.id.clone()))?
+            .map_err(|_| MbtilesError::AcquireConnError(self.id.clone()))?
         {
             Ok(tile)
         } else {

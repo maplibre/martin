@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::MartinResult;
 use crate::config::{UnrecognizedKeys, UnrecognizedValues};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::mbtiles::MbtSource;
@@ -25,11 +26,11 @@ impl SourceConfigExtras for MbtConfig {
     fn parse_urls() -> bool {
         false
     }
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<TileInfoSource> {
+    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<TileInfoSource> {
         unreachable!()
     }
 }
