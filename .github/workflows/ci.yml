@@ -75,6 +75,8 @@ jobs:
           cargo test --package mbtiles --no-default-features
           cargo test --package mbtiles
           cargo test --package martin
+          cargo test --features "test-pg" --no-default-features
+          cargo test --features "test-pmtiles" --no-default-features
           cargo test --doc
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
