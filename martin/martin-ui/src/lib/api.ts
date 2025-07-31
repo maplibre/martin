@@ -5,10 +5,10 @@
 export function getMartinBaseUrl(): string {
   // grumble grumble
   // Belows try-except is the poor mans `import.meta.env?.VITE_MARTIN_BASE`
-  // 
+  //
   // - `import.meta.env` is `undefined` after building and
   // - `import.meta.env.VITE_MARTIN_BASE` is not replaced with a value if not set.
-  // 
+  //
   // We have to do this like this as jest does not understand `import.meta.env?.VITE_MARTIN_BASE`
   let importedMeta: string | undefined;
   try {
