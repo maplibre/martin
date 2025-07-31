@@ -10,7 +10,7 @@ use itertools::Itertools as _;
 use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::prost::Message;
-use pbf_font_tools::{Fontstack, Glyphs, PbfFontError, render_sdf_glyph};
+use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -28,50 +28,8 @@ const CUTOFF: f64 = 0.25_f64;
 /// Each range is 256 codepoints long, so the highest range ID is 0xFFFF / 256 = 255.
 const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 
-pub type FontResult<T> = Result<T, FontError>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum FontError {
-    #[error("Font {0} not found")]
-    FontNotFound(String),
-
-    #[error("Font range start ({0}) must be <= end ({1})")]
-    InvalidFontRangeStartEnd(u32, u32),
-
-    #[error("Font range start ({0}) must be multiple of {CP_RANGE_SIZE} (e.g. 0, 256, 512, ...)")]
-    InvalidFontRangeStart(u32),
-
-    #[error(
-        "Font range end ({0}) must be multiple of {CP_RANGE_SIZE} - 1 (e.g. 255, 511, 767, ...)"
-    )]
-    InvalidFontRangeEnd(u32),
-
-    #[error(
-        "Given font range {0}-{1} is invalid. It must be {CP_RANGE_SIZE} characters long (e.g. 0-255, 256-511, ...)"
-    )]
-    InvalidFontRange(u32, u32),
-
-    #[error(transparent)]
-    FreeType(#[from] pbf_font_tools::freetype::Error),
-
-    #[error("IO error accessing {1}: {0}")]
-    IoError(std::io::Error, PathBuf),
-
-    #[error("Invalid font file {0}")]
-    InvalidFontFilePath(PathBuf),
-
-    #[error("No font files found in {0}")]
-    NoFontFilesFound(PathBuf),
-
-    #[error("Font {0} is missing a family name")]
-    MissingFamilyName(PathBuf),
-
-    #[error(transparent)]
-    PbfFontError(#[from] PbfFontError),
-
-    #[error(transparent)]
-    ErrorSerializingProtobuf(#[from] pbf_font_tools::prost::DecodeError),
-}
+mod error;
+pub use error::FontError;
 
 type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
 
@@ -122,7 +80,7 @@ pub struct CatalogFontEntry {
 }
 
 impl FontSources {
-    pub fn resolve(config: &mut OptOneMany<PathBuf>) -> FontResult<Self> {
+    pub fn resolve(config: &mut OptOneMany<PathBuf>) -> Result<Self, FontError> {
         if config.is_empty() {
             return Ok(Self::default());
         }
@@ -159,7 +117,7 @@ impl FontSources {
 
     /// Given a list of IDs in a format "id1,id2,id3", return a combined font.
     #[allow(clippy::cast_possible_truncation)]
-    pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> FontResult<Vec<u8>> {
+    pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
         if start > end {
             return Err(FontError::InvalidFontRangeStartEnd(start, end));
         }
@@ -189,7 +147,7 @@ impl FontSources {
                     }
                 }
             })
-            .collect::<FontResult<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, FontError>>()?;
 
         if fonts.is_empty() {
             return Ok(Vec::new());
@@ -244,7 +202,7 @@ fn recurse_dirs(
     path: PathBuf,
     fonts: &mut DashMap<String, FontSource>,
     is_top_level: bool,
-) -> FontResult<()> {
+) -> Result<(), FontError> {
     let start_count = fonts.len();
     if path.is_dir() {
         for dir_entry in path
@@ -277,7 +235,7 @@ fn parse_font(
     lib: &Library,
     fonts: &mut DashMap<String, FontSource>,
     path: PathBuf,
-) -> FontResult<()> {
+) -> Result<(), FontError> {
     static RE_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\s|/|,)+").unwrap());
 
     let mut face = lib.new_face(&path, 0)?;
