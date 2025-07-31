@@ -65,6 +65,7 @@ biomejs-martin-ui:
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
 
 # Bless the frontend tests
+[working-directory: 'martin/martin-ui']
 bless-frontend:
     npm run test:update-snapshots
 
