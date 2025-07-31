@@ -8,7 +8,8 @@ use tilejson::TileJSON;
 
 use crate::MartinResult;
 use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::{UnrecognizedKeys, UnrecognizedValues};
+use crate::file_config::ConfigExtras;
 use crate::pg::builder::PgBuilder;
 use crate::pg::config_function::FuncInfoSources;
 use crate::pg::config_table::TableInfoSources;
@@ -34,6 +35,9 @@ pub struct PgSslCerts {
     /// Same as PGSSLROOTCERT
     /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
     pub ssl_root_cert: Option<std::path::PathBuf>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[serde_with::skip_serializing_none]
@@ -66,6 +70,9 @@ pub struct PgConfig {
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -77,6 +84,34 @@ pub struct PgCfgPublish {
     pub tables: OptBoolObj<PgCfgPublishTables>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub functions: OptBoolObj<PgCfgPublishFuncs>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl ConfigExtras for PgCfgPublish {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        let mut keys = self
+            .unrecognized
+            .keys()
+            .cloned()
+            .collect::<UnrecognizedKeys>();
+        keys.extend(
+            self.functions
+                .get_unrecognized_keys()
+                .iter()
+                .map(|k| format!("functions.{k}"))
+                .collect::<UnrecognizedKeys>(),
+        );
+        keys.extend(
+            self.tables
+                .get_unrecognized_keys()
+                .iter()
+                .map(|k| format!("tables.{k}"))
+                .collect::<UnrecognizedKeys>(),
+        );
+        keys
+    }
 }
 
 #[serde_with::skip_serializing_none]
@@ -96,6 +131,14 @@ pub struct PgCfgPublishTables {
     pub clip_geom: Option<bool>,
     pub buffer: Option<u32>,
     pub extent: Option<u32>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+impl ConfigExtras for PgCfgPublishTables {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
 }
 
 #[serde_with::skip_serializing_none]
@@ -106,6 +149,14 @@ pub struct PgCfgPublishFuncs {
     pub from_schemas: OptOneMany<String>,
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+impl ConfigExtras for PgCfgPublishFuncs {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
 }
 
 impl PgConfig {
@@ -127,24 +178,17 @@ impl PgConfig {
         Ok(())
     }
 
-    pub fn finalize(&mut self) -> PgResult<UnrecognizedValues> {
-        let mut res = UnrecognizedValues::new();
-        if let Some(ref ts) = self.tables {
-            for (k, v) in ts {
-                copy_unrecognized_config(&mut res, &format!("tables.{k}."), &v.unrecognized);
-            }
-        }
-        if let Some(ref fs) = self.functions {
-            for (k, v) in fs {
-                copy_unrecognized_config(&mut res, &format!("functions.{k}."), &v.unrecognized);
-            }
-        }
+    pub fn finalize(&mut self, prefix: &'static str) -> PgResult<UnrecognizedKeys> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);
         }
 
         self.validate()?;
-        Ok(res)
+        Ok(self
+            .get_unrecognized_keys()
+            .iter()
+            .map(|k| format!("{prefix}{k}"))
+            .collect())
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<TileInfoSources> {
@@ -174,6 +218,48 @@ impl PgConfig {
         self.functions = Some(func_info);
         tables.extend(funcs);
         Ok(tables)
+    }
+}
+
+impl ConfigExtras for PgConfig {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        let mut res = self
+            .unrecognized
+            .keys()
+            .cloned()
+            .collect::<UnrecognizedKeys>();
+        if let Some(ref ts) = self.tables {
+            for (table_key, v) in ts {
+                res.extend(
+                    v.unrecognized
+                        .keys()
+                        .map(|unrecognised_key| format!("tables.{table_key}.{unrecognised_key}")),
+                );
+            }
+        }
+        if let Some(ref fs) = self.functions {
+            for (function_key, v) in fs {
+                res.extend(v.unrecognized.keys().map(|unrecognised_key| {
+                    format!("functions.{function_key}.{unrecognised_key}")
+                }));
+            }
+        }
+
+        res.extend(
+            self.ssl_certificates
+                .unrecognized
+                .keys()
+                .map(|k| format!("ssl_certificates.{k}")),
+        );
+
+        res.extend(
+            self.auto_publish
+                .get_unrecognized_keys()
+                .iter()
+                .map(|k| format!("auto_publish.{k}")),
+        );
+
+        res
     }
 }
 
