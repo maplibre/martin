@@ -20,7 +20,7 @@ describe('getMartinBaseUrl', () => {
 
     // window.location.href is "http://localhost"
     const result = getMartinBaseUrl();
-    expect(result).toBe("http://localhost/");
+    expect(result).toBe('http://localhost/');
   });
 });
 
@@ -44,7 +44,7 @@ describe('buildMartinUrl', () => {
     const result = buildMartinUrl('/catalog');
 
     // Should use window.location.href as fallback
-    expect(result).toBe("http://localhost/catalog");
+    expect(result).toBe('http://localhost/catalog');
   });
 
   it('handles paths without leading slash', () => {
