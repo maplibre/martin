@@ -6,7 +6,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::{UnrecognizedKeys, UnrecognizedValues};
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::file_config::{ConfigExtras, SourceConfigExtras};
 use crate::mbtiles::MbtSource;
 use crate::source::TileInfoSource;
 
