@@ -14,11 +14,11 @@ use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
+use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
     Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, read_config,
 };
-
 use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
@@ -303,6 +303,7 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
         }
     }
 }
+#[allow(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
@@ -374,7 +375,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                         mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                            .await?;
+                            .await
+                            .map_err(MbtilesError::from)?;
                         batch.clear();
                         last_saved = Instant::now();
                     }
@@ -389,7 +391,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             }
             if !batch.is_empty() {
                 mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                    .await?;
+                    .await
+                    .map_err(MbtilesError::from)?;
             }
             Ok(())
         }
@@ -430,34 +433,45 @@ async fn init_schema(
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
-    Ok(if is_empty_database(&mut *conn).await? {
-        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
-            MbtTypeCli::Flat => MbtType::Flat,
-            MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-            MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
-        };
-        init_mbtiles_schema(&mut *conn, mbt_type).await?;
-        let mut tj = merge_tilejson(sources, String::new());
-        tj.other.insert(
-            "format".to_string(),
-            serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
-        );
-        tj.other.insert(
-            "generator".to_string(),
-            serde_json::Value::String(format!("martin-cp v{VERSION}")),
-        );
-        let zooms = get_zooms(args);
-        if let Some(min_zoom) = zooms.iter().min() {
-            tj.minzoom = Some(*min_zoom);
-        }
-        if let Some(max_zoom) = zooms.iter().max() {
-            tj.maxzoom = Some(*max_zoom);
-        }
-        mbt.insert_metadata(&mut *conn, &tj).await?;
-        mbt_type
-    } else {
-        mbt.detect_type(&mut *conn).await?
-    })
+    Ok(
+        if is_empty_database(&mut *conn)
+            .await
+            .map_err(MbtilesError::from)?
+        {
+            let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+                MbtTypeCli::Flat => MbtType::Flat,
+                MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
+                MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
+            };
+            init_mbtiles_schema(&mut *conn, mbt_type)
+                .await
+                .map_err(MbtilesError::from)?;
+            let mut tj = merge_tilejson(sources, String::new());
+            tj.other.insert(
+                "format".to_string(),
+                serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
+            );
+            tj.other.insert(
+                "generator".to_string(),
+                serde_json::Value::String(format!("martin-cp v{VERSION}")),
+            );
+            let zooms = get_zooms(args);
+            if let Some(min_zoom) = zooms.iter().min() {
+                tj.minzoom = Some(*min_zoom);
+            }
+            if let Some(max_zoom) = zooms.iter().max() {
+                tj.maxzoom = Some(*max_zoom);
+            }
+            mbt.insert_metadata(&mut *conn, &tj)
+                .await
+                .map_err(MbtilesError::from)?;
+            mbt_type
+        } else {
+            mbt.detect_type(&mut *conn)
+                .await
+                .map_err(MbtilesError::from)?
+        },
+    )
 }
 
 #[actix_web::main]
