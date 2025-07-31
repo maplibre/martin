@@ -1,4 +1,5 @@
 import { Brush, Code, Search, SquarePen } from 'lucide-react';
+import { StyleIntegrationGuideDialog } from '@/components/dialogs/style-integration-guide';
 import { ErrorState } from '@/components/error/error-state';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -198,6 +199,14 @@ export function StylesCatalog({
             </a>
           </Button>
         </div>
+      )}
+
+      {selectedStyleForGuide && (
+        <StyleIntegrationGuideDialog
+          name={selectedStyleForGuide.name}
+          onCloseAction={() => setSelectedStyleForGuide(null)}
+          style={selectedStyleForGuide.style}
+        />
       )}
     </div>
   );
