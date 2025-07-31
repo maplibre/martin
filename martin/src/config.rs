@@ -77,7 +77,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: OptOneMany<PathBuf>,
 
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 

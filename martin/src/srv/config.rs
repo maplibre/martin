@@ -59,7 +59,7 @@ impl ConfigExtras for SrvConfig {
 pub struct ObservabilityConfig {
     /// Configure metrics reported under `/_/metrics`
     pub metrics: Option<MetricsConfig>,
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -95,7 +95,7 @@ pub struct MetricsConfig {
     /// ```
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub add_labels: HashMap<String, String>,
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 

@@ -6,11 +6,8 @@ cors:
   origin:
   - '*'
   max_age: null
-  warning: due to not expected
 observability:
-  metrics:
-    warning: due to not expected
-  warning: due to not expected
+  metrics: {}
 postgres:
   default_srid: 4326
   max_feature_count: 1000
@@ -177,24 +174,19 @@ pmtiles:
     pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
     pmt2: http://localhost:5412/webp2.pmtiles
     webp2: http://localhost:5412/webp2.pmtiles
-  warning: due to not expected
 cog:
   sources:
     cog-src1: tests/fixtures/cog/rgba_u8.tif
     cog-src2: tests/fixtures/cog/rgb_u8.tif
     rgba_u8_nodata: tests/fixtures/cog/rgba_u8_nodata.tiff
-  warning: due to not expected
 sprites:
   paths: tests/fixtures/sprites/src1
   sources:
     mysrc: tests/fixtures/sprites/src2
-  warning: due to not expected
 styles:
   paths: tests/fixtures/styles/src2
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
-  warning: due to not expected
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
 - tests/fixtures/fonts
-warning: due to not expected

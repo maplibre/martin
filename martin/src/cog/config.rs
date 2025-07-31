@@ -11,7 +11,7 @@ use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 

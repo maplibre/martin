@@ -5,7 +5,7 @@ use crate::file_config::ConfigExtras;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct StyleConfig {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
