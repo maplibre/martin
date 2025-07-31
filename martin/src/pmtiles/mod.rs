@@ -17,15 +17,18 @@ use pmtiles::{
 use tilejson::TileJSON;
 use url::Url;
 
-use crate::file_config::FileError::{InvalidMetadata, InvalidUrlMetadata, IoError};
-use crate::file_config::{FileError, FileResult};
+use crate::file_config::FileError::{InvalidMetadata, IoError};
 use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
-use crate::{MartinResult, Source, TileData};
+use crate::{MartinError, MartinResult, Source, TileData};
 
 mod config;
 pub use config::PmtConfig;
+
+mod error;
+pub use error::PmtilesError;
+use error::PmtilesError::InvalidUrlMetadata;
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {
@@ -92,17 +95,17 @@ macro_rules! impl_pmtiles_source {
                 id: String,
                 path: $path,
                 reader: AsyncPmTilesReader<$backend, PmtCache>,
-            ) -> FileResult<Self> {
+            ) -> MartinResult<Self> {
                 let hdr = &reader.get_header();
 
                 if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
-                    return Err($err(
+                    return Err(MartinError::from($err(
                         format!(
                             "Format {:?} and compression {:?} are not yet supported",
                             hdr.tile_type, hdr.tile_compression
                         ),
                         path,
-                    ));
+                    )));
                 }
 
                 let format = match hdr.tile_type {
@@ -126,7 +129,12 @@ macro_rules! impl_pmtiles_source {
                     TileType::Png => Format::Png.into(),
                     TileType::Jpeg => Format::Jpeg.into(),
                     TileType::Webp => Format::Webp.into(),
-                    TileType::Unknown => return Err($err("Unknown tile type".to_string(), path)),
+                    TileType::Unknown => {
+                        return Err(MartinError::from($err(
+                            "Unknown tile type".to_string(),
+                            path,
+                        )));
+                    }
                 };
 
                 let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
@@ -177,9 +185,12 @@ macro_rules! impl_pmtiles_source {
                         // TODO: next pmtiles ver will return a proper PmtError
                         //       https://github.com/stadiamaps/pmtiles-rs/pull/69
                         pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y)
-                            .ok_or_else(|| io::Error::other("Invalid tile coordinates"))?,
+                            .ok_or_else(|| PmtilesError::InvalidTileCoordinates)?,
                     )
-                    .await?
+                    .await
+                    .map_err(|e| {
+                        PmtilesError::PmtilesLibraryError(e, $display_path(&self.path).to_string())
+                    })?
                 {
                     Ok(t.to_vec())
                 } else {
@@ -203,9 +214,9 @@ impl_pmtiles_source!(
 );
 
 impl PmtHttpSource {
-    pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> FileResult<Self> {
+    pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> MartinResult<Self> {
         let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
-        let reader = reader.map_err(|e| FileError::PmtError(e, url.to_string()))?;
+        let reader = reader.map_err(|e| PmtilesError::PmtilesLibraryError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
@@ -220,7 +231,7 @@ impl PmtS3Source {
         url: Url,
         skip_credentials: bool,
         force_path_style: bool,
-    ) -> FileResult<Self> {
+    ) -> MartinResult<Self> {
         let mut aws_config_builder = aws_config::from_env();
         if skip_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
@@ -235,7 +246,7 @@ impl PmtS3Source {
         let bucket = url
             .host_str()
             .ok_or_else(|| {
-                FileError::S3SourceError(format!("failed to parse bucket name from {url}"))
+                PmtilesError::S3SourceError(format!("failed to parse bucket name from {url}"))
             })?
             .to_string();
 
@@ -245,7 +256,7 @@ impl PmtS3Source {
         let reader =
             AsyncPmTilesReader::new_with_cached_client_bucket_and_path(cache, client, bucket, key)
                 .await
-                .map_err(|e| FileError::PmtError(e, url.to_string()))?;
+                .map_err(|e| PmtilesError::PmtilesLibraryError(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
@@ -260,7 +271,7 @@ impl_pmtiles_source!(
 );
 
 impl PmtFileSource {
-    pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> FileResult<Self> {
+    pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> MartinResult<Self> {
         let backend = MmapBackend::try_from(path.as_path())
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))

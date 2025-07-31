@@ -8,6 +8,9 @@ use std::fmt::{Display, Formatter, Result};
 
 /// circumference of the earth in meters
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
+/// circumference of the earth in degrees
+pub const EARTH_CIRCUMFERENCE_DEGREES: u32 = 360;
+
 /// radius of the earth in meters
 pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 

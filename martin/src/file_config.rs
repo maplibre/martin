@@ -3,17 +3,16 @@ use std::fmt::Debug;
 use std::mem;
 use std::path::{Path, PathBuf};
 
-use futures::TryFutureExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
 use crate::OptOneMany::{Many, One};
 use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{InvalidFilePath, InvalidSourceUrl, IoError};
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
+use crate::{MartinError, MartinResult};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -28,29 +27,11 @@ pub enum FileError {
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(url::ParseError, String),
 
-    #[cfg(any(feature = "webui", feature = "styles"))]
-    #[error("Walk directory error {0}: {1}")]
-    DirectoryWalking(walkdir::Error, PathBuf),
+    #[error("Source {0} uses bad file {1}")]
+    InvalidSourceFilePath(String, PathBuf),
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
-
-    #[error(r"Unable to parse metadata in file {1}: {0}")]
-    InvalidUrlMetadata(String, Url),
-
-    #[error(r"Error occurred in processing S3 source uri: {0}")]
-    S3SourceError(String),
-
-    #[error(r"Unable to acquire connection to file: {0}")]
-    AcquireConnError(String),
-
-    #[cfg(feature = "pmtiles")]
-    #[error(r"PMTiles error {0:?} processing {1}")]
-    PmtError(pmtiles::PmtError, String),
-
-    #[cfg(feature = "cog")]
-    #[error(transparent)]
-    CogError(#[from] crate::cog::CogError),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
@@ -76,13 +57,13 @@ pub trait SourceConfigExtras: ConfigExtras {
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = MartinResult<TileInfoSource>> + Send;
 
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl Future<Output = FileResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = MartinResult<TileInfoSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -253,9 +234,7 @@ pub async fn resolve_files<T: SourceConfigExtras>(
     cache: OptMainCache,
     extension: &[&str],
 ) -> MartinResult<TileInfoSources> {
-    resolve_int(config, idr, cache, extension)
-        .map_err(crate::MartinError::from)
-        .await
+    resolve_int(config, idr, cache, extension).await
 }
 
 async fn resolve_int<T: SourceConfigExtras>(
@@ -263,7 +242,7 @@ async fn resolve_int<T: SourceConfigExtras>(
     idr: &IdResolver,
     cache: OptMainCache,
     extension: &[&str],
-) -> FileResult<TileInfoSources> {
+) -> MartinResult<TileInfoSources> {
     let Some(cfg) = config.extract_file_config(cache)? else {
         return Ok(TileInfoSources::default());
     };
@@ -328,7 +307,9 @@ async fn resolve_int<T: SourceConfigExtras>(
             } else if path.is_file() {
                 vec![path]
             } else {
-                return Err(InvalidFilePath(path.canonicalize().unwrap_or(path)));
+                return Err(MartinError::from(InvalidFilePath(
+                    path.canonicalize().unwrap_or(path),
+                )));
             };
             for path in dir_files {
                 let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;

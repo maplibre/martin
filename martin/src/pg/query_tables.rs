@@ -1,3 +1,4 @@
+use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
 use std::collections::HashMap;
 
 use futures::pin_mut;
@@ -171,19 +172,32 @@ pub async fn table_to_query(
 
     let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
+    let margin = f64::from(buffer) / f64::from(extent);
 
+    // When calculating the bounding box to search within, a few considerations must be made when
+    // using a margin. The ST_TileEnvelope margin parameter is for use with SRID 3857.
+    // For SRID 4326, ST_Expand is used and provided with SRID 4326 specific units (degrees).
+    // If the table uses a non-standard SRID, it will fall back to existing behavior.
+    //
+    // For more context, if SRID 4326 were to be used with ST_TileEnvelope and margin
+    // parameter, the resultant bounding box for tiles on the antimeridian would be calculated
+    // incorrectly. For example, with a margin of 2 units, the antimeridian edge would transform
+    // from -180 to +178. This results in a bbox that stretches from the easternmost edge of a tile
+    // (plus margin) around the map to the westernmost edge of the tile (minus margin). The
+    // resulting bbox covers none of the original tile. In contrast, for this example, ST_Expand
+    // will result in a westernmost edge (minus margin) of -182.
     let bbox_search = if buffer == 0 {
-        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
-    } else if pool.supports_tile_margin() {
-        let margin = f64::from(buffer) / f64::from(extent);
-        format!("ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin})")
+        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
+    } else if pool.supports_tile_margin() && srid == 3857 {
+        format!(
+            "ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin}), {srid})"
+        )
+    } else if srid == 4326 {
+        format!(
+            "ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)"
+        )
     } else {
-        // TODO: we should use ST_Expand here, but it may require a bit more math work,
-        //       so might not be worth it as it is only used for PostGIS < v3.1.
-        //       v3.1 has been out for 2+ years (december 2020)
-        // let val = EARTH_CIRCUMFERENCE * buffer as f64 / extent as f64;
-        // format!("ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {val}/2^$1::integer)")
-        "ST_TileEnvelope($1::integer, $2::integer, $3::integer)".to_string()
+        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
     };
 
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
@@ -204,7 +218,7 @@ FROM (
   FROM
     {schema}.{table}
   WHERE
-    {geometry_column} && ST_Transform({bbox_search}, {srid})
+    {geometry_column} && {bbox_search}
   {limit_clause}
 ) AS tile;
 "
