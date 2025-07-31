@@ -6,10 +6,14 @@ use dashmap::{DashMap, Entry};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
-use crate::file_config::{FileConfigEnum, FileError, FileResult};
+use crate::MartinResult;
+use crate::file_config::FileConfigEnum;
 
 mod config;
 pub use config::StyleConfig;
+
+mod error;
+pub use error::StyleError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogStyleEntry {
@@ -29,7 +33,7 @@ pub struct StyleSource {
 }
 
 impl StyleSources {
-    pub fn resolve(config: &mut FileConfigEnum<StyleConfig>) -> FileResult<Self> {
+    pub fn resolve(config: &mut FileConfigEnum<StyleConfig>) -> MartinResult<Self> {
         let Some(cfg) = config.extract_file_config(None)? else {
             return Ok(Self::default());
         };
@@ -141,7 +145,10 @@ impl StyleSources {
 /// # Errors
 ///
 /// This function will return an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
-fn list_contained_files(source_path: &Path, filter_extension: &str) -> FileResult<Vec<PathBuf>> {
+fn list_contained_files(
+    source_path: &Path,
+    filter_extension: &str,
+) -> Result<Vec<PathBuf>, StyleError> {
     let working_directory = std::env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
@@ -149,7 +156,8 @@ fn list_contained_files(source_path: &Path, filter_extension: &str) -> FileResul
         .into_iter()
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e));
     for entry in it {
-        let entry = entry.map_err(|e| FileError::DirectoryWalking(e, source_path.to_path_buf()))?;
+        let entry =
+            entry.map_err(|e| StyleError::DirectoryWalking(e, source_path.to_path_buf()))?;
         if entry.path().is_file()
             && entry
                 .path()
