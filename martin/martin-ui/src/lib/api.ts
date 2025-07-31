@@ -10,11 +10,11 @@ export function getMartinBaseUrl(): string {
   // - `import.meta.env.VITE_MARTIN_BASE` is not replaced with a value if not set.
   //
   // We have to do this like this as jest does not understand `import.meta.env?.VITE_MARTIN_BASE`
-  let importedMeta: string | undefined;
+  let importedBase: string | undefined;
   try {
-    importedMeta = import.meta.env.VITE_MARTIN_BASE;
+    importedBase = import.meta.env.VITE_MARTIN_BASE;
   } catch (_error) {}
-  return importedMeta ?? window.location.href ?? '';
+  return importedBase ?? window.location.href ?? '';
 }
 
 /**
