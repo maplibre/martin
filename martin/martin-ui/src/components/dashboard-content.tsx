@@ -1,4 +1,4 @@
-import { type ErrorInfo, useEffect, useState } from 'react';
+import { type ErrorInfo, useEffect, useState, useCallback } from 'react';
 import { FontCatalog } from '@/components/catalogs/font';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
 import { StylesCatalog } from '@/components/catalogs/styles';
