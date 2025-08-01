@@ -546,9 +546,10 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 
   $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
   $MBTILES_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
-  $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
+  for command in "summary" "meta-all" "meta-get" "meta-set" "diff" "copy" "apply-patch" "apply-patch" "meta-update" "validate"; do
+    $MBTILES_BIN $command --help 2>&1 | tee "$TEST_OUT_DIR/${command}_help.txt"
+  done
   $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
-  $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
   $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"

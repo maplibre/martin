@@ -5,8 +5,15 @@ It allows users to [examine](mbtiles-meta.md), [copy](mbtiles-copy.md), [validat
 
 This tool can be installed by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built binary from the [releases page](https://github.com/maplibre/martin/releases/latest).
 
-Use `mbtiles --help` to see a list of available commands, and `mbtiles <command> --help` to see help for a specific command:
+Use `mbtiles --help` to see a list of available commands:
 
 ```
 {{#include ../../tests/expected/mbtiles/help.txt}}
+```
+
+And `mbtiles <command> --help` to see help for a specific command.
+Example for `mbtiles meta --help`:
+
+```
+{{#include ../../tests/expected/mbtiles/validate_help.txt}}
 ```

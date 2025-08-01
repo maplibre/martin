@@ -1,0 +1,21 @@
+Update metadata to match the content of the file
+
+Usage: mbtiles meta-update [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          MBTiles file to validate
+
+Options:
+      --update-zoom <UPDATE_ZOOM>
+          Update the min and max zoom levels in the metadata table to match the tiles table
+          
+          [default: reset]
+
+          Possible values:
+          - reset:     Reset the minzoom and maxzoom metadata values to match the content of the tiles table
+          - grow-only: Only update minzoom and maxzoom if the zooms in the tiles table are outside the range set in the metadata
+          - skip:      Perform a dry run and print result, without updating the minzoom and maxzoom metadata values
+
+  -h, --help
+          Print help (see a summary with '-h')

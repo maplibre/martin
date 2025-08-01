@@ -1,0 +1,11 @@
+Sets a single value in the MBTiles metadata table or deletes it if no value
+
+Usage: mbtiles meta-set <FILE> <KEY> [VALUE]
+
+Arguments:
+  <FILE>   MBTiles file to modify
+  <KEY>    Key to set
+  [VALUE]  Value to set, or nothing if the key should be deleted
+
+Options:
+  -h, --help  Print help
