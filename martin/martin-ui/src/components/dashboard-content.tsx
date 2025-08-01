@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { buildMartinUrl } from '@/lib/api';
 import type { CatalogSchema } from '@/lib/types';
 import { TilesCatalog } from './catalogs/tiles';
-import { CatalogSkeleton } from './loading/catalog-skeleton';
 
 const fetchCatalog = async (): Promise<CatalogSchema> => {
   const res = await fetch(buildMartinUrl('/catalog'));
