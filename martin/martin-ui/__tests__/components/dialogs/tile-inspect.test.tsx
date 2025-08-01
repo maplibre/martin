@@ -22,11 +22,11 @@ jest.mock('@vis.gl/react-maplibre', () => {
         _ref: React.Ref<HTMLDivElement>,
       ) => {
         return (
-          <div
+          <button
             data-testid="maplibre-map"
             onClick={() => props.onLoad?.()}
             onKeyDown={(e) => e.key === 'Enter' && props.onLoad?.()}
-            role="button"
+            type="button"
             style={props.style}
             tabIndex={0}
           />
