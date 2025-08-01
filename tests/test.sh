@@ -546,7 +546,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 
   $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
   $MBTILES_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
-  for command in "summary" "meta-all" "meta-get" "meta-set" "diff" "copy" "apply-patch" "apply-patch" "meta-update" "validate"; do
+  for command in "summary" "meta-all" "meta-get" "meta-set" "diff" "copy" "apply-patch" "meta-update" "validate"; do
     $MBTILES_BIN $command --help 2>&1 | tee "$TEST_OUT_DIR/${command}_help.txt"
   done
   $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
