@@ -195,10 +195,10 @@ fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
     Ok(boxes)
 }
 
-fn compute_tile_ranges(boxes: Vec<Bounds>, zooms: Cow<[u8]>) -> Vec<TileRect> {
+fn compute_tile_ranges(boxes: &[Bounds], zooms: &[u8]) -> Vec<TileRect> {
     let mut ranges = Vec::new();
-    for zoom in zooms.iter() {
-        for bbox in &boxes {
+    for zoom in zooms {
+        for bbox in boxes {
             let (min_x, min_y, max_x, max_y) =
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
             append_rect(
@@ -353,7 +353,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
 
     let zooms = get_zooms(&args);
     let bboxes = check_bboxes(&args)?;
-    let tiles = compute_tile_ranges(bboxes, zooms);
+    let tiles = compute_tile_ranges(&bboxes, &zooms);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
     let on_duplicate = if let Some(on_duplicate) = args.on_duplicate {
@@ -537,26 +537,26 @@ mod tests {
         let bbox_mi = Bounds::from_str("-86.6271,41.6811,-82.3095,45.8058").unwrap();
         let bbox_usa = Bounds::from_str("-124.8489,24.3963,-66.8854,49.3843").unwrap();
 
-        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[0])), @r#"- "0: (0,0) - (0,0)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[0]), @r#"- "0: (0,0) - (0,0)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[3,7])), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[3,7]), @r#"
         - "3: (0,0) - (7,7)"
         - "7: (0,0) - (127,127)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[2, 3, 4])), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[2, 3, 4]), @r#"
         - "2: (0,0) - (3,3)"
         - "3: (0,0) - (7,7)"
         - "4: (0,0) - (15,15)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[14])), @r#"- "14: (0,0) - (16383,16383)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[14]), @r#"- "14: (0,0) - (16383,16383)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(vec![bbox_usa],Cow::from(&[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_usa], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(vec![bbox_usa, bbox_mi, bbox_ca], Cow::from(&[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_usa, bbox_mi, bbox_ca], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(vec![bbox_ca_south, bbox_mi, bbox_ca], Cow::from(&[14])), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_ca_south, bbox_mi, bbox_ca], &[14]), @r#"
         - "14: (2791,6499) - (2997,6624)"
         - "14: (4249,5841) - (4446,6101)"
         - "14: (2526,6081) - (2790,6624)"
@@ -564,54 +564,39 @@ mod tests {
         "#);
     }
 
-    fn args(bbox: &[Bounds], zooms: &[u8]) -> CopyArgs {
-        CopyArgs {
-            bbox: bbox.to_vec(),
-            zoom_levels: zooms.to_vec(),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn test_check_bboxes() {
+    #[rstest]
+    #[case("", Ok(Bounds::MAX_TILED.to_string()))]
+    #[case("-120.0,30.0,-110.0,40.0", Ok("-120.0,30.0,-110.0,40.0".to_string()))]
+    #[case("-190.0,30.0,-110.0,40.0", Err("longitude".to_string()))]
+    #[case("-120.0,30.0,190.0,40.0", Err("longitude".to_string()))]
+    #[case("-120.0,-90.0,-110.0,40.0", Err("latitude".to_string()))]
+    #[case("-120.0,30.0,-110.0,90.0", Err("latitude".to_string()))]
+    fn test_check_bboxes(#[case] bbox_str: &str, #[case] expected: Result<String, String>) {
         use std::str::FromStr;
 
-        // Empty bbox should return MAX_TILED
-        let result = check_bboxes(&args(&[], &[1])).unwrap();
-        assert_eq!(result, vec![Bounds::MAX_TILED]);
+        let bbox_vec = if bbox_str.is_empty() {
+            vec![]
+        } else {
+            vec![Bounds::from_str(bbox_str).unwrap()]
+        };
 
-        // One good bound should return that bound
-        let good_bbox = Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap();
-        let result = check_bboxes(&args(&[good_bbox], &[1])).unwrap();
-        assert_eq!(result, vec![good_bbox]);
+        let result = check_bboxes(&CopyArgs {
+            bbox: bbox_vec,
+            ..Default::default()
+        });
 
-        // Left out of bound (longitude < -180)
-        let left_oob = Bounds::from_str("-190.0,30.0,-110.0,40.0").unwrap();
-        let result = check_bboxes(&args(&[left_oob], &[1]));
-        assert!(
-            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "longitude")
-        );
-
-        // Right out of bound (longitude > 180)
-        let right_oob = Bounds::from_str("-120.0,30.0,190.0,40.0").unwrap();
-        let result = check_bboxes(&args(&[right_oob], &[1]));
-        assert!(
-            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "longitude")
-        );
-
-        // Bottom out of bound (latitude < -85.05...)
-        let bottom_oob = Bounds::from_str("-120.0,-90.0,-110.0,40.0").unwrap();
-        let result = check_bboxes(&args(&[bottom_oob], &[1]));
-        assert!(
-            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "latitude")
-        );
-
-        // Top out of bound (latitude > 85.05...)
-        let top_oob = Bounds::from_str("-120.0,30.0,-110.0,90.0").unwrap();
-        let result = check_bboxes(&args(&[top_oob], &[1]));
-        assert!(
-            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "latitude")
-        );
+        match expected {
+            Ok(expected_str) => {
+                let expected_bound = Bounds::from_str(&expected_str).unwrap();
+                assert_eq!(result.unwrap(), vec![expected_bound]);
+            }
+            Err(expected_coord) => {
+                assert!(matches!(
+                    result,
+                    Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == &expected_coord
+                ));
+            }
+        }
     }
 
     #[rstest]
@@ -630,8 +615,8 @@ mod tests {
         #[case] expected: Vec<u8>,
     ) {
         let args = CopyArgs {
+          min_zoom,
             max_zoom,
-            min_zoom,
             zoom_levels,
             ..Default::default()
         };
