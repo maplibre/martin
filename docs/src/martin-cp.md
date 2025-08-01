@@ -32,7 +32,7 @@ martin-cp  --output-file tileset.mbtiles \
 > - how the tile is stored in the file should be compressed
 
 > [!TIP]
-> `--encoding <ENCODING>` can be used to reduce the final size of the MBTiles file or decrease the amount of processing `martin-cp`.
+> `--encoding <ENCODING>` can be used to reduce the final size of the MBTiles file or decrease the amount of processing `martin-cp` does.
 >
 > Our default (`gzip`) should be a reasonable choice for most use cases, but if you prefer a different encoding, you can specify it here.
 > If set to multiple values like gzip,br, martin-cp will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed.
