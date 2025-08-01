@@ -34,8 +34,7 @@ Options:
       --base-path <BASE_PATH>
           Set TileJSON URL path prefix.
           
-          This overrides the default of respecting the X-Rewrite-URL header. Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to
-          rewrite URLs, please use a reverse proxy. Must begin with a /.
+          This overrides the default of respecting the X-Rewrite-URL header. Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy. Must begin with a /.
           
           Examples: /, /tiles
 
@@ -45,8 +44,7 @@ Options:
       --preferred-encoding <PREFERRED_ENCODING>
           Martin server preferred tile encoding. [DEFAULT: gzip]
           
-          If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. gzip is faster, but brotli is
-          smaller, and may be faster with caching.
+          If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. gzip is faster, but brotli is smaller, and may be faster with caching.
           
           [possible values: brotli, gzip]
 
@@ -77,9 +75,8 @@ Options:
   -m, --max-feature-count <MAX_FEATURE_COUNT>
           Limit the number of geo features per tile.
           
-          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put
-          a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data. It is sensible to set this limit if you have user
-          generated/untrusted geodata, e.g. a lot of data points at Null Island.
+          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of
+          not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
           
           Can be either a positive integer or unlimited if omitted.
 
@@ -89,5 +86,4 @@ Options:
   -V, --version
           Print version
 
-Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See
-https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.

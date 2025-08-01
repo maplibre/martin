@@ -18,5 +18,4 @@ Options:
   -h, --help     Print help
   -V, --version  Print version
 
-Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See
-https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.

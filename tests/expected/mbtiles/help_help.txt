@@ -1,5 +1,0 @@
-error: unrecognized subcommand '--help'
-
-Usage: mbtiles <COMMAND>
-
-For more information, try '--help'.

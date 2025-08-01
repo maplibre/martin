@@ -48,12 +48,10 @@ Options:
           Perform agg_hash validation on the original and destination files
 
       --diff-with-file <DIFF_WITH_FILE>
-          Compare source file with this file, and only copy non-identical tiles to destination. Use mbtiles diff as a more convenient way to generate this file. Use mbtiles
-          apply-patch or mbtiles copy --apply-patch to apply the diff file
+          Compare source file with this file, and only copy non-identical tiles to destination. Use mbtiles diff as a more convenient way to generate this file. Use mbtiles apply-patch or mbtiles copy --apply-patch to apply the diff file
 
       --apply-patch <APPLY_PATCH>
-          Apply a patch file while copying src to dst. Use mbtiles diff or mbtiles copy --diff-with-file to generate the patch file. Use mbtiles apply-patch to apply the
-          patch file in-place, without making a copy of the original
+          Apply a patch file while copying src to dst. Use mbtiles diff or mbtiles copy --diff-with-file to generate the patch file. Use mbtiles apply-patch to apply the patch file in-place, without making a copy of the original
 
       --patch-type <PATCH_TYPE>
           Specify the type of patch file to generate

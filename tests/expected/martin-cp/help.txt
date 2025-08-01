@@ -24,8 +24,7 @@ Options:
       --encoding <ENCODING>
           Optional accepted encoding parameter as if the browser sent it in the HTTP request.
           
-          If set to multiple values like gzip,br, martin-cp will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed. Use identity
-          to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
+          If set to multiple values like gzip,br, martin-cp will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed. Use identity to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
           
           [default: gzip]
 
@@ -86,9 +85,8 @@ Options:
   -m, --max-feature-count <MAX_FEATURE_COUNT>
           Limit the number of geo features per tile.
           
-          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put
-          a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data. It is sensible to set this limit if you have user
-          generated/untrusted geodata, e.g. a lot of data points at Null Island.
+          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of
+          not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
           
           Can be either a positive integer or unlimited if omitted.
 
@@ -98,5 +96,4 @@ Options:
   -V, --version
           Print version
 
-Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See
-https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
