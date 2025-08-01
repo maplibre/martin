@@ -25,6 +25,7 @@ martin-cp  --output-file tileset.mbtiles \
 
 > [!TIP]
 > `--concurrency <CONCURRENCY>` and `--pool-size <POOL_SIZE>` can be used to control the number of concurrent requests and the pool size for postgres sources respectively.
+>
 > The optimal setting depends on:
 > - the source(s) performance characteristics
 > - how much load is allowed (f.ex. multi-tenant environment)
