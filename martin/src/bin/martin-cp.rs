@@ -615,7 +615,7 @@ mod tests {
         #[case] expected: Vec<u8>,
     ) {
         let args = CopyArgs {
-          min_zoom,
+            min_zoom,
             max_zoom,
             zoom_levels,
             ..Default::default()
