@@ -525,6 +525,7 @@ mod tests {
     use std::str::FromStr;
 
     use insta::assert_yaml_snapshot;
+    use rstest::rstest;
 
     use super::*;
 
@@ -613,29 +614,28 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_get_zooms() {
-        let mut args = CopyArgs::default();
+    #[rstest]
+    #[case(None, None, vec![], vec![])] // !min && !max => levels
+    #[case(None, None, vec![1, 3], vec![1, 3])] // !min && !max => levels
+    #[case(None, Some(5), vec![], vec![])] // !min => levels
+    #[case(None, Some(5), vec![3], vec![3])] // !min => levels
+    #[case(Some(2), None, vec![], vec![0, 1, 2])] // max && !min => 0..=max
+    #[case(Some(5), Some(2), vec![], vec![2, 3, 4, 5])] // min > max
+    #[case(Some(2), Some(5), vec![], vec![])] // min < max
+    #[case(Some(4), Some(4), vec![], vec![4])] // min = max
+    fn test_get_zooms(
+        #[case] max_zoom: Option<u8>,
+        #[case] min_zoom: Option<u8>,
+        #[case] zoom_levels: Vec<u8>,
+        #[case] expected: Vec<u8>,
+    ) {
+        let args = CopyArgs {
+            max_zoom,
+            min_zoom,
+            zoom_levels,
+            ..Default::default()
+        };
 
-        // no zoom specified
-        assert_eq!(get_zooms(&args).as_ref(), &[] as &[u8]);
-
-        // no minimum zoom level specified
-        args.max_zoom = Some(5);
-        assert_eq!(get_zooms(&args).as_ref(), &[0, 1, 2, 3, 4, 5]);
-
-        // min + max specified
-        args.min_zoom = Some(2);
-        assert_eq!(get_zooms(&args).as_ref(), &[2, 3, 4, 5]);
-
-        // Edge case: single zoom level
-        args.max_zoom = Some(7);
-        args.min_zoom = Some(7);
-        assert_eq!(get_zooms(&args).as_ref(), &[7]);
-
-        // When max_zoom is None, should return zoom_levels as-is
-        args.max_zoom = None;
-        args.zoom_levels = vec![1, 5, 10, 15];
-        assert_eq!(get_zooms(&args).as_ref(), &[1, 5, 10, 15]);
+        assert_eq!(get_zooms(&args).as_ref(), expected.as_slice());
     }
 }
