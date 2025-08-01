@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -166,14 +167,37 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
-    let mut ranges = Vec::new();
+fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
     let boxes = if args.bbox.is_empty() {
         vec![Bounds::MAX_TILED]
     } else {
         args.bbox.clone()
     };
-    for zoom in get_zooms(args).iter() {
+
+    for bb in &boxes {
+        let allowed_lon = Bounds::MAX_TILED.left..=Bounds::MAX_TILED.right;
+        if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
+            return Err(MartinCpError::InvalidBoundingBox(
+                "longitude".to_string(),
+                bb.to_string(),
+                allowed_lon,
+            ));
+        }
+        let allowed_lat = Bounds::MAX_TILED.bottom..=Bounds::MAX_TILED.top;
+        if !allowed_lat.contains(&bb.bottom) || !allowed_lat.contains(&bb.top) {
+            return Err(MartinCpError::InvalidBoundingBox(
+                "latitude".to_string(),
+                bb.to_string(),
+                allowed_lat,
+            ));
+        }
+    }
+    Ok(boxes)
+}
+
+fn compute_tile_ranges(boxes: Vec<Bounds>, zooms: Cow<[u8]>) -> Vec<TileRect> {
+    let mut ranges = Vec::new();
+    for zoom in zooms.iter() {
         for bbox in &boxes {
             let (min_x, min_y, max_x, max_y) =
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
@@ -246,6 +270,10 @@ enum MartinCpError {
         "More than one source found, please specify source using --source.\nAvailable sources: {0}"
     )]
     MultipleSources(String),
+    #[error(
+        "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
+    )]
+    InvalidBoundingBox(String, String, RangeInclusive<f64>),
 }
 
 impl Display for Progress {
@@ -323,8 +351,9 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
 
-    let (tx, mut rx) = channel::<TileXyz>(500);
-    let tiles = compute_tile_ranges(&args);
+    let zooms = get_zooms(&args);
+    let bboxes = check_bboxes(&args)?;
+    let tiles = compute_tile_ranges(bboxes, zooms);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
     let on_duplicate = if let Some(on_duplicate) = args.on_duplicate {
@@ -345,6 +374,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         args.output_file.display()
     );
 
+    let (tx, mut rx) = channel::<TileXyz>(500);
     try_join!(
         // Note: for some reason, tests hang here without the `move` keyword
         async move {
@@ -506,47 +536,30 @@ mod tests {
         let bbox_mi = Bounds::from_str("-86.6271,41.6811,-82.3095,45.8058").unwrap();
         let bbox_usa = Bounds::from_str("-124.8489,24.3963,-66.8854,49.3843").unwrap();
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[0])), @r#"- "0: (0,0) - (0,0)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[0])), @r#"- "0: (0,0) - (0,0)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[3,7])), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[3,7])), @r#"
         - "3: (0,0) - (7,7)"
         - "7: (0,0) - (127,127)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&arg_minmax(&[world], 2, 4)), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[2, 3, 4])), @r#"
         - "2: (0,0) - (3,3)"
         - "3: (0,0) - (7,7)"
         - "4: (0,0) - (15,15)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[14])), @r#"- "14: (0,0) - (16383,16383)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(vec![world], Cow::from(&[14])), @r#"- "14: (0,0) - (16383,16383)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(vec![bbox_usa],Cow::from(&[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa, bbox_mi, bbox_ca], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(vec![bbox_usa, bbox_mi, bbox_ca], Cow::from(&[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_ca_south, bbox_mi, bbox_ca], &[14])), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(vec![bbox_ca_south, bbox_mi, bbox_ca], Cow::from(&[14])), @r#"
         - "14: (2791,6499) - (2997,6624)"
         - "14: (4249,5841) - (4446,6101)"
         - "14: (2526,6081) - (2790,6624)"
         - "14: (2791,6081) - (2997,6498)"
         "#);
-    }
-
-    fn args(bbox: &[Bounds], zooms: &[u8]) -> CopyArgs {
-        CopyArgs {
-            bbox: bbox.to_vec(),
-            zoom_levels: zooms.to_vec(),
-            ..Default::default()
-        }
-    }
-
-    fn arg_minmax(bbox: &[Bounds], min_zoom: u8, max_zoom: u8) -> CopyArgs {
-        CopyArgs {
-            bbox: bbox.to_vec(),
-            min_zoom: Some(min_zoom),
-            max_zoom: Some(max_zoom),
-            ..Default::default()
-        }
     }
 }
