@@ -562,7 +562,7 @@ mod tests {
         - "14: (2791,6081) - (2997,6498)"
         "#);
     }
-    
+
     fn args(bbox: &[Bounds], zooms: &[u8]) -> CopyArgs {
         CopyArgs {
             bbox: bbox.to_vec(),
@@ -581,7 +581,7 @@ mod tests {
 
         // One good bound should return that bound
         let good_bbox = Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap();
-        let result = check_bboxes(& args(&[good_bbox], &[1])).unwrap();
+        let result = check_bboxes(&args(&[good_bbox], &[1])).unwrap();
         assert_eq!(result, vec![good_bbox]);
 
         // Left out of bound (longitude < -180)
@@ -611,5 +611,31 @@ mod tests {
         assert!(
             matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "latitude")
         );
+    }
+
+    #[test]
+    fn test_get_zooms() {
+        let mut args = CopyArgs::default();
+
+        // no zoom specified
+        assert_eq!(get_zooms(&args).as_ref(), &[] as &[u8]);
+
+        // no minimum zoom level specified
+        args.max_zoom = Some(5);
+        assert_eq!(get_zooms(&args).as_ref(), &[0, 1, 2, 3, 4, 5]);
+
+        // min + max specified
+        args.min_zoom = Some(2);
+        assert_eq!(get_zooms(&args).as_ref(), &[2, 3, 4, 5]);
+
+        // Edge case: single zoom level
+        args.max_zoom = Some(7);
+        args.min_zoom = Some(7);
+        assert_eq!(get_zooms(&args).as_ref(), &[7]);
+
+        // When max_zoom is None, should return zoom_levels as-is
+        args.max_zoom = None;
+        args.zoom_levels = vec![1, 5, 10, 15];
+        assert_eq!(get_zooms(&args).as_ref(), &[1, 5, 10, 15]);
     }
 }
