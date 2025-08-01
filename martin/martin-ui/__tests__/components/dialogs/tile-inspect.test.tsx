@@ -26,9 +26,9 @@ jest.mock('@vis.gl/react-maplibre', () => {
             data-testid="maplibre-map"
             onClick={() => props.onLoad?.()}
             onKeyDown={(e) => e.key === 'Enter' && props.onLoad?.()}
-            type="button"
             style={props.style}
             tabIndex={0}
+            type="button"
           />
         );
       },
