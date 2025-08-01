@@ -22,3 +22,9 @@ martin-cp  --output-file tileset.mbtiles \
            --source source_name          \
            postgresql://postgres@localhost:5432/db
 ```
+
+Use `martin-cp --help` to see a list of available options:
+
+```
+{{#include ../../tests/expected/martin-cp/help.txt}}
+```
