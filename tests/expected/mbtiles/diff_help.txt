@@ -1,0 +1,64 @@
+Compare two files A and B, and generate a new diff file. If the diff file is applied to A, it will produce B
+
+Usage: mbtiles diff [OPTIONS] <FILE1> <FILE2> <DIFF>
+
+Arguments:
+  <FILE1>
+          First MBTiles file to compare
+
+  <FILE2>
+          Second MBTiles file to compare
+
+  <DIFF>
+          Output file to write the resulting difference to
+
+Options:
+      --patch-type <PATCH_TYPE>
+          Specify the type of patch file to generate
+          
+          [default: whole]
+
+          Possible values:
+          - whole:        Patch file will contain the entire tile if it is different from the source
+          - bin-diff-gz:  Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing
+          - bin-diff-raw: Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding
+
+      --copy <TYPE>
+          Limit what gets copied. When copying tiles only, the agg_tiles_hash will still be updated unless --skip-agg-tiles-hash is set
+          
+          [default: all]
+          [possible values: all, metadata, tiles]
+
+      --mbtiles-type <SCHEMA>
+          Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
+          
+          [possible values: flat, flat-with-hash, normalized]
+
+      --on-duplicate <ON_DUPLICATE>
+          Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+          
+          [possible values: override, ignore, abort]
+
+      --min-zoom <MIN_ZOOM>
+          Minimum zoom level to copy
+
+      --max-zoom <MAX_ZOOM>
+          Maximum zoom level to copy
+
+      --zoom-levels <ZOOM_LEVELS>
+          List of zoom levels to copy
+
+      --bbox <BBOX>
+          Bounding box to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be used multiple times
+
+      --skip-agg-tiles-hash
+          Skip generating a global hash for mbtiles validation. By default, mbtiles will compute agg_tiles_hash metadata value
+
+  -f, --force
+          Force copy operation, ignoring some warnings that otherwise would prevent the operation. Use with caution
+
+      --validate
+          Perform agg_hash validation on the original and destination files
+
+  -h, --help
+          Print help (see a summary with '-h')

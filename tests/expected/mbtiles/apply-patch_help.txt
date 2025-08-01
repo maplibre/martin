@@ -1,0 +1,11 @@
+Apply diff file generated from 'copy' command
+
+Usage: mbtiles apply-patch [OPTIONS] <BASE_FILE> <PATCH_FILE>
+
+Arguments:
+  <BASE_FILE>   MBTiles file to apply diff to
+  <PATCH_FILE>  Diff file
+
+Options:
+  -f, --force  Force patching operation, ignoring some warnings that otherwise would prevent the operation. Use with caution
+  -h, --help   Print help

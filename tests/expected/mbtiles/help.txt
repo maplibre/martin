@@ -1,0 +1,21 @@
+A utility to work with .mbtiles file content
+
+Usage: mbtiles <COMMAND>
+
+Commands:
+  summary      Show MBTiles file summary statistics
+  meta-all     Prints all values in the metadata table in a free-style, unstable YAML format
+  meta-get     Gets a single value from the MBTiles metadata table
+  meta-set     Sets a single value in the MBTiles metadata table or deletes it if no value
+  diff         Compare two files A and B, and generate a new diff file. If the diff file is applied to A, it will produce B
+  copy         Copy tiles from one mbtiles file to another
+  apply-patch  Apply diff file generated from 'copy' command
+  meta-update  Update metadata to match the content of the file
+  validate     Validate tile data if hash of tile data exists in file
+  help         Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
