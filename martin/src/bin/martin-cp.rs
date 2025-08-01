@@ -562,4 +562,54 @@ mod tests {
         - "14: (2791,6081) - (2997,6498)"
         "#);
     }
+    
+    fn args(bbox: &[Bounds], zooms: &[u8]) -> CopyArgs {
+        CopyArgs {
+            bbox: bbox.to_vec(),
+            zoom_levels: zooms.to_vec(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_check_bboxes() {
+        use std::str::FromStr;
+
+        // Empty bbox should return MAX_TILED
+        let result = check_bboxes(&args(&[], &[1])).unwrap();
+        assert_eq!(result, vec![Bounds::MAX_TILED]);
+
+        // One good bound should return that bound
+        let good_bbox = Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap();
+        let result = check_bboxes(& args(&[good_bbox], &[1])).unwrap();
+        assert_eq!(result, vec![good_bbox]);
+
+        // Left out of bound (longitude < -180)
+        let left_oob = Bounds::from_str("-190.0,30.0,-110.0,40.0").unwrap();
+        let result = check_bboxes(&args(&[left_oob], &[1]));
+        assert!(
+            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "longitude")
+        );
+
+        // Right out of bound (longitude > 180)
+        let right_oob = Bounds::from_str("-120.0,30.0,190.0,40.0").unwrap();
+        let result = check_bboxes(&args(&[right_oob], &[1]));
+        assert!(
+            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "longitude")
+        );
+
+        // Bottom out of bound (latitude < -85.05...)
+        let bottom_oob = Bounds::from_str("-120.0,-90.0,-110.0,40.0").unwrap();
+        let result = check_bboxes(&args(&[bottom_oob], &[1]));
+        assert!(
+            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "latitude")
+        );
+
+        // Top out of bound (latitude > 85.05...)
+        let top_oob = Bounds::from_str("-120.0,30.0,-110.0,90.0").unwrap();
+        let result = check_bboxes(&args(&[top_oob], &[1]));
+        assert!(
+            matches!(result, Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == "latitude")
+        );
+    }
 }
