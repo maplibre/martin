@@ -29,7 +29,7 @@ martin-cp  --output-file tileset.mbtiles \
 > The optimal setting depends on:
 > - the source(s) performance characteristics
 > - how much load is allowed (f.ex. multi-tenant environment)
-> - how the tile stored in the file should be compressed
+> - how the tile is stored in the file should be compressed
 
 > [!TIP]
 > `--encoding <ENCODING>` can be used to reduce the final size of the MBTiles file or decrease the amount of processing `martin-cp`.
