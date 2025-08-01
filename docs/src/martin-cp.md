@@ -33,7 +33,7 @@ martin-cp  --output-file tileset.mbtiles \
 
 > [!TIP]
 > `--encoding <ENCODING>` can be used to reduce the final size of the MBTiles file or decrease the amount of processing `martin-cp`.
-> 
+>
 > Our default (`gzip`) should be a reasonable choice for most use cases, but if you prefer a different encoding, you can specify it here.
 > If set to multiple values like gzip,br, martin-cp will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed.
 > Use `identity` to disable compression.
@@ -60,7 +60,7 @@ Options:
 
       --mbtiles-type <SCHEMA>
           Output format of the new destination file. Ignored if the file exists. [DEFAULT: normalized]
-          
+
           [possible values: flat, flat-with-hash, normalized]
 
       --url-query <URL_QUERY>
@@ -68,20 +68,20 @@ Options:
 
       --encoding <ENCODING>
           Optional accepted encoding parameter as if the browser sent it in the HTTP request.
-          
+
           If set to multiple values like gzip,br, martin-cp will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed. Use identity to disable compression. Ignored for non-encodable tiles
           like PNG and JPEG.
-          
+
           [default: gzip]
 
       --on-duplicate <ON_DUPLICATE>
           Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
-          
+
           [possible values: override, ignore, abort]
 
       --concurrency <CONCURRENCY>
           Number of concurrent connections to use
-          
+
           [default: 1]
 
       --bbox <BBOX>
@@ -130,10 +130,10 @@ Options:
 
   -m, --max-feature-count <MAX_FEATURE_COUNT>
           Limit the number of geo features per tile.
-          
+
           If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of
           detail at the cost of not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
-          
+
           Can be either a positive integer or unlimited if omitted.
 
   -h, --help
