@@ -27,9 +27,12 @@ martin-cp  --output-file tileset.mbtiles \
 > `--concurrency <CONCURRENCY>` and `--pool-size <POOL_SIZE>` can be used to control the number of concurrent requests and the pool size for postgres sources respectively.
 >
 > The optimal setting depends on:
+>
 > - the source(s) performance characteristics
 > - how much load is allowed (f.ex. multi-tenant environment)
 > - how the tile is stored in the file should be compressed
+
+You should also consider
 
 > [!TIP]
 > `--encoding <ENCODING>` can be used to reduce the final size of the MBTiles file or decrease the amount of processing `martin-cp` does.
