@@ -1,8 +1,8 @@
 MBTiles file summary for ./tests/fixtures/mbtiles/world_cities.mbtiles
 Schema: flat
-File size: 48.00KiB
+File size: 44.00KiB
 Page size: 4.00KiB
-Page count: 12
+Page count: 11
 
  Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
     0 |         1 |    1.0KiB |    1.0KiB |    1.0KiB | -180,-85,180,85
