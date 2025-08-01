@@ -566,6 +566,7 @@ mod tests {
 
     #[rstest]
     #[case("", Ok(Bounds::MAX_TILED.to_string()))]
+    #[case("-180.0,-85.05112877980659,180.0,85.0511287798066", Ok(Bounds::MAX_TILED.to_string()))]
     #[case("-120.0,30.0,-110.0,40.0", Ok("-120.0,30.0,-110.0,40.0".to_string()))]
     #[case("-190.0,30.0,-110.0,40.0", Err("longitude".to_string()))]
     #[case("-120.0,30.0,190.0,40.0", Err("longitude".to_string()))]
