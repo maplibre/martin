@@ -12,7 +12,7 @@ Use `mbtiles --help` to see a list of available commands:
 ```
 
 And `mbtiles <command> --help` to see help for a specific command.
-Example for `mbtiles meta --help`:
+Example for `mbtiles validate --help`:
 
 ```text
 {{#include ../../tests/expected/mbtiles/validate_help.txt}}
