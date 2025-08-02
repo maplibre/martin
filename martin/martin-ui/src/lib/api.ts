@@ -3,18 +3,7 @@
  * Uses VITE_MARTIN_BASE environment variable if set, otherwise defaults to current origin
  */
 export function getMartinBaseUrl(): string {
-  // grumble grumble
-  // Belows try-except is the poor mans `import.meta.env?.VITE_MARTIN_BASE`
-  //
-  // - `import.meta.env` is `undefined` after building and
-  // - `import.meta.env.VITE_MARTIN_BASE` is not replaced with a value if not set.
-  //
-  // We have to do this like this as jest does not understand `import.meta.env?.VITE_MARTIN_BASE`
-  let importedBase: string | undefined;
-  try {
-    importedBase = import.meta.env.VITE_MARTIN_BASE;
-  } catch (_error) {}
-  return importedBase ?? window.location.href ?? '';
+  return import.meta.env.VITE_MARTIN_BASE || window.location.href;
 }
 
 /**
