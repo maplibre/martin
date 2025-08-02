@@ -264,8 +264,7 @@ Options:
           Path to config file. If set, no tile source-related parameters are allowed
 
       --save-config &lt;SAVE_CONFIG&gt;
-          Save resulting config to a file or use "-" to print to stdout.
-          By default, only print if sources are auto-detected
+          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
 
   -C, --cache-size &lt;CACHE_SIZE&gt;
           Main cache size (in MB)
@@ -276,6 +275,9 @@ Options:
   -f, --font &lt;FONT&gt;
           Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times
 
+  -S, --style &lt;STYLE&gt;
+          Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times
+
   -k, --keep-alive &lt;KEEP_ALIVE&gt;
           Connection keep alive timeout. [DEFAULT: 75]
 
@@ -285,10 +287,7 @@ Options:
       --base-path &lt;BASE_PATH&gt;
           Set TileJSON URL path prefix.
 
-          This overrides the default of respecting the X-Rewrite-URL header.
-          Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged.
-          If you need to rewrite URLs, please use a reverse proxy.
-          Must begin with a /.
+          This overrides the default of respecting the X-Rewrite-URL header. Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy. Must begin with a /.
 
           Examples: /, /tiles
 
@@ -327,7 +326,12 @@ Options:
           Maximum Postgres connections pool size [DEFAULT: 20]
 
   -m, --max-feature-count &lt;MAX_FEATURE_COUNT&gt;
-          Limit the number of features in a tile from a PG table source
+          Limit the number of geo features per tile.
+
+          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of
+          not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
+
+          Can be either a positive integer or unlimited if omitted.
 
   -h, --help
           Print help (see a summary with '-h')

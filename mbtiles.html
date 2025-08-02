@@ -251,8 +251,58 @@
 <h1 id="working-with-mbtiles-archives"><a class="header" href="#working-with-mbtiles-archives">Working with MBTiles archives</a></h1>
 <p>Martin includes <code>mbtiles</code> utility to interact with the <a href="mbtiles-schema.html"><code>*.mbtiles</code> files</a> from the command line.
 It allows users to <a href="mbtiles-meta.html">examine</a>, <a href="mbtiles-copy.html">copy</a>, <a href="mbtiles-validation.html">validate</a> or <a href="mbtiles-diff.html">compare and apply diffs between them</a>.</p>
-<p>Use <code>mbtiles --help</code> to see a list of available commands, and <code>mbtiles &lt;command&gt; --help</code> to see help for a specific command.</p>
 <p>This tool can be installed by compiling the latest released version with <code>cargo install mbtiles --locked</code>, or by downloading a pre-built binary from the <a href="https://github.com/maplibre/martin/releases/latest">releases page</a>.</p>
+<p>Use <code>mbtiles --help</code> to see a list of available commands:</p>
+<pre><code class="language-text">A utility to work with .mbtiles file content
+
+Usage: mbtiles &lt;COMMAND&gt;
+
+Commands:
+  summary      Show MBTiles file summary statistics
+  meta-all     Prints all values in the metadata table in a free-style, unstable YAML format
+  meta-get     Gets a single value from the MBTiles metadata table
+  meta-set     Sets a single value in the MBTiles metadata table or deletes it if no value
+  diff         Compare two files A and B, and generate a new diff file. If the diff file is applied to A, it will produce B
+  copy         Copy tiles from one mbtiles file to another
+  apply-patch  Apply diff file generated from 'copy' command
+  meta-update  Update metadata to match the content of the file
+  validate     Validate tile data if hash of tile data exists in file
+  help         Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
+</code></pre>
+<p>And <code>mbtiles &lt;command&gt; --help</code> to see help for a specific command.
+Example for <code>mbtiles validate --help</code>:</p>
+<pre><code class="language-text">Validate tile data if hash of tile data exists in file
+
+Usage: mbtiles validate [OPTIONS] &lt;FILE&gt;
+
+Arguments:
+  &lt;FILE&gt;
+          MBTiles file to validate
+
+Options:
+      --integrity-check &lt;INTEGRITY_CHECK&gt;
+          Value to specify the extent of the SQLite integrity check performed
+
+          [default: quick]
+          [possible values: quick, full, off]
+
+      --agg-hash &lt;AGG_HASH&gt;
+          How should the aggregate tiles hash be checked or updated
+
+          Possible values:
+          - verify: Verify that the aggregate tiles hash value in the metadata table matches the computed value. Used by default
+          - update: Update the aggregate tiles hash value in the metadata table
+          - off:    Do not check the aggregate tiles hash value
+
+  -h, --help
+          Print help (see a summary with '-h')
+</code></pre>
 
                     </main>
 
