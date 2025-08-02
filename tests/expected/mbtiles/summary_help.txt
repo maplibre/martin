@@ -1,9 +1,0 @@
-Show MBTiles file summary statistics
-
-Usage: mbtiles summary <FILE>
-
-Arguments:
-  <FILE>  
-
-Options:
-  -h, --help  Print help

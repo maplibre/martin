@@ -8,12 +8,12 @@ This tool can be installed by compiling the latest released version with `cargo 
 Use `mbtiles --help` to see a list of available commands:
 
 ```text
-{{#include ../../tests/expected/mbtiles/help.txt}}
+{{#include help/mbtiles.txt}}
 ```
 
 And `mbtiles <command> --help` to see help for a specific command.
 Example for `mbtiles validate --help`:
 
 ```text
-{{#include ../../tests/expected/mbtiles/validate_help.txt}}
+{{#include help/mbtiles-validate.txt}}
 ```

@@ -290,8 +290,6 @@ trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
-$MARTIN_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
-
 >&2 echo "Test catalog"
 test_jsn catalog_auto catalog
 
@@ -508,7 +506,6 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
   export DATABASE_URL="$MARTIN_DATABASE_URL"
   CFG=(--default-srid 900913 --auto-bounds calc tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2)
 
-  $MARTIN_CP_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
   test_martin_cp "flat" "${CFG[@]}" \
       --source table_source --mbtiles-type flat --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
@@ -545,11 +542,9 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   set -x
 
   $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
-  $MBTILES_BIN --help 2>&1 | tee "$TEST_OUT_DIR/help.txt"
-  for command in "summary" "meta-all" "meta-get" "meta-set" "diff" "copy" "apply-patch" "meta-update" "validate"; do
-    $MBTILES_BIN $command --help 2>&1 | tee "$TEST_OUT_DIR/${command}_help.txt"
-  done
+  $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
   $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
+  $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
   $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"

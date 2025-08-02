@@ -26,5 +26,5 @@ martin-cp  --output-file tileset.mbtiles \
 Use `martin-cp --help` to see a list of available options:
 
 ```text
-{{#include ../../tests/expected/martin-cp/help.txt}}
+{{#include help/martin-cp.txt}}
 ```
