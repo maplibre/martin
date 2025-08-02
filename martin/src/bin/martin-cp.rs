@@ -90,8 +90,7 @@ pub struct CopyArgs {
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
     #[arg(long, value_enum)]
     pub on_duplicate: Option<CopyDuplicateMode>,
-    /// Number of concurrent connections to use.
-    #[arg(long, default_value = "1")]
+    #[arg(help = format!("Number of concurrent connections to use. [DEFAULT: {}]", num_cpus::get()), long)]
     pub concurrency: Option<usize>,
     /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times. Overlapping regions will be handled correctly.
     #[arg(long)]
@@ -306,7 +305,7 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
 #[allow(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
-    let concurrency = args.concurrency.unwrap_or(1);
+    let concurrency = args.concurrency.unwrap_or(num_cpus::get());
 
     let source = check_sources(&args, &state)?;
 
