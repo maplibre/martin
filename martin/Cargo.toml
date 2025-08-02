@@ -23,12 +23,36 @@ maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan
 maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
-    ["target/release/martin", "/usr/bin/martin", "755"],
-    ["target/release/martin-cp", "/usr/bin/martin-cp", "755"],
-    ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
-    ["../README.md", "/usr/share/doc/martin/README.md", "644"],
-    ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
-    ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
+  [
+    "target/release/martin",
+    "/usr/bin/martin",
+    "755",
+  ],
+  [
+    "target/release/martin-cp",
+    "/usr/bin/martin-cp",
+    "755",
+  ],
+  [
+    "target/release/mbtiles",
+    "/usr/bin/mbtiles",
+    "755",
+  ],
+  [
+    "../README.md",
+    "/usr/share/doc/martin/README.md",
+    "644",
+  ],
+  [
+    "../debian/config.yaml",
+    "/usr/share/doc/martin/config.yaml",
+    "644",
+  ],
+  [
+    "../debian/config.yaml",
+    "/usr/local/etc/martin/config.yaml",
+    "644",
+  ],
 ]
 
 # see https://github.com/kornelski/cargo-deb/blob/main/systemd.md#packagemetadatadebsystemd-units-options
@@ -56,14 +80,37 @@ name = "bench"
 harness = false
 
 [features]
-default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
+default = [
+  "cog",
+  "fonts",
+  "lambda",
+  "mbtiles",
+  "metrics",
+  "pmtiles",
+  "postgres",
+  "sprites",
+  "styles",
+  "webui",
+]
 cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:aws-config", "dep:pmtiles"]
-postgres = ["dep:deadpool-postgres", "dep:enum-display", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:regex", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:semver", "dep:tokio-postgres-rustls"]
+postgres = [
+  "dep:deadpool-postgres",
+  "dep:enum-display",
+  "dep:json-patch",
+  "dep:postgis",
+  "dep:postgres",
+  "dep:postgres-protocol",
+  "dep:regex",
+  "dep:rustls-native-certs",
+  "dep:rustls-pemfile",
+  "dep:semver",
+  "dep:tokio-postgres-rustls",
+]
 sprites = ["dep:spreet", "tokio/fs"]
 styles = ["dep:walkdir", "tokio/fs"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -116,6 +163,9 @@ tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tokio-postgres-rustls = { workspace = true, optional = true }
+tracing.workspace = true
+tracing-log.workspace = true
+tracing-subscriber.workspace = true
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true

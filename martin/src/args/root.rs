@@ -6,7 +6,6 @@ use clap::builder::styling::AnsiColor;
 use log::warn;
 
 use crate::MartinError::ConfigAndConnectionsError;
-use crate::MartinResult;
 #[cfg(feature = "fonts")]
 use crate::OptOneMany;
 use crate::args::connections::Arguments;
@@ -21,6 +20,7 @@ use crate::config::Config;
     feature = "styles",
 ))]
 use crate::file_config::FileConfigEnum;
+use crate::{LogFormatOptions, MartinResult};
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -69,6 +69,9 @@ pub struct MetaArgs {
     pub watch: bool,
     /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
+    /// Logging format
+    #[arg(long)]
+    pub log_format: Option<LogFormatOptions>,
 }
 
 #[derive(Parser, Debug, Clone, PartialEq, Default)]

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::cors::CorsConfig;
+use crate::LogFormatOptions;
 use crate::args::PreferredEncoding;
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
@@ -21,15 +22,15 @@ pub struct SrvConfig {
     pub web_ui: Option<crate::args::WebUiMode>,
     pub cors: Option<CorsConfig>,
     /// Advanced monitoring options
-    #[cfg(feature = "metrics")]
     pub observability: Option<ObservabilityConfig>,
 }
 
 /// More advanced monitoring montoring options
-#[cfg(feature = "metrics")]
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct ObservabilityConfig {
+    /// Configure the logging format
+    pub log_format: Option<LogFormatOptions>,
     /// Configure metrics reported under `/_/metrics`
     pub metrics: Option<MetricsConfig>,
 }

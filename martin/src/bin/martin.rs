@@ -1,12 +1,23 @@
 use clap::Parser;
-use log::{error, info, log_enabled};
+use log::{error, info, log_enabled, warn};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
-use martin::{Config, MartinResult, read_config};
+use martin::{Config, LogFormatOptions, MartinResult, ReloadableTracingConfiguration, read_config};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 async fn start(args: Args) -> MartinResult<()> {
+    let trace = ReloadableTracingConfiguration::init_global_registry("martin=info");
+    if let Ok(fmt) = std::env::var("MARTIN_LOG_FORMAT") {
+        if let Some(fmt) = LogFormatOptions::from_str_opt(&fmt) {
+            trace.reload_fmt(fmt);
+        } else {
+            warn!("ignoring invalid log format for MARTIN_LOG_FORMAT");
+        }
+    }
+    if let Some(fmt) = args.meta.log_format {
+        trace.reload_fmt(fmt);
+    }
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv::default();
@@ -21,6 +32,12 @@ async fn start(args: Args) -> MartinResult<()> {
 
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
+
+    if let Some(observability) = &config.srv.observability {
+        if let Some(fmt) = observability.log_format {
+            trace.reload_fmt(fmt);
+        }
+    }
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
@@ -50,9 +67,6 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin=info");
-    env_logger::Builder::from_env(env).init();
-
     if let Err(e) = start(Args::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
         if log_enabled!(log::Level::Error) {

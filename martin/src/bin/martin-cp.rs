@@ -12,12 +12,13 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use log::{debug, error, info, log_enabled};
+use log::{debug, error, info, log_enabled, warn};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
-    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, read_config,
+    Config, Env, LogFormatOptions, MartinError, MartinResult, ReloadableTracingConfiguration,
+    ServerState, TileData, TileInfoSource, read_config,
 };
 use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
@@ -29,6 +30,7 @@ use mbtiles::{
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
+use tokio::time::error::Elapsed;
 use tokio::try_join;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -132,6 +134,17 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 }
 
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
+    let trace = ReloadableTracingConfiguration::init_global_registry("martin_cp=info");
+    if let Ok(fmt) = std::env::var("MARTIN_CP_LOG_FORMAT") {
+        if let Some(fmt) = LogFormatOptions::from_str_opt(&fmt) {
+            trace.reload_fmt(fmt);
+        } else {
+            warn!("ignoring invalid log format for MARTIN_CP_LOG_FORMAT");
+        }
+    }
+    if let Some(fmt) = copy_args.meta.log_format {
+        trace.reload_fmt(fmt);
+    }
     info!("martin-cp tile copier v{VERSION}");
 
     let env = OsEnv::default();
@@ -154,6 +167,12 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
+
+    if let Some(observability) = &config.srv.observability {
+        if let Some(fmt) = observability.log_format {
+            trace.reload_fmt(fmt);
+        }
+    }
 
     let sources = config.resolve().await?;
 
@@ -476,9 +495,6 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin_cp=info");
-    env_logger::Builder::from_env(env).init();
-
     if let Err(e) = start(CopierArgs::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
         if log_enabled!(log::Level::Error) {
