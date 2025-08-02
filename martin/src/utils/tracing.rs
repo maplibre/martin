@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use tracing_subscriber::fmt::Layer as FormatLayer;
+use tracing_subscriber::layer::Layered;
 use tracing_subscriber::reload::{Handle, Layer as ReloadLayer};
 use tracing_subscriber::{EnvFilter, Layer, Registry};
 
@@ -37,6 +38,8 @@ pub enum LogFormatOptions {
     Json,
 }
 impl LogFormatOptions {
+    /// parse [`LogFormatOptions`] from a String
+    #[must_use]
     pub fn from_str_opt(var: &str) -> Option<Self> {
         match var {
             "full" => Some(LogFormatOptions::Full),
@@ -48,16 +51,11 @@ impl LogFormatOptions {
         }
     }
 }
+type FormattingLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
+type FilterLayer = Layered<EnvFilter, FormattingLayer, Registry>;
 
 pub struct ReloadableTracingConfiguration {
-    reload_handle: Handle<
-        tracing_subscriber::layer::Layered<
-            EnvFilter,
-            Box<dyn Layer<Registry> + Send + Sync + 'static>,
-            Registry,
-        >,
-        Registry,
-    >,
+    reload_handle: Handle<FilterLayer, Registry>,
     default_level: &'static str,
 }
 
@@ -80,8 +78,9 @@ impl ReloadableTracingConfiguration {
     /// This function will panic if the global `log`-logger cannot be set or if the global `tracing`-registry cannot be set.
     #[must_use]
     pub fn init_global_registry(default_level: &'static str) -> Self {
-        Self::initialise_log_tracing();
         use tracing_subscriber::prelude::*;
+
+        Self::initialise_log_tracing();
         let default_fmt = FormatLayer::default().boxed();
         let default_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
             EnvFilter::from_str(default_level).expect("the default level should not be invalid")
@@ -114,6 +113,6 @@ impl ReloadableTracingConfiguration {
         // counterintuitive: this is env first, then format. Not a bug!
         self.reload_handle
             .reload(log_format_layer.and_then(default_filter))
-            .expect("the subscriber should still exist")
+            .expect("the subscriber should still exist");
     }
 }

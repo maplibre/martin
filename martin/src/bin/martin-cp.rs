@@ -17,7 +17,7 @@ use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
-    Config, Env, LogFormatOptions, MartinError, MartinResult, ReloadableTracingConfiguration,
+    Config, LogFormatOptions, MartinError, MartinResult, ReloadableTracingConfiguration,
     ServerState, TileData, TileInfoSource, read_config,
 };
 use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
@@ -30,7 +30,6 @@ use mbtiles::{
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
-use tokio::time::error::Elapsed;
 use tokio::try_join;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
