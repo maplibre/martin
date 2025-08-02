@@ -90,7 +90,11 @@ impl ReloadableTracingConfiguration {
             LogFormatOptions::Pretty => FormatLayer::default().pretty().boxed(),
             LogFormatOptions::Json => FormatLayer::default().json().boxed(),
             LogFormatOptions::Compact => FormatLayer::default().compact().boxed(),
-            LogFormatOptions::Bare => FormatLayer::default().compact().without_time().boxed(),
+            LogFormatOptions::Bare => FormatLayer::default()
+                .compact()
+                .without_time()
+                .with_target(false)
+                .boxed(),
         };
         let default_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
             EnvFilter::from_str(self.default_level)
