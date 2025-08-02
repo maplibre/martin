@@ -37,20 +37,7 @@ pub enum LogFormatOptions {
     #[value(alias("jsonl"))]
     Json,
 }
-impl LogFormatOptions {
-    /// parse [`LogFormatOptions`] from a String
-    #[must_use]
-    pub fn from_str_opt(var: &str) -> Option<Self> {
-        match var {
-            "full" => Some(LogFormatOptions::Full),
-            "pretty" | "verbose" => Some(LogFormatOptions::Pretty),
-            "json" | "jsonl" => Some(LogFormatOptions::Json),
-            "compact" => Some(LogFormatOptions::Compact),
-            "bare" => Some(LogFormatOptions::Bare),
-            _ => None,
-        }
-    }
-}
+
 type FormattingLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
 type FilterLayer = Layered<EnvFilter, FormattingLayer, Registry>;
 

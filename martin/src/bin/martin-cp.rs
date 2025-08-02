@@ -135,7 +135,8 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let trace = ReloadableTracingConfiguration::init_global_registry("martin_cp=info");
     if let Ok(fmt) = std::env::var("MARTIN_CP_LOG_FORMAT") {
-        if let Some(fmt) = LogFormatOptions::from_str_opt(&fmt) {
+        use clap::ValueEnum;
+        if let Ok(fmt) = LogFormatOptions::from_str(&fmt, true) {
             trace.reload_fmt(fmt);
         } else {
             warn!("ignoring invalid log format for MARTIN_CP_LOG_FORMAT");

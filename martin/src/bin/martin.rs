@@ -9,7 +9,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 async fn start(args: Args) -> MartinResult<()> {
     let trace = ReloadableTracingConfiguration::init_global_registry("martin=info");
     if let Ok(fmt) = std::env::var("MARTIN_LOG_FORMAT") {
-        if let Some(fmt) = LogFormatOptions::from_str_opt(&fmt) {
+        use clap::ValueEnum;
+        if let Ok(fmt) = LogFormatOptions::from_str(&fmt, true) {
             trace.reload_fmt(fmt);
         } else {
             warn!("ignoring invalid log format for MARTIN_LOG_FORMAT");
