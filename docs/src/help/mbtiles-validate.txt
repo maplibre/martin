@@ -9,7 +9,7 @@ Arguments:
 Options:
       --integrity-check <INTEGRITY_CHECK>
           Value to specify the extent of the SQLite integrity check performed
-          
+
           [default: quick]
           [possible values: quick, full, off]
 
