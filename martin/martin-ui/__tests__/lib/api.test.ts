@@ -15,16 +15,12 @@ describe('getMartinBaseUrl', () => {
     expect(getMartinBaseUrl()).toBe('https://api.example.com');
   });
 
-  it('returns window.location.origin when VITE_MARTIN_BASE is not set', () => {
+  it('returns window.location.href when VITE_MARTIN_BASE is not set', () => {
     delete process.env.VITE_MARTIN_BASE;
 
-    // In Jest/jsdom environment, window.location.origin is "http://localhost"
-    // This is set up in jest.setup.js
+    // window.location.href is "http://localhost"
     const result = getMartinBaseUrl();
-    expect(result).toBeDefined();
-    expect(typeof result).toBe('string');
-    // The actual value depends on the Jest setup, but it should be a valid URL origin
-    expect(result).toMatch(/^https?:\/\/[^/]+$/);
+    expect(result).toBe('http://localhost/');
   });
 });
 
@@ -47,8 +43,8 @@ describe('buildMartinUrl', () => {
 
     const result = buildMartinUrl('/catalog');
 
-    // Should use window.location.origin as fallback
-    expect(result).toMatch(/^https?:\/\/[^/]+\/catalog$/);
+    // Should use window.location.href as fallback
+    expect(result).toBe('http://localhost/catalog');
   });
 
   it('handles paths without leading slash', () => {
@@ -88,6 +84,6 @@ describe('buildMartinUrl', () => {
 
     const result = buildMartinUrl('/catalog');
 
-    expect(result).toBe('/catalog');
+    expect(result).toBe('http://localhost/catalog');
   });
 });

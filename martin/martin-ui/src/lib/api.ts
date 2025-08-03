@@ -3,7 +3,7 @@
  * Uses VITE_MARTIN_BASE environment variable if set, otherwise defaults to current origin
  */
 export function getMartinBaseUrl(): string {
-  return import.meta.env.VITE_MARTIN_BASE ?? window.location.origin ?? '';
+  return import.meta.env.VITE_MARTIN_BASE || window.location.href;
 }
 
 /**

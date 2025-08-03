@@ -93,7 +93,7 @@ export function TilesCatalog({
       <div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTileSources.map(([name, source]) => (
-            <Card className="hover:shadow-lg transition-shadow" key={name}>
+            <Card className="hover:shadow-lg transition-shadow flex flex-col" key={name}>
               <CardHeader>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 mb-4">
                   <div className="flex items-center space-x-2">
@@ -112,7 +112,7 @@ export function TilesCatalog({
                   )}
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 flex flex-col">
                 <div className="space-y-2 text-sm text-muted-foreground">
                   {source.layerCount && (
                     <div className="flex justify-between">
@@ -121,7 +121,7 @@ export function TilesCatalog({
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-auto pt-4">
                   <Button
                     className="flex-1 bg-transparent w-full"
                     onClick={() => setSelectedTileForInspection(name)}

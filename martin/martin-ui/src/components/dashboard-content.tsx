@@ -1,7 +1,9 @@
-import { type ErrorInfo, useEffect, useState } from 'react';
+import { type ErrorInfo, useCallback, useEffect, useState } from 'react';
 import { FontCatalog } from '@/components/catalogs/font';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
+import { StylesCatalog } from '@/components/catalogs/styles';
 import { ErrorBoundary } from '@/components/error/error-boundary';
+import { StyleEditor } from '@/components/style-editor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/toaster';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
@@ -9,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { buildMartinUrl } from '@/lib/api';
 import type { CatalogSchema } from '@/lib/types';
 import { TilesCatalog } from './catalogs/tiles';
-import { CatalogSkeleton } from './loading/catalog-skeleton';
 
 const fetchCatalog = async (): Promise<CatalogSchema> => {
   const res = await fetch(buildMartinUrl('/catalog'));
@@ -23,6 +24,7 @@ export function DashboardContent() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('tiles');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingStyle, setEditingStyle] = useState<string | null>(null);
 
   // Catalog operation
   const catalogOperation = useAsyncOperation<CatalogSchema>(fetchCatalog, {
@@ -30,11 +32,29 @@ export function DashboardContent() {
     showErrorToast: false,
   });
 
-  // Load catalog data
+  const handleEditStyle = useCallback((styleName: string) => {
+    setEditingStyle(styleName);
+  }, []);
+
+  const handleCloseEditor = useCallback(() => {
+    setEditingStyle(null);
+  }, []);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
   useEffect(() => {
     catalogOperation.execute();
   }, []);
+
+  // If editing a style, show the editor
+  if (editingStyle && catalogOperation.data?.styles?.[editingStyle]) {
+    return (
+      <StyleEditor
+        onClose={handleCloseEditor}
+        style={catalogOperation.data.styles[editingStyle]}
+        styleName={editingStyle}
+      />
+    );
+  }
 
   return (
     <ErrorBoundary
@@ -79,9 +99,13 @@ export function DashboardContent() {
         </TabsContent>
 
         <TabsContent value="styles">
-          <CatalogSkeleton
-            description="Preview all available map styles and themes"
-            title="Styles Catalog"
+          <StylesCatalog
+            error={catalogOperation.error}
+            isLoading={catalogOperation.isLoading}
+            onEditStyle={handleEditStyle}
+            onSearchChangeAction={setSearchQuery}
+            searchQuery={searchQuery}
+            styles={catalogOperation.data?.styles}
           />
         </TabsContent>
 
