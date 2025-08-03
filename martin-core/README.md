@@ -4,7 +4,7 @@
 [![](https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
 [![crates.io version](https://img.shields.io/crates/v/martin-core.svg)](https://crates.io/crates/martin-core)
-[![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin-core/actions)
+[![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 
 The library providing the basic building blocks for [Martin](https://maplibre.org/martin).
 
