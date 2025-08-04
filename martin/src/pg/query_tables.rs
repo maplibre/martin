@@ -1,8 +1,8 @@
-use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
 use std::collections::HashMap;
 
 use futures::pin_mut;
 use log::{debug, warn};
+use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;
