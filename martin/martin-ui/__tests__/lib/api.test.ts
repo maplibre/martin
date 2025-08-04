@@ -18,7 +18,7 @@ describe('getMartinBaseUrl', () => {
   it('returns window.location.pathname when VITE_MARTIN_BASE is not set', () => {
     delete process.env.VITE_MARTIN_BASE;
 
-    // window.location.pathname is "http://localhost"
+    // window.location.pathname is "/"
     const result = getMartinBaseUrl();
     expect(result).toBe('http://localhost/');
   });
