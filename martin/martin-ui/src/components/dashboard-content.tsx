@@ -1,4 +1,4 @@
-import { type ErrorInfo, useCallback, useEffect, useState } from 'react';
+import { type ErrorInfo, useCallback, useEffect } from 'react';
 import { FontCatalog } from '@/components/catalogs/font';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
 import { StylesCatalog } from '@/components/catalogs/styles';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/toaster';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
+import { useURLParams } from '@/hooks/use-url-params';
 import { buildMartinUrl } from '@/lib/api';
 import type { CatalogSchema } from '@/lib/types';
 import { TilesCatalog } from './catalogs/tiles';
@@ -22,9 +23,15 @@ const fetchCatalog = async (): Promise<CatalogSchema> => {
 
 export function DashboardContent() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('tiles');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [editingStyle, setEditingStyle] = useState<string | null>(null);
+  const { params, updateParam } = useURLParams({
+    download: undefined,
+    guide: undefined,
+    inspect: undefined,
+    preview: undefined,
+    search: '',
+    style: undefined,
+    tab: 'tiles',
+  });
 
   // Catalog operation
   const catalogOperation = useAsyncOperation<CatalogSchema>(fetchCatalog, {
@@ -32,13 +39,41 @@ export function DashboardContent() {
     showErrorToast: false,
   });
 
-  const handleEditStyle = useCallback((styleName: string) => {
-    setEditingStyle(styleName);
-  }, []);
+  const handleEditStyle = useCallback(
+    (styleName: string) => {
+      updateParam('style', styleName);
+    },
+    [updateParam],
+  );
 
   const handleCloseEditor = useCallback(() => {
-    setEditingStyle(null);
-  }, []);
+    updateParam('style', undefined);
+  }, [updateParam]);
+
+  const handleSearchChange = useCallback(
+    (query: string) => updateParam('search', query),
+    [updateParam],
+  );
+
+  const handleInspectTile = useCallback(
+    (tileName: string | undefined) => updateParam('inspect', tileName),
+    [updateParam],
+  );
+
+  const handlePreviewSprite = useCallback(
+    (spriteName: string | undefined) => updateParam('preview', spriteName),
+    [updateParam],
+  );
+
+  const handleDownloadSprite = useCallback(
+    (spriteName: string | undefined) => updateParam('download', spriteName),
+    [updateParam],
+  );
+
+  const handleStyleGuide = useCallback(
+    (styleName: string | undefined) => updateParam('guide', styleName),
+    [updateParam],
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
   useEffect(() => {
@@ -46,12 +81,12 @@ export function DashboardContent() {
   }, []);
 
   // If editing a style, show the editor
-  if (editingStyle && catalogOperation.data?.styles?.[editingStyle]) {
+  if (params.style && catalogOperation.data?.styles?.[params.style]) {
     return (
       <StyleEditor
         onClose={handleCloseEditor}
-        style={catalogOperation.data.styles[editingStyle]}
-        styleName={editingStyle}
+        style={catalogOperation.data.styles[params.style]}
+        styleName={params.style}
       />
     );
   }
@@ -72,7 +107,11 @@ export function DashboardContent() {
         }, 3000);
       }}
     >
-      <Tabs className="space-y-6" onValueChange={(value) => setActiveTab(value)} value={activeTab}>
+      <Tabs
+        className="space-y-6"
+        onValueChange={(value) => updateParam('tab', value)}
+        value={params.tab}
+      >
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="tiles">
             Tiles<span className="md:block hidden ms-1">Catalog</span>
@@ -92,8 +131,10 @@ export function DashboardContent() {
           <TilesCatalog
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
-            onSearchChangeAction={setSearchQuery}
-            searchQuery={searchQuery}
+            onInspectTile={handleInspectTile}
+            onSearchChangeAction={handleSearchChange}
+            searchQuery={params.search ?? ''}
+            selectedTileForInspection={params.inspect}
             tileSources={catalogOperation.data?.tiles}
           />
         </TabsContent>
@@ -103,8 +144,10 @@ export function DashboardContent() {
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
             onEditStyle={handleEditStyle}
-            onSearchChangeAction={setSearchQuery}
-            searchQuery={searchQuery}
+            onSearchChangeAction={handleSearchChange}
+            onStyleGuide={handleStyleGuide}
+            searchQuery={params.search ?? ''}
+            selectedStyleForGuide={params.guide}
             styles={catalogOperation.data?.styles}
           />
         </TabsContent>
@@ -114,17 +157,21 @@ export function DashboardContent() {
             error={catalogOperation.error}
             fonts={catalogOperation.data?.fonts}
             isLoading={catalogOperation.isLoading}
-            onSearchChangeAction={setSearchQuery}
-            searchQuery={searchQuery}
+            onSearchChangeAction={handleSearchChange}
+            searchQuery={params.search ?? ''}
           />
         </TabsContent>
 
         <TabsContent value="sprites">
           <SpriteCatalog
+            downloadSprite={params.download}
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
-            onSearchChangeAction={setSearchQuery}
-            searchQuery={searchQuery}
+            onDownloadSprite={handleDownloadSprite}
+            onPreviewSprite={handlePreviewSprite}
+            onSearchChangeAction={handleSearchChange}
+            searchQuery={params.search ?? ''}
+            selectedSprite={params.preview}
             spriteCollections={catalogOperation.data?.sprites}
           />
         </TabsContent>
