@@ -15,12 +15,12 @@ describe('getMartinBaseUrl', () => {
     expect(getMartinBaseUrl()).toBe('https://api.example.com');
   });
 
-  it('returns window.location.href when VITE_MARTIN_BASE is not set', () => {
+  it('returns window.location.pathname when VITE_MARTIN_BASE is not set', () => {
     delete process.env.VITE_MARTIN_BASE;
 
-    // window.location.href is "http://localhost"
+    // window.location.pathname is "/"
     const result = getMartinBaseUrl();
-    expect(result).toBe('http://localhost/');
+    expect(result).toBe('/');
   });
 });
 
@@ -43,8 +43,8 @@ describe('buildMartinUrl', () => {
 
     const result = buildMartinUrl('/catalog');
 
-    // Should use window.location.href as fallback
-    expect(result).toBe('http://localhost/catalog');
+    // Should use window.location.pathname as fallback
+    expect(result).toBe('/catalog');
   });
 
   it('handles paths without leading slash', () => {
@@ -84,6 +84,6 @@ describe('buildMartinUrl', () => {
 
     const result = buildMartinUrl('/catalog');
 
-    expect(result).toBe('http://localhost/catalog');
+    expect(result).toBe('/catalog');
   });
 });
