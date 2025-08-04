@@ -20,7 +20,7 @@ describe('getMartinBaseUrl', () => {
 
     // window.location.pathname is "/"
     const result = getMartinBaseUrl();
-    expect(result).toBe('http://localhost/');
+    expect(result).toBe('/');
   });
 });
 
@@ -44,7 +44,7 @@ describe('buildMartinUrl', () => {
     const result = buildMartinUrl('/catalog');
 
     // Should use window.location.pathname as fallback
-    expect(result).toBe('http://localhost/catalog');
+    expect(result).toBe('/catalog');
   });
 
   it('handles paths without leading slash', () => {
@@ -84,6 +84,6 @@ describe('buildMartinUrl', () => {
 
     const result = buildMartinUrl('/catalog');
 
-    expect(result).toBe('http://localhost/catalog');
+    expect(result).toBe('/catalog');
   });
 });
