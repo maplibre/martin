@@ -178,16 +178,16 @@ fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
         let allowed_lon = Bounds::MAX_TILED.left..=Bounds::MAX_TILED.right;
         if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
             return Err(MartinCpError::InvalidBoundingBox(
-                "longitude".to_string(),
-                bb.to_string(),
+                "longitude",
+                bb.clone(),
                 allowed_lon,
             ));
         }
         let allowed_lat = Bounds::MAX_TILED.bottom..=Bounds::MAX_TILED.top;
         if !allowed_lat.contains(&bb.bottom) || !allowed_lat.contains(&bb.top) {
             return Err(MartinCpError::InvalidBoundingBox(
-                "latitude".to_string(),
-                bb.to_string(),
+                "latitude",
+                bb.clone(),
                 allowed_lat,
             ));
         }
@@ -273,7 +273,7 @@ enum MartinCpError {
     #[error(
         "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
     )]
-    InvalidBoundingBox(String, String, RangeInclusive<f64>),
+    InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
 }
 
 impl Display for Progress {
