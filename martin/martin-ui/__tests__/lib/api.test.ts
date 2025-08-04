@@ -84,6 +84,6 @@ describe('buildMartinUrl', () => {
 
     const result = buildMartinUrl('/catalog');
 
-    expect(result).toBe('/catalog');
+    expect(result).toBe('http://localhost/catalog');
   });
 });
