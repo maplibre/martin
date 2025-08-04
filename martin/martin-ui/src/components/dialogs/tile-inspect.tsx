@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
 import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
 import type { MapRef } from '@vis.gl/react-maplibre';
-import { Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
+import { Map as MapLibreMap } from '@vis.gl/react-maplibre';
 import { Database } from 'lucide-react';
 import { Popup } from 'maplibre-gl';
 import { buildMartinUrl } from '@/lib/api';
@@ -25,14 +25,16 @@ interface TileInspectDialogProps {
 
 export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
   const mapRef = useRef<MapRef>(null);
-  const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const inspectControlRef = useRef<MaplibreInspect | null>(null);
+  const inspectControlRef = useRef<MaplibreInspect>(null);
 
-  useEffect(() => {
-    if (!isMapLoaded || !mapRef.current) return;
-
+  const addInspectorToMap = useCallback(() => {
+    if (!mapRef.current) {
+      console.error('Map not found despite being initialized, this cannot happen');
+      return;
+    }
     const map = mapRef.current.getMap();
 
+    map.addSource(name, { type: 'vector', url: buildMartinUrl(`/${name}`) });
     // Import and add the inspect control
     if (inspectControlRef.current) {
       map.removeControl(inspectControlRef.current);
@@ -51,18 +53,7 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
     });
 
     map.addControl(inspectControlRef.current);
-
-    // Cleanup function
-    return () => {
-      if (inspectControlRef.current && map) {
-        try {
-          map.removeControl(inspectControlRef.current);
-        } catch (_e) {
-          // Control might already be removed
-        }
-      }
-    };
-  }, [isMapLoaded]);
+  }, [name]);
 
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
@@ -79,19 +70,16 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Map Container */}
           <section className="border rounded-lg overflow-hidden">
             <MapLibreMap
-              onLoad={() => setIsMapLoaded(true)}
+              onLoad={addInspectorToMap}
               ref={mapRef}
               reuseMaps={false}
               style={{
                 height: '500px',
                 width: '100%',
               }}
-            >
-              <Source type="vector" url={buildMartinUrl(`/${name}`)} />
-            </MapLibreMap>
+            ></MapLibreMap>
           </section>
           {/* Source Information */}
           <section className="bg-muted/30 p-4 rounded-lg">
