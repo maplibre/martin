@@ -179,7 +179,7 @@ fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
         if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
             return Err(MartinCpError::InvalidBoundingBox(
                 "longitude",
-                bb.clone(),
+                *bb,
                 allowed_lon,
             ));
         }
@@ -187,7 +187,7 @@ fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
         if !allowed_lat.contains(&bb.bottom) || !allowed_lat.contains(&bb.top) {
             return Err(MartinCpError::InvalidBoundingBox(
                 "latitude",
-                bb.clone(),
+                *bb,
                 allowed_lat,
             ));
         }
@@ -594,7 +594,7 @@ mod tests {
             Err(expected_coord) => {
                 assert!(matches!(
                     result,
-                    Err(MartinCpError::InvalidBoundingBox(ref coord, _, _)) if coord == &expected_coord
+                    Err(MartinCpError::InvalidBoundingBox(coord, _, _)) if coord == expected_coord
                 ));
             }
         }
