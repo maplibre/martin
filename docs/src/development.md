@@ -82,6 +82,10 @@ git remote add origin https://github.com/nyurik/martin.git
 
 ## Contributing New Code
 
+<details> 
+Every time a developer comments take on an issue, he/she is auto-assigned task 
+</details>
+
 ```bash
 # switch to main branch (tracking upstream/main), and pull the latest changes
 git switch main
