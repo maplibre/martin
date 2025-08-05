@@ -51,11 +51,11 @@ updates:
       time: "02:00"
     open-pull-requests-limit: 10
     groups:
-      all-cargo-version-updates:
+      all-npm-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
-      all-cargo-security-updates:
+      all-npm-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
