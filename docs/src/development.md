@@ -83,7 +83,7 @@ git remote add origin https://github.com/nyurik/martin.git
 ## Contributing New Code
 
 
-Every time a developer comments take on an issue, he/she is auto-assigned task 
+Every time a developer comments take on an issue, he/she is auto-assigned task
 
 
 ```bash
