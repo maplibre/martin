@@ -68,13 +68,13 @@ class Filters extends PureComponent<
           <DayPickerContainer>
             <DayPicker
               defaultMonth={JAN}
-              fromMonth={JAN}
+              startMonth={JAN}
               modifiers={modifiers}
               numberOfMonths={1}
               onDayClick={this.handleDayClick}
               selected={[from, { from, to }]}
               style={{ height: '290px' }}
-              toMonth={DEC}
+              endMonth={DEC}
             />
           </DayPickerContainer>
         )}
