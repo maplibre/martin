@@ -32,6 +32,7 @@ pub struct ObservabilityConfig {
     /// Configure the logging format
     pub log_format: Option<LogFormatOptions>,
     /// Configure metrics reported under `/_/metrics`
+    #[cfg(feature = "metrics")]
     pub metrics: Option<MetricsConfig>,
 }
 
