@@ -28,7 +28,7 @@ struct_field_names = "allow"
 [workspace.dependencies]
 actix-cors = "0.7"
 actix-http = "3"
-actix-middleware-etag = "0.4.4"
+actix-middleware-etag = "0.4.6"
 actix-rt = "2"
 actix-web = "4"
 actix-web-prom = "0.10.0"
@@ -81,7 +81,7 @@ serde_json = "1"
 serde_with = "3"
 serde_yaml = "0.9"
 size_format = "1.0.2"
-spreet = { version = "0.11", default-features = false }
+spreet = { version = "0.12", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
