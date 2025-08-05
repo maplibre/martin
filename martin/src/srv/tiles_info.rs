@@ -22,7 +22,7 @@ pub struct SourceIDsRequest {
     "/{source_ids}",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag",
+    wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]
