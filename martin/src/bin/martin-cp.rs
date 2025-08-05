@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -14,12 +15,12 @@ use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
+use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
-    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, TileRect,
-    append_rect, read_config,
+    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, read_config,
 };
-use martin_tile_utils::{TileCoord, TileInfo, bbox_to_xyz};
+use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
@@ -166,15 +167,38 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-fn compute_tile_ranges(args: &CopyArgs) -> Vec<TileRect> {
-    let mut ranges = Vec::new();
+fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
     let boxes = if args.bbox.is_empty() {
         vec![Bounds::MAX_TILED]
     } else {
         args.bbox.clone()
     };
-    for zoom in get_zooms(args).iter() {
-        for bbox in &boxes {
+
+    for bb in &boxes {
+        let allowed_lon = Bounds::MAX_TILED.left..=Bounds::MAX_TILED.right;
+        if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
+            return Err(MartinCpError::InvalidBoundingBox(
+                "longitude",
+                *bb,
+                allowed_lon,
+            ));
+        }
+        let allowed_lat = Bounds::MAX_TILED.bottom..=Bounds::MAX_TILED.top;
+        if !allowed_lat.contains(&bb.bottom) || !allowed_lat.contains(&bb.top) {
+            return Err(MartinCpError::InvalidBoundingBox(
+                "latitude",
+                *bb,
+                allowed_lat,
+            ));
+        }
+    }
+    Ok(boxes)
+}
+
+fn compute_tile_ranges(boxes: &[Bounds], zooms: &[u8]) -> Vec<TileRect> {
+    let mut ranges = Vec::new();
+    for zoom in zooms {
+        for bbox in boxes {
             let (min_x, min_y, max_x, max_y) =
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
             append_rect(
@@ -246,6 +270,10 @@ enum MartinCpError {
         "More than one source found, please specify source using --source.\nAvailable sources: {0}"
     )]
     MultipleSources(String),
+    #[error(
+        "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
+    )]
+    InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
 }
 
 impl Display for Progress {
@@ -303,6 +331,7 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
         }
     }
 }
+#[allow(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.unwrap_or(1);
@@ -322,8 +351,9 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
 
-    let (tx, mut rx) = channel::<TileXyz>(500);
-    let tiles = compute_tile_ranges(&args);
+    let zooms = get_zooms(&args);
+    let bboxes = check_bboxes(&args)?;
+    let tiles = compute_tile_ranges(&bboxes, &zooms);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
     let on_duplicate = if let Some(on_duplicate) = args.on_duplicate {
@@ -344,6 +374,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         args.output_file.display()
     );
 
+    let (tx, mut rx) = channel::<TileXyz>(500);
     try_join!(
         // Note: for some reason, tests hang here without the `move` keyword
         async move {
@@ -374,7 +405,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                         mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                            .await?;
+                            .await
+                            .map_err(MbtilesError::from)?;
                         batch.clear();
                         last_saved = Instant::now();
                     }
@@ -389,7 +421,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             }
             if !batch.is_empty() {
                 mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                    .await?;
+                    .await
+                    .map_err(MbtilesError::from)?;
             }
             Ok(())
         }
@@ -430,34 +463,45 @@ async fn init_schema(
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
-    Ok(if is_empty_database(&mut *conn).await? {
-        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
-            MbtTypeCli::Flat => MbtType::Flat,
-            MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-            MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
-        };
-        init_mbtiles_schema(&mut *conn, mbt_type).await?;
-        let mut tj = merge_tilejson(sources, String::new());
-        tj.other.insert(
-            "format".to_string(),
-            serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
-        );
-        tj.other.insert(
-            "generator".to_string(),
-            serde_json::Value::String(format!("martin-cp v{VERSION}")),
-        );
-        let zooms = get_zooms(args);
-        if let Some(min_zoom) = zooms.iter().min() {
-            tj.minzoom = Some(*min_zoom);
-        }
-        if let Some(max_zoom) = zooms.iter().max() {
-            tj.maxzoom = Some(*max_zoom);
-        }
-        mbt.insert_metadata(&mut *conn, &tj).await?;
-        mbt_type
-    } else {
-        mbt.detect_type(&mut *conn).await?
-    })
+    Ok(
+        if is_empty_database(&mut *conn)
+            .await
+            .map_err(MbtilesError::from)?
+        {
+            let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+                MbtTypeCli::Flat => MbtType::Flat,
+                MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
+                MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
+            };
+            init_mbtiles_schema(&mut *conn, mbt_type)
+                .await
+                .map_err(MbtilesError::from)?;
+            let mut tj = merge_tilejson(sources, String::new());
+            tj.other.insert(
+                "format".to_string(),
+                serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
+            );
+            tj.other.insert(
+                "generator".to_string(),
+                serde_json::Value::String(format!("martin-cp v{VERSION}")),
+            );
+            let zooms = get_zooms(args);
+            if let Some(min_zoom) = zooms.iter().min() {
+                tj.minzoom = Some(*min_zoom);
+            }
+            if let Some(max_zoom) = zooms.iter().max() {
+                tj.maxzoom = Some(*max_zoom);
+            }
+            mbt.insert_metadata(&mut *conn, &tj)
+                .await
+                .map_err(MbtilesError::from)?;
+            mbt_type
+        } else {
+            mbt.detect_type(&mut *conn)
+                .await
+                .map_err(MbtilesError::from)?
+        },
+    )
 }
 
 #[actix_web::main]
@@ -481,6 +525,7 @@ mod tests {
     use std::str::FromStr;
 
     use insta::assert_yaml_snapshot;
+    use rstest::rstest;
 
     use super::*;
 
@@ -492,26 +537,26 @@ mod tests {
         let bbox_mi = Bounds::from_str("-86.6271,41.6811,-82.3095,45.8058").unwrap();
         let bbox_usa = Bounds::from_str("-124.8489,24.3963,-66.8854,49.3843").unwrap();
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[0])), @r#"- "0: (0,0) - (0,0)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[0]), @r#"- "0: (0,0) - (0,0)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[3,7])), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[3,7]), @r#"
         - "3: (0,0) - (7,7)"
         - "7: (0,0) - (127,127)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&arg_minmax(&[world], 2, 4)), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[2, 3, 4]), @r#"
         - "2: (0,0) - (3,3)"
         - "3: (0,0) - (7,7)"
         - "4: (0,0) - (15,15)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[world], &[14])), @r#"- "14: (0,0) - (16383,16383)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[14]), @r#"- "14: (0,0) - (16383,16383)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_usa], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_usa, bbox_mi, bbox_ca], &[14])), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_usa, bbox_mi, bbox_ca], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&args(&[bbox_ca_south, bbox_mi, bbox_ca], &[14])), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_ca_south, bbox_mi, bbox_ca], &[14]), @r#"
         - "14: (2791,6499) - (2997,6624)"
         - "14: (4249,5841) - (4446,6101)"
         - "14: (2526,6081) - (2790,6624)"
@@ -519,20 +564,64 @@ mod tests {
         "#);
     }
 
-    fn args(bbox: &[Bounds], zooms: &[u8]) -> CopyArgs {
-        CopyArgs {
-            bbox: bbox.to_vec(),
-            zoom_levels: zooms.to_vec(),
+    #[rstest]
+    #[case("", Ok(Bounds::MAX_TILED.to_string()))]
+    #[case("-180.0,-85.05112877980659,180.0,85.0511287798066", Ok(Bounds::MAX_TILED.to_string()))]
+    #[case("-120.0,30.0,-110.0,40.0", Ok("-120.0,30.0,-110.0,40.0".to_string()))]
+    #[case("-190.0,30.0,-110.0,40.0", Err("longitude".to_string()))]
+    #[case("-120.0,30.0,190.0,40.0", Err("longitude".to_string()))]
+    #[case("-120.0,-90.0,-110.0,40.0", Err("latitude".to_string()))]
+    #[case("-120.0,30.0,-110.0,90.0", Err("latitude".to_string()))]
+    fn test_check_bboxes(#[case] bbox_str: &str, #[case] expected: Result<String, String>) {
+        use std::str::FromStr;
+
+        let bbox_vec = if bbox_str.is_empty() {
+            vec![]
+        } else {
+            vec![Bounds::from_str(bbox_str).unwrap()]
+        };
+
+        let result = check_bboxes(&CopyArgs {
+            bbox: bbox_vec,
             ..Default::default()
+        });
+
+        match expected {
+            Ok(expected_str) => {
+                let expected_bound = Bounds::from_str(&expected_str).unwrap();
+                assert_eq!(result.unwrap(), vec![expected_bound]);
+            }
+            Err(expected_coord) => {
+                assert!(matches!(
+                    result,
+                    Err(MartinCpError::InvalidBoundingBox(coord, _, _)) if coord == expected_coord
+                ));
+            }
         }
     }
 
-    fn arg_minmax(bbox: &[Bounds], min_zoom: u8, max_zoom: u8) -> CopyArgs {
-        CopyArgs {
-            bbox: bbox.to_vec(),
-            min_zoom: Some(min_zoom),
-            max_zoom: Some(max_zoom),
+    #[rstest]
+    #[case(None, None, vec![], vec![])] // !min && !max => levels
+    #[case(None, None, vec![1, 3], vec![1, 3])] // !min && !max => levels
+    #[case(None, Some(5), vec![], vec![])] // !min => levels
+    #[case(None, Some(5), vec![3], vec![3])] // !min => levels
+    #[case(Some(2), None, vec![], vec![0, 1, 2])] // max && !min => 0..=max
+    #[case(Some(5), Some(2), vec![], vec![2, 3, 4, 5])] // min > max
+    #[case(Some(2), Some(5), vec![], vec![])] // min < max
+    #[case(Some(4), Some(4), vec![], vec![4])] // min = max
+    fn test_get_zooms(
+        #[case] max_zoom: Option<u8>,
+        #[case] min_zoom: Option<u8>,
+        #[case] zoom_levels: Vec<u8>,
+        #[case] expected: Vec<u8>,
+    ) {
+        let args = CopyArgs {
+            min_zoom,
+            max_zoom,
+            zoom_levels,
             ..Default::default()
-        }
+        };
+
+        assert_eq!(get_zooms(&args).as_ref(), expected.as_slice());
     }
 }

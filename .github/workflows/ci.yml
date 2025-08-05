@@ -327,12 +327,12 @@ jobs:
       matrix:
         include:
           - target: aarch64-apple-darwin
-            os: macos-latest  # M-series CPU
+            os: macos-latest # M-series CPU
           - target: debian-x86_64
             os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
             # TODO: update to ubuntu-latest again once debian 13 launches
           - target: x86_64-apple-darwin
-            os: macos-13  # x64 CPU
+            os: macos-13 # x64 CPU
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
@@ -342,6 +342,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - run: rustup update stable && rustup default stable
+      # the macos x86 runners are 3x slower than all other runners.
+      # We need to cache here to not spend 30 minutes on each build.
+      # We cannot cache the others as well because we only have 10GB of cache
+      - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
       - name: Rust Versions
         run: rustc --version && cargo --version
       - name: Install NASM for rustls/aws-lc-rs on Windows
@@ -388,7 +393,6 @@ jobs:
         env:
           MARTIN_BIN: target/martin
 
-
   test-multi-os:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -420,7 +424,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@v2.2
         id: pg
-        with: { username: 'postgres', password: 'postgres', database: 'test',postgres-version: 16, port: 34837, postgis_version: 3.5.2 }
+        with: { username: 'postgres', password: 'postgres', database: 'test', postgres-version: 16, port: 34837, postgis_version: 3.5.2 }
       - name: Install and run Postgis (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -756,7 +760,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: maplibre/homebrew-martin
-          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}  # See instructions above
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
           path: target/homebrew
 
       - name: Create Homebrew formula
@@ -770,7 +774,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}  # See instructions above
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
           commit-message: 'Update to ${{ github.ref }}'
           title: 'Update to ${{ github.ref }}'
           body: 'Update to ${{ github.ref }}'
@@ -789,6 +793,10 @@ jobs:
     name: CI Finished
     runs-on: ubuntu-latest
     needs: [ package, docker-build-test ]
+    if: always()
     steps:
-      - name: Finished
-        run: echo "CI finished successfully"
+      - name: Result of the needed steps
+        run: echo "${{ toJSON(needs) }}"
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        name: CI Result
+        run: exit 1
