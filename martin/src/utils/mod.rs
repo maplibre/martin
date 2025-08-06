@@ -6,6 +6,8 @@ pub use cfg_containers::{OptBoolObj, OptOneMany};
 
 mod error;
 pub use error::*;
+mod tracing;
+pub use tracing::*;
 
 mod id_resolver;
 pub use id_resolver::IdResolver;
