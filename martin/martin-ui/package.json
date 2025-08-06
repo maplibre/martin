@@ -61,5 +61,5 @@
     "test:watch": "jest --watch",
     "type-check": "tsc --noEmit"
   },
-  "version": "0.18.0"
+  "version": "0.18.1"
 }
