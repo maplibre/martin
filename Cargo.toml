@@ -6,7 +6,7 @@ members = ["martin", "martin-tile-utils", "mbtiles"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.85"
+rust-version = "1.86"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.lints.rust]
