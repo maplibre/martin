@@ -201,7 +201,7 @@ fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
 
 # Reformat all Cargo.toml files using cargo-sort
-fmt-toml-sort *args: (cargo-install 'cargo-sort')
+fmt-toml *args: (cargo-install 'cargo-sort')
     cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
 
 # Get all testable features of the main crate as space-separated list
