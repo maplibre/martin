@@ -65,6 +65,8 @@ impl Image {
         let bytes = self.clip(decoder, bbox, 256, nodata_u8, path)?;
         Ok(bytes)
     }
+
+    /// Clips the image to the specified bounding box and returns the PNG data.
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
     fn clip(
@@ -78,54 +80,59 @@ impl Image {
         decoder
             .seek_to_image(self.ifd_index())
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
-        let intersetced_tiles = self.tiles_intersected(bbox);
-        let origin_x = self.origin[0];
-        let origin_y = self.origin[1];
-        let res_x = self.resolution.0;
-        let res_y = self.resolution.1.abs();
-        let window_width_pixel = ((bbox[2] - bbox[0]) / res_x).round() as u32;
-        let window_height_pixel = ((bbox[3] - bbox[1]) / res_y).round() as u32;
-        let mut target = vec![0; (window_width_pixel * window_height_pixel * 4) as usize];
-        for (col, row) in intersetced_tiles {
+
+        let target_w = ((bbox[2] - bbox[0]) / self.resolution.0).round() as u32;
+        let target_h = ((bbox[3] - bbox[1]) / self.resolution.1.abs()).round() as u32;
+        let mut target = vec![0; (target_w * target_h * 4) as usize];
+
+        // draw each tile on the target
+        let intersected_tiles = self.tiles_intersected(bbox);
+        for (col, row) in intersected_tiles {
             let Some(idx) = self.get_tile_index(TileCoord {
-                z: 0, // acutally get_tile_index does not use z, so we can use 0 here
+                z: 0, // actually this z is not used, so we can use 0 here
                 x: col,
                 y: row,
             }) else {
-                // Skip invalid tile coordinates (should not happen due to tiles_intersected bounds checking)
                 continue;
             };
 
-            let offset_x = (((origin_x + f64::from(col * self.tile_size.0) * self.resolution.0)
-                - bbox[0])
-                / res_x)
-                .round() as i64;
-            let offset_y = ((bbox[3]
-                - (origin_y - f64::from(row * self.tile_size.1) * self.resolution.1))
-                / res_y)
-                .round() as i64;
+            let tile_origin_x =
+                self.origin[0] + f64::from(col * self.tile_size.0) * self.resolution.0;
+            let tile_origin_y =
+                self.origin[1] - f64::from(row * self.tile_size.1) * self.resolution.1;
 
-            let chunk_data = decoder.read_chunk(idx).map_err(|e| {
+            let (offset_x, offset_y) = offset_in_pixel(
+                (tile_origin_x, tile_origin_y),
+                (bbox[1], bbox[3]),
+                (self.resolution.0, self.resolution.1.abs()),
+            );
+
+            let tile_data = decoder.read_chunk(idx).map_err(|e| {
                 CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf())
             })?;
-            let (data_width, data_height) = decoder.chunk_data_dimensions(idx);
+
             let color_type = decoder
                 .colortype()
                 .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
             let components_count = match color_type {
                 ColorType::RGB(_) => 3,
                 ColorType::RGBA(_) => 4,
-                _ => {
-                    todo!()
+                ct => {
+                    return Err(CogError::NotSupportedColorTypeAndBitDepth(
+                        ct,
+                        path.to_path_buf(),
+                    ))?;
                 }
             };
-            match (chunk_data, color_type) {
+
+            let (tile_w, tile_h) = decoder.chunk_data_dimensions(idx);
+            match (tile_data, color_type) {
                 (DecodingResult::U8(vec), ColorType::RGB(_) | ColorType::RGBA(_)) => draw_tile(
                     &vec,
                     components_count,
                     nodata,
-                    (data_width, data_height),
-                    (window_width_pixel, window_height_pixel),
+                    (tile_w, tile_h),
+                    (target_w, target_h),
                     (offset_x, offset_y),
                     &mut target,
                 ),
@@ -140,21 +147,17 @@ impl Image {
         }
 
         let result_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
-            ImageBuffer::from_raw(window_width_pixel, window_height_pixel, target).ok_or_else(
-                || {
-                    CogError::ImageBufferCreationFailed(
-                        path.to_path_buf(),
-                        format!(
-                            "Failed to create image buffer with dimensions {window_width_pixel}x{window_height_pixel}"
-                        ),
-                    )
-                },
-            )?;
+            ImageBuffer::from_raw(target_w, target_h, target).ok_or_else(|| {
+                CogError::ImageBufferCreationFailed(
+                    path.to_path_buf(),
+                    format!("Failed to create image buffer with dimensions {target_w}x{target_h}"),
+                )
+            })?;
         let resized = image::imageops::resize(
             &result_image,
             output_size,
             output_size,
-            image::imageops::FilterType::Nearest,
+            image::imageops::FilterType::Nearest, //FIXME should make this configurable
         );
         let png = encode_rgba_as_png(output_size, output_size, resized.as_raw(), path)?;
         Ok(png)
@@ -308,6 +311,22 @@ impl Image {
     }
 }
 
+/// Calculates the offset in pixels between two points
+#[allow(clippy::cast_possible_truncation)]
+fn offset_in_pixel(
+    (from_x, from_y): (f64, f64),
+    (to_x, to_y): (f64, f64),
+    (res_x, res_y): (f64, f64),
+) -> (i64, i64) {
+    let offset_x = (from_x - to_x) / res_x;
+    let offset_y = (to_y - from_y) / res_y;
+
+    let offset_x = offset_x.round() as i64;
+    let offset_y = offset_y.round() as i64;
+
+    (offset_x, offset_y)
+}
+
 /// Converts RGB/RGBA tile data to PNG format.
 fn rgb_to_png(
     data: Vec<u8>,
@@ -387,6 +406,7 @@ fn encode_rgba_as_png(
     Ok(result_file_buffer)
 }
 
+/// Cover a tile(rgb/rgba) on a rgba buffer
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::cast_sign_loss)]
 fn draw_tile(
