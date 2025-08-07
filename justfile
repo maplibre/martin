@@ -303,7 +303,7 @@ test-doc *args:
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt: (cargo-install 'cargo-sort')
+test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
     {{just_executable()}} fmt-toml-sort --check --check-format
 
