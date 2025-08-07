@@ -200,6 +200,10 @@ fmt-md:
 fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
 
+# Reformat all Cargo.toml files using cargo-sort
+fmt-toml-sort: (cargo-install 'cargo-sort')
+    cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies
+
 # Get all testable features of the main crate as space-separated list
 get-features:
     cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
@@ -299,8 +303,9 @@ test-doc *args:
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt:
+test-fmt: (cargo-install 'cargo-sort')
     cargo fmt --all -- --check
+    cargo sort --workspace --check --check-format --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies
 
 # Run frontend tests
 [working-directory: 'martin/martin-ui']

@@ -2,9 +2,9 @@
 name = "martin"
 version = "0.18.0"
 authors = [
-  "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
-  "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
-  "MapLibre contributors",
+    "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
+    "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
+    "MapLibre contributors",
 ]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -56,14 +56,37 @@ name = "bench"
 harness = false
 
 [features]
-default = ["cog", "fonts", "lambda", "mbtiles", "metrics", "pmtiles", "postgres", "sprites", "styles", "webui"]
+default = [
+    "cog",
+    "fonts",
+    "lambda",
+    "mbtiles",
+    "metrics",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+    "webui",
+]
 cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:aws-config", "dep:pmtiles"]
-postgres = ["dep:deadpool-postgres", "dep:enum-display", "dep:json-patch", "dep:postgis", "dep:postgres", "dep:postgres-protocol", "dep:regex", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:semver", "dep:tokio-postgres-rustls"]
+postgres = [
+    "dep:deadpool-postgres",
+    "dep:enum-display",
+    "dep:json-patch",
+    "dep:postgis",
+    "dep:postgres",
+    "dep:postgres-protocol",
+    "dep:regex",
+    "dep:rustls-native-certs",
+    "dep:rustls-pemfile",
+    "dep:semver",
+    "dep:tokio-postgres-rustls",
+]
 sprites = ["dep:spreet", "tokio/fs"]
 styles = ["dep:walkdir", "tokio/fs"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -73,9 +96,9 @@ actix-cors.workspace = true
 actix-http.workspace = true
 actix-middleware-etag.workspace = true
 actix-rt.workspace = true
+actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
-actix-web.workspace = true
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
@@ -100,9 +123,9 @@ postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
+rustls.workspace = true
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
-rustls.workspace = true
 semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
