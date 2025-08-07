@@ -210,7 +210,7 @@ fn compute_tile_ranges(boxes: &[Bounds], zooms: &[u8]) -> Vec<TileRect> {
     ranges
 }
 
-fn get_zooms(args: &CopyArgs) -> Cow<[u8]> {
+fn get_zooms(args: &CopyArgs) -> Cow<'_, [u8]> {
     if let Some(max_zoom) = args.max_zoom {
         let mut zooms_vec = Vec::new();
         let min_zoom = args.min_zoom.unwrap_or(0);
