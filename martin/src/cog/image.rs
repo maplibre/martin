@@ -101,19 +101,15 @@ impl Image {
             let tile_origin_y =
                 self.origin[1] - f64::from(row * self.tile_size.1) * self.resolution.1;
 
-            let (offset_x, offset_y) = offset_in_pixel(
+            let (offset_x, offset_y) = offset_between(
                 (tile_origin_x, tile_origin_y),
                 (bbox[1], bbox[3]),
                 (self.resolution.0, self.resolution.1.abs()),
             );
 
-            let tile_data = decoder.read_chunk(idx).map_err(|e| {
-                CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf())
-            })?;
-
             let color_type = decoder
                 .colortype()
-                .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
+                .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?; //FIXME: maybe make color_type as prop of Image Struct?
             let components_count = match color_type {
                 ColorType::RGB(_) => 3,
                 ColorType::RGBA(_) => 4,
@@ -126,6 +122,9 @@ impl Image {
             };
 
             let (tile_w, tile_h) = decoder.chunk_data_dimensions(idx);
+            let tile_data = decoder.read_chunk(idx).map_err(|e| {
+                CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf())
+            })?;
             match (tile_data, color_type) {
                 (DecodingResult::U8(vec), ColorType::RGB(_) | ColorType::RGBA(_)) => draw_tile(
                     &vec,
@@ -313,13 +312,13 @@ impl Image {
 
 /// Calculates the offset in pixels between two points
 #[allow(clippy::cast_possible_truncation)]
-fn offset_in_pixel(
-    (from_x, from_y): (f64, f64),
+fn offset_between(
     (to_x, to_y): (f64, f64),
+    (from_x, from_y): (f64, f64),
     (res_x, res_y): (f64, f64),
 ) -> (i64, i64) {
-    let offset_x = (from_x - to_x) / res_x;
-    let offset_y = (to_y - from_y) / res_y;
+    let offset_x = (to_x - from_x) / res_x;
+    let offset_y = (from_y - to_y) / res_y;
 
     let offset_x = offset_x.round() as i64;
     let offset_y = offset_y.round() as i64;
@@ -355,8 +354,7 @@ fn ensure_pixels_valid(
     nodata: Option<u8>,
 ) -> Vec<u8> {
     let is_padded = data_width != tile_width || data_height != tile_height;
-    // FIXME: why not `== 3`?
-    let add_alpha = components_count != 4;
+    let add_alpha = components_count == 3;
     // 1. Check if the tile is padded. If so, we need to add padding part back.
     //    The decoded value might be smaller than the tile size.
     //    TIFF crate always cut off the padding part, so we would need to add the padding part back.
