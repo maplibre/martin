@@ -47,7 +47,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@v2
-        with: { tool: just }
+        with: { tool: 'just,cargo-sort' }
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
