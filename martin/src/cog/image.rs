@@ -86,7 +86,13 @@ impl Image {
         let mut target = vec![0; (target_w * target_h * 4) as usize];
 
         // draw each tile on the target
-        let intersected_tiles = self.tiles_intersected(bbox);
+        let intersected_tiles = tiles_intersected(
+            self.tile_size,
+            self.resolution,
+            self.extent,
+            (self.tiles_across, self.tiles_down),
+            bbox,
+        );
         for (col, row) in intersected_tiles {
             let Some(idx) = self.get_tile_index(TileCoord {
                 z: 0, // actually this z is not used, so we can use 0 here
@@ -160,77 +166,6 @@ impl Image {
         );
         let png = encode_rgba_as_png(output_size, output_size, resized.as_raw(), path)?;
         Ok(png)
-    }
-    /// Calculates the tiles that intersect with the given window.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    fn tiles_intersected(&self, window: [f64; 4]) -> Vec<(u32, u32)> {
-        let epsilon = 1e-6;
-
-        let tile_span_x = f64::from(self.tile_size.0) * self.resolution.0;
-        // resolution[1] is typically negative, use its absolute value for span calculation
-        let tile_span_y = f64::from(self.tile_size.1) * self.resolution.1.abs();
-
-        let tile_matrix_min_x = self.extent[0];
-        // Use max Y from extent as the top edge for row calculation
-        let tile_matrix_max_y = self.extent[3];
-
-        let matrix_width = self.tiles_across;
-        let matrix_height = self.tiles_down;
-
-        // Calculate tile index ranges based on the provided formula
-        let tile_min_col_f = ((window[0] - tile_matrix_min_x) / tile_span_x + epsilon).floor();
-        let tile_max_col_f = ((window[2] - tile_matrix_min_x) / tile_span_x - epsilon).floor();
-        let tile_min_row_f = ((tile_matrix_max_y - window[3]) / tile_span_y + epsilon).floor();
-        let tile_max_row_f = ((tile_matrix_max_y - window[1]) / tile_span_y - epsilon).floor();
-
-        // Convert to integer type for clamping and iteration
-        let mut tile_min_col = tile_min_col_f as i64;
-        let mut tile_max_col = tile_max_col_f as i64;
-        let mut tile_min_row = tile_min_row_f as i64;
-        let mut tile_max_row = tile_max_row_f as i64;
-
-        // Clamp minimum values to 0
-        if tile_min_col < 0 {
-            tile_min_col = 0;
-        }
-        if tile_min_row < 0 {
-            tile_min_row = 0;
-        }
-
-        // Clamp maximum values to matrix dimensions - 1
-        let matrix_width_i64 = i64::from(matrix_width);
-        let matrix_height_i64 = i64::from(matrix_height);
-
-        if tile_max_col >= matrix_width_i64 {
-            tile_max_col = matrix_width_i64 - 1;
-        }
-        if tile_max_row >= matrix_height_i64 {
-            tile_max_row = matrix_height_i64 - 1;
-        }
-
-        // If the calculated range is invalid (max < min), return empty vector
-        if tile_max_col < tile_min_col || tile_max_row < tile_min_row {
-            return Vec::new();
-        }
-
-        // Convert to u32 for the final result type
-        let tile_min_col = tile_min_col as u32;
-        let tile_max_col = tile_max_col as u32;
-        let tile_min_row = tile_min_row as u32;
-        let tile_max_row = tile_max_row as u32;
-
-        let mut covered_tiles = Vec::new();
-        // Iterate through the valid tile range and collect the indexes
-        for row in tile_min_row..=tile_max_row {
-            for col in tile_min_col..=tile_max_col {
-                // Double check bounds (should be guaranteed by clamping, but safe)
-                if col < matrix_width && row < matrix_height {
-                    covered_tiles.push((col, row));
-                }
-            }
-        }
-
-        covered_tiles
     }
 
     /// Retrieves a tile from the image, decodes it, and converts it to PNG format.
@@ -308,6 +243,84 @@ impl Image {
 
         Some(xyz.y * self.tiles_across + xyz.x)
     }
+}
+
+/// Calculates the tiles that intersect with the given window.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn tiles_intersected(
+    tile_size: (u32, u32),
+    resolution: (f64, f64),
+    extent: [f64; 4],
+    (tiles_across, tiles_down): (u32, u32),
+    window: [f64; 4],
+) -> Vec<(u32, u32)> {
+    let epsilon = 1e-6;
+
+    let tile_span_x = f64::from(tile_size.0) * resolution.0;
+    // resolution[1] is typically negative, use its absolute value for span calculation
+    let tile_span_y = f64::from(tile_size.1) * resolution.1.abs();
+
+    let tile_matrix_min_x = extent[0];
+    // Use max Y from extent as the top edge for row calculation
+    let tile_matrix_max_y = extent[3];
+
+    let matrix_width = tiles_across;
+    let matrix_height = tiles_down;
+
+    // Calculate tile index ranges based on the provided formula
+    let tile_min_col_f = ((window[0] - tile_matrix_min_x) / tile_span_x + epsilon).floor();
+    let tile_max_col_f = ((window[2] - tile_matrix_min_x) / tile_span_x - epsilon).floor();
+    let tile_min_row_f = ((tile_matrix_max_y - window[3]) / tile_span_y + epsilon).floor();
+    let tile_max_row_f = ((tile_matrix_max_y - window[1]) / tile_span_y - epsilon).floor();
+
+    // Convert to integer type for clamping and iteration
+    let mut tile_min_col = tile_min_col_f as i64;
+    let mut tile_max_col = tile_max_col_f as i64;
+    let mut tile_min_row = tile_min_row_f as i64;
+    let mut tile_max_row = tile_max_row_f as i64;
+
+    // Clamp minimum values to 0
+    if tile_min_col < 0 {
+        tile_min_col = 0;
+    }
+    if tile_min_row < 0 {
+        tile_min_row = 0;
+    }
+
+    // Clamp maximum values to matrix dimensions - 1
+    let matrix_width_i64 = i64::from(matrix_width);
+    let matrix_height_i64 = i64::from(matrix_height);
+
+    if tile_max_col >= matrix_width_i64 {
+        tile_max_col = matrix_width_i64 - 1;
+    }
+    if tile_max_row >= matrix_height_i64 {
+        tile_max_row = matrix_height_i64 - 1;
+    }
+
+    // If the calculated range is invalid (max < min), return empty vector
+    if tile_max_col < tile_min_col || tile_max_row < tile_min_row {
+        return Vec::new();
+    }
+
+    // Convert to u32 for the final result type
+    let tile_min_col = tile_min_col as u32;
+    let tile_max_col = tile_max_col as u32;
+    let tile_min_row = tile_min_row as u32;
+    let tile_max_row = tile_max_row as u32;
+
+    let mut covered_tiles = Vec::new();
+    // Iterate through the valid tile range and collect the indexes
+    for row in tile_min_row..=tile_max_row {
+        for col in tile_min_col..=tile_max_col {
+            // Double check bounds (should be guaranteed by clamping, but safe)
+            if col < matrix_width && row < matrix_height {
+                covered_tiles.push((col, row));
+            }
+        }
+    }
+
+    covered_tiles
 }
 
 /// Calculates the offset in pixels between two points
@@ -453,7 +466,7 @@ fn draw_tile(
 mod tests {
     use std::path::PathBuf;
 
-    use martin_tile_utils::TileCoord;
+    use martin_tile_utils::{TileCoord, xyz_to_bbox_webmercator};
     use rstest::rstest;
 
     use crate::cog::image::Image;
@@ -540,5 +553,107 @@ mod tests {
         .unwrap();
         let expected = std::fs::read(expected_file_path).unwrap();
         assert_eq!(png_bytes, expected);
+    }
+
+    // test bbox which aligned with tile boundary
+    // these are edge cases need to be careful
+    #[rstest]
+    #[case(0, 0, 0, 0, 0)]
+    #[case(1, 0, 0, 0, 0)]
+    #[case(1, 0, 0, 1, 1)]
+    #[case(2, 0, 0, 0, 0)]
+    #[case(2, 3, 3, 3, 3)]
+    #[case(2, 1, 1, 2, 2)]
+    #[case(2, 0, 0, 3, 3)]
+    #[case(3, 4, 5, 6, 7)]
+    #[case(4, 0, 0, 7, 0)]
+    #[case(4, 7, 7, 7, 12)]
+    #[case(1, 1, 1, 1, 1)]
+    fn can_get_intersected_tiles_index(
+        #[case] zoom: u8,
+        #[case] min_x: u32,
+        #[case] min_y: u32,
+        #[case] max_x: u32,
+        #[case] max_y: u32,
+    ) {
+        let tile_size = (256, 256);
+        let extent = [
+            -20037508.3427892,
+            -20037508.3427892,
+            20037508.3427892,
+            20037508.3427892,
+        ];
+        let across = 2u32.pow(zoom as u32) as u32;
+        let down = 2u32.pow(zoom as u32) as u32;
+
+        let resolution = (
+            (20037508.3427892 * 2.0) / (f64::from(across) * f64::from(tile_size.0)),
+            -(20037508.3427892 * 2.0) / (f64::from(down) * f64::from(tile_size.1)),
+        );
+
+        let bbox = xyz_to_bbox_webmercator(zoom, min_x, min_y, max_x, max_y);
+
+        let actual = super::tiles_intersected(tile_size, resolution, extent, (across, down), bbox);
+        assert_eq!(
+            actual.len() as usize,
+            (max_x - min_x + 1) as usize * (max_y - min_y + 1) as usize
+        );
+        for row in min_y..=max_y {
+            for col in min_x..=max_x {
+                assert!(
+                    actual.contains(&(col, row)),
+                    "Tile ({col}, {row}) not found in the result"
+                );
+            }
+        }
+    }
+
+    // test bbox which not aligned with tile boundary
+    #[rstest]
+    #[case(0, [-20037508.3427892 - 1000.0,
+            -20037508.3427892 - 1000.0,
+            20037508.3427892 + 1000.0,
+            20037508.3427892 + 1000.0], (0,0,0,0))] // bigger than extent at aoom 0, should be [0,0,0,0]
+    #[case(0, [-20037508.3427892 + 1000.0,
+            -20037508.3427892 + 1000.0,
+            20037508.3427892 - 1000.0,
+            20037508.3427892 - 1000.0], (0,0,0,0))] // smaller than extent at aoom 0, should be [0,0,0,0]
+    #[case(1, [-2000.0,1000.0,-1000.0,2000.0] ,(0,0,0,0))]
+    #[case(1, [1000.0,-2000.0,2000.0,-1000.0] ,(1,1,1,1))]
+    #[case(1, [-1000.0,
+            -1000.0,1000.0,1000.0], (0,0,1,1))]
+    fn tiles_intersected_with_bbox(
+        #[case] zoom: u8,
+        #[case] bbox: [f64; 4],
+        #[case] expected: (u32, u32, u32, u32),
+    ) {
+        let tile_size = (256, 256);
+        let extent = [
+            -20037508.3427892,
+            -20037508.3427892,
+            20037508.3427892,
+            20037508.3427892,
+        ];
+        let across = 2u32.pow(zoom as u32) as u32;
+        let down = 2u32.pow(zoom as u32) as u32;
+        let resolution = (
+            (20037508.3427892 * 2.0) / (f64::from(across) * f64::from(tile_size.0)),
+            -(20037508.3427892 * 2.0) / (f64::from(down) * f64::from(tile_size.1)),
+        );
+
+        let actual = super::tiles_intersected(tile_size, resolution, extent, (across, down), bbox);
+
+        let (min_x, min_y, max_x, max_y) = expected;
+        let expected_count = (max_x - min_x + 1) as usize * (max_y - min_y + 1) as usize;
+        assert_eq!(actual.len(), expected_count, "Unexpected tile count");
+
+        for row in min_y..=max_y {
+            for col in min_x..=max_x {
+                assert!(
+                    actual.contains(&(col, row)),
+                    "Tile ({col}, {row}) not found"
+                );
+            }
+        }
     }
 }
