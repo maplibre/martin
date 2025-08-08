@@ -7,7 +7,7 @@ use pmtiles::reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::UnrecognizedValues;
+use crate::config::{UnrecognizedKeys, UnrecognizedValues};
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use crate::utils::OptMainCache;
@@ -28,7 +28,7 @@ pub struct PmtConfig {
     /// If `None` (the default), this will look at `AWS_SKIP_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `false`.
     #[serde(default, alias = "aws_skip_credentials")]
     pub skip_credentials: Option<bool>,
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
     //
@@ -89,8 +89,8 @@ impl ConfigExtras for PmtConfig {
         true
     }
 
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 

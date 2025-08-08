@@ -5,19 +5,19 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::source::CogSource;
-use crate::config::UnrecognizedValues;
+use crate::config::{UnrecognizedKeys, UnrecognizedValues};
 use crate::file_config::{ConfigExtras, SourceConfigExtras};
 use crate::{MartinResult, TileInfoSource};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl ConfigExtras for CogConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
