@@ -65,6 +65,7 @@ biomejs-martin-ui:
 bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
 
 # Bless the frontend tests
+[working-directory: 'martin/martin-ui']
 bless-frontend:
     npm run test:update-snapshots
 
@@ -199,6 +200,10 @@ fmt-md:
 fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
 
+# Reformat all Cargo.toml files using cargo-sort
+fmt-toml *args: (cargo-install 'cargo-sort')
+    cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
+
 # Get all testable features of the main crate as space-separated list
 get-features:
     cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
@@ -298,7 +303,7 @@ test-doc *args:
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt:
+test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
 # Run frontend tests

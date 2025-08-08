@@ -139,7 +139,9 @@ test_png() {
   clean_headers_dump "$FILENAME.headers"
 
   if [[ $OSTYPE == linux* ]]; then
-    file "$FILENAME" > "$FILENAME.txt"
+    # some 'file' versions are more verbose, but CI is not
+    # we must reduce this to match their output
+    file "$FILENAME" | sed 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
   fi
 }
 

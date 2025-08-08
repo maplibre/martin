@@ -79,7 +79,7 @@ class Filters extends PureComponent<
           </DayPickerContainer>
         )}
         <TimePicker>
-          <AvgTime isEnabled={isAvgHour} onClick={this.setAverageTime}>
+          <AvgTime $isEnabled={isAvgHour} onClick={this.setAverageTime}>
             AVG
           </AvgTime>
           <Input max="23" min="0" onChange={this.changeTime} step="1" type="range" value={hour} />
