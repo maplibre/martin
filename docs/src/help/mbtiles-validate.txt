@@ -1,0 +1,25 @@
+Validate tile data if hash of tile data exists in file
+
+Usage: mbtiles validate [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          MBTiles file to validate
+
+Options:
+      --integrity-check <INTEGRITY_CHECK>
+          Value to specify the extent of the SQLite integrity check performed
+
+          [default: quick]
+          [possible values: quick, full, off]
+
+      --agg-hash <AGG_HASH>
+          How should the aggregate tiles hash be checked or updated
+
+          Possible values:
+          - verify: Verify that the aggregate tiles hash value in the metadata table matches the computed value. Used by default
+          - update: Update the aggregate tiles hash value in the metadata table
+          - off:    Do not check the aggregate tiles hash value
+
+  -h, --help
+          Print help (see a summary with '-h')

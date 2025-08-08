@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::source::CogSource;
-use crate::Source;
 use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::file_config::{ConfigExtras, SourceConfigExtras};
+use crate::{MartinResult, TileInfoSource};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
@@ -31,7 +31,7 @@ impl SourceConfigExtras for CogConfig {
         false
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<Box<dyn Source>> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
         let cog = CogSource::new(id, path, self.auto_web.unwrap_or(false))?;
         Ok(Box::new(cog))
     }
@@ -41,7 +41,7 @@ impl SourceConfigExtras for CogConfig {
         id: String,
         path: PathBuf,
         config: serde_yaml::Value,
-    ) -> FileResult<Box<dyn Source>> {
+    ) -> MartinResult<TileInfoSource> {
         let source_auto_web = if let serde_yaml::Value::Mapping(map) = &config {
             if let Some(auto_web_value) = map.get(serde_yaml::Value::String("auto_web".to_string()))
             {
@@ -61,7 +61,7 @@ impl SourceConfigExtras for CogConfig {
         Ok(Box::new(cog))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<Box<dyn Source>> {
+    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<TileInfoSource> {
         unreachable!()
     }
 }

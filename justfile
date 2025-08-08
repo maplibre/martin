@@ -55,8 +55,19 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
+# Run biomejs on the dashboard (martin/martin-ui)
+[working-directory: 'martin/martin-ui']
+biomejs-martin-ui:
+    npm run format
+    npm run lint
+
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
+
+# Bless the frontend tests
+[working-directory: 'martin/martin-ui']
+bless-frontend:
+    npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
@@ -161,6 +172,8 @@ env-info:
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    npm --version
+    node --version
 
 # Run benchmark tests showing a flamegraph
 flamegraph:
@@ -187,6 +200,10 @@ fmt-md:
 fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
 
+# Reformat all Cargo.toml files using cargo-sort
+fmt-toml *args: (cargo-install 'cargo-sort')
+    cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
+
 # Get all testable features of the main crate as space-separated list
 get-features:
     cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
@@ -209,7 +226,7 @@ help:
     @echo "Full list: just --list"
 
 # Run cargo fmt and cargo clippy
-lint: fmt clippy
+lint: fmt clippy biomejs-martin-ui type-check
 
 # Run mbtiles command
 mbtiles *args:
@@ -275,7 +292,7 @@ stop:
     {{dockercompose}} down --remove-orphans
 
 # Run all tests using a test database
-test: start (test-cargo '--all-targets') test-doc test-int
+test: start (test-cargo '--all-targets') test-doc test-frontend test-int
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
@@ -286,8 +303,13 @@ test-doc *args:
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt:
+test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
+
+# Run frontend tests
+[working-directory: 'martin/martin-ui']
+test-frontend:
+    npm run test
 
 # Run integration tests
 test-int: clean-test install-sqlx
@@ -336,6 +358,11 @@ test-ssl-cert: start-ssl-cert
     {{just_executable()}} clean-test
     {{just_executable()}} test-doc
     tests/test.sh
+
+# Run typescript typechecking on the frontend
+[working-directory: 'martin/martin-ui']
+type-check:
+    npm run type-check
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:

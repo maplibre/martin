@@ -1,25 +1,23 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "esModuleInterop": false,
+    "incremental": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-
-    /* Bundler mode */
+    "lib": ["dom", "dom.iterable", "es2023"],
+    "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "resolveJsonModule": true,
     "skipLibCheck": true,
-
-    /* Linting */
     "strict": true,
-    "target": "ES2020",
-    "useDefineForClassFields": true
+    "target": "ES2023",
+    "types": ["vite/client", "@testing-library/jest-dom"]
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "exclude": ["node_modules", "dist"],
+  "include": ["**/*.ts", "**/*.tsx", "src/types/jest.d.ts", "vite.config.ts"]
 }

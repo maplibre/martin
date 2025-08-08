@@ -7,40 +7,18 @@ use async_trait::async_trait;
 use log::trace;
 use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::MbtilesPool;
-use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
-use url::Url;
 
-use crate::config::UnrecognizedValues;
-use crate::file_config::FileError::{AcquireConnError, InvalidMetadata, IoError};
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::file_config::FileError::{InvalidMetadata, IoError};
+use crate::file_config::FileResult;
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct MbtConfig {
-    #[serde(flatten)]
-    pub unrecognized: UnrecognizedValues,
-}
+mod config;
+mod error;
 
-impl ConfigExtras for MbtConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
-    }
-}
-
-impl SourceConfigExtras for MbtConfig {
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
-    }
-
-    // TODO: Remove #[allow] after switching to Rust/Clippy v1.78+ in CI
-    //       See https://github.com/rust-lang/rust-clippy/pull/12323
-    #[allow(clippy::no_effect_underscore_binding)]
-    async fn new_sources_url(&self, _id: String, _url: Url) -> FileResult<TileInfoSource> {
-        unreachable!()
-    }
-}
+pub use config::MbtConfig;
+pub use error::MbtilesError;
 
 #[derive(Clone)]
 pub struct MbtSource {
@@ -109,7 +87,7 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|_| AcquireConnError(self.id.clone()))?
+            .map_err(|_| MbtilesError::AcquireConnError(self.id.clone()))?
         {
             Ok(tile)
         } else {

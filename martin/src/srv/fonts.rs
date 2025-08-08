@@ -20,7 +20,7 @@ struct FontRequest {
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
-    wrap = "Etag",
+    wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]
