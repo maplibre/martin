@@ -841,9 +841,8 @@ fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
 mod tests {
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
-    use crate::metadata::temp_named_mbtiles;
-
     use super::*;
+    use crate::metadata::temp_named_mbtiles;
 
     const FLAT: Option<MbtTypeCli> = Some(MbtTypeCli::Flat);
     const FLAT_WITH_HASH: Option<MbtTypeCli> = Some(MbtTypeCli::FlatWithHash);

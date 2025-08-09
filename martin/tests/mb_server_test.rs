@@ -5,7 +5,8 @@ use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
 use martin::srv::SrvConfig;
 use martin_tile_utils::{decode_brotli, decode_gzip};
-use mbtiles::{Mbtiles, sqlx::SqliteConnection, temp_named_mbtiles};
+use mbtiles::sqlx::SqliteConnection;
+use mbtiles::{Mbtiles, temp_named_mbtiles};
 use tilejson::TileJSON;
 
 pub mod utils;

@@ -163,11 +163,11 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String
 
 #[cfg(test)]
 mod tests {
-    use crate::metadata::temp_named_mbtiles;
     use sqlx::Executor as _;
 
     use super::*;
     use crate::MbtilesCopier;
+    use crate::metadata::temp_named_mbtiles;
 
     #[actix_rt::test]
     async fn apply_flat_patch_file() {

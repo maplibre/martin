@@ -256,11 +256,12 @@ pub async fn temp_named_mbtiles(
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::*;
-    use crate::mbtiles::tests::open;
     use martin_tile_utils::{Encoding, Format};
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
+
+    use super::*;
+    use crate::mbtiles::tests::open;
 
     #[actix_rt::test]
     async fn mbtiles_meta() {
