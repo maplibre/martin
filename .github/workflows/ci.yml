@@ -47,7 +47,8 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' } # todo: add cargo-sort, once https://github.com/taiki-e/install-action/pull/997 is resolved
+        # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
+        with: { tool: 'just,cargo-binstall' }
       - name: Checkout sources
         uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
