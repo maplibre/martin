@@ -53,7 +53,7 @@ impl Source for PgSource {
     fn support_url_query(&self) -> bool {
         self.info.use_url_query
     }
-    
+
     fn benefits_from_concurrent_scraping(&self) -> bool {
         // pg does not parallelize queries well internally and having more requests in flight is thus beneficial
         true

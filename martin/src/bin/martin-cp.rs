@@ -340,9 +340,10 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     // - a user has concurrency at the default
     // - there is at least one pg or remote pmtiles source
     if concurrency == 1 && state.tiles.benefits_from_concurrent_scraping() {
-          warn!("Using `--concurrency 1`. Increasing it may improve performance for your tile sources. See https://docs.martin.rs/cli/usage.html#concurrency for further details.");
+        warn!(
+            "Using `--concurrency 1`. Increasing it may improve performance for your tile sources. See https://docs.martin.rs/cli/usage.html#concurrency for further details."
+        );
     }
-
 
     let source = check_sources(&args, &state)?;
 

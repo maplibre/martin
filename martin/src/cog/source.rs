@@ -162,9 +162,9 @@ impl Source for CogSource {
     fn clone_source(&self) -> Box<dyn Source> {
         Box::new(self.clone())
     }
-    
+
     /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
-    /// 
+    ///
     /// If this returns `true`, martin-cp will suggest concurrent scraping.
     fn benefits_from_concurrent_scraping(&self) -> bool {
         // if we copy from one local file to another, we are likely not bottlenecked by CPU
