@@ -41,6 +41,10 @@ impl Source for NullSource {
     fn support_url_query(&self) -> bool {
         false
     }
+    
+    fn benefits_from_concurrent_scraping(&self) -> bool {
+      true
+    }
 
     async fn get_tile(
         &self,

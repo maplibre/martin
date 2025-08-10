@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
+use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,7 +14,7 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use log::{debug, error, info, log_enabled};
+use log::{debug, error, info, log_enabled, warn};
 use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
 use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
@@ -44,7 +45,7 @@ const HELP_STYLES: Styles = Styles::styled()
     .literal(AnsiColor::White.on_default())
     .placeholder(AnsiColor::Green.on_default());
 
-#[derive(Parser, Debug, PartialEq, Default)]
+#[derive(Parser, Debug, PartialEq)]
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
@@ -62,7 +63,7 @@ pub struct CopierArgs {
 }
 
 #[serde_with::serde_as]
-#[derive(clap::Args, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
+#[derive(clap::Args, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct CopyArgs {
     /// Name of the source to copy from. Not required if there is only one source.
     #[arg(short, long)]
@@ -93,7 +94,7 @@ pub struct CopyArgs {
     pub on_duplicate: Option<CopyDuplicateMode>,
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
-    pub concurrency: Option<usize>,
+    pub concurrency: NonZeroUsize,
     /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times. Overlapping regions will be handled correctly.
     #[arg(long)]
     pub bbox: Vec<Bounds>,
@@ -334,7 +335,14 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
 #[allow(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
-    let concurrency = args.concurrency.unwrap_or(1);
+    let concurrency = args.concurrency.get();
+    // we only warn that the concurrency might be too low if:
+    // - a user has concurrency at the default
+    // - there is at least one pg or remote pmtiles source
+    if concurrency == 1 && state.tiles.benefits_from_concurrent_scraping() {
+          warn!("Using `--concurrency 1`. Increasing it may improve performance for your tile sources. See https://docs.martin.rs/cli/usage.html#concurrency for further details.");
+    }
+
 
     let source = check_sources(&args, &state)?;
 

@@ -103,6 +103,13 @@ impl TileSources {
         }
         is_valid
     }
+    
+    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
+    /// 
+    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    pub fn benefits_from_concurrent_scraping(&self) -> bool {
+        self.0.iter().any(|s|s.benefits_from_concurrent_scraping())
+    }
 }
 
 #[async_trait]
@@ -123,6 +130,10 @@ pub trait Source: Send + Debug {
     fn support_url_query(&self) -> bool {
         false
     }
+    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
+    /// 
+    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    fn benefits_from_concurrent_scraping(&self) -> bool;
 
     async fn get_tile(
         &self,

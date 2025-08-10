@@ -264,7 +264,11 @@ pub mod tests {
         fn clone_source(&self) -> TileInfoSource {
             Box::new(self.clone())
         }
-
+        
+        fn benefits_from_concurrent_scraping(&self) -> bool {
+            true
+        }
+        
         async fn get_tile(
             &self,
             _xyz: TileCoord,

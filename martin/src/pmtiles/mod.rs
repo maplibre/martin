@@ -172,6 +172,12 @@ macro_rules! impl_pmtiles_source {
             fn clone_source(&self) -> TileInfoSource {
                 Box::new(self.clone())
             }
+            
+            fn benefits_from_concurrent_scraping(&self) -> bool {
+              // having multiple http requests in flight is beneficial
+              // when using local disks, the benefits are less clear
+              stringify!($backend) != "MmapBackend"
+            }
 
             async fn get_tile(
                 &self,
