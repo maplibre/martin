@@ -96,6 +96,7 @@ impl TileSources {
         Ok((sources, use_url_query, info.unwrap()))
     }
 
+    #[must_use]
     pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
         let is_valid = src.is_valid_zoom(zoom);
         if !is_valid {
@@ -107,6 +108,7 @@ impl TileSources {
     /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
     ///
     /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    #[must_use]
     pub fn benefits_from_concurrent_scraping(&self) -> bool {
         self.0.iter().any(|s| s.benefits_from_concurrent_scraping())
     }

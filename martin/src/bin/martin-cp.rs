@@ -120,6 +120,26 @@ pub struct CopyArgs {
     pub set_meta: Vec<(String, String)>,
 }
 
+impl Default for CopyArgs {
+    fn default() -> Self {
+        CopyArgs {
+            bbox: Vec::new(),
+            source: None,
+            output_file: PathBuf::new(),
+            mbt_type: None,
+            url_query: None,
+            encoding: "gzip".to_string(),
+            on_duplicate: None,
+            concurrency: NonZeroUsize::new(1).unwrap(),
+            min_zoom: None,
+            max_zoom: None,
+            zoom_levels: Vec::new(),
+            skip_agg_tiles_hash: true,
+            set_meta: Vec::new(),
+        }
+    }
+}
+
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let mut parts = s.splitn(2, '=');
     let key = parts.next().unwrap();
