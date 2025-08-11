@@ -20,9 +20,6 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
   - [ ] sprites
   - [ ] fonts
   - [ ] styles
-
-
-
 ## License
 
 Licensed under either of
