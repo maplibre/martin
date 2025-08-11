@@ -578,17 +578,17 @@ mod tests {
     ) {
         let tile_size = (256, 256);
         let extent = [
-            -20037508.3427892,
-            -20037508.3427892,
-            20037508.3427892,
-            20037508.3427892,
+            -20_037_508.342_789_2,
+            -20_037_508.342_789_2,
+            20_037_508.342_789_2,
+            20_037_508.342_789_2,
         ];
-        let across = 2u32.pow(zoom as u32) as u32;
-        let down = 2u32.pow(zoom as u32) as u32;
+        let across = 2u32.pow(u32::from(zoom));
+        let down = 2u32.pow(u32::from(zoom));
 
         let resolution = (
-            (20037508.3427892 * 2.0) / (f64::from(across) * f64::from(tile_size.0)),
-            -(20037508.3427892 * 2.0) / (f64::from(down) * f64::from(tile_size.1)),
+            (20_037_508.342_789_2 * 2.0) / (f64::from(across) * f64::from(tile_size.0)),
+            -(20_037_508.342_789_2 * 2.0) / (f64::from(down) * f64::from(tile_size.1)),
         );
 
         let bbox = xyz_to_bbox_webmercator(zoom, min_x, min_y, max_x, max_y);
@@ -610,14 +610,14 @@ mod tests {
 
     // test bbox which not aligned with tile boundary
     #[rstest]
-    #[case(0, [-20037508.3427892 - 1000.0,
-            -20037508.3427892 - 1000.0,
-            20037508.3427892 + 1000.0,
-            20037508.3427892 + 1000.0], (0,0,0,0))] // bigger than extent at aoom 0, should be [0,0,0,0]
-    #[case(0, [-20037508.3427892 + 1000.0,
-            -20037508.3427892 + 1000.0,
-            20037508.3427892 - 1000.0,
-            20037508.3427892 - 1000.0], (0,0,0,0))] // smaller than extent at aoom 0, should be [0,0,0,0]
+    #[case(0, [-20_037_508.342_789_2 - 1000.0,
+            -20_037_508.342_789_2 - 1000.0,
+            20_037_508.342_789_2 + 1000.0,
+            20_037_508.342_789_2 + 1000.0], (0,0,0,0))] // bigger than extent at aoom 0, should be [0,0,0,0]
+    #[case(0, [-20_037_508.342_789_2 + 1000.0,
+            -20_037_508.342_789_2 + 1000.0,
+            20_037_508.342_789_2 - 1000.0,
+            20_037_508.342_789_2 - 1000.0], (0,0,0,0))] // smaller than extent at aoom 0, should be [0,0,0,0]
     #[case(1, [-2000.0,1000.0,-1000.0,2000.0] ,(0,0,0,0))]
     #[case(1, [1000.0,-2000.0,2000.0,-1000.0] ,(1,1,1,1))]
     #[case(1, [-1000.0,
@@ -629,16 +629,16 @@ mod tests {
     ) {
         let tile_size = (256, 256);
         let extent = [
-            -20037508.3427892,
-            -20037508.3427892,
-            20037508.3427892,
-            20037508.3427892,
+            -20_037_508.342_789_2,
+            -20_037_508.342_789_2,
+            20_037_508.342_789_2,
+            20_037_508.342_789_2,
         ];
-        let across = 2u32.pow(zoom as u32) as u32;
-        let down = 2u32.pow(zoom as u32) as u32;
+        let across = 2u32.pow(u32::from(zoom));
+        let down = 2u32.pow(u32::from(zoom));
         let resolution = (
-            (20037508.3427892 * 2.0) / (f64::from(across) * f64::from(tile_size.0)),
-            -(20037508.3427892 * 2.0) / (f64::from(down) * f64::from(tile_size.1)),
+            (20_037_508.342_789_2 * 2.0) / (f64::from(across) * f64::from(tile_size.0)),
+            -(20_037_508.342_789_2 * 2.0) / (f64::from(down) * f64::from(tile_size.1)),
         );
 
         let actual = super::tiles_intersected(tile_size, resolution, extent, (across, down), bbox);
