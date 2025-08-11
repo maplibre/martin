@@ -1,5 +1,4 @@
 import { Database, Eye, ImageIcon, Layers, Palette, Search } from 'lucide-react';
-import { useState } from 'react';
 import { TileInspectDialog } from '@/components/dialogs/tile-inspect';
 import { ErrorState } from '@/components/error/error-state';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
@@ -19,6 +18,8 @@ interface TilesCatalogProps {
   error?: Error | null;
   onRetry?: () => void;
   isRetrying?: boolean;
+  selectedTileForInspection?: string | null;
+  onInspectTile?: (tileName: string | undefined) => void;
 }
 
 export function TilesCatalog({
@@ -29,8 +30,9 @@ export function TilesCatalog({
   error = null,
   onRetry,
   isRetrying = false,
+  selectedTileForInspection = null,
+  onInspectTile = () => {},
 }: TilesCatalogProps) {
-  const [selectedTileForInspection, setSelectedTileForInspection] = useState<string | null>(null);
   if (isLoading) {
     return (
       <CatalogSkeleton
@@ -124,7 +126,7 @@ export function TilesCatalog({
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-auto pt-4">
                   <Button
                     className="flex-1 bg-transparent w-full"
-                    onClick={() => setSelectedTileForInspection(name)}
+                    onClick={() => onInspectTile(name)}
                     size="sm"
                     variant="outline"
                   >
@@ -173,7 +175,7 @@ export function TilesCatalog({
       {selectedTileForInspection && tileSources && (
         <TileInspectDialog
           name={selectedTileForInspection}
-          onCloseAction={() => setSelectedTileForInspection(null)}
+          onCloseAction={() => onInspectTile(undefined)}
           source={tileSources[selectedTileForInspection]}
         />
       )}

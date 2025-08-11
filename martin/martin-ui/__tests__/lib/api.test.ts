@@ -15,10 +15,10 @@ describe('getMartinBaseUrl', () => {
     expect(getMartinBaseUrl()).toBe('https://api.example.com');
   });
 
-  it('returns window.location.href when VITE_MARTIN_BASE is not set', () => {
+  it('returns origin + pathname when VITE_MARTIN_BASE is not set', () => {
     delete process.env.VITE_MARTIN_BASE;
 
-    // window.location.href is "http://localhost"
+    // window.location.pathname is "/"
     const result = getMartinBaseUrl();
     expect(result).toBe('http://localhost/');
   });
@@ -43,7 +43,7 @@ describe('buildMartinUrl', () => {
 
     const result = buildMartinUrl('/catalog');
 
-    // Should use window.location.href as fallback
+    // pathname
     expect(result).toBe('http://localhost/catalog');
   });
 

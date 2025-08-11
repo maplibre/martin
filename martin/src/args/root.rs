@@ -61,12 +61,6 @@ pub struct MetaArgs {
     /// By default, only print if sources are auto-detected.
     #[arg(long)]
     pub save_config: Option<PathBuf>,
-    /// Main cache size (in MB)
-    #[arg(short = 'C', long)]
-    pub cache_size: Option<u64>,
-    /// **Deprecated** Scan for new sources on sources list requests
-    #[arg(short, long, hide = true)]
-    pub watch: bool,
     /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
 }
@@ -94,15 +88,15 @@ impl Args {
         config: &mut Config,
         #[allow(unused_variables)] env: &impl Env<'a>,
     ) -> MartinResult<()> {
-        if self.meta.watch {
+        if self.srv.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
         }
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
-        if self.meta.cache_size.is_some() {
-            config.cache_size_mb = self.meta.cache_size;
+        if self.srv.cache_size.is_some() {
+            config.cache_size_mb = self.srv.cache_size;
         }
 
         self.srv.merge_into_config(&mut config.srv);
