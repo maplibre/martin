@@ -169,6 +169,7 @@ env-info:
     {{just_executable()}} --version
     rustc --version
     cargo --version
+    c
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
