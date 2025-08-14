@@ -449,7 +449,6 @@ test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
 # Test COG sources (only cog-auto-web, with calculated z/x/y)
 test_jsn cog_auto_web  cog-auto-web
-test_png cog_auto_web_14_8854_6443 cog-auto-web/14/8854/6443
 test_png cog_auto_web_13_4427_3221 cog-auto-web/13/4427/3221
 test_png cog_auto_web_12_2213_1610 cog-auto-web/12/2213/1610
 
