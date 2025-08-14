@@ -174,6 +174,7 @@ env-info:
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
     @echo "PATH='$PATH'"
+    @echo "HOME='$HOME'"
     npm --version
     node --version
 
