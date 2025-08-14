@@ -173,6 +173,7 @@ env-info:
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    @echo "PATH='$PATH'"
     npm --version
     node --version
 
