@@ -449,8 +449,8 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked --verbose {{args}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{if ci_mode == '1' {'--no-track'} else {''} }} --locked {{args}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{if ci_mode == '1' {'--no-track'} else {''} }} --locked --verbose --log-level trace {{args}}
         fi
     fi
 
