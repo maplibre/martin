@@ -6,4 +6,4 @@
 just up
 ```
 
-* Open http://localhost in your browser
+* Open https://localhost in your browser

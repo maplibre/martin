@@ -62,9 +62,6 @@ Options:
       --save-config <SAVE_CONFIG>
           Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
 
-  -C, --cache-size <CACHE_SIZE>
-          Main cache size (in MB)
-
   -b, --auto-bounds <AUTO_BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
