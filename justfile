@@ -307,9 +307,10 @@ test-doc *args:
 
 # Test code formatting
 test-fmt:
-    ls '$HOME/home/runner/.cargo/bin'
+    ls $Home
+    ls '/home/runner/.cargo/bin'
     {{just_executable()}} cargo-install 'cargo-sort'
-    ls '$HOME/home/runner/.cargo/bin'
+    ls '/home/runner/.cargo/bin'
     {{just_executable()}} fmt-toml '--check' '--check-format'
 
 # Run frontend tests
