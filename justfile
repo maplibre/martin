@@ -169,12 +169,9 @@ env-info:
     {{just_executable()}} --version
     rustc --version
     cargo --version
-    cargo --list
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
-    @echo "PATH='$PATH'"
-    @echo "HOME='$HOME'"
     npm --version
     node --version
 
@@ -306,12 +303,8 @@ test-doc *args:
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt:
-    ls $Home
-    ls '/home/runner/.cargo/bin'
-    {{just_executable()}} cargo-install 'cargo-sort'
-    ls '/home/runner/.cargo/bin'
-    {{just_executable()}} fmt-toml '--check' '--check-format'
+test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
+    cargo fmt --all -- --check
 
 # Run frontend tests
 [working-directory: 'martin/martin-ui']
@@ -448,7 +441,7 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
             echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{if ci_mode == '1' {'--no-track'} else {''} }} --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} {{if ci_mode == '1' {'--no-track'} else {''} }} --locked --verbose --log-level trace {{args}}
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{if ci_mode == '1' {'--no-track'} else {''} }} --locked {{args}}
         fi
     fi
 
