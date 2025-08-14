@@ -306,8 +306,11 @@ test-doc *args:
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
-    cargo fmt --all -- --check
+test-fmt:
+    ls '$HOME/home/runner/.cargo/bin'
+    {{just_executable()}} cargo-install 'cargo-sort'
+    ls '$HOME/home/runner/.cargo/bin'
+    {{just_executable()}} fmt-toml '--check' '--check-format'
 
 # Run frontend tests
 [working-directory: 'martin/martin-ui']
