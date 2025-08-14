@@ -309,9 +309,9 @@ test-doc *args:
 test-fmt:
     ls $Home
     ls '/home/runner/.cargo/bin'
-    find / -executable -name cargo-sort 2>&1 | grep -v "Permission denied" | grep -v "Invalid argument"                                     
+    find / -executable -name cargo-sort 2>&1 | grep -v "Permission denied" | grep -v "Invalid argument"
     {{just_executable()}} cargo-install 'cargo-sort'
-    find / -executable -name cargo-sort 2>&1 | grep -v "Permission denied" | grep -v "Invalid argument"                                     
+    find / -executable -name cargo-sort 2>&1 | grep -v "Permission denied" | grep -v "Invalid argument"
     ls '$HOME/home/runner/.cargo/bin'
     {{just_executable()}} fmt-toml '--check' '--check-format'
 
