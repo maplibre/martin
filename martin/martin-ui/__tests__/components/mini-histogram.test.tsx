@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { MiniHistogram } from '@/components/charts/mini-histogram';
 import type { HistogramBucket } from '@/lib/prometheus';
 
@@ -10,7 +11,7 @@ describe('MiniHistogram', () => {
 
     // Component renders the container but with no bars
     const histogramContainer = container.querySelector('.w-20.h-12.flex.items-end');
-    expect(histogramContainer).toBeInTheDocument();
+    expect(histogramContainer).toBeTruthy();
 
     const bars = container.querySelectorAll('.flex-1.bg-primary');
     expect(bars).toHaveLength(0);
@@ -29,7 +30,7 @@ describe('MiniHistogram', () => {
 
     // Should render container with bars
     const histogramContainer = container.querySelector('.w-20.h-12.flex.items-end');
-    expect(histogramContainer).toBeInTheDocument();
+    expect(histogramContainer).toBeTruthy();
 
     // Should render bars (limited to 8 max, but we have 5)
     const bars = container.querySelectorAll('.flex-1.bg-primary');
