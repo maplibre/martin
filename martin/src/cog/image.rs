@@ -102,16 +102,16 @@ impl Image {
                 continue;
             };
 
-            let tile_origin_x =
-                self.origin[0] + f64::from(col * self.tile_size.0) * self.resolution.0;
-            let tile_origin_y =
-                self.origin[1] - f64::from(row * self.tile_size.1) * self.resolution.1;
+            let origin_x = self.origin[0];
+            let origin_y = self.origin[1];
+            let tile_min_x = origin_x + f64::from(col * self.tile_size.0) * self.resolution.0;
+            let tile_max_y = origin_y - f64::from(row * self.tile_size.1) * self.resolution.1.abs();
 
-            let (offset_x, offset_y) = offset_between(
-                (tile_origin_x, tile_origin_y),
-                (bbox[1], bbox[3]),
-                (self.resolution.0, self.resolution.1.abs()),
-            );
+            let offset_x_geo = tile_min_x - bbox[0];
+            let offset_y_geo = bbox[3] - tile_max_y; // Use window's max Y
+
+            let offset_x = (offset_x_geo / self.resolution.0).round() as i64;
+            let offset_y = (offset_y_geo / self.resolution.1.abs()).round() as i64;
 
             let color_type = decoder
                 .colortype()
