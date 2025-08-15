@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Header } from '@/components/header';
 import { render } from '../test-utils';
 
@@ -14,7 +15,7 @@ global.import = { meta: mockImportMeta };
 
 describe('Header Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders correctly', () => {
@@ -24,25 +25,27 @@ describe('Header Component', () => {
 
   it('displays the Martin version', () => {
     const { getByText } = render(<Header />);
-    expect(getByText('v0.0.0-test')).toBeInTheDocument();
+    expect(getByText('v0.0.0-test')).toBeTruthy();
   });
 
   it('contains navigation links', () => {
     const { getByText } = render(<Header />);
 
     const documentationLink = getByText('Documentation');
-    expect(documentationLink).toBeInTheDocument();
+    expect(documentationLink).toBeTruthy();
 
     // hidden on mobile, so using a more specific query
     const aboutUsLink = getByText('About us');
-    expect(aboutUsLink).toBeInTheDocument();
-    expect(aboutUsLink.closest('a')).toHaveAttribute('href', 'https://maplibre.org');
+    expect(aboutUsLink).toBeTruthy();
+    expect(aboutUsLink.closest('a')?.getAttribute('href')).toBe('https://maplibre.org');
   });
 
   it('includes the theme switcher', () => {
     render(<Header />);
     // Look for the theme switcher button by its aria-label
-    const themeSwitcher = screen.getByRole('button', { name: /switch to.*theme/i });
-    expect(themeSwitcher).toBeInTheDocument();
+    const themeSwitcher = screen.getByRole('button', {
+      name: /switch to.*theme/i,
+    });
+    expect(themeSwitcher).toBeTruthy();
   });
 });
