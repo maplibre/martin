@@ -1,22 +1,30 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildMartinUrl, getMartinBaseUrl } from '@/lib/api';
 
-// Mock the environment variables by setting process.env
-// (Jest transform converts import.meta.env to process.env)
-const originalProcessEnv = process.env;
+// Mock window.location for fallback tests
+const mockLocation = {
+  origin: 'http://localhost',
+  pathname: '/',
+};
 
 describe('getMartinBaseUrl', () => {
   afterEach(() => {
-    // Restore original process.env
-    process.env = { ...originalProcessEnv };
+    vi.unstubAllEnvs();
   });
 
   it('returns environment variable value when VITE_MARTIN_BASE is set', () => {
-    process.env.VITE_MARTIN_BASE = 'https://api.example.com';
+    vi.stubEnv('VITE_MARTIN_BASE', 'https://api.example.com');
     expect(getMartinBaseUrl()).toBe('https://api.example.com');
   });
 
   it('returns origin + pathname when VITE_MARTIN_BASE is not set', () => {
-    delete process.env.VITE_MARTIN_BASE;
+    vi.stubEnv('VITE_MARTIN_BASE', '');
+
+    // Mock window.location
+    Object.defineProperty(window, 'location', {
+      value: mockLocation,
+      writable: true,
+    });
 
     // window.location.pathname is "/"
     const result = getMartinBaseUrl();
@@ -26,12 +34,11 @@ describe('getMartinBaseUrl', () => {
 
 describe('buildMartinUrl', () => {
   afterEach(() => {
-    // Restore original process.env
-    process.env = { ...originalProcessEnv };
+    vi.unstubAllEnvs();
   });
 
   it('builds URL with custom base URL from environment', () => {
-    process.env.VITE_MARTIN_BASE = 'https://api.example.com';
+    vi.stubEnv('VITE_MARTIN_BASE', 'https://api.example.com');
 
     const result = buildMartinUrl('/catalog');
 
@@ -39,7 +46,13 @@ describe('buildMartinUrl', () => {
   });
 
   it('builds URL with fallback base URL when no environment variable is set', () => {
-    delete process.env.VITE_MARTIN_BASE;
+    vi.stubEnv('VITE_MARTIN_BASE', '');
+
+    // Mock window.location
+    Object.defineProperty(window, 'location', {
+      value: mockLocation,
+      writable: true,
+    });
 
     const result = buildMartinUrl('/catalog');
 
@@ -48,7 +61,7 @@ describe('buildMartinUrl', () => {
   });
 
   it('handles paths without leading slash', () => {
-    process.env.VITE_MARTIN_BASE = 'https://api.example.com';
+    vi.stubEnv('VITE_MARTIN_BASE', 'https://api.example.com');
 
     const result = buildMartinUrl('catalog');
 
@@ -56,7 +69,7 @@ describe('buildMartinUrl', () => {
   });
 
   it('handles base URLs with trailing slash', () => {
-    process.env.VITE_MARTIN_BASE = 'https://api.example.com/';
+    vi.stubEnv('VITE_MARTIN_BASE', 'https://api.example.com/');
 
     const result = buildMartinUrl('/catalog');
 
@@ -64,7 +77,7 @@ describe('buildMartinUrl', () => {
   });
 
   it('handles complex paths', () => {
-    process.env.VITE_MARTIN_BASE = 'https://api.example.com';
+    vi.stubEnv('VITE_MARTIN_BASE', 'https://api.example.com');
 
     const result = buildMartinUrl('/sprite/test@2x.png');
 
@@ -72,7 +85,7 @@ describe('buildMartinUrl', () => {
   });
 
   it('handles metrics endpoint', () => {
-    process.env.VITE_MARTIN_BASE = 'https://api.example.com';
+    vi.stubEnv('VITE_MARTIN_BASE', 'https://api.example.com');
 
     const result = buildMartinUrl('/_/metrics');
 
@@ -80,7 +93,13 @@ describe('buildMartinUrl', () => {
   });
 
   it('works with empty base URL', () => {
-    process.env.VITE_MARTIN_BASE = '';
+    vi.stubEnv('VITE_MARTIN_BASE', '');
+
+    // Mock window.location
+    Object.defineProperty(window, 'location', {
+      value: mockLocation,
+      writable: true,
+    });
 
     const result = buildMartinUrl('/catalog');
 
