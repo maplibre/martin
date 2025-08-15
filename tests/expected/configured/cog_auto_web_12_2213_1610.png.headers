@@ -1,0 +1,5 @@
+content-encoding: gzip
+content-length: 235
+content-type: image/png
+etag: "116072859489107650286501691412560391549"
+vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
