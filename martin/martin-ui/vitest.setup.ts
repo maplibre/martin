@@ -217,12 +217,12 @@ vi.mock('maplibre-gl', () => ({
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
 
 // Mock MapLibre GL Inspect
-vi.mock('@maplibre/maplibre-gl-inspect', () => {
-  return vi.fn().mockImplementation(() => ({
+vi.mock('@maplibre/maplibre-gl-inspect', () => ({
+  default: vi.fn().mockImplementation(() => ({
     onAdd: vi.fn(),
     onRemove: vi.fn(),
-  }));
-});
+  })),
+}));
 
 // Mock MapLibre GL Inspect CSS
 vi.mock('@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css', () => ({}));

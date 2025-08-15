@@ -50,52 +50,6 @@ vi.mock('@/components/ui/button', () => ({
   ),
 }));
 
-// Mock MapLibre GL and related imports
-vi.mock('maplibre-gl', () => ({
-  Map: vi.fn().mockImplementation(() => ({
-    addControl: vi.fn(),
-    off: vi.fn(),
-    on: vi.fn(),
-    remove: vi.fn(),
-    removeControl: vi.fn(),
-  })),
-}));
-
-vi.mock('@vis.gl/react-maplibre', async () => {
-  const { forwardRef } = require('react');
-  return {
-    Map: forwardRef(
-      (
-        props: React.ComponentProps<'div'> & { onLoad?: () => void },
-        _ref: React.Ref<HTMLDivElement>,
-      ) => {
-        return (
-          <button
-            data-testid="maplibre-map"
-            onClick={() => props.onLoad?.()}
-            onKeyDown={(e) => e.key === 'Enter' && props.onLoad?.()}
-            style={props.style}
-            tabIndex={0}
-            type="button"
-          />
-        );
-      },
-    ),
-  };
-});
-
-vi.mock('@maplibre/maplibre-gl-inspect', () => ({
-  __esModule: true,
-  default: vi.fn().mockImplementation(() => ({
-    onAdd: vi.fn(),
-    onRemove: vi.fn(),
-  })),
-}));
-
-// Mock CSS imports
-vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
-vi.mock('@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css', () => ({}));
-
 describe('TileInspectDialog', () => {
   const mockTileSource: TileSource = {
     attribution: 'Test Attribution',
