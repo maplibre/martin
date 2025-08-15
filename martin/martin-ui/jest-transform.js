@@ -23,10 +23,10 @@ export function process(src, filename) {
             runtime: 'automatic'
           }
         },
-        target: 'es2022'
+        target: 'es2023'
       },
       module: {
-        type: 'commonjs'
+        type: 'es6'
       }
     });
 
