@@ -36,11 +36,11 @@ updates:
       time: "02:00"
     open-pull-requests-limit: 10
     groups:
-      all-cargo-version-updates:
+      all-npm-ui-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
-      all-cargo-security-updates:
+      all-npm-ui-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
@@ -51,11 +51,11 @@ updates:
       time: "02:00"
     open-pull-requests-limit: 10
     groups:
-      all-cargo-version-updates:
+      all-npm-fe-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
-      all-cargo-security-updates:
+      all-npm-fe-security-updates:
         applies-to: security-updates
         patterns:
           - "*"

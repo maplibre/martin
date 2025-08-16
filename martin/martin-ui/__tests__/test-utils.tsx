@@ -1,8 +1,14 @@
 import { TooltipProvider } from '@radix-ui/react-tooltip';
-import { type RenderOptions, render } from '@testing-library/react';
+import { cleanup, type RenderOptions, render } from '@testing-library/react';
 import { ThemeProvider } from 'next-themes';
 import type React from 'react';
 import type { ReactElement } from 'react';
+import { afterEach } from 'vitest';
+
+// Ensure DOM cleanup after each test
+afterEach(() => {
+  cleanup();
+});
 
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
   return (

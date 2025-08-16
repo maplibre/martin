@@ -1,11 +1,11 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Header Component renders correctly 1`] = `
+exports[`Header Component > renders correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <header
     class="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50"
