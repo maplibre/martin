@@ -1,0 +1,1 @@
+tests/output/configured/cog-src1_3_1_1.png: PNG image data, 256 x 256, 8-bit/color RGBA, non-interlaced
