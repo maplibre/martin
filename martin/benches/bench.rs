@@ -42,6 +42,10 @@ impl Source for NullSource {
         false
     }
 
+    fn benefits_from_concurrent_scraping(&self) -> bool {
+        true
+    }
+
     async fn get_tile(
         &self,
         _xyz: TileCoord,

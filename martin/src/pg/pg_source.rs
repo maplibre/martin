@@ -54,6 +54,11 @@ impl Source for PgSource {
         self.info.use_url_query
     }
 
+    fn benefits_from_concurrent_scraping(&self) -> bool {
+        // pg does not parallelize queries well internally and having more requests in flight is thus beneficial
+        true
+    }
+
     async fn get_tile(
         &self,
         xyz: TileCoord,
