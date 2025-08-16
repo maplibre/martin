@@ -6,33 +6,33 @@ import Legend from "./Legend";
 import Title from "./Title";
 
 const Layers = ({ visibleLayer, toggleLayer }) => {
-	const toggleLayerHandler = (layerId) => () => {
-		toggleLayer(layerId);
-	};
+    const toggleLayerHandler = (layerId) => () => {
+        toggleLayer(layerId);
+    };
 
-	return layers.map((layer) => {
-		const isLayerVisible = visibleLayer === layer.id;
-		const [fromColor, toColor] = getColorsFromLayer(
-			layer.maplibreLayer,
-			"fill-extrusion-color",
-		);
+    return layers.map((layer) => {
+        const isLayerVisible = visibleLayer === layer.id;
+        const [fromColor, toColor] = getColorsFromLayer(
+            layer.maplibreLayer,
+            "fill-extrusion-color",
+        );
 
-		return (
-			<Layer
-				key={layer.id}
-				onClick={toggleLayerHandler(layer.id)}
-				isLayerVisible={isLayerVisible}
-			>
-				<Title>{layer.title}</Title>
-				{isLayerVisible && (
-					<>
-						<Description>{layer.description}</Description>
-						<Legend fromColor={fromColor} toColor={toColor} />
-					</>
-				)}
-			</Layer>
-		);
-	});
+        return (
+            <Layer
+                key={layer.id}
+                onClick={toggleLayerHandler(layer.id)}
+                isLayerVisible={isLayerVisible}
+            >
+                <Title>{layer.title}</Title>
+                {isLayerVisible && (
+                    <>
+                        <Description>{layer.description}</Description>
+                        <Legend fromColor={fromColor} toColor={toColor} />
+                    </>
+                )}
+            </Layer>
+        );
+    });
 };
 
 export default Layers;
