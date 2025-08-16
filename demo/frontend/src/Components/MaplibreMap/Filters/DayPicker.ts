@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export default styled.div`
   border-radius: 5px;
@@ -33,10 +33,17 @@ export default styled.div`
   .rdp-range_middle {
     background-color: #2c0ea6 !important;
   }
-  .rdp-range_start,
+
+  .rdp-range_start {
+    background: linear-gradient(to right, transparent, #2c0ea6);
+  }
+
   .rdp-range_end {
-    background-color: transparent !important;
-    color: #2c0ea6 !important;
+    background: linear-gradient(to left, transparent, #2c0ea6);
+  }
+
+  .rdp-chevron {
+    fill: #dadfee !important;
   }
 
   .rdp-day:not(
