@@ -25,8 +25,9 @@ const MaplibreMap = () => {
 	const [visibleLayer, setVisibleLayer] = useState("trips");
 
 	const getQueryParams = useCallback(() => {
-		const dateFrom = `${rangeFilter.from.toLocaleDateString()}.2017`;
-		const dateTo = rangeFilter.to !== undefined ? `${rangeFilter.to.toLocaleDateString()}.2017` : dateFrom;
+	  // has to be in dd.mm.yyyy format
+		const dateFrom = rangeFilter.from.toLocaleDateString("de");
+		const dateTo = rangeFilter.to?.toLocaleDateString("de") || dateFrom;
 
 		return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hourFilter}`);
 	}, [rangeFilter, hourFilter]);
