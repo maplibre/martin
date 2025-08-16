@@ -28,6 +28,9 @@ dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-co
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+# cargo-binstall needs a workaround due to caching
+# ci_mode might be manually set by user, so re-check the env var
+binstall_args := if env('CI', '') != '' {'--no-track'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
@@ -104,9 +107,8 @@ check:
         cargo check --all-targets -p martin --no-default-features --features $feature ;\
     done
 
-# Verify doc build
-check-doc:
-    cargo doc --no-deps --workspace
+# Test documentation generation
+check-doc:  (docs '')
 
 # Run all tests as expected by CI
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
@@ -160,18 +162,20 @@ docker-run *args:
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{args}}
 
 # Build and open code documentation
-docs:
-    cargo doc --no-deps --open
+docs *args='--open':
+    DOCS_RS=1 cargo doc --no-deps {{args}} --workspace
 
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "PWD $(pwd)"
     {{just_executable()}} --version
     rustc --version
     cargo --version
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
     npm --version
     node --version
 
@@ -184,7 +188,7 @@ flamegraph:
 fmt:
     #!/usr/bin/env bash
     set -euo pipefail
-    if rustup component list --toolchain nightly | grep rustfmt &> /dev/null; then
+    if (rustup toolchain list | grep nightly && rustup component list --toolchain nightly | grep rustfmt) &> /dev/null; then
         echo 'Reformatting Rust code using nightly Rust fmt to sort imports'
         cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
     else
@@ -427,6 +431,7 @@ assert-git-is-clean:
       >&2 echo "ERROR: git repo is no longer clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
       >&2 echo "######### git status ##########" ;\
       git status ;\
+      git --no-pager diff ;\
       exit 1 ;\
     fi
 
@@ -440,8 +445,8 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{if ci_mode == '1' {'--no-track'} else {''} }} --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} {{if ci_mode == '1' {'--no-track'} else {''} }} --locked {{args}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
         fi
     fi
 

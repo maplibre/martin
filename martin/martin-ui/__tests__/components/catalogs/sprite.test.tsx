@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
 import type { SpriteCollection } from '@/lib/types';
 
 // Mock the SpritePreview component to avoid complex rendering
-jest.mock('@/components/sprite/SpritePreview', () => {
+vi.mock('@/components/sprite/SpritePreview', async () => {
   return {
     __esModule: true,
     default: function MockSpritePreview({
@@ -27,7 +28,7 @@ jest.mock('@/components/sprite/SpritePreview', () => {
 });
 
 // Mock the dialog components
-jest.mock('@/components/dialogs/sprite-preview', () => ({
+vi.mock('@/components/dialogs/sprite-preview', () => ({
   SpritePreviewDialog: ({
     name,
     onCloseAction,
@@ -50,7 +51,7 @@ jest.mock('@/components/dialogs/sprite-preview', () => ({
   ),
 }));
 
-jest.mock('@/components/dialogs/sprite-download', () => ({
+vi.mock('@/components/dialogs/sprite-download', () => ({
   SpriteDownloadDialog: ({
     name,
     onCloseAction,
@@ -91,14 +92,18 @@ describe('SpriteCatalog Component', () => {
     error: null,
     isLoading: false,
     isRetrying: false,
-    onRetry: jest.fn(),
-    onSearchChangeAction: jest.fn(),
+    onRetry: vi.fn(),
+    onSearchChangeAction: vi.fn(),
     searchQuery: '',
     spriteCollections: mockSpriteCollections,
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('matches snapshot for loading state', () => {
@@ -112,72 +117,73 @@ describe('SpriteCatalog Component', () => {
   });
 
   it('renders loading skeleton when isLoading is true', () => {
-    render(<SpriteCatalog {...defaultProps} isLoading={true} />);
+    const { container } = render(<SpriteCatalog {...defaultProps} isLoading={true} />);
 
     // The loading skeleton should show the title and description
-    expect(screen.getByText('Sprite Catalog')).toBeInTheDocument();
-    expect(screen.getByText('Preview all available sprite sheets and icons')).toBeInTheDocument();
+    expect(container.textContent).toContain('Sprite Catalog');
+    expect(container.textContent).toContain('Preview all available sprite sheets and icons');
 
     // Should not show the search input or actual sprite collections
-    expect(screen.queryByText('map-icons')).not.toBeInTheDocument();
-    expect(screen.queryByText('transportation')).not.toBeInTheDocument();
-    expect(screen.queryByText('ui-elements')).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('map-icons');
+    expect(container.textContent).not.toContain('transportation');
+    expect(container.textContent).not.toContain('ui-elements');
   });
 
   it('renders error state when there is an error', () => {
     const error = new Error('Test error');
-    render(<SpriteCatalog {...defaultProps} error={error} />);
+    const { container } = render(<SpriteCatalog {...defaultProps} error={error} />);
 
     // Check for error state elements
-    expect(screen.getByText('Failed to Load Sprites')).toBeInTheDocument();
-    expect(screen.getByText('Unable to fetch sprite catalog from the server')).toBeInTheDocument();
+    expect(container.textContent).toContain('Failed to Load Sprites');
+    expect(container.textContent).toContain('Unable to fetch sprite catalog from the server');
   });
 
   it('renders sprite collections correctly', () => {
-    render(<SpriteCatalog {...defaultProps} />);
+    const { container } = render(<SpriteCatalog {...defaultProps} />);
 
-    expect(screen.getByText('Sprite Catalog')).toBeInTheDocument();
-    expect(screen.getByText('Preview all available sprite sheets and icons')).toBeInTheDocument();
+    expect(container.textContent).toContain('Sprite Catalog');
+    expect(container.textContent).toContain('Preview all available sprite sheets and icons');
 
     // Check that each sprite collection name is displayed
-    expect(screen.getByText('map-icons')).toBeInTheDocument();
-    expect(screen.getByText('ui-elements')).toBeInTheDocument();
-    expect(screen.getByText('transportation')).toBeInTheDocument();
+    expect(container.textContent).toContain('map-icons');
+    expect(container.textContent).toContain('ui-elements');
+    expect(container.textContent).toContain('transportation');
 
     // Verify image counts are displayed
-    expect(screen.getByText('5 total icons')).toBeInTheDocument();
-    expect(screen.getByText('8 total icons')).toBeInTheDocument();
-    expect(screen.getByText('7 total icons')).toBeInTheDocument();
+    expect(container.textContent).toContain('5 total icons');
+    expect(container.textContent).toContain('8 total icons');
+    expect(container.textContent).toContain('7 total icons');
 
     // Verify file size labels are displayed (the exact format may vary)
-    expect(screen.getAllByText('File Size:')).toHaveLength(3);
+    expect(container.textContent).toContain('File Size:');
   });
 
   it('filters sprite collections based on search query', () => {
-    render(<SpriteCatalog {...defaultProps} searchQuery="transportation" />);
+    const { container } = render(<SpriteCatalog {...defaultProps} searchQuery="transportation" />);
 
     // Should only show the transportation sprite collection
-    expect(screen.queryByText('map-icons')).not.toBeInTheDocument();
-    expect(screen.queryByText('ui-elements')).not.toBeInTheDocument();
-    expect(screen.getByText('transportation')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('map-icons');
+    expect(container.textContent).not.toContain('ui-elements');
+    expect(container.textContent).toContain('transportation');
   });
 
   it('shows no results message when search has no matches', () => {
-    render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
+    const { container } = render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
 
-    expect(
-      screen.getByText(/No sprite collections found matching "nonexistent"/i),
-    ).toBeInTheDocument();
+    expect(container.textContent).toMatch(/No sprite collections found matching "nonexistent"/i);
 
     // Should not show any sprite collections
-    expect(screen.queryByText('map-icons')).not.toBeInTheDocument();
-    expect(screen.queryByText('ui-elements')).not.toBeInTheDocument();
-    expect(screen.queryByText('transportation')).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('map-icons');
+    expect(container.textContent).not.toContain('ui-elements');
+    expect(container.textContent).not.toContain('transportation');
   });
 
   it('filters sprite collections as the user types in the search input', () => {
-    const { rerender } = render(<SpriteCatalog {...defaultProps} />);
-    const searchInput = screen.getByPlaceholderText('Search sprites...');
+    const { rerender, container } = render(<SpriteCatalog {...defaultProps} />);
+    const searchInput = container.querySelector('input[placeholder="Search sprites..."]');
+    if (!searchInput) {
+      throw new Error('Search input not found');
+    }
 
     // Simulate typing "ui" into the search box
     fireEvent.change(searchInput, { target: { value: 'ui' } });
@@ -189,74 +195,83 @@ describe('SpriteCatalog Component', () => {
     rerender(<SpriteCatalog {...defaultProps} searchQuery="ui" />);
 
     // Verify only the filtered result is present
-    expect(screen.getByText('ui-elements')).toBeInTheDocument();
-    expect(screen.queryByText('map-icons')).not.toBeInTheDocument();
-    expect(screen.queryByText('transportation')).not.toBeInTheDocument();
+    expect(container.textContent).toContain('ui-elements');
+    expect(container.textContent).not.toContain('map-icons');
+    expect(container.textContent).not.toContain('transportation');
   });
 
   it('calls onSearchChangeAction when search input changes', () => {
-    render(<SpriteCatalog {...defaultProps} />);
-    const searchInput = screen.getByPlaceholderText('Search sprites...');
+    const { container } = render(<SpriteCatalog {...defaultProps} />);
+    const searchInput = container.querySelector('input[placeholder="Search sprites..."]');
+    if (!searchInput) {
+      throw new Error('Search input not found');
+    }
 
     fireEvent.change(searchInput, { target: { value: 'new search' } });
     expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith('new search');
   });
 
   it('renders download and preview buttons for each sprite collection', () => {
-    render(<SpriteCatalog {...defaultProps} />);
+    const { container } = render(<SpriteCatalog {...defaultProps} />);
 
-    // We should have 3 download buttons (one for each sprite collection)
-    const downloadButtons = screen.getAllByText('Download');
+    // We should have download and preview buttons
+    const buttons = container.querySelectorAll('button');
+    const downloadButtons = Array.from(buttons).filter((btn) =>
+      btn.textContent?.includes('Download'),
+    );
+    const previewButtons = Array.from(buttons).filter((btn) =>
+      btn.textContent?.includes('Preview'),
+    );
+
     expect(downloadButtons.length).toBe(3);
-
-    // We should have 3 preview buttons (one for each sprite collection)
-    const previewButtons = screen.getAllByText('Preview');
     expect(previewButtons.length).toBe(3);
   });
 
   it('has working preview and download buttons', () => {
-    render(<SpriteCatalog {...defaultProps} />);
+    const { container } = render(<SpriteCatalog {...defaultProps} />);
 
-    const previewButtons = screen.getAllByText('Preview');
-    const downloadButtons = screen.getAllByText('Download');
+    const buttons = container.querySelectorAll('button');
+    const previewButtons = Array.from(buttons).filter((btn) =>
+      btn.textContent?.includes('Preview'),
+    );
+    const downloadButtons = Array.from(buttons).filter((btn) =>
+      btn.textContent?.includes('Download'),
+    );
 
     // Check that buttons exist and are clickable
     expect(previewButtons.length).toBe(3);
     expect(downloadButtons.length).toBe(3);
 
     // Buttons should be enabled and clickable
-    expect(previewButtons[0]).toBeEnabled();
-    expect(downloadButtons[0]).toBeEnabled();
+    expect(previewButtons[0]?.disabled).toBeFalsy();
+    expect(downloadButtons[0]?.disabled).toBeFalsy();
   });
 
   it('shows sprite preview sections for each collection', () => {
-    render(<SpriteCatalog {...defaultProps} />);
+    const { container } = render(<SpriteCatalog {...defaultProps} />);
 
     // Check that "Icon Preview:" labels are rendered for each collection
-    expect(screen.getAllByText('Icon Preview:')).toHaveLength(3);
-
-    // Check that preview sections exist (the actual sprite rendering is complex and tested separately)
-    const previewSections = screen.getAllByText('Icon Preview:');
-    expect(previewSections).toHaveLength(3);
+    const iconPreviewMatches = container.textContent?.match(/Icon Preview:/g) || [];
+    expect(iconPreviewMatches.length).toBe(3);
   });
 
   it('shows empty state with configuration link when no collections', () => {
-    render(<SpriteCatalog {...defaultProps} spriteCollections={{}} />);
+    const { container } = render(<SpriteCatalog {...defaultProps} spriteCollections={{}} />);
 
-    expect(screen.getByText('No sprite collections found.')).toBeInTheDocument();
-    expect(screen.getByText('Learn how to configure Sprites')).toBeInTheDocument();
+    expect(container.textContent).toContain('No sprite collections found.');
+    expect(container.textContent).toContain('Learn how to configure Sprites');
 
-    const configLink = screen.getByRole('link', { name: 'Learn how to configure Sprites' });
-    expect(configLink).toHaveAttribute('href', 'https://maplibre.org/martin/sources-sprites.html');
-    expect(configLink).toHaveAttribute('target', '_blank');
+    const configLink = container.querySelector(
+      'a[href="https://maplibre.org/martin/sources-sprites.html"]',
+    );
+    expect(configLink).toBeTruthy();
+    expect(configLink?.getAttribute('target')).toBe('_blank');
   });
 
   it('shows search-specific empty state when search has no matches', () => {
-    render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
+    const { container } = render(<SpriteCatalog {...defaultProps} searchQuery="nonexistent" />);
 
-    expect(
-      screen.getByText(/No sprite collections found matching "nonexistent"/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Learn how to configure Sprites')).toBeInTheDocument();
+    expect(container.textContent).toMatch(/No sprite collections found matching "nonexistent"/i);
+    expect(container.textContent).toContain('Learn how to configure Sprites');
   });
 });

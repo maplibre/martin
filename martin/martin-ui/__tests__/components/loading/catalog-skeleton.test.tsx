@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { render } from '../../test-utils';
 
@@ -10,8 +11,8 @@ describe('CatalogSkeleton Component', () => {
     expect(container).toMatchSnapshot();
 
     // Verify the title and description are rendered
-    expect(screen.getByText('Test Catalog')).toBeInTheDocument();
-    expect(screen.getByText('Test description')).toBeInTheDocument();
+    expect(screen.getByText('Test Catalog')).toBeTruthy();
+    expect(screen.getByText('Test description')).toBeTruthy();
 
     // By default it should render 6 skeleton items
     const cards = container.querySelectorAll('[class*="hover:shadow-lg"]');

@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`SpriteCatalog Component matches snapshot for loaded state with mock data 1`] = `
+exports[`SpriteCatalog Component > matches snapshot for loaded state with mock data 1`] = `
 <DocumentFragment>
   <div
     class="space-y-6"
@@ -132,42 +132,38 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
                 class="w-full"
               >
                 <div
-                  class="flex-wrap gap-3 justify-start items-start w-full grid grid-cols-6 min-h-[48px]"
+                  class="w-full grid grid-cols-6 min-h-[48px]"
+                  data-testid="sprite-preview"
                 >
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-pin"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    pin
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-marker"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    marker
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-building"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    building
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-park"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    park
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-poi"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    poi
                   </div>
                 </div>
               </div>
@@ -327,56 +323,50 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
                 class="w-full"
               >
                 <div
-                  class="flex-wrap gap-3 justify-start items-start w-full grid grid-cols-6 min-h-[48px]"
+                  class="w-full grid grid-cols-6 min-h-[48px]"
+                  data-testid="sprite-preview"
                 >
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-car"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    car
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-bus"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    bus
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-train"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    train
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-bicycle"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    bicycle
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-walk"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    walk
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-plane"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    plane
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-ferry"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    ferry
                   </div>
                 </div>
               </div>
@@ -536,63 +526,56 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
                 class="w-full"
               >
                 <div
-                  class="flex-wrap gap-3 justify-start items-start w-full grid grid-cols-6 min-h-[48px]"
+                  class="w-full grid grid-cols-6 min-h-[48px]"
+                  data-testid="sprite-preview"
                 >
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-arrow"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    arrow
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-plus"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    plus
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-minus"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    minus
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-close"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    close
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-menu"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    menu
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-search"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    search
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-filter"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    filter
                   </div>
                   <div
-                    class="flex flex-col items-center justify-center m-1.5 h-7 w-7"
+                    class="w-7 h-7 bg-gray-200 rounded"
+                    data-testid="sprite-icon-settings"
                   >
-                    <div
-                      class="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"
-                    />
+                    settings
                   </div>
                 </div>
               </div>
@@ -680,7 +663,7 @@ exports[`SpriteCatalog Component matches snapshot for loaded state with mock dat
 </DocumentFragment>
 `;
 
-exports[`SpriteCatalog Component matches snapshot for loading state 1`] = `
+exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
 <DocumentFragment>
   <div
     class="space-y-6"

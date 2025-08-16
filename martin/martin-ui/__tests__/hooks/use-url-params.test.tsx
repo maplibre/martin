@@ -1,10 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useURLParams } from '@/hooks/use-url-params';
 
 // Mock window.history and location
-const mockReplaceState = jest.fn();
-const mockAddEventListener = jest.fn();
-const mockRemoveEventListener = jest.fn();
+const mockReplaceState = vi.fn();
+const mockAddEventListener = vi.fn();
+const mockRemoveEventListener = vi.fn();
 
 Object.defineProperty(window, 'history', {
   value: {
@@ -25,7 +26,7 @@ Object.defineProperty(window, 'removeEventListener', {
 
 describe('useURLParams', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should initialize with default params', () => {

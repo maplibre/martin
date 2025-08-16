@@ -1,4 +1,4 @@
-// Import the functions from the correct location
+import { describe, expect, it } from 'vitest';
 import {
   aggregateEndpointGroups,
   aggregateHistogramGroups,

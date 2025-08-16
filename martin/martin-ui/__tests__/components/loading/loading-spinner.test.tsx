@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { LoadingSpinner } from '@/components/loading/loading-spinner';
 import { render } from '../../test-utils';
 
