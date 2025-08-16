@@ -107,11 +107,11 @@ impl Image {
             let tile_min_x = origin_x + f64::from(col * self.tile_size.0) * self.resolution.0;
             let tile_max_y = origin_y - f64::from(row * self.tile_size.1) * self.resolution.1.abs();
 
-            let offset_x_geo = tile_min_x - bbox[0];
-            let offset_y_geo = bbox[3] - tile_max_y; // Use window's max Y
+            let geo_offset_x = tile_min_x - bbox[0];
+            let geo_offset_y = bbox[3] - tile_max_y; // Use window's max Y
 
-            let offset_x = (offset_x_geo / self.resolution.0).round() as i64;
-            let offset_y = (offset_y_geo / self.resolution.1.abs()).round() as i64;
+            let offset_x = (geo_offset_x / self.resolution.0).round() as i64;
+            let offset_y = (geo_offset_y / self.resolution.1.abs()).round() as i64;
 
             let color_type = decoder
                 .colortype()
@@ -321,22 +321,6 @@ fn tiles_intersected(
     }
 
     covered_tiles
-}
-
-/// Calculates the offset in pixels between two points
-#[allow(clippy::cast_possible_truncation)]
-fn offset_between(
-    (to_x, to_y): (f64, f64),
-    (from_x, from_y): (f64, f64),
-    (res_x, res_y): (f64, f64),
-) -> (i64, i64) {
-    let offset_x = (to_x - from_x) / res_x;
-    let offset_y = (from_y - to_y) / res_y;
-
-    let offset_x = offset_x.round() as i64;
-    let offset_y = offset_y.round() as i64;
-
-    (offset_x, offset_y)
 }
 
 /// Converts RGB/RGBA tile data to PNG format.
