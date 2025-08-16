@@ -17,44 +17,34 @@ Martin can also serve raster sources like local [COG(Cloud Optimized GeoTIFF)](h
 * Deflate
 * PackBits
 
-## Run Martin with CLI to serve cog files
+## Supported Projection
 
-```bash
-# Configured with a directory containing `*.tif` or `*.tiff` TIFF files.
-martin /with/tiff/dir1 /with/tiff/dir2
-# Configured with dedicated TIFF file
-martin /path/to/target1.tif /path/to/target2.tiff
-# Configured with a combination of directories and dedicated TIFF files.
-martin /with/tiff/files /path/to/target1.tif /path/to/target2.tiff
-```
+Currently we only support COGS with [EPSG:3857](https://epsg.io/3857) by enable the `auto-web` option.
 
-## Run Martin with configuration file
+It's beacause the [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) inside each COG file is highly customized for its extent and tilesize. It's not aligned
+with any well knowed TIle Matrix Set.
+
+To load COG file, there are two approaches generally:
+
+1. The client(`Maplibre`, `OpenLayers`,etc) load COG file with the specific customized [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72). As martin support various data sources we need to find one general way to support `not-3857` projections and to tell clients the TMS. [Join our disscussion there](https://github.com/maplibre/martin/issues/343).
+2. Martin serve COG files with well known [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) and do the clipping internally. Currently we support the [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) with `auto-web` configuration.
+
+## configuration file
 
 ```yml
-keep_alive: 75
-
-# The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
-
-# Number of web server workers
-worker_processes: 8
-
-# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
-cache_size_mb: 8
-
-# Database configuration. This can also be a list of PG configs.
-
 cog:
-  paths:
-    # scan this whole dir, matching all *.tif and *.tiff files
-    - /dir-path
-    # specific TIFF file will be published as a cog source
-    - /path/to/target1.tif
-    - /path/to/target2.tiff
+  # Default false
+  # If enabled, martin will automatically serve COG as a [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) service, the tiles will be cliped and merged internally to be aligned with the Web Mercator grid.
+  # Note: Just work for COG files with a Web Mercator CRS (EPSG:3857).
+  auto_web: false
   sources:
-    # named source matching source name to a single file
-     cog-src1: /path/to/cog1.tif
-     cog-src2: /path/to/cog2.tif
+    cog-src2: tests/fixtures/cog/rgb_u8.tif
+    cog-src1: tests/fixtures/cog/rgba_u8.tif
+    # Test COG with auto_webmercator enabled
+    cog-auto-web:
+      path: tests/fixtures/cog/rgba_u8_nodata.tiff
+      # inline option. Would override the global dauto_web.
+      auto_web: true
 ```
 
 ## About COG
