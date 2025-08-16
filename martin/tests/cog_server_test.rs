@@ -29,7 +29,7 @@ fn test_get(path: &str) -> TestRequest {
 
 #[actix_rt::test]
 async fn test_cog_global_on_inline_off() {
-    let config = indoc! {r#"
+    let config = indoc! {r"
         cog:
             auto_web: true
             sources:
@@ -38,7 +38,7 @@ async fn test_cog_global_on_inline_off() {
                 cog_off:
                     path: ../tests/fixtures/cog/rgba_u8.tif
                     auto_web: false
-    "#};
+    "};
 
     let app = create_app! { config };
     let req = test_get("/catalog").to_request();
@@ -82,7 +82,7 @@ async fn test_cog_global_on_inline_off() {
 
 #[actix_rt::test]
 async fn test_cog_global_off_inline_on() {
-    let config = indoc! {r#"
+    let config = indoc! {r"
         cog:
             auto_web: false
             sources:
@@ -91,7 +91,7 @@ async fn test_cog_global_off_inline_on() {
                     auto_web: true
                 cog_off:
                     path: ../tests/fixtures/cog/rgba_u8.tif
-    "#};
+    "};
 
     let app = create_app! { config };
     let req = test_get("/catalog").to_request();
@@ -135,7 +135,7 @@ async fn test_cog_global_off_inline_on() {
 
 #[actix_rt::test]
 async fn test_cog_global_unset_inline_on() {
-    let config = indoc! {r#"
+    let config = indoc! {r"
         cog:
             sources:
                 cog_on:
@@ -143,7 +143,7 @@ async fn test_cog_global_unset_inline_on() {
                     auto_web: true
                 cog_off:
                     path: ../tests/fixtures/cog/rgba_u8.tif
-    "#};
+    "};
 
     let app = create_app! { config };
     let req = test_get("/catalog").to_request();

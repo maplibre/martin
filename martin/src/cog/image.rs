@@ -540,7 +540,7 @@ mod tests {
     }
 
     // test bbox which aligned with tile boundary
-    // these are edge cases need to be careful
+    // these are edge cases need to be ensure
     #[rstest]
     #[case(0, 0, 0, 0, 0)]
     #[case(1, 0, 0, 0, 0)]
