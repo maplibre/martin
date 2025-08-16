@@ -151,6 +151,7 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
+                        config: serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
                     })
                 ),
                 (
@@ -161,6 +162,7 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
+                        config: serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
                     })
                 ),
             ]))
