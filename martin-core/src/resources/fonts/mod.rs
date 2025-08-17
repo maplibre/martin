@@ -11,7 +11,7 @@
 //! use martin_core::config::OptOneMany;
 //! use std::path::PathBuf;
 //!
-//! let mut dirs = OptOneMany::from(vec![PathBuf::from("/usr/share/fonts")]);
+//! let mut dirs = OptOneMany::new(vec![PathBuf::from("/usr/share/fonts")]);
 //! let sources = FontSources::resolve(&mut dirs)?;
 //! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255)?;
 //! # Ok::<(), martin_core::fonts::FontError>(())
@@ -23,7 +23,6 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use crate::config::OptOneMany;
 use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
@@ -33,6 +32,8 @@ use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+
+use crate::config::OptOneMany;
 
 /// Maximum Unicode codepoint supported (U+FFFF - Basic Multilingual Plane).
 const MAX_UNICODE_CP: usize = 0xFFFF;
@@ -50,7 +51,7 @@ const RADIUS: usize = 8;
 /// Cutoff threshold for SDF generation (0.0 to 1.0).
 const CUTOFF: f64 = 0.25_f64;
 /// Maximum Unicode codepoint range ID.
-/// 
+///
 /// Each range is 256 codepoints long, so the highest range ID is 0xFFFF / 256 = 255.
 const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 
@@ -61,7 +62,7 @@ pub use error::FontError;
 type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
 
 /// Extracts available codepoints from a font face.
-/// 
+///
 /// Returns `None` if the font contains no usable glyphs.
 fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     let mut codepoints = BitSet::with_capacity(MAX_UNICODE_CP);
@@ -101,7 +102,7 @@ pub struct CatalogFontEntry {
     /// Font family name (e.g., "Arial").
     pub family: String,
     /// Font style (e.g., "Bold", "Italic").
-    /// 
+    ///
     /// None for regular style.
     pub style: Option<String>,
     /// Total number of glyphs in this font.
@@ -159,7 +160,7 @@ impl FontSources {
     }
 
     /// Generates Protocol Buffer encoded font data for a 256-character Unicode range.
-    /// 
+    ///
     /// Combines multiple fonts (comma-separated) with later fonts filling gaps.
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
     #[allow(clippy::cast_possible_truncation)]
