@@ -265,10 +265,6 @@ pub mod tests {
             Box::new(self.clone())
         }
 
-        fn benefits_from_concurrent_scraping(&self) -> bool {
-            true
-        }
-
         async fn get_tile(
             &self,
             _xyz: TileCoord,

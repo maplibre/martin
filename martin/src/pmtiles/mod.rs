@@ -68,7 +68,7 @@ impl DirectoryCache for PmtCache {
 }
 
 macro_rules! impl_pmtiles_source {
-    ($name: ident, $backend: ty, $path: ty, $display_path: path, $err: ident) => {
+    ($name: ident, $backend: ty, $path: ty, $display_path: path, $err: ident, $concurrent: expr $(,)?) => {
         #[derive(Clone)]
         pub struct $name {
             id: String,
@@ -174,9 +174,7 @@ macro_rules! impl_pmtiles_source {
             }
 
             fn benefits_from_concurrent_scraping(&self) -> bool {
-                // having multiple http requests in flight is beneficial
-                // when using local disks, the benefits are less clear
-                stringify!($backend) != "MmapBackend"
+                $concurrent
             }
 
             async fn get_tile(
@@ -216,7 +214,9 @@ impl_pmtiles_source!(
     HttpBackend,
     Url,
     identity,
-    InvalidUrlMetadata
+    InvalidUrlMetadata,
+    // having multiple http requests in flight is beneficial
+    true,
 );
 
 impl PmtHttpSource {
@@ -228,7 +228,15 @@ impl PmtHttpSource {
     }
 }
 
-impl_pmtiles_source!(PmtS3Source, AwsS3Backend, Url, identity, InvalidUrlMetadata);
+impl_pmtiles_source!(
+    PmtS3Source,
+    AwsS3Backend,
+    Url,
+    identity,
+    InvalidUrlMetadata,
+    // having multiple http requests in flight is beneficial
+    true,
+);
 
 impl PmtS3Source {
     pub async fn new(
@@ -273,7 +281,9 @@ impl_pmtiles_source!(
     MmapBackend,
     PathBuf,
     Path::display,
-    InvalidMetadata
+    InvalidMetadata,
+    // when using local disks, it might not be beneficial to do concurrent calls in martin-cp
+    false,
 );
 
 impl PmtFileSource {

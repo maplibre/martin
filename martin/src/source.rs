@@ -57,7 +57,7 @@ impl TileSources {
 
     /// Get a list of sources, and the tile info for the merged sources.
     /// Ensure that all sources have the same format and encoding.
-    /// If zoom is specified, filter out sources that do not support it.
+    /// If `zoom` is specified, filter out sources that do not support it.
     pub fn get_sources(
         &self,
         source_ids: &str,
@@ -135,7 +135,9 @@ pub trait Source: Send + Debug {
     /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
     ///
     /// If this returns `true`, martin-cp will suggest concurrent scraping.
-    fn benefits_from_concurrent_scraping(&self) -> bool;
+    fn benefits_from_concurrent_scraping(&self) -> bool {
+        false
+    }
 
     async fn get_tile(
         &self,
