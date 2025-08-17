@@ -30,10 +30,6 @@ pub mod srv;
 #[cfg(feature = "styles")]
 pub mod styles;
 
-#[cfg(test)]
-#[path = "utils/tests.rs"]
-mod tests;
-
 // Ensure README.md contains valid code
 #[cfg(doctest)]
 mod test_readme {

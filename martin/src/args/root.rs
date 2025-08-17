@@ -230,8 +230,6 @@ mod tests {
     fn cli_with_config() {
         use martin_core::config::OptOneMany;
 
-        use crate::tests::some;
-
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
             config: Some(PathBuf::from("c.toml")),
@@ -250,7 +248,7 @@ mod tests {
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
             postgres: OptOneMany::One(crate::pg::PgConfig {
-                connection_string: some("postgres://connection"),
+                connection_string: Some("postgres://connection".to_string()),
                 ..Default::default()
             }),
             ..Default::default()

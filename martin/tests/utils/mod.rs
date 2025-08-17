@@ -11,11 +11,6 @@ use martin::Config;
 use martin_core::config::env::FauxEnv;
 pub use pg_utils::*;
 
-#[path = "../../src/utils/tests.rs"]
-mod tests;
-#[allow(clippy::wildcard_imports)]
-pub use tests::*;
-
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {
     let env = if let Ok(db_url) = std::env::var("DATABASE_URL") {
