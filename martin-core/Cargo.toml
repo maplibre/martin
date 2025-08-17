@@ -12,7 +12,10 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+martin-tile-utils.workspace = true
 serde.workspace = true
+serde_with.workspace = true
 
 [lints]
 workspace = true

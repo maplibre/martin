@@ -5,3 +5,6 @@
 
 /// Configuration utilities.
 pub mod config;
+
+/// Tile sources
+pub mod tiles;

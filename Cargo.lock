@@ -3572,7 +3572,10 @@ dependencies = [
 name = "martin-core"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "martin-tile-utils",
  "serde",
+ "serde_with",
 ]
 
 [[package]]
