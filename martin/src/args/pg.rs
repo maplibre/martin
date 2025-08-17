@@ -3,12 +3,12 @@ use std::time::Duration;
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::{info, warn};
+use martin_core::config::env::Env;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
-use crate::args::environment::Env;
 use crate::pg::{POOL_SIZE_DEFAULT, PgConfig, PgSslCerts};
 
 // Must match the help string for BoundsType::Quick
@@ -229,9 +229,11 @@ fn is_postgresql_string(s: &str) -> bool {
 mod tests {
     use std::path::PathBuf;
 
+    use martin_core::config::env::FauxEnv;
+
     use super::*;
     use crate::MartinError;
-    use crate::tests::{FauxEnv, os, some};
+    use crate::tests::{os, some};
 
     #[test]
     fn test_extract_conn_strings() {

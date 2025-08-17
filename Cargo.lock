@@ -3572,7 +3572,9 @@ dependencies = [
 name = "martin-core"
 version = "0.1.0"
 dependencies = [
+ "log",
  "serde",
+ "subst",
 ]
 
 [[package]]

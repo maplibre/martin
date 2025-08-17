@@ -6,11 +6,11 @@ use clap::builder::styling::AnsiColor;
 use log::warn;
 #[cfg(feature = "fonts")]
 use martin_core::config::OptOneMany;
+use martin_core::config::env::Env;
 
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
 use crate::args::connections::Arguments;
-use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
 #[cfg(any(
@@ -204,11 +204,11 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 mod tests {
 
     use insta::assert_yaml_snapshot;
+    use martin_core::config::env::FauxEnv;
 
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::args::PreferredEncoding;
-    use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);

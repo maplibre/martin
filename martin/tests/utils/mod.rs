@@ -8,6 +8,7 @@ use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
 use log::warn;
 use martin::Config;
+use martin_core::config::env::FauxEnv;
 pub use pg_utils::*;
 
 #[path = "../../src/utils/tests.rs"]

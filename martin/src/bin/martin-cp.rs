@@ -15,12 +15,13 @@ use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled, warn};
-use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
+use martin::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{
     Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, read_config,
 };
+use martin_core::config::env::OsEnv;
 use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;

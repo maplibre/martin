@@ -13,6 +13,8 @@ homepage.workspace = true
 
 [dependencies]
 serde.workspace = true
+log.workspace = true
+subst.workspace = true
 
 [lints]
 workspace = true
