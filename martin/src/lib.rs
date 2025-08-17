@@ -30,15 +30,6 @@ pub mod srv;
 #[cfg(feature = "styles")]
 pub mod styles;
 
-#[cfg(test)]
-#[path = "utils/tests.rs"]
-mod tests;
-
-// tests is used from tests in other modules, and it uses this crate's object.
-// Must make it accessible as carte::Env from both places when testing.
-#[cfg(test)]
-pub use crate::args::Env;
-
 // Ensure README.md contains valid code
 #[cfg(doctest)]
 mod test_readme {

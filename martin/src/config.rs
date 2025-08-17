@@ -270,9 +270,10 @@ where
 #[cfg(feature = "postgres")]
 #[cfg(test)]
 pub mod tests {
+    use martin_core::config::env::FauxEnv;
+
     use super::*;
     use crate::config::Config;
-    use crate::tests::FauxEnv;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
