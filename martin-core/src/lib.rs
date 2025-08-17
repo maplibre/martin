@@ -6,5 +6,7 @@
 /// Configuration utilities.
 pub mod config;
 
+#[cfg(feature = "fonts")]
 mod resources;
+#[cfg(feature = "fonts")]
 pub use resources::*;

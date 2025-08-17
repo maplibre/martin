@@ -5,4 +5,5 @@
 //! - [ ] sprites
 //! - [ ] styles
 
+#[cfg(feature = "fonts")]
 pub mod fonts;
