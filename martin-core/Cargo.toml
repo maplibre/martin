@@ -1,0 +1,18 @@
+[package]
+name = "martin-core"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Basic building blocks of MapLibre's Martin tile server."
+keywords = ["maps", "tiles", "mvt", "tileserver"]
+categories = ["science::geo", "parsing"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[lints]
+workspace = true

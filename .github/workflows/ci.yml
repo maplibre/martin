@@ -50,7 +50,7 @@ jobs:
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
@@ -65,6 +65,7 @@ jobs:
       - run: just check-doc
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
+        with: { exclude: martin-core }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -93,7 +94,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with: { set-safe-directory: false }
       - name: Install zig
         uses: korandoru/setup-zig@v1
@@ -155,7 +156,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with: { set-safe-directory: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
@@ -341,9 +342,9 @@ jobs:
             os: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - run: rustup update stable && rustup default stable
-      # the macos x86 runners are 3x slower than all other runners.
+      # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
       - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -386,7 +387,7 @@ jobs:
     needs: [ musl-build ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@v5
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
@@ -451,7 +452,7 @@ jobs:
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Init database
         env:
           PGPORT: ${{ env.PGPORT }}
@@ -574,7 +575,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2 # for the unit-test to be run against postgres
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Run NGINX
@@ -664,7 +665,7 @@ jobs:
     needs: [ lint-debug-test, test-multi-os, test-with-svc, test-aws-lambda ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@v5
         with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
@@ -758,7 +759,7 @@ jobs:
         #   Access Pull requests: Read and write
       - name: Checkout maplibre/homebrew-martin
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: maplibre/homebrew-martin
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above

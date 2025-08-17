@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use log::warn;
+use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
@@ -15,7 +16,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::utils::on_slow;
 use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
-use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
+use crate::utils::IdResolver;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -182,6 +183,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use indoc::indoc;
+    use martin_core::config::OptOneMany::{Many, One};
     use tilejson::Bounds;
 
     use super::*;
@@ -190,7 +192,6 @@ mod tests {
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
     use crate::tests::some;
-    use crate::utils::OptOneMany::{Many, One};
 
     #[test]
     fn parse_pg_one() {
