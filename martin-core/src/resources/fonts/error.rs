@@ -33,7 +33,7 @@ pub enum FontError {
     )]
     InvalidFontRange(u32, u32),
 
-    /// An error occurred in the FreeType font rendering library.
+    /// An error occurred in the `FreeType` font rendering library.
     #[error(transparent)]
     FreeType(#[from] pbf_font_tools::freetype::Error),
 

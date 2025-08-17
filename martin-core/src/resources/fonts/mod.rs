@@ -40,7 +40,7 @@ const MAX_UNICODE_CP: usize = 0xFFFF;
 const CP_RANGE_SIZE: usize = 256;
 /// Font size in pixels for SDF glyph rendering.
 const FONT_SIZE: usize = 24;
-/// Font height in FreeType's 26.6 fixed-point format.
+/// Font height in `FreeType`'s 26.6 fixed-point format.
 #[allow(clippy::cast_possible_wrap)]
 const CHAR_HEIGHT: isize = (FONT_SIZE as isize) << 6;
 /// Buffer size in pixels around each glyph for SDF calculation.
@@ -91,7 +91,7 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     }
 }
 
-/// Catalog mapping font names to metadata (e.g., "Arial" -> CatalogFontEntry).
+/// Catalog mapping font names to metadata (e.g., "Arial" -> `CatalogFontEntry`).
 pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 /// Font metadata including family, style, glyph count, and Unicode range.
