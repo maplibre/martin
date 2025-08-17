@@ -46,7 +46,7 @@ dependencies = [
  "actix-utils",
  "base64 0.22.1",
  "bitflags 2.9.1",
- "brotli 8.0.1",
+ "brotli 8.0.2",
  "bytes",
  "bytestring",
  "derive_more 2.0.1",
@@ -1115,7 +1115,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_urlencoded",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tokio",
  "tokio-util",
  "tower-service",
@@ -1147,9 +1147,9 @@ dependencies = [
 
 [[package]]
 name = "brotli"
-version = "8.0.1"
+version = "8.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9991eea70ea4f293524138648e41ee89b0b2b12ddef3b255effa43c8056e0e0d"
+checksum = "4bd8b9603c7aa97359dbd97ecf258968c95f3adddd6db2f7e7a5bef101c84560"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
@@ -3558,7 +3558,7 @@ dependencies = [
  "subst",
  "tempfile",
  "testcontainers-modules",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tiff",
  "tilejson",
  "tokio",
@@ -3580,7 +3580,7 @@ name = "martin-tile-utils"
 version = "0.6.3"
 dependencies = [
  "approx",
- "brotli 8.0.1",
+ "brotli 8.0.2",
  "flate2",
  "rstest",
  "serde",
@@ -3634,7 +3634,7 @@ dependencies = [
  "sqlite-compressions",
  "sqlite-hashes",
  "sqlx",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tilejson",
  "tokio",
  "xxhash-rust",
@@ -4088,7 +4088,7 @@ dependencies = [
  "prost-build",
  "protoc-bin-vendored",
  "sdf_glyph_renderer",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tokio",
 ]
 
@@ -4257,7 +4257,7 @@ dependencies = [
  "rust-s3",
  "serde",
  "serde_json",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tilejson",
  "tokio",
  "varint-rs",
@@ -4384,7 +4384,7 @@ dependencies = [
  "spin 0.10.0",
  "symbolic-demangle",
  "tempfile",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
 ]
 
 [[package]]
@@ -4445,7 +4445,7 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
 ]
 
 [[package]]
@@ -4614,7 +4614,7 @@ dependencies = [
  "rustc-hash 2.1.1",
  "rustls 0.23.31",
  "socket2 0.5.10",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tokio",
  "tracing",
  "web-time",
@@ -4635,7 +4635,7 @@ dependencies = [
  "rustls 0.23.31",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tinyvec",
  "tracing",
  "web-time",
@@ -5310,7 +5310,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6a391d25396126750d0e42993e33727291db4d489d8b0d0138659acb71510d0"
 dependencies = [
  "freetype-rs",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
 ]
 
 [[package]]
@@ -5755,7 +5755,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "smallvec",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -5837,7 +5837,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tracing",
  "whoami",
 ]
@@ -5874,7 +5874,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tracing",
  "whoami",
 ]
@@ -5898,7 +5898,7 @@ dependencies = [
  "serde",
  "serde_urlencoded",
  "sqlx-core",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tracing",
  "url",
 ]
@@ -6136,7 +6136,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
  "tokio",
  "tokio-stream",
  "tokio-tar",
@@ -6164,11 +6164,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.14"
+version = "2.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b0949c3a6c842cbde3f1686d6eea5a010516deb7085f79db747562d4102f41e"
+checksum = "80d76d3f064b981389ecb4b6b7f45a0bf9fdac1d5b9204c7bd6714fecc302850"
 dependencies = [
- "thiserror-impl 2.0.14",
+ "thiserror-impl 2.0.15",
 ]
 
 [[package]]
@@ -6184,9 +6184,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.14"
+version = "2.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc5b44b4ab9c2fdd0e0512e6bece8388e214c0749f5862b114cc5b7a25daf227"
+checksum = "44d29feb33e986b6ea906bd9c3559a856983f92371b3eaa5e83782a351623de0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6224,7 +6224,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_tuple",
- "thiserror 2.0.14",
+ "thiserror 2.0.15",
 ]
 
 [[package]]
