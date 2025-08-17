@@ -191,7 +191,6 @@ mod tests {
     use crate::config::tests::assert_config;
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
-    use crate::tests::some;
 
     #[test]
     fn parse_pg_one() {
@@ -202,7 +201,7 @@ mod tests {
         "},
             &Config {
                 postgres: One(PgConfig {
-                    connection_string: some("postgresql://postgres@localhost/db"),
+                    connection_string: Some("postgresql://postgres@localhost/db".to_string()),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
                 }),
@@ -222,12 +221,16 @@ mod tests {
             &Config {
                 postgres: Many(vec![
                     PgConfig {
-                        connection_string: some("postgres://postgres@localhost:5432/db"),
+                        connection_string: Some(
+                            "postgres://postgres@localhost:5432/db".to_string(),
+                        ),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
                     PgConfig {
-                        connection_string: some("postgresql://postgres@localhost:5433/db"),
+                        connection_string: Some(
+                            "postgresql://postgres@localhost:5433/db".to_string(),
+                        ),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
@@ -274,7 +277,7 @@ mod tests {
         "},
             &Config {
                 postgres: One(PgConfig {
-                    connection_string: some("postgres://postgres@localhost:5432/db"),
+                    connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                     default_srid: Some(4326),
                     pool_size: Some(20),
                     max_feature_count: Some(100),
@@ -291,7 +294,7 @@ mod tests {
                             extent: Some(2048),
                             buffer: Some(10),
                             clip_geom: Some(false),
-                            geometry_type: some("GEOMETRY"),
+                            geometry_type: Some("GEOMETRY".to_string()),
                             properties: Some(BTreeMap::from([(
                                 "gid".to_string(),
                                 "int4".to_string(),

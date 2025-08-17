@@ -13,9 +13,11 @@ homepage.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+log.workspace = true
 martin-tile-utils.workspace = true
 serde.workspace = true
 serde_with.workspace = true
+subst.workspace = true
 
 [lints]
 workspace = true
