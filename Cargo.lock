@@ -3516,7 +3516,6 @@ dependencies = [
  "approx",
  "async-trait",
  "aws-config",
- "bit-set",
  "clap",
  "criterion",
  "ctor",
@@ -3536,7 +3535,6 @@ dependencies = [
  "mbtiles",
  "moka",
  "num_cpus",
- "pbf_font_tools",
  "pmtiles",
  "png",
  "postgis",
@@ -3572,9 +3570,16 @@ dependencies = [
 name = "martin-core"
 version = "0.1.0"
 dependencies = [
+ "bit-set",
+ "dashmap",
+ "itertools 0.14.0",
  "log",
+ "pbf_font_tools",
+ "regex",
  "serde",
+ "serde_with",
  "subst",
+ "thiserror 2.0.15",
 ]
 
 [[package]]

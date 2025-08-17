@@ -5,3 +5,6 @@
 
 /// Configuration utilities.
 pub mod config;
+
+mod resources;
+pub use resources::*;

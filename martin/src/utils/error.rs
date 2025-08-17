@@ -79,7 +79,7 @@ pub enum MartinError {
 
     #[cfg(feature = "fonts")]
     #[error(transparent)]
-    FontError(#[from] crate::fonts::FontError),
+    FontError(#[from] martin_core::fonts::FontError),
 
     #[cfg(feature = "styles")]
     #[error(transparent)]

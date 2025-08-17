@@ -8,7 +8,7 @@ use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use log::{debug, info, warn};
-use martin_core::config::OptOneMany;
+use crate::config::OptOneMany;
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
@@ -60,12 +60,6 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct FontSources {
-    fonts: DashMap<String, FontSource>,
-    masks: Vec<BitSet>,
-}
-
 pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 #[serde_with::skip_serializing_none]
@@ -76,6 +70,12 @@ pub struct CatalogFontEntry {
     pub glyphs: usize,
     pub start: usize,
     pub end: usize,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FontSources {
+    fonts: DashMap<String, FontSource>,
+    masks: Vec<BitSet>,
 }
 
 impl FontSources {

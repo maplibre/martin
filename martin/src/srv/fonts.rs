@@ -7,7 +7,7 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use serde::Deserialize;
 
-use crate::fonts::{FontError, FontSources};
+use martin_core::fonts::{FontError, FontSources};
 use crate::srv::server::map_internal_error;
 
 #[derive(Deserialize, Debug)]
