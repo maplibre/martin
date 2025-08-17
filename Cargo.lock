@@ -3531,6 +3531,7 @@ dependencies = [
  "json-patch",
  "lambda-web",
  "log",
+ "martin-core",
  "martin-tile-utils",
  "mbtiles",
  "moka",
@@ -3565,6 +3566,13 @@ dependencies = [
  "url",
  "walkdir",
  "xxhash-rust",
+]
+
+[[package]]
+name = "martin-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
