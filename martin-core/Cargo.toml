@@ -13,7 +13,7 @@ homepage.workspace = true
 
 [features]
 default = ["fonts"]
-fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex", "dep:itertools","dep:dashmap", "dep:serde_with"]
+fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex", "dep:itertools","dep:dashmap", "dep:serde_with", "dep:thiserror"]
 
 [dependencies]
 bit-set = { workspace = true, optional = true }
@@ -23,7 +23,7 @@ regex = { workspace = true, optional = true }
 serde.workspace = true
 subst.workspace = true
 serde_with = { workspace = true, optional = true }
-thiserror.workspace = true
+thiserror = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 
