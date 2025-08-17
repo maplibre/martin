@@ -1,37 +1,68 @@
+//! Font processing and serving for map tile rendering.
+//!
+//! Provides font discovery, cataloging, and SDF (Signed Distance Field) glyph generation
+//! in Protocol Buffer format for map rendering clients. Operates on 256-character Unicode
+//! ranges (e.g., 0-255, 256-511) for efficient caching.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use martin_core::fonts::FontSources;
+//! use martin_core::config::OptOneMany;
+//! use std::path::PathBuf;
+//!
+//! let mut dirs = OptOneMany::from(vec![PathBuf::from("/usr/share/fonts")]);
+//! let sources = FontSources::resolve(&mut dirs)?;
+//! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255)?;
+//! # Ok::<(), martin_core::fonts::FontError>(())
+//! ```
+
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
+use crate::config::OptOneMany;
 use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use log::{debug, info, warn};
-use crate::config::OptOneMany;
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
+/// Maximum Unicode codepoint supported (U+FFFF - Basic Multilingual Plane).
 const MAX_UNICODE_CP: usize = 0xFFFF;
+/// Size of each Unicode codepoint range (256 characters).
 const CP_RANGE_SIZE: usize = 256;
+/// Font size in pixels for SDF glyph rendering.
 const FONT_SIZE: usize = 24;
+/// Font height in FreeType's 26.6 fixed-point format.
 #[allow(clippy::cast_possible_wrap)]
 const CHAR_HEIGHT: isize = (FONT_SIZE as isize) << 6;
+/// Buffer size in pixels around each glyph for SDF calculation.
 const BUFFER_SIZE: usize = 3;
+/// Radius in pixels for SDF distance calculation.
 const RADIUS: usize = 8;
+/// Cutoff threshold for SDF generation (0.0 to 1.0).
 const CUTOFF: f64 = 0.25_f64;
-
+/// Maximum Unicode codepoint range ID.
+/// 
 /// Each range is 256 codepoints long, so the highest range ID is 0xFFFF / 256 = 255.
 const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 
 mod error;
 pub use error::FontError;
 
+/// Glyph information: (codepoints, count, ranges, first, last).
 type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
 
+/// Extracts available codepoints from a font face.
+/// 
+/// Returns `None` if the font contains no usable glyphs.
 fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     let mut codepoints = BitSet::with_capacity(MAX_UNICODE_CP);
     let mut spans = Vec::new();
@@ -60,25 +91,38 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     }
 }
 
+/// Catalog mapping font names to metadata (e.g., "Arial" -> CatalogFontEntry).
 pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
+/// Font metadata including family, style, glyph count, and Unicode range.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogFontEntry {
+    /// Font family name (e.g., "Arial").
     pub family: String,
+    /// Font style (e.g., "Bold", "Italic").
+    /// 
+    /// None for regular style.
     pub style: Option<String>,
+    /// Total number of glyphs in this font.
     pub glyphs: usize,
+    /// First Unicode codepoint available.
     pub start: usize,
+    /// Last Unicode codepoint available.
     pub end: usize,
 }
 
+/// Thread-safe font manager for discovery, cataloging, and serving fonts as Protocol Buffers.
 #[derive(Debug, Clone, Default)]
 pub struct FontSources {
+    /// Map of font name to font source data.
     fonts: DashMap<String, FontSource>,
+    /// Pre-computed bitmasks for each 256-character Unicode range.
     masks: Vec<BitSet>,
 }
 
 impl FontSources {
+    /// Discovers and loads fonts from the specified directories by recursively scanning for `.ttf`, `.otf`, and `.ttc` files.
     pub fn resolve(config: &mut OptOneMany<PathBuf>) -> Result<Self, FontError> {
         if config.is_empty() {
             return Ok(Self::default());
@@ -105,16 +149,19 @@ impl FontSources {
         Ok(Self { fonts, masks })
     }
 
+    /// Returns a catalog of all loaded fonts
     #[must_use]
     pub fn get_catalog(&self) -> FontCatalog {
         self.fonts
             .iter()
             .map(|v| (v.key().clone(), v.catalog_entry.clone()))
-            .sorted_by(|(a, _), (b, _)| a.cmp(b))
             .collect()
     }
 
-    /// Given a list of IDs in a format "id1,id2,id3", return a combined font.
+    /// Generates Protocol Buffer encoded font data for a 256-character Unicode range.
+    /// 
+    /// Combines multiple fonts (comma-separated) with later fonts filling gaps.
+    /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
     #[allow(clippy::cast_possible_truncation)]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
         if start > end {
@@ -188,14 +235,21 @@ impl FontSources {
     }
 }
 
+/// Internal font source data including path, face index, and available codepoints.
 #[derive(Clone, Debug)]
 pub struct FontSource {
+    /// Path to the font file.
     path: PathBuf,
+    /// Face index within the font file (for .ttc collections).
     face_index: isize,
+    /// Unicode codepoints this font supports.
     codepoints: BitSet,
+    /// Font metadata for the catalog.
     catalog_entry: CatalogFontEntry,
 }
 
+/// Recursively discovers fonts in directories and individual files.
+/// Supports `.ttf`, `.otf`, and `.ttc` files.
 fn recurse_dirs(
     lib: &Library,
     path: PathBuf,
@@ -230,6 +284,8 @@ fn recurse_dirs(
     Ok(())
 }
 
+/// Parses a font file and extracts all faces.
+/// Font names are normalized (family + style, e.g., "Arial Bold").
 fn parse_font(
     lib: &Library,
     fonts: &mut DashMap<String, FontSource>,
