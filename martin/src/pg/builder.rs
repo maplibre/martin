@@ -126,9 +126,7 @@ impl PgBuilder {
         let mut pending = Vec::new();
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
-            if let Some(extent) = cfg_inf.extent
-                && extent == 0
-            {
+            if cfg_inf.extent == Some(0) {
                 return Err(InvalidTableExtent(id.to_string(), cfg_inf.format_id()));
             }
 
