@@ -1,120 +1,108 @@
 /* biome-ignore-all lint/suspicious/noExplicitAny: this is a legacy component and needs to be redone */
 import maplibregl from 'maplibre-gl';
-import { PureComponent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import type { DateRange } from 'react-day-picker';
 import { MAP_STYLE } from '../../config/constants';
 import layers from '../../config/layers';
-import dateConverter from '../../utils/dateConverter';
-
 import Container from './Container';
 import Filters from './Filters';
 
 const mapStyle = { height: '615px', marginLeft: '350px' };
 
-class MaplibreMap extends PureComponent<
-  Record<string, never>,
-  { visibleLayer: any; range: any; hour: any }
-> {
-  map: any;
-  nav: any;
+const MaplibreMap = () => {
+  const mapRef = useRef<any>(null);
+  const navRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
-  constructor(props: Record<string, never> | Readonly<Record<string, never>>) {
-    super(props);
-    this.state = {
-      hour: 9,
-      range: {
-        from: new Date(2017, 0, 1),
-        to: new Date(2017, 4, 4),
-      },
-      visibleLayer: 'trips',
-    };
-  }
+  const [hourFilter, setHourFilter] = useState(7);
+  const [rangeFilter, setRangeFilter] = useState<DateRange>({
+    from: new Date(2017, 0, 1),
+    to: new Date(2017, 4, 4),
+  });
+  const [visibleLayer, setVisibleLayer] = useState('trips');
 
-  componentDidMount() {
-    this.map = new maplibregl.Map({
+  const getQueryParams = useCallback(() => {
+    // has to be in dd.mm.yyyy format
+    const dateFrom = rangeFilter.from.toLocaleDateString('de');
+    const dateTo = rangeFilter.to?.toLocaleDateString('de') || dateFrom;
+
+    return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hourFilter}`);
+  }, [rangeFilter, hourFilter]);
+
+  const mapOnLoad = useCallback(() => {
+    const queryParams = getQueryParams();
+
+    mapRef.current.addSource('trips_source', {
+      type: 'vector',
+      url: `/tiles/get_trips?${queryParams}`,
+    });
+    layers.forEach(({ maplibreLayer }) => {
+      mapRef.current.addLayer(maplibreLayer, 'place_town');
+    });
+  }, [getQueryParams]);
+
+  const toggleLayer = (layerId: string) => {
+    layers.forEach(({ id }) => {
+      if (layerId === id) {
+        mapRef.current.setLayoutProperty(id, 'visibility', 'visible');
+      } else {
+        mapRef.current.setLayoutProperty(id, 'visibility', 'none');
+      }
+    });
+    setVisibleLayer(layerId);
+  };
+
+  // Initialize map on mount
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    mapRef.current = new maplibregl.Map({
       center: [-74.005308, 40.71337],
-      container: 'map',
+      container: mapContainerRef.current,
       cooperativeGestures: true,
       pitch: 45,
       style: MAP_STYLE,
       zoom: 9,
     });
-    this.nav = new maplibregl.NavigationControl();
 
-    this.map.addControl(this.nav, 'top-right');
-    this.map.on('load', this.mapOnLoad);
-  }
+    navRef.current = new maplibregl.NavigationControl();
+    mapRef.current.addControl(navRef.current, 'top-right');
+    mapRef.current.on('load', mapOnLoad);
 
-  componentDidUpdate() {
-    const newStyle = this.map.getStyle();
-    newStyle.sources.trips_source.url = `/tiles/get_trips?${this.getQueryParams()}`;
-    this.map.setStyle(newStyle);
-  }
-
-  mapOnLoad = () => {
-    const queryParams = this.getQueryParams();
-
-    this.map.addSource('trips_source', {
-      type: 'vector',
-      url: `/tiles/get_trips?${queryParams}`,
-    });
-    layers.forEach(({ maplibreLayer }) => {
-      this.map.addLayer(maplibreLayer, 'place_town');
-    });
-  };
-
-  changeFilter = (filter: string, value: any) => {
-    if (filter !== undefined && value !== undefined) {
-      this.setState((state) => ({
-        ...state,
-        [filter]: value,
-      }));
-    }
-  };
-
-  getQueryParams = () => {
-    const {
-      range: { from, to },
-      hour,
-    } = this.state;
-
-    const dateFrom = `${dateConverter(from)}.2017`;
-    let dateTo = `${dateConverter(to)}.2017`;
-    if (to === undefined) {
-      dateTo = dateFrom;
-    }
-
-    return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hour}`);
-  };
-
-  toggleLayer = (layerId: string) => {
-    layers.forEach(({ id }) => {
-      if (layerId === id) {
-        this.map.setLayoutProperty(id, 'visibility', 'visible');
-      } else {
-        this.map.setLayoutProperty(id, 'visibility', 'none');
+    // Cleanup function
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
       }
-    });
-    this.setState({ visibleLayer: layerId });
-  };
+    };
+  }, [mapOnLoad]);
 
-  render() {
-    const { visibleLayer, range, hour } = this.state;
+  // Update map when state changes (equivalent to componentDidUpdate)
+  useEffect(() => {
+    if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
 
-    return (
-      <Container>
-        <Filters
-          changeFilter={this.changeFilter}
-          hour={hour}
-          range={range}
-          toggleLayer={this.toggleLayer}
-          visibleLayer={visibleLayer}
-        />
-        <div id="map" style={mapStyle} />
-      </Container>
-    );
-  }
-}
+    const newStyle = mapRef.current.getStyle();
+    if (newStyle?.sources?.trips_source) {
+      newStyle.sources.trips_source.url = `/tiles/get_trips?${getQueryParams()}`;
+      mapRef.current.setStyle(newStyle);
+    }
+  }, [getQueryParams]);
+
+  return (
+    <Container>
+      <Filters
+        changeHourFilter={(value: number) => setHourFilter(value)}
+        changeRangeFilter={(value) => setRangeFilter(value)}
+        hour={hourFilter}
+        range={rangeFilter}
+        toggleLayer={toggleLayer}
+        visibleLayer={visibleLayer}
+      />
+      <div ref={mapContainerRef} style={mapStyle} />
+    </Container>
+  );
+};
 
 export default MaplibreMap;

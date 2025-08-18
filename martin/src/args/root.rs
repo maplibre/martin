@@ -4,13 +4,13 @@ use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use log::warn;
+#[cfg(feature = "fonts")]
+use martin_core::config::OptOneMany;
+use martin_core::config::env::Env;
 
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
-#[cfg(feature = "fonts")]
-use crate::OptOneMany;
 use crate::args::connections::Arguments;
-use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
 #[cfg(any(
@@ -61,12 +61,6 @@ pub struct MetaArgs {
     /// By default, only print if sources are auto-detected.
     #[arg(long)]
     pub save_config: Option<PathBuf>,
-    /// Main cache size (in MB)
-    #[arg(short = 'C', long)]
-    pub cache_size: Option<u64>,
-    /// **Deprecated** Scan for new sources on sources list requests
-    #[arg(short, long, hide = true)]
-    pub watch: bool,
     /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
 }
@@ -94,15 +88,15 @@ impl Args {
         config: &mut Config,
         #[allow(unused_variables)] env: &impl Env<'a>,
     ) -> MartinResult<()> {
-        if self.meta.watch {
+        if self.srv.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
         }
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
-        if self.meta.cache_size.is_some() {
-            config.cache_size_mb = self.meta.cache_size;
+        if self.srv.cache_size.is_some() {
+            config.cache_size_mb = self.srv.cache_size;
         }
 
         self.srv.merge_into_config(&mut config.srv);
@@ -210,11 +204,11 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 mod tests {
 
     use insta::assert_yaml_snapshot;
+    use martin_core::config::env::FauxEnv;
 
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::args::PreferredEncoding;
-    use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -234,8 +228,7 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use crate::tests::some;
-        use crate::utils::OptOneMany;
+        use martin_core::config::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
@@ -255,7 +248,7 @@ mod tests {
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
             postgres: OptOneMany::One(crate::pg::PgConfig {
-                connection_string: some("postgres://connection"),
+                connection_string: Some("postgres://connection".to_string()),
                 ..Default::default()
             }),
             ..Default::default()
