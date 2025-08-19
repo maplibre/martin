@@ -265,6 +265,32 @@ This allows the MBTiles file to be <a href="mbtiles-validation.html#aggregate-co
            --source source_name          \
            postgresql://postgres@localhost:5432/db
 </code></pre>
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p><code>--concurrency &lt;CONCURRENCY&gt;</code> and <code>--pool-size &lt;POOL_SIZE&gt;</code> can be used to control the number of concurrent requests and the pool size for postgres sources respectively.</p>
+<p>The optimal setting depends on:</p>
+<ul>
+<li>the source(s) performance characteristics</li>
+<li>how much load is allowed, for example in a multi-tenant environment</li>
+<li>how to compress tiles stored in the output file</li>
+</ul>
+</div>
+<p>You should also consider</p>
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p><code>--encoding &lt;ENCODING&gt;</code> can be used to reduce the final size of the MBTiles file or decrease the amount of processing <code>martin-cp</code> does.</p>
+<p>The default <code>gzip</code> should be a reasonable choice for most use cases, but if you prefer a different encoding, you can specify it here.
+If set to multiple values like <code>'gzip,br'</code>, <code>martin-cp</code> will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed.
+Use <code>identity</code> to disable compression.
+Ignored for non-encodable tiles like PNG and JPEG.</p>
+</div>
+<h2 id="arguments"><a class="header" href="#arguments">Arguments</a></h2>
 <p>Use <code>martin-cp --help</code> to see a list of available options:</p>
 <pre><code class="language-text">A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file
 
