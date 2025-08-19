@@ -568,4 +568,11 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn xyz_format() {
+        let xyz = TileCoord { z: 1, x: 2, y: 3 };
+        assert_eq!(format!("{xyz}"), "1,2,3");
+        assert_eq!(format!("{xyz:#}"), "1/2/3");
+    }
 }
