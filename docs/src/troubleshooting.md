@@ -15,6 +15,6 @@ While this will only enable verbose logging for the `actix_web` module and enabl
 and `tokio_postgres` modules:
 
 ```bash
-export RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
+export RUST_LOG=actix_web=info,martin=debug,martin-core=debug,tokio_postgres=debug
 martin postgresql://postgres@localhost/db
 ```
