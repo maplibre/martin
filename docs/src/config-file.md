@@ -48,9 +48,10 @@ cache_size_mb: 1024
   # Default could be different depending on Martin version.
 preferred_encoding: gzip
 
-# Enable or disable Martin web UI. At the moment, only allows `enable-for-all`,
-# which enables the web UI for all connections. This may be undesirable in a
-# production environment. [default: disable]
+# Enable or disable Martin web UI. [default: disable]
+#
+# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
+# This may be undesirable in a production environment
 web_ui: disable
 
 # Advanced monitoring options
