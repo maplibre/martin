@@ -123,36 +123,36 @@ postgres:
     from_schemas:
       - public
       - my_schema
-  # Here we enable both tables and functions auto discovery.
-  # You can also enable just one of them by not mentioning the other, or
-  # setting it to false. Setting one to true disables the other one as well.
-  # E.g. `tables: false` enables just the functions auto-discovery.
+    # Here we enable both tables and functions auto discovery.
+    # You can also enable just one of them by not mentioning the other, or
+    # setting it to false. Setting one to true disables the other one as well.
+    # E.g. `tables: false` enables just the functions auto-discovery.
     tables:
-  # Optionally set how source ID should be generated based on the table's name,
-  # schema, and geometry column
+      # Optionally set how source ID should be generated based on the table's name,
+      # schema, and geometry column
       source_id_format: 'table.{schema}.{table}.{column}'
-  # Add more schemas to the ones listed above
+      # Add more schemas to the ones listed above
       from_schemas: my_other_schema
-  # A table column to use as the feature ID
-  # If a table has no column with this name, `id_column` will not be set for
-  # that table.
-  # If a list of strings is given, the first found column will be treated as a
-  # feature ID.
+      # A table column to use as the feature ID
+      # If a table has no column with this name, `id_column` will not be set for
+      # that table.
+      # If a list of strings is given, the first found column will be treated as a
+      # feature ID.
       id_columns: feature_id
-  # Controls if geometries should be clipped or encoded as is [default: true]
+      # Controls if geometries should be clipped or encoded as is [default: true]
       clip_geom: true
-  # Buffer distance in tile coordinate space to optionally clip geometries,
-  # optional, default to 64
+      # Buffer distance in tile coordinate space to optionally clip geometries,
+      # optional, default to 64
       buffer: 64
-  # Tile extent in tile coordinate space, optional, default to 4096
+      # Tile extent in tile coordinate space, optional, default to 4096
       extent: 4096
     functions:
       # Optionally limit to just these schemas
       from_schemas:
         - public
         - my_schema
-  # Optionally set how source ID should be generated based on the function's
-  # name and schema
+      # Optionally set how source ID should be generated based on the function's
+      # name and schema
       source_id_format: '{schema}.{function}'
 
   # Associative arrays of table sources
@@ -182,10 +182,10 @@ postgres:
       # An integer specifying the maximum zoom level. MUST be >= minzoom
       maxzoom: 30
 
-  # The maximum extent of available map tiles. Bounds MUST define an area
-  # covered by all zoom levels. The bounds are represented in WGS:84 latitude
-  # and longitude values, in the order left, bottom, right, top. Values may
-  # be integers or floating point numbers.
+      # The maximum extent of available map tiles. Bounds MUST define an area
+      # covered by all zoom levels. The bounds are represented in WGS:84 latitude
+      # and longitude values, in the order left, bottom, right, top. Values may
+      # be integers or floating point numbers.
       bounds: [ -180.0, -90.0, 180.0, 90.0 ]
 
       # Tile extent in tile coordinate space
@@ -300,10 +300,10 @@ styles:
    sources:
      # publish a JSON file found at this path as `some_style_name`
      #
-  # Contrairy to paths, if directories are specified, Martin will print a
-  # warning and ignore them.
-  # To serve a style-directory, use the `paths` section above or name each
-  # style individually. This prevents footguns with names being unclear.
+     # Contrairy to paths, if directories are specified, Martin will print a
+     # warning and ignore them.
+     # To serve a style-directory, use the `paths` section above or name each
+     # style individually. This prevents footguns with names being unclear.
      some_style_name: /path/to/this/style.json
      #  Publish specific file as `other_style_name`
      other_style_name: /path/to/other_style.json
