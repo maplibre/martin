@@ -26,7 +26,7 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
-## Set TileJSON URL path prefix.
+# Set TileJSON URL path prefix.
 # This overrides the default of respecting the X-Rewrite-URL header.
 # Only modifies the JSON (TileJSON) returned; Martin's API-URLs remain unchanged.
 # If you need to rewrite URLs, please use a reverse proxy.
