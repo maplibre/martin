@@ -138,8 +138,7 @@ postgres:
   # If a list of strings is given, the first found column will be treated as a
   # feature ID.
       id_columns: feature_id
-  # Boolean to control if geometries should be clipped or encoded as is,
-  # optional, default to true
+  # Controls if geometries should be clipped or encoded as is [default: true]
       clip_geom: true
   # Buffer distance in tile coordinate space to optionally clip geometries,
   # optional, default to 64
