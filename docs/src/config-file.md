@@ -109,11 +109,11 @@ postgres:
   max_feature_count: null # either a positive integer, or null=unlimited (default)
 
   # Specify how bounds should be computed for the spatial PG tables [default: quick]
-   #
-   # Options:
-   # - `calc` compute table geometry bounds on startup.
-   # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
-   # - `skip` does not compute table geometry bounds on startup.
+  #
+  # Options:
+  # - `calc` compute table geometry bounds on startup.
+  # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
+  # - `skip` does not compute table geometry bounds on startup.
   auto_bounds: quick
 
   # Enable automatic discovery of tables and functions.
