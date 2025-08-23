@@ -40,12 +40,12 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
 
-  # Which compression should be used if the
-  # - client accepts multiple compression formats, and
-  # - tile source is not pre-compressed.
-  #
-  # `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
-  # Default could be different depending on Martin version.
+# Which compression should be used if the
+# - client accepts multiple compression formats, and
+# - tile source is not pre-compressed.
+#
+# `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
+# Default could be different depending on Martin version.
 preferred_encoding: gzip
 
 # Enable or disable Martin web UI. [default: disable]
