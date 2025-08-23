@@ -107,9 +107,8 @@ postgres:
 
   # Specify how bounds should be computed for the spatial PG tables [default: quick]
   # 'calc' - compute table geometry bounds on startup.
-  # 'quick' - same as 'calc', but the calculation will be aborted if it takes
-  # more than 5 seconds.
-  # 'skip' - do not compute table geometry bounds on startup.
+  # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
+   # - `skip` does not compute table geometry bounds on startup.
   auto_bounds: quick
 
   # Enable automatic discovery of tables and functions.
