@@ -43,7 +43,7 @@ cache_size_mb: 1024
   # Which compression should be used if the
   # - client accepts multiple compression formats, and
   # - tile source is not pre-compressed.
-  # 
+  #
   # `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
   # Default could be different depending on Martin version.
 preferred_encoding: gzip
