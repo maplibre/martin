@@ -112,7 +112,7 @@ postgres:
    #
    # Options:
    # - `calc` compute table geometry bounds on startup.
-  # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
+   # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
    # - `skip` does not compute table geometry bounds on startup.
   auto_bounds: quick
 
