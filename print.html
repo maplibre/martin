@@ -2133,8 +2133,10 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: '0.0.0.0:3000'
 
-# Set TileJSON URL path prefix. This overrides the default of respecting the X-Rewrite-URL header.
-# Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy.
+# Set TileJSON URL path prefix.
+# This overrides the default of respecting the X-Rewrite-URL header.
+# Only modifies the JSON (TileJSON) returned; Martin's API-URLs remain unchanged.
+# If you need to rewrite URLs, please use a reverse proxy.
 # Must begin with a `/`.
 # Examples: `/`, `/tiles`
 base_path: /tiles
@@ -2145,10 +2147,18 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
 
-# If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version.
+# Which compression should be used if the
+# - client accepts multiple compression formats, and
+# - tile source is not pre-compressed.
+#
+# `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
+# Default could be different depending on Martin version.
 preferred_encoding: gzip
 
-# Enable or disable Martin web UI. At the moment, only allows `enable-for-all` which enables the web UI for all connections. This may be undesirable in a production environment. [default: disable]
+# Enable or disable Martin web UI. [default: disable]
+#
+# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
+# This may be undesirable in a production environment
 web_ui: disable
 
 # Advanced monitoring options
@@ -2188,7 +2198,7 @@ postgres:
   # Same as PGSSLROOTCERT for psql
   ssl_root_cert: './root.crt'
 
-  #  If a spatial table has SRID 0, then this SRID will be used as a fallback
+  # If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
 
   # Maximum Postgres connections pool size [default: 20]
@@ -2196,15 +2206,21 @@ postgres:
 
   # Limit the number of geo features per tile.
   #
-  # If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
-  # This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
-  # It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+  # If the source table has more features than set here, they will not be
+  # included in the tile and the result will look "cut off"/incomplete.
+  # This feature allows you to put a maximum latency bound on tiles with an
+  # extreme amount of detail at the cost of not returning all data.
+  # It is sensible to set this limit if you have user generated/untrusted
+  # geodata, e.g. a lot of data points at [Null Island]
+  # (https://en.wikipedia.org/wiki/Null_Island).
   max_feature_count: null # either a positive integer, or null=unlimited (default)
 
   # Specify how bounds should be computed for the spatial PG tables [default: quick]
-  # 'calc' - compute table geometry bounds on startup.
-  # 'quick' - same as 'calc', but the calculation will be aborted if it takes more than 5 seconds.
-  # 'skip' - do not compute table geometry bounds on startup.
+  #
+  # Options:
+  # - `calc` compute table geometry bounds on startup.
+  # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
+  # - `skip` does not compute table geometry bounds on startup.
   auto_bounds: quick
 
   # Enable automatic discovery of tables and functions.
@@ -2215,21 +2231,25 @@ postgres:
       - public
       - my_schema
     # Here we enable both tables and functions auto discovery.
-    # You can also enable just one of them by not mentioning the other,
-    # or setting it to false.  Setting one to true disables the other one as well.
+    # You can also enable just one of them by not mentioning the other, or
+    # setting it to false. Setting one to true disables the other one as well.
     # E.g. `tables: false` enables just the functions auto-discovery.
     tables:
-      # Optionally set how source ID should be generated based on the table's name, schema, and geometry column
+      # Optionally set how source ID should be generated based on the table's name,
+      # schema, and geometry column
       source_id_format: 'table.{schema}.{table}.{column}'
       # Add more schemas to the ones listed above
       from_schemas: my_other_schema
       # A table column to use as the feature ID
-      # If a table has no column with this name, `id_column` will not be set for that table.
-      # If a list of strings is given, the first found column will be treated as a feature ID.
+      # If a table has no column with this name, `id_column` will not be set for
+      # that table.
+      # If a list of strings is given, the first found column will be treated as a
+      # feature ID.
       id_columns: feature_id
-      # Boolean to control if geometries should be clipped or encoded as is, optional, default to true
+      # Controls if geometries should be clipped or encoded as is [default: true]
       clip_geom: true
-      # Buffer distance in tile coordinate space to optionally clip geometries, optional, default to 64
+      # Buffer distance in tile coordinate space to optionally clip geometries,
+      # optional, default to 64
       buffer: 64
       # Tile extent in tile coordinate space, optional, default to 4096
       extent: 4096
@@ -2238,7 +2258,8 @@ postgres:
       from_schemas:
         - public
         - my_schema
-      # Optionally set how source ID should be generated based on the function's name and schema
+      # Optionally set how source ID should be generated based on the function's
+      # name and schema
       source_id_format: '{schema}.{function}'
 
   # Associative arrays of table sources
@@ -2269,9 +2290,9 @@ postgres:
       maxzoom: 30
 
       # The maximum extent of available map tiles. Bounds MUST define an area
-      # covered by all zoom levels. The bounds are represented in WGS:84
-      # latitude and longitude values, in the order left, bottom, right, top.
-      # Values may be integers or floating point numbers.
+      # covered by all zoom levels. The bounds are represented in WGS:84 latitude
+      # and longitude values, in the order left, bottom, right, top. Values may
+      # be integers or floating point numbers.
       bounds: [ -180.0, -90.0, 180.0, 90.0 ]
 
       # Tile extent in tile coordinate space
@@ -2315,7 +2336,8 @@ postgres:
 pmtiles:
   # Allows forcing path style URLs for S3 buckets [default: false]
   #
-  # A path style URL is a URL that uses the bucket name as part of the path like example.org/some_bucket instead of the hostname some_bucket.example.org
+  # A path style URL is a URL that uses the bucket name as part of the path like
+  # example.org/some_bucket instead of the hostname some_bucket.example.org
   force_path_style: false
   # Skip loading credentials for S3 buckets [default: false]
   #
@@ -2385,9 +2407,10 @@ styles:
    sources:
      # publish a JSON file found at this path as `some_style_name`
      #
-     # Contrairy to paths, if directories are specified, Martin will print a warning and ignore them.
-     # To serve a style-directory, use the `paths` section above or name each style individually.
-     # This prevents footguns with names being unclear.
+     # Contrairy to paths, if directories are specified, Martin will print a
+     # warning and ignore them.
+     # To serve a style-directory, use the `paths` section above or name each
+     # style individually. This prevents footguns with names being unclear.
      some_style_name: /path/to/this/style.json
      #  Publish specific file as `other_style_name`
      other_style_name: /path/to/other_style.json
