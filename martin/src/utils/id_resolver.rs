@@ -22,9 +22,34 @@ impl IdResolver {
         }
     }
 
-    /// If source name already exists in the self.names structure,
-    /// try appending it with ".1", ".2", etc. until the name is unique.
-    /// Only alphanumeric characters plus dashes/dots/underscores are allowed.
+    /// Makes sure that every source has a unique, non-reserved name
+    ///
+    /// Replace non-alphanumeric characters or dashes/dots/underscores with dashes.
+    /// If an unique source name already exists in the self.names structure ".1", ".2", etc. is appended.
+    /// For every name which is changed, a warning is logged.
+    ///
+    /// ```
+    /// let reserved = &["catalog"];
+    /// let r = martin::IdResolver::new(reserved);
+    ///
+    /// // catalog is a reserved name => needs renaming
+    /// assert_eq!(r.resolve("catalog", "catalog1".to_string()), "catalog.1");
+    /// // same unique_name => same index
+    /// assert_eq!(r.resolve("catalog", "catalog1".to_string()), "catalog.1");
+    /// // different unique_name => different index
+    /// assert_eq!(r.resolve("catalog", "catalog2".to_string()), "catalog.2");
+    ///
+    /// // disallowed characters are replaced with underscores
+    /// assert_eq!(r.resolve("name with disallowed chäractérs 😃", "".to_string()), "name-with-disallowed-ch-ract-rs--");
+    /// assert_eq!(r.resolve("name-with_allowed.chars", "".to_string()), "name-with_allowed.chars");
+    ///
+    /// // not a reserved name => no renaming
+    /// assert_eq!(r.resolve("different_name", "different_name1".to_string()), "different_name");
+    /// // same unique_name => same index
+    /// assert_eq!(r.resolve("different_name", "different_name1".to_string()), "different_name");
+    /// // different unique_name => different index
+    /// assert_eq!(r.resolve("different_name", "different_name2".to_string()), "different_name.1");
+    /// ```
     #[must_use]
     pub fn resolve(&self, name: &str, unique_name: String) -> String {
         let info = if name == unique_name {
@@ -59,8 +84,7 @@ impl IdResolver {
                     e.insert(unique_name);
                     return id;
                 }
-                // Rust v1.78 - possibly due to bug fixed in https://github.com/rust-lang/rust-clippy/pull/12756
-                #[allow(unknown_lints, clippy::assigning_clones)]
+                #[allow(clippy::assigning_clones)]
                 Entry::Occupied(e) => {
                     name = e.key().clone();
                     if e.get() == &unique_name {
