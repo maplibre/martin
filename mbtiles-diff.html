@@ -259,7 +259,8 @@ new <code>agg_tiles_hash</code> will be generated for the diff file itself. This
 file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied. The <code>apply-patch</code>
 command will automatically rename the <code>agg_tiles_hash_after_apply</code> value back to <code>agg_tiles_hash</code> when applying the
 diff.</p>
-<pre><code class="language-bash"># This command will compare `file1.mbtiles` and `file2.mbtiles`, and generate a new diff file `diff.mbtiles`.
+<pre><code class="language-bash"># This command will compare `file1.mbtiles` and `file2.mbtiles`,
+# and generate a new diff file `diff.mbtiles`.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
 
 # If diff.mbtiles is applied to file1.mbtiles, it will produce file2.mbtiles
@@ -292,10 +293,15 @@ passed as a query parameter to the sqlite3 command line tool, and then used in t
 not update the <code>agg_tiles_hash</code> metadata value, so it will be incorrect after the diff is applied.</p>
 <pre><code class="language-bash">sqlite3 src_file.mbtiles \
   -bail \
-  -cmd ".parameter set @diffDbFilename diff_file.mbtiles" \
-  "ATTACH DATABASE @diffDbFilename AS diffDb;" \
-  "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
-  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
+  -cmd ".parameter set @diffDbFilename diff_file.mbtiles "\
+  "ATTACH DATABASE @diffDbFilename AS diffDb; "\
+  "DELETE FROM tiles "\
+  "  WHERE (zoom_level, tile_column, tile_row) IN ( "\
+  "    SELECT zoom_level, tile_column, tile_row "\
+  "    FROM diffDb.tiles "\
+  "    WHERE tile_data ISNULL); "\
+  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) "\
+  "  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 </code></pre>
 
                     </main>

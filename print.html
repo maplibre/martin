@@ -1511,7 +1511,8 @@ $ aws ecr create-repository --repository-name martin
 
 # Read the repositoryUri which includes your account number
 $ docker tag ghcr.io/maplibre/martin:latest 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
-$ aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
+$ aws ecr get-login-password --region us-east-2 \
+  | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
 $ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 </code></pre>
 <p>Open <a href="https://console.aws.amazon.com/lambda">Lambda console</a> and create your function:</p>
@@ -4523,18 +4524,43 @@ This is where the vector tile schema comes in:
 <p>Below command downloads a tile archive at <code>data/monaco.mbtiles</code> for monaco.</p>
 <p>Please refer to <a href="https://github.com/onthegomap/planetiler/">Planetilers documentation</a> on different download options.</p>
 <pre><code class="language-bash">mkdir --parents data
-docker run --user=$UID -e JAVA_TOOL_OPTIONS="-Xmx1g" -v "$(pwd)/data":/data --rm ghcr.io/onthegomap/planetiler:latest --download --minzoom=0 --maxzoom=14 --tile_compression=none --area=monaco --output /data/monaco.mbtiles
+docker run \
+  --user=$UID \
+  -e JAVA_TOOL_OPTIONS="-Xmx1g" \
+  -v "$(pwd)/data":/data \
+  --rm \
+  ghcr.io/onthegomap/planetiler:latest \
+  --download \
+  --minzoom=0 \
+  --maxzoom=14 \
+  --tile_compression=none \
+  --area=monaco \
+  --output /data/monaco.mbtiles
 </code></pre>
 <h2 id="loading-data-into-a-postgis-database"><a class="header" href="#loading-data-into-a-postgis-database">Loading data into a PostGIS database</a></h2>
 <h3 id="run-postgis"><a class="header" href="#run-postgis">Run PostGIS</a></h3>
 <p>First, you need a running <a href="https://postgis.net">postGIS</a> instance.</p>
-<pre><code class="language-bash">docker run --name some-postgis --env POSTGRES_PASSWORD=mypass --publish 5432:5432 --detach postgis/postgis
+<pre><code class="language-bash">docker run \
+  --name some-postgis \
+  --env POSTGRES_PASSWORD=mypass \
+  --publish 5432:5432 \
+  --detach \
+  postgis/postgis
 </code></pre>
 <h3 id="import-points-into-postgis"><a class="header" href="#import-points-into-postgis">Import Points into PostGIS</a></h3>
 <p>Then you need to add geometries to the PostGIS database.
 This is possible via multiple ways, such as <a href="https://osm2pgsql.org/"><code>osm2pgsql</code> for adding specific, updatable OSM data</a> or in the programming language of your choice via postgres’ various database connectors.</p>
-<pre><code class="language-bash">docker exec some-postgis psql --dbname postgres --username postgres --command "CREATE TABLE where_yachts_can_be_looked_at (title TEXT NOT NULL, subtitle TEXT NOT NULL, location GEOMETRY(Point, 4326) NOT NULL);"
-docker exec some-postgis psql --dbname postgres --username postgres --command "INSERT INTO where_yachts_can_be_looked_at (title, subtitle, location) VALUES ('Port Hercules', 'Great view of superyachts docked in the iconic harbor.', ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"
+<pre><code class="language-bash">docker exec some-postgis psql --dbname postgres --username postgres --command \
+  "CREATE TABLE where_yachts_can_be_looked_at ("\
+  "  title TEXT NOT NULL, "\
+  "  subtitle TEXT NOT NULL, "\
+  "  location GEOMETRY(Point, 4326) NOT NULL);"
+
+docker exec some-postgis psql --dbname postgres --username postgres --command \
+  "INSERT INTO where_yachts_can_be_looked_at (title, subtitle, location) VALUES ( "\
+  "  'Port Hercules', "\
+  "  'Great view of superyachts docked in the iconic harbor.', "\
+  "  ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"
 </code></pre>
 <h2 id="serving-tiles-with-martin"><a class="header" href="#serving-tiles-with-martin">Serving tiles with Martin</a></h2>
 <p>Now we will serve the content of <a href="sources-files.html">mbtiles</a> and the <a href="pg-connections.html">postgis database</a>.</p>
@@ -4842,8 +4868,10 @@ martin
 </ul>
 <h2 id="troubleshooting-1"><a class="header" href="#troubleshooting-1">Troubleshooting</a></h2>
 <p>You can get more context via the following commands:</p>
-<pre><code class="language-bash"># Verbose psql
-PGSSLMODE=verify-full PGSSLROOTCERT=./ca-cert.pem psql -h localhost -U postgres -d postgres -v
+<pre><code class="language-bash">export PGSSLMODE=verify-full
+export PGSSLROOTCERT=./ca-cert.pem
+# Verbose psql
+psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
 RUST_LOG=debug martin postgresql://...
@@ -5630,7 +5658,8 @@ new <code>agg_tiles_hash</code> will be generated for the diff file itself. This
 file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied. The <code>apply-patch</code>
 command will automatically rename the <code>agg_tiles_hash_after_apply</code> value back to <code>agg_tiles_hash</code> when applying the
 diff.</p>
-<pre><code class="language-bash"># This command will compare `file1.mbtiles` and `file2.mbtiles`, and generate a new diff file `diff.mbtiles`.
+<pre><code class="language-bash"># This command will compare `file1.mbtiles` and `file2.mbtiles`,
+# and generate a new diff file `diff.mbtiles`.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
 
 # If diff.mbtiles is applied to file1.mbtiles, it will produce file2.mbtiles
@@ -5663,10 +5692,15 @@ passed as a query parameter to the sqlite3 command line tool, and then used in t
 not update the <code>agg_tiles_hash</code> metadata value, so it will be incorrect after the diff is applied.</p>
 <pre><code class="language-bash">sqlite3 src_file.mbtiles \
   -bail \
-  -cmd ".parameter set @diffDbFilename diff_file.mbtiles" \
-  "ATTACH DATABASE @diffDbFilename AS diffDb;" \
-  "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
-  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
+  -cmd ".parameter set @diffDbFilename diff_file.mbtiles "\
+  "ATTACH DATABASE @diffDbFilename AS diffDb; "\
+  "DELETE FROM tiles "\
+  "  WHERE (zoom_level, tile_column, tile_row) IN ( "\
+  "    SELECT zoom_level, tile_column, tile_row "\
+  "    FROM diffDb.tiles "\
+  "    WHERE tile_data ISNULL); "\
+  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) "\
+  "  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><style>
 .mdbook-alerts {

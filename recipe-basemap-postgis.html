@@ -281,18 +281,43 @@ This is where the vector tile schema comes in:
 <p>Below command downloads a tile archive at <code>data/monaco.mbtiles</code> for monaco.</p>
 <p>Please refer to <a href="https://github.com/onthegomap/planetiler/">Planetilers documentation</a> on different download options.</p>
 <pre><code class="language-bash">mkdir --parents data
-docker run --user=$UID -e JAVA_TOOL_OPTIONS="-Xmx1g" -v "$(pwd)/data":/data --rm ghcr.io/onthegomap/planetiler:latest --download --minzoom=0 --maxzoom=14 --tile_compression=none --area=monaco --output /data/monaco.mbtiles
+docker run \
+  --user=$UID \
+  -e JAVA_TOOL_OPTIONS="-Xmx1g" \
+  -v "$(pwd)/data":/data \
+  --rm \
+  ghcr.io/onthegomap/planetiler:latest \
+  --download \
+  --minzoom=0 \
+  --maxzoom=14 \
+  --tile_compression=none \
+  --area=monaco \
+  --output /data/monaco.mbtiles
 </code></pre>
 <h2 id="loading-data-into-a-postgis-database"><a class="header" href="#loading-data-into-a-postgis-database">Loading data into a PostGIS database</a></h2>
 <h3 id="run-postgis"><a class="header" href="#run-postgis">Run PostGIS</a></h3>
 <p>First, you need a running <a href="https://postgis.net">postGIS</a> instance.</p>
-<pre><code class="language-bash">docker run --name some-postgis --env POSTGRES_PASSWORD=mypass --publish 5432:5432 --detach postgis/postgis
+<pre><code class="language-bash">docker run \
+  --name some-postgis \
+  --env POSTGRES_PASSWORD=mypass \
+  --publish 5432:5432 \
+  --detach \
+  postgis/postgis
 </code></pre>
 <h3 id="import-points-into-postgis"><a class="header" href="#import-points-into-postgis">Import Points into PostGIS</a></h3>
 <p>Then you need to add geometries to the PostGIS database.
 This is possible via multiple ways, such as <a href="https://osm2pgsql.org/"><code>osm2pgsql</code> for adding specific, updatable OSM data</a> or in the programming language of your choice via postgres’ various database connectors.</p>
-<pre><code class="language-bash">docker exec some-postgis psql --dbname postgres --username postgres --command "CREATE TABLE where_yachts_can_be_looked_at (title TEXT NOT NULL, subtitle TEXT NOT NULL, location GEOMETRY(Point, 4326) NOT NULL);"
-docker exec some-postgis psql --dbname postgres --username postgres --command "INSERT INTO where_yachts_can_be_looked_at (title, subtitle, location) VALUES ('Port Hercules', 'Great view of superyachts docked in the iconic harbor.', ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"
+<pre><code class="language-bash">docker exec some-postgis psql --dbname postgres --username postgres --command \
+  "CREATE TABLE where_yachts_can_be_looked_at ("\
+  "  title TEXT NOT NULL, "\
+  "  subtitle TEXT NOT NULL, "\
+  "  location GEOMETRY(Point, 4326) NOT NULL);"
+
+docker exec some-postgis psql --dbname postgres --username postgres --command \
+  "INSERT INTO where_yachts_can_be_looked_at (title, subtitle, location) VALUES ( "\
+  "  'Port Hercules', "\
+  "  'Great view of superyachts docked in the iconic harbor.', "\
+  "  ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"
 </code></pre>
 <h2 id="serving-tiles-with-martin"><a class="header" href="#serving-tiles-with-martin">Serving tiles with Martin</a></h2>
 <p>Now we will serve the content of <a href="sources-files.html">mbtiles</a> and the <a href="pg-connections.html">postgis database</a>.</p>

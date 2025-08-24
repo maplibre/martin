@@ -411,8 +411,10 @@ martin
 </ul>
 <h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
 <p>You can get more context via the following commands:</p>
-<pre><code class="language-bash"># Verbose psql
-PGSSLMODE=verify-full PGSSLROOTCERT=./ca-cert.pem psql -h localhost -U postgres -d postgres -v
+<pre><code class="language-bash">export PGSSLMODE=verify-full
+export PGSSLROOTCERT=./ca-cert.pem
+# Verbose psql
+psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
 RUST_LOG=debug martin postgresql://...
