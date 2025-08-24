@@ -196,8 +196,10 @@ You do not need to configure things twice.
 You can get more context via the following commands:
 
 ```bash
+export PGSSLMODE=verify-full
+export PGSSLROOTCERT=./ca-cert.pem
 # Verbose psql
-PGSSLMODE=verify-full PGSSLROOTCERT=./ca-cert.pem psql -h localhost -U postgres -d postgres -v
+psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
 RUST_LOG=debug martin postgresql://...

@@ -1,4 +1,5 @@
 import { Brush, Code, Search, SquarePen } from 'lucide-react';
+import { StyleIntegrationGuideDialog } from '@/components/dialogs/style-integration-guide';
 import { ErrorState } from '@/components/error/error-state';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,8 @@ interface StylesCatalogProps {
   onRetry?: () => void;
   isRetrying?: boolean;
   onEditStyle?: (styleName: string) => void;
+  selectedStyleForGuide?: string | undefined;
+  onStyleGuide?: (styleName: string | undefined) => void;
 }
 
 export function StylesCatalog({
@@ -31,16 +34,14 @@ export function StylesCatalog({
   onRetry,
   isRetrying = false,
   onEditStyle,
+  selectedStyleForGuide = undefined,
+  onStyleGuide = () => {},
 }: StylesCatalogProps) {
   const [viewState, setViewState] = useState({
     latitude: 53,
     longitude: 9,
     zoom: 2,
   });
-  const [selectedStyleForGuide, setSelectedStyleForGuide] = useState<{
-    name: string;
-    style: Style;
-  } | null>(null);
   if (isLoading) {
     return (
       <CatalogSkeleton
@@ -159,7 +160,7 @@ export function StylesCatalog({
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
                     className="flex-1 w-full"
-                    onClick={() => setSelectedStyleForGuide({ name, style })}
+                    onClick={() => onStyleGuide(name)}
                     size="sm"
                     variant="outline"
                   >
@@ -198,6 +199,14 @@ export function StylesCatalog({
             </a>
           </Button>
         </div>
+      )}
+
+      {selectedStyleForGuide && styles && (
+        <StyleIntegrationGuideDialog
+          name={selectedStyleForGuide}
+          onCloseAction={() => onStyleGuide(undefined)}
+          style={styles[selectedStyleForGuide]}
+        />
       )}
     </div>
   );

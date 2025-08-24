@@ -4,8 +4,9 @@ use std::collections::HashSet;
 use futures::future::join_all;
 use itertools::Itertools as _;
 use log::{debug, error, info, warn};
+use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
+use martin_core::config::OptOneMany::NoVals;
 
-use crate::OptBoolObj::{Bool, NoValue, Object};
 use crate::args::BoundsCalcType;
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::config::{PgConfig, PgInfo};
@@ -19,7 +20,6 @@ use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
 use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
-use crate::utils::OptOneMany::NoVals;
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
@@ -126,10 +126,8 @@ impl PgBuilder {
         let mut pending = Vec::new();
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
-            if let Some(extent) = cfg_inf.extent {
-                if extent == 0 {
-                    return Err(InvalidTableExtent(id.to_string(), cfg_inf.format_id()));
-                }
+            if cfg_inf.extent == Some(0) {
+                return Err(InvalidTableExtent(id.to_string(), cfg_inf.format_id()));
             }
 
             let Some(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else {

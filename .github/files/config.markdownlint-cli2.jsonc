@@ -3,7 +3,16 @@
     "default": true,
     "MD001": false,
     // Line length Check. See https://github.com/DavidAnson/markdownlint/blob/v0.32.1/doc/md013.md
-    "MD013": false,
+    "MD013": {
+      // Number of characters for code blocks (integer, default 80)
+      // The code block width is 88 when rendered for the mdbook
+      // Adding an extra space to improve readability
+      "code_block_line_length": 87,
+      // Number of characters (integer, default 80)
+      // We do not want to limit the line length for normal text,
+      // as it gets wrapped automatically.
+      "line_length": 10000
+    },
     "MD033": false,
     "MD041": false,
     "MD045": false,
