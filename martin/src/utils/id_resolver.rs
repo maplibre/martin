@@ -98,7 +98,7 @@ impl IdResolver {
                 Entry::Vacant(e) => {
                     if is_reserved_name {
                         warn!(
-                            "Source `{name}`{info} was renamed to `{new_name}` as {name} is a reserved keyword",
+                            "`{name}` is a reserved keyword, and may not be used as a source. The source was renamed to `{new_name}`{info}",
                             info = info.map_or(String::new(), |v| format!(" ({v})"))
                         );
                     } else {
