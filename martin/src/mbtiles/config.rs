@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::UnrecognizedValues;
+use crate::config::{UnrecognizedKeys, UnrecognizedValues};
 use crate::file_config::{ConfigExtras, SourceConfigExtras};
 use crate::mbtiles::MbtSource;
 use crate::source::TileInfoSource;
@@ -17,12 +17,15 @@ pub struct MbtConfig {
 }
 
 impl ConfigExtras for MbtConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
 impl SourceConfigExtras for MbtConfig {
+    fn parse_urls() -> bool {
+        false
+    }
     async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }
