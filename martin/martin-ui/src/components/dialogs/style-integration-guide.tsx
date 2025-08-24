@@ -21,14 +21,8 @@ interface StyleIntegrationGuideDialogProps {
   onCloseAction: () => void;
 }
 
-export function StyleIntegrationGuideDialog({
-  name,
-  style,
-  onCloseAction,
-}: StyleIntegrationGuideDialogProps) {
+const CodeBlock = ({ code, id }: { code: string; id: string }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-
-  const styleUrl = buildMartinUrl(`/style/${name}`);
 
   const copyToClipboard = async (code: string, id: string) => {
     try {
@@ -39,8 +33,7 @@ export function StyleIntegrationGuideDialog({
       console.error('Failed to copy code:', err);
     }
   };
-
-  const CodeBlock = ({ code, id }: { code: string; id: string }) => (
+  return (
     <div className="relative">
       <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm border">
         <Button
@@ -56,6 +49,14 @@ export function StyleIntegrationGuideDialog({
       </pre>
     </div>
   );
+};
+
+export function StyleIntegrationGuideDialog({
+  name,
+  style,
+  onCloseAction,
+}: StyleIntegrationGuideDialogProps) {
+  const styleUrl = buildMartinUrl(`/style/${name}`);
 
   const webJsCode = `// Include MapLibre GL JS in your HTML
 <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
@@ -152,6 +153,7 @@ function MyMap() {
     />
   );
 }`;
+  const id = useId();
 
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
@@ -223,7 +225,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={webJsCode} id="web-js" />
+                  <CodeBlock code={webJsCode} id={`web-js-${id}`} />
                 </div>
 
                 <div>
@@ -239,7 +241,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={webNpmCode} id="web-npm" />
+                  <CodeBlock code={webNpmCode} id={`web-npm-${id}`} />
                 </div>
 
                 <div>
@@ -255,7 +257,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={reactCode} id="react" />
+                  <CodeBlock code={reactCode} id={`react-${id}`} />
                 </div>
               </div>
             </TabsContent>
@@ -275,7 +277,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={androidCode} id="android" />
+                  <CodeBlock code={androidCode} id={`android-${id}`} />
                 </div>
 
                 <div>
@@ -291,7 +293,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={iosCode} id="ios" />
+                  <CodeBlock code={iosCode} id={`ios-${id}`} />
                 </div>
 
                 <div>
@@ -307,7 +309,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={reactNativeCode} id="react-native" />
+                  <CodeBlock code={reactNativeCode} id={`react-native-${id}`} />
                 </div>
               </div>
             </TabsContent>

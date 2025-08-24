@@ -78,13 +78,3 @@ export function fetchSpriteIndex(url: string): Promise<SpriteIndex> {
   spriteIndexCache[url] = { index: null, promise };
   return promise;
 }
-
-// --- Utility ---
-
-/**
- * Clears all sprite caches (for testing or force reload).
- */
-export function clearSpriteCaches() {
-  Object.keys(spriteImageCache).forEach((k) => delete spriteImageCache[k]);
-  Object.keys(spriteIndexCache).forEach((k) => delete spriteIndexCache[k]);
-}
