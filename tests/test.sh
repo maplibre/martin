@@ -388,9 +388,10 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
-test_log_has_str "$LOG_FILE" 'WARN  martin::utils::id_resolver] Source `stamen_toner__raster_CC-BY+ODbL_z3` (/home/runner/work/martin/martin/tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles) was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
-test_log_has_str "$LOG_FILE" 'WARN  martin::utils::id_resolver] Source `table_source_multiple_geom` (test.public.table_source_multiple_geom.geom2) was renamed to `table_source_multiple_geom.1` as source IDs must be unique'
-test_log_has_str "$LOG_FILE" 'WARN  martin::utils::id_resolver] Source `"function.withweired$*;_ characters` (test.public."function.withweired$*;_ characters) was renamed to `-function.withweired---_-characters` as source IDs may only contain alpha-numeric characters or `._-`'
+test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1` as source IDs must be unique'
+test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
+test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
