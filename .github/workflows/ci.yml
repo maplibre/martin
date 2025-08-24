@@ -794,7 +794,7 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
-    needs: [ package, docker-build-test, codeql ]
+    needs: [ package, docker-build-test ]
     if: always()
     steps:
       - name: Result of the needed steps
