@@ -15,7 +15,7 @@ pub struct IdResolver {
 
 impl IdResolver {
     /// Creates a new `IdResolver` with the given reserved keywords.
-    /// 
+    ///
     /// Assumes that reserved keywords never end in a "dot number" (e.g., "catalog.1")
     #[must_use]
     pub fn new(reserved_keywords: &[&'static str]) -> Self {
@@ -55,32 +55,38 @@ impl IdResolver {
     /// ```
     #[must_use]
     pub fn resolve(&self, name: &str, unique_name: String) -> String {
-        // replace prohibited characters, except underscores, dashes, and dots with dashes.
-        let name = name.replace(
-            |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
-            "-",
-        );
+        let info = if name == unique_name {
+            None
+        } else {
+            Some(unique_name.clone())
+        };
+        let stanitised_name = Self::sanitise(name);
 
-        let is_reserved_name = self.reserved.contains(name.as_str());
+        let is_reserved_name = self.reserved.contains(stanitised_name.as_str());
         let mut names = self.names.lock().expect("IdResolver panicked");
         // simple case if names need not be renamed
         if !is_reserved_name {
-            match names.entry(name.clone()) {
+            match names.entry(stanitised_name.clone()) {
                 Entry::Vacant(e) => {
+                    if stanitised_name != name {
+                        warn!(
+                            "Source `{name}`{info} was renamed to `{stanitised_name}` as source IDs may only contain alpha-numeric characters or `._-`",
+                            info = info.map_or(String::new(), |v| format!(" ({v})"))
+                        );
+                    }
                     e.insert(unique_name);
-                    return name;
+                    return stanitised_name;
                 }
                 Entry::Occupied(e) => {
                     if e.get() == &unique_name {
-                        return name;
+                        return stanitised_name;
                     }
                 }
             }
         }
-        
-        // need to rename
-        // try it with ".1", ".2", etc. until the value matches
-        // assume that reserved keywords never end in a "dot number", so don't check
+
+        // need to rename => try ".1", ".2", etc. until the value matches
+        // assumes that reserved keywords never end in a "dot number" => no special case for this
         let mut index: i32 = 1;
         let mut new_name = String::new();
         loop {
@@ -88,18 +94,17 @@ impl IdResolver {
             write!(&mut new_name, "{name}.{index}").unwrap();
             index = index.checked_add(1).unwrap();
             match names.entry(new_name.clone()) {
+                // found new name
                 Entry::Vacant(e) => {
                     if is_reserved_name {
                         warn!(
-                            "Source `{name}` was renamed to `{new_name}` as {name} is a reserved keyword",
-                        );
-                    } else if name == unique_name {
-                        warn!(
-                            "Source `{name}` was renamed to `{new_name}`. Source IDs must be unique and must contain alpha-numeric characters or `._-`"
+                            "Source `{name}`{info} was renamed to `{new_name}` as {name} is a reserved keyword",
+                            info = info.map_or(String::new(), |v| format!(" ({v})"))
                         );
                     } else {
                         warn!(
-                            "Source `{name}` ({unique_name}) was renamed to `{new_name}`. Source IDs must be unique and must contain alpha-numeric characters or `._-`"
+                            "Source `{name}`{info} was renamed to `{new_name}` as source IDs must be unique with alpha-numeric characters or `._-`",
+                            info = info.map_or(String::new(), |v| format!(" ({v})"))
                         );
                     }
                     e.insert(unique_name);
@@ -107,11 +112,19 @@ impl IdResolver {
                 }
                 Entry::Occupied(e) => {
                     if e.get() == &unique_name {
+                        // found existing name
                         return new_name;
                     }
                 }
             }
         }
+    }
+    /// replace prohibited characters, except underscores, dashes, and dots with dashes.
+    fn sanitise(name: &str) -> String {
+        name.replace(
+            |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
+            "-",
+        )
     }
 }
 
@@ -121,16 +134,22 @@ mod tests {
 
     #[test]
     fn id_resolve() {
-        let r = IdResolver::default();
-        assert_eq!(r.resolve_int("a", "a".to_string()), "a");
+        let reserved = ["foo"];
+        let r = IdResolver::new(&reserved);
+        
+        assert_eq!(r.resolve("a", "a".to_string()), "a");
         assert_eq!(r.resolve("a", "a".to_string()), "a");
         assert_eq!(r.resolve("a", "b".to_string()), "a.1");
         assert_eq!(r.resolve("a", "b".to_string()), "a.1");
         assert_eq!(r.resolve("b", "a".to_string()), "b");
         assert_eq!(r.resolve("b", "a".to_string()), "b");
+// reserved
+assert_eq!(r.resolve("foo", "a".to_string()), "foo.1");
+assert_eq!(r.resolve("foo", "a".to_string()), "foo.1");
+assert_eq!(r.resolve("foo", "b".to_string()), "foo.2");
+        // special characters
         assert_eq!(r.resolve("a.1", "a".to_string()), "a.1.1");
         assert_eq!(r.resolve("a.1", "b".to_string()), "a.1");
-
         assert_eq!(r.resolve("a b", "a b".to_string()), "a-b");
         assert_eq!(r.resolve("a b", "ab2".to_string()), "a-b.1");
     }
