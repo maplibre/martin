@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn id_resolve() {
-        let reserved = ["foo"];
+        let reserved = ["reserved"];
         let r = IdResolver::new(&reserved);
 
         assert_eq!(r.resolve("a", "a".to_string()), "a");
