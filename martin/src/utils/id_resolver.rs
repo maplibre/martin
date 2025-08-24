@@ -103,7 +103,7 @@ impl IdResolver {
                         );
                     } else {
                         warn!(
-                            "Source `{name}`{info} was renamed to `{new_name}` as source IDs must be unique with alpha-numeric characters or `._-`",
+                            "Source `{name}`{info} was renamed to `{new_name}` because ID must be unique, and only contain alpha-numeric characters or `._-`",
                             info = info.map_or(String::new(), |v| format!(" ({v})"))
                         );
                     }
