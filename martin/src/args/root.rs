@@ -4,13 +4,13 @@ use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use log::warn;
+#[cfg(feature = "fonts")]
+use martin_core::config::OptOneMany;
+use martin_core::config::env::Env;
 
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
-#[cfg(feature = "fonts")]
-use crate::OptOneMany;
 use crate::args::connections::Arguments;
-use crate::args::environment::Env;
 use crate::args::srv::SrvArgs;
 use crate::config::Config;
 #[cfg(any(
@@ -204,11 +204,11 @@ pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
 mod tests {
 
     use insta::assert_yaml_snapshot;
+    use martin_core::config::env::FauxEnv;
 
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::args::PreferredEncoding;
-    use crate::tests::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -228,8 +228,7 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use crate::tests::some;
-        use crate::utils::OptOneMany;
+        use martin_core::config::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
@@ -249,7 +248,7 @@ mod tests {
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
             postgres: OptOneMany::One(crate::pg::PgConfig {
-                connection_string: some("postgres://connection"),
+                connection_string: Some("postgres://connection".to_string()),
                 ..Default::default()
             }),
             ..Default::default()

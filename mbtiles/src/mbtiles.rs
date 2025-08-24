@@ -288,10 +288,10 @@ impl Mbtiles {
         let y = invert_y_value(z, y);
         let query = query! {"SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?", z, x, y};
         let row = query.fetch_optional(conn).await?;
-        if let Some(row) = row {
-            if let Some(tile_data) = row.tile_data {
-                return Ok(Some(tile_data));
-            }
+        if let Some(row) = row
+            && let Some(tile_data) = row.tile_data
+        {
+            return Ok(Some(tile_data));
         }
         Ok(None)
     }

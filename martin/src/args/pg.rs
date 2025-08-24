@@ -3,13 +3,13 @@ use std::time::Duration;
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
 use log::{info, warn};
+use martin_core::config::env::Env;
+use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 
 use crate::args::connections::Arguments;
 use crate::args::connections::State::{Ignore, Take};
-use crate::args::environment::Env;
 use crate::pg::{POOL_SIZE_DEFAULT, PgConfig, PgSslCerts};
-use crate::utils::{OptBoolObj, OptOneMany};
 
 // Must match the help string for BoundsType::Quick
 pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
@@ -163,16 +163,17 @@ impl PgArgs {
                 Ignore
             }
         });
-        if connections.is_empty() {
-            if let Some(s) = env.get_env_str("DATABASE_URL") {
-                if is_postgresql_string(&s) {
-                    info!("Using env var DATABASE_URL to connect to PostgreSQL");
-                    connections.push(s);
-                } else {
-                    warn!("Environment var DATABASE_URL is not a valid postgres connection string");
-                }
+        if connections.is_empty()
+            && let Some(s) = env.get_env_str("DATABASE_URL")
+        {
+            if is_postgresql_string(&s) {
+                info!("Using env var DATABASE_URL to connect to PostgreSQL");
+                connections.push(s);
+            } else {
+                warn!("Environment var DATABASE_URL is not a valid postgres connection string");
             }
         }
+
         connections
     }
 
@@ -227,11 +228,13 @@ fn is_postgresql_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
     use std::path::PathBuf;
+
+    use martin_core::config::env::FauxEnv;
 
     use super::*;
     use crate::MartinError;
-    use crate::tests::{FauxEnv, os, some};
 
     #[test]
     fn test_extract_conn_strings() {
@@ -252,9 +255,12 @@ mod tests {
     fn test_extract_conn_strings_from_env() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
-            vec![("DATABASE_URL", os("postgresql://localhost:5432"))]
-                .into_iter()
-                .collect(),
+            vec![(
+                "DATABASE_URL",
+                OsString::from("postgresql://localhost:5432"),
+            )]
+            .into_iter()
+            .collect(),
         );
         let strings = PgArgs::extract_conn_strings(&mut args, &env);
         assert_eq!(strings, vec!["postgresql://localhost:5432"]);
@@ -268,7 +274,7 @@ mod tests {
         assert_eq!(
             config,
             OptOneMany::One(PgConfig {
-                connection_string: some("postgres://localhost:5432"),
+                connection_string: Some("postgres://localhost:5432".to_string()),
                 ..Default::default()
             })
         );
@@ -280,9 +286,9 @@ mod tests {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
-                ("DATABASE_URL", os("postgres://localhost:5432")),
-                ("DEFAULT_SRID", os("10")),
-                ("PGSSLROOTCERT", os("file")),
+                ("DATABASE_URL", OsString::from("postgres://localhost:5432")),
+                ("DEFAULT_SRID", OsString::from("10")),
+                ("PGSSLROOTCERT", OsString::from("file")),
             ]
             .into_iter()
             .collect(),
@@ -291,7 +297,7 @@ mod tests {
         assert_eq!(
             config,
             OptOneMany::One(PgConfig {
-                connection_string: some("postgres://localhost:5432"),
+                connection_string: Some("postgres://localhost:5432".to_string()),
                 default_srid: Some(10),
                 ssl_certificates: PgSslCerts {
                     ssl_root_cert: Some(PathBuf::from("file")),
@@ -308,11 +314,11 @@ mod tests {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
-                ("DATABASE_URL", os("postgres://localhost:5432")),
-                ("DEFAULT_SRID", os("10")),
-                ("PGSSLCERT", os("cert")),
-                ("PGSSLKEY", os("key")),
-                ("PGSSLROOTCERT", os("root")),
+                ("DATABASE_URL", OsString::from("postgres://localhost:5432")),
+                ("DEFAULT_SRID", OsString::from("10")),
+                ("PGSSLCERT", OsString::from("cert")),
+                ("PGSSLKEY", OsString::from("key")),
+                ("PGSSLROOTCERT", OsString::from("root")),
             ]
             .into_iter()
             .collect(),
@@ -325,7 +331,7 @@ mod tests {
         assert_eq!(
             config,
             OptOneMany::One(PgConfig {
-                connection_string: some("postgres://localhost:5432"),
+                connection_string: Some("postgres://localhost:5432".to_string()),
                 default_srid: Some(20),
                 ssl_certificates: PgSslCerts {
                     ssl_cert: Some(PathBuf::from("cert")),

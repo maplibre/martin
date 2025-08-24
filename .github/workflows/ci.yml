@@ -65,6 +65,7 @@ jobs:
       - run: just check-doc
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
+        with: { exclude: martin-core }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -343,7 +344,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v5
       - run: rustup update stable && rustup default stable
-      # the macos x86 runners are 3x slower than all other runners.
+      # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
       - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'

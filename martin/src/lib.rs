@@ -10,7 +10,7 @@ pub use source::{
 };
 
 mod utils;
-pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, OptBoolObj, OptOneMany};
+pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};
 
 pub mod args;
 #[cfg(feature = "cog")]
@@ -29,15 +29,6 @@ pub mod sprites;
 pub mod srv;
 #[cfg(feature = "styles")]
 pub mod styles;
-
-#[cfg(test)]
-#[path = "utils/tests.rs"]
-mod tests;
-
-// tests is used from tests in other modules, and it uses this crate's object.
-// Must make it accessible as carte::Env from both places when testing.
-#[cfg(test)]
-pub use crate::args::Env;
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]
