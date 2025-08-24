@@ -38,4 +38,31 @@ export default createGlobalStyle`
 
     background-image: linear-gradient(to bottom,  #0e0e1e 50%, #1c1c30);
   }
+
+  .header {
+    > div {
+      display: inline-block;
+      width: 50%;
+      &.header-left {
+        text-align: left;
+        vertical-align: top;
+        padding: 20px;
+        img {
+          width: 100%;
+          max-width: 400px;
+        }
+        @media (max-width: 600px) {
+            padding: 5px;
+        }
+      }
+      &.header-right {
+        img {
+          width: 100%;
+          max-width: 600px;
+        }
+        text-align: right;
+        padding-left: 20px;
+      }
+    }
+  }
 `;

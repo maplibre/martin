@@ -11,6 +11,7 @@ import GlobalStyle from "./GlobalStyle";
 const App = () => (
   <ParallaxProvider>
     <GlobalStyle />
+    <Head />
     <Intro />
     <Description>Martin is an Open Source PostGIS vector tile server</Description>
     <Features />
@@ -28,6 +29,13 @@ const App = () => (
     <Development />
     <Footer />
   </ParallaxProvider>
+);
+
+const Head = () => (
+    <div className="header">
+        <div className="header-left"><img src="logo.png"/></div>
+        <div className="header-right"><img src="tiles.png"/></div>
+    </div>
 );
 
 export default App;
