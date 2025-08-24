@@ -18,6 +18,8 @@ jobs:
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ignore: RUSTSEC-2023-0071
+          # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing sidechannels => not used explitably
   codeql:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-latest
