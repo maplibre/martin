@@ -14,7 +14,7 @@ pub struct IdResolver {
 }
 
 impl IdResolver {
-    /// Creates a new IdResolver with the given reserved keywords.
+    /// Creates a new `IdResolver` with the given reserved keywords.
     /// 
     /// Assumes that reserved keywords never end in a "dot number" (e.g., "catalog.1")
     #[must_use]
@@ -56,7 +56,7 @@ impl IdResolver {
     #[must_use]
     pub fn resolve(&self, name: &str, unique_name: String) -> String {
         // replace prohibited characters, except underscores, dashes, and dots with dashes.
-        let mut name = name.replace(
+        let name = name.replace(
             |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
             "-",
         );
@@ -65,14 +65,12 @@ impl IdResolver {
         let mut names = self.names.lock().expect("IdResolver panicked");
         // simple case if names need not be renamed
         if !is_reserved_name {
-            match names.entry(name) {
+            match names.entry(name.clone()) {
                 Entry::Vacant(e) => {
-                    let id = e.key().clone();
                     e.insert(unique_name);
-                    return id;
+                    return name;
                 }
                 Entry::Occupied(e) => {
-                    name = e.key().clone();
                     if e.get() == &unique_name {
                         return name;
                     }
