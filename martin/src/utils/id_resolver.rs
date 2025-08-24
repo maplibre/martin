@@ -84,6 +84,7 @@ impl IdResolver {
                     e.insert(unique_name);
                     return id;
                 }
+                #[allow(clippy::assigning_clones)]
                 Entry::Occupied(e) => {
                     name = e.key().clone();
                     if e.get() == &unique_name {
