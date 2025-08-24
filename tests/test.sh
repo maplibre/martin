@@ -224,7 +224,6 @@ validate_log() {
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
-  remove_line "$LOG_FILE" 'Source IDs must be unique'
   remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
   remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
   remove_line "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
@@ -389,6 +388,9 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN  martin::utils::id_resolver] Source `stamen_toner__raster_CC-BY+ODbL_z3` (/home/runner/work/martin/martin/tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles) was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
+test_log_has_str "$LOG_FILE" 'WARN  martin::utils::id_resolver] Source `table_source_multiple_geom` (test.public.table_source_multiple_geom.geom2) was renamed to `table_source_multiple_geom.1` as source IDs must be unique'
+test_log_has_str "$LOG_FILE" 'WARN  martin::utils::id_resolver] Source `"function.withweired$*;_ characters` (test.public."function.withweired$*;_ characters) was renamed to `-function.withweired---_-characters` as source IDs may only contain alpha-numeric characters or `._-`'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
