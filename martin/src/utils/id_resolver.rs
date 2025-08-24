@@ -71,19 +71,21 @@ impl IdResolver {
     fn resolve_int(&self, name: &str, unique_name: String) -> String {
         // Ensure name has no prohibited characters like spaces, commas, slashes, or non-unicode etc.
         // Underscores, dashes, and dots are OK. All other characters will be replaced with dashes.
-        let name = name.replace(
+        let mut name = name.replace(
             |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
             "-",
         );
 
         let mut names = self.names.lock().expect("IdResolver panicked");
         if !self.reserved.contains(name.as_str()) {
-            match names.entry(name.clone()) {
+            match names.entry(name) {
                 Entry::Vacant(e) => {
+                    let id = e.key().clone();
                     e.insert(unique_name);
-                    return name;
+                    return id;
                 }
                 Entry::Occupied(e) => {
+                    name = e.key().clone();
                     if e.get() == &unique_name {
                         return name;
                     }
