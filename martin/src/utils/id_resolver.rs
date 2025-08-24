@@ -136,17 +136,17 @@ mod tests {
     fn id_resolve() {
         let reserved = ["foo"];
         let r = IdResolver::new(&reserved);
-        
+
         assert_eq!(r.resolve("a", "a".to_string()), "a");
         assert_eq!(r.resolve("a", "a".to_string()), "a");
         assert_eq!(r.resolve("a", "b".to_string()), "a.1");
         assert_eq!(r.resolve("a", "b".to_string()), "a.1");
         assert_eq!(r.resolve("b", "a".to_string()), "b");
         assert_eq!(r.resolve("b", "a".to_string()), "b");
-// reserved
-assert_eq!(r.resolve("foo", "a".to_string()), "foo.1");
-assert_eq!(r.resolve("foo", "a".to_string()), "foo.1");
-assert_eq!(r.resolve("foo", "b".to_string()), "foo.2");
+        // reserved
+        assert_eq!(r.resolve("foo", "a".to_string()), "foo.1");
+        assert_eq!(r.resolve("foo", "a".to_string()), "foo.1");
+        assert_eq!(r.resolve("foo", "b".to_string()), "foo.2");
         // special characters
         assert_eq!(r.resolve("a.1", "a".to_string()), "a.1.1");
         assert_eq!(r.resolve("a.1", "b".to_string()), "a.1");
