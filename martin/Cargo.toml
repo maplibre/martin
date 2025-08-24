@@ -68,7 +68,7 @@ default = [
     "styles",
     "webui",
 ]
-cog = ["dep:png", "dep:tiff"]
+cog = ["dep:tiff", "dep:png", "dep:image", "dep:imageproc"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
@@ -108,6 +108,8 @@ deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
+imageproc = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
