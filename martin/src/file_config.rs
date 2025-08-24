@@ -4,16 +4,16 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use log::{info, warn};
+use martin_core::config::OptOneMany::{self, Many, One};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::OptOneMany::{Many, One};
-use crate::config::UnrecognizedKeys;
+use crate::config::{UnrecognizedValues, copy_unrecognized_config};
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{TileInfoSource, TileInfoSources};
-use crate::utils::{IdResolver, OptMainCache, OptOneMany};
+use crate::utils::{IdResolver, OptMainCache};
 use crate::{MartinError, MartinResult};
 
 pub type FileResult<T> = Result<T, FileError>;

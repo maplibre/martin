@@ -155,10 +155,8 @@ fn ensure_pixels_valid(
                     //   So the visual result is the same, but the component values are different.
 
                     let value = data[(idx_chunk + component_idx) as usize];
-                    if let Some(v) = nodata {
-                        if value == v {
-                            continue 'outer;
-                        }
+                    if nodata == Some(value) {
+                        continue 'outer;
                     }
                     // Copy this component to the result vector
                     result_vec[(idx_result + component_idx) as usize] = value;

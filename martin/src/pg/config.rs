@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use log::warn;
+use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
@@ -15,7 +16,7 @@ use crate::pg::config_table::TableInfoSources;
 use crate::pg::utils::on_slow;
 use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
-use crate::utils::{IdResolver, OptBoolObj, OptOneMany};
+use crate::utils::IdResolver;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;
@@ -111,12 +112,12 @@ pub struct PgCfgPublishFuncs {
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn validate(&self) -> PgResult<()> {
-        if let Some(pool_size) = self.pool_size {
-            if pool_size < 1 {
-                return Err(PgError::ConfigError(
-                    "pool_size must be greater than or equal to 1.",
-                ));
-            }
+        if let Some(pool_size) = self.pool_size
+            && pool_size < 1
+        {
+            return Err(PgError::ConfigError(
+                "pool_size must be greater than or equal to 1.",
+            ));
         }
         if self.connection_string.is_none() {
             return Err(PgError::ConfigError(
@@ -182,6 +183,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use indoc::indoc;
+    use martin_core::config::OptOneMany::{Many, One};
     use tilejson::Bounds;
 
     use super::*;
@@ -189,8 +191,6 @@ mod tests {
     use crate::config::tests::assert_config;
     use crate::pg::config_function::FunctionInfo;
     use crate::pg::config_table::TableInfo;
-    use crate::tests::some;
-    use crate::utils::OptOneMany::{Many, One};
 
     #[test]
     fn parse_pg_one() {
@@ -201,7 +201,7 @@ mod tests {
         "},
             &Config {
                 postgres: One(PgConfig {
-                    connection_string: some("postgresql://postgres@localhost/db"),
+                    connection_string: Some("postgresql://postgres@localhost/db".to_string()),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
                 }),
@@ -221,12 +221,16 @@ mod tests {
             &Config {
                 postgres: Many(vec![
                     PgConfig {
-                        connection_string: some("postgres://postgres@localhost:5432/db"),
+                        connection_string: Some(
+                            "postgres://postgres@localhost:5432/db".to_string(),
+                        ),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
                     PgConfig {
-                        connection_string: some("postgresql://postgres@localhost:5433/db"),
+                        connection_string: Some(
+                            "postgresql://postgres@localhost:5433/db".to_string(),
+                        ),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
@@ -273,7 +277,7 @@ mod tests {
         "},
             &Config {
                 postgres: One(PgConfig {
-                    connection_string: some("postgres://postgres@localhost:5432/db"),
+                    connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                     default_srid: Some(4326),
                     pool_size: Some(20),
                     max_feature_count: Some(100),
@@ -290,7 +294,7 @@ mod tests {
                             extent: Some(2048),
                             buffer: Some(10),
                             clip_geom: Some(false),
-                            geometry_type: some("GEOMETRY"),
+                            geometry_type: Some("GEOMETRY".to_string()),
                             properties: Some(BTreeMap::from([(
                                 "gid".to_string(),
                                 "int4".to_string(),

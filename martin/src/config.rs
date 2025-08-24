@@ -7,12 +7,12 @@ use std::pin::Pin;
 
 use futures::future::try_join_all;
 use log::info;
+#[cfg(any(feature = "fonts", feature = "postgres"))]
+use martin_core::config::OptOneMany;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-#[cfg(any(feature = "fonts", feature = "postgres"))]
-use crate::OptOneMany;
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -267,9 +267,10 @@ where
 #[cfg(feature = "postgres")]
 #[cfg(test)]
 pub mod tests {
+    use martin_core::config::env::FauxEnv;
+
     use super::*;
     use crate::config::Config;
-    use crate::tests::FauxEnv;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()

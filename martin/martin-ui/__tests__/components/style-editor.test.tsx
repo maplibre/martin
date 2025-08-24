@@ -1,8 +1,8 @@
-import { describe, expect, it, jest } from '@jest/globals';
 import type { ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StyleEditor } from '@/components/style-editor';
 import type { ButtonProps } from '@/components/ui/button';
-import { render, screen } from '../test-utils';
+import { cleanup, render } from '../test-utils';
 
 // Mock component interfaces
 interface MockComponentProps {
@@ -11,7 +11,7 @@ interface MockComponentProps {
 }
 
 // Mock the UI components
-jest.mock('@/components/ui/button', () => ({
+vi.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, ...props }: ButtonProps & { onClick?: () => void }) => (
     <button onClick={onClick} {...props}>
       {children}
@@ -19,19 +19,19 @@ jest.mock('@/components/ui/button', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/card', () => ({
+vi.mock('@/components/ui/card', () => ({
   Card: ({ children, ...props }: MockComponentProps) => <div {...props}>{children}</div>,
   CardContent: ({ children, ...props }: MockComponentProps) => <div {...props}>{children}</div>,
   CardHeader: ({ children, ...props }: MockComponentProps) => <div {...props}>{children}</div>,
   CardTitle: ({ children, ...props }: MockComponentProps) => <h3 {...props}>{children}</h3>,
 }));
 
-jest.mock('@/lib/api', () => ({
-  buildMartinUrl: jest.fn((path: string) => `http://localhost:3000${path}`),
+vi.mock('@/lib/api', () => ({
+  buildMartinUrl: vi.fn((path: string) => `http://localhost:3000${path}`),
 }));
 
 // Mock lucide-react icons
-jest.mock('lucide-react', () => ({
+vi.mock('lucide-react', () => ({
   ArrowLeft: () => <span>←</span>,
   X: () => <span>×</span>,
 }));
@@ -47,67 +47,76 @@ describe('StyleEditor', () => {
   };
 
   const defaultProps = {
-    onClose: jest.fn(),
+    onClose: vi.fn(),
     style: mockStyle,
     styleName: 'test-style',
   };
 
-  it('renders the style editor with correct title', () => {
-    render(<StyleEditor {...defaultProps} />);
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
 
-    expect(screen.getByText('test-style')).toBeDefined();
-    expect(screen.getByText('/styles/test-style.json')).toBeDefined();
+  it('renders the style editor with correct title', () => {
+    const { container } = render(<StyleEditor {...defaultProps} />);
+
+    expect(container.textContent).toContain('test-style');
+    expect(container.textContent).toContain('/styles/test-style.json');
   });
 
   it('renders navigation buttons', () => {
-    render(<StyleEditor {...defaultProps} />);
+    const { container } = render(<StyleEditor {...defaultProps} />);
 
-    expect(screen.getByText('Back to Catalog')).toBeDefined();
+    const backButton = container.querySelector('button');
+    expect(backButton).toBeTruthy();
+    expect(backButton?.textContent).toContain('Back to Catalog');
   });
 
   it('renders iframe with correct src', () => {
-    render(<StyleEditor {...defaultProps} />);
+    const { container } = render(<StyleEditor {...defaultProps} />);
 
-    const iframe = screen.getByTitle('Maputnik Style Editor - test-style');
-    expect(iframe).toBeDefined();
-    expect(iframe.getAttribute('src')).toBeDefined();
+    const iframe = container.querySelector('iframe');
+    expect(iframe).toBeTruthy();
+    expect(iframe?.getAttribute('src')).toBeDefined();
 
-    const src = iframe.getAttribute('src');
+    const src = iframe?.getAttribute('src');
     expect(src).toContain('https://maplibre.org/maputnik/');
     expect(src).toContain('style=http%3A%2F%2Flocalhost%3A3000%2Fstyle%2Ftest-style');
   });
 
   it('renders iframe without loading state', () => {
-    render(<StyleEditor {...defaultProps} />);
+    const { container } = render(<StyleEditor {...defaultProps} />);
 
-    const iframe = screen.getByTitle('Maputnik Style Editor - test-style');
-    expect(iframe).toBeDefined();
+    const iframe = container.querySelector('iframe');
+    expect(iframe).toBeTruthy();
+    expect(iframe?.getAttribute('title')).toBe('Maputnik Style Editor - test-style');
   });
 
   it('calls onClose when back button is clicked', () => {
-    const onClose = jest.fn();
-    render(<StyleEditor {...defaultProps} onClose={onClose} />);
+    const onClose = vi.fn();
+    const { container } = render(<StyleEditor {...defaultProps} onClose={onClose} />);
 
-    const backButton = screen.getByText('Back to Catalog');
-    backButton.click();
+    const backButton = container.querySelector('button');
+    expect(backButton).toBeTruthy();
+    backButton?.click();
 
     expect(onClose).toHaveBeenCalled();
   });
 
   it('renders with proper iframe sandbox attributes', () => {
-    render(<StyleEditor {...defaultProps} />);
+    const { container } = render(<StyleEditor {...defaultProps} />);
 
-    const iframe = screen.getByTitle('Maputnik Style Editor - test-style');
-    expect(iframe.getAttribute('sandbox')).toBe(
+    const iframe = container.querySelector('iframe');
+    expect(iframe?.getAttribute('sandbox')).toBe(
       'allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals',
     );
   });
 
   it('constructs proper Maputnik URL with encoded style parameter', () => {
-    render(<StyleEditor {...defaultProps} />);
+    const { container } = render(<StyleEditor {...defaultProps} />);
 
-    const iframe = screen.getByTitle('Maputnik Style Editor - test-style');
-    const src = iframe.getAttribute('src');
+    const iframe = container.querySelector('iframe');
+    const src = iframe?.getAttribute('src');
 
     expect(src).toContain('https://maplibre.org/maputnik/');
     expect(src).toContain('style=');

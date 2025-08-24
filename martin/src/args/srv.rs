@@ -34,6 +34,12 @@ pub struct SrvArgs {
     #[arg(short = 'u', long = "webui")]
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
+    /// Main cache size (in MB)
+    #[arg(short = 'C', long)]
+    pub cache_size: Option<u64>,
+    /// **Deprecated** Scan for new sources on sources list requests
+    #[arg(short, long, hide = true)]
+    pub watch: bool,
 }
 
 #[cfg(feature = "webui")]
