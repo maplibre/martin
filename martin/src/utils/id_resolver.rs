@@ -14,6 +14,9 @@ pub struct IdResolver {
 }
 
 impl IdResolver {
+    /// Creates a new IdResolver with the given reserved keywords.
+    /// 
+    /// Assumes that reserved keywords never end in a "dot number" (e.g., "catalog.1")
     #[must_use]
     pub fn new(reserved_keywords: &[&'static str]) -> Self {
         Self {
@@ -52,32 +55,16 @@ impl IdResolver {
     /// ```
     #[must_use]
     pub fn resolve(&self, name: &str, unique_name: String) -> String {
-        let info = if name == unique_name {
-            None
-        } else {
-            Some(unique_name.clone())
-        };
-        let new_name = self.resolve_int(name, unique_name);
-        if name != new_name {
-            warn!(
-                "Source `{name}`{info} was renamed to `{new_name}`. Source IDs must be unique, cannot be reserved, and must contain alpha-numeric characters or `._-`",
-                info = info.map_or(String::new(), |v| format!(" ({v})"))
-            );
-        }
-        new_name
-    }
-
-    #[must_use]
-    fn resolve_int(&self, name: &str, unique_name: String) -> String {
-        // Ensure name has no prohibited characters like spaces, commas, slashes, or non-unicode etc.
-        // Underscores, dashes, and dots are OK. All other characters will be replaced with dashes.
+        // replace prohibited characters, except underscores, dashes, and dots with dashes.
         let mut name = name.replace(
             |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
             "-",
         );
 
+        let is_reserved_name = self.reserved.contains(name.as_str());
         let mut names = self.names.lock().expect("IdResolver panicked");
-        if !self.reserved.contains(name.as_str()) {
+        // simple case if names need not be renamed
+        if !is_reserved_name {
             match names.entry(name) {
                 Entry::Vacant(e) => {
                     let id = e.key().clone();
@@ -92,7 +79,9 @@ impl IdResolver {
                 }
             }
         }
-        // name already exists, try it with ".1", ".2", etc. until the value matches
+        
+        // need to rename
+        // try it with ".1", ".2", etc. until the value matches
         // assume that reserved keywords never end in a "dot number", so don't check
         let mut index: i32 = 1;
         let mut new_name = String::new();
@@ -102,6 +91,19 @@ impl IdResolver {
             index = index.checked_add(1).unwrap();
             match names.entry(new_name.clone()) {
                 Entry::Vacant(e) => {
+                    if is_reserved_name {
+                        warn!(
+                            "Source `{name}` was renamed to `{new_name}` as {name} is a reserved keyword",
+                        );
+                    } else if name == unique_name {
+                        warn!(
+                            "Source `{name}` was renamed to `{new_name}`. Source IDs must be unique and must contain alpha-numeric characters or `._-`"
+                        );
+                    } else {
+                        warn!(
+                            "Source `{name}` ({unique_name}) was renamed to `{new_name}`. Source IDs must be unique and must contain alpha-numeric characters or `._-`"
+                        );
+                    }
                     e.insert(unique_name);
                     return new_name;
                 }
@@ -122,7 +124,7 @@ mod tests {
     #[test]
     fn id_resolve() {
         let r = IdResolver::default();
-        assert_eq!(r.resolve("a", "a".to_string()), "a");
+        assert_eq!(r.resolve_int("a", "a".to_string()), "a");
         assert_eq!(r.resolve("a", "a".to_string()), "a");
         assert_eq!(r.resolve("a", "b".to_string()), "a.1");
         assert_eq!(r.resolve("a", "b".to_string()), "a.1");
