@@ -34,9 +34,7 @@ updates:
       all-npm-ui-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
-        ignore:
-          - '@biomejs/biome'
-          - 'tailwindcss'
+        exclude-patterns: '@biomejs/biome|tailwindcss'
       all-npm-ui-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
@@ -50,8 +48,7 @@ updates:
       all-npm-fe-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
-        ignore:
-          - '@biomejs/biome'
+        exclude-patterns: '@biomejs/biome'
       all-npm-fe-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
