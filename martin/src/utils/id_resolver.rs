@@ -91,7 +91,7 @@ impl IdResolver {
         let mut new_name = String::new();
         loop {
             new_name.clear();
-            write!(&mut new_name, "{name}.{index}").unwrap();
+            write!(&mut new_name, "{stanitised_name}.{index}").unwrap();
             index = index.checked_add(1).unwrap();
             match names.entry(new_name.clone()) {
                 // found new name
