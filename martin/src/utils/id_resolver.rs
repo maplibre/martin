@@ -27,7 +27,7 @@ impl IdResolver {
 
     /// Makes sure that every source has a unique, non-reserved name
     ///
-    /// Replace non-alphanumeric characters or dashes/dots/underscores with dashes
+    /// Replace non-alphanumeric characters or dashes/dots/underscores with dashes.
     /// If an unique source name already exists in the self.names structure ".1", ".2", etc. is appended.
     /// For every name which is changed, a warning is logged.
     ///
