@@ -51,6 +51,10 @@ name = "martin-cp"
 path = "src/bin/martin-cp.rs"
 required-features = ["mbtiles"]
 
+[[bench]]
+name = "bench"
+harness = false
+
 [features]
 default = [
     "cog",
@@ -157,10 +161,6 @@ pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
-
-[[bench]]
-name = "bench"
-harness = false
 
 [lints]
 workspace = true
