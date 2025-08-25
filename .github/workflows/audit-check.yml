@@ -14,8 +14,8 @@ jobs:
       issues: write
       checks: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: rustsec/audit-check@v2.0.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ignore: RUSTSEC-2023-0071
@@ -43,13 +43,13 @@ jobs:
         - language: rust
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@3c3833e0f8c1c83d449a7478aa59c036a9165498 # v3
       with:
         languages: ${{ matrix.language }}
         build-mode: none
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@3c3833e0f8c1c83d449a7478aa59c036a9165498 # v3
       with:
         category: "/language:${{matrix.language}}"
