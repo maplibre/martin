@@ -33,7 +33,7 @@ const Filters: React.FC<FiltersProps> = ({
   const [isDayPickerEnabled, setIsDayPickerEnabled] = useState(true);
 
   const debouncedHourChangeFilter = debounce(
-    (value: string) => changeHourFilter(parseInt(value)),
+    (value: string) => changeHourFilter(parseInt(value, 10)),
     300,
   );
 
