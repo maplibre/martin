@@ -11,7 +11,6 @@ const Layers = ({ visibleLayer, toggleLayer }) => {
     };
 
     return layers.map((layer) => {
-        const isLayerVisible = visibleLayer === layer.id;
         const [fromColor, toColor] = getColorsFromLayer(
             layer.maplibreLayer,
             "fill-extrusion-color",
@@ -21,13 +20,13 @@ const Layers = ({ visibleLayer, toggleLayer }) => {
             <Layer
                 key={layer.id}
                 onClick={toggleLayerHandler(layer.id)}
-                isLayerVisible={isLayerVisible}
+                $isLayerVisible={visibleLayer === layer.id}
             >
                 <Title>{layer.title}</Title>
-                {isLayerVisible && (
+                {visibleLayer === layer.id && (
                     <>
                         <Description>{layer.description}</Description>
-                        <Legend fromColor={fromColor} toColor={toColor} />
+                        <Legend $fromColor={fromColor} $toColor={toColor} />
                     </>
                 )}
             </Layer>

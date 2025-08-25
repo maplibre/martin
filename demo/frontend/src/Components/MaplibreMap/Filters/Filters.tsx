@@ -1,4 +1,4 @@
-import { debounce } from 'debounce';
+import debounce from 'debounce';
 import { useState } from 'react';
 import { type DateRange, DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
