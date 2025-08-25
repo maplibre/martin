@@ -1,17 +1,23 @@
 ## Quick start on Windows
 
-1. Download some [demo tiles](https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles).
+1. Download some [demo tiles](https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql).
 
 2. Download the latest Windows version of Martin from
    the [release page](https://github.com/maplibre/martin/releases):  [martin-x86_64-pc-windows-msvc.zip](https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip)
 
 3. Extract content of both files and place them in a same directory.
 
-4. Open the command prompt and navigate to the directory where `martin` and `world_cities.mbtiles` are located.
+4. Open the command prompt and navigate to the directory where `martin` and `world_cities.sql` are located.
 
 5. Run the following command to start Martin with the demo data:
 
 ```bash
+# Check if sqlite is installed
+sqlite3 --version
+
+# Initialize a database
+sqlite3 world_cities.mbtiles < world_cities.sql
+
 # Show Martin help screen
 martin --help
 
