@@ -70,7 +70,7 @@ impl IdResolver {
                 Entry::Vacant(e) => {
                     if stanitised_name != name {
                         warn!(
-                            "Source `{name}`{info} was renamed to `{stanitised_name}` because ID may only contain alpha-numeric characters or `._-`",
+                            "Source `{name}`{info} was renamed to `{stanitised_name}` because the ID may only contain alpha-numeric characters or `._-`",
                             info = info.map_or(String::new(), |v| format!(" ({v})"))
                         );
                     }
