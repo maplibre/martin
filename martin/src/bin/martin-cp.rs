@@ -536,7 +536,7 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin_cp=info");
+    let env = env_logger::Env::default().default_filter_or("martin_cp=info,martin-core=info");
     env_logger::Builder::from_env(env).init();
 
     if let Err(e) = start(CopierArgs::parse()).await {

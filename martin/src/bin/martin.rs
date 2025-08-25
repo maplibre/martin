@@ -51,7 +51,7 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin=info");
+    let env = env_logger::Env::default().default_filter_or("martin=info,martin-core=info");
     env_logger::Builder::from_env(env).init();
 
     if let Err(e) = start(Args::parse()).await {

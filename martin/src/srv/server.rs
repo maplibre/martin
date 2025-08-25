@@ -46,7 +46,7 @@ pub struct Catalog {
     #[cfg(feature = "sprites")]
     pub sprites: crate::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
-    pub fonts: crate::fonts::FontCatalog,
+    pub fonts: martin_core::fonts::FontCatalog,
     #[cfg(feature = "styles")]
     pub styles: crate::styles::StyleCatalog,
 }

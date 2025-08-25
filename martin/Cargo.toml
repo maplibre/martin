@@ -69,7 +69,7 @@ default = [
     "webui",
 ]
 cog = ["dep:png", "dep:tiff"]
-fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
+fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
@@ -101,7 +101,6 @@ actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
-bit-set = { workspace = true, optional = true }
 clap.workspace = true
 dashmap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
@@ -117,7 +116,6 @@ martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
 num_cpus.workspace = true
-pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
