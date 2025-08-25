@@ -26,15 +26,15 @@ jobs:
       - name: Set up system dependencies
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Checkout sources
-        uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2
 
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@f63c33fd96cc1e69a29bafd06541cf28588b43a4 # v2
         with: { tool: 'just,cargo-llvm-cov' }
       - name: Generate code coverage
         run: just coverage --codecov --output-path target/codecov.info
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fdcc8476540edceab3de004e990f80d881c6cc00 # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/codecov.info
