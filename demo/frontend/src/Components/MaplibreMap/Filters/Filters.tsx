@@ -1,4 +1,4 @@
-import { debounce } from 'debounce';
+import debounce from 'debounce';
 import { useState } from 'react';
 import { type DateRange, DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -33,7 +33,7 @@ const Filters: React.FC<FiltersProps> = ({
   const [isDayPickerEnabled, setIsDayPickerEnabled] = useState(true);
 
   const debouncedHourChangeFilter = debounce(
-    (value: string) => changeHourFilter(parseInt(value)),
+    (value: string) => changeHourFilter(parseInt(value, 10)),
     300,
   );
 

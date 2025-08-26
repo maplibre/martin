@@ -47,7 +47,18 @@ Please refer to [Planetilers documentation](https://github.com/onthegomap/planet
 
 ```bash
 mkdir --parents data
-docker run --user=$UID -e JAVA_TOOL_OPTIONS="-Xmx1g" -v "$(pwd)/data":/data --rm ghcr.io/onthegomap/planetiler:latest --download --minzoom=0 --maxzoom=14 --tile_compression=none --area=monaco --output /data/monaco.mbtiles
+docker run \
+  --user=$UID \
+  -e JAVA_TOOL_OPTIONS="-Xmx1g" \
+  -v "$(pwd)/data":/data \
+  --rm \
+  ghcr.io/onthegomap/planetiler:latest \
+  --download \
+  --minzoom=0 \
+  --maxzoom=14 \
+  --tile_compression=none \
+  --area=monaco \
+  --output /data/monaco.mbtiles
 ```
 
 ## Loading data into a PostGIS database
@@ -57,7 +68,12 @@ docker run --user=$UID -e JAVA_TOOL_OPTIONS="-Xmx1g" -v "$(pwd)/data":/data --rm
 First, you need a running [postGIS](https://postgis.net) instance.
 
 ```bash
-docker run --name some-postgis --env POSTGRES_PASSWORD=mypass --publish 5432:5432 --detach postgis/postgis
+docker run \
+  --name some-postgis \
+  --env POSTGRES_PASSWORD=mypass \
+  --publish 5432:5432 \
+  --detach \
+  postgis/postgis
 ```
 
 ### Import Points into PostGIS
@@ -66,8 +82,17 @@ Then you need to add geometries to the PostGIS database.
 This is possible via multiple ways, such as [`osm2pgsql` for adding specific, updatable OSM data](https://osm2pgsql.org/) or in the programming language of your choice via postgres' various database connectors.
 
 ```bash
-docker exec some-postgis psql --dbname postgres --username postgres --command "CREATE TABLE where_yachts_can_be_looked_at (title TEXT NOT NULL, subtitle TEXT NOT NULL, location GEOMETRY(Point, 4326) NOT NULL);"
-docker exec some-postgis psql --dbname postgres --username postgres --command "INSERT INTO where_yachts_can_be_looked_at (title, subtitle, location) VALUES ('Port Hercules', 'Great view of superyachts docked in the iconic harbor.', ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"
+docker exec some-postgis psql --dbname postgres --username postgres --command \
+  "CREATE TABLE where_yachts_can_be_looked_at ("\
+  "  title TEXT NOT NULL, "\
+  "  subtitle TEXT NOT NULL, "\
+  "  location GEOMETRY(Point, 4326) NOT NULL);"
+
+docker exec some-postgis psql --dbname postgres --username postgres --command \
+  "INSERT INTO where_yachts_can_be_looked_at (title, subtitle, location) VALUES ( "\
+  "  'Port Hercules', "\
+  "  'Great view of superyachts docked in the iconic harbor.', "\
+  "  ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"
 ```
 
 ## Serving tiles with Martin
