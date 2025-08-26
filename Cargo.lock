@@ -6206,9 +6206,9 @@ dependencies = [
 
 [[package]]
 name = "tiff"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd35f8bd40ae1e2b51e86f7a665f81160dc82b785f5de1f193a52f1298a76586"
+checksum = "b978085579d3e237dec181dbbbf7ad3a1f7f8b25c086a568d4383bd96eedc23b"
 dependencies = [
  "flate2",
  "half",
