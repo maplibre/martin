@@ -97,7 +97,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with: { set-safe-directory: false }
       - name: Install zig
-        uses: korandoru/setup-zig@c1a533bcbce8c31ca826fd771dfce53deaf1ca77 # v1
+        uses: korandoru/setup-zig@3d137e800ac114393177819328e565c3adc75210 # v1
         with: { zig-version: '0.14.0' }
       - uses: taiki-e/install-action@f63c33fd96cc1e69a29bafd06541cf28588b43a4 # v2
         with: { tool: cargo-zigbuild }
