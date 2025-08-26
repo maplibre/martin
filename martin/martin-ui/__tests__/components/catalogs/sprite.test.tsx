@@ -17,7 +17,11 @@ vi.mock('@/components/sprite/SpritePreview', async () => {
       return (
         <div className={className} data-testid="sprite-preview">
           {spriteIds.map((id) => (
-            <div className="w-7 h-7 bg-gray-200 rounded-sm" data-testid={`sprite-icon-${id}`} key={id}>
+            <div
+              className="w-7 h-7 bg-gray-200 rounded-sm"
+              data-testid={`sprite-icon-${id}`}
+              key={id}
+            >
               {id}
             </div>
           ))}
