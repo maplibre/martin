@@ -51,14 +51,17 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-  let mut log_filter = std::env::var("RUST_LOG").unwrap_or("marin=info".to_string());
-  // if we don't have martin_core set, this can hide parts of our logs unintentionally
-  if log_filter.contains("martin=") && !log_filter.contains("martin_core=") {
-      if let Some(level) = log_filter.split(',').find_map(|s| s.strip_prefix("martin=")) {
-          log_filter.push_str(&format!(",martin_core={}", level));
-      }
-  }
-  env_logger::builder().parse_filters(&log_filter).init();
+    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("marin=info".to_string());
+    // if we don't have martin_core set, this can hide parts of our logs unintentionally
+    if log_filter.contains("martin=") && !log_filter.contains("martin_core=") {
+        if let Some(level) = log_filter
+            .split(',')
+            .find_map(|s| s.strip_prefix("martin="))
+        {
+            log_filter.push_str(&format!(",martin_core={}", level));
+        }
+    }
+    env_logger::builder().parse_filters(&log_filter).init();
 
     if let Err(e) = start(Args::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
