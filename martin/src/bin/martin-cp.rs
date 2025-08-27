@@ -543,7 +543,7 @@ async fn main() {
             .split(',')
             .find_map(|s| s.strip_prefix("martin="))
         {
-            log_filter.push_str(&format!(",martin_core={}", level));
+            log_filter.push_str(&format!(",martin_core={level}"));
         }
     }
     env_logger::builder().parse_filters(&log_filter).init();
