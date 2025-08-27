@@ -536,8 +536,14 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin_cp=info,martin-core=info");
-    env_logger::Builder::from_env(env).init();
+  let mut log_filter = std::env::var("RUST_LOG").unwrap_or("marin-cp=info".to_string());
+  // if we don't have martin_core set, this can hide parts of our logs unintentionally
+  if log_filter.contains("marin-cp=") && !log_filter.contains("martin_core=") {
+      if let Some(level) = log_filter.split(',').find_map(|s| s.strip_prefix("martin=")) {
+          log_filter.push_str(&format!(",martin_core={}", level));
+      }
+  }
+  env_logger::builder().parse_filters(&log_filter).init();
 
     if let Err(e) = start(CopierArgs::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
