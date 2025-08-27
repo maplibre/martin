@@ -32,7 +32,7 @@ actix-middleware-etag = "0.4.6"
 actix-rt = "2"
 actix-web = "4"
 actix-web-prom = "0.10.0"
-actix-web-static-files = {version = "4.1.0", features = ["static-files-03"]}
+actix-web-static-files = { version = "4.1.0", features = ["static-files-03"] }
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
