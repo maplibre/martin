@@ -56,10 +56,10 @@ impl Mbtiles {
     {
         let query = query!("SELECT value from metadata where name = ?", key);
         let row = query.fetch_optional(conn).await?;
-        if let Some(row) = row {
-            if let Some(value) = row.value {
-                return Ok(Some(value));
-            }
+        if let Some(row) = row
+            && let Some(value) = row.value
+        {
+            return Ok(Some(value));
         }
         Ok(None)
     }

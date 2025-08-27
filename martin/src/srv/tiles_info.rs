@@ -22,7 +22,7 @@ pub struct SourceIDsRequest {
     "/{source_ids}",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag",
+    wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]
@@ -90,10 +90,10 @@ pub fn merge_tilejson(sources: &[TileInfoSource], tiles_url: String) -> TileJSON
             }
         }
 
-        if let Some(v) = &tj.attribution {
-            if !attributions.contains(&v) {
-                attributions.push(v);
-            }
+        if let Some(v) = &tj.attribution
+            && !attributions.contains(&v)
+        {
+            attributions.push(v);
         }
 
         if let Some(bounds) = tj.bounds {
@@ -109,10 +109,10 @@ pub fn merge_tilejson(sources: &[TileInfoSource], tiles_url: String) -> TileJSON
             result.center = tj.center;
         }
 
-        if let Some(v) = &tj.description {
-            if !descriptions.contains(&v) {
-                descriptions.push(v);
-            }
+        if let Some(v) = &tj.description
+            && !descriptions.contains(&v)
+        {
+            descriptions.push(v);
         }
 
         if let Some(maxzoom) = tj.maxzoom {
@@ -135,10 +135,10 @@ pub fn merge_tilejson(sources: &[TileInfoSource], tiles_url: String) -> TileJSON
             }
         }
 
-        if let Some(name) = &tj.name {
-            if !names.contains(&name) {
-                names.push(name);
-            }
+        if let Some(name) = &tj.name
+            && !names.contains(&name)
+        {
+            names.push(name);
         }
     }
 

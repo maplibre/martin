@@ -14,7 +14,7 @@ use tilejson::{TileJSON, tilejson};
 use super::CogError;
 use super::image::Image;
 use super::model::ModelInfo;
-use crate::file_config::{FileError, FileResult};
+use crate::file_config::FileError;
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -36,7 +36,7 @@ pub struct CogSource {
 
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
-    pub fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    pub fn new(id: String, path: PathBuf) -> MartinResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| FileError::IoError(e, path.clone()))?;
@@ -163,6 +163,15 @@ impl Source for CogSource {
         Box::new(self.clone())
     }
 
+    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
+    ///
+    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    fn benefits_from_concurrent_scraping(&self) -> bool {
+        // if we copy from one local file to another, we are likely not bottlenecked by CPU
+        // TODO: benchmark this assumption, decoding might be a bottleneck
+        false
+    }
+
     async fn get_tile(
         &self,
         xyz: TileCoord,
@@ -255,7 +264,7 @@ fn get_image(
     decoder: &mut Decoder<File>,
     path: &Path,
     ifd_index: usize,
-) -> Result<Image, FileError> {
+) -> Result<Image, CogError> {
     let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
     let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
     let tiles_across = image_width.div_ceil(tile_width);
@@ -269,7 +278,7 @@ fn dimensions_in_pixel(
     decoder: &mut Decoder<File>,
     path: &Path,
     ifd_index: usize,
-) -> Result<(u32, u32), FileError> {
+) -> Result<(u32, u32), CogError> {
     let (image_width, image_length) = decoder.dimensions().map_err(|e| {
         CogError::TagsNotFound(
             e,
@@ -289,11 +298,10 @@ fn dimensions_in_model(
     ifd_index: usize,
     pixel_scale: Option<&[f64]>,
     transformation: Option<&[f64]>,
-) -> Result<(f64, f64), FileError> {
+) -> Result<(f64, f64), CogError> {
     let (image_width_pixel, image_length_pixel) = dimensions_in_pixel(decoder, path, ifd_index)?;
 
-    let full_resolution =
-        get_full_resolution(pixel_scale, transformation, path).map_err(FileError::from)?;
+    let full_resolution = get_full_resolution(pixel_scale, transformation, path)?;
 
     let width_in_model = f64::from(image_width_pixel) * full_resolution[0].abs();
     let length_in_model = f64::from(image_length_pixel) * full_resolution[1].abs();

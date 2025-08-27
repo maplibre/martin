@@ -57,7 +57,7 @@ impl TileSources {
 
     /// Get a list of sources, and the tile info for the merged sources.
     /// Ensure that all sources have the same format and encoding.
-    /// If zoom is specified, filter out sources that do not support it.
+    /// If `zoom` is specified, filter out sources that do not support it.
     pub fn get_sources(
         &self,
         source_ids: &str,
@@ -96,12 +96,21 @@ impl TileSources {
         Ok((sources, use_url_query, info.unwrap()))
     }
 
+    #[must_use]
     pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
         let is_valid = src.is_valid_zoom(zoom);
         if !is_valid {
             debug!("Zoom {zoom} is not valid for source {id}");
         }
         is_valid
+    }
+
+    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
+    ///
+    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    #[must_use]
+    pub fn benefits_from_concurrent_scraping(&self) -> bool {
+        self.0.iter().any(|s| s.benefits_from_concurrent_scraping())
     }
 }
 
@@ -121,6 +130,12 @@ pub trait Source: Send + Debug {
     fn clone_source(&self) -> TileInfoSource;
 
     fn support_url_query(&self) -> bool {
+        false
+    }
+    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
+    ///
+    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    fn benefits_from_concurrent_scraping(&self) -> bool {
         false
     }
 

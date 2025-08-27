@@ -1,5 +1,4 @@
 use indoc::formatdoc;
-pub use martin::args::Env;
 use martin::{Config, ServerState, Source};
 
 use crate::mock_cfg;
