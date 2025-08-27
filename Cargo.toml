@@ -32,7 +32,7 @@ actix-middleware-etag = "0.4.6"
 actix-rt = "2"
 actix-web = "4"
 actix-web-prom = "0.10.0"
-actix-web-static-files = "4"
+actix-web-static-files = { version = "4.1.0", features = ["static-files-03"] }
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
@@ -86,7 +86,7 @@ spreet = { version = "0.12", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
-static-files = "0.2"
+static-files = "0.3"
 subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.21.0"
 testcontainers-modules = { version = "0.12.1", features = ["postgres"] }
