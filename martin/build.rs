@@ -17,7 +17,6 @@ fn webui() {
         "the martin-ui/dist must either not exist or have been produced by previous builds"
     );
 
-    // TODO: we may need to move index.html one level down per change_detection() docs
     static_files::NpmBuild::new(martin_ui_dir)
         .node_modules_strategy(static_files::NodeModulesStrategy::MoveToOutDir)
         .install()
