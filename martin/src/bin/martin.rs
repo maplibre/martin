@@ -4,6 +4,7 @@ use martin::args::Args;
 use martin::srv::new_server;
 use martin::{Config, MartinResult, read_config};
 use martin_core::config::env::OsEnv;
+use std::fmt::Write;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -58,7 +59,8 @@ async fn main() {
             .split(',')
             .find_map(|s| s.strip_prefix("martin="))
         {
-            log_filter.push_str(&format!(",martin_core={level}"));
+            let level = level.to_string();
+            let _ = write!(log_filter, ",martin_core={level}");
         }
     }
     env_logger::builder().parse_filters(&log_filter).init();

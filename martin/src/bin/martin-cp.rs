@@ -1,11 +1,3 @@
-use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter};
-use std::num::NonZeroUsize;
-use std::ops::RangeInclusive;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
-
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
 use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
@@ -29,6 +21,14 @@ use mbtiles::{
     CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
     is_empty_database,
 };
+use std::borrow::Cow;
+use std::fmt::Write;
+use std::fmt::{Debug, Display, Formatter};
+use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
@@ -543,7 +543,8 @@ async fn main() {
             .split(',')
             .find_map(|s| s.strip_prefix("martin="))
         {
-            log_filter.push_str(&format!(",martin_core={level}"));
+            let level = level.to_string();
+            let _ = write!(log_filter, ",martin_core={level}");
         }
     }
     env_logger::builder().parse_filters(&log_filter).init();
