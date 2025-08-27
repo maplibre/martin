@@ -521,6 +521,11 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
       --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
 
+  test_martin_cp "composite" "${CFG[@]}" \
+      --source table_source,function_zxy_query_test --url-query 'foo=bar&token=martin' --mbtiles-type normalized --concurrency 3 \
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=composite" --set-meta=center=0,0,0
+
   unset DATABASE_URL
 
   test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
