@@ -1,4 +1,4 @@
-[![Martin](/graphics/banner.png)](https://maplibre.org/martin/)
+[![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)](https://maplibre.org/martin/)
 
 [![Book](https://img.shields.io/badge/docs-Book-informational)](https://maplibre.org/martin)
 [![docs.rs docs](https://docs.rs/martin/badge.svg)](https://docs.rs/martin)
