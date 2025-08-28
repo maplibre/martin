@@ -1,5 +1,5 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
-#![forbid(unsafe_code)]
+// feat geojson: #![forbid(unsafe_code)]
 
 mod config;
 pub use config::{Config, ServerState, read_config};
@@ -18,6 +18,8 @@ pub mod cog;
 pub mod file_config;
 #[cfg(feature = "fonts")]
 pub mod fonts;
+#[cfg(feature = "geojson")]
+pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
 #[cfg(feature = "postgres")]

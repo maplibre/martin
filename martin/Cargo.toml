@@ -23,12 +23,36 @@ maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan
 maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
-    ["target/release/martin", "/usr/bin/martin", "755"],
-    ["target/release/martin-cp", "/usr/bin/martin-cp", "755"],
-    ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
-    ["../README.md", "/usr/share/doc/martin/README.md", "644"],
-    ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
-    ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
+    [
+        "target/release/martin",
+        "/usr/bin/martin",
+        "755",
+    ],
+    [
+        "target/release/martin-cp",
+        "/usr/bin/martin-cp",
+        "755",
+    ],
+    [
+        "target/release/mbtiles",
+        "/usr/bin/mbtiles",
+        "755",
+    ],
+    [
+        "../README.md",
+        "/usr/share/doc/martin/README.md",
+        "644",
+    ],
+    [
+        "../debian/config.yaml",
+        "/usr/share/doc/martin/config.yaml",
+        "644",
+    ],
+    [
+        "../debian/config.yaml",
+        "/usr/local/etc/martin/config.yaml",
+        "644",
+    ],
 ]
 
 # see https://github.com/kornelski/cargo-deb/blob/main/systemd.md#packagemetadatadebsystemd-units-options
@@ -59,6 +83,7 @@ harness = false
 default = [
     "cog",
     "fonts",
+    "geojson",
     "lambda",
     "mbtiles",
     "metrics",
@@ -70,6 +95,14 @@ default = [
 ]
 cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
+# feat: geojson
+geojson = [
+    "dep:dup-indexer",
+    "dep:geojson",
+    "dep:geojson-vt-rs",
+    "dep:prost",
+    "dep:prost-build",
+]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
@@ -143,10 +176,18 @@ tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
+# feat: geojson
+dup-indexer = { version = "0.4.3", optional = true }
+geojson = { version = "0.24.2", optional = true }
+geojson-vt-rs = { git = "https://github.com/maxammann/geojson-vt-rs.git", optional = true }
+prost = { version = "0.14.1", optional = true }
+
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+# feat: geojson
+prost-build = { version = "0.14.1", optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true

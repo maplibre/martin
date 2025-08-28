@@ -15,6 +15,7 @@ use crate::args::srv::SrvArgs;
 use crate::config::Config;
 #[cfg(any(
     feature = "cog",
+    feature = "geojson",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
@@ -130,6 +131,11 @@ impl Args {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
         }
 
+        #[cfg(feature = "geojson")]
+        if !cli_strings.is_empty() {
+            config.geojson = parse_file_args(&mut cli_strings, &["geojson", "json"], false);
+        }
+
         #[cfg(feature = "styles")]
         if !self.extras.style.is_empty() {
             config.styles = FileConfigEnum::new(self.extras.style);
@@ -171,7 +177,12 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     }
 }
 
-#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
