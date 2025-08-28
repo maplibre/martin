@@ -32,13 +32,14 @@ To load COG file, there are two approaches generally:
 2. Martin serve COG files with well known [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) and do the clipping internally.
    Currently, we support [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) if `auto-web: true` is configured.
 
-## configuration file
+## Configuration file
 
 ```yml
 cog:
   # Default false
-  # If enabled, martin will automatically serve COG as a [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) service, the tiles will be cliped and merged internally to be aligned with the Web Mercator grid.
-  # Note: Just work for COG files with a Web Mercator CRS (EPSG:3857).
+  # If enabled:
+  #   Serve COG with WebMercatorQuad
+  # Note: Just work for COG files with EPSG:3857
   auto_web: false
   sources:
     cog-src2: tests/fixtures/cog/rgb_u8.tif
