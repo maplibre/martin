@@ -3,7 +3,7 @@
   <defs>
     <style>
       .cls-1 {
-        fill: #3a3070;
+        fill: #594ca2;
       }
 
       .cls-2 {
@@ -39,10 +39,11 @@
       }
 
       .cls-10 {
-        fill: #3a3070;
-        stroke: #3a3070;
+        fill: #594ca2;
+        <!-- Perhaps stroke: #2a2350 would work better, but will need thicker letters -->
+        stroke: #594ca2;
         stroke-linejoin: round;
-        stroke-width: 14px;
+        stroke-width: 1.7px;
       }
 
       .cls-11 {
