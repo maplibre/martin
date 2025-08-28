@@ -471,7 +471,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     mbt.update_metadata(&mut conn, GrowOnly).await?;
 
     for (key, value) in args.set_meta {
-        info!("Setting metadata {key}={value}");
+        info!("Setting metadata key={key} value={value}");
         mbt.set_metadata_value(&mut conn, &key, value).await?;
     }
 
